@@ -52,6 +52,7 @@ class AnimationSequenceEditor {
         scene_ = nullptr;
         controller_ = {};
         track_.clear();
+        track_component_ = "forge.transform_animator";
         nested_.clear();
         shot_.clear();
         shot_camera_ = nullptr;
@@ -243,6 +244,14 @@ class AnimationSequenceEditor {
         for (auto& row : source.at("entities")) {
             const auto id = row.at("id").get<std::string>();
             const auto actor = context_->scene.entity(id);
+            if (targets_.contains(id) && actor.has<Animator>() && actor.get<Animator>().enabled &&
+                actor.has<ModelSource>()) {
+                auto pose = context_->animation->presentation(actor.id(), 1);
+                row["model_animation_ready"] =
+                    !pose.is_null() && context_->animation->model_pose_ready(actor.id());
+                if (!pose.is_null())
+                    row["animation_pose"] = std::move(pose);
+            }
             if (targets_.contains(id))
                 for (const auto& type : detail::builtins()) {
                     const std::string_view name = type.name;
@@ -384,18 +393,22 @@ class AnimationSequenceEditor {
                              selected != controller_.entity.str() && scene_->entity(selected) &&
                              !scene_->entity(selected).has<AnimationSequence>();
         ImGui::BeginDisabled(!can_add);
-        if (ui::button("Add selected object", "Bind its Transform Animator to this sequence; "
-                                              "existing clip settings stay stored.")) {
+        if (ui::button("Add selected object",
+                       "Bind its skeletal Animator, or create/bind a Transform Animator; "
+                       "existing clip settings stay stored.")) {
             try {
                 Json commands = Json::array();
-                if (!scene_->entity(selected).has<TransformAnimator>())
+                const bool skeletal = scene_->entity(selected).has<Animator>();
+                const char* component = skeletal ? "forge.animator" : "forge.transform_animator";
+                if (!skeletal && !scene_->entity(selected).has<TransformAnimator>())
                     commands.push_back(
                         {{"operation", "component.add"},
                          {"arguments",
                           {{"entity", selected}, {"component", "forge.transform_animator"}}}});
-                commands.push_back(property(selected, "sequence", controller_));
+                commands.push_back(property(selected, "sequence", controller_, component));
                 apply_authoring(*scene_, commands, scene_->revision());
                 track_ = selected;
+                track_component_ = component;
                 nested_.clear();
                 shot_.clear();
                 cue_.clear();
@@ -408,36 +421,38 @@ class AnimationSequenceEditor {
         FORGE_UI_PROBE("sequence:add");
         ImGui::EndDisabled();
         ImGui::SeparatorText("Object tracks");
-        for (const auto& row : snapshot.at("entities")) {
+        const auto draw_track = [&](const Json& row, const auto& value, const char* component) {
             const auto id = row.at("id").get<std::string>();
-            const auto actor = scene_->entity(id);
-            if (!actor.has<TransformAnimator>())
-                continue;
-            const auto value = actor.get<TransformAnimator>();
             if (value.sequence != controller_)
-                continue;
+                return;
             ImGui::PushID(id.c_str());
+            ImGui::PushID(component);
             ImGui::BeginDisabled(pending_);
-            if (ImGui::Selectable(row.value("name", id).c_str(), track_ == id)) {
+            const bool skeletal = std::string_view(component) == "forge.animator";
+            const auto label = row.value("name", id) + (skeletal ? " (Skeletal)" : "");
+            if (ImGui::Selectable(label.c_str(), track_ == id && track_component_ == component)) {
                 track_ = id;
+                track_component_ = component;
                 nested_.clear();
                 shot_.clear();
                 cue_.clear();
             }
-            FORGE_UI_PROBE("sequence:track:" + id);
+            FORGE_UI_PROBE("sequence:track:" + id + (skeletal ? ":skeletal" : ""));
             ImGui::EndDisabled();
             const auto origin = ImGui::GetCursorScreenPos();
             const auto size = ImVec2{std::max(40.f, ImGui::GetContentRegionAvail().x),
                                      (value.sequence_next_clip.id ? 40 : 24) * ui::interface_scale};
             ImGui::InvisibleButton("##track span", size);
-            FORGE_UI_PROBE("sequence:span:" + id);
+            FORGE_UI_PROBE("sequence:span:" + id + (skeletal ? ":skeletal" : ""));
             auto* draw = ImGui::GetWindowDrawList();
             draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y},
                                 IM_COL32(32, 42, 52, 255));
             Json clips;
             if (ready_ && !stale_ && context_)
-                clips = AnimationPlaybackAccess::status(*context_->animation,
-                                                        {controller_.scene, EntityId::parse(id)})
+                clips = AnimationPlaybackAccess::status(
+                            *context_->animation, {controller_.scene, EntityId::parse(id)},
+                            skeletal ? AnimationPlaybackAccess::PlayerKind::Skeletal
+                                     : AnimationPlaybackAccess::PlayerKind::Transform)
                             .value("sequence_clips", Json());
             const auto x = [&](double seconds) {
                 return origin.x +
@@ -476,10 +491,16 @@ class AnimationSequenceEditor {
             ImGui::TextDisabled("Start %.3f s%s", value.sequence_start_seconds,
                                 value.enabled ? "" : " | Disabled");
             ImGui::PopID();
+            ImGui::PopID();
+        };
+        for (const auto& row : snapshot.at("entities")) {
+            const auto actor = scene_->entity(row.at("id").get<std::string>());
+            if (actor.has<TransformAnimator>())
+                draw_track(row, actor.get<TransformAnimator>(), "forge.transform_animator");
+            if (actor.has<Animator>())
+                draw_track(row, actor.get<Animator>(), "forge.animator");
         }
-        if (!track_.empty() && scene_->entity(track_) &&
-            scene_->entity(track_).has<TransformAnimator>()) {
-            const auto value = scene_->entity(track_).get<TransformAnimator>();
+        const auto draw_fields = [&](const auto& value, const char* asset_type) {
             if (value.sequence == controller_) {
                 if (!pending_) {
                     offset_ = value.sequence_start_seconds;
@@ -523,11 +544,9 @@ class AnimationSequenceEditor {
                                                            ImGui::CalcTextSize("Clip").x -
                                                            ImGui::GetStyle().ItemInnerSpacing.x));
                 Json clip = value.clip.id ? Json(value.clip.id) : Json();
-                if (catalog_ && asset_ref_picker(*catalog_, clip, TransformAnimationAsset::type,
-                                                 "Clip", false)) {
+                if (catalog_ && asset_ref_picker(*catalog_, clip, asset_type, "Clip", false)) {
                     try {
-                        apply_authoring(*scene_, Json::array({property(track_, "clip", clip)}),
-                                        scene_->revision());
+                        set_track_fields({{"clip", clip}});
                         stop_preview();
                         pending_ = false;
                     } catch (const std::exception& e) {
@@ -540,16 +559,18 @@ class AnimationSequenceEditor {
                 ImGui::SetNextItemWidth(std::max(80.f, ImGui::GetContentRegionAvail().x -
                                                            ImGui::CalcTextSize("Next clip").x -
                                                            ImGui::GetStyle().ItemInnerSpacing.x));
-                if (catalog_ && asset_ref_picker(*catalog_, next, TransformAnimationAsset::type,
-                                                 "Next clip", true)) {
+                if (catalog_ && asset_ref_picker(*catalog_, next, asset_type, "Next clip", true)) {
                     try {
-                        Json commands = Json::array({property(track_, "sequence_next_clip", next)});
+                        Json values{{"sequence_next_clip", next}};
                         if (!value.sequence_next_clip.id && !next.is_null()) {
                             double start = value.sequence_start_seconds;
                             if (ready_ && !stale_ && context_) {
                                 const auto status = AnimationPlaybackAccess::status(
                                     *context_->animation,
-                                    {controller_.scene, EntityId::parse(track_)});
+                                    {controller_.scene, EntityId::parse(track_)},
+                                    track_component_ == "forge.animator"
+                                        ? AnimationPlaybackAccess::PlayerKind::Skeletal
+                                        : AnimationPlaybackAccess::PlayerKind::Transform);
                                 if (status.contains("sequence_clips"))
                                     start = std::min(config.duration,
                                                      start + status.at("sequence_clips")
@@ -557,17 +578,21 @@ class AnimationSequenceEditor {
                                                                      .get<double>() /
                                                                  2);
                             }
-                            commands.push_back(
-                                property(track_, "sequence_next_start_seconds", start));
+                            values["sequence_next_start_seconds"] = start;
                         }
-                        apply_authoring(*scene_, commands, scene_->revision());
+                        set_track_fields(values);
                         stop_preview();
                     } catch (const std::exception& e) {
                         error_ = e.what();
                     }
                 }
                 FORGE_UI_PROBE("sequence:next_clip");
-                if (value.sequence_next_clip.id)
+                if (value.sequence_next_clip.id && track_component_ == "forge.animator")
+                    ImGui::TextWrapped("Clips need the same exact skeleton/model revision and "
+                                       "ordered starts/ends. Each clip samples its own phase; "
+                                       "their overlap blends the skeletal pose and morphs. "
+                                       "Refresh to validate and preview.");
+                else if (value.sequence_next_clip.id)
                     ImGui::TextWrapped(
                         "Clips need matching channels, properties, Material semantics and "
                         "reflected "
@@ -580,10 +605,10 @@ class AnimationSequenceEditor {
                                "Keep the primary clip and standalone settings; "
                                "clear the sequence binding and next clip.")) {
                     try {
-                        Json commands = Json::array({property(track_, "sequence", nullptr)});
+                        Json values{{"sequence", nullptr}};
                         if (value.sequence_next_clip.id)
-                            commands.push_back(property(track_, "sequence_next_clip", nullptr));
-                        apply_authoring(*scene_, commands, scene_->revision());
+                            values["sequence_next_clip"] = nullptr;
+                        set_track_fields(values);
                         track_.clear();
                         nested_.clear();
                         cue_.clear();
@@ -596,6 +621,14 @@ class AnimationSequenceEditor {
                 FORGE_UI_PROBE("sequence:remove");
                 ImGui::EndDisabled();
             }
+        };
+        if (!track_.empty() && scene_->entity(track_)) {
+            const auto actor = scene_->entity(track_);
+            if (track_component_ == "forge.animator" && actor.has<Animator>())
+                draw_fields(actor.get<Animator>(), AnimationClipAsset::type);
+            else if (track_component_ == "forge.transform_animator" &&
+                     actor.has<TransformAnimator>())
+                draw_fields(actor.get<TransformAnimator>(), TransformAnimationAsset::type);
         }
         if (draw_nested_sequences(snapshot, config, selected)) {
             ImGui::EndDisabled();
@@ -642,6 +675,7 @@ class AnimationSequenceEditor {
             // Keep movement guards on targets/ancestors so preview uses the
             // runtime's own writer-conflict policy. Unrelated animation stays idle.
             std::set<flecs::entity_t> guards;
+            std::set<flecs::entity_t> skeletal_roots;
             for (const auto& row : source.at("entities")) {
                 const auto id = row.at("id").get<std::string>();
                 const auto actor = scene.entity(id);
@@ -651,16 +685,37 @@ class AnimationSequenceEditor {
                     for (auto parent = actor; parent && guards.insert(parent.id()).second;
                          parent = parent.target(flecs::ChildOf)) {
                     }
-                if (!actor.has<TransformAnimator>())
+                const auto bound = [&](const auto& value) {
+                    return value.sequence.scene == controller.scene &&
+                           controllers.contains(value.sequence.entity.str()) && value.enabled;
+                };
+                const bool skeletal = actor.has<Animator>() && bound(actor.get<Animator>());
+                if (!(actor.has<TransformAnimator>() && bound(actor.get<TransformAnimator>())) &&
+                    !skeletal)
                     continue;
-                const auto value = actor.get<TransformAnimator>();
-                if (value.sequence.scene != controller.scene ||
-                    !controllers.contains(value.sequence.entity.str()) || !value.enabled)
-                    continue;
+                if (skeletal)
+                    skeletal_roots.insert(actor.id());
                 targets.insert(id);
                 for (auto parent = actor; parent && guards.insert(parent.id()).second;
                      parent = parent.target(flecs::ChildOf)) {
                 }
+            }
+            // Copy the skeletal owner's realized joint transforms along with
+            // the model-holder pose. Nested model roots remain boundaries.
+            for (const auto& row : source.at("entities")) {
+                const auto id = row.at("id").get<std::string>();
+                const auto actor = scene.entity(id);
+                if (!actor || !actor.has<ModelSource>() || !actor.get<ModelSource>().node.id)
+                    continue;
+                std::set<flecs::entity_t> visited;
+                for (auto parent = actor.target(flecs::ChildOf);
+                     parent && visited.insert(parent.id()).second;
+                     parent = parent.target(flecs::ChildOf))
+                    if (parent.has<ModelSource>() && !parent.get<ModelSource>().node.id) {
+                        if (skeletal_roots.contains(parent.id()))
+                            targets.insert(id);
+                        break;
+                    }
             }
             for (const auto& row : source.at("entities")) {
                 const auto id = row.at("id").get<std::string>();
@@ -707,6 +762,7 @@ class AnimationSequenceEditor {
     std::shared_ptr<const AssetCatalog> catalog_;
     std::set<std::string> targets_;
     std::string track_, shot_, cue_, nested_, error_;
+    std::string track_component_ = "forge.transform_animator";
     Json shot_camera_ = nullptr, cue_source_ = nullptr;
     double shot_start_ = 0, shot_end_ = 1, shot_blend_ = 0, cue_time_ = 0;
     AnimationTimelineView view_;
@@ -730,6 +786,11 @@ class AnimationSequenceEditor {
         return {{"operation", "property.set"},
                 {"arguments",
                  {{"entity", id}, {"component", component}, {"field", field}, {"value", value}}}};
+    }
+    void set_track_fields(const Json& values) {
+        authoring_command(
+            *scene_, "property.set_many",
+            {{"entity", track_}, {"component", track_component_}, {"values", values}});
     }
     void validate_shot(const std::string& id, const Json& camera, double start, double end,
                        bool enabled = true, double blend = 0) const {
@@ -1339,9 +1400,12 @@ class AnimationSequenceEditor {
             }
             const auto controller = scene_->entity(controller_.entity.str());
             const auto target = track_.empty() ? flecs::entity{} : scene_->entity(track_);
+            const bool skeletal = track_component_ == "forge.animator";
             if (!controller || !controller.has<AnimationSequence>() || !target ||
-                !target.has<TransformAnimator>() ||
-                target.get<TransformAnimator>().sequence != controller_)
+                (skeletal
+                     ? !target.has<Animator>() || target.get<Animator>().sequence != controller_
+                     : !target.has<TransformAnimator>() ||
+                           target.get<TransformAnimator>().sequence != controller_))
                 throw std::runtime_error(
                     "Sequence controller or bound track is no longer available");
             const auto duration = controller.get<AnimationSequence>().duration;
@@ -1350,17 +1414,18 @@ class AnimationSequenceEditor {
             if (pending_ && scene_->revision() != pending_revision_)
                 throw std::runtime_error(
                     "Scene changed. Reset the pending start before applying it.");
-            const auto config = target.get<TransformAnimator>();
-            if (config.sequence_next_clip.id &&
+            const auto next_clip = skeletal ? target.get<Animator>().sequence_next_clip.id
+                                            : target.get<TransformAnimator>().sequence_next_clip.id;
+            if (next_clip &&
                 (!std::isfinite(next_offset_) || next_offset_ < offset_ || next_offset_ > duration))
                 throw std::runtime_error(
                     "Next clip start must follow the primary start and stay inside the sequence");
-            Json commands = Json::array();
+            Json values = Json::object();
             if (!pending_ || (pending_track_fields_ & 1))
-                commands.push_back(property(track_, "sequence_start_seconds", offset_));
-            if (config.sequence_next_clip.id && (pending_track_fields_ & 2))
-                commands.push_back(property(track_, "sequence_next_start_seconds", next_offset_));
-            apply_authoring(*scene_, commands, scene_->revision());
+                values["sequence_start_seconds"] = offset_;
+            if (next_clip && (pending_track_fields_ & 2))
+                values["sequence_next_start_seconds"] = next_offset_;
+            set_track_fields(values);
             pending_ = false;
             stop_preview();
             error_.clear();

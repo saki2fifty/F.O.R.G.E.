@@ -1136,6 +1136,24 @@ PNG. Source images remain unused; source/subresource/output errors,
 old-file retention and the usual guards share the same native task. Scene/Game
 capture requests with an HDR suffix reject; their display pixels are tone-mapped.
 
+Skeletal sequence authoring uses the ordinary Scene component schema and
+`forge_property_set_many` on `forge.animator`: `sequence` is a typed controller
+reference; `sequence_start_seconds`, `sequence_next_clip` and
+`sequence_next_start_seconds` arrange one direct clip and an optional compatible
+next clip. The asset type is `animation_clip`. Complete candidates use existing
+revision, permission, Scene history and save rules. States, Blend Spaces, Graphs
+and standalone blend selections cannot share that Animator's bound profile.
+Published retargeted clips require the same target skeleton/model binding.
+
+Watch the controller before using scoped `forge_play_animation_control` to seek,
+pause or restart it. Bound players reject independent control. A model watch via
+`forge_play_animation` reports its admitted `sequence` and `sequence_clips`; on a
+mixed property/skeletal holder, `component` identifies the entity-wide primary
+observation and `players` includes separate `forge.animator` and
+`forge.transform_animator` values. Each reports its own placed time, span and derived
+weight. Existing C++/SDK queries keep transform-first priority. These are copied
+observations of the same native owners, not an additional authoring operation.
+
 Timeline frame export uses `capture_sequence_open/read/start`, the actual sequence
 controller and observed source revision/preview generation. Start chooses a new
 folder and native end-exclusive frame plan; fixed dimensions render real pixels.

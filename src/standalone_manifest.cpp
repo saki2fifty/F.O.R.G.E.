@@ -11,6 +11,7 @@
 #include "ui_gradient_profile.hpp"
 #include "ui_surface_limits.hpp"
 #include <algorithm>
+#include <forge/animation_components.hpp>
 #include <forge/animation_graph.hpp>
 #include <forge/audio_components.hpp>
 #include <forge/fog_volume.hpp>
@@ -150,6 +151,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             if (features != document->end()) {
                 require(features->is_object(), "Invalid authored document runtime features");
                 for (const auto& [name, version] : features->items()) {
+                    if (name == "skeletal_sequence") {
+                        require(version.is_number_integer() &&
+                                    version == skeletal_sequence_runtime_profile_version,
+                                "Unsupported authored skeletal sequence profile");
+                        const auto support = engine.find("runtime_skeletal_sequence");
+                        require(support != engine.end() && support->is_number_integer() &&
+                                    *support == skeletal_sequence_runtime_profile_version,
+                                "Skeletal sequence tracks require a matching runtime kit; select "
+                                "the runtime kit packaged with this editor");
+                        continue;
+                    }
                     if (name == "reflection_capture") {
                         require(version.is_number_integer() &&
                                     version == runtime_reflection_profile_version,

@@ -24,6 +24,15 @@ through the existing instance member map. Ordinary components remain inherited.
 Authored serialization elides this required native materialization when unchanged;
 explicit component/property override intent remains explicit even when equal.
 
+Builtin decoding also serves these unresolved templates and canonical comparisons.
+Storage checks admit their null member links; complete Scene admission still checks
+required references. Definition validation uses the original typed field's presence
+when checking dependent values, before discarding links in the native projection.
+Projected override intent remains deferred until the existing instance member map
+materializes it. This permits skeletal next-clip data in shared templates without
+allowing a source or Scene to omit its required sequence controller, inventing a
+placeholder Scene identity, or weakening native runtime admission.
+
 ## Ownership and lifecycle
 
 PrefabLibrary retains capture, duplicate, publication and Apply ownership. Capture

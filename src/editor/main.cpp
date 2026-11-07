@@ -1037,6 +1037,9 @@ int main(int argc, char** argv) {
         forge::MaterialEditor material_editor;
         forge::EditableMeshEditor editable_mesh_editor;
         forge::AnimationTimelineEditor animation_timeline;
+        component_inspector.open_sequence_timeline = [&](forge::EntityRef controller) {
+            animation_timeline.open_sequence(files.document, scene, controller);
+        };
         forge::ui::SpriteFramePicker sprite_frame_picker;
         std::unique_ptr<forge::SpriteSheetPreview> sprite_sheet_preview;
         bool sprite_sheet_active = false;
@@ -6068,7 +6071,11 @@ int main(int argc, char** argv) {
                         animation_playback.draw(
                             play.session(), *live_animation, play.animation_status(),
                             play.control_ready(), play.animation_pending(), play.animation_error(),
-                            [&](const forge::Json& value) { return play.submit_animation(value); });
+                            [&](const forge::Json& value) { return play.submit_animation(value); },
+                            [&](forge::EntityRef controller) {
+                                if (controller.scene == scene.asset_id())
+                                    editor.selection.select_entity(controller.entity.str());
+                            });
                     if (live_inspector_ready) {
                         // Play adds transient fields above the authored Inspector. Reveal
                         // them once per selected entity instead of retaining an old scroll

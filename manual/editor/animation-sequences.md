@@ -3,6 +3,8 @@
 An **Animation Sequence** makes several objects use one playback time. Each object
 keeps its reusable animation clip and a start time inside the sequence. A second
 clip can crossfade transforms and matching property tracks on the same object.
+Existing skeletal Animators can also join a sequence and blend two compatible
+clips, including their model morphs.
 Sequences can also contain other sequences, sharing their root controller's
 playback time.
 
@@ -21,7 +23,7 @@ last values. The whole arrangement repeats every six seconds.
 
 1. Create and publish the [animation clips](transform-animation.md) you need.
 2. In **Content → Create / Register**, choose **Create animation sequence**. You can also use **Entity → Create → Animation → Animation Sequence**.
-3. Select the controller. In Inspector, set **Duration**, **Loop**, **Play on start** and **Playback speed**. Choose **Open sequence timeline** in Create / Register.
+3. Select the controller. In Inspector, set **Duration**, **Loop**, **Play on start** and **Playback speed**. Choose **Open sequence timeline** in Inspector or Create / Register.
 4. Select an object in Hierarchy, then choose **Add selected object** in Timeline. Choose its **Clip** using the asset picker. Repeat for the other objects.
 5. Select a track, enter its start in seconds, and choose **Apply track start**. Apply or reset a pending start before selecting another track or changing its clip.
 6. Choose **Refresh clips**, then **Preview sequence**. Scrub a track's time strip or the playhead slider. **Play preview** advances the preview; **Pause preview** holds it, and **Stop preview** restores the authored view. Fit/Zoom adjust the view.
@@ -128,6 +130,52 @@ Both clips' complete curves must fit the target's declarations and ranges, even
 when the playhead is outside the incoming clip. Fix an incompatible track, publish
 it and choose **Refresh clips** before previewing again. Use **Save & Publish** for
 clip edits and **Save scene** for the arrangement before export.
+
+## Arrange skeletal animation
+
+Open **FeatureGallery / Scenes / 185-skeletal-sequence-tracks.scene.json** and
+press **Play → Game**. One four-second sequence coordinates three imported models:
+the left model changes from Forward to Strafe, the center model blends Base and
+Overlay morph animation, and the right model blends Rest into a published mapped
+Swing clip. Finished tracks hold their final pose until the sequence repeats.
+The scene includes a camera and directional light; no C++ module is required.
+
+![Three original models playing skeletal, morph and mapped motion on one sequence](../images/skeletal-sequence-game.png)
+
+Game shows the three tracks at their own clip phases on the shared sequence.
+
+![Timeline showing separate property and skeletal rows, two clip spans and their start controls](../images/skeletal-sequence-timeline.png)
+
+This Timeline example shows a model with separate property and skeletal rows.
+Select the skeletal row to choose its clips and arrange their overlap.
+
+To coordinate an imported character:
+
+1. Import and place an animated model. On its **Animator**, choose a direct **Clip** for its **Skeleton**. Clear States, Blend Space, Graph and any standalone second-clip, subtree, mask or additive selection before adding it to a sequence.
+2. Create an Animation Sequence and open its Timeline. Select the model root in Hierarchy, then choose **Add selected object**. Select its **(Skeletal)** row.
+3. Choose **Clip** and an optional **Next clip**. Use clips for the same exact skeleton and model revision. A published retargeted clip must target that model's skeleton.
+4. Enter **Primary clip start** and **Next clip start**, then choose **Apply track timing**. For a single clip, edit its start and choose **Apply track start**. The next clip must start and finish no earlier than the primary clip.
+5. Choose **Refresh clips**, then **Preview sequence**. Scrub the playhead or choose **Play preview**. The model's joints and morphs follow the shared sequence time. **Stop preview** restores the authored view.
+6. Choose **Save scene**. Press **Play** to test gameplay, or set this saved Scene as the project's Startup Scene and export with a matching runtime kit.
+
+The clips sample their own local times. Their overlap blends skeletal poses and
+morph weights; a gap holds the primary endpoint until the next clip starts.
+Sequence timing governs bound Animators even when their retained standalone speed
+is zero or Play On Start is off. **Remove from sequence** retains those settings
+and the primary clip; Undo restores the binding and next clip.
+
+Select a bound model in Edit and choose **Open sequence timeline** in its Animator
+to return to the arrangement. During Play, **Live sequence track** shows read-only
+timing; choose **Select controller** to pause, restart or seek the sequence.
+For nested arrangements, control the outermost sequence. Seeking shows a pose
+without moving the character across the skipped interval. Standalone Animation
+Preview is for unbound Animators; use Timeline preview for bound models.
+
+If Refresh or Play reports an incompatible clip or changed model revision, correct
+the selection or republish the model/retargeted clip, then refresh. A rejected
+replacement leaves the accepted assets active. Each player supports
+one primary clip and one optional next clip; this workflow does not author bone
+keyframes or place a States, Blend Space or Graph player on a sequence.
 
 ## Place a sequence inside another
 
@@ -347,7 +395,7 @@ stay stored for when they are removed from the sequence.
 **Remove from sequence** keeps the primary clip and clears its controller and next
 clip. Each object supports one primary clip and one optional compatible next clip.
 Camera shots support cuts and compatible view/lens transitions. This sequence mode
-does not crossfade rendered images or edit bones. Matching Material and component-field
+does not crossfade rendered images or author bone keyframes. Matching Material and component-field
 tracks use the two-clip workflow above. Use the
 preview export options above to save a silent movie. Each controller has at most one
 parent placement; place a copy of a complete linked group to reuse it independently.

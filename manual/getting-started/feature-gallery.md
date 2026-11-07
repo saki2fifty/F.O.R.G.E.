@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**185-skeletal-sequence-tracks** coordinates three original models with one
+four-second sequence. Open it and press **Play → Game** to see direct motion,
+morph animation and a mapped clip. Select **Four-second shared sequence**, choose
+**Open sequence timeline** in Inspector, refresh clips and scrub the **(Skeletal)**
+rows. Save arrangement edits with **Save scene**. Set it as Startup Scene and export
+with the matching runtime kit; no project C++ is required. See
+[Arrange skeletal animation](../editor/animation-sequences.md).
+
 **184-sequence-binding-crossfades** uses one sequence to blend a cube's per-object
 Material color/roughness and two named HUD values. Open it and press **Play → Game**.
 Both tracks overlap from one to two seconds; the four-second sequence repeats.

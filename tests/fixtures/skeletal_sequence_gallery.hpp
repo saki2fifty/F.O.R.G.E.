@@ -1,0 +1,98 @@
+#pragma once
+#include "model_placement.hpp"
+#include "runtime_package.hpp"
+#include <algorithm>
+#include <array>
+#include <forge/animation.hpp>
+#include <forge/authoring.hpp>
+#include <forge/render_components.hpp>
+
+namespace forge::test {
+inline constexpr auto skeletal_sequence_scene_path =
+    "Scenes/185-skeletal-sequence-tracks.scene.json";
+inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& root) {
+    if (std::filesystem::exists(root / skeletal_sequence_scene_path))
+        throw std::runtime_error("Skeletal sequence Gallery already exists");
+    auto catalog = AssetCatalog::open_project(root);
+    const auto before = catalog.document().at("assets");
+    const auto asset = [&](const char* type, const char* source) {
+        for (const auto& [id, record] : catalog.records())
+            if (record.type == type && record.source == source)
+                return id;
+        throw std::runtime_error(std::string("Missing published Gallery asset: ") + source);
+    };
+    const auto locomotion = asset_detail::load_model_selection(
+        root, catalog, asset("model", "Assets/LocomotionColumn.gltf"));
+    const auto morphs = asset_detail::load_model_selection(
+        root, catalog, asset("model", "Assets/OverlayColumn.gltf"));
+    const auto target = asset_detail::load_model_selection(
+        root, catalog, asset("model", "Assets/AnimationRetarget/TargetBeams.gltf"));
+    const auto mapped =
+        asset(AnimationClipAsset::type, "Assets/AnimationRetarget/Swing.retarget.json");
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto controller = authoring_command(scene, "entity.create",
+                                              {{"recipe", "animation.sequence"},
+                                               {"name", "Four-second shared sequence"}})
+                                .at("selected")
+                                .get<std::string>();
+    AnimationSequence sequence;
+    sequence.duration = 4;
+    sequence.loop = true;
+    scene.entity(controller).set(sequence);
+    const auto reference = scene.reference(controller);
+    const auto place = [&](const auto& model, const char* name, double x, AssetId first,
+                           AssetId next, double next_start) {
+        asset_detail::ModelPlacementOptions options;
+        options.name = name;
+        options.transform.translation = {x, -1.5, 0};
+        options.clip = {first};
+        const auto id = asset_detail::instantiate_model(
+            scene, catalog,
+            asset_detail::prepare_model_placement(model, scene.asset_id(), scene.revision(),
+                                                  options));
+        authoring_command(scene, "property.set_many",
+                          {{"entity", id.str()},
+                           {"component", "forge.animator"},
+                           {"values",
+                            {{"clip", first},
+                             {"sequence", reference},
+                             {"sequence_next_clip", next},
+                             {"sequence_next_start_seconds", next_start},
+                             {"playback_speed", 0},
+                             {"play_on_start", false},
+                             {"root_motion", 0}}}});
+    };
+    place(locomotion, "Left - Forward to Strafe", -4, locomotion.bindings.at("/animations/0"),
+          locomotion.bindings.at("/animations/1"), .5);
+    place(morphs, "Center - Base to Overlay morphs", 0, morphs.bindings.at("/animations/0"),
+          morphs.bindings.at("/animations/1"), 1.5);
+    place(target, "Right - Rest to mapped Swing", 4, target.bindings.at("/animations/0"), mapped,
+          1);
+    const auto camera = authoring_command(scene, "entity.create",
+                                          {{"recipe", "render.camera"}, {"name", "Game camera"}})
+                            .at("selected")
+                            .get<std::string>();
+    Camera lens;
+    lens.far_plane = 100;
+    scene.entity(camera).set(lens).set<LocalTranslation>({1, .5, -17});
+    const auto light =
+        authoring_command(scene, "entity.create",
+                          {{"recipe", "render.light"}, {"name", "Directional light"}})
+            .at("selected")
+            .get<std::string>();
+    scene.entity(light).set<LocalRotation>({-.2, -.3, 0, .9327379053});
+    scene.save(root / skeletal_sequence_scene_path);
+    catalog = AssetCatalog::open_project(root);
+    const auto record = catalog.add_scene(skeletal_sequence_scene_path);
+    catalog.save(AssetCatalog::project_index(root));
+    const auto lease = std::make_shared<ProjectLease>(root);
+    const std::array roots{record.id};
+    prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
+    const auto after = AssetCatalog::open_project(root).document().at("assets");
+    for (const auto& row : before)
+        if (std::find(after.begin(), after.end(), row) == after.end())
+            throw std::runtime_error("Skeletal sequence Gallery changed an existing asset record");
+    return record.id;
+}
+} // namespace forge::test

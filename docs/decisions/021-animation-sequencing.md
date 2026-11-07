@@ -92,6 +92,49 @@ only, preserving native/authored enabled flags, with normal composition in gaps.
 The exact timing, invalid-input policy and recovery4 boundary are specified in
 [transform animation](../transform-animation.md#sequence-camera-shots).
 
+## Direct skeletal sequence tracks — accepted additive design
+
+2026-11-07. Append optional `sequence`, `sequence_start_seconds`,
+`sequence_next_clip` and `sequence_next_start_seconds` values to Animator. Null
+bindings preserve standalone meaning. The bound profile uses direct clips and is
+exclusive from States, Blend Spaces, Graphs, manual blending, masks and additive
+selection. Retained standalone speed/loop/start intent does not control a bound
+track. A matching SDK rebuild is required; C callback table layouts stay unchanged.
+
+TransformAnimationPlayback retains the only controller and nested clocks.
+AnimationRuntime derives the skeletal track's clamped local sample coordinates
+from those clocks. The existing skeletal resource, Sampler, morph, constraints,
+writer checks and root-motion owners remain authoritative. Independent per-clip
+phases use native weighted sampling; the standalone normalized-phase blend API
+keeps its current meaning. Both selected clips must match the exact skeleton and
+model revision. Their transform-channel union and compatible morph defaults are
+admitted together, including the currently inactive clip.
+
+The existing two-clip span supplies ordered starts/ends, overlap weight, gap cuts
+and endpoint holds. Sequence duration still clips the arrangement. Fixed, copied
+presentation, preview and seeks use the same mapping. A private prepare/publish
+boundary composes skeletal candidates with the sequence owner's complete candidate
+before native writes. Seeking preflights the prospective controller coordinates
+before changing clocks. No second writer, scheduler, pose database or clock is added.
+
+Root motion follows ADR018's per-layer interval policy. Clip-local intervals clamp
+at the placement boundaries; gaps and held endpoints contribute identity movement.
+Overlaps blend interval deltas at their mean endpoint influence. Controller wraps
+compose the completed sequence interval and the new interval without replaying a
+seek or extracting motion in presentation. Recovery must record exact bindings,
+selected revisions and the existing controller clocks in an explicit private
+profile; older shapes remain valid only for configurations they can describe.
+Private recovery10 wraps profiles1–9 with `skeletal_sequence_profile`, retaining
+the existing Graph and camera/nested wrappers. Scene/Prefab runtime feature metadata
+records `skeletal_sequence: 1` for a non-null admitted sequence binding, including
+portable member references and variant property overrides. A matching kit advertises
+`runtime_skeletal_sequence: 1`. Unbound documents retain their earlier metadata and
+compatibility. Existing document-feature discovery and kit admission own these tags.
+
+This decision defines the implementation contract. Completion requires the native
+Timeline/Inspector, copied preview, automation/MCP, installed SDK, recovery and
+source-hidden export checks specified by the affected subsystem documentation.
+
 The existing Game viewport also consumes stopped sequence preview. Its explicit
 preview label and absent gameplay/runtime-UI execution preserve the authoring/Play
 boundary. The camera-shot extension adds cuts; the preview-frame consumer below

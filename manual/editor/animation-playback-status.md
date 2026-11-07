@@ -7,6 +7,11 @@ a tinted **Live animation** section. These values apply to the running game.
 
 Use Live animation during Play to inspect the active clip and control its playback.
 
+A sequence-bound model instead shows **Live sequence track** with read-only timing.
+Choose **Select controller** to inspect **Live sequence** and change the shared
+arrangement's playback. A track cannot pause, restart or seek independently of its
+controller. Control the outermost controller for a nested arrangement.
+
 - **Time** and the playhead show the incoming clip's position.
 - **State**, Loop or One-shot, Speed and fade/mix status describe the current playback.
 - **Pause clip / Resume clip** holds or resumes this character's animation.

@@ -46,7 +46,8 @@ void validate_variant(const Json& source) {
         if (row.at("components").contains("forge.world_transform"))
             throw std::runtime_error("WorldTransform cannot be authored in a prefab variant");
         detail::validate_components(
-            detail::normalize_prefab_components(reference_source, row, Json::object()));
+            detail::normalize_prefab_components(reference_source, row, Json::object()),
+            detail::ComponentReferences::Deferred, &row.at("components"));
     }
     for (const auto& dependency : source.value("dependencies", Json::array()))
         (void)dependency.get<AssetId>();
@@ -104,7 +105,8 @@ void PrefabDocument::validate(const Json& doc) {
                 "WorldTransform is derived and cannot be authored in a prefab");
         if (doc.at("version").get<unsigned>() >= 3)
             detail::validate_components(
-                detail::normalize_prefab_components(doc, item, Json::object()));
+                detail::normalize_prefab_components(doc, item, Json::object()),
+                detail::ComponentReferences::Deferred, &item.at("components"));
         else
             detail::validate_components(item.at("components"));
         if (item.at("components").contains("forge.local_rotation")) {
@@ -311,12 +313,17 @@ Json prefab_builtin_override_intent(const Json& definition, const Json& instance
     }
     return values;
 }
-} // namespace
-Json prefab_override_value(const Json& definition, const Json& instance, const Json& schema) {
+Json project_prefab_override_value(const Json& definition, const Json& instance, const Json& schema,
+                                   detail::ComponentReferences references) {
     auto values = prefab_builtin_override_intent(definition, instance);
-    detail::validate_components(values);
+    detail::validate_components(values, references);
     detail::project_custom_prefab_intent(values, instance, schema);
     return values;
+}
+} // namespace
+Json prefab_override_value(const Json& definition, const Json& instance, const Json& schema) {
+    return project_prefab_override_value(definition, instance, schema,
+                                         detail::ComponentReferences::Resolved);
 }
 PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& schema) {
     PrefabSources resolved;
@@ -542,7 +549,8 @@ Json reconcile_prefab_definitions(const Json& source, const DefinitionLookup& de
                     auto normalized = item;
                     normalized["components"] =
                         detail::normalize_prefab_components(prefab, item, schema);
-                    (void)prefab_override_value(normalized, row, schema);
+                    (void)project_prefab_override_value(normalized, row, schema,
+                                                        detail::ComponentReferences::Deferred);
                 } else
                     (void)prefab_override_value(item, row, schema);
             }

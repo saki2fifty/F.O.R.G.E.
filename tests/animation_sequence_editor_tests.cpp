@@ -1,6 +1,8 @@
 #include "animation_timeline.hpp"
+#include "component_inspector.hpp"
 #include "imgui_input_driver.hpp"
 #include "imgui_software_capture.hpp"
+#include "model_selection.hpp"
 #include "sequence_frame_plan.hpp"
 #include <forge/render_scene.hpp>
 #include <imgui_internal.h>
@@ -633,9 +635,14 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     progress("passed");
 }
 #include "sequence_clip_capture.hpp"
+#include "skeletal_sequence_editor_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 5 && std::string_view(argv[1]) == "--skeletal") {
+            skeletal_sequence_editor(argv[2], argv[3], argv[4]);
+            return 0;
+        }
         if (argc == 5 && std::string_view(argv[1]) == "--capture-properties") {
             capture_sequence_pair(argv[2], argv[3], argv[4], SequenceCapture::Properties);
             return 0;

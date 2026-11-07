@@ -334,8 +334,8 @@ std::pair<Json, EntityId> runtime_cases(const std::filesystem::path& root,
     same_pose(graph_world.pose(.5), reference.pose(.5));
     return {std::move(source), actor};
 }
-void camera_profile_recovery(const std::filesystem::path& root, const Json& source,
-                             EntityId actor) {
+void camera_profile_recovery(const std::filesystem::path& root, const Json& source, EntityId actor,
+                             AssetId primary_clip) {
     EngineContext author;
     Scene scene(author.world());
     scene.restore_snapshot(source);
@@ -386,6 +386,50 @@ void camera_profile_recovery(const std::filesystem::path& root, const Json& sour
         check(restored.animation->checkpoint() == checkpoint,
               "Rejected graph/camera profile changed an admitted checkpoint");
     }
+    const auto sibling = authoring_command(scene, "entity.duplicate", {{"entity", actor.str()}})
+                             .at("selected")
+                             .get<std::string>();
+    auto track = scene.entity(sibling).get<Animator>();
+    track.clip = {primary_clip};
+    track.graph = {};
+    track.states = {};
+    track.blend_space = {};
+    track.blend_clip = {};
+    track.blend_weight = 0;
+    track.blend_mode = 0;
+    track.blend_root = {};
+    track.blend_mask = {};
+    track.root_motion = 0;
+    track.sequence = group;
+    track.sequence_next_clip = track.clip;
+    track.sequence_next_start_seconds = 1;
+    scene.entity(sibling).set(track);
+    const auto compound_source = scene.document();
+    World compound(root, compound_source, actor);
+    AnimationPlaybackAccess::control(*compound.animation, group,
+                                     {{"operation", "seek"}, {"position_seconds", 1.5}});
+    const auto graph_pose = compound.pose(.25);
+    const auto sibling_pose =
+        compound.animation->presentation(compound.scene.entity(sibling).id(), 1);
+    const auto compound_checkpoint = compound.animation->checkpoint();
+    check(compound_checkpoint.at("version") == 10 &&
+              compound_checkpoint.at("skeletal_sequence_profile") == 9 &&
+              compound_checkpoint.at("animation_profile") == 8 &&
+              compound_checkpoint.at("sequence_profile") == 4,
+          "Skeletal recovery wrapper lost graph/camera sequence profiles");
+    World compound_restored(root, compound_source, actor);
+    compound_restored.animation->restore(compound_checkpoint);
+    same_pose(compound_restored.current_pose(), graph_pose, "Graph under skeletal recovery");
+    same_pose(
+        compound_restored.animation->presentation(compound_restored.scene.entity(sibling).id(), 1),
+        sibling_pose, "Skeletal sibling recovery beside graph");
+    check(compound_restored.animation->checkpoint() == compound_checkpoint,
+          "Combined graph/camera/skeletal recovery changed the exact checkpoint");
+    auto invalid_compound = compound_checkpoint;
+    invalid_compound["skeletal_sequence_profile"] = 8;
+    rejects([&] { compound_restored.animation->restore(invalid_compound); });
+    check(compound_restored.animation->checkpoint() == compound_checkpoint,
+          "Rejected combined wrapper changed an admitted graph/skeletal world");
 }
 void work_budget_cases(const std::filesystem::path& root,
                        const std::shared_ptr<ProjectLease>& lease, AssetImportService& service,
@@ -668,7 +712,7 @@ int main(int argc, char** argv) {
         rejects([&] { (void)request.importer->discover(request.request, cancelled.get_token()); });
         const auto [runtime_source, actor] =
             runtime_cases(root, catalog, selected, mask_id, graph_id);
-        camera_profile_recovery(root, runtime_source, actor);
+        camera_profile_recovery(root, runtime_source, actor, selected.bindings.at("/animations/0"));
         catalog_replacement_cases(root, catalog, runtime_source, actor, graph_id);
         work_budget_cases(root, lease, service, selected);
         const auto exported = root.parent_path() / (root.filename().string() + "-export");

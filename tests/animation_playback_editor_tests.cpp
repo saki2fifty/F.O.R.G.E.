@@ -35,6 +35,7 @@ int main() {
                             {"state_name", "Original clip"}};
                 unsigned submits = 0;
                 Json sent;
+                EntityRef selected_controller;
                 bool ready = true, pending = false;
                 auto frame = [&] {
                     test::ui_targets.clear();
@@ -42,17 +43,20 @@ int main() {
                     ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
                     ImGui::SetNextWindowSize({window_width, 1200}, ImGuiCond_Always);
                     ImGui::Begin("Inspector");
-                    editor.draw("test", ref, status, ready, pending, "", [&](const Json& value) {
-                        sent = value;
-                        ++submits;
-                        if (value.at("operation") == "pause")
-                            status["playing"] = false;
-                        if (value.at("operation") == "play")
-                            status["playing"] = true;
-                        if (value.at("operation") == "seek")
-                            status["time"] = value.at("position_seconds");
-                        return true;
-                    });
+                    editor.draw(
+                        "test", ref, status, ready, pending, "",
+                        [&](const Json& value) {
+                            sent = value;
+                            ++submits;
+                            if (value.at("operation") == "pause")
+                                status["playing"] = false;
+                            if (value.at("operation") == "play")
+                                status["playing"] = true;
+                            if (value.at("operation") == "seek")
+                                status["time"] = value.at("position_seconds");
+                            return true;
+                        },
+                        [&](EntityRef controller) { selected_controller = controller; });
                     ImGui::End();
                     ImGui::Render();
                 };
@@ -142,6 +146,20 @@ int main() {
                     {"forge.transform_animator", {{"sequence", ref}}}};
                 require(!AnimationPlaybackEditor::selected(grouped, ref.entity.str()),
                         "Bound track exposed independently editable live controls");
+                const EntityRef controller{ref.scene, EntityId::generate()};
+                status["sequence_controller"] = false;
+                status["sequence"] = controller;
+                frame();
+                frame();
+                const auto before = submits;
+                for (const auto* key :
+                     {"live-animation:pause", "live-animation:restart", "live-animation:playhead"})
+                    require(!test::ui_targets.at(key).enabled,
+                            "Sequence-bound model exposed independently editable live controls");
+                click("live-animation:controller");
+                require(
+                    selected_controller == controller && submits == before,
+                    "Live model selection did not reveal its owning sequence without a command");
                 ImGui::DestroyContext();
             }
         std::cout << "Live animation actual buttons/release seek and status isolation pass eight "

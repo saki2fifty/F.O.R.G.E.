@@ -1,5 +1,10 @@
 # C++ skeletal playback controls
 
+For a sequence-bound Animator, use these operations on its AnimationSequence
+controller. A bound player has no independently controllable clock; its commands
+return unavailable. Live Inspector controls remain read only on the track and offer
+**Select controller**. Existing standalone player behavior below is unchanged.
+
 The existing AnimationRuntime owns Play, Pause, Restart and Seek for a currently admitted
 skeletal Animator. `AnimationService::control(EntityRef, AnimationControl, tick)`
 uses the existing private player clocks and leases. It creates no command queue,

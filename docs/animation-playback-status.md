@@ -7,7 +7,7 @@ clock, player registry or persistence format is introduced.
 
 ## Values and meaning
 
-Status describes the selected incoming skeletal clip. `time` is its authoritative
+Unbound skeletal status describes the selected incoming clip. `time` is its authoritative
 fixed time in seconds, wrapped into the current loop. `duration` is the admitted
 positive clip length. `progress=clamp(time/duration,0,1)`. Looping players never
 report `finished`; a nonloop reports it at the endpoint, even if an incoming fade
@@ -25,7 +25,7 @@ interrupted/frozen outgoing sources. Direct two-clip playback instead reports
 `blend_clip` and `blend_weight`; it never claims a named-state transition. Ordinary
 host optional asset fields serialize as null; absent SDK asset UUIDs are empty.
 
-Queries return only registered live Animator players with admitted assets and
+Queries return registered live animation players with admitted assets and
 valid bindings. Missing/removed targets or pending/invalid bindings return no
 status. A failed configuration that retains last-good playback reports that
 realized state, not the failed request. Gameplay precedes this tick's animation
@@ -67,11 +67,22 @@ scene/component data. Separate [playback commands](animation-playback-controls.m
 provide Pause, Resume, Restart and release seeking in the same panel, without
 advancing paused game time or editing authored values.
 
-These observations describe skeletal playback rather than transform-animation
-status or a cumulative loop counter. [Named states](animation-states.md) own
+Entity-wide C++/SDK queries preserve the transform player's priority when a holder
+has both TransformAnimator and Animator. Private host status adds a `component`
+identity and bounded `players` observations for both types on such holders; explicit
+player-kind queries use the same existing owners. Each `sequence_clips` object
+describes that player's actual primary/next identities, controller, starts, durations
+and derived contribution. A bound player's `time` and `duration` describe its placed
+span, with controller-derived speed/loop/playback and independently sampled clips.
+The optional `sequence` identifies its controller. These observations are copied
+values, never a second player database or advancing clock. The live Inspector reads
+bound track timing and selects its controller for playback changes.
+
+Status does not include a cumulative loop counter. [Named states](animation-states.md) own
 automatic transitions, and [root motion](animation-root-motion.md) has a separate
 current-tick observation. [Retargeted clips](animation-retargeting.md) use the same
-playback observations after publication. A complete animation graph remains separate work.
+playback observations after publication. [Animation Graphs](animation-graphs.md)
+report their existing effective inputs through the same owner.
 
 [C++ playback controls](animation-playback-controls.md) use these same realized
 clocks for per-player Play, Pause, Restart and Seek before the Animation stage.

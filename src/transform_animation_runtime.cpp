@@ -166,21 +166,11 @@ void TransformAnimationPlayback::synchronize() {
                 throw std::runtime_error("Sequence next clip start must be within 0–3600 seconds");
             flecs::entity_t sequence = 0;
             if (config.sequence.entity) {
-                const auto membership = scene_membership(entity);
-                const auto resolved = context_.resolve(config.sequence, membership);
-                if (resolved.state != WorldContext::ResolveState::Available ||
-                    !context_.world().entity(resolved.entity).has<AnimationSequence>())
-                    throw std::runtime_error("Sequence controller is unavailable in this scene");
-                if (!context_.world().entity(resolved.entity).get<AnimationSequence>().enabled ||
-                    !conditions.active(resolved.entity) ||
-                    inactive_sequences_.contains(resolved.entity)) {
+                sequence = resolve_sequence(entity, config.sequence);
+                if (!sequence) {
                     alive.erase(entity.id());
                     return;
                 }
-                if (!sequence_states_.contains(resolved.entity) ||
-                    sequence_errors_.contains(resolved.entity))
-                    throw std::runtime_error("Sequence controller configuration is invalid");
-                sequence = resolved.entity;
                 if (config.sequence_start_seconds > sequence_states_.at(sequence).config.duration)
                     throw std::runtime_error("Track start exceeds the sequence duration");
             }
@@ -404,15 +394,15 @@ bool TransformAnimationPlayback::has_next_sequence_clips() const {
     return std::any_of(states_.begin(), states_.end(),
                        [](const auto& value) { return bool(value.second.next_clip); });
 }
-void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& times,
-                                       bool commit) {
-    if (times.empty())
+void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& times, bool commit,
+                                       const SequenceTimes& seek) {
+    if (times.empty() && !skeletal_pose_)
         return;
     const bool transforms = std::any_of(times.begin(), times.end(), [&](const auto& entry) {
         return states_.at(entry.first).clip->channels != 0;
     });
-    auto candidate =
-        transforms ? context_.transform_nodes() : decltype(context_.transform_nodes()){};
+    auto candidate = transforms || skeletal_pose_ ? context_.transform_nodes()
+                                                  : decltype(context_.transform_nodes()){};
     std::map<flecs::entity_t, AnimationPropertyState> properties;
     std::map<flecs::entity_t, MeshRenderer> materials;
     std::map<flecs::entity_t, std::vector<AnimationComponentCandidate>> components;
@@ -481,7 +471,11 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
         if (state.clip->channels & 4)
             at->second.local.scale = pose.scale;
     }
-    if (transforms && validator_)
+    const auto publish_skeletons =
+        skeletal_pose_ ? skeletal_pose_(candidate, seek) : std::function<void()>{};
+    // The skeletal preparation validates the combined pose through the same
+    // AnimationRuntime validator. Avoid evaluating that complete candidate twice.
+    if (transforms && !skeletal_pose_ && validator_)
         validator_(candidate);
     if (!commit)
         return;
@@ -517,6 +511,8 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
         }
         playback.discontinuous = false;
     }
+    if (publish_skeletons)
+        publish_skeletons();
     for (auto& [id, sequence] : sequence_states_) {
         (void)id;
         sequence.discontinuous = false;
@@ -551,17 +547,11 @@ void TransformAnimationPlayback::tick(double seconds, bool deliver_events) {
         sequence.advance = 0;
         if (sequence.parent || !sequence.playing)
             continue;
-        const auto duration = sequence.config.duration * animation_timebase;
-        sequence.advance = seconds * animation_timebase * sequence.config.playback_speed;
-        sequence.time += sequence.advance;
-        if (sequence.config.loop && sequence.time >= duration) {
-            sequence.time = std::fmod(sequence.time, duration);
-            sequence.discontinuous = true;
-        } else if (!sequence.config.loop && sequence.time >= duration) {
-            sequence.advance = duration - sequence.previous;
-            sequence.time = duration;
-            sequence.playing = false;
-        }
+        const auto next = sequence_step(sequence, seconds);
+        sequence.time = next.time;
+        sequence.advance = next.advance;
+        sequence.playing = next.playing;
+        sequence.discontinuous = next.discontinuous;
     }
     for (auto& [id, sequence] : sequence_states_) {
         (void)id;
@@ -857,7 +847,11 @@ void TransformAnimationPlayback::restore(const Json& values, const Json& sequenc
             throw std::runtime_error("Sequence recovery track binding/time mismatch");
         playing.emplace(resolved.entity, value.at("playing").get<bool>());
     }
-    apply(times, false);
+    SequenceTimes roots;
+    for (const auto& [id, group] : groups)
+        if (!group.parent)
+            roots.emplace(id, group.time);
+    apply(times, false, roots);
     sequence_states_.swap(groups);
     apply(times, true);
     for (auto& [id, state] : states_) {

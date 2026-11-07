@@ -1,5 +1,30 @@
 # 2026-11-07
 
+## Skeletal tracks on Scene sequences
+
+Direct Animators can share an existing Animation Sequence controller and arrange
+one primary and one optional next clip. Each clip keeps its local phase; overlaps
+blend skeletal poses and morphs, gaps hold then cut, and controller timing governs
+the complete group. Exact rig/model admission, complete candidate publication,
+resource replacement rollback, root-motion intervals and recovery use the existing
+runtime owners. Unbound States, Blend Spaces, Graphs and standalone blending retain
+their behavior. Public Animator values require rebuilding native modules with the
+matching SDK; the fixed callback table remains ABI1.
+
+Timeline supports existing Animators, distinct mixed property/skeletal rows, clip
+selection, stopped native preview and one-step timing Undo. Inspector opens the
+owning Timeline; live track timing is read only with controller selection. Shared
+Scene and scoped Play automation/MCP expose the same workflow and typed observations.
+Portable Prefab sources retain their member links while shared native templates
+defer reference requirements until instance resolution.
+
+Gallery185 includes original direct, morph and retargeted models with a camera/light
+and one shared controller. Its independent numeric samples, recovery and relocated
+source-hidden output match; four software Vulkan Game image pairs match as well.
+The manual includes actual Timeline/Game captures. Windows/full-editor and physical
+hardware review remain separate; no numbered Windows delivery accompanies this
+local source change.
+
 ## Material and reflected-field sequence crossfades
 
 Two-clip sequence tracks support matching Material parameters and reflected
@@ -17,8 +42,7 @@ Gallery184 includes editable per-object color/roughness and named HUD value pair
 a camera/light and an original screen document. Timeline preview, ordinary Scene
 history, generic Source/Scene/Play automation and MCP use their existing owners.
 The illustrated manual explains compatible tracks, held values, publication and
-export. Skeletal sequence crossfades and general multi-clip arrangements remain
-outside this profile. Local CPU and software Vulkan evidence is separate from
+export. General multi-clip arrangements remain outside this profile. Local CPU and software Vulkan evidence is separate from
 pending Windows/full-editor and physical hardware review. No numbered Windows
 delivery accompanies this local change.
 

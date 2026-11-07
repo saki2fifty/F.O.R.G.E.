@@ -1,14 +1,17 @@
 #include "animation_root_motion_math_tests.hpp"
 #include "animation_states_authoring.hpp"
+#include "asset_bytes.hpp"
 #include "asset_import_service.hpp"
 #include "model_authoring.hpp"
 #include "model_import_test.hpp"
 #include "model_importer.hpp"
 #include "model_placement.hpp"
 #include "runtime_package.hpp"
+#include "transform_animation_authoring.hpp"
 #include <chrono>
 #include <forge/animation.hpp>
 #include <forge/authoring.hpp>
+#include <forge/render_components.hpp>
 #include <forge/runtime.hpp>
 #include <iostream>
 #include <source_location>
@@ -73,6 +76,7 @@ struct Fixture {
 };
 } // namespace
 #include "animation_seeking_tests.hpp"
+#include "skeletal_sequence_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 5 || argc == 6,
@@ -139,6 +143,7 @@ int main(int argc, char** argv) {
         require(scene.undo() && scene.document() == before, "Root mode Undo failed");
         require(scene.redo() && scene.document() == source, "Root mode Redo failed");
         animation_seeking_tests(project, source, actor);
+        skeletal_sequence_tests(project, source, actor, forward, strafe);
         {
             Fixture filtered(project, source, actor);
             auto config = filtered.entity().get<Animator>();
@@ -424,6 +429,9 @@ int main(int argc, char** argv) {
             near(f.motion()->translation[2], .125);
             near(f.motion()->rotation[3], 1);
         }
+        skeletal_sequence_mixed_tests(project, source, actor, forward, strafe, lease);
+        skeletal_sequence_reimport_tests(project, source, actor, model, forward, strafe,
+                                         selected.bindings.at("/nodes/1"), service);
         atomic_write(project / "main.scene.json", source.dump(2));
         const std::array roots{scene.asset_id()};
         prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());

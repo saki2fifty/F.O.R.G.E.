@@ -3,12 +3,17 @@ import json
 from mcp_test_client import failed
 
 
-def check_sequence_clip_workflow(client, discover, arguments, mutate, project):
+def check_sequence_clip_workflow(client, discover, arguments, mutate, project,
+                                component_id='forge.transform_animator'):
     state = discover()
     component = next(c for c in state['result']['schema']['components']
-                     if c['id'] == 'forge.transform_animator')
+                     if c['id'] == component_id)
     fields = {field['id']: field for field in component['fields']}
-    assert fields['sequence_next_clip']['asset_type'] == 'transform_animation'
+    assert fields['sequence_next_clip']['asset_type'] == (
+        'animation_clip' if component_id == 'forge.animator' else 'transform_animation')
+    assert fields['sequence']['type'] == 'entity_ref'
+    assert fields['sequence']['default'] is None
+    assert fields['sequence_start_seconds']['default'] == 0
     assert fields['sequence_next_clip']['default'] is None
     assert fields['sequence_next_start_seconds']['default'] == 0
     assert fields['sequence_next_start_seconds']['minimum'] == 0
@@ -52,6 +57,18 @@ def check_sequence_clip_workflow(client, discover, arguments, mutate, project):
                         field='sequence_next_start_seconds', value=invalid))
         assert not result['ok'] and discover()['revision'] == before['revision'], result
         assert track() == expected
+    if component_id == 'forge.animator':
+        for invalid in (dict(sequence=None),
+                        dict(sequence_start_seconds=.75),
+                        dict(states='939f0601-ce25-4f57-99fe-e359f4ad2de1'),
+                        dict(graph='939f0601-ce25-4f57-99fe-e359f4ad2de1'),
+                        dict(blend_space='939f0601-ce25-4f57-99fe-e359f4ad2de1'),
+                        dict(blend_clip='939f0601-ce25-4f57-99fe-e359f4ad2de1')):
+            before = discover()
+            result = mutate('forge_property_set_many', arguments=dict(
+                entity=actor, component=component['id'], values=invalid))
+            assert not result['ok'] and discover()['revision'] == before['revision'], result
+            assert track() == expected
     assert mutate('forge_document_save')['ok']
     saved = json.loads((project / 'Scenes/main.scene.json').read_bytes())
     saved_track = next(row for row in saved['entities'] if row['id'] == actor)['components'][component['id']]

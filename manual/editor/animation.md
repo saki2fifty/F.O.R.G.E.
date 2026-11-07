@@ -9,6 +9,10 @@ also show joints and bones as a green-and-white debug overlay. Use the
 [model import tools](models.md) for complete animated models. The animation-only
 workflow below creates skeleton and clip assets for the bone overlay.
 
+For several characters or a cutscene, [arrange skeletal clips on a shared Scene
+sequence](animation-sequences.md). The sequence controls their timing and can blend
+two compatible clips on each Animator.
+
 ## Try the included animation
 
 1. Copy `Examples/Animation/two-joints.gltf` from the extracted ZIP into your project's `Assets` folder. This small example contains two joints and a clip named **Lift**.

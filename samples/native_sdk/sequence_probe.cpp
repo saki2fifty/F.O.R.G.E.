@@ -13,6 +13,7 @@
 #include <string>
 #include <thread>
 namespace {
+static_assert(forge::skeletal_sequence_runtime_profile_version == 1);
 struct SequenceProbe {
     std::uint32_t ticks = 0;
     double time = 0, blend = 0;
@@ -26,6 +27,7 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char* error, uint32_t
         flecs::world world(host->world);
         world.component<forge::AnimationSequence>("forge.animation_sequence");
         world.component<forge::TransformAnimator>("forge.transform_animator");
+        world.component<forge::Animator>("forge.animator");
         world.component<forge::CameraShot>("forge.camera_shot");
         world.component<forge::AudioCue>("forge.audio_cue");
         world.component<forge::AudioSource>("forge.audio_source");
@@ -133,6 +135,49 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                         }
                         ++tracks;
                     });
+                    unsigned skeletal_tracks = 0;
+                    current.each([&](flecs::entity child, const forge::Animator& player) {
+                        if (!controllers.contains(player.sequence.entity.str()))
+                            return;
+                        ForgeSdkEntityRefV1 child_ref{};
+                        ForgeSdkAnimationPlaybackV1 status{};
+                        check(player.sequence.scene.str() == ref.scene_uuid &&
+                                  player.sequence_start_seconds == 0 &&
+                                  player.sequence_next_start_seconds == .5 &&
+                                  player.sequence_next_clip.id == player.clip.id &&
+                                  !player.play_on_start && player.loop &&
+                                  player.playback_speed == 0 &&
+                                  client.entity_reference(child.id(), child_ref) == 1 &&
+                                  client.animation_playback(child_ref.scene_uuid,
+                                                            child_ref.entity_uuid, status) == 1 &&
+                                  status.speed == config.playback_speed && !status.loop,
+                              "Skeletal sequence typed layout, clock or pair differs through SDK");
+                        if (const auto* properties = child.try_get<forge::TransformAnimator>())
+                            check(properties->clip.id.str() == status.clip_uuid &&
+                                      std::abs(status.time -
+                                               std::clamp(admitted.time -
+                                                              properties->sequence_start_seconds,
+                                                          0., status.duration)) < 1e-9,
+                                  "Mixed actor did not preserve transform-first SDK status");
+                        else
+                            check(player.clip.id.str() == status.clip_uuid &&
+                                      player.sequence_next_clip.id.str() ==
+                                          status.blend_clip_uuid &&
+                                      status.duration == 1.5 &&
+                                      std::abs(status.time - std::clamp(admitted.time, 0., 1.5)) <
+                                          1e-9 &&
+                                      std::abs(status.blend_weight -
+                                               std::clamp((status.time - .5) * 2, 0., 1.)) < 1e-9,
+                                  "Skeletal sequence span or phase differs through SDK");
+                        check(client.animation_control(child_ref.scene_uuid, child_ref.entity_uuid,
+                                                       FORGE_SDK_ANIMATION_PAUSE) == 0 &&
+                                  client.animation_seek(child_ref.scene_uuid, child_ref.entity_uuid,
+                                                        .25) == 0,
+                              "C++ independently controlled a bound skeletal track");
+                        const auto copied = player;
+                        child.set(copied);
+                        ++skeletal_tracks;
+                    });
                     unsigned shots = 0;
                     current.each([&](flecs::entity actor, const forge::CameraShot& shot) {
                         if (!controllers.contains(shot.sequence.entity.str()))
@@ -181,7 +226,8 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                               "Audio Cue typed data/reference unavailable through matching SDK");
                         ++cues;
                     });
-                    check((cues == 0 && shots == 0 && tracks == 3) ||
+                    check((cues == 0 && shots == 0 && tracks <= 1 && skeletal_tracks == 1) ||
+                              (cues == 0 && shots == 0 && tracks == 3) ||
                               (cues == 0 && shots == 0 && tracks == 1 && pairs == 1) ||
                               (cues == 0 && shots == 3 && tracks == 1) ||
                               (cues == 3 && shots == 2 && tracks == 1 && nested <= 1),

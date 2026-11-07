@@ -6,6 +6,7 @@
 #include "runtime_reflection_profile.hpp"
 #include "ui_asset_catalog.hpp"
 #include "ui_surface_limits.hpp"
+#include <forge/animation_components.hpp>
 #include <forge/asset_discovery.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/fog_volume.hpp>
@@ -24,6 +25,18 @@ Json document_runtime_features(const Json& document) {
             const auto values = row.find(channel);
             if (values == row.end())
                 continue;
+            if (const auto animator = values->find("forge.animator");
+                animator != values->end() && !animator->is_null())
+                if (const auto sequence = animator->find("sequence");
+                    sequence != animator->end() && !sequence->is_null()) {
+                    // Portable Prefab definitions retain their admitted member
+                    // references; Scene/native values use EntityRef instead.
+                    const bool bound = sequence->contains("prefab") || sequence->contains("member")
+                                           ? bool(sequence->get<PrefabMemberRef>().member)
+                                           : bool(sequence->get<EntityRef>().entity);
+                    if (bound)
+                        result["skeletal_sequence"] = skeletal_sequence_runtime_profile_version;
+                }
             if (const auto probe = values->find("forge.reflection_probe");
                 probe != values->end() && !probe->is_null())
                 if (const auto capture = probe->find("runtime_capture"); capture != probe->end()) {

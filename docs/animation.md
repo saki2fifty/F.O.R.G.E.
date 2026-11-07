@@ -264,9 +264,56 @@ in [model import](model-import.md#runtime-publication-notifications). Presentati
 includes the selected model revision/publication generation for diagnostics; neither
 field is a new persistent identity or authored transform authority.
 
+## Scene sequence tracks
+
+An Animator may bind its direct clip to `sequence` (an optional Scene EntityRef)
+and `sequence_start_seconds`. An optional `sequence_next_clip` uses
+`sequence_next_start_seconds` on the same controller. Starts are finite within
+0–3600 seconds and the admitted controller duration; the next start and end cannot
+precede the primary start and end. The existing two-clip span owner supports a
+natural overlap, a touching cut or a held gap. Each clip samples its own clamped
+local time. The controller may truncate the track at its end.
+
+This profile excludes States, Blend Spaces, Graphs and standalone blend/subtree/
+mask/additive selection on that Animator. It retains standalone loop, speed and
+start intent for removal from the sequence. Both clips require the same exact
+skeleton and selected model revision; a published retargeted clip uses its existing
+target binding. Model morph channels use the same independently sampled phases
+and derived overlap weight. Unbound players retain their existing semantics.
+
+The existing transform provider owns root/nested clocks and prepares the complete
+transform/property candidate. A private skeletal preparation callback adds native
+joint, rig and root-motion writes to that candidate before publication. Sampling
+does not create a second clock or pose writer. Seek/restart skip root movement
+across jumps; ordinary root-motion intervals split at clip/placement boundaries
+and controller loops. Presentation never extracts root movement. Resource reload
+validates the complete proposed next root sample before replacing accepted leases;
+pending inputs retry, and a rejected replacement retains the old revision.
+
+The Timeline uses explicit player-kind observations for rows on a mixed holder.
+Both start edits use one existing Scene `property.set_many` transaction. Its stopped
+preview copies native model poses, morphs and joint transforms; the standalone
+skeletal preview directs bound players to the sequence Timeline. Inspector opens
+the owning Timeline, and the live panel keeps track controls read only with a
+controller-selection action. Automation/MCP use the same Scene schema, transaction,
+revision/history and scoped Play owners, including typed `players` observations.
+
+Recovery10 wraps the prior profile in `skeletal_sequence_profile`, including graph,
+camera and nested sequence wrappers where present. It records exact controller/
+next-clip configuration and revisions and validates all proposed root clocks before
+native publication. Derived sampling caches are reconstructed. Portable Prefab links
+remain governed by [ADR022](decisions/022-prefab-component-references.md).
+
+`skeletal_sequence_runtime_profile_version` is the canonical public profile1.
+Existing runtime-document feature discovery emits `runtime_features.skeletal_sequence`
+for a known nonnull Animator binding, including portable members and variants. Kit
+admission requires `runtime_skeletal_sequence:1`. Unbound older documents retain their
+existing requirements. Public Animator fields change the whole-header SDK fingerprint;
+the fixed callback table remains ABI1 and native modules require the matching SDK.
+
 ## Two-clip skeletal transitions
 
-The existing Animator and AnimationRuntime now support an optional second clip,
+The existing Animator and AnimationRuntime support an optional second clip,
 normalized phase and bounded blend transitions. The native Ozz local-space blend,
 exact rig/model compatibility, copied-world preview and additive recovery contract
 are specified in [two-clip skeletal blending](animation-blending.md).

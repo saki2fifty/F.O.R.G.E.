@@ -4,7 +4,8 @@
 namespace forge {
 // Private editor Play boundary; runtime clocks/pose transactions stay authoritative.
 struct AnimationPlaybackAccess {
-    static Json status(AnimationRuntime&, EntityRef);
+    enum class PlayerKind { Automatic, Transform, Skeletal };
+    static Json status(AnimationRuntime&, EntityRef, PlayerKind = PlayerKind::Automatic);
     static Json tune_graph_input(AnimationRuntime&, EntityRef, const std::string& property,
                                  const Json& value);
     static Json tune_graph_inputs(AnimationRuntime&, EntityRef, const Json& fields);

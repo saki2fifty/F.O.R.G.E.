@@ -180,6 +180,7 @@ class ComponentInspector {
     std::function<bool(const Json& components, Json& layer)> tile_map_layer;
     std::function<void(const std::string&)> open_cpp_definition;
     std::function<void(const std::string&)> capture_reflection;
+    std::function<void(EntityRef)> open_sequence_timeline;
     std::function<void(const std::string& entity, const std::string& component)> edit_scene_target;
     std::function<bool(const std::string& entity, const std::string& component)>
         scene_target_available;
@@ -591,6 +592,20 @@ class ComponentInspector {
             }
             ui::help("Ownership and explicit intent determine overrides, including values equal to "
                      "the prefab source.");
+            if (open_sequence_timeline &&
+                (key == "forge.animation_sequence" || key == "forge.animator" ||
+                 key == "forge.transform_animator")) {
+                const auto controller = key == "forge.animation_sequence"
+                                            ? scene.reference(entity)
+                                            : values.at(key).value("sequence", EntityRef{});
+                if (controller.entity) {
+                    if (ui::button(
+                            "Open sequence timeline",
+                            "Open the controller that owns this player's timing and preview."))
+                        open_sequence_timeline(controller);
+                    FORGE_UI_PROBE("component-sequence:" + key);
+                }
+            }
             if (AnimationPlaybackAccess::rig_type(key) && edit_scene_target) {
                 ImGui::BeginDisabled(!rig_target_view(effective, entity, key));
                 if (ui::button("Edit target in Scene",

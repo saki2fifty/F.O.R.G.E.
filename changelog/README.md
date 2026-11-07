@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-11-07](20261107/README.md) — Shared skeletal sequence tracks and morph/retargeted overlaps/Gallery185; compatible Material/reflected-field crossfades/Gallery184; native Inspector/Timeline, scoped automation/MCP and illustrated manuals. Local source; Windows verification and delivery pending.
+
 - [2026-11-06](20261106/README.md) — Fresh offline game movies with synchronized audio/Gallery182; silent AVI sequence export/Gallery181; authored Clip/Blend/Additive animation graphs/Gallery180; target-bound skeletal retarget baking/Gallery179; Runtime GPU reflection capture/Gallery176; animated triangle UI surfaces/Gallery177; Scene Mesh texture painting, shared source/UV/history/publication, programmatic triangle inspection/projection and Gallery178. Local source; Windows verification and delivery pending.
 
 - [2026-11-05](20261105/README.md) — Bounded runtime UI gradients, alpha masks and box shadows; morphological anti-aliasing/Gallery168; current-view occlusion culling/Gallery169; shared authoring/MCP, export and illustrated manuals. Local source; Windows verification and delivery pending.

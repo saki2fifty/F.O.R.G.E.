@@ -95,8 +95,9 @@ sequence entry-pending state. After admitting the complete resource pair, mismat
 are rejected before restoring poses/clocks. A fresh worker can therefore restore
 without a prior preparation pass. Without a next slot, the current older-profile readers and
 writers retain their behavior. Scene/Prefab and clip source/cook formats do not
-change. More than two clips on one actor and skeletal sequence crossfades remain
-outside this profile. [Silent movie export](sequence-movie-export.md) uses the existing preview
+change. More than two clips on one player remain outside this profile.
+[Skeletal sequence tracks](animation.md) use the same controller with their own
+Animator clip references and native pose/morph owner. [Silent movie export](sequence-movie-export.md) uses the existing preview
 capture owner; it does not add simulation or encoding to the animation runtime.
 
 ### Nested controller placements

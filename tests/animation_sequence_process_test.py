@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from physics_velocity_example_test import Worker
 
 runtime, gallery, module = (Path(arg).resolve() for arg in sys.argv[1:4])
@@ -26,12 +27,48 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                                                        text=True))['components']
     stamp = dict(format='forge.authored-component', version=1, module=declaration['module'],
                  schema_version=declaration['schema_version'], digest=declaration['digest'])
-    for scene_name in ('62-coordinated-animation.scene.json', '68-sequence-camera-shots.scene.json',
-                       '70-sequence-audio-cues.scene.json', '145-sequence-clip-blending.scene.json',
-                       '146-nested-sequences.scene.json'):
+    scene_names = ('62-coordinated-animation.scene.json', '68-sequence-camera-shots.scene.json',
+                   '70-sequence-audio-cues.scene.json', '145-sequence-clip-blending.scene.json',
+                   '146-nested-sequences.scene.json', '36-animation-root-motion.scene.json')
+    scenarios = [(name, False) for name in scene_names]
+    scenarios.append(('36-animation-root-motion.scene.json', True))
+    for scene_name, mixed in scenarios:
         source_path = root / 'Scenes' / scene_name
         original = source_path.read_bytes()
         source = json.loads(original)
+        skeletal = scene_name == '36-animation-root-motion.scene.json'
+        skeletal_actor = None
+        skeletal_clip = None
+        if skeletal:
+            controller_id = str(uuid.uuid4())
+            binding = dict(scene=source['asset_id'], entity=controller_id)
+            for row in source['entities']:
+                player = row['components'].get('forge.animator')
+                if player is None:
+                    continue
+                if player['root_motion'] == 0 and skeletal_actor is None:
+                    skeletal_actor = row['id']
+                    skeletal_clip = player['clip']
+                    player.update(sequence=binding, sequence_start_seconds=0,
+                                  sequence_next_clip=player['clip'], sequence_next_start_seconds=.5,
+                                  playback_speed=0, play_on_start=False, loop=True)
+                else:
+                    player['enabled'] = False
+            assert skeletal_actor is not None
+            if mixed:
+                property_scene = json.loads((root / 'Scenes' / '62-coordinated-animation.scene.json').read_bytes())
+                light = next(row['components'] for row in property_scene['entities']
+                             if 'forge.transform_animator' in row['components'] and
+                             'forge.light' in row['components'])
+                target = next(row for row in source['entities'] if row['id'] == skeletal_actor)
+                target['components']['forge.light'] = light['forge.light']
+                target['components']['forge.audio_source'] = light['forge.audio_source']
+                target['components']['forge.transform_animator'] = dict(
+                    light['forge.transform_animator'], sequence=binding)
+            source['entities'].append(dict(id=controller_id, name='Skeletal SDK sequence',
+                spatial=dict(mode='world'), components={'forge.animation_sequence':dict(
+                    duration=4, enabled=True, play_on_start=True, loop=False, playback_speed=1,
+                    sequence=None, sequence_start_seconds=0)}))
         controllers = [r for r in source['entities'] if 'forge.animation_sequence' in r['components']]
         controller, = [r for r in controllers if not r['components']['forge.animation_sequence'].get('sequence')]
         nested = len(controllers) > 1
@@ -69,11 +106,32 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                            for d in state['diagnostics']), state['diagnostics']
             values = rows(state)
             probe = values[controller['id']]['project.sequence_probe']
-            expected = {1: 2.5, 2: .5+dt, 3: .5+2*dt, 4: 0, 5: dt,
+            expected = {1: 2.5, 2: .5+dt, 3: .5+2*dt, 4: 4 if skeletal else 0, 5: dt,
                         6: .75}.get(tick, .75+(tick-6)*dt)
             assert probe['ticks'] == tick and abs(probe['time']-expected) < 2e-6, (tick, probe, expected)
             assert probe['blend'] == ((.75 if tick < 3 else 1) if transition else 0), (tick, probe)
             check_camera(state, expected)
+            if skeletal:
+                actor = next(row for row in state['effective_scene']['entities']
+                             if row['id'] == skeletal_actor)
+                player = actor['components']['forge.animator']
+                assert player['sequence'] == binding and player['sequence_start_seconds'] == 0
+                assert player['sequence_next_clip'] == player['clip']
+                assert player['sequence_next_start_seconds'] == .5
+                assert not player['play_on_start'] and player['loop'] and player['playback_speed'] == 0
+                status = actor['animation_playback']
+                if mixed:
+                    properties = actor['components']['forge.transform_animator']
+                    assert status['clip'] == properties['clip'] and status['blend_weight'] == 0
+                    assert abs(status['time'] - max(0, min(2, expected-1))) < 2e-6
+                    # Native row status preserves the public transform-first observation.
+                    # The SDK Play watch below checks both typed observations.
+                    status = None
+                if status is not None:
+                    assert status['duration'] == 1.5 and status['speed'] == 1 and not status['loop']
+                    assert abs(status['time'] - min(expected, 1.5)) < 2e-6
+                    weight = max(0, min(1, (min(expected, 1.5)-.5)*2))
+                    assert abs(status['blend_weight']-weight) < 2e-6
             if transition:
                 # Native C++ updates only the duration. The actual copied view
                 # uses that value while preserving both native/local Camera poses.
@@ -134,6 +192,8 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                 if tick in (1, 4, 6, 12):
                     checkpoint = state['recovery']
                     assert checkpoint is not None
+                    if skeletal:
+                        assert checkpoint['animation']['version'] == 10
                     other = Worker(runtime, root, arguments=('--audio', 'offline'))
                     restored = other.request('replace', scene=checkpoint['scene'], recovery=checkpoint,
                         recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])
@@ -177,12 +237,25 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
             assert watched['animation_playback']['sequence_controller']
             generation = watched['activation']['generation']
             editor.request('animation_playback', generation=generation, source=ref, operation='pause')
-            seek_seconds = 4.5 if shot_tracks else 1.5
+            seek_seconds = .75 if skeletal else 4.5 if shot_tracks else 1.5
             sought = editor.request('animation_playback', generation=generation, source=ref,
                                     operation='seek', position_seconds=seek_seconds, animation_watch=ref)
             assert abs(sought['animation_playback']['time']-seek_seconds) < 1e-12
             check_camera(sought, seek_seconds)
             assert not sought['animation_playback']['playing']
+            if skeletal:
+                actor_ref = dict(scene=source['asset_id'], entity=skeletal_actor)
+                track_status = editor.request('snapshot', animation_watch=actor_ref)['animation_playback']
+                if mixed:
+                    assert track_status['component'] == 'forge.transform_animator'
+                    assert track_status['sequence_clips']['clip'] == target['components'][
+                        'forge.transform_animator']['clip']
+                    assert track_status['players']['forge.transform_animator']['sequence_clips'] == track_status['sequence_clips']
+                    track_status = track_status['players']['forge.animator']
+                assert track_status['sequence'] == binding
+                assert track_status['blend_weight'] == .5
+                assert track_status['sequence_clips']['next']['weight'] == .5
+                assert track_status['sequence_clips']['next']['clip'] == skeletal_clip
             pair_actor = next((r for r in source['entities'] if r['components'].get(
                 'forge.transform_animator', {}).get('sequence_next_clip')), None)
             if pair_actor is not None:
@@ -199,4 +272,4 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
             check_camera(restarted, 0)
         finally:
             editor.close()
-print('Exact C++ object/nested/camera-shot controls and typed fields, four recoveries per scene and SDK Play PASS')
+print('Exact C++ object/skeletal/nested/camera-shot controls and typed fields, four recoveries per scene and SDK Play PASS')

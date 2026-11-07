@@ -9,9 +9,10 @@ namespace forge::detail {
 struct SequenceClipSpan {
     double start_us, next_offset_us, primary_duration_us, next_duration_us, duration_us;
     static SequenceClipSpan make(double start_seconds, double next_start_seconds,
-                                 std::int64_t primary_duration, std::int64_t next_duration) {
+                                 double primary_duration, double next_duration) {
         if (!std::isfinite(start_seconds) || !std::isfinite(next_start_seconds) ||
             start_seconds < 0 || next_start_seconds < start_seconds || next_start_seconds > 3600 ||
+            !std::isfinite(primary_duration) || !std::isfinite(next_duration) ||
             primary_duration < 1 || next_duration < 1 ||
             primary_duration > 3600 * animation_timebase ||
             next_duration > 3600 * animation_timebase)

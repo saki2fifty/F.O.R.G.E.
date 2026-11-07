@@ -52,7 +52,12 @@ Json builtin_extensions(const Builtin&, const Json& source);
 Json merge_builtin_extensions(const Builtin&, const Json& known, const Json& extensions);
 Json merge_builtin_property_extensions(const Builtin&, const std::string& field, const Json& known,
                                        const Json& source);
-void validate_components(const Json& components);
+enum class ComponentReferences { Resolved, Deferred };
+// Deferred projections validate storage before instance member links exist.
+// Source validation also supplies original component intent to check link presence.
+void validate_components(const Json& components,
+                         ComponentReferences references = ComponentReferences::Resolved,
+                         const Json* reference_intent = nullptr);
 // Checks registered scalar storage/ranges only; domain validation remains with each subsystem.
 void validate_reflected_value(flecs::world world, ecs_entity_t type, const void* value);
 template <class T> void validate_reflected_value(flecs::entity entity, const T& value) {

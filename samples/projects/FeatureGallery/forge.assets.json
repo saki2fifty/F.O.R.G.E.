@@ -16670,6 +16670,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "de4aa15d-0b35-40f6-b01a-8f1ea883fa4b",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/185-skeletal-sequence-tracks.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "de78e5a9-3100-4fb8-aa47-bd7b8896631a",
       "metadata": {},
       "schema_version": 5,

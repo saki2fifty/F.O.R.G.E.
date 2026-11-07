@@ -2,6 +2,7 @@
 #include <forge/asset_ref.hpp>
 #include <forge/model_asset.hpp>
 namespace forge {
+inline constexpr unsigned skeletal_sequence_runtime_profile_version = 1;
 struct SkeletonAsset {
     static constexpr const char* type = "skeleton";
 };
@@ -93,6 +94,12 @@ struct Animator {
     bool graph_override_1 = false, graph_override_2 = false, graph_override_3 = false,
          graph_override_4 = false;
     float graph_input_1 = 0, graph_input_2 = 0, graph_input_3 = 0, graph_input_4 = 0;
+    // Direct clips may follow an existing Scene sequence. These fields do not
+    // change the shared-phase meaning of standalone blend_clip.
+    EntityRef sequence{};
+    double sequence_start_seconds = 0;
+    AssetRef<AnimationClipAsset> sequence_next_clip{};
+    double sequence_next_start_seconds = 0;
     bool operator==(const Animator&) const = default;
 };
 // Opt-in constraints on an imported model holder. Values are in skeleton model

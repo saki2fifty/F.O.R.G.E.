@@ -1,5 +1,21 @@
 # Feature Gallery
 
+## Skeletal sequence tracks
+
+Open `Scenes/185-skeletal-sequence-tracks.scene.json` and press **Play → Game**.
+One four-second controller coordinates three original models. The left changes
+Forward to Strafe from 0.5s to 1s, the center blends Base and Overlay morphs from 1.5s
+to 2s, and the right blends Rest into mapped Swing from 1s to 2s. Endpoints hold until
+the loop repeats. A camera and directional light are included; no C++ module is needed.
+
+Select **Four-second shared sequence** and choose **Open sequence timeline** in
+Inspector. Choose **Refresh clips**, select a **(Skeletal)** row, then preview or
+scrub. Each clip keeps its own local time. Edit both starts with **Apply track timing**;
+use Scene Undo/Redo and **Save scene**. Bound models retain their standalone settings
+for removal. Their live Inspector offers **Select controller** for shared playback.
+Set this Scene as Startup Scene and export with a matching runtime kit. See the
+[sequence guide](../../../manual/editor/animation-sequences.md).
+
 ## Material and component-field crossfades
 
 Open `Scenes/184-sequence-binding-crossfades.scene.json` and press **Play → Game**.

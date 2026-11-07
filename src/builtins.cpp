@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include "animation_sequence_binding.hpp"
 #include "authored_schema.hpp"
 #include "material_parameter_overrides.hpp"
 #include "material_slot.hpp"
@@ -201,7 +202,12 @@ template <class T> Json encode(const T& p) {
                 {"graph_input_1", p.graph_input_1},
                 {"graph_input_2", p.graph_input_2},
                 {"graph_input_3", p.graph_input_3},
-                {"graph_input_4", p.graph_input_4}};
+                {"graph_input_4", p.graph_input_4},
+                {"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
+                {"sequence_start_seconds", p.sequence_start_seconds},
+                {"sequence_next_clip",
+                 p.sequence_next_clip.id ? Json(p.sequence_next_clip.id) : Json()},
+                {"sequence_next_start_seconds", p.sequence_next_start_seconds}};
     else if constexpr (std::is_same_v<T, AudioSource>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"play_on_start", p.play_on_start},
@@ -620,6 +626,17 @@ template <class T> Value decode(const Json& p) {
         v.graph_input_2 = p.value("graph_input_2", 0.f);
         v.graph_input_3 = p.value("graph_input_3", 0.f);
         v.graph_input_4 = p.value("graph_input_4", 0.f);
+        if (p.contains("sequence") && !p.at("sequence").is_null())
+            v.sequence = p.at("sequence").get<EntityRef>();
+        v.sequence_start_seconds = p.value("sequence_start_seconds", 0.);
+        if (p.contains("sequence_next_clip") && !p.at("sequence_next_clip").is_null())
+            v.sequence_next_clip.id = p.at("sequence_next_clip").get<AssetId>();
+        v.sequence_next_start_seconds = p.value("sequence_next_start_seconds", 0.);
+        // A shared Prefab template retains clip data with null native member links.
+        // Complete Scene/source admission checks controller presence below; decoding
+        // also serves those intentionally unresolved template/comparison values.
+        animation_detail::validate_sequence_binding(
+            v, bool(v.sequence.entity || v.sequence_next_clip.id));
         if (!v.blend_clip.id && v.blend_weight != 0)
             throw std::runtime_error("Animator blend target needs a second clip");
         if (v.blend_root.id && !v.blend_clip.id)
@@ -1471,6 +1488,7 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
                 .template member<float>("up_z");
     } else if constexpr (std::is_same_v<T, Animator>) {
         register_asset_ref<SkeletonAsset>(w, "forge.skeleton_ref");
+        (void)authoring_value_adapters(w);
         register_asset_ref<AnimationClipAsset>(w, "forge.animation_clip_ref");
         register_asset_ref<AnimationStatesAsset>(w, "forge.animation_states_ref");
         register_asset_ref<AnimationMaskAsset>(w, "forge.animation_mask_ref");
@@ -1504,7 +1522,11 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("graph_input_1")
             .template member<float>("graph_input_2")
             .template member<float>("graph_input_3")
-            .template member<float>("graph_input_4");
+            .template member<float>("graph_input_4")
+            .template member<EntityRef>("sequence")
+            .template member<double>("sequence_start_seconds")
+            .template member<AssetRef<AnimationClipAsset>>("sequence_next_clip")
+            .template member<double>("sequence_next_start_seconds");
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         w.component<AssetRef<AudioClipAsset>>("forge.audio_clip_ref")
             .opaque(flecs::String)
@@ -3887,10 +3909,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("shared_group").set<ReflectedMemberDefault>({0u});
         }
         std::vector<ReflectedAdapter> references;
-        if (name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||
-            name == "forge.transform_animator" || name == "forge.animation_sequence" ||
-            name == "forge.camera_shot" || name == "forge.audio_cue" ||
-            name == "forge.navigation_behavior")
+        if (name == "forge.animator" || name == "forge.physics_joint" ||
+            name == "forge.physics_joint_2d" || name == "forge.transform_animator" ||
+            name == "forge.animation_sequence" || name == "forge.camera_shot" ||
+            name == "forge.audio_cue" || name == "forge.navigation_behavior")
             references = authoring_value_adapters(world);
         // Native typed identity remains authoritative even when an earlier SDK
         // schema registered a reference before its builtin family used a label.
@@ -4101,12 +4123,14 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
               "capture_near", "capture_far", "capture_layers"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
-    if (std::string_view(type.name) == "forge.transform_animator" ||
+    if (std::string_view(type.name) == "forge.animator" ||
+        std::string_view(type.name) == "forge.transform_animator" ||
         std::string_view(type.name) == "forge.animation_sequence")
         for (const auto* field : {"sequence", "sequence_start_seconds"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
-    if (std::string_view(type.name) == "forge.transform_animator")
+    if (std::string_view(type.name) == "forge.animator" ||
+        std::string_view(type.name) == "forge.transform_animator")
         for (const auto* field : {"sequence_next_clip", "sequence_next_start_seconds"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
@@ -4210,7 +4234,8 @@ Json merge_builtin_property_extensions(const Builtin& type, const std::string& f
             return merge_reflected_extensions(entry, known, reflected_extensions(entry, source));
     throw std::runtime_error("Unknown builtin property extension");
 }
-void validate_components(const Json& components) {
+void validate_components(const Json& components, ComponentReferences references,
+                         const Json* reference_intent) {
     for (const auto& type : builtins()) {
         if (!components.contains(type.name))
             continue;
@@ -4227,7 +4252,15 @@ void validate_components(const Json& components) {
                              : reflected_member_value(field, data);
         }
         validate_reflected_json(schema, known);
-        (void)type.decode(data); // Cross-member invariants remain FORGE-owned.
+        const auto value = type.decode(data); // Cross-member invariants remain FORGE-owned.
+        if (const auto* animator = std::get_if<Animator>(&value)) {
+            if (references == ComponentReferences::Resolved)
+                animation_detail::validate_sequence_binding(*animator);
+            else if (reference_intent && reference_intent->contains(type.name))
+                animation_detail::validate_sequence_binding(
+                    *animator,
+                    !reference_intent->at(type.name).value("sequence", Json()).is_null());
+        }
     }
 }
 } // namespace forge::detail

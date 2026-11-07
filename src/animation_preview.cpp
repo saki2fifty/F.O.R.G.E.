@@ -17,6 +17,8 @@ flecs::entity SkeletalAnimationPreview::PreviewWorld::actor() {
     const auto entity = engine.world().world().entity(resolved.entity);
     if (!entity.has<Animator>())
         throw std::runtime_error("Choose an object with an Animator to preview");
+    if (entity.get<Animator>().sequence.entity)
+        throw std::runtime_error("Preview this bound Animator in its sequence Timeline");
     return entity;
 }
 void SkeletalAnimationPreview::start(const std::filesystem::path& project, Json source,

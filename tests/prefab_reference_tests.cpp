@@ -5,23 +5,28 @@
 #include <algorithm>
 #include <array>
 #include <filesystem>
+#include <forge/animation_components.hpp>
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
 #include <iostream>
+#include <source_location>
 using namespace forge;
 namespace {
 void check(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
 }
-template <class F> void rejects(F&& action) {
+template <class F>
+void rejects(F&& action, const std::source_location& where = std::source_location::current()) {
     bool rejected = false;
     try {
         action();
     } catch (const std::exception&) {
         rejected = true;
     }
-    check(rejected, "Invalid prefab reference candidate was accepted");
+    if (!rejected)
+        throw std::runtime_error("Invalid prefab reference candidate accepted at line " +
+                                 std::to_string(where.line()));
 }
 Json& row(Json& document, const std::string& id) {
     for (auto& item : document["entities"])
@@ -240,6 +245,95 @@ void custom_references(const std::filesystem::path& project) {
     });
     check(visited == 5 && components.at(codec.key()).at("opaque") == Json(root_ref),
           "Declared collection traversal missed references or interpreted opaque values");
+}
+void skeletal_references(const std::filesystem::path& project) {
+    std::filesystem::create_directories(project);
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto controller = create(scene, "Skeletal sequence"), model = create(scene, "Model");
+    scene.reparent_entity(model, controller, ReparentMode::KeepLocal);
+    auto document = scene.document();
+    row(document, controller)["components"]["forge.animation_sequence"] =
+        defaults("forge.animation_sequence");
+    auto config = defaults("forge.animator");
+    config.update({{"sequence", scene.reference(controller)},
+                   {"clip", AssetId::generate()},
+                   {"sequence_next_clip", AssetId::generate()},
+                   {"sequence_start_seconds", .25},
+                   {"sequence_next_start_seconds", .75}});
+    row(document, model)["components"]["forge.animator"] = config;
+    scene.edit(document);
+    const auto definition = create_prefab_source(scene, controller);
+    std::string controller_member, model_member;
+    for (const auto& member : definition.source.at("members")) {
+        if (member.at("name") == "Skeletal sequence")
+            controller_member = member.at("id");
+        if (member.at("name") == "Model") {
+            model_member = member.at("id");
+            const auto reference =
+                member.at("components").at("forge.animator").at("sequence").get<PrefabMemberRef>();
+            check(reference.prefab == definition.source.at("asset_id").get<AssetId>(),
+                  "Skeletal controller capture retained a Scene reference");
+        }
+    }
+    check(!controller_member.empty() && !model_member.empty(), "Missing skeletal prefab members");
+    for (unsigned mode = 0; mode < 2; ++mode) {
+        auto invalid = definition.source;
+        for (auto& member : invalid.at("members"))
+            if (member.at("id") == model_member) {
+                auto& value = member.at("components").at("forge.animator");
+                if (mode == 0)
+                    value["sequence"] = nullptr;
+                else
+                    value["graph"] = AssetId::generate();
+            }
+        rejects([&] { (void)PrefabDocument(invalid); });
+    }
+    PrefabLibrary library(project);
+    const auto asset = library.create(scene, definition, "Skeletal.prefab.json");
+    const auto first = instantiate_prefab(scene, asset), second = instantiate_prefab(scene, asset);
+    const auto verify = [&](const std::string& root) {
+        const auto actor = mapped(scene, root, model_member);
+        const auto value = scene.entity(actor).get<Animator>();
+        check(value.sequence == scene.reference(mapped(scene, root, controller_member)) &&
+                  Json(value.clip.id) == config.at("clip") &&
+                  Json(value.sequence_next_clip.id) == config.at("sequence_next_clip") &&
+                  value.sequence_start_seconds == .25 && value.sequence_next_start_seconds == .75,
+              "Skeletal prefab lost scoped controller identity or clip timing");
+        return actor;
+    };
+    const auto actor = verify(first);
+    verify(second);
+    const auto variant = library.create_variant(scene, asset, "SkeletalVariant.prefab.json");
+    verify(instantiate_prefab(scene, variant));
+    verify(scene.duplicate_subtree(first));
+    const auto saved = scene.document();
+    check(!row(document = saved, actor).at("components").contains("forge.animator"),
+          "Skeletal reference materialization manufactured authored component ownership");
+    const auto revision = scene.revision();
+    rejects([&] {
+        authoring_command(scene, "property.set",
+                          {{"entity", actor},
+                           {"component", "forge.animator"},
+                           {"field", "sequence"},
+                           {"value", nullptr}});
+    });
+    check(scene.revision() == revision && scene.document() == saved,
+          "Clearing a required skeletal controller changed authored state");
+    authoring_command(scene, "property.set",
+                      {{"entity", actor},
+                       {"component", "forge.animator"},
+                       {"field", "sequence"},
+                       {"value", scene.reference(second)}});
+    check(scene.entity(actor).get<Animator>().sequence == scene.reference(second) && scene.undo() &&
+              scene.document() == saved,
+          "Skeletal controller override did not preserve its existing Undo owner");
+    EngineContext recovered_engine;
+    Scene recovered(recovered_engine.world());
+    recovered.restore_snapshot(scene.snapshot());
+    check(recovered.document() == saved && recovered.entity(actor).get<Animator>().sequence ==
+                                               scene.entity(actor).get<Animator>().sequence,
+          "Recovered skeletal prefab changed inherited controller intent");
 }
 void test(const std::filesystem::path& project) {
     std::filesystem::remove_all(project);
@@ -513,6 +607,7 @@ int main(int argc, char** argv) {
         test(argv[1]);
         custom_references(std::filesystem::path(argv[1]) / "custom");
         native_vector_references(std::filesystem::path(argv[1]) / "vector");
+        skeletal_references(std::filesystem::path(argv[1]) / "skeletal");
         std::cout << "Portable Prefab reference lifecycle passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

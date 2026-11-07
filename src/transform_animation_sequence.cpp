@@ -24,6 +24,47 @@ double TransformAnimationPlayback::controller_time(const SequenceState& state,
     return std::clamp(root_time - state.root_offset, 0.,
                       std::max(0., state.root_end - state.root_offset));
 }
+TransformAnimationPlayback::SequenceStep
+TransformAnimationPlayback::sequence_step(const SequenceState& state, double seconds) const {
+    if (!std::isfinite(seconds) || seconds < 0)
+        throw std::runtime_error("Sequence step requires finite nonnegative seconds");
+    SequenceStep next{state.time, 0, state.playing, state.discontinuous};
+    if (!state.playing)
+        return next;
+    const auto duration = state.config.duration * animation_timebase;
+    next.advance = seconds * animation_timebase * state.config.playback_speed;
+    next.time += next.advance;
+    if (state.config.loop && next.time >= duration) {
+        next.time = std::fmod(next.time, duration);
+        next.discontinuous = true;
+    } else if (!state.config.loop && next.time >= duration) {
+        next.advance = duration - state.time;
+        next.time = duration;
+        next.playing = false;
+    }
+    return next;
+}
+TransformAnimationPlayback::SequenceTimes
+TransformAnimationPlayback::next_sequence_times(double seconds) const {
+    SequenceTimes times;
+    for (const auto& [id, state] : sequence_states_)
+        if (!state.parent)
+            times.emplace(id, sequence_step(state, seconds).time);
+    return times;
+}
+void TransformAnimationPlayback::validate_sequence_sample(const SequenceTimes& times) {
+    if (pending_)
+        throw AnimationMaterialPending("Waiting for the complete sequence candidate");
+    if (!errors_.empty())
+        throw std::runtime_error("Sequence candidate is invalid: " + errors_.begin()->second);
+    for (const auto& [id, time] : times) {
+        const auto found = sequence_states_.find(id);
+        if (found == sequence_states_.end() || found->second.parent || !std::isfinite(time) ||
+            time < 0 || time > found->second.config.duration * animation_timebase)
+            throw std::runtime_error("Invalid proposed root sequence time");
+    }
+    apply(times_at(times), false, times);
+}
 double TransformAnimationPlayback::controller_presentation_time(flecs::entity_t id,
                                                                 double alpha) const {
     const auto& state = sequence_states_.at(id);
@@ -32,6 +73,45 @@ double TransformAnimationPlayback::controller_presentation_time(flecs::entity_t 
                          root.previous + root.advance >= root.config.duration * animation_timebase;
     return controller_time(
         state, root.advance == 0 || wrapped ? root.time : root.previous + root.advance * alpha);
+}
+flecs::entity_t TransformAnimationPlayback::resolve_sequence(flecs::entity entity,
+                                                             EntityRef reference) const {
+    const auto membership = scene_membership(entity);
+    const auto resolved = context_.resolve(reference, membership);
+    if (!membership || resolved.state != WorldContext::ResolveState::Available ||
+        !context_.world().entity(resolved.entity).has<AnimationSequence>() ||
+        scene_membership(context_.world().entity(resolved.entity)) != membership)
+        throw std::runtime_error("Sequence controller is unavailable in this Scene");
+    if (inactive_sequences_.contains(resolved.entity))
+        return 0;
+    if (!sequence_states_.contains(resolved.entity) || sequence_errors_.contains(resolved.entity))
+        throw std::runtime_error("Sequence controller configuration is invalid");
+    return resolved.entity;
+}
+double TransformAnimationPlayback::sequence_duration(flecs::entity_t id) const {
+    return sequence_states_.at(id).config.duration;
+}
+TransformAnimationPlayback::SequenceInterval
+TransformAnimationPlayback::sequence_interval(flecs::entity_t id) const {
+    const auto& state = sequence_states_.at(id);
+    const auto& root = sequence_states_.at(state.root);
+    return {root.previous / animation_timebase,
+            root.advance / animation_timebase,
+            root.config.duration,
+            state.root_offset / animation_timebase,
+            state.root_end / animation_timebase,
+            root.config.loop,
+            root.playing,
+            state.discontinuous || root.discontinuous,
+            state.root};
+}
+double TransformAnimationPlayback::sequence_sample_time(flecs::entity_t id, double alpha,
+                                                        const SequenceTimes& seek) const {
+    const auto& state = sequence_states_.at(id);
+    const auto proposed = seek.find(state.root);
+    const double time = proposed != seek.end() ? controller_time(state, proposed->second)
+                                               : controller_presentation_time(id, alpha);
+    return time / animation_timebase;
 }
 bool TransformAnimationPlayback::has_nested_sequences() const {
     return std::any_of(sequence_states_.begin(), sequence_states_.end(),
@@ -212,17 +292,19 @@ double TransformAnimationPlayback::sequence_time(const State& state, double time
                       : std::clamp(time - state.config.sequence_start_seconds * animation_timebase,
                                    0., double(state.clip->duration));
 }
-std::map<flecs::entity_t, double> TransformAnimationPlayback::times_at(flecs::entity_t controller,
-                                                                       double time) const {
+std::map<flecs::entity_t, double>
+TransformAnimationPlayback::times_at(const SequenceTimes& roots) const {
     std::map<flecs::entity_t, double> result;
     for (const auto& [id, state] : states_) {
         if (!state.clip)
             continue;
         const auto group = sequence_states_.find(state.sequence);
-        result.emplace(id, controller && group != sequence_states_.end() &&
-                                   group->second.root == controller
-                               ? sequence_time(state, controller_time(group->second, time))
-                               : state.time);
+        const auto proposed =
+            group != sequence_states_.end() ? roots.find(group->second.root) : roots.end();
+        result.emplace(id,
+                       proposed != roots.end()
+                           ? sequence_time(state, controller_time(group->second, proposed->second))
+                           : state.time);
     }
     return result;
 }
@@ -288,6 +370,7 @@ Json TransformAnimationPlayback::sequence_clip_status(EntityRef ref) const {
         return nullptr;
     const auto& state = found->second;
     Json result{{"clip", state.config.clip.id},
+                {"sequence", state.config.sequence},
                 {"start_seconds", state.config.sequence_start_seconds},
                 {"duration_seconds", double(state.clip->duration) / animation_timebase}};
     if (state.span && state.next_clip)
@@ -316,8 +399,8 @@ bool TransformAnimationPlayback::seek(EntityRef ref, double seconds) {
     const auto time =
         (status->loop && seconds == status->duration ? 0 : seconds) * animation_timebase;
     if (const auto group = sequence_states_.find(id); group != sequence_states_.end()) {
-        const auto times = times_at(id, time);
-        apply(times, false);
+        const auto times = times_at({{id, time}});
+        apply(times, false, {{id, time}});
         for (auto& [controller, child] : sequence_states_) {
             (void)controller;
             if (child.root != id)
@@ -335,7 +418,7 @@ bool TransformAnimationPlayback::seek(EntityRef ref, double seconds) {
                 state.discontinuous = true;
             }
     } else {
-        auto times = times_at(0, 0);
+        auto times = times_at({});
         times[id] = time;
         apply(times, false);
         auto& state = states_.at(id);

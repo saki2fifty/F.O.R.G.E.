@@ -18,10 +18,12 @@ from mcp_fog_volume_play import check_fog_volume_play
 from mcp_runtime_workers_play import check_runtime_workers_play
 from mcp_animation_graph_play import check_animation_graph_play
 from mcp_sequence_property_play import check_sequence_property_play
+from mcp_skeletal_sequence_play import check_skeletal_sequence_play
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 SEQUENCE_PROPERTIES_ONLY = sys.argv[7:] == ['--sequence-properties-only']
 SEQUENCE_BINDINGS_ONLY = sys.argv[7:] == ['--sequence-bindings-only']
+SKELETAL_SEQUENCE_ONLY = sys.argv[7:] == ['--skeletal-sequence-only']
 ANIMATION_GRAPH_MODULE = len(sys.argv) == 9 and sys.argv[7] == '--animation-graph-module-only'
 ANIMATION_GRAPH_SDK = sys.argv[7:] == ['--animation-graph-sdk-only'] or ANIMATION_GRAPH_MODULE
 ANIMATION_GRAPH_ONLY = sys.argv[7:] == ['--animation-graph-only'] or ANIMATION_GRAPH_SDK
@@ -209,6 +211,22 @@ def editor(mode='full'):
             command.append(str(workers_project_template(root)))
         elif CAMERA_TRANSITION_ONLY:
             command.append(str(selected_project_template(root, ('Scenes/68-sequence-camera-shots.scene.json', 'Assets/Sequences/SlidingDoor.animation.json'), 'Camera transition template')))
+        elif SKELETAL_SEQUENCE_ONLY:
+            scene_name = 'Scenes/36-animation-root-motion.scene.json'
+            template = selected_project_template(root, (
+                'Assets/LocomotionColumn.gltf', 'Scenes/62-coordinated-animation.scene.json',
+                'Assets/Sequences/LightAndSound.animation.json', 'Assets/FalloffTone.wav'),
+                'Skeletal sequence template')
+            # This original Scene predates Gallery catalog publication; its model
+            # and clip dependencies above use the published catalog owner.
+            shutil.copy2(Path(__file__).resolve().parents[1] / 'samples/projects/FeatureGallery' / scene_name,
+                         template / scene_name)
+            settings_path = template / 'forge.project.json'
+            settings = json.loads(settings_path.read_text())
+            source = json.loads((template / scene_name).read_text())
+            settings['startup_scene'] = dict(asset=source['asset_id'], source=scene_name)
+            settings_path.write_text(json.dumps(settings))
+            command.append(str(template))
         elif SEQUENCE_PROPERTIES_ONLY or SEQUENCE_BINDINGS_ONLY:
             if SEQUENCE_BINDINGS_ONLY:
                 scene_name = 'Scenes/184-sequence-binding-crossfades.scene.json'
@@ -334,6 +352,10 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if SKELETAL_SEQUENCE_ONLY:
+            check_skeletal_sequence_play(read, ok, control, mutate, until, discovery)
+            print(('legacy' if legacy else 'current') + ': skeletal/property authoring, typed Play observations, native samples, controls, Undo and source isolation passed')
+            continue
         if SEQUENCE_PROPERTIES_ONLY or SEQUENCE_BINDINGS_ONLY:
             check_sequence_property_play(read, ok, control, mutate, until, discovery, SEQUENCE_BINDINGS_ONLY)
             print(('legacy' if legacy else 'current') + ': sequence pair authoring/Undo, native Play/seek, scoped values, restart and source isolation passed')

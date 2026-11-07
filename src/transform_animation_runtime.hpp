@@ -44,6 +44,24 @@ class TransformAnimationPlayback {
     void pose_validator(AnimationRuntime::PoseValidator callback) {
         validator_ = std::move(callback);
     }
+    // Private composition boundary: prepare with the complete candidate, then
+    // publish only after every sequence consumer and the validator admitted it.
+    using SequenceTimes = std::map<flecs::entity_t, double>;
+    using SkeletalPose = std::function<std::function<void()>(
+        std::map<std::uint64_t, TransformNode>&, const SequenceTimes&)>;
+    void skeletal_pose(SkeletalPose prepare) { skeletal_pose_ = std::move(prepare); }
+    flecs::entity_t resolve_sequence(flecs::entity, EntityRef) const;
+    double sequence_duration(flecs::entity_t id) const;
+    double sequence_sample_time(flecs::entity_t id, double alpha = 1,
+                                const SequenceTimes& seek = {}) const;
+    struct SequenceInterval {
+        double begin = 0, advance = 0, duration = 0, offset = 0, end = 0;
+        bool loop = false, playing = false, discontinuous = false;
+        flecs::entity_t root = 0;
+    };
+    SequenceInterval sequence_interval(flecs::entity_t id) const;
+    SequenceTimes next_sequence_times(double seconds) const;
+    void validate_sequence_sample(const SequenceTimes&);
 
   private:
     struct MaterialTarget {
@@ -78,6 +96,10 @@ class TransformAnimationPlayback {
         double root_offset = 0, root_end = 0;
         double time = 0, previous = 0, advance = 0;
         bool playing = false, discontinuous = true, entry_pending = true;
+    };
+    struct SequenceStep {
+        double time = 0, advance = 0;
+        bool playing = false, discontinuous = false;
     };
     struct Shot {
         CameraShot config;
@@ -118,12 +140,15 @@ class TransformAnimationPlayback {
     bool pending_ = false;
     std::set<flecs::entity_t> load_errors_;
     AnimationRuntime::PoseValidator validator_;
+    SkeletalPose skeletal_pose_;
     AnimationMaterialInputs material_inputs_;
     ResourceTicket request(AssetRef<TransformAnimationAsset>);
-    void apply(const std::map<flecs::entity_t, double>& times, bool commit);
+    void apply(const std::map<flecs::entity_t, double>& times, bool commit,
+               const SequenceTimes& seek = {});
     void error(flecs::entity_t, const std::string&);
     static flecs::entity_t scene_membership(flecs::entity);
     double controller_time(const SequenceState&, double root_time) const;
+    SequenceStep sequence_step(const SequenceState&, double seconds) const;
     double controller_presentation_time(flecs::entity_t, double alpha) const;
     void synchronize_sequences();
     void synchronize_camera_shots();
@@ -138,6 +163,6 @@ class TransformAnimationPlayback {
     AnimationPropertyValues sample_properties(const State&, double) const;
     void sample_materials(const State&, double, std::span<AnimationMaterialValues>) const;
     void sample_components(const State&, double, std::span<nlohmann::json>) const;
-    std::map<flecs::entity_t, double> times_at(flecs::entity_t controller, double time) const;
+    std::map<flecs::entity_t, double> times_at(const SequenceTimes&) const;
 };
 } // namespace forge

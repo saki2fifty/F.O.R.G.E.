@@ -169,6 +169,8 @@ for legacy in (False, True):
             continue
         if SEQUENCE_CLIPS_ONLY:
             check_sequence_clip_workflow(client, discover, arguments, mutate, project)
+            check_sequence_clip_workflow(client, discover, arguments, mutate, project,
+                                         component_id='forge.animator')
             continue
         if MESH_SCATTER_ONLY:
             check_mesh_scatter_workflow(client, discover, arguments, mutate, project, catalog)

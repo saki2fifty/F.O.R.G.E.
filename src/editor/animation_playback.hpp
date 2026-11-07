@@ -27,7 +27,8 @@ class AnimationPlaybackEditor {
     }
     void draw(const std::string& session, EntityRef ref, const nlohmann::json& status, bool ready,
               bool pending, const std::string& error,
-              const std::function<bool(const nlohmann::json&)>& submit) {
+              const std::function<bool(const nlohmann::json&)>& submit,
+              const std::function<void(EntityRef)>& select_controller = {}) {
         if (session_ != session || source_ != ref) {
             session_ = session;
             source_ = ref;
@@ -37,6 +38,9 @@ class AnimationPlaybackEditor {
         const bool available = status.is_object() && status.value("available", false);
         const bool playing = available && status.value("playing", false);
         const bool sequence = status.is_object() && status.value("sequence_controller", false);
+        const auto binding =
+            status.is_object() ? status.value("sequence", nlohmann::json()) : nlohmann::json();
+        const bool bound = binding.is_object();
         const double duration = available ? status.value("duration", 0.) : 0.;
         if (!dirty_)
             position_ = available ? status.value("time", 0.) : 0.;
@@ -45,7 +49,9 @@ class AnimationPlaybackEditor {
         ImGui::PushStyleColor(ImGuiCol_Border, ImVec4{.24f, .67f, .67f, 1});
         ImGui::BeginChild("##live-animation", {0, 0},
                           ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
-        ui::heading(sequence ? "Live sequence" : "Live animation",
+        ui::heading(bound      ? "Live sequence track"
+                    : sequence ? "Live sequence"
+                               : "Live animation",
                     "Adjust this entity's animation in the current Play session.");
         ImGui::TextColored({.61f, .93f, .89f, 1}, "PLAY — runtime only");
         if (available) {
@@ -82,7 +88,16 @@ class AnimationPlaybackEditor {
             else
                 error_ = "Play is busy. Try again when the controls are ready.";
         };
-        ImGui::BeginDisabled(!ready || pending || !available);
+        if (bound) {
+            ImGui::TextWrapped("Timing comes from an Animation Sequence. Select its controller "
+                               "to pause, restart or seek the arrangement.");
+            ImGui::BeginDisabled(!select_controller);
+            if (ui::button("Select controller", "Inspect the sequence controller's live playback."))
+                select_controller(binding.get<EntityRef>());
+            FORGE_UI_PROBE("live-animation:controller");
+            ImGui::EndDisabled();
+        }
+        ImGui::BeginDisabled(!ready || pending || !available || bound);
         if (ui::button(sequence ? (playing ? "Pause sequence" : "Resume sequence")
                                 : (playing ? "Pause clip" : "Resume clip"),
                        "Change animation playback intent. Game pause remains unchanged."))
@@ -108,7 +123,7 @@ class AnimationPlaybackEditor {
         FORGE_UI_PROBE("live-animation:playhead");
         ui::help("Release to seek. Retains clip pause and fades; skipped markers and root movement "
                  "are not replayed.");
-        if (dirty_ && released && ready && !pending && available) {
+        if (dirty_ && released && ready && !pending && available && !bound) {
             send({{"operation", "seek"}, {"position_seconds", position_}});
             dirty_ = false;
         }

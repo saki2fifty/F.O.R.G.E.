@@ -10,6 +10,7 @@
 #include "runtime_workers_package_tests.hpp"
 #include "standalone_manifest.hpp"
 #include "ui_surface_limits.hpp"
+#include <forge/animation_components.hpp>
 #include <forge/animation_graph.hpp>
 #include <forge/game_settings.hpp>
 #include <forge/input_message.hpp>
@@ -110,6 +111,68 @@ int main(int argc, char** argv) {
                 features,
                 {{"runtime_audio_streaming", asset_detail::audio_streaming_profile_version}});
             record.metadata["forge.audio"].erase("playback_storage");
+            features.replace(record);
+            validate_runtime_compatibility(features, Json::object());
+        }
+        {
+            using package_detail::document_runtime_features;
+            const Json required{{"skeletal_sequence", skeletal_sequence_runtime_profile_version}};
+            const auto none = Json::object();
+            const Json scene_ref = EntityRef{AssetId::generate(), EntityId::generate()};
+            const Json member_ref =
+                PrefabMemberRef{AssetId::generate(), PrefabMemberId::generate()};
+            for (const Json& reference : {scene_ref, member_ref})
+                for (const char* channel : {"components", "property_overrides"})
+                    for (const char* rows : {"entities", "members", "overrides"}) {
+                        Json document{
+                            {rows,
+                             Json::array(
+                                 {{{channel, {{"forge.animator", {{"sequence", reference}}}}}}})}};
+                        if (std::string_view(rows) == "overrides")
+                            document["base"] = AssetId::generate();
+                        check(document_runtime_features(document) == required,
+                              "Skeletal sequence requirements lost a Scene/Prefab/variant binding");
+                        document[rows][0][channel]["forge.animator"]["sequence"] = nullptr;
+                        check(document_runtime_features(document) == none,
+                              "Unbound skeletal clips require a new runtime kit");
+                    }
+            check(document_runtime_features(
+                      {{"entities",
+                        Json::array({{{"components",
+                                       {{"custom.animator", {{"sequence", scene_ref}}}}}}})}}) ==
+                      none,
+                  "Skeletal feature discovery interpreted unrelated project data");
+            for (const Json& invalid : {Json(false), Json(1), Json("reference"), Json::object()})
+                reject([&] {
+                    (void)document_runtime_features(
+                        {{"entities",
+                          Json::array(
+                              {{{"components", {{"forge.animator", {{"sequence", invalid}}}}}}})}});
+                });
+            AssetCatalog features(scratch / "skeletal-sequence-compatibility");
+            AssetRecord record{AssetId::generate(), "scene", "skeletal.scene.json", 5};
+            record.metadata["forge.runtime_document"] = {{"runtime_features", required}};
+            features.add(record);
+            validate_runtime_compatibility(features, {{"runtime_skeletal_sequence",
+                                                       skeletal_sequence_runtime_profile_version}});
+            reject([&] { validate_runtime_compatibility(features, Json::object()); });
+            for (const Json& invalid : {Json(), Json(false), Json(0), Json(1.), Json("1"), Json(2)})
+                reject([&] {
+                    validate_runtime_compatibility(features,
+                                                   {{"runtime_skeletal_sequence", invalid}});
+                });
+            for (const Json& invalid :
+                 {Json(), Json(false), Json(0), Json(1.), Json("1"), Json(2)}) {
+                record.metadata["forge.runtime_document"]["runtime_features"]["skeletal_sequence"] =
+                    invalid;
+                features.replace(record);
+                reject([&] {
+                    validate_runtime_compatibility(
+                        features,
+                        {{"runtime_skeletal_sequence", skeletal_sequence_runtime_profile_version}});
+                });
+            }
+            record.metadata["forge.runtime_document"].erase("runtime_features");
             features.replace(record);
             validate_runtime_compatibility(features, Json::object());
         }

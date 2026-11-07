@@ -2305,3 +2305,29 @@ records hashes, capture sources, independent movie/audio validation and software
 Vulkan limitations. The fixture exercises production scoped recording,
 PlayPresentation, runtime UI and six control layouts; complete Windows Main,
 physical GPU/input/DPI, external client and player review remain separate.
+
+## Skeletal sequence tracks
+
+`manual/images/skeletal-sequence-timeline.png` is the unretouched 720×1100 SDL/ImGui
+capture from `skeletal_sequence_editor`. Actual controls bind the original model,
+pick clips, edit both starts with one Undo, preserve independent property/skeletal
+rows, and activate the Inspector's controller Timeline shortcut. The fixture uses
+a writable copy of the original root-motion Scene; it is a subsystem workspace.
+PNG SHA256: `a1902eef6553aa3f9fbf08ad3934068f8d58d25ecf03b55cac2b86ca25f1531d`.
+
+`manual/images/skeletal-sequence-game.png` is the 640×360 Gallery185 Game readback at
+fixed tick 105 (1.75s), captured by `animation_retarget_gallery_vulkan_probe` through
+RuntimeWorld/FrameRenderer and Diligent software Vulkan. It shows original direct,
+morph and mapped-clip models driven by one controller. Samples at ticks 45/105/150
+and a portrait view match exactly after runtime packaging, relocation and source
+removal. PPM-to-PNG conversion preserves dimensions and all RGB pixels; no cropping,
+resizing or retouching is applied. PNG SHA256:
+`e74f0674bfac2cc4f2a43461d23009b48f61f7cd3462cc06902c12e81b75e8cc`.
+
+Capture source is the local skeletal-sequence implementation based on 83fa9a8;
+the compiled C++/CMake input digest is
+`d91e22cfeb08d091cefcc3e5be8577e99e648ab662accde14e91a82dc29c4022`.
+Gallery Scene identity is `de4aa15d-0b35-40f6-b01a-8f1ea883fa4b`. Native numeric checks
+compare independent standalone phases, morph values, retargeted poses and recovery.
+These captures establish neither complete Windows Main execution nor physical
+GPU/input/DPI, graphical player, external-client or performance acceptance.
