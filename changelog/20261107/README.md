@@ -1,5 +1,21 @@
 # 2026-11-07
 
+## Project-wide C++ source search
+
+C++ Sources adds Find in Project with literal text, case and whole-word controls,
+background matching/cancellation, bounded file/byte/result budgets and explicit
+incomplete/error reporting. Results include open-tab drafts and navigate through
+the existing source owner without saving or changing history. Source digests
+reject stale results before tab/focus/cursor changes, including external changes
+to clean open tabs. Normal source locks and project retirement remain effective.
+
+Read-only automation/MCP can start, page and cancel the same search. Existing
+code.open accepts one-based line/column and an optional expected source digest;
+navigation retains its normal code permission/revision rules. Shared workflow
+metadata distinguishes a fresh ephemeral job from idempotent reads/cancellation.
+Gameplay SDK values, ABI, runtime/exported games and dependencies are unchanged.
+Full semantic completion remains outside this bounded navigation feature.
+
 ## Layered sequence clip overlaps
 
 Animator and Transform Animator add default-off **Layer overlapping clips**.

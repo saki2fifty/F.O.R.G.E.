@@ -1,5 +1,6 @@
 #pragma once
 #include "cpp_source_files.hpp"
+#include "cpp_source_search.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
 #include "widgets.hpp"
@@ -42,6 +43,13 @@ class CppSourceEditor {
     char locator_[256] = "Native/gameplay.cpp", query_[256] = "";
     std::size_t search_from_ = 0;
     Uint64 checked_disk_ = 0;
+    CppSourceSearch project_search_;
+    std::optional<CppSearchResult> project_matches_;
+    std::filesystem::path search_project_;
+    std::string search_operation_;
+    CppSearchOptions search_options_;
+    char project_query_[256] = "";
+    bool project_case_ = true, project_word_ = false, show_project_search_ = false;
     Tab* find(const std::string& locator) {
         ProjectPaths paths(root_);
         for (auto& tab : tabs_)
@@ -94,6 +102,54 @@ class CppSourceEditor {
         return false;
     }
     std::string active_text() const { return active_ ? active_->editor.GetText() : std::string{}; }
+    void poll_project_search() {
+        if (auto result = project_search_.poll()) {
+            if (search_project_ == root_)
+                project_matches_ = std::move(*result);
+        }
+    }
+    void search_project(SceneDocument& project, CppSearchOptions options, bool reveal = true) {
+        project.check_ownership();
+        validate_cpp_search(options);
+        if (root_ != project.project())
+            project_changed(project.project());
+        poll_project_search();
+        if (project_search_.busy())
+            throw std::runtime_error("Wait for the current project search or cancel it first.");
+        CppSearchDrafts drafts;
+        std::size_t bytes = 0;
+        for (const auto& tab : tabs_) {
+            auto text = tab->editor.GetText();
+            if (text.size() > cpp_search_byte_limit - bytes)
+                throw std::runtime_error("Open source drafts exceed the 32 MiB search budget.");
+            bytes += text.size();
+            drafts.emplace(std::filesystem::u8path(tab->locator), std::move(text));
+        }
+        project_search_.start(root_, options, std::move(drafts));
+        search_project_ = root_;
+        search_operation_ = AssetId::generate().str();
+        search_options_ = options;
+        project_matches_.reset();
+        std::copy(options.query.begin(), options.query.end(), project_query_);
+        project_query_[options.query.size()] = '\0';
+        project_case_ = options.match_case;
+        project_word_ = options.whole_word;
+        show_project_search_ = true;
+        if (reveal)
+            open_ = focus_ = true;
+    }
+    void open_search_result(SceneDocument& project, std::size_t index) {
+        if (search_project_ != project.project() || !project_matches_ ||
+            index >= project_matches_->matches.size())
+            throw std::runtime_error("Run Find in Project again before opening this result.");
+        const auto match = project_matches_->matches[index];
+        open(project, match.path, match.line, match.column, match.state);
+        const auto row = match.line - 1, column = match.column - 1;
+        const auto [end_row, end_column] =
+            cpp_source_coordinate(search_options_.query, match.length, 0, row, column);
+        active_->editor.SetSelection({row, column}, {end_row, end_column});
+        active_->editor.SetCursorPosition({end_row, end_column});
+    }
     void replace_text(const std::string& text) {
         validate_cpp_text(text);
         if (text.size() >= max_cpp_source_bytes)
@@ -154,6 +210,11 @@ class CppSourceEditor {
         active_->changed();
     }
     void project_changed(const std::filesystem::path& root) {
+        project_search_.cancel();
+        project_matches_.reset();
+        search_project_.clear();
+        search_operation_.clear();
+        show_project_search_ = false;
         root_ = root;
         tabs_.clear();
         active_ = nullptr;
@@ -162,7 +223,9 @@ class CppSourceEditor {
         error_.clear();
         ++source_revision;
     }
-    void open(SceneDocument& project, const std::string& locator, int line = 1, int column = 1) {
+    void open(SceneDocument& project, const std::string& locator, int line = 1, int column = 1,
+              const std::string& expected_state = {}) {
+        project.check_ownership();
         if (root_ != project.project())
             project_changed(project.project());
         const auto normalized =
@@ -172,13 +235,22 @@ class CppSourceEditor {
             auto path = cpp_source_path(root_, normalized);
             if (tabs_.size() >= 32)
                 throw std::runtime_error("Close a source tab before opening more than 32 files.");
-            tabs_.push_back(std::make_unique<Tab>(normalized, read_cpp_source(path)));
+            const auto text = read_cpp_source(path);
+            if (!expected_state.empty() && cpp_source_state(text) != expected_state)
+                throw CppSourceChanged();
+            tabs_.push_back(std::make_unique<Tab>(normalized, text));
             tab = tabs_.back().get();
             tab->stamp = std::filesystem::last_write_time(path);
-        }
-        if (!tab->dirty) {
+        } else if (tab->dirty) {
+            if (!expected_state.empty() &&
+                cpp_source_state(tab->editor.GetText()) != expected_state)
+                throw CppSourceChanged();
+        } else {
             const auto path = cpp_source_path(root_, normalized);
             const auto disk = read_cpp_source(path);
+            if (!expected_state.empty() &&
+                (disk != tab->disk || cpp_source_state(tab->editor.GetText()) != expected_state))
+                throw CppSourceChanged();
             if (disk != tab->disk) {
                 tab->disk = disk;
                 tab->editor.SetText(disk);
@@ -229,6 +301,7 @@ class CppSourceEditor {
     }
     void draw(SceneDocument& project, EditorUiContext& context, bool locked,
               bool save_locked = false) {
+        poll_project_search();
         if (!open_)
             return;
         if (root_ != project.project()) {
@@ -299,7 +372,8 @@ class CppSourceEditor {
                        "isolated compiler task. Stop Play first."))
                 attempt([&] { request_build(); });
             ImGui::EndDisabled();
-            if (!save_key && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F) &&
+            if (!save_key && ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift &&
+                ImGui::IsKeyPressed(ImGuiKey_F) &&
                 ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
                 ImGui::SetKeyboardFocusHere();
             if (ImGui::InputText("Find", query_, sizeof(query_),
@@ -318,17 +392,7 @@ class CppSourceEditor {
                         pos = text.find(search_);
                     if (pos != std::string::npos) {
                         auto coordinate = [&](std::size_t end) {
-                            int row = 0, col = 0;
-                            for (std::size_t i = 0; i < end; ++i) {
-                                const auto c = static_cast<unsigned char>(text[i]);
-                                if (c == '\n') {
-                                    ++row;
-                                    col = 0;
-                                } else if (c == '\t')
-                                    col = (col / 4 + 1) * 4;
-                                else if ((c & 0xc0) != 0x80)
-                                    ++col;
-                            }
+                            const auto [row, col] = cpp_source_coordinate(text, end);
                             return TextEditor::Coordinates(row, col);
                         };
                         active_->editor.SetSelection(coordinate(pos),
@@ -339,6 +403,7 @@ class CppSourceEditor {
                         error_ = "No match in the active source.";
                 }
             }
+            draw_project_search(project, locked);
             if (ImGui::BeginTabBar("cpp_source_tabs")) {
                 std::string closed;
                 for (auto& tab : tabs_) {
@@ -471,6 +536,85 @@ class CppSourceEditor {
             ImGui::EndPopup();
         }
         ImGui::End();
+    }
+    void draw_project_search(SceneDocument& project, bool locked) {
+        const bool shortcut = ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift &&
+                              ImGui::IsKeyPressed(ImGuiKey_F, false) &&
+                              ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+        if (shortcut || show_project_search_)
+            ImGui::SetNextItemOpen(true);
+        show_project_search_ = ImGui::CollapsingHeader("Find in Project");
+        FORGE_UI_PROBE("cpp:project-search");
+        if (!show_project_search_)
+            return;
+        if (shortcut)
+            ImGui::SetKeyboardFocusHere();
+        const bool enter =
+            ImGui::InputTextWithHint("Text##project-search", "Literal text...", project_query_,
+                                     sizeof(project_query_), ImGuiInputTextFlags_EnterReturnsTrue);
+        FORGE_UI_PROBE("cpp:project-query");
+        ImGui::Checkbox("Match case", &project_case_);
+        FORGE_UI_PROBE("cpp:project-case");
+        ImGui::SameLine();
+        ImGui::Checkbox("Whole word", &project_word_);
+        FORGE_UI_PROBE("cpp:project-word");
+        help("Search supported Native source/header files and snapshots of open tabs. "
+             "Case folding is ASCII; non-ASCII letters retain exact bytes and word boundaries. "
+             "No regular expressions or file changes. Rerun after editing.");
+        ImGui::BeginDisabled(project_search_.busy() || !project_query_[0]);
+        if (button("Search project",
+                   "Search in the background; results open the matching source.") ||
+            (enter && !project_search_.busy() && project_query_[0]))
+            attempt(
+                [&] { search_project(project, {project_query_, project_case_, project_word_}); });
+        FORGE_UI_PROBE("cpp:project-run");
+        ImGui::EndDisabled();
+        if (project_search_.busy()) {
+            ImGui::SameLine();
+            if (button("Cancel search", "Stop this search without changing sources."))
+                project_search_.cancel();
+            FORGE_UI_PROBE("cpp:project-cancel");
+            ImGui::SameLine();
+            ImGui::TextUnformatted("Searching...");
+        }
+        if (!project_matches_)
+            return;
+        const auto& result = *project_matches_;
+        ImGui::Text("%zu matches | %zu files | %.1f MiB%s", result.matches.size(), result.files,
+                    double(result.bytes) / (1024 * 1024), result.complete() ? "" : " | Incomplete");
+        if (result.cancelled)
+            ImGui::TextWrapped("Search cancelled. Displayed results are partial.");
+        if (result.limited)
+            ImGui::TextWrapped("Search stopped at 512 matches or 32 MiB. Narrow the search text.");
+        if (result.skipped)
+            ImGui::TextWrapped("%zu files could not be searched.", result.skipped);
+        for (const auto& error : result.errors)
+            ImGui::TextWrapped("%s", error.c_str());
+        if (result.matches.empty())
+            return;
+        ImGui::PushID(search_operation_.c_str());
+        if (ImGui::BeginChild("Project search results",
+                              {0, std::min(220.f, ImGui::GetContentRegionAvail().y * .4f)},
+                              ImGuiChildFlags_Borders)) {
+            ImGui::BeginDisabled(locked);
+            for (std::size_t i = 0; i < result.matches.size(); ++i) {
+                const auto& match = result.matches[i];
+                ImGui::PushID(int(i));
+                if (ImGui::SmallButton("Open"))
+                    attempt([&] { open_search_result(project, i); });
+                FORGE_UI_PROBE("cpp:project-open:" + std::to_string(i));
+                ImGui::SameLine();
+                ImGui::TextUnformatted((match.path + ":" + std::to_string(match.line) + ":" +
+                                        std::to_string(match.column) +
+                                        (match.draft ? " [open tab]" : ""))
+                                           .c_str());
+                ImGui::TextUnformatted(match.excerpt.c_str());
+                ImGui::PopID();
+            }
+            ImGui::EndDisabled();
+        }
+        ImGui::EndChild();
+        ImGui::PopID();
     }
     void controls(SceneDocument& project, bool locked) {
         ImGui::BeginDisabled(locked || !request_new);

@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-11-07](20261107/README.md) — Nested sequence playback rates/Gallery186; shared skeletal sequence tracks and morph/retargeted overlaps/Gallery185; compatible Material/reflected-field crossfades/Gallery184; native Inspector/Timeline, scoped automation/MCP and illustrated manuals. Local source; Windows verification and delivery pending.
+- [2026-11-07](20261107/README.md) — Project-wide C++ source search/navigation; eight-way sequence overlaps/Gallery190, repeated controller placements/Gallery189 and nested playback rates/Gallery186; shared skeletal tracks/Gallery185 and Material/reflected crossfades/Gallery184; native controls, automation/MCP and illustrated manuals. Local source; Windows verification and delivery pending.
 
 - [2026-11-06](20261106/README.md) — Fresh offline game movies with synchronized audio/Gallery182; silent AVI sequence export/Gallery181; authored Clip/Blend/Additive animation graphs/Gallery180; target-bound skeletal retarget baking/Gallery179; Runtime GPU reflection capture/Gallery176; animated triangle UI surfaces/Gallery177; Scene Mesh texture painting, shared source/UV/history/publication, programmatic triangle inspection/projection and Gallery178. Local source; Windows verification and delivery pending.
 

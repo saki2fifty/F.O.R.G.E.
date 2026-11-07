@@ -156,6 +156,14 @@ installed SDK. Source changes appear in the normal editor tabs; replacement shar
 one source Undo step. File conflicts preserve the draft. Saving does not grant
 permission to run code: an ungranted save never queues Build on Save.
 
+Project-wide source search is also available with read-only access. The agent
+starts `forge_code_search_start`, polls `forge_code_search_status`, and can cancel
+the returned operation with `forge_code_search_cancel`. Results include open draft
+snapshots, source digests and line/column locations. With code editing permitted,
+`forge_code_open` can use a result's path, state, line and column to navigate;
+changed source returns `stale_source`. Search never grants editing or execution.
+See [Find code across the project](native-gameplay.md) for matching rules and limits.
+
 With execution allowed, the agent can test compiler tools, build current saved
 code, inspect its opted-in component types and explicitly migrate old authored
 values. Native code and build recipes run with your account's operating-system

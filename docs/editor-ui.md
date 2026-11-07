@@ -309,6 +309,30 @@ handler for that save frame to avoid a second edit or dispatch. Text Undo/Redo a
 Find remain local. Fixed navigation, text and gameplay safety keys are reserved;
 see [the complete user behavior](../manual/editor/shortcuts.md).
 
+## C++ project search
+
+The existing C++ Sources document owns Find in Project and one cancellable CPU
+task. Main-thread admission snapshots its bounded open-tab text; discovery,
+contained file reads, UTF-8 validation and literal matching run on immutable
+worker inputs. No worker borrows source widgets, the Scene or an engine world.
+Results have a source digest, bounded excerpt and one-based visual coordinates,
+with explicit partial/cancel/error reporting. Project switches retire pending
+results; a result cannot adopt into another project's source tabs.
+Result widgets also belong to the search operation, so a held pointer cannot
+activate a different job's replacement row.
+
+Find next and project results share the source-widget coordinate conversion.
+Result activation reuses normal source opening with an expected digest: stale
+dirty text, changed clean-tab disk baselines and changed unopened files reject
+before tab/focus/cursor changes. Opening never creates a history entry or saves.
+Ctrl+Shift+F stays within C++ Sources keyboard focus; Ctrl+F remains active-file
+search. Normal source locks guard result activation; reading/searching remains
+available. Shared `code.search.*` observations and digest-checked `code.open` use
+the same editor owner through automation/MCP. See the
+[user workflow and bounds](../manual/editor/native-gameplay.md) and
+[agent contract](mcp.md). These are editor-only tools, absent from runtime targets
+and exports; no public native SDK or gameplay ABI change is required.
+
 ## Reviewed runtime tuning
 
 `RuntimeTuningReview` is a bounded session-only review borrowing the existing Scene

@@ -2,6 +2,7 @@
 #include "../src/gameplay_source_identity.hpp"
 #include "cpp_shortcut_editor_tests.hpp"
 #include "cpp_source_files.hpp"
+#include "cpp_source_search_tests.hpp"
 #include <TextEditor.h>
 #include <chrono>
 #include <cstdint>
@@ -29,6 +30,7 @@ int main(int argc, char** argv) {
     std::filesystem::create_directories(root / "Native");
     try {
         using namespace forge::ui;
+        test_cpp_source_search(root / "search-project");
         forge::asset_storage::replace(root / "Native/main.cpp", "int main() { return 0; }\r\n");
         auto baseline = read_cpp_source(cpp_source_path(root, "Native/main.cpp"));
         save_cpp_source(root, "Native/main.cpp", baseline, "int main() { return 1; }\n");

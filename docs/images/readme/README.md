@@ -1,5 +1,23 @@
 # README screenshots
 
+## C++ project search
+
+[Find in Project](../../../manual/images/cpp-project-search.png) shows the actual
+1180×850 CppSourceEditor in SDL/ImGui software rendering. Real pointer/keyboard
+input searches the open unsaved Rotator and an on-disk System, then opens the
+second matching line. The source tabs, exact excerpts, selected match and unsaved
+indicator are unretouched. The same fixture verifies six wide/compact100/150/200%
+layouts, source Undo, stale external changes, source locks and project retirement.
+PNG SHA256: `bea16f605034e6f4ae3bbca3968e86f28d3c829a8d49c0dca9fba87be991dd04`.
+
+The capture uses local source based on e6d6fdf; exact source, executable and six
+image hashes are recorded in
+`AgentFiles/build/phase288-project-code-search/capture-proof.json`. All six images
+were personally reviewed. The isolated fixture has no Content/New/build callbacks;
+it is a genuine subsystem capture, not full editor, Windows, physical input/DPI,
+exported-game or performance acceptance. The canonical PNG is copied byte-for-byte,
+without cropping, resizing, retouching or generated controls.
+
 ## Signed Texture image output
 
 [Signed Texture export](../../../manual/images/signed-texture-export.png) shows

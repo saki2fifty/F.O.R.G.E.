@@ -74,7 +74,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 ## Game behavior
 
 - [Choose game modes and condition object activity](editor/application-states.md)
-- [Project Code (C++ components, worker systems and unscaled timers)](editor/native-gameplay.md)
+- [Project Code (C++ components, project-wide source search, worker systems and unscaled timers)](editor/native-gameplay.md)
 - [Gameplay input, sixteen local controllers, raw motion, analog response and vibration](editor/input.md)
 - [Send component data on press, release or change](editor/input-messages.md)
 - [Touch contacts, tap, hold, swipe, pan, pinch and rotation](editor/touch-input.md)

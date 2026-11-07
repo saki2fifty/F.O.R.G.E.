@@ -199,6 +199,8 @@ std::vector<Tool> tools(const Json& discovery) {
         result.back().png = content == "image/png";
         result.back().description["annotations"]["openWorldHint"] =
             workflow.value("executes_native", false);
+        result.back().description["annotations"]["idempotentHint"] =
+            workflow.value("idempotent", true);
     }
     return result;
 }

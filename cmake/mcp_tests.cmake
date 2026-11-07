@@ -524,6 +524,8 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
   set_tests_properties(mcp_install_sdk PROPERTIES FIXTURES_SETUP mcp_sdk)
   add_test(NAME mcp_code_inspection_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_code_inspection_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_code_host> "${_forge_mcp_sdk}" ${CMAKE_COMMAND} ${CMAKE_MAKE_PROGRAM} $<TARGET_FILE:forge_sdk_probe> $<TARGET_FILE:forge_sdk_schema_migrate> "${CMAKE_CURRENT_BINARY_DIR}/mcp-inspection-protocol-capture.json.gz")
   set_tests_properties(mcp_code_inspection_stdio PROPERTIES FIXTURES_REQUIRED mcp_sdk TIMEOUT 240)
+  add_test(NAME mcp_code_search_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_code_search_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_code_host> "${CMAKE_CURRENT_BINARY_DIR}/mcp-code-search-capture.json.gz")
+  set_tests_properties(mcp_code_search_stdio PROPERTIES TIMEOUT 120)
   # The existing managed compiler recipe selects Release; Debug kits still run
   # actual inspection/migration tests but cannot claim a Release build admission.
   if(CMAKE_BUILD_TYPE STREQUAL "Release")

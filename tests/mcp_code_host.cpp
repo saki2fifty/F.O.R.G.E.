@@ -66,6 +66,8 @@ int main(int argc, char** argv) {
         std::cout << workspace.connection().connection().dump() << std::endl;
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(240);
         while (workspace.active() && std::chrono::steady_clock::now() < end) {
+            if (forge::test::consume_marker(root / "stop"))
+                break;
             files.changed = false;
             if (argc == 8 && forge::test::consume_marker(root / "install-v2"))
                 install_probe(argv[7]);
@@ -75,6 +77,7 @@ int main(int argc, char** argv) {
                            build.busy() || authored.busy() ? "Native task pending" : "");
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
+        ImGui::DestroyContext();
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

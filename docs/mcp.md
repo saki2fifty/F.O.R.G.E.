@@ -702,8 +702,41 @@ Project authoring exposes `forge_code_status`, `sources`, `read`, `setup`, `crea
 the `forge_code_` prefix. Source files live under `Native/`; they have no AssetIds.
 Open tabs return a transient `session` and content `state` digest, both required
 for tab changes in addition to scene routing/revision/sequence. Reopening produces
-a new session. Logical redirects into another owner, generated paths and external
+a new session. Open-tab observations also return a one-based visual `cursor`
+line/column, allowing clients to verify source navigation. Logical redirects into another owner, generated paths and external
 save conflicts are rejected.
+
+`forge_code_search_start` starts the source editor's single background literal
+search with `query` (1..255 UTF-8 bytes, no line breaks), `match_case` (default true)
+and `whole_word` (default false). It snapshots open tabs without moving focus or
+saving. All three search tools use `code.read`, including scene-only/read-only
+connections; they neither execute code nor mutate source/history/revisions.
+Starting a fresh ephemeral job advertises `idempotentHint:false`; status and
+named cancellation retain their idempotent hints. Discovery owns this metadata.
+`forge_code_search_status` accepts `offset` and `limit` (1..128) and returns the
+operation, busy state, options, total retained matches and a result page. Finished
+results report `complete`, `cancelled`, `limited`, `skipped`, bounded errors and
+scanned file/byte counts. Total means retained matches, never an unlimited count.
+Each match exposes Native path, exact source `state`, one-based visual line/column,
+UTF-8 byte offset/length, bounded excerpt and whether it came from an open tab.
+
+`forge_code_search_cancel` requires that exact operation UUID; another job/project
+returns `wrong_job`. Poll until idle before starting another search. Project
+switches cancel/retire old work; results cannot publish into the new source owner.
+The worker owns immutable text copies, project paths and cancellation only.
+Discovery/reads/matching stay off the editor frame. Budgets are 2048 files,32 MiB,
+512 matches,1 MiB per valid UTF-8/NUL-free file, and16 retained file diagnostics;
+any cancellation/limit/skip is explicitly incomplete. Existing containment and
+generated-path/symlink exclusions apply. Case folding is ASCII-only; whole-word
+boundaries treat ASCII letters/digits/underscore and all non-ASCII bytes as word
+content. There are no regexes or replacement operations.
+
+With the existing `code.write` grant, `forge_code_open` additionally accepts
+`line`, `column` and optional `state`. Pass the match's state to reject stale
+navigation with `stale_source` before tab creation, automatic disk reload, focus
+or cursor changes. Clean open tabs also compare their disk baseline; dirty tabs
+retain their source draft/history. Search result navigation has ordinary scene
+routing/revision/sequence requirements, without a Scene Undo or source edit.
 
 Replacement uses the actual text widget's single Paste/Delete Undo record and a
 temporarily substituted clipboard reader; it never reads or writes the OS

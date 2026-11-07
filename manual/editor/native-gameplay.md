@@ -66,6 +66,39 @@ discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
 be open. This editor does not include a debugger, full IDE completion or arbitrary
 in-place C++ reload.
 
+## Find code across the project
+
+In **C++ Sources**, expand **Find in Project**, or press **Ctrl+Shift+F** while
+that document has keyboard focus. Enter literal text, choose **Match case** and
+**Whole word**, then press Enter or **Search project**. **Ctrl+F** and **Find next**
+continue to search only the active file.
+
+![C++ Sources showing project search results and an unsaved component tab](../images/cpp-project-search.png)
+
+Project search lists matching Native paths, one-based lines and columns, and a
+short source excerpt. Click **Open** beside a result to navigate to the match.
+Results marked **[open tab]** use the text that was in that tab when the search
+started, including unsaved changes. Searching and opening results do not save
+files or add an Undo step. Existing source drafts and their Undo history remain
+available in their tabs.
+
+Search runs in the background. **Cancel search** stops it without changing code.
+Rerun after editing: a result whose source changed is refused instead of opening
+an outdated location. Reload an externally changed clean tab, then search again.
+Save conflicts retain their normal behavior.
+
+Only supported source/header files under **Native/** are searched. Build folders,
+`.forge`, linked files/directories, SDK headers and engine sources are excluded.
+Each source must be valid UTF-8 without NUL and at most 1 MiB. A search examines
+at most 2,048 files and 32 MiB, returning at most 512 matches. **Incomplete**,
+cancellation, skipped-file errors or a limit message mean the displayed list is
+partial. Narrow the text when a limit is reached.
+
+Matching uses literal text, without regular expressions. **Match case** is on by
+default; turning it off ignores ASCII letter case. Non-ASCII text keeps its exact
+spelling. **Whole word** treats letters, digits, underscores and non-ASCII bytes
+as word content, so `speed` does not match `speeds` or `_speed`.
+
 ## Run an ECS system on worker stages
 
 Open **161-fixed-ecs-workers** in a writable Feature Gallery copy. Its sixteen

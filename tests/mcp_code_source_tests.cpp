@@ -1,5 +1,6 @@
 #include "editor/code_automation.hpp"
 #include <iostream>
+#include <thread>
 
 namespace {
 void check(bool value, const std::string& message) {
@@ -115,6 +116,77 @@ int main(int argc, char** argv) {
         check(sources.at("total") == 2 &&
                   sources.at("sources") == forge::Json::array({"Native/Second.hpp"}),
               "MCP source discovery diverged from the ordered project source list");
+        const auto scene_before_search = scene.document();
+        const auto revision_before_search = editor.source_revision;
+        const auto settle_search = [&] {
+            const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+            for (;;) {
+                auto status = invoke("code.search.status", {{"offset", 0}, {"limit", 1}});
+                if (!status.at("busy").get<bool>())
+                    return status;
+                if (std::chrono::steady_clock::now() >= end)
+                    throw std::runtime_error("Source search did not settle");
+                std::this_thread::yield();
+            }
+        };
+        invoke("code.search.start", {{"query", "value"}, {"whole_word", true}});
+        auto searched = settle_search();
+        check(searched.at("complete") && searched.at("total") == 1 &&
+                  searched.at("matches").at(0).at("excerpt") == "int value = 3;" &&
+                  searched.at("matches").at(0).at("open") == true &&
+                  searched.at("matches").at(0).at("column") == 5 &&
+                  editor.active_source() == "Native/Second.hpp" &&
+                  editor.source_revision == revision_before_search &&
+                  scene.document() == scene_before_search,
+              "Search did not use the shared dirty draft or changed document/history/focus");
+        const auto match = searched.at("matches").at(0);
+        invoke("code.open", {{"path", match.at("path")},
+                             {"state", match.at("state")},
+                             {"line", match.at("line")},
+                             {"column", match.at("column")}});
+        check(editor.active_source() == "Native/First.cpp" && editor.dirty() && editor.can_undo(),
+              "Search navigation replaced an existing source draft/history");
+        editor.open_search_result(files.document, 0);
+        editor.replace_text("int value = 5;\n");
+        bool stale_search = false;
+        try {
+            invoke("code.open", {{"path", match.at("path")}, {"state", match.at("state")}});
+        } catch (const forge::AuthoringError& error) {
+            stale_search = error.code == "stale_source";
+        }
+        check(stale_search, "Search navigation accepted a changed source digest");
+        bool stale_ui = false;
+        try {
+            editor.open_search_result(files.document, 0);
+        } catch (const std::exception&) {
+            stale_ui = true;
+        }
+        check(stale_ui && editor.active_text() == "int value = 5;\n",
+              "Stale interactive result moved or replaced source text");
+        bool wrong_job = false;
+        try {
+            invoke("code.search.cancel", {{"operation", forge::AssetId::generate().str()}});
+        } catch (const forge::AuthoringError& error) {
+            wrong_job = error.code == "wrong_job";
+        }
+        check(wrong_job, "Source search cancellation accepted another operation");
+        const auto started_search = invoke("code.search.start", {{"query", "value"}});
+        invoke("code.search.cancel", {{"operation", started_search.at("operation")}});
+        searched = settle_search();
+        check(!started_search.at("busy").get<bool>() ||
+                  (searched.at("cancelled") && !searched.at("complete").get<bool>()),
+              "Cancelled source search claimed completeness");
+        auto readonly_permissions = permissions;
+        readonly_permissions.code = false;
+        const auto readonly_methods = forge::CodeAutomation::methods(
+            scene, files, editor, authored, prefab, providers, readonly_permissions);
+        for (const auto* name : {"code.search.start", "code.search.status", "code.search.cancel"})
+            check(std::any_of(readonly_methods.begin(), readonly_methods.end(),
+                              [&](const auto& method) {
+                                  return method.name == name && !method.mutation &&
+                                         method.capability == "code.read";
+                              }),
+                  "Read-only source search is missing or grants source mutation");
         auto state = invoke("code.read", {{"path", "Native/First.cpp"}});
         invoke("code.close", {{"path", "Native/First.cpp"},
                               {"session", state.at("session")},

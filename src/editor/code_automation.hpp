@@ -18,9 +18,7 @@ struct CodeAutomationProviders {
     std::function<std::string()> unavailable;
 };
 struct CodeAutomation {
-    static std::string hash(std::string_view value) {
-        return asset_detail::content_digest(std::as_bytes(std::span(value.data(), value.size())));
-    }
+    static std::string hash(std::string_view value) { return ui::cpp_source_state(value); }
     static Json text_page(const std::string& text, const Json& request) {
         auto start = std::min(request.value("offset", std::size_t{}), text.size());
         const auto continuation = [&](std::size_t i) {
@@ -49,11 +47,13 @@ struct CodeAutomation {
         return build;
     }
     static Json tab_state(const ui::CppSourceEditor::Tab& tab) {
+        const auto cursor = tab.editor.GetCursorPosition();
         return {{"path", tab.locator},
                 {"session", tab.session},
                 {"state", hash(tab.editor.GetText())},
                 {"dirty", tab.dirty},
                 {"external", tab.external},
+                {"cursor", {{"line", cursor.mLine + 1}, {"column", cursor.mColumn + 1}}},
                 {"can_undo", tab.editor.CanUndo()},
                 {"can_redo", tab.editor.CanRedo()}};
     }
@@ -93,6 +93,49 @@ struct CodeAutomation {
                 {"error", build.error()},
                 {"log_revision", build.log_revision()}};
     }
+    static Json search_state(EditorFiles& files, ui::CppSourceEditor& editor, const Json& request) {
+        files.document.check_ownership();
+        editor.poll_project_search();
+        if (editor.search_project_ != files.document.project())
+            return {{"operation", nullptr},
+                    {"busy", false},
+                    {"matches", Json::array()},
+                    {"complete", false},
+                    {"total", 0}};
+        Json result{{"operation", editor.search_operation_},
+                    {"busy", editor.project_search_.busy()},
+                    {"query", editor.search_options_.query},
+                    {"match_case", editor.search_options_.match_case},
+                    {"whole_word", editor.search_options_.whole_word},
+                    {"complete", false},
+                    {"total", 0},
+                    {"matches", Json::array()}};
+        if (!editor.project_matches_)
+            return result;
+        const auto& found = *editor.project_matches_;
+        result.update({{"complete", found.complete()},
+                       {"cancelled", found.cancelled},
+                       {"limited", found.limited},
+                       {"skipped", found.skipped},
+                       {"errors", found.errors},
+                       {"files", found.files},
+                       {"bytes", found.bytes},
+                       {"total", found.matches.size()}});
+        const auto offset = request.value("offset", std::size_t{}),
+                   limit = request.value("limit", std::size_t(128));
+        for (std::size_t i = offset; i < found.matches.size() && i - offset < limit; ++i) {
+            const auto& match = found.matches[i];
+            result["matches"].push_back({{"path", match.path},
+                                         {"state", match.state},
+                                         {"line", match.line},
+                                         {"column", match.column},
+                                         {"offset", match.offset},
+                                         {"length", match.length},
+                                         {"excerpt", automation_text_value(match.excerpt)},
+                                         {"open", match.draft}});
+        }
+        return result;
+    }
     static std::vector<LiveAuthoringMethod>
     methods(Scene& scene, EditorFiles& files, ui::CppSourceEditor& editor,
             AuthoredComponents& authored, PrefabEditor& prefab, CodeAutomationProviders providers,
@@ -126,6 +169,50 @@ struct CodeAutomation {
                 for (std::size_t i = offset; i < sources.size() && i - offset < limit; ++i)
                     page.push_back(sources[i]);
                 return Json{{"sources", std::move(page)}, {"total", sources.size()}};
+            }));
+        methods.push_back(automation_method(
+            "code.search.start",
+            "Start background literal search of supported Native files and open draft snapshots. "
+            "No files, history or editor focus change. One job; at most 32 MiB and 512 matches. "
+            "ASCII case folding, UTF-8 exact non-ASCII text; no regular expressions. Poll "
+            "code.search.status; incomplete results never claim a full search.",
+            "code.read",
+            automation_object({{"query", automation_text(255, 1)},
+                               {"match_case", {{"type", "boolean"}}},
+                               {"whole_word", {{"type", "boolean"}}}},
+                              {"query"}),
+            false, [&files, &editor](const Json& request) {
+                editor.search_project(files.document,
+                                      {request.at("query").get<std::string>(),
+                                       request.value("match_case", true),
+                                       request.value("whole_word", false)},
+                                      false);
+                return search_state(files, editor, Json::object());
+            }));
+        methods.back().idempotent = false;
+        methods.push_back(
+            automation_method("code.search.status",
+                              "Page current search snapshots. Use each result's path, state, "
+                              "line and column with code.open; rerun after source changes.",
+                              "code.read",
+                              automation_object({{"offset", automation_integer()},
+                                                 {"limit", automation_integer(1, 128)}}),
+                              false, [&files, &editor](const Json& request) {
+                                  return search_state(files, editor, request);
+                              }));
+        methods.push_back(automation_method(
+            "code.search.cancel",
+            "Cancel only the named background source-search job. No source "
+            "or build changes. Poll status for any partial results.",
+            "code.read", automation_object({{"operation", automation_uuid()}}, {"operation"}),
+            false, [&files, &editor](const Json& request) {
+                files.document.check_ownership();
+                if (editor.search_project_ != files.document.project() ||
+                    request.at("operation") != editor.search_operation_)
+                    throw AuthoringError("wrong_job",
+                                         "Search belongs to another operation/project");
+                editor.project_search_.cancel();
+                return search_state(files, editor, Json::object());
             }));
         methods.push_back(automation_method(
             "code.read",
@@ -288,14 +375,27 @@ struct CodeAutomation {
             methods.push_back(automation_method(
                 "code.open",
                 "Open a contained Native source in the actual C++ editor, preserving existing "
-                "dirty tabs and source Undo history.",
-                "code.write", automation_object({{"path", automation_text(2047, 1)}}, {"path"}),
+                "dirty tabs and source Undo history. Optional one-based visual line/column "
+                "navigate "
+                "search results. Supply their state digest to reject stale text before navigation.",
+                "code.write",
+                automation_object({{"path", automation_text(2047, 1)},
+                                   {"line", automation_integer(1, 1048576)},
+                                   {"column", automation_integer(1, 4194304)},
+                                   {"state", automation_digest()}},
+                                  {"path"}),
                 true, [&files, &editor, providers](const Json& request) {
                     available(files, providers);
                     source_ready(editor);
                     const auto path =
                         automation_relative_path(request.at("path").get<std::string>());
-                    editor.open(files.document, path_utf8(path));
+                    try {
+                        editor.open(files.document, path_utf8(path), request.value("line", 1),
+                                    request.value("column", 1),
+                                    request.value("state", std::string{}));
+                    } catch (const ui::CppSourceChanged& error) {
+                        throw AuthoringError("stale_source", error.what());
+                    }
                     return tab_state(*editor.active_);
                 }));
             for (const auto* action : {"replace", "save", "undo", "redo", "close"}) {

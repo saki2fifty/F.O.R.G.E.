@@ -19,6 +19,9 @@ struct LiveAuthoringMethod {
     std::string result_content = {};
     // Protocol hint only; permission checks stay in the owning workflow.
     bool executes_native = false;
+    // A read-only workflow may still start an ephemeral job. Adapters must not
+    // advertise blind retries as idempotent for such operations.
+    bool idempotent = true;
 };
 // Explicitly enabled, loopback-only JSON-lines adapter. All scene access occurs
 // in pump() on the owning thread. Transport identity is independent of API identity.

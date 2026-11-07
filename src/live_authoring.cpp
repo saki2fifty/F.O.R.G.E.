@@ -306,6 +306,8 @@ struct LiveAuthoring::State {
                                     item.result_content;
                             if (item.executes_native)
                                 result["workflow_methods"].back()["executes_native"] = true;
+                            if (!item.idempotent)
+                                result["workflow_methods"].back()["idempotent"] = false;
                             writes = writes || item.mutation;
                         }
                         if (!methods.empty())
