@@ -1,5 +1,24 @@
 # 2026-11-07
 
+## Completion-aware sound-cue events
+
+SoundCue adds an optional completion timing mode with a zero-to-3600-second gap.
+Each event waits for its own Source-owned voices and effect tails; unrelated
+manual/other-cue voices and older requests after Restart do not block it.
+Transient event provenance stays inside the existing command/voice owner.
+Deferred/stream preparation and rejected admission remain distinct from completion;
+failures stop future production with diagnostics and preserve Source ownership.
+
+The actual Inspector, live counts, Scene/Prefab/history, both hosts, matching C++,
+automation/MCP and additive runtime-kit guards share this mode. Older content
+retains interval behavior and native defaults; C ABI1 operations/tables are
+unchanged with matching component headers/fingerprint required. Gallery195 and
+original illustrated controls demonstrate repeated layered/ordered/weighted
+completion events. Native transitions follow owner service. Arbitrary cyclic
+graphs, finite playlist documents and shared bus DSP remain separate work.
+Windows/full-editor/physical/external-client acceptance is queued; no numbered
+delivery is implied.
+
 ## Repeating sound-cue events
 
 SoundCue adds default-disabled periodic event production on the existing native

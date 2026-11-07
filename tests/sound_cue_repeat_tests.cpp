@@ -5,7 +5,7 @@
 
 namespace {
 void prepare(Fixture& f, AssetId clip, double interval, bool repeat_pause = true,
-             bool source_pause = true, bool startup = false) {
+             bool source_pause = true, bool startup = false, unsigned mode = 0) {
     auto document = source(clip);
     auto& value = document["entities"][0]["components"]["forge.audio_source"];
     value["play_on_start"] = value["loop"] = false;
@@ -18,10 +18,11 @@ void prepare(Fixture& f, AssetId clip, double interval, bool repeat_pause = true
     graph.repeat_interval_seconds = interval;
     graph.repeat_pause_with_game = repeat_pause;
     graph.repeat_on_start = startup;
+    graph.repeat_mode = mode;
     f.scene.entity("cue").set(graph);
     if (startup)
         f.audio->refresh_sources();
-    else if (interval)
+    else if (graph.repeat_enabled())
         AudioSourceAccess::control(*f.audio, f.ref("cue"), AudioSourceOperation::Restart);
     f.audio->paused(false);
 }
@@ -47,9 +48,140 @@ void validation() {
     check(sound_cue_from_json(sound_cue_json(cue)) == cue,
           "Cue repetition fields changed in the shared codec");
     auto legacy = sound_cue_json({});
-    for (const char* key : {"repeat_interval_seconds", "repeat_on_start", "repeat_pause_with_game"})
+    for (const char* key :
+         {"repeat_interval_seconds", "repeat_on_start", "repeat_pause_with_game", "repeat_mode"})
         legacy.erase(key);
     check(sound_cue_from_json(legacy) == SoundCue{}, "Earlier cue did not default repetition off");
+}
+void completion(const std::filesystem::path& root, AssetId clip) {
+    SoundCue value;
+    value.repeat_mode = 1;
+    value.repeat_on_start = true;
+    (void)SoundCueProgram::compile(value);
+    check(sound_cue_from_json(sound_cue_json(value)) == value, "Completion mode codec changed");
+    value.repeat_mode = 2;
+    reject([&] { (void)SoundCueProgram::compile(value); });
+    {
+        Fixture isolated(root);
+        prepare(isolated, clip, 0, true, true, false, 1);
+        (void)read(isolated, 36000);
+        check(status(isolated).at("accepted_triggers") == 1,
+              "Completion producer emitted before its first voice finished");
+        AudioSourceAccess::control(*isolated.audio, isolated.ref(), AudioSourceOperation::OneShot);
+        const auto other =
+            authoring_command(isolated.scene, "entity.create", {{"name", "Other event"}})
+                .at("selected")
+                .get<std::string>();
+        isolated.scene.entity(other).set(SoundCue{true, 1, 0, {{0, isolated.ref(), {}}}});
+        AudioSourceAccess::control(*isolated.audio, isolated.scene.reference(other),
+                                   AudioSourceOperation::OneShot);
+        (void)read(isolated, 24000);
+        check(status(isolated).at("accepted_triggers") == 2 &&
+                  status(isolated).at("repeat_completed_events") == 1 &&
+                  status(isolated).at("repeat_event_voices") == 1 &&
+                  AudioSourceAccess::status(*isolated.audio, isolated.ref()).at("one_shots") >= 3,
+              "Unrelated manual or other-cue voices delayed completion production");
+        control(isolated, AudioSourceOperation::Stop);
+        check(AudioSourceAccess::status(*isolated.audio, isolated.ref()).at("one_shots") >= 3,
+              "Completion Stop took ownership of existing Source voices");
+    }
+    {
+        Fixture restart(root);
+        prepare(restart, clip, 0, true, true, false, 1);
+        auto graph = restart.scene.entity("cue").get<SoundCue>();
+        graph.nodes[0].delay_seconds = 1;
+        restart.scene.entity("cue").set(graph);
+        control(restart, AudioSourceOperation::Restart);
+        graph.nodes[0].delay_seconds = 0;
+        restart.scene.entity("cue").set(graph);
+        control(restart, AudioSourceOperation::Restart);
+        (void)read(restart, 60000);
+        check(status(restart).at("accepted_triggers") == 2 &&
+                  AudioSourceAccess::status(*restart.audio, restart.ref()).at("one_shots") >= 2,
+              "Restart or definition reset reused a ticket belonging to an older delayed event");
+    }
+    {
+        Fixture gap(root);
+        prepare(gap, clip, .25, true, true, false, 1);
+        AudioSourceAccess::control(*gap.audio, gap.ref(), AudioSourceOperation::Stop);
+        gap.audio->poll_loading();
+        check(status(gap).at("repeat_completed_events") == 1,
+              "Source Stop did not retire its event through the existing owner");
+        (void)read(gap, 6000);
+        control(gap, AudioSourceOperation::Pause);
+        (void)read(gap, 24000);
+        check(status(gap).at("accepted_triggers") == 1, "Paused completion gap advanced");
+        control(gap, AudioSourceOperation::Resume);
+        (void)read(gap, 6000);
+        check(status(gap).at("accepted_triggers") == 1, "Completion gap resumed too early");
+        (void)read(gap, 2);
+        check(status(gap).at("accepted_triggers") == 2, "Completion gap lost remaining time");
+    }
+    {
+        Fixture tails(root);
+        prepare(tails, clip, 0, true, true, false, 1);
+        auto source = tails.scene.entity("speaker").get<AudioSource>();
+        source.echo_enabled = true;
+        source.echo_seconds = .064f;
+        source.echo_feedback = .3f;
+        tails.scene.entity("speaker").set(source);
+        tails.audio->refresh_sources();
+        (void)read(tails, 60000);
+        check(status(tails).at("accepted_triggers") == 1,
+              "Completion ignored its Source-owned effect tail");
+        (void)read(tails, 24000);
+        check(status(tails).at("accepted_triggers") == 2,
+              "Completion did not advance after Source-owned tail retirement");
+    }
+    {
+        Fixture held(root);
+        prepare(held, clip, 0, true, true, false, 1);
+        (void)read(held, 24000);
+        AudioSourceAccess::control(*held.audio, held.ref(), AudioSourceOperation::Pause);
+        (void)read(held, 96000);
+        check(status(held).at("accepted_triggers") == 1, "Paused Source voice completed its event");
+        AudioSourceAccess::control(*held.audio, held.ref(), AudioSourceOperation::Resume);
+        (void)read(held, 36000);
+        check(status(held).at("accepted_triggers") == 2,
+              "Resumed Source voice did not finish its event");
+    }
+    {
+        Fixture policy(root);
+        prepare(policy, clip, 0, false, false, false, 1);
+        policy.audio->game_paused(true);
+        auto source = policy.scene.entity("speaker").get<AudioSource>();
+        source.pause_with_game = true;
+        policy.scene.entity("speaker").set(source);
+        policy.audio->refresh_sources();
+        const auto failed = status(policy);
+        check(!failed.at("repeat_running").get<bool>() &&
+                  !failed.at("repeat_error").get<std::string>().empty(),
+              "Changed Source pause policy left independent completion waiting forever");
+        check(AudioSourceAccess::status(*policy.audio, policy.ref()).at("one_shots") == 1,
+              "Producer policy failure retired a Source-owned voice");
+    }
+    {
+        Fixture budget(root);
+        prepare(budget, clip, 0);
+        for (unsigned i = 0; i < 16; ++i)
+            AudioSourceAccess::control(*budget.audio, budget.ref(), AudioSourceOperation::OneShot);
+        auto graph = budget.scene.entity("cue").get<SoundCue>();
+        graph.repeat_mode = 1;
+        budget.scene.entity("cue").set(graph);
+        control(budget, AudioSourceOperation::Restart);
+        const auto failed = status(budget);
+        check(!failed.at("repeat_running").get<bool>() &&
+                  !failed.at("repeat_error").get<std::string>().empty(),
+              "Admission failure started an unbounded zero-gap event loop");
+        (void)read(budget, 12000);
+        check(status(budget).at("accepted_triggers") == failed.at("accepted_triggers"),
+              "Rejected completion event kept producing");
+        AudioSourceAccess::control(*budget.audio, budget.ref(), AudioSourceOperation::Stop);
+        control(budget, AudioSourceOperation::Restart);
+        check(status(budget).at("repeat_running").get<bool>() &&
+                  status(budget).at("repeat_error") == "",
+              "Completion producer could not recover after voice admission repair");
+    }
 }
 void run(const std::filesystem::path& root, AssetId clip) {
     {
@@ -230,6 +362,7 @@ int main(int argc, char** argv) {
         wav(root / "Assets/tone.wav");
         const auto clip = AssetCatalog::register_audio_clip(root, "Assets/tone.wav");
         validation();
+        completion(root, clip.id);
         run(root, clip.id);
         std::cout
             << "Output-time repeating cue PCM/pause/lifecycle/source-ownership checks passed\n";

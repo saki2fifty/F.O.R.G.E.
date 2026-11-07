@@ -69,20 +69,28 @@ class SoundCueEditor {
         number("Seed", "sound-cue:seed", draft_["seed"]);
         number("Root node", "sound-cue:root", draft_["root"]);
         const bool repeating = ImGui::TreeNodeEx(
-            "Repeating events", draft_.at("repeat_interval_seconds").get<double>() != 0
+            "Repeating events", (draft_.at("repeat_interval_seconds").get<double>() != 0 ||
+                                 draft_.at("repeat_mode") == 1)
                                     ? ImGuiTreeNodeFlags_DefaultOpen
                                     : ImGuiTreeNodeFlags_None);
         FORGE_UI_PROBE("sound-cue:repeat-settings");
         if (repeating) {
             ui::help("Repeat on output time, after all Sources prepare. Pause/Stop repeating "
                      "controls future events; Audio Sources retain already requested voices.");
-            ImGui::TextUnformatted("Repeat interval (seconds; 0 off)");
+            int mode = draft_.at("repeat_mode");
+            if (ImGui::Combo("Timing", &mode, "Interval\0After event finishes\0"))
+                draft_["repeat_mode"] = mode;
+            FORGE_UI_PROBE("sound-cue:repeat-mode");
+            ImGui::TextUnformatted(mode == 1 ? "Gap after event (seconds)"
+                                             : "Repeat interval (seconds; 0 off)");
             ImGui::SetNextItemWidth(-1);
             double interval = draft_.at("repeat_interval_seconds");
             if (ImGui::InputDouble("##repeat-interval", &interval, 0, 0, "%.6f"))
                 draft_["repeat_interval_seconds"] = interval;
             FORGE_UI_PROBE("sound-cue:repeat-interval");
-            ImGui::TextUnformatted("Use 0.25–3600 seconds to enable repetition.");
+            ImGui::TextUnformatted(
+                mode == 1 ? "Wait for this event's Source voices and tails, then 0–3600 seconds."
+                          : "Use 0.25–3600 seconds to enable repetition.");
             bool startup = draft_.at("repeat_on_start");
             if (ImGui::Checkbox("Repeat on start", &startup))
                 draft_["repeat_on_start"] = startup;
@@ -218,7 +226,7 @@ class SoundCueEditor {
                 Json values;
                 for (const char* key :
                      {"enabled", "seed", "root", "nodes", "repeat_interval_seconds",
-                      "repeat_on_start", "repeat_pause_with_game"})
+                      "repeat_on_start", "repeat_pause_with_game", "repeat_mode"})
                     values[key] = draft_.at(key);
                 apply_authoring(scene,
                                 Json::array({{{"operation", "property.set_many"},

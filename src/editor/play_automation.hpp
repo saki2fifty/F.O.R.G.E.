@@ -575,7 +575,8 @@ struct PlayAutomation {
                 animation ? "play.animation.control" : "play.audio.control",
                 "Control the exact watched entity through its existing live owner. Watch first, "
                 "then wait for an available status. Cue one_shot requests one event; configured "
-                "repeating cues use restart/pause/resume/stop for future events. Audio Sources own "
+                "interval/completion cues use play/pause/resume/stop for future events. Audio "
+                "Sources own "
                 "existing voices. Seek requires position_seconds.",
                 "play.execute", automation_object(values, keys), true,
                 [&files, &play, providers, animation](const Json& request) {

@@ -33,6 +33,45 @@ void sound_cue_package_tests(const std::filesystem::path& scratch, Check check, 
                     validate_runtime_compatibility(catalog, {{"runtime_sound_cues", invalid}});
                 });
             auto& graph = document[rows][0][channel]["forge.sound_cue"];
+            graph["repeat_mode"] = 1;
+            const auto completed = package_detail::document_runtime_features(document);
+            check(completed ==
+                      Json({{"sound_cues", sound_cue_profile_version},
+                            {"sound_cue_repeat", sound_cue_repeat_profile_version},
+                            {"sound_cue_completion", sound_cue_completion_profile_version}}),
+                  "Retained zero-gap completion mode escaped its kit guard");
+            AssetCatalog completion_catalog(scratch /
+                                            (std::string("completion-cue-") + rows + channel));
+            record.metadata["forge.runtime_document"]["runtime_features"] = completed;
+            completion_catalog.add(record);
+            reject([&] {
+                validate_runtime_compatibility(
+                    completion_catalog,
+                    {{"runtime_sound_cues", sound_cue_profile_version},
+                     {"runtime_sound_cue_repeat", sound_cue_repeat_profile_version}});
+            });
+            validate_runtime_compatibility(
+                completion_catalog,
+                {{"runtime_sound_cues", sound_cue_profile_version},
+                 {"runtime_sound_cue_repeat", sound_cue_repeat_profile_version},
+                 {"runtime_sound_cue_completion", sound_cue_completion_profile_version}});
+            for (const auto& invalid : {Json(false), Json(0), Json(1.), Json("1"), Json(2)})
+                reject([&] {
+                    validate_runtime_compatibility(
+                        completion_catalog,
+                        {{"runtime_sound_cues", sound_cue_profile_version},
+                         {"runtime_sound_cue_repeat", sound_cue_repeat_profile_version},
+                         {"runtime_sound_cue_completion", invalid}});
+                });
+            for (const auto& invalid :
+                 {Json(false), Json(-1), Json(1.), Json("1"), Json(2), Json(nullptr)}) {
+                graph["repeat_mode"] = invalid;
+                reject([&] { (void)package_detail::document_runtime_features(document); });
+            }
+            graph["repeat_mode"] = 0;
+            check(package_detail::document_runtime_features(document) == features,
+                  "Default interval mode added a completion kit requirement");
+            graph.erase("repeat_mode");
             graph["nodes"] = Json::array({{{"delay_seconds", .25}}});
             const auto timed = package_detail::document_runtime_features(document);
             check(timed == Json({{"sound_cues", sound_cue_profile_version},

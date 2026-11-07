@@ -1,5 +1,20 @@
 # Feature Gallery
 
+## Completion-aware sound-cue events
+
+Open `Scenes/195-completion-sound-cues.scene.json` and press **Play → Game**. Each
+layered/ordered/weighted event waits for its own sounds and tails before the next
+choice, with zero extra gap. Timed Source leaves remain active. The Scene runs
+independently during gameplay Pause and includes its camera and light; no project
+C++ or Timeline is required.
+
+Select **Completion layered events - select for Live sound**. Stop Play and open
+**Sound Cue → Edit sound cue → Repeating events**. Choose **Timing → After event
+finishes**, set **Gap after event (seconds)**, Apply and save. During Play, Live
+sound shows completed events and current voices. Stop repeating prevents future
+events; individual Source controls retain already-requested voices. Export with
+the matching runtime kit. See the [audio guide](../../../manual/editor/audio.md).
+
 ## Repeating sound-cue events
 
 Open `Scenes/194-repeating-sound-cues.scene.json` and press **Play → Game**. The cue

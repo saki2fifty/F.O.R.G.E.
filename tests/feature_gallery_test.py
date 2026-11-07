@@ -12,6 +12,14 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+completion_path = 'Scenes/195-completion-sound-cues.scene.json'
+assert by_source[completion_path]['type'] == 'scene'
+completion_scene = json.loads((project_root/completion_path).read_text(encoding='utf-8'))
+completion_graphs = [row['components']['forge.sound_cue'] for row in completion_scene['entities'] if 'forge.sound_cue' in row['components']]
+assert len(completion_graphs)==1 and completion_graphs[0]['repeat_mode']==1 and completion_graphs[0]['repeat_interval_seconds']==0
+assert completion_graphs[0]['repeat_on_start'] and not completion_graphs[0]['repeat_pause_with_game']
+assert [node['delay_seconds'] for node in completion_graphs[0]['nodes']]==[0,0,0,.128,0,.256,.384]
+assert all(not row['components']['forge.audio_source']['pause_with_game'] for row in completion_scene['entities'] if 'forge.audio_source' in row['components'])
 repeat_path = 'Scenes/194-repeating-sound-cues.scene.json'
 assert by_source[repeat_path]['type'] == 'scene'
 repeat_scene = json.loads((project_root/repeat_path).read_text(encoding='utf-8'))
@@ -771,7 +779,7 @@ def same_authored_value(actual, expected, location='$'):
     if isinstance(expected, dict):
         if location.endswith('.components.forge.sound_cue'):
             expected = dict(repeat_interval_seconds=0., repeat_on_start=False,
-                            repeat_pause_with_game=True) | expected
+                            repeat_pause_with_game=True, repeat_mode=0) | expected
         if re.search(r'\.components\.forge\.sound_cue\.nodes\[\d+\]$', location):
             # Earlier nodes omit the additive offset; explicit/opaque values stay exact.
             expected = dict(delay_seconds=0.) | expected

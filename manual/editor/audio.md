@@ -480,10 +480,11 @@ recovery. It is not saved as an authored Scene value.
 
 ### Repeat sound events
 
-To repeat a cue, expand **Repeating events** in its Inspector. Set **Repeat
+To repeat a cue, expand **Repeating events** in its Inspector. Choose **Timing →
+Interval**. Set **Repeat
 interval (seconds; 0 off)** to a value from 0.25 to 3600. Enable **Repeat on start**
 for automatic playback, then click **Apply sound cue** and save the Scene. Zero
-turns repetition off. Each interval requests another event from the same graph;
+turns interval repetition off. Each interval requests another event from the same graph;
 it does not wait for the previous sound to finish.
 
 ![Sound Cue Inspector showing a 0.512 second repeating interval, automatic startup and independent gameplay-pause policy](../images/audio-sound-cue-repeat.png)
@@ -514,6 +515,49 @@ burst. Device timing follows host service. Source voice limits still apply.
 Saving stores the repeat settings; temporary controls and active sounds are not
 saved. A new Play session or recovered world starts fresh, using **Repeat on
 start** if enabled. Export requires a runtime kit supporting repeating sound cues.
+
+### Repeat after sounds finish
+
+Choose **Timing → After event finishes** in **Repeating events** to wait for each
+event's requested sounds and effect tails before requesting the next event.
+Set **Gap after event (seconds)** from 0 to 3600; zero requests the next event
+at the next audio service boundary after completion. Enable **Repeat on start**
+for automatic playback, then **Apply sound cue** and save the Scene.
+
+![Sound Cue Inspector with After event finishes timing, zero gap and automatic startup](../images/audio-sound-cue-completion.png)
+
+The completion-cue Gallery example uses zero extra gap after its layered event.
+
+For a repeating playlist, use an **Ordered choice** root with one Source child
+for each sound. The next completed event advances the ordered choice. Layered
+and weighted events also work; all voices from the current event must finish.
+Turn off **Play on start** on the participating Audio Sources when you want the
+cue to supply their playback requests.
+
+During Play, Live sound shows **Completed events** and the voices still belonging
+to the current event. It shows the remaining gap after those voices finish.
+Unrelated sounds sharing the Sources do not delay that event. **Trigger cue**
+requests an additional event and advances the shared choices independently.
+**Restart repeating** starts fresh choices while older Source voices keep their
+existing playback. This mode repeats until the producer is stopped.
+
+![Live sound showing four requests, three completed events and two current event voices](../images/audio-sound-cue-completion-live.png)
+
+The tinted controls affect future production while Sources retain their voices.
+
+**Pause repeating** holds future production; existing voices follow their Source
+pause settings. Pausing an Audio Source holds its voices and therefore their
+completion. Source **Stop** cancels its voices and can let the cue continue to its
+next event; use **Stop repeating** to prevent future events as well. If a Source
+becomes invalid or cannot admit a requested voice, repair it and Restart the cue.
+Native transitions follow audio service; seamless device chaining through host
+stalls is not guaranteed.
+
+The independent gameplay-pause rules remain the same: disable **Pause repetition
+with game** and **Pause with game** on every participating Source. Saved settings
+and exports retain the mode and gap. Recovery starts a fresh event rather than
+restoring active voices or completion progress. Export needs a matching runtime
+kit supporting completion-aware cues; rebuild project C++ with its matching SDK.
 
 ## Registered clips
 

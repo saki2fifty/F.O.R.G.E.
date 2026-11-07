@@ -24,6 +24,7 @@ void sound_cue_prefab_tests(const std::filesystem::path& root) {
                     {0, scene.reference(a), {}, .125},
                     {0, scene.reference(b), {}, .375}}};
     graph.repeat_interval_seconds = .75;
+    graph.repeat_mode = 1;
     graph.repeat_on_start = true;
     auto authored_graph = sound_cue_json(graph);
     const Json opaque_reference = scene.reference(a);
@@ -42,7 +43,8 @@ void sound_cue_prefab_tests(const std::filesystem::path& root) {
                   actual.nodes[0].children == graph.nodes[0].children &&
                   actual.seed == graph.seed && actual.nodes[1].delay_seconds == .125 &&
                   actual.nodes[2].delay_seconds == .375 && actual.repeat_interval_seconds == .75 &&
-                  actual.repeat_on_start && actual.repeat_pause_with_game,
+                  actual.repeat_on_start && actual.repeat_pause_with_game &&
+                  actual.repeat_mode == 1,
               "Nested Sound Cue references crossed copied/Prefab instance ownership");
         const auto effective = target.effective_document();
         const auto& event_row =

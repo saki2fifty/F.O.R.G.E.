@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**195-completion-sound-cues** waits for each event's own voices and tails before
+requesting the next layered/ordered/weighted choice. Open it and press **Play →
+Game**. Select **Completion layered events - select for Live sound** to watch
+completed events or control future production. Stop Play to edit **Timing → After
+event finishes** and **Gap after event (seconds)**; Apply and save before export
+with a matching runtime kit. Source controls retain already-requested voices.
+See [Repeat after sounds finish](../editor/audio.md).
+
 **194-repeating-sound-cues** plays layered/ordered/weighted sound events every
 0.512 output seconds, including during gameplay Pause. Open it and press
 **Play → Game**. Select **Repeating layered events - select for Live sound** to

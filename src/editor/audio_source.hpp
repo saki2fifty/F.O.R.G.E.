@@ -58,16 +58,26 @@ class AudioSourceEditor {
             if (status.value("repeat_available", false)) {
                 const bool running = status.value("repeat_running", false);
                 const bool paused = status.value("repeat_paused", false);
+                if (status.value("repeat_mode", 0u) == 1) {
+                    ImGui::Text("Completed events: %llu",
+                                static_cast<unsigned long long>(
+                                    status.value("repeat_completed_events", std::uint64_t{})));
+                    if (status.value("repeat_waiting_completion", false))
+                        ImGui::Text("Waiting for this event: %zu voices, %zu queued requests",
+                                    status.value("repeat_event_voices", std::size_t{}),
+                                    status.value("repeat_pending_requests", std::size_t{}));
+                }
                 ImGui::TextUnformatted(
                     !running                                        ? "Repetition stopped"
                     : paused                                        ? "Repetition paused"
                     : status.value("repeat_suspended", false)       ? "Repetition held by pause"
                     : status.value("repeat_waiting_sources", false) ? "Waiting for Sources"
                                                                     : "Repeating events");
-                ImGui::Text("Next event: %.3f s | Skipped events: %llu",
-                            status.value("repeat_next_seconds", 0.),
-                            static_cast<unsigned long long>(
-                                status.value("repeat_skipped_events", std::uint64_t{})));
+                if (!status.value("repeat_waiting_completion", false))
+                    ImGui::Text("Next event: %.3f s | Skipped events: %llu",
+                                status.value("repeat_next_seconds", 0.),
+                                static_cast<unsigned long long>(
+                                    status.value("repeat_skipped_events", std::uint64_t{})));
                 if (ui::button(running ? "Restart repeating" : "Start repeating",
                                "Start future events with fresh choices. Already requested Source "
                                "voices keep playing."))

@@ -61,6 +61,11 @@ void directional_guides() {
 #include "sound_cue_editor_capture.hpp"
 int main(int argc, char** argv) {
     try {
+        if (argc == 4 && std::string_view(argv[1]) == "--capture-completion-sound-cue") {
+            capture_sound_cue_editor(std::filesystem::absolute(argv[2]),
+                                     std::filesystem::absolute(argv[3]), true, true, true);
+            return 0;
+        }
         if (argc == 4 && std::string_view(argv[1]) == "--capture-repeating-sound-cue") {
             capture_sound_cue_editor(std::filesystem::absolute(argv[2]),
                                      std::filesystem::absolute(argv[3]), true, true);
@@ -557,6 +562,19 @@ int main(int argc, char** argv) {
                 require(scene.undo() && scene.entity(cue_id).get<SoundCue>().nodes.size() == 1 &&
                             scene.redo() && scene.entity(cue_id).get<SoundCue>() == composed,
                         "Cue Apply did not retain one Scene Undo/Redo transaction");
+                click("sound-cue:reset");
+                click("sound-cue:repeat-mode");
+                key(ImGuiKey_DownArrow);
+                key(ImGuiKey_Enter);
+                numeric("sound-cue:repeat-interval", "0");
+                click("sound-cue:apply");
+                require(scene.entity(cue_id).get<SoundCue>().repeat_mode == 1 &&
+                            scene.entity(cue_id).get<SoundCue>().repeat_interval_seconds == 0 &&
+                            scene.entity(cue_id).get<SoundCue>().repeat_on_start,
+                        "Completion timing controls did not publish their zero-gap candidate");
+                require(scene.undo() && scene.entity(cue_id).get<SoundCue>() == composed,
+                        "Completion timing did not retain one Undo transaction");
+                click("sound-cue:reset");
                 numeric("sound-cue:delay:1", "11");
                 frame();
                 require(!test::ui_targets.at("sound-cue:apply").enabled &&

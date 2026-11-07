@@ -25,13 +25,15 @@ std::uint32_t choice_bits(std::uint32_t seed, std::size_t node, std::uint64_t vi
 }
 } // namespace
 SoundCueProgram SoundCueProgram::compile(const SoundCue& cue) {
-    if (!std::isfinite(cue.repeat_interval_seconds) ||
-        (cue.repeat_interval_seconds != 0 &&
+    if (cue.repeat_mode > 1 || !std::isfinite(cue.repeat_interval_seconds) ||
+        cue.repeat_interval_seconds < 0 ||
+        (cue.repeat_mode == 0 && cue.repeat_interval_seconds != 0 &&
          (cue.repeat_interval_seconds < sound_cue_repeat_min_seconds ||
           cue.repeat_interval_seconds > sound_cue_repeat_max_seconds)) ||
-        (cue.repeat_on_start && cue.repeat_interval_seconds == 0))
-        throw std::runtime_error("Sound Cue repeat interval must be zero (off) or 0.25..3600 "
-                                 "seconds; startup requires an interval");
+        cue.repeat_interval_seconds > sound_cue_repeat_max_seconds ||
+        (cue.repeat_on_start && !cue.repeat_enabled()))
+        throw std::runtime_error("Sound Cue needs interval mode with zero (off) or 0.25..3600 "
+                                 "seconds, or completion mode with a 0..3600 second gap");
     if (cue.nodes.size() > sound_cue_node_limit ||
         (cue.nodes.empty() ? cue.root != 0 : cue.root >= cue.nodes.size()))
         throw std::runtime_error("Sound Cue requires at most 32 nodes and an existing root");
@@ -136,6 +138,7 @@ SoundCue sound_cue_from_json(const nlohmann::json& value) {
     cue.repeat_interval_seconds = value.value("repeat_interval_seconds", 0.);
     cue.repeat_on_start = value.value("repeat_on_start", false);
     cue.repeat_pause_with_game = value.value("repeat_pause_with_game", true);
+    cue.repeat_mode = value.contains("repeat_mode") ? integer(value.at("repeat_mode")) : 0;
     const auto& nodes = value.at("nodes");
     if (!nodes.is_array() || nodes.size() > sound_cue_node_limit)
         throw std::runtime_error("Sound Cue nodes require an array of at most 32 entries");
@@ -174,6 +177,7 @@ nlohmann::json sound_cue_json(const SoundCue& cue) {
             {"repeat_interval_seconds", cue.repeat_interval_seconds},
             {"repeat_on_start", cue.repeat_on_start},
             {"repeat_pause_with_game", cue.repeat_pause_with_game},
+            {"repeat_mode", cue.repeat_mode},
             {"nodes", std::move(nodes)}};
 }
 } // namespace forge

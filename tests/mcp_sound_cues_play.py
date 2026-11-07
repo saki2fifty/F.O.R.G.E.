@@ -15,6 +15,8 @@ def check_sound_cues_play(read, ok, control, mutate, until, root, discovered_sch
     assert interval['minimum']==0 and interval['maximum']==3600 and interval['default_if_missing']==0 and interval['unit']=='s',interval
     assert next(f for f in schema['fields'] if f['id']=='repeat_on_start')['default_if_missing'] is False
     assert next(f for f in schema['fields'] if f['id']=='repeat_pause_with_game')['default_if_missing'] is True
+    mode = next(f for f in schema['fields'] if f['id']=='repeat_mode')
+    assert mode['default_if_missing']==0 and mode['choices']==[dict(label='Interval',value=0),dict(label='AfterCompletion',value=1)],mode
     kind = next(f for f in nodes['element']['fields'] if f['id']=='kind')
     assert kind['type']=='uint32' and kind['choices']==[
         dict(label=label,value=value) for value,label in enumerate(('Source','Layer','Weighted','Ordered'))],kind
@@ -126,6 +128,43 @@ def check_sound_cues_play(read, ok, control, mutate, until, root, discovered_sch
     assert stopped['source']['accepted_triggers']==1,stopped
     control('forge_play_audio_control',entity=cue,operation='one_shot')
     until(lambda:read('forge_play_audio'),lambda row:(row.get('source') or {}).get('accepted_triggers')==2)
+    assert read('forge_play_status')['timing']['tick']==tick
+    control('forge_play_stop')
+    until(lambda:read('forge_play_status'),lambda value:not value['active'])
+    assert read('forge_scene_read')==authored
+
+    completed = copy.deepcopy(repeated)
+    completed.update(repeat_mode=1,repeat_interval_seconds=0)
+    before = read('forge_scene_read')
+    ok('forge_property_set_many',arguments=dict(entity=cue,component='forge.sound_cue',values=completed))
+    authored = read('forge_scene_read')
+    assert ok('forge_history_undo')['changed'] and read('forge_scene_read')==before
+    assert ok('forge_history_redo')['changed'] and read('forge_scene_read')==authored
+    invalid = copy.deepcopy(completed)
+    invalid['repeat_mode']=2
+    rejected = mutate('forge_property_set_many',arguments=dict(entity=cue,component='forge.sound_cue',values=invalid))
+    assert not rejected['ok'] and read('forge_scene_read')==authored,rejected
+    ok('forge_document_save')
+    ok('forge_play_start')
+    until(lambda:read('forge_play_status'),lambda value:value['ready'] and value['control_ready'])
+    control('forge_play_pause')
+    tick = read('forge_play_status')['timing']['tick']
+    control('forge_play_watch',entity=cue)
+    until(lambda:read('forge_play_audio'),lambda row:(row.get('source') or {}).get('repeat_mode')==1)
+    control('forge_play_audio_control',entity=cue,operation='play')
+    waiting = until(lambda:read('forge_play_audio'),lambda row:(row.get('source') or {}).get('repeat_waiting_completion') and
+                    row['source']['repeat_pending_requests']==0 and row['source']['repeat_event_voices']==1)
+    assert waiting['source']['accepted_triggers']==1 and waiting['source']['repeat_completed_events']==0,waiting
+    control('forge_play_audio_control',entity=cue,operation='pause')
+    until(lambda:read('forge_play_audio'),lambda row:(row.get('source') or {}).get('repeat_paused'))
+    control('forge_play_audio_control',entity=cue,operation='resume')
+    until(lambda:read('forge_play_audio'),lambda row:(row.get('source') or {}).get('repeat_running') and
+          not row['source']['repeat_paused'])
+    control('forge_play_audio_control',entity=cue,operation='one_shot')
+    extra = until(lambda:read('forge_play_audio'),lambda row:(row.get('source') or {}).get('accepted_triggers')==2)
+    assert extra['source']['repeat_event_voices']==1 and extra['source']['repeat_waiting_completion'],extra
+    control('forge_play_audio_control',entity=cue,operation='stop')
+    until(lambda:read('forge_play_audio'),lambda row:row.get('source') and not row['source'].get('repeat_running'))
     assert read('forge_play_status')['timing']['tick']==tick
     control('forge_play_stop')
     until(lambda:read('forge_play_status'),lambda value:not value['active'])

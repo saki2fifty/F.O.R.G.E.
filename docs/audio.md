@@ -934,3 +934,36 @@ Any nondefault repeating intent, including retained partial Prefab values, requi
 `sound_cue_repeat:1` and kit `runtime_sound_cue_repeat:1`. C ABI1 callbacks and
 operation values are unchanged; C++ modules need matching installed component
 headers and fingerprint.
+
+
+## Completion-aware cue production
+
+`SoundCue.repeat_mode` defaults to0(Interval). Mode1(AfterCompletion) permits a
+finite0..3600second gap in `repeat_interval_seconds`, including zero; mode0 keeps
+its existing0off or0.25..3600second interval. The same producer/control and Source
+owners apply. See [ADR040](decisions/040-completion-sound-cue-events.md).
+
+Accepted events publish a monotonic runtime-local ticket with their commands.
+Source-owned one-shots retain that provenance; CuePlayback records pending and
+admitted requests for its current event. Source retirement, including effect
+tails, determines completion. Manual one-shots, other cues and older events after
+Restart do not delay the current event. Rejected/stale admission stops future
+production with a diagnostic and cannot create a zero-gap busy loop. Source
+controls retain already-requested voices. No durable ticket, clip registry or
+callback access to ECS is added.
+
+The gap starts when the owner can observe completion and current Source readiness.
+A held producer begins that gap after it resumes. Source pause holds voice
+completion; Source Stop can finish the current event and permit another, while
+cue Stop cancels future events. Current Source/domain validation remains required
+while waiting, including a Source changing its gameplay-pause policy. Definitions
+and recovery retain their existing fresh-state behavior. The producer repeats;
+this is not an arbitrary cyclic graph or a finite playlist document format.
+
+Status additionally reports mode, waiting-for-completion, completed events,
+pending requests and current event voice counts. These counts are transient and
+exclude unrelated/older voices. Native chaining follows service boundaries, not a
+promise of sample-perfect continuity across host stalls. Mode1 adds runtime feature
+`sound_cue_completion:1` and kit `runtime_sound_cue_completion:1`, including retained
+partial values. Missing mode0 retains earlier requirements. Matching C++ component
+headers/fingerprint are required; C ABI1 callback tables/op values are unchanged.

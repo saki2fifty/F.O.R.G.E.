@@ -182,7 +182,13 @@ void verify(const std::filesystem::path& gallery, const std::filesystem::path& s
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 4 && std::string_view(argv[1]) == "--publish-repeating-sound-cues")
+        if (argc == 4 && std::string_view(argv[1]) == "--publish-completion-sound-cues")
+            publish_sound_cue_gallery(std::filesystem::absolute(argv[2]),
+                                      std::filesystem::absolute(argv[3]),
+                                      completion_sound_cue_gallery);
+        else if (argc == 4 && std::string_view(argv[1]) == "--completion-sound-cues")
+            verify_sound_cue_gallery(argv[2], argv[3], completion_sound_cue_gallery);
+        else if (argc == 4 && std::string_view(argv[1]) == "--publish-repeating-sound-cues")
             publish_sound_cue_gallery(std::filesystem::absolute(argv[2]),
                                       std::filesystem::absolute(argv[3]),
                                       repeating_sound_cue_gallery);

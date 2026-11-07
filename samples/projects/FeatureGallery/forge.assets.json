@@ -18909,6 +18909,16 @@
       "type": "model_node"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "fc1ab5b9-221b-4922-930b-489357d1b483",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/195-completion-sound-cues.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "03f314d8-69d9-4650-9683-4c9a1ae0b87d",
         "2870d6c4-5745-438a-bb88-21b45e1ec2da",

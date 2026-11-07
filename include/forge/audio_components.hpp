@@ -44,6 +44,7 @@ inline constexpr unsigned sound_cue_profile_version = 1;
 inline constexpr unsigned sound_cue_timing_profile_version = 1;
 inline constexpr double sound_cue_delay_limit_seconds = 10;
 inline constexpr unsigned sound_cue_repeat_profile_version = 1;
+inline constexpr unsigned sound_cue_completion_profile_version = 1;
 inline constexpr double sound_cue_repeat_min_seconds = .25;
 inline constexpr double sound_cue_repeat_max_seconds = 3600;
 inline constexpr std::size_t sound_cue_repeat_instance_limit = 32;
@@ -70,6 +71,9 @@ struct SoundCue {
     std::vector<SoundCueNode> nodes;
     double repeat_interval_seconds = 0;
     bool repeat_on_start = false, repeat_pause_with_game = true;
+    // 0 periodic interval; 1 wait for this event's Source voices, then its gap.
+    std::uint32_t repeat_mode = 0;
+    bool repeat_enabled() const { return repeat_mode == 1 || repeat_interval_seconds != 0; }
     bool operator==(const SoundCue&) const = default;
 };
 } // namespace forge

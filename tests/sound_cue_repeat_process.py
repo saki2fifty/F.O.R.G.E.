@@ -4,11 +4,12 @@ import time
 from runtime_client import Runtime, activate
 
 
-def check_repeating_hosts(runtime, root, scene, ref, cue_id, source_id, module):
+def check_repeating_hosts(runtime, root, scene, ref, cue_id, module, mode=0):
     document = copy.deepcopy(scene)
     graph = next(row['components']['forge.sound_cue'] for row in document['entities']
                  if 'forge.sound_cue' in row['components'])
-    graph.update(repeat_interval_seconds=.25, repeat_on_start=False, repeat_pause_with_game=False)
+    graph.update(repeat_interval_seconds=0 if mode else .25, repeat_on_start=False,
+                 repeat_pause_with_game=False, repeat_mode=mode)
     for row in document['entities']:
         if 'forge.audio_source' in row['components']:
             row['components']['forge.audio_source']['pause_with_game'] = False
@@ -32,8 +33,8 @@ def check_repeating_hosts(runtime, root, scene, ref, cue_id, source_id, module):
                     value = snapshot()
                     if predicate(value):
                         return value
-                    assert time.monotonic()<deadline,value
-                    time.sleep(.01)
+                    assert time.monotonic()<deadline,{key:value.get(key) for key in ('audio_source','audio','timing')}
+                    time.sleep(.025)
             if module:
                 start_tick = initial['timing']['tick']
                 worker.request('step')
@@ -41,13 +42,15 @@ def check_repeating_hosts(runtime, root, scene, ref, cue_id, source_id, module):
                                 value['audio_source'].get('repeat_running'))
                 native_graph = next(row['components']['forge.sound_cue'] for row in started['scene']['entities']
                                     if row['id']==cue_id)
-                assert native_graph['seed']==29 and native_graph['repeat_interval_seconds']==.25,native_graph
+                assert native_graph['seed']==29 and native_graph['repeat_interval_seconds']==(0 if mode else .25) and native_graph['repeat_mode']==mode,native_graph
             else:
                 control('play')
                 started = until(lambda value:value['audio_source'].get('accepted_triggers',0)>=1)
             tick = started['timing']['tick']
             base = started['audio_source']['accepted_triggers']
-            advanced = until(lambda value:value['audio_source']['accepted_triggers']>=base+2)
+            advanced = until(lambda value:value['audio_source']['accepted_triggers']>=base+(1 if mode else 2))
+            if mode:
+                assert advanced['audio_source']['repeat_completed_events']>=1,advanced['audio_source']
             assert advanced['timing']['tick']==tick,advanced
             paused = control('pause')
             count = paused['audio_source']['accepted_triggers']
@@ -59,7 +62,7 @@ def check_repeating_hosts(runtime, root, scene, ref, cue_id, source_id, module):
             stopped = control('stop')
             count = stopped['audio_source']['accepted_triggers']
             assert not stopped['audio_source']['repeat_running'],stopped
-            assert snapshot(source_id)['audio_source']['one_shots']>0
+            assert snapshot(stopped['audio_source']['last_sources'][0]['entity'])['audio_source']['one_shots']>0
             time.sleep(.3)
             assert snapshot()['audio_source']['accepted_triggers']==count
             if not sdk:

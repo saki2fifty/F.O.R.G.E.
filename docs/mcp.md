@@ -850,6 +850,11 @@ is configured, `play` resets choices and starts future periodic events;
 events. Already-requested voices remain with their Audio Sources. Discovery
 exposes the repeat interval/defaults/startup/game-pause values. Observation reports
 producer state, remaining time, preparation, skipped events and retained errors.
+`repeat_mode` has native choices0 Interval and1 AfterCompletion. Completion mode
+uses a0..3600second gap and observes only its current event's Source-owned voices,
+including tails; unrelated manual/other-cue voices do not block it. Observation
+adds waiting/completed/pending/current-event voice counts. Source Stop can finish
+an event while the producer continues; cue Stop prevents future events.
 The same Scene/history, scoped Play/watch identity and permission checks apply;
 these controls do not change authored values. Native output-time repetition works
 outside fixed game ticks; stalled host service skips missed periods rather than

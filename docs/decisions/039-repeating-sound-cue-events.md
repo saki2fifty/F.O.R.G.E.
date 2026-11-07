@@ -46,3 +46,6 @@ component/admission/playback owners. Controls explicitly distinguish future even
 production from Source-owned voices. [Audio](../audio.md) specifies the current
 behavior and limits. Native Windows, full-editor, device and external-client
 acceptance remain separate from local CPU/offline validation.
+
+[ADR040](040-completion-sound-cue-events.md) extends the same producer with
+optional completion-aware timing while retaining Source voice ownership.

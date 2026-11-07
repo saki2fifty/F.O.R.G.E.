@@ -2508,6 +2508,10 @@ backend ownership. One canonical asset serves each image throughout the manual.
 
 ## Repeating sound-cue controls
 
+This record attributes the initial periodic controls. The graph now includes a
+Timing choice; its current canonical bytes are recorded below. Original bytes
+remain in the cited local evidence and source archive.
+
 [Repeat settings](../../../manual/images/audio-sound-cue-repeat.png) and
 [Live production](../../../manual/images/audio-sound-cue-repeat-live.png) are
 original 700×1280 and 700×380 production SoundCueEditor/Live sound controls.
@@ -2527,3 +2531,31 @@ source archive. No cropping, retouching, resizing or generated UI was used.
 These isolated controls establish neither full-editor nor Windows, physical
 audio, GPU/DPI, external-client or performance acceptance. Offline manual/package
 checks verify the canonical image bytes through the existing writer.
+
+
+## Completion-aware sound-cue controls
+
+[Completion settings](../../../manual/images/audio-sound-cue-completion.png) and
+[Live completion](../../../manual/images/audio-sound-cue-completion-live.png) are
+original 700×1280 and 700×420 production controls rendered through the existing
+pinned SDL/ImGui software fixture. The actual shipped Gallery195 produces four
+native offline events; the Live panel reports three completed events and two
+current voices. Draft and shipped captures are byte-identical and personally
+viewed. Required fields and lifecycle buttons are checked for clipping.
+
+Completion graph SHA256:
+`97ec997dd2a8aed075962439d57e1b0f2a34081720e250b688b36baacdc8ee08`.
+Completion live SHA256:
+`dcce966722f10cd99a24b353d0ce816874cfc1bded2f90f7607ef061fee6efbb`.
+The periodic graph now shows its **Timing** choice; its refreshed 700×1280 SHA256
+is `3d5a94cae8944c970be0ffc27207a34b436536e0dc26117f96aca3430ef22b15`.
+The unchanged periodic Live image retains SHA256
+`a71f02ef3cb689f3c37c998e4e497a804afaaefc3324fb32e3ee61063c62b732`.
+
+The source is73e9c42 plus completion-mode implementation. Direct source/Scene,
+executable and archive hashes are in local
+AgentFiles/build/phase293-completion-sound-cues/capture-provenance.json and its
+source archive. Images have no cropping, resizing, retouching or generation.
+These isolated controls do not establish full Main, Windows, physical audio,
+GPU/DPI, external-client or performance acceptance. The existing manual/package
+writer validates canonical assets; no alternative publishing path is introduced.

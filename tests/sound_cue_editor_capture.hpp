@@ -5,7 +5,7 @@
 
 void capture_sound_cue_editor(const std::filesystem::path& gallery,
                               const std::filesystem::path& output, bool timed = false,
-                              bool repeating = false) {
+                              bool repeating = false, bool completion = false) {
     std::filesystem::create_directories(output);
     const auto root = output / "project";
     require(!std::filesystem::exists(root), "Cue capture project already exists");
@@ -19,9 +19,10 @@ void capture_sound_cue_editor(const std::filesystem::path& gallery,
         Scene scene(engine.world());
         SceneDocument project(scene);
         project.open_project(root);
-        project.open_scene(root / (repeating ? "Scenes/194-repeating-sound-cues.scene.json"
-                                   : timed   ? "Scenes/193-timed-sound-cues.scene.json"
-                                             : "Scenes/192-event-sound-cues.scene.json"));
+        project.open_scene(root / (completion  ? "Scenes/195-completion-sound-cues.scene.json"
+                                   : repeating ? "Scenes/194-repeating-sound-cues.scene.json"
+                                   : timed     ? "Scenes/193-timed-sound-cues.scene.json"
+                                               : "Scenes/192-event-sound-cues.scene.json"));
         std::string cue;
         const auto effective = scene.effective_document();
         for (const auto& row : effective.at("entities"))
@@ -50,8 +51,17 @@ void capture_sound_cue_editor(const std::filesystem::path& gallery,
         const auto reference = runtime_scene.reference(cue);
         if (repeating) {
             audio->paused(false);
-            std::vector<float> pcm((3 * 24576 + 1) * 2);
-            audio->read_offline(pcm);
+            if (completion) {
+                unsigned quanta = 0;
+                while (AudioSourceAccess::status(*audio, reference).at("accepted_triggers") < 4) {
+                    require(++quanta <= 32768, "Completion capture did not reach four events");
+                    std::array<float, 512> pcm{};
+                    audio->read_offline(pcm);
+                }
+            } else {
+                std::vector<float> pcm((3 * 24576 + 1) * 2);
+                audio->read_offline(pcm);
+            }
         } else {
             for (unsigned i = 0; i < 4; ++i)
                 AudioSourceAccess::control(*audio, reference, AudioSourceOperation::OneShot);
@@ -123,21 +133,23 @@ void capture_sound_cue_editor(const std::filesystem::path& gallery,
         if (repeating) {
             require(status.at("repeat_running").get<bool>(),
                     "Repeated capture has no active producer");
-            for (const auto* key : {"sound-cue:repeat-interval", "sound-cue:repeat-startup",
-                                    "sound-cue:repeat-game-pause"}) {
+            for (const auto* key : {"sound-cue:repeat-mode", "sound-cue:repeat-interval",
+                                    "sound-cue:repeat-startup", "sound-cue:repeat-game-pause"}) {
                 const auto& target = test::ui_targets.at(key);
                 require(target.minimum.y >= target.clip_minimum.y &&
                             target.maximum.y <= target.clip_maximum.y,
                         "Repeating capture clipped a setting");
             }
         }
-        capture->save(output / (repeating ? "audio-sound-cue-repeat.png" : "audio-sound-cue.png"));
+        capture->save(output / (completion  ? "audio-sound-cue-completion.png"
+                                : repeating ? "audio-sound-cue-repeat.png"
+                                            : "audio-sound-cue.png"));
         live_view = true;
         // The capture backend owns the current ImGui context. Retire it before
         // constructing another viewport so each SDL renderer has its own fonts.
         capture.reset();
         {
-            const float height = repeating ? 380 : 260;
+            const float height = completion ? 420 : repeating ? 380 : 260;
             test::ImGuiSoftwareCapture compact(700, int(height));
             ui::style(1);
             draw(compact, height);
@@ -157,8 +169,9 @@ void capture_sound_cue_editor(const std::filesystem::path& gallery,
                                 target.maximum.y <= target.clip_maximum.y,
                             "Repeating capture clipped or disabled a lifecycle control");
                 }
-            compact.save(output / (repeating ? "audio-sound-cue-repeat-live.png"
-                                             : "audio-sound-cue-live.png"));
+            compact.save(output / (completion  ? "audio-sound-cue-completion-live.png"
+                                   : repeating ? "audio-sound-cue-repeat-live.png"
+                                               : "audio-sound-cue-live.png"));
         }
         require(scene.snapshot() == before && runtime_scene.snapshot() == before,
                 "Capture changed authored component values");
