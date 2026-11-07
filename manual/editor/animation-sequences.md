@@ -230,7 +230,7 @@ its own Timeline.
 
 1. Create two **Animation Sequence** controllers in the same Scene. Give the parent enough **Duration** for the arrangement; the child's duration and placement rate control its length in the parent.
 2. Open the parent's sequence Timeline. Select the child controller in Hierarchy, position the playhead and choose **Add selected sequence**.
-3. Select the child under **Nested sequences**. Enter **Start in parent** and **Placement rate**. Enable **Loop in parent** to repeat the child through the remaining parent duration. Choose **Apply placement timing** to save all three fields in one Scene Undo step. **Reset pending placement timing** discards the pending values. Apply or reset before opening or removing the placement.
+3. Select the child under **Nested sequences**. Enter **Start in parent** and **Placement rate**. Enable **Loop in parent** to repeat the child until its next placement or the parent end. Choose **Apply placement timing** to save the pending fields in one Scene Undo step. **Reset pending placement timing** discards the pending values. Apply or reset before opening or removing the placement.
 4. Choose **Refresh clips**, then **Preview sequence**. The green strip marks the child placement. Scrub the parent to inspect its descendants together. Game preview and frame export use the same composed camera image.
 5. Choose **Open nested timeline** to edit the child's own objects, shots, sound cues or further child placements. Its local preview uses its own stored timing. **Open parent timeline** returns to the parent arrangement; refresh the parent to review the combined result.
 6. Choose **Save scene**. Game Play and export use the saved parent bindings and prepared clips and sounds.
@@ -278,6 +278,40 @@ reduce its placement rate or shorten the parent. Sound cues also retain the
 require the runtime kit packaged with the editor and a rebuild of C++ modules
 against its matching SDK.
 
+### Repeat a controller at separate times
+
+Open **189-controller-placements**, select **Eight-second repeated placements**
+and open its Timeline. Select **Locomotion - finite, slow loop, normal loop** under
+**Nested sequences**. Its three strips show a fast finite section, a gap, a slow
+loop and a normal-speed loop. The other models demonstrate repeated morph and
+nested mapped animation. The included camera and light support Play and export.
+
+![Three controller placements with separate starts, rates and loop controls in the Timeline](../images/repeated-sequence-placements.png)
+The selected locomotion controller has a finite first placement, then a slow loop
+and a normal-speed loop. Each additional placement has its own controls.
+
+1. Select a child under **Nested sequences** and choose **Add controller placement**. It appends after the last placement's first cycle. A looping placement can end at the parent boundary; a finite placement must have room to finish. Increase the parent's **Duration** or adjust existing timing if the button is unavailable.
+2. Under **Additional placements**, set each **Start in parent**, **Placement rate** and **Loop in parent**. Starts must increase. A finite placement must finish before the next starts; a loop fills until the next placement or parent end. Gaps hold the previous endpoint until the next placement resets the child.
+3. Choose **Apply placement timing** to commit the complete arrangement in one Scene Undo step. **Reset pending placement timing** reloads the saved Scene fields. Choose **Refresh clips** and scrub or play the preview to inspect the result.
+4. To remove one extra placement, choose its **Remove controller placement**, then **Apply placement timing**. This keeps the child, its tracks and the other placements.
+
+A child supports **eight placements** on one parent, including the original.
+Each rate is **0.25–4**; inherited rates stay within **1/64–64** and the complete
+controller stays within the **256 derived spans** limit. Parent resets restart
+descendants; camera shots, sound cues and root movement follow the selected placement.
+During Play, select the child and expand **Controller placements** to inspect its
+timing list. **Active placement** identifies the selected entry; **Hold** indicates
+an inactive gap or endpoint. Use the parent for playback controls.
+
+These placements reuse the same child and actors at different times. For independent
+simultaneous copies, duplicate the linked group or instantiate its Prefab. A child
+has one parent and its controller placements cannot overlap.
+
+![Three original model tracks following repeated nested controller placements in Game](../images/repeated-sequence-game.png)
+Gallery189 at about 6.75 seconds: locomotion follows its final normal-speed loop,
+the middle model follows the fast repeated morph section, and the mapped model
+follows a repeated descendant.
+
 ### Compare nested playback rates
 
 Open **186-nested-sequence-rates** to compare rates in Game. Its left model follows
@@ -301,9 +335,9 @@ translated parent times during forward playback, including each root loop.
 Seeking and silent Timeline preview do not play skipped sounds.
 
 **Remove sequence placement** clears the parent link and keeps the child, tracks,
-start, placement rate, placement looping and standalone settings. Undo restores the
+start, placement rate, placement looping, additional placements and standalone settings. Undo restores the
 link. Inspector also exposes **Parent sequence**, **Start in parent**,
-**Placement rate** and **Loop in parent**. Circular links, missing controllers,
+**Placement rate**, **Loop in parent** and **Additional controller placements**. Circular links, missing controllers,
 cross-Scene parents and out-of-range cumulative rates are reported during refresh or Play preparation. Include
 the complete linked group when making a Prefab. Up to 64 enabled controllers can
 participate; one controller with camera shots can direct each loaded Scene.

@@ -94,6 +94,28 @@ class AnimationPlaybackEditor {
                     ImGui::TreePop();
                 }
             }
+            const auto repeats = status.find("sequence_placements");
+            if (repeats != status.end() && repeats->is_object() &&
+                repeats->contains("placements") && repeats->at("placements").is_array()) {
+                const auto& placements = repeats->at("placements");
+                ImGui::TextWrapped("Active placement %zu of %zu%s",
+                                   repeats->at("active_placement").get<std::size_t>() + 1,
+                                   placements.size(),
+                                   repeats->value("active", false) ? "" : " | Hold");
+                FORGE_UI_PROBE("live-animation:controller_window");
+                const bool open = ImGui::TreeNode("Controller placements");
+                FORGE_UI_PROBE("live-animation:controller_placements");
+                if (open) {
+                    for (std::size_t i = 0; i < placements.size(); ++i) {
+                        ImGui::TextWrapped("Placement %zu: start %.3f s, rate %.3gx%s", i + 1,
+                                           placements[i].at("start_seconds").get<double>(),
+                                           placements[i].at("rate").get<double>(),
+                                           placements[i].at("loop").get<bool>() ? " | Loop" : "");
+                        FORGE_UI_PROBE("live-animation:controller_placement:" + std::to_string(i));
+                    }
+                    ImGui::TreePop();
+                }
+            }
         } else
             ImGui::TextWrapped(
                 "%s", status.is_object()

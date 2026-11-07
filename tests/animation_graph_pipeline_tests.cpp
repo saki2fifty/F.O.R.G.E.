@@ -480,8 +480,12 @@ void camera_profile_recovery(const std::filesystem::path& root, const Json& sour
     for (std::size_t i = 2; i < sequence_clip_limit; ++i)
         track.sequence_extra_clips.push_back({track.clip, i * spacing});
     scene.entity(sibling).set(track);
-    for (const bool looping : {false, true}) {
+    for (const unsigned profile : {0u, 1u, 2u}) {
+        const bool looping = profile != 0, placements = profile == 2;
         child.sequence_loop = looping;
+        child.sequence_extra_placements =
+            placements ? std::vector<SequenceControllerPlacement>{{1.25, .5, false}}
+                       : std::vector<SequenceControllerPlacement>{};
         scene.entity(child_id).set(child);
         const auto collection_source = scene.document();
         World collection(root, collection_source, actor);
@@ -491,7 +495,10 @@ void camera_profile_recovery(const std::filesystem::path& root, const Json& sour
         const auto collection_sibling =
             collection.animation->presentation(collection.scene.entity(sibling).id(), 1);
         const auto collection_checkpoint = collection.animation->checkpoint();
-        check(collection_checkpoint.at("version") == (looping ? 13 : 12) &&
+        check(collection_checkpoint.at("version") == (placements ? 14
+                                                      : looping  ? 13
+                                                                 : 12) &&
+                  (!placements || collection_checkpoint.at("sequence_placement_profile") == 13) &&
                   (!looping || collection_checkpoint.at("sequence_loop_profile") == 12) &&
                   collection_checkpoint.at("sequence_arrangement_profile") == 11 &&
                   collection_checkpoint.at("sequence_rate_profile") == 10 &&
@@ -513,6 +520,8 @@ void camera_profile_recovery(const std::filesystem::path& root, const Json& sour
                                           "sequence_profile"};
         if (looping)
             wrappers.push_back("sequence_loop_profile");
+        if (placements)
+            wrappers.push_back("sequence_placement_profile");
         for (const char* field : wrappers) {
             auto invalid = collection_checkpoint;
             invalid[field] = 1u;
@@ -520,6 +529,22 @@ void camera_profile_recovery(const std::filesystem::path& root, const Json& sour
             check(collection_cold.animation->checkpoint() == collection_checkpoint,
                   "Rejected collection wrapper changed an admitted world");
         }
+        if (placements)
+            for (const bool stripped : {false, true}) {
+                auto invalid = collection_checkpoint;
+                if (stripped) {
+                    invalid["version"] = invalid.at("sequence_placement_profile");
+                    invalid.erase("sequence_placement_profile");
+                } else
+                    for (auto& entry : invalid["sequence_entries"])
+                        if (entry.at("entity") == Json(scene.reference(child_id)))
+                            entry["sequence_extra_placements"][0]["rate"] = 1.;
+                rejects([&] { collection_cold.animation->restore(invalid); });
+                check(collection_cold.animation->checkpoint() == collection_checkpoint,
+                      "Rejected compound placement recovery changed the admitted world");
+                same_pose(collection_cold.current_pose(), collection_graph,
+                          "Graph after rejected repeated-placement recovery");
+            }
         if (looping)
             for (const bool stripped : {false, true}) {
                 auto invalid = collection_checkpoint;

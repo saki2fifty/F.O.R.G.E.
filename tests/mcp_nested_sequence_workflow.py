@@ -19,6 +19,8 @@ def check_nested_sequence_workflow(client, discover, arguments, mutate, project)
     assert fields['sequence_rate']['display_name'] == 'Placement rate'
     assert fields['sequence_loop']['default'] is False
     assert fields['sequence_loop']['display_name'] == 'Loop in parent'
+    assert fields['sequence_extra_placements']['default'] == []
+    assert fields['sequence_extra_placements']['display_name'] == 'Additional controller placements'
     ids = []
     for name in ('Parent', 'Child'):
         result = mutate('forge_entity_create', arguments=dict(recipe='animation.sequence', name=name))
@@ -38,6 +40,9 @@ def check_nested_sequence_workflow(client, discover, arguments, mutate, project)
     before = config()
     values = dict(sequence=dict(scene=snapshot()['asset_id'], entity=parent),
                   sequence_start_seconds=.5, sequence_rate=2, sequence_loop=True,
+                  sequence_extra_placements=[dict(start_seconds=1.5, rate=.5, loop=True,
+                                                  future_placement=dict(note='preserve')),
+                                             dict(start_seconds=3., rate=1., loop=False)],
                   loop=False, playback_speed=0, play_on_start=False)
     request = arguments(arguments=dict(entity=child, component=component['id'], values=values))
     changed = client.tool('forge_property_set_many', **request)
@@ -66,6 +71,18 @@ def check_nested_sequence_workflow(client, discover, arguments, mutate, project)
         state = discover()
         result = mutate('forge_property_set', arguments=dict(entity=child, component=component['id'],
                         field='sequence_loop', value=value))
+        assert not result['ok'] and discover()['revision'] == state['revision'], result
+        assert config() == placed
+    for value in (None, 1, {}, 'placements',
+                  [dict(start_seconds=.4, rate=1., loop=True)],
+                  [dict(start_seconds=2., rate=0., loop=True)],
+                  [dict(start_seconds=2., rate=1., loop=1)],
+                  [dict(start_seconds=1.5, rate=4., loop=False),
+                   dict(start_seconds=2., rate=1., loop=False)],
+                  [dict(start_seconds=i + 1., rate=1., loop=True) for i in range(8)]):
+        state = discover()
+        result = mutate('forge_property_set', arguments=dict(entity=child, component=component['id'],
+                        field='sequence_extra_placements', value=value))
         assert not result['ok'] and discover()['revision'] == state['revision'], result
         assert config() == placed
     assert mutate('forge_document_save')['ok']

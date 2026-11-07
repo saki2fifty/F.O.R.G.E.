@@ -7,7 +7,9 @@ inline constexpr unsigned skeletal_sequence_runtime_profile_version = 1;
 inline constexpr unsigned sequence_rate_runtime_profile_version = 1;
 inline constexpr unsigned sequence_arrangement_runtime_profile_version = 1;
 inline constexpr unsigned sequence_loop_runtime_profile_version = 1;
+inline constexpr unsigned sequence_placement_runtime_profile_version = 1;
 inline constexpr std::size_t sequence_clip_limit = 8;
+inline constexpr std::size_t sequence_placement_limit = 8;
 struct SkeletonAsset {
     static constexpr const char* type = "skeleton";
 };
@@ -34,6 +36,11 @@ template <class ClipAsset> struct SequenceClipPlacement {
     double start_seconds = 0;
     bool operator==(const SequenceClipPlacement&) const = default;
 };
+struct SequenceControllerPlacement {
+    double start_seconds = 0, rate = 1;
+    bool loop = false;
+    bool operator==(const SequenceControllerPlacement&) const = default;
+};
 // Scene/Prefab-owned coordination of existing clips; AnimationRuntime owns time.
 struct AnimationSequence {
     double duration = 4;
@@ -46,6 +53,7 @@ struct AnimationSequence {
     double sequence_rate = 1;
     // Repeat this placement through the remaining parent span; ignored on roots.
     bool sequence_loop = false;
+    std::vector<SequenceControllerPlacement> sequence_extra_placements{};
     bool operator==(const AnimationSequence&) const = default;
 };
 // Scene-owned shot arrangement. Selection is derived in copied presentation;

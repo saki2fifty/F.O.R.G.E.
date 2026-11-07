@@ -8,6 +8,26 @@ inline void validate_sequence_rate(double rate) {
     if (!std::isfinite(rate) || rate < .25 || rate > 4)
         throw std::runtime_error("Sequence placement rate must be within 0.25–4");
 }
+inline void validate_sequence_placements(const AnimationSequence& value) {
+    validate_sequence_rate(value.sequence_rate);
+    if (value.sequence_extra_placements.size() > sequence_placement_limit - 1)
+        throw std::runtime_error("At most seven additional controller placements are supported");
+    double start = value.sequence_start_seconds, rate = value.sequence_rate;
+    bool loop = value.sequence_loop;
+    for (const auto& placement : value.sequence_extra_placements) {
+        validate_sequence_rate(placement.rate);
+        if (!std::isfinite(placement.start_seconds) || placement.start_seconds <= start ||
+            placement.start_seconds > 3600)
+            throw std::runtime_error(
+                "Controller placement starts must increase within 0–3600 seconds");
+        if (!loop && start + value.duration / rate > placement.start_seconds)
+            throw std::runtime_error(
+                "Finite controller placements must finish before the next start");
+        start = placement.start_seconds;
+        rate = placement.rate;
+        loop = placement.loop;
+    }
+}
 template <class T>
 inline void validate_sequence_extras(const std::vector<SequenceClipPlacement<T>>& clips,
                                      AssetRef<T> primary, AssetRef<T> next, bool bound,

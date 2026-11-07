@@ -109,13 +109,23 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
             return components.contains("forge.animation_sequence") &&
                    components.at("forge.animation_sequence").value("sequence_loop", false);
         });
+    const bool placements = std::any_of(
+        source.at("entities").begin(), source.at("entities").end(), [](const Json& row) {
+            const auto& components = row.at("components");
+            return components.contains("forge.animation_sequence") &&
+                   !components.at("forge.animation_sequence")
+                        .value("sequence_extra_placements", Json::array())
+                        .empty();
+        });
     World live(root, source), first(root, reference_document(source, false)),
         next(root, reference_document(source, true));
     Json observations = Json::array();
     bool morphs = false, mapped_motion = false;
     const std::vector<double> sample_times =
-        child_loops ? std::vector<double>{0,    .5,  .625, .99,  1,   1.25, 1.5, 2.5,
-                                          2.75, 3.5, 4.75, 5.25, 6.5, 6.75, 7.75}
+        placements    ? std::vector<double>{0,   .5,   .75,  .99,  1.25, 1.49, 1.5, 2.25,
+                                            2.5, 2.75, 3.75, 4.75, 5.5,  6.75, 7.5, 7.75}
+        : child_loops ? std::vector<double>{0,    .5,  .625, .99,  1,   1.25, 1.5, 2.5,
+                                            2.75, 3.5, 4.75, 5.25, 6.5, 6.75, 7.75}
         : collections
             ? std::vector<double>{0, .75, 1.25, 1.75, 2.5, 3.5, 5.25, 7.75, 10.25, 14.75, 15.5}
             : std::vector<double>{0, .75, 1.25, 1.75, 2.5, 3.5};
@@ -143,9 +153,14 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
             }
             double local = seconds, rate = 1, parent_duration = chain.back().duration;
             for (auto child = chain.rbegin() + 1; child != chain.rend(); ++child) {
+                SequenceControllerPlacement selected{child->sequence_start_seconds,
+                                                     child->sequence_rate, child->sequence_loop};
+                for (const auto& placement : child->sequence_extra_placements)
+                    if (local >= placement.start_seconds)
+                        selected = placement;
                 const auto unwrapped =
-                    std::max(0., (local - child->sequence_start_seconds) * child->sequence_rate);
-                if (child->sequence_loop && unwrapped > 0) {
+                    std::max(0., (local - selected.start_seconds) * selected.rate);
+                if (selected.loop && unwrapped > 0) {
                     const bool parent_end = local == parent_duration;
                     local = std::fmod(unwrapped, child->duration);
                     if (parent_end && local == 0)
@@ -153,7 +168,7 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
                 } else
                     local = std::min(unwrapped, child->duration);
                 parent_duration = child->duration;
-                rate *= child->sequence_rate;
+                rate *= selected.rate;
             }
             std::size_t active = 0;
             double a_start = config.sequence_start_seconds, b_start = start;
@@ -245,11 +260,17 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
             sample.push_back({{"pose", actual}, {"playback", status}});
         }
         const auto checkpoint = live.animation->checkpoint();
-        check(checkpoint.at("version") == (child_loops   ? 13
+        check(checkpoint.at("version") == (placements    ? 14
+                                           : child_loops ? 13
                                            : collections ? 12
                                            : rates       ? 11
                                                          : 10),
               "Gallery omitted the skeletal/rate recovery profile");
+        if (placements)
+            check(checkpoint.at("sequence_placement_profile") == 11 &&
+                      checkpoint.at("sequence_rate_profile") == 10 &&
+                      checkpoint.at("skeletal_sequence_profile") == 7,
+                  "Repeated Gallery lost its nested/rate/skeletal recovery composition");
         if (child_loops)
             check(checkpoint.at("sequence_loop_profile") == 11 &&
                       checkpoint.at("sequence_rate_profile") == 10 &&
@@ -272,11 +293,18 @@ int main(int argc, char** argv) {
         if (argc == 3 && (std::string_view(argv[1]) == "--author" ||
                           std::string_view(argv[1]) == "--author-rates" ||
                           std::string_view(argv[1]) == "--author-collections" ||
-                          std::string_view(argv[1]) == "--author-child-loops")) {
+                          std::string_view(argv[1]) == "--author-child-loops" ||
+                          std::string_view(argv[1]) == "--author-placements")) {
             std::cout << test::author_skeletal_sequence_gallery(
-                             argv[2], std::string_view(argv[1]) == "--author-rates",
-                             std::string_view(argv[1]) == "--author-collections",
-                             std::string_view(argv[1]) == "--author-child-loops")
+                             argv[2], std::string_view(argv[1]) == "--author-rates"
+                                          ? test::SequenceGalleryProfile::Rates
+                                      : std::string_view(argv[1]) == "--author-collections"
+                                          ? test::SequenceGalleryProfile::Collections
+                                      : std::string_view(argv[1]) == "--author-child-loops"
+                                          ? test::SequenceGalleryProfile::ChildLoops
+                                      : std::string_view(argv[1]) == "--author-placements"
+                                          ? test::SequenceGalleryProfile::ControllerPlacements
+                                          : test::SequenceGalleryProfile::Direct)
                              .str()
                       << '\n';
             return 0;
@@ -284,26 +312,29 @@ int main(int argc, char** argv) {
         const bool rates = argc == 4 && std::string_view(argv[1]) == "--rates";
         const bool collections = argc == 4 && std::string_view(argv[1]) == "--collections";
         const bool child_loops = argc == 4 && std::string_view(argv[1]) == "--child-loops";
-        check(argc == 3 || rates || collections || child_loops,
-              "Need [--rates|--collections|--child-loops] Gallery and scratch, or "
-              "--author[-rates|-collections|-child-loops] "
+        const bool placements = argc == 4 && std::string_view(argv[1]) == "--placements";
+        check(argc == 3 || rates || collections || child_loops || placements,
+              "Need [--rates|--collections|--child-loops|--placements] Gallery and scratch, or "
+              "--author[-rates|-collections|-child-loops|-placements] "
               "Gallery");
-        const bool selected = rates || collections || child_loops;
+        const bool selected = rates || collections || child_loops || placements;
         const auto scratch =
             std::filesystem::absolute(argv[selected ? 3 : 2]) / AssetId::generate().str();
         const auto root = scratch / "SourceProject";
         std::filesystem::create_directories(scratch);
         std::filesystem::copy(argv[selected ? 2 : 1], root,
                               std::filesystem::copy_options::recursive);
-        const auto path = child_loops   ? test::sequence_child_loop_scene_path
-                          : collections ? test::sequence_collection_scene_path
-                          : rates       ? test::sequence_rate_scene_path
-                                        : test::skeletal_sequence_scene_path;
+        const auto profile = placements    ? test::SequenceGalleryProfile::ControllerPlacements
+                             : child_loops ? test::SequenceGalleryProfile::ChildLoops
+                             : collections ? test::SequenceGalleryProfile::Collections
+                             : rates       ? test::SequenceGalleryProfile::Rates
+                                           : test::SequenceGalleryProfile::Direct;
+        const auto path = test::sequence_gallery_path(profile);
         AssetId id;
         if (std::filesystem::exists(root / path))
             id = read(root / path).at("asset_id").get<AssetId>();
         else
-            id = test::author_skeletal_sequence_gallery(root, rates, collections, child_loops);
+            id = test::author_skeletal_sequence_gallery(root, profile);
         const auto saved = read(root / path);
         const auto expected = exercise(root, id);
         check(read(root / path) == saved, "Gallery execution changed its editable Scene source");

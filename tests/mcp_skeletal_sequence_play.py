@@ -49,7 +49,9 @@ def check_skeletal_sequence_play(read, ok, control, mutate, until, discovery):
     for launch in range(2):
         if launch:
             ok('forge_property_set_many', arguments=dict(entity=child, component='forge.animation_sequence',
-                                                        values=dict(sequence_loop=True)))
+                                                        values=dict(sequence_loop=True,
+                                                            sequence_extra_placements=[dict(
+                                                                start_seconds=3.25, rate=.5, loop=False)])))
             ok('forge_document_save')
             saved = read('forge_scene_read')
         print('Skeletal MCP: launch', launch, flush=True)
@@ -70,10 +72,12 @@ def check_skeletal_sequence_play(read, ok, control, mutate, until, discovery):
             assert observed['component'] == 'forge.transform_animator'
             skeletal = observed['players']['forge.animator']
             properties = observed['players']['forge.transform_animator']
-            local_seconds = max(0, min(5, (seconds-.5)*2)) if launch == 0 else max(0, (seconds-.5)*2) % 5
+            local_seconds = (max(0, min(5, (seconds-.5)*2)) if launch == 0 else
+                             (seconds-3.25)*.5 if seconds >= 3.25 else max(0, (seconds-.5)*2) % 5)
             active = max(0, min(6, int(local_seconds * 2) - 1))
             weight = max(0, min(1, (local_seconds-.5*(active+1))*2))
-            assert skeletal['speed'] == properties['speed'] == 2
+            expected_rate = .5 if launch and seconds >= 3.25 else 2
+            assert skeletal['speed'] == properties['speed'] == expected_rate
             assert skeletal['sequence'] == binding and skeletal['duration'] == 4.5
             assert abs(skeletal['time']-min(local_seconds, 4.5)) < 1e-8
             assert abs(skeletal['blend_weight']-weight) < 1e-8
@@ -96,15 +100,23 @@ def check_skeletal_sequence_play(read, ok, control, mutate, until, discovery):
             assert read('forge_scene_read') == saved
         control('forge_play_watch', entity=child)
         until(status, lambda row: row.get('available') and row.get('sequence_controller'))
-        assert status()['speed'] == 2 and status()['sequence'] == parent_binding
-        assert status()['loop'] is bool(launch)
+        assert status()['speed'] == (.5 if launch else 2) and status()['sequence'] == parent_binding
+        assert status()['loop'] is False
+        if launch:
+            placement = status()['sequence_placements']
+            assert placement['active_placement'] == 1 and placement['active'] is False
+            assert placement['placements'] == [dict(start_seconds=.5, rate=2., loop=True),
+                                                dict(start_seconds=3.25, rate=.5, loop=False)]
+        else:
+            assert 'sequence_placements' not in status()
         control('forge_play_animation_control', entity=child, operation='pause')
         until(lambda: read('forge_play_animation'), lambda row: bool(row.get('error')))
         control('forge_play_watch', entity=actor_id)
         until(status, lambda row: row.get('available') and 'players' in row)
+        before_rejected_seek = status()['players']['forge.animator']['time']
         control('forge_play_animation_control', entity=actor_id, operation='seek', position_seconds=.25)
         until(lambda: read('forge_play_animation'), lambda row: bool(row.get('error')))
-        assert status()['players']['forge.animator']['time'] == (4.5 if launch == 0 else 2)
+        assert status()['players']['forge.animator']['time'] == before_rejected_seek
         scope = read('forge_play_status')
         failed(mutate('forge_play_animation_control', launch=scope['launch'], session=scope['session'],
                       generation=scope['generation']+1, entity=actor_id, operation='pause'), 'stale_play')

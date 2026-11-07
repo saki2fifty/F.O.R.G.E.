@@ -29,6 +29,7 @@ class TransformAnimationPlayback {
     bool has_sequence_rates() const;
     bool has_sequence_arrangements() const;
     bool has_sequence_loops() const;
+    bool has_sequence_placements() const;
     void prepare_sequence_preview_root(EntityRef);
     bool pending() const { return pending_; }
     std::vector<std::uint64_t> take_discontinuities();
@@ -36,10 +37,12 @@ class TransformAnimationPlayback {
     void restore(const Json&);
     std::optional<AnimationPlayback> playback(EntityRef) const;
     Json sequence_clip_status(EntityRef) const;
+    Json sequence_placement_status(EntityRef) const;
     EntityRef parent_sequence(EntityRef) const;
     bool control(EntityRef, AnimationControl);
     bool seek(EntityRef, double seconds);
-    Json sequence_checkpoint(unsigned profile = 3, bool rates = false, bool loops = false) const;
+    Json sequence_checkpoint(unsigned profile = 3, bool rates = false, bool loops = false,
+                             bool placements = false) const;
     Json camera_shots_checkpoint(bool transitions = false) const;
     bool has_camera_blends() const;
     Json tune_camera_shot(EntityRef, const Json& value);
@@ -47,7 +50,7 @@ class TransformAnimationPlayback {
     Json audio_cues_checkpoint() const;
     Json camera_presentation(flecs::entity_t, double alpha) const;
     void restore(const Json&, const Json& sequences, unsigned profile = 3, bool rates = false,
-                 bool arrangements = false, bool loops = false);
+                 bool arrangements = false, bool loops = false, bool placements = false);
     void pose_validator(AnimationRuntime::PoseValidator callback) {
         validator_ = std::move(callback);
     }

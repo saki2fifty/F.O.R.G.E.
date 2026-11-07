@@ -136,7 +136,12 @@ template <class T> Json encode(const T& p) {
                 {"destination_x", p.destination_x},
                 {"destination_y", p.destination_y},
                 {"destination_z", p.destination_z}};
-    else if constexpr (std::is_same_v<T, AnimationSequence>)
+    else if constexpr (std::is_same_v<T, AnimationSequence>) {
+        auto placements = Json::array();
+        for (const auto& placement : p.sequence_extra_placements)
+            placements.push_back({{"start_seconds", placement.start_seconds},
+                                  {"rate", placement.rate},
+                                  {"loop", placement.loop}});
         return {{"duration", p.duration},
                 {"enabled", p.enabled},
                 {"play_on_start", p.play_on_start},
@@ -145,8 +150,9 @@ template <class T> Json encode(const T& p) {
                 {"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
                 {"sequence_start_seconds", p.sequence_start_seconds},
                 {"sequence_rate", p.sequence_rate},
-                {"sequence_loop", p.sequence_loop}};
-    else if constexpr (std::is_same_v<T, CameraShot>)
+                {"sequence_loop", p.sequence_loop},
+                {"sequence_extra_placements", std::move(placements)}};
+    } else if constexpr (std::is_same_v<T, CameraShot>)
         return {{"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
                 {"camera", p.camera.entity ? Json(p.camera) : Json()},
                 {"start_seconds", p.start_seconds},
@@ -529,6 +535,18 @@ template <class T> Value decode(const Json& p) {
         v.sequence_rate = p.value("sequence_rate", 1.);
         animation_detail::validate_sequence_rate(v.sequence_rate);
         v.sequence_loop = p.value("sequence_loop", false);
+        const auto placements = p.value("sequence_extra_placements", Json::array());
+        if (!placements.is_array() || placements.size() > sequence_placement_limit - 1)
+            throw std::runtime_error(
+                "Controller placements must be an array of at most seven entries");
+        for (const auto& placement : placements) {
+            if (!placement.at("loop").is_boolean())
+                throw std::runtime_error("Controller placement loop must be Boolean");
+            v.sequence_extra_placements.push_back({placement.at("start_seconds").get<double>(),
+                                                   placement.at("rate").get<double>(),
+                                                   placement.at("loop").get<bool>()});
+        }
+        animation_detail::validate_sequence_placements(v);
         return v;
     } else if constexpr (std::is_same_v<T, CameraShot>) {
         CameraShot v;
@@ -1463,6 +1481,13 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<double>("destination_z");
     } else if constexpr (std::is_same_v<T, AnimationSequence>) {
         (void)authoring_value_adapters(w);
+        w.component<SequenceControllerPlacement>("forge.sequence_controller_placement")
+            .member<double>("start_seconds")
+            .member<double>("rate")
+            .member<bool>("loop");
+        w.component<std::vector<SequenceControllerPlacement>>(
+             "forge.sequence_controller_placements")
+            .opaque(reflected_vector<SequenceControllerPlacement>);
         c.template member<double>("duration")
             .template member<bool>("enabled")
             .template member<bool>("play_on_start")
@@ -1471,7 +1496,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<EntityRef>("sequence")
             .template member<double>("sequence_start_seconds")
             .template member<double>("sequence_rate")
-            .template member<bool>("sequence_loop");
+            .template member<bool>("sequence_loop")
+            .template member<std::vector<SequenceControllerPlacement>>("sequence_extra_placements");
     } else if constexpr (std::is_same_v<T, CameraShot>) {
         (void)authoring_value_adapters(w);
         c.template member<EntityRef>("sequence")
@@ -3214,6 +3240,11 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["display_name"] = "Loop in parent";
             value["description"] = "Repeat the local duration through the remaining parent "
                                    "span; ignored without a parent. Maximum 256 derived spans.";
+        } else if (field == "sequence_extra_placements" && name == "forge.animation_sequence") {
+            value["display_name"] = "Additional controller placements";
+            value["description"] =
+                "Up to seven ordered, nonoverlapping placements on the same "
+                "parent, each with its own start, rate and loop. Ignored on roots.";
         } else if (field == "sequence_extra_clips") {
             value["display_name"] = "Additional sequence clips";
             value["description"] = "Up to six placements after the primary/next pair; at most "
@@ -3913,6 +3944,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
                 .set<ReflectedSequenceLimit>({sequence_clip_limit - 2})
                 .add<ReflectedNoAnimation>();
         }
+        if (name == "forge.animation_sequence")
+            c.lookup("sequence_extra_placements")
+                .set<ReflectedSequenceLimit>({sequence_placement_limit - 1})
+                .add<ReflectedNoAnimation>();
         if (name == "forge.ui_values") {
             c.lookup("values").set<ReflectedSequenceKey>({"name"});
             c.lookup("values").set<ReflectedSequenceLimit>({UiValues::max_entries});
@@ -4021,6 +4056,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.animator")
             references.push_back(
                 {world.id<std::vector<SequenceClipPlacement<AnimationClipAsset>>>(), "vector"});
+        if (name == "forge.animation_sequence")
+            references.push_back({world.id<std::vector<SequenceControllerPlacement>>(), "vector"});
         if (name == "forge.mesh_renderer") {
             references.push_back({world.id<std::string>(), "string"});
             references.push_back({world.id<std::vector<MaterialSlotOverride>>(), "vector"});
@@ -4205,7 +4242,7 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.animation_sequence")
-        for (const auto* field : {"sequence_rate", "sequence_loop"})
+        for (const auto* field : {"sequence_rate", "sequence_loop", "sequence_extra_placements"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.animator" ||

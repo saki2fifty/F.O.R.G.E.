@@ -1181,7 +1181,16 @@ remain read only. These are existing fields/operations, with no new MCP endpoint
 Generic discovery, Scene permission/revision, replay, history and Save apply.
 Invalid local rates reject without mutation; invalid/cyclic/composed bindings
 reject preparation through the same runtime owner. Watch speed includes the
-cumulative rate. See [nested timing](transform-animation.md#nested-controller-placements).
+cumulative rate. `sequence_extra_placements` adds up to seven entries after the
+primary, each with `start_seconds`, `rate` and `loop`. Starts increase strictly;
+finite placements cannot overlap, and a loop ends at the next placement or parent
+end. Edit primary and extra values together through `forge_property_set_many` to
+validate one complete configuration and one history change. Empty arrays preserve
+the earlier single-placement profile; detaching keeps the stored list.
+A repeated controller watch includes read-only `sequence_placements` with its
+ordered list, selected positional `active_placement` and active-window flag. No
+new tool, clock or authoring owner is added. See
+[nested timing](transform-animation.md#nested-controller-placements).
 
 Watch the controller before using scoped `forge_play_animation_control` to seek,
 pause or restart it. Bound players reject independent control. A model watch via

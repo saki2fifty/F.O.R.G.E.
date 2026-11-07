@@ -177,6 +177,45 @@ void skeletal_sequence_collection_tests(const std::filesystem::path& project, co
     near(repeated_roots.local().translation.z, 6 * cycle_motion.z + 3 * partial_motion.z);
     sequence.loop = false;
     scene.entity(controller_id).set(sequence);
+    Fixture placement_reference(project, whole.scene.snapshot(), actor);
+    const auto origin = placement_reference.local().translation;
+    placement_reference.simulation.tick(2.5f);
+    const auto midpoint = placement_reference.local().translation;
+    const LocalTranslation midpoint_motion{midpoint.x - origin.x, midpoint.y - origin.y,
+                                           midpoint.z - origin.z};
+    near(midpoint_motion.x, 2);
+    near(midpoint_motion.z, 3);
+    child.sequence_extra_placements = {{3, .5, false}};
+    scene.entity(child_id).set(child);
+    const LocalTranslation placed_motion{cycle_motion.x + partial_motion.x + midpoint_motion.x, 0,
+                                         cycle_motion.z + partial_motion.z + midpoint_motion.z};
+    for (const bool segmented : {false, true}) {
+        Fixture placed(project, scene.snapshot(), actor);
+        for (unsigned i = 0; i < (segmented ? 64u : 1u); ++i)
+            placed.simulation.tick(segmented ? .125f : 8.f);
+        near(placed.local().translation.x, placed_motion.x);
+        near(placed.local().translation.z, placed_motion.z);
+        const auto saved = placed.animation->checkpoint();
+        require(saved.at("version") == 14 && saved.at("sequence_placement_profile") == 13 &&
+                    saved.at("sequence_loop_profile") == 12,
+                "Repeated skeletal placements lost the existing loop/collection recovery chain");
+        Fixture resumed(project, placed.scene.snapshot(), actor, false);
+        resumed.animation->restore(saved);
+        require(resumed.animation->checkpoint() == saved,
+                "Repeated skeletal placement recovery changed clocks or configuration");
+        near(resumed.local().translation.x, placed_motion.x);
+        near(resumed.local().translation.z, placed_motion.z);
+    }
+    sequence.loop = true;
+    scene.entity(controller_id).set(sequence);
+    Fixture placed_roots(project, scene.snapshot(), actor);
+    placed_roots.simulation.tick(16.5f);
+    near(placed_roots.local().translation.x, 2 * placed_motion.x + partial_motion.x);
+    near(placed_roots.local().translation.z, 2 * placed_motion.z + partial_motion.z);
+    sequence.loop = false;
+    scene.entity(controller_id).set(sequence);
+    child.sequence_extra_placements.clear();
+    scene.entity(child_id).set(child);
     const auto grand_id =
         authoring_command(scene, "entity.create", {{"recipe", "animation.sequence"}})
             .at("selected")

@@ -92,6 +92,42 @@ only, preserving native/authored enabled flags, with normal composition in gaps.
 The exact timing, invalid-input policy and recovery4 boundary are specified in
 [transform animation](../transform-animation.md#sequence-camera-shots).
 
+## Repeated child controller placements — accepted additive design
+
+2026-11-07. Append default-empty `AnimationSequence.sequence_extra_placements`:
+at most seven entries with `start_seconds`, `rate` and `loop`, following the existing
+primary placement. One child still has one parent and one complete pose candidate.
+These are positional values, not independent identities, controller instances or
+additional clocks. Independent simultaneous instances remain Scene/Prefab copies.
+An unbound controller ignores the retained placement configuration.
+
+Starts must increase strictly after the primary start. Each rate is within0.25–4;
+every inherited span's cumulative rate remains within1/64–64. A finite placement
+must finish before the next starts; its final value holds across a gap. A looping
+placement fills through the next start or the parent end. The final placement may
+be clipped by the parent end, just as the original primary placement was. At an
+explicit next start the incoming placement resets local time to zero. Ancestor
+resets clear descendants even before their first active placement. End/entry cue
+coincidence retains the existing once-per-cue/root-point convention. Root motion
+integrates each placement independently and never extracts the reset as movement.
+
+Extend the existing immutable derived mapping with a rate per span; no global
+affine-rate assumption may survive in status, cue inverse, camera activity,
+skeletal/root-motion intervals or copied presentation. Preserve the256-span budget,
+mathematical preflight, inline ordinary span, full candidate admission and last-good
+publication. Empty extra lists preserve all previous timing and recovery meanings.
+
+The native value and exact SDK fingerprint change deliberately; C ABI1 callback
+tables remain unchanged. Runtime document/kit capability `sequence_placement:1` /
+`runtime_sequence_placement:1` is required for a stored nonempty list, including
+partial Prefab overrides. Private recovery14 wraps its preceding profile and
+records exact primary/extra configurations for every controller before adoption.
+Existing source-extension, typed reference, Prefab and history owners remain.
+Timeline, read-only live observations, generic automation/MCP, matching installed
+SDK, recovery, Gallery and source-hidden export checks are required before
+completion. Concurrent/multi-parent placements and unrestricted blends are outside
+this bounded extension.
+
 ## Direct skeletal sequence tracks — accepted additive design
 
 2026-11-07. Append optional `sequence`, `sequence_start_seconds`,

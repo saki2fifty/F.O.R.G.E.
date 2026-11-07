@@ -261,9 +261,20 @@ void nested_sequence_tests(const std::filesystem::path& root, AssetId motion, As
     EngineContext persisted_engine;
     Scene persisted(persisted_engine.world());
     auto portable_source = changed(child, {{"sequence_rate", 2.}, {"sequence_loop", true}});
-    for (auto& row : portable_source["entities"])
+    const Json child_placements = Json::array({{{"start_seconds", 2.},
+                                                {"rate", .5},
+                                                {"loop", false},
+                                                {"future_placement", {{"tag", 7}}}}});
+    const Json grand_placements =
+        Json::array({{{"start_seconds", 1.5}, {"rate", 2.}, {"loop", false}}});
+    for (auto& row : portable_source["entities"]) {
+        if (row.at("id") == child)
+            row["components"]["forge.animation_sequence"]["sequence_extra_placements"] =
+                child_placements;
         if (row.at("id") == grand)
-            row["components"]["forge.animation_sequence"]["sequence_loop"] = true;
+            row["components"]["forge.animation_sequence"].update(
+                {{"sequence_loop", true}, {"sequence_extra_placements", grand_placements}});
+    }
     persisted.reset(portable_source);
     persisted.reparent_entity(child, parent, ReparentMode::KeepLocal);
     persisted.reparent_entity(grand, child, ReparentMode::KeepLocal);
@@ -280,6 +291,11 @@ void nested_sequence_tests(const std::filesystem::path& root, AssetId motion, As
     check(persisted.entity(copied_child).get<AnimationSequence>().sequence_loop &&
               persisted.entity(copied_grand).get<AnimationSequence>().sequence_loop,
           "Nested subtree duplicate lost explicit placement looping");
+    check(persisted.entity(copied_child).get<AnimationSequence>().sequence_extra_placements ==
+                  std::vector<SequenceControllerPlacement>{{2, .5, false}} &&
+              persisted.entity(copied_grand).get<AnimationSequence>().sequence_extra_placements ==
+                  std::vector<SequenceControllerPlacement>{{1.5, 2, false}},
+          "Nested subtree duplicate lost independently authored placements");
     const auto detached = persisted.duplicate_subtree(grand);
     check(persisted.entity(detached).get<AnimationSequence>().sequence == ref(child),
           "Child-only duplicate retargeted its external parent");
@@ -292,6 +308,17 @@ void nested_sequence_tests(const std::filesystem::path& root, AssetId motion, As
         const auto leaf_id = named(target, "Grandchild", inner_id);
         near(target.entity(inner_id).get<AnimationSequence>().sequence_rate, 2);
         near(target.entity(leaf_id).get<AnimationSequence>().sequence_rate, 1);
+        check(target.entity(inner_id).get<AnimationSequence>().sequence_extra_placements ==
+                      std::vector<SequenceControllerPlacement>{{2, .5, false}} &&
+                  target.entity(leaf_id).get<AnimationSequence>().sequence_extra_placements ==
+                      std::vector<SequenceControllerPlacement>{{1.5, 2, false}},
+              "Portable Prefab or reopened instance lost repeated placements");
+        const auto serialized = target.effective_document();
+        check(row(serialized, inner_id)
+                      .at("components")
+                      .at("forge.animation_sequence")
+                      .at("sequence_extra_placements") == child_placements,
+              "Portable repeated placement lost its opaque entry extensions");
         check(target.entity(inner_id).get<AnimationSequence>().sequence_loop &&
                   target.entity(leaf_id).get<AnimationSequence>().sequence_loop,
               "Portable Prefab or reopened instance lost child loop intent");
@@ -308,6 +335,15 @@ void nested_sequence_tests(const std::filesystem::path& root, AssetId motion, As
     const auto second_instance = instantiate_prefab(persisted, prefab);
     verify(persisted, first_instance);
     verify(persisted, second_instance);
+    auto local_placements = child_placements;
+    local_placements[0]["rate"] = 1.;
+    authoring_command(persisted, "property.set_many",
+                      {{"entity", named(persisted, "Child", first_instance)},
+                       {"component", "forge.animation_sequence"},
+                       {"values", {{"sequence_extra_placements", local_placements}}}});
+    verify(persisted, second_instance);
+    check(persisted.undo(), "Portable placement override did not enter Scene history");
+    verify(persisted, first_instance);
     persisted.save(root / "NestedSequence.scene.json");
     EngineContext reopened_engine;
     Scene reopened(reopened_engine.world());

@@ -158,7 +158,7 @@ int main(int argc, char** argv) {
         {
             using package_detail::document_runtime_features;
             for (const auto& [component, requirement, support, properties] :
-                 std::array<std::tuple<const char*, const char*, const char*, Json>, 3>{
+                 std::array<std::tuple<const char*, const char*, const char*, Json>, 4>{
                      {{"forge.animator", "skeletal_sequence", "runtime_skeletal_sequence",
                        Json::object()},
                       {"forge.animation_sequence",
@@ -168,7 +168,13 @@ int main(int argc, char** argv) {
                       {"forge.animation_sequence",
                        "sequence_loop",
                        "runtime_sequence_loop",
-                       {{"sequence_loop", true}}}}}) {
+                       {{"sequence_loop", true}}},
+                      {"forge.animation_sequence",
+                       "sequence_placement",
+                       "runtime_sequence_placement",
+                       {{"sequence_extra_placements",
+                         Json::array(
+                             {{{"start_seconds", 2.}, {"rate", .5}, {"loop", true}}})}}}}}) {
                 const Json required{{requirement, 1}};
                 const auto none = Json::object();
                 const Json scene_ref = EntityRef{AssetId::generate(), EntityId::generate()};
@@ -191,6 +197,8 @@ int main(int argc, char** argv) {
                             if (std::string_view(component) == "forge.animation_sequence") {
                                 document[rows][0][channel][component]["sequence_rate"] = 1.;
                                 document[rows][0][channel][component]["sequence_loop"] = false;
+                                document[rows][0][channel][component]["sequence_extra_placements"] =
+                                    Json::array();
                             }
                             check(document_runtime_features(document) == none,
                                   "Unbound skeletal clips require a new runtime kit");
@@ -235,6 +243,16 @@ int main(int argc, char** argv) {
                 features.replace(record);
                 validate_runtime_compatibility(features, Json::object());
             }
+            for (const Json& invalid :
+                 {Json(), Json(0), Json(false), Json("placements"), Json::object()})
+                reject([&] {
+                    (void)document_runtime_features(
+                        {{"base", AssetId::generate()},
+                         {"overrides",
+                          Json::array({{{"property_overrides",
+                                         {{"forge.animation_sequence",
+                                           {{"sequence_extra_placements", invalid}}}}}}})}});
+                });
             for (const Json& invalid :
                  {Json(), Json(0), Json(1), Json("true"), Json::array(), Json::object()})
                 reject([&] {

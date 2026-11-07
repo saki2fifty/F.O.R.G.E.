@@ -592,6 +592,7 @@ void camera_shots(const std::filesystem::path& root) {
 #include "child_sequence_loop_tests.hpp"
 #include "nested_sequence_audio_tests.hpp"
 #include "nested_sequence_tests.hpp"
+#include "repeated_sequence_placement_tests.hpp"
 #include "sequence_clip_blend_tests.hpp"
 #include "sequence_collection_runtime_tests.hpp"
 #include "sequence_property_blend_tests.hpp"
@@ -604,7 +605,9 @@ int main(int argc, char** argv) {
             argc == 3 && std::string_view(argv[2]) == "--collections-only";
         const bool child_loops_only =
             argc == 3 && std::string_view(argv[2]) == "--child-loops-only";
-        check(argc == 2 || properties_only || collections_only || child_loops_only,
+        const bool placements_only = argc == 3 && std::string_view(argv[2]) == "--placements-only";
+        check(argc == 2 || properties_only || collections_only || child_loops_only ||
+                  placements_only,
               "Need sequence scratch root and optional property mode");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
@@ -619,11 +622,15 @@ int main(int argc, char** argv) {
             sequence_property_blend_tests(root, lease, imports);
             return 0;
         }
-        if (child_loops_only) {
+        if (child_loops_only || placements_only) {
             const auto motion = clip(lease, imports, "Assets/LoopMotion.animation.json", false);
             const auto pulse = clip(lease, imports, "Assets/LoopPulse.animation.json", true);
-            child_sequence_loop_tests(root, motion, pulse);
-            child_sequence_loop_audio_tests(root);
+            if (placements_only)
+                repeated_sequence_placement_tests(root, motion, pulse);
+            else {
+                child_sequence_loop_tests(root, motion, pulse);
+                child_sequence_loop_audio_tests(root);
+            }
             return 0;
         }
         camera_shot_identity(root);
@@ -636,6 +643,7 @@ int main(int argc, char** argv) {
         nested_sequence_tests(root, motion, pulse);
         child_sequence_loop_tests(root, motion, pulse);
         child_sequence_loop_audio_tests(root);
+        repeated_sequence_placement_tests(root, motion, pulse);
         sequence_clip_blend_tests(root, lease, imports, motion, pulse, held);
         sequence_property_blend_tests(root, lease, imports);
         persistence(root, motion);

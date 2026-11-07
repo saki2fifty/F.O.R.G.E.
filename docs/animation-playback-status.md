@@ -20,11 +20,22 @@ configuration. `playing` means enabled, positive speed and an active player; it
 includes a remaining named fade after clip completion. It describes the player's
 readiness for fixed ticks, not the global Pause state. Pause changes no clocks;
 Step advances one fixed tick. Disabled and zero-speed players retain status/time.
-For a bound sequence controller, `loop` reflects its explicit `sequence_loop`
-placement flag; the retained standalone `loop` does not govern bound timing.
+For a bound sequence controller, `loop` reflects the selected placement's loop
+flag; the retained standalone `loop` does not govern bound timing. Its effective
+speed follows that placement's cumulative rate. A completed early finite placement
+is not `finished` while a later placement remains; clipped final values and loops
+retain their local completion meaning.
 Child time resets within each admitted cycle and holds its final clipped value at
 the parent's end. Bound track status retains its existing nonloop flag and reads
 the controller-derived local sample. Active-window status excludes inherited gaps.
+
+The private editor/MCP controller watch adds `sequence_placements` for an admitted
+bound controller with extra placements: parent `sequence`, local `duration_seconds`,
+zero-based `active_placement`, active-window Boolean `active`, and ordered `placements`
+with parent-local `start_seconds`, `rate` and `loop`. The ordinal is a positional
+observation, not a persistent identity. Holds retain the selected ordinal while
+`active` is false. This is a read-only projection of the existing admitted map and
+configuration; C ABI1 callback tables are unchanged.
 
 Named players carry realized stable state ID/name and states/clip identities.
 `transitioning` and `transition_weight` describe an incoming named fade, including

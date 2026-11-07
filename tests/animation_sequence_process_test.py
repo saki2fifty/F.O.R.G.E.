@@ -36,7 +36,9 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
     scenarios.append(('146-nested-sequences.scene.json', False, True, False, True))
     scenarios.extend((name, False, False, True, False) for name in (
         '36-animation-root-motion.scene.json', '145-sequence-clip-blending.scene.json'))
-    for scene_name, mixed, rated, collections, child_loop in scenarios:
+    scenarios = [(*scenario, False) for scenario in scenarios]
+    scenarios.append(('146-nested-sequences.scene.json', False, True, False, True, True))
+    for scene_name, mixed, rated, collections, child_loop, placements in scenarios:
         source_path = root / 'Scenes' / scene_name
         original = source_path.read_bytes()
         source = json.loads(original)
@@ -96,6 +98,9 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                 placement = child['components']['forge.animation_sequence']
                 if placement.get('sequence'):
                     placement['sequence_loop'] = True
+                    if placements:
+                        placement['sequence_extra_placements'] = [dict(
+                            start_seconds=4.5, rate=.5, loop=False)]
         controller['components']['project.sequence_probe'] = dict(ticks=0, time=0, blend=0, **{'$forge': stamp})
         shot_tracks = sorted([r['components']['forge.camera_shot'] for r in source['entities']
                               if 'forge.camera_shot' in r['components']], key=lambda r: r['start_seconds'])
@@ -112,14 +117,20 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
         def rows(state):
             return {row['id']: row['components'] for row in state['effective_scene']['entities']}
 
+        def nested_time(expected, for_camera=False):
+            if placements and expected >= 4.5:
+                local = (expected - 4.5) * .5
+                return local if for_camera else min(6, local)
+            unwrapped = max(0, (expected - 1) * (2 if rated else 1))
+            local = unwrapped % 6 if child_loop else unwrapped if for_camera else min(6, unwrapped)
+            if child_loop and expected == controller['components']['forge.animation_sequence']['duration'] and unwrapped > 0 and local == 0:
+                local = 6
+            return local
+
         def check_camera(state, expected):
             if not shot_tracks:
                 return
-            local = (expected - 1)*(2 if rated else 1) if nested else expected
-            if child_loop and expected >= 1:
-                local %= 6
-                if expected == controller['components']['forge.animation_sequence']['duration'] and local == 0:
-                    local = 6
+            local = (nested_time(expected, True) if expected >= 1 else -1) if nested else expected
             target = next((s['camera']['entity'] for s in shot_tracks
                            if s['start_seconds'] <= local < s['end_seconds'] or
                            (nested and local == 6 and s['end_seconds'] == 6)), None)
@@ -179,11 +190,7 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                         assert abs(target['world_affine'][index] - (a[name]+(b[name]-a[name])*weight)) < 2e-6
                     assert target['components']['forge.local_translation'] == b
             if nested:
-                unwrapped = max(0, (expected - 1)*(2 if rated else 1))
-                local = unwrapped % 6 if child_loop else min(6, unwrapped)
-                if child_loop and expected == controller['components']['forge.animation_sequence']['duration'] and unwrapped > 0 and local == 0:
-                    local = 6
-                expected = local
+                expected = nested_time(expected)
             for actor in source['entities']:
                 if 'forge.transform_animator' not in actor['components']:
                     continue
@@ -237,10 +244,12 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                     elif skeletal:
                         assert checkpoint['animation']['version'] == 10
                     if rated:
-                        assert checkpoint['animation']['version'] == (13 if child_loop else 11)
+                        assert checkpoint['animation']['version'] == (14 if placements else 13 if child_loop else 11)
                         assert checkpoint['animation']['sequence_rate_profile'] == 7
                     if child_loop:
                         assert checkpoint['animation']['sequence_loop_profile'] == 11
+                    if placements:
+                        assert checkpoint['animation']['sequence_placement_profile'] == 13
                     other = Worker(runtime, root, arguments=('--audio', 'offline'))
                     restored = other.request('replace', scene=checkpoint['scene'], recovery=checkpoint,
                         recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])

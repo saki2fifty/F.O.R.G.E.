@@ -151,6 +151,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             if (features != document->end()) {
                 require(features->is_object(), "Invalid authored document runtime features");
                 for (const auto& [name, version] : features->items()) {
+                    if (name == "sequence_placement") {
+                        require(version.is_number_integer() &&
+                                    version == sequence_placement_runtime_profile_version,
+                                "Unsupported authored controller placement profile");
+                        const auto support = engine.find("runtime_sequence_placement");
+                        require(support != engine.end() && support->is_number_integer() &&
+                                    *support == sequence_placement_runtime_profile_version,
+                                "Repeated controller placements require the runtime kit packaged "
+                                "with this editor");
+                        continue;
+                    }
                     if (name == "sequence_loop") {
                         require(version.is_number_integer() &&
                                     version == sequence_loop_runtime_profile_version,

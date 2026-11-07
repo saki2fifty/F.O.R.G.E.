@@ -1,5 +1,23 @@
 # 2026-11-07
 
+## Repeated controller placements
+
+One child sequence supports up to eight ordered, nonoverlapping placements on its
+same parent, with separate starts, rates and loop settings. Finite sections hold
+across gaps; loops end at the next placement or parent end. The existing root clock
+and complete candidate owner handle inherited resets, cameras, audio cues, copied
+presentation and skeletal root motion. Canonical authored boundaries survive the
+internal clock conversion without changing source overlap validation.
+
+Timeline add/remove/timing controls use one pending Scene transaction and Undo.
+Read-only live/controller watches expose the admitted list and selected placement.
+Existing source, portable Prefab, automation/MCP and installed SDK owners share the
+native values. Recovery14 wraps prior profiles and validates the exact configuration;
+runtime documents/kits use sequence_placement1 compatibility guards. Original
+Gallery189 demonstrates locomotion, morph and nested mapped placements, with
+illustrated manual guidance. Native modules need the matching rebuilt SDK; C ABI1
+callback tables remain unchanged. Windows/full-editor and physical review is queued.
+
 ## Nested sequence playback rates
 
 Scene controllers have a dedicated placement rate, independent of stored standalone

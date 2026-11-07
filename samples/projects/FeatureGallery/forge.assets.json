@@ -14144,6 +14144,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "b4d9b562-6ed1-4fd6-92d1-f39b0598ba27",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/189-controller-placements.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "b4e9c40b-cab7-45eb-bb6c-b7dd9a75076c",
       "metadata": {},
       "schema_version": 3,

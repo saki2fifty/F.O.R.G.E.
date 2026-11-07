@@ -302,6 +302,10 @@ Explicit child `AnimationSequence.sequence_loop` placements use the existing
 provider's bounded root-to-local spans, including inherited descendant resets.
 Skeletal/morph phases follow the selected span; root-motion integration samples
 both endpoints in each active span without adding movement across a reset.
+`sequence_extra_placements` reuses that same span owner for up to eight ordered,
+nonoverlapping placements on one parent, including independent rates/loops and
+inherited resets. Root-motion boundaries invert through each span's own rate;
+private recovery14 guards the exact primary/extra configuration and prior profiles.
 See [nested timing and loop recovery](transform-animation.md#nested-controller-placements).
 
 The Timeline uses explicit player-kind observations for rows on a mixed holder.

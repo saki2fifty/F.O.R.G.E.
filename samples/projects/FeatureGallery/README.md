@@ -1,5 +1,23 @@
 # Feature Gallery
 
+## Repeated controller placements
+
+Open `Scenes/189-controller-placements.scene.json` and press **Play → Game**.
+An eight-second root coordinates three original motion/morph/mapped models through
+independently timed placements. The locomotion section has a finite 2× placement,
+a gap, a 0.5× loop and a 1× loop; the morph section repeats at 2× after its first
+finite placement, and the mapped section repeats inside the locomotion controller.
+
+Select **Eight-second repeated placements**, open its Timeline and select a child
+under **Nested sequences**. **Add controller placement** appends another entry;
+edit **Start in parent**, **Placement rate** and **Loop in parent**, then **Apply
+placement timing**. A finite placement cannot overlap its next entry; a loop ends
+at the next entry or parent end. **Remove controller placement** removes only that
+additional entry when applied. Refresh, preview and save before export. Each child
+supports eight placements on one parent and 256 derived spans, including ancestor
+resets. The camera and light are included; no project C++ is required. Rebuild
+existing modules with the matching packaged SDK before using them.
+
 ## Child sequence loops
 
 Open `Scenes/188-child-sequence-loops.scene.json` and press **Play → Game**.

@@ -134,9 +134,9 @@ exact configuration/profile comparison and complete candidate publication. A
 runtime document using the list declares `sequence_arrangement: 1` and requires
 `runtime_sequence_arrangement: 1` in its kit, including partial Prefab variants.
 Source formats stay unchanged; native value layout additions require a matching
-exact installed SDK rebuild. Unrestricted arrangements, multiway overlap and
-repeated independent controller placements remain separate. Child loops use the
-nested timing profile below and can be combined with collections.
+exact installed SDK rebuild. Unrestricted arrangements and multiway overlap
+remain separate. Repeated same-parent controller placements and child loops use
+the nested timing profile below and can be combined with collections.
 
 ### Nested controller placements
 
@@ -144,16 +144,31 @@ nested timing profile below and can be combined with collections.
 `sequence_start_seconds` is its finite start in immediate-parent seconds (0–3600,
 not beyond the parent duration). `sequence_rate` is local seconds per parent second,
 finite within 0.25–4, default 1. `sequence_loop`, default false, repeats local duration
-through the remaining parent span. Missing fields backfill null/zero/one/false. The reference
+through the remaining parent span or until its next placement. Missing fields backfill null/zero/one/false. The reference
 adapter reuses Scene duplication, Prefab member links and generic Inspector /
 automation/MCP property edits, revision and history. No separate arrangement
 database or advancing child clock is introduced.
+
+`sequence_extra_placements` is a default-empty positional list of up to seven
+additional placements of that same controller on its same parent. Each entry has
+`start_seconds`, `rate` and `loop`. Starts increase strictly after the primary;
+finite placements must finish before the next starts. A loop fills until the next
+placement or parent end. Gaps hold the previous endpoint until an explicit incoming
+placement resets local time. The last placement can be clipped by parent end.
+An empty list retains the original single-placement profile. This does not create
+independent simultaneous instances, multi-parent bindings or overlapping controller
+writers; use ordinary Scene/Prefab instances for independent actors.
 
 The existing provider validates the active graph: same loaded Scene, available
 controller, no cycles, within the 64-controller budget. Disabled/inactive ancestors
 retire their descendants. Each private SequenceState derives its root and an
 immutable root-to-local timing map. Ordinary placements use one inline affine span;
-looping placements and their descendants compose bounded spans at admission. The
+looping/repeated placements and their descendants compose bounded spans at admission. Each
+span records its own cumulative rate. Authored timing remains in seconds during
+validation; the root's explicit timebase converts canonical parent coordinates to
+internal clock units. Touching finite ends, cycle boundaries and incoming entries
+therefore share the same exact stored point rather than revalidating a rounded
+unit conversion. The
 cumulative rate must remain within 1/64–64. Parent starts and clip/cue boundaries
 invert through the admitted rate and span. More than 256 spans per controller
 rejects before enumeration. The existing provider reuses the admitted mapping
@@ -161,7 +176,7 @@ until its own geometry or its parent's admitted mapping changes; sampling alloca
 no timing storage.
 Bound standalone speed, loop and play-on-start values remain stored; observed
 speed is root playback_speed times cumulative placement rate. Root controllers
-ignore stored sequence_rate and sequence_loop; they retain their normal standalone semantics. Root seek/restart stages
+ignore stored sequence_rate, sequence_loop and sequence_extra_placements; they retain their normal standalone semantics. Root seek/restart stages
 all descendant clocks and poses before publication. Child control/seek rejects.
 Child loops select the incoming local start at an internal reset. Ancestor resets
 clear descendant entry gaps, while final clipped values hold after the last span.
@@ -180,7 +195,7 @@ periodic-range and bounded 128-occurrence batch preserve offset entry/end,
 multiple periods, root wrap and deterministic ordering. Seek/recovery do not replay
 crossed sounds. Ancestor truncation excludes points beyond the clipped end.
 
-The Timeline edits one borrowed Scene history. Nested rows expose pending start/rate/loop fields in one Scene transaction,
+The Timeline edits one borrowed Scene history. Nested rows draw every placement and expose pending start/rate/loop fields in one Scene transaction,
 apply/reset, local child/parent navigation and detachment. Local copied preview
 first validates the original active binding through the same provider, then isolates
 the selected root and includes all descendants and writer guards. Its own stored
@@ -208,6 +223,15 @@ missing wrappers or changed flags reject atomically. Default-false arrangements
 retain their earlier profiles. Runtime document feature `sequence_loop: 1`, including
 partial Prefab overrides, requires kit `runtime_sequence_loop: 1`. A stored true
 flag retains this export requirement even when its current controller is unbound.
+
+Repeated bound placements require recovery14, wrapping the preceding7–13 profile in
+`sequence_placement_profile`. It records every controller's primary rate/loop and
+exact `sequence_extra_placements`, in addition to the earlier bindings and clocks.
+Missing/wrong wrappers, changed arrays or inconsistent derived clocks reject before
+adoption. Empty-list configurations retain their prior recovery meanings. Runtime
+document feature `sequence_placement:1`, including stored unbound lists and partial
+Prefab overrides, requires `runtime_sequence_placement:1` in the selected kit.
+Matching installed SDK modules must be rebuilt; C ABI1 callback tables stay unchanged.
 
 The current complete transform/property candidate and writer-conflict checks run
 before any pose write. Existing AnimationService status/control/seek operations

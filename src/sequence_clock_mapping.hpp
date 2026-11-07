@@ -7,25 +7,34 @@
 #include <vector>
 
 namespace forge::detail {
-// Derived timing in the caller's common time unit. The sequence provider owns
-// admission and the root clock; this value only maps its finite active spans.
+// Authored inputs share the root's input unit. Its explicit timebase converts
+// spans/samples to the caller's clock unit once, preserving authored boundaries.
+// The sequence provider owns admission and the sole root clock.
 class SequenceClockMapping {
   public:
     static constexpr std::size_t maximum_spans = 256;
+    static constexpr std::size_t maximum_placements = 8;
+    struct Placement {
+        double start = 0, rate = 1;
+        bool loop = false;
+    };
     struct Span {
         double begin = 0, end = 0, local_begin = 0, local_end = 0;
         // The containing parent cycle can reset before this child becomes active.
         double reset_begin = 0;
         bool active = true;
+        double rate = 1;
+        bool loop = false;
+        std::size_t placement = 0;
         bool operator==(const Span&) const = default;
-        double sample(double root, double rate) const {
+        double sample(double root) const {
             if (root <= begin)
                 return local_begin;
             if (root >= end)
                 return local_end;
             return std::clamp(local_begin + (root - begin) * rate, local_begin, local_end);
         }
-        double root_point(double local, double rate) const {
+        double root_point(double local) const {
             // Stored endpoints keep adjacent entry/end events coincident,
             // including fractional rates whose inverse cannot be represented.
             if (local <= local_begin)
@@ -35,88 +44,139 @@ class SequenceClockMapping {
             return std::clamp(begin + (local - local_begin) / rate, begin, end);
         }
     };
-    static SequenceClockMapping root(double duration) {
+    static SequenceClockMapping root(double duration, double timebase = 1) {
         validate_duration(duration);
+        validate_duration(timebase);
+        validate_duration(duration * timebase);
         SequenceClockMapping result;
         result.duration_ = duration;
-        result.append({0, duration, 0, duration});
+        result.timebase_ = timebase;
+        result.append({0, duration * timebase, 0, duration * timebase});
         return result;
     }
     static SequenceClockMapping child(const SequenceClockMapping& parent, double start,
                                       double duration, double rate, bool loop) {
+        const Placement placement{start, rate, loop};
+        return child(parent, duration, std::span(&placement, 1));
+    }
+    static SequenceClockMapping child(const SequenceClockMapping& parent, double duration,
+                                      std::span<const Placement> placements) {
         validate_duration(duration);
-        if (!std::isfinite(start) || start < 0 || start > parent.duration_ ||
-            !std::isfinite(rate) || rate <= 0 || !std::isfinite(parent.rate_ * rate) ||
-            parent.rate_ * rate <= 0)
-            throw std::runtime_error("Invalid child sequence clock placement");
+        if (placements.empty() || placements.size() > maximum_placements)
+            throw std::runtime_error("Child sequence requires one to eight placements");
+        for (std::size_t i = 0; i < placements.size(); ++i) {
+            const auto& placement = placements[i];
+            if (!std::isfinite(placement.start) || placement.start < 0 ||
+                placement.start > parent.duration_ || !std::isfinite(placement.rate) ||
+                placement.rate <= 0 || (i && placement.start <= placements[i - 1].start))
+                throw std::runtime_error("Invalid or unordered child sequence placement");
+            if (i + 1 < placements.size() && !placement.loop &&
+                placement.start + duration / placement.rate > placements[i + 1].start)
+                throw std::runtime_error("Child sequence placements must not overlap");
+        }
         SequenceClockMapping result;
         result.duration_ = duration;
-        result.rate_ = parent.rate_ * rate;
+        result.timebase_ = parent.timebase_;
+        const double local_duration = duration * parent.timebase_;
+        validate_duration(local_duration);
         struct Plan {
-            long double begin, end, origin, first_cycle;
+            double begin, end;
+            long double first_cycle;
             std::size_t count;
-            bool active;
         };
-        const auto plan = [&](const Span& span) -> Plan {
-            const long double origin =
-                start >= span.local_begin && start <= span.local_end
-                    ? span.root_point(start, parent.rate_)
-                    : span.begin +
-                          (static_cast<long double>(start) - span.local_begin) / parent.rate_;
-            const long double begin = std::max(static_cast<long double>(span.begin), origin);
-            const long double end = loop ? span.end
-                                         : std::min(static_cast<long double>(span.end),
-                                                    origin + duration / result.rate_);
-            if (!span.active || end < begin)
-                return {span.end, span.end, 0, 0, 1, false};
-            if (!loop)
-                return {begin, end, origin, 0, 1, true};
-            const long double first = std::floor((begin - origin) * result.rate_ / duration);
-            const long double count =
-                std::max(1.L, std::ceil((end - origin) * result.rate_ / duration) - first);
-            // Check the floating count before any integer cast or iteration.
-            if (!std::isfinite(count) || count > maximum_spans)
+        const auto coordinate = [&](std::size_t index, long double cycle) {
+            const auto& placement = placements[index];
+            // Match the authored arithmetic before converting units. Adjacent
+            // finite placements/cycles then share exactly the same boundary.
+            return (placement.start + double(cycle) * duration / placement.rate) * parent.timebase_;
+        };
+        const auto plan = [&](const Span& span, std::size_t index) -> Plan {
+            const auto& placement = placements[index];
+            const auto rate = span.rate * placement.rate;
+            if (!std::isfinite(rate) || rate <= 0)
+                throw std::runtime_error("Invalid cumulative child sequence rate");
+            const double start = coordinate(index, 0);
+            const double begin = std::max(span.local_begin, start);
+            const double limit = index + 1 == placements.size()
+                                     ? span.local_end
+                                     : std::min(span.local_end, coordinate(index + 1, 0));
+            const double end = placement.loop ? limit : std::min(limit, coordinate(index, 1));
+            if (!span.active || end < begin || start > span.local_end)
+                return {0, 0, 0, 0};
+            if (!placement.loop)
+                return {begin, end, 0, 1};
+            const long double first = std::floor((static_cast<long double>(begin) - start) *
+                                                 placement.rate / local_duration);
+            long double count = std::max(1.L, std::ceil((static_cast<long double>(end) - start) *
+                                                        placement.rate / local_duration) -
+                                                  first);
+            // One rounded final boundary can make ceil include an empty cycle.
+            // Reconcile it against the same authored coordinate, before casting.
+            if (!std::isfinite(count) || count > maximum_spans + 1)
                 throw std::runtime_error("Child sequence exceeds 256 derived clock spans");
-            return {begin, end, origin, first, static_cast<std::size_t>(count), true};
+            if (count > 1 && coordinate(index, first + count - 1) >= end)
+                --count;
+            if (count > maximum_spans)
+                throw std::runtime_error("Child sequence exceeds 256 derived clock spans");
+            return {begin, end, first, static_cast<std::size_t>(count)};
         };
         std::size_t count = 0;
         for (const auto& span : parent.spans()) {
-            const auto planned = plan(span);
-            if (planned.count > maximum_spans - count)
+            std::size_t in_parent = 0;
+            for (std::size_t p = 0; p < placements.size(); ++p) {
+                const auto planned = plan(span, p);
+                if (planned.count > maximum_spans - count - in_parent)
+                    throw std::runtime_error("Child sequence exceeds 256 derived clock spans");
+                in_parent += planned.count;
+            }
+            if (!in_parent && count == maximum_spans)
                 throw std::runtime_error("Child sequence exceeds 256 derived clock spans");
-            count += planned.count;
+            count += std::max(std::size_t(1), in_parent);
         }
         for (const auto& span : parent.spans()) {
-            const auto planned = plan(span);
-            if (!planned.active) {
-                result.append({span.end, span.end, 0, 0, span.reset_begin, false});
-                continue;
+            bool first = true;
+            for (std::size_t p = 0; p < placements.size(); ++p) {
+                const auto planned = plan(span, p);
+                for (std::size_t i = 0; i < planned.count; ++i) {
+                    const long double cycle = planned.first_cycle + i;
+                    const double cycle_begin = coordinate(p, cycle),
+                                 cycle_end = coordinate(p, cycle + 1);
+                    const double begin = std::max(planned.begin, cycle_begin),
+                                 end = std::min(planned.end, cycle_end);
+                    const double root_begin = span.root_point(begin),
+                                 root_end = span.root_point(end);
+                    result.append({root_begin, root_end,
+                                   begin == cycle_begin
+                                       ? 0
+                                       : std::clamp((begin - cycle_begin) * placements[p].rate, 0.,
+                                                    local_duration),
+                                   end == cycle_end
+                                       ? local_duration
+                                       : std::clamp((end - cycle_begin) * placements[p].rate, 0.,
+                                                    local_duration),
+                                   first ? span.reset_begin : root_begin, true,
+                                   span.rate * placements[p].rate, placements[p].loop, p});
+                    first = false;
+                }
             }
-            for (std::size_t i = 0; i < planned.count; ++i) {
-                const long double cycle = planned.first_cycle + i;
-                const long double begin =
-                    loop ? std::max(planned.begin, planned.origin + cycle * duration / result.rate_)
-                         : planned.begin;
-                const long double end =
-                    loop ? std::min(planned.end,
-                                    planned.origin + (cycle + 1) * duration / result.rate_)
-                         : planned.end;
-                result.append(
-                    {double(begin), double(end),
-                     double(std::clamp((begin - planned.origin) * result.rate_ - cycle * duration,
-                                       0.L, static_cast<long double>(duration))),
-                     double(std::clamp((end - planned.origin) * result.rate_ - cycle * duration,
-                                       0.L, static_cast<long double>(duration))),
-                     i ? double(begin) : span.reset_begin});
-            }
+            if (first)
+                result.append({span.end, span.end, 0, 0, span.reset_begin, false, span.rate});
         }
         return result;
     }
     std::span<const Span> spans() const {
         return count_ > 1 ? std::span<const Span>(many_) : std::span(&first_, count_);
     }
-    double rate() const { return rate_; }
-    double duration() const { return duration_; }
+    double rate(double root) const {
+        const auto span = at(root);
+        return span ? span->rate : 1;
+    }
+    bool loop(double root) const {
+        const auto span = at(root);
+        return span && span->loop;
+    }
+    bool ended(double root) const { return !spans().empty() && root >= spans().back().end; }
+    double duration() const { return duration_ * timebase_; }
     const Span* at(double root) const {
         const auto values = spans();
         if (values.empty())
@@ -128,7 +188,7 @@ class SequenceClockMapping {
     }
     double sample(double root) const {
         const auto span = at(root);
-        return span ? span->sample(root, rate_) : 0;
+        return span ? span->sample(root) : 0;
     }
     bool active(double root, bool include_end = false) const {
         const auto span = at(root);
@@ -162,7 +222,7 @@ class SequenceClockMapping {
         }
         ++count_;
     }
-    double duration_ = 0, rate_ = 1;
+    double duration_ = 0, timebase_ = 1;
     std::size_t count_ = 0;
     Span first_;
     std::vector<Span> many_;

@@ -1,5 +1,14 @@
 # Explore the Feature Gallery
 
+**189-controller-placements** repeats the same child controllers at separate times
+under one eight-second root. Open it and press **Play → Game**, or select
+**Eight-second repeated placements** and open its Timeline. The three original
+models demonstrate finite sections, held gaps, independently rated loops and
+repeated nested mapped motion. Select a child under **Nested sequences**, then use
+**Additional placements** to edit each start, rate and loop setting. Apply timing,
+refresh and save before export. See
+[Repeat nested controller placements](../editor/animation-sequences.md).
+
 **188-child-sequence-loops** repeats original motion, morph and mapped animation
 under one eight-second root. The right model follows a looping child inside the
 fast left section. Press **Play → Game**, or select **Eight-second repeating

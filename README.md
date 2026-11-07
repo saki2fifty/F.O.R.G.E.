@@ -60,6 +60,10 @@ Gallery187 includes direct, morph and mapped arrangements, with the same saved c
 Nested controllers can also repeat through their parent with **Loop in parent**.
 Gallery188 demonstrates fast, morph and nested mapped sections; the root retains
 playback control. See [child sequence loops](manual/editor/animation-sequences.md#place-a-sequence-inside-another).
+Gallery189 adds up to eight independently timed placements of one child on its
+parent, with finite sections, held gaps and per-placement rates/loops. Timeline
+edits share one Scene Undo operation; live controls show the selected placement.
+See [repeated controller placements](manual/editor/animation-sequences.md#repeat-a-controller-at-separate-times).
 
 
 ## Texture painting

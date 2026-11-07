@@ -69,6 +69,36 @@ void nested_editor_workflow(SceneDocument& project, Scene& scene, AnimationTimel
               !test::ui_targets.at("sequence:remove_nested").enabled,
           "Pending nested start could be silently discarded");
     click("sequence:reset_nested");
+    const auto single = scene.document();
+    click("sequence:add_nested_extra");
+    type("sequence:nested_extra_start:0", "4");
+    type("sequence:nested_extra_rate:0", "0.5");
+    click("sequence:nested_extra_loop:0");
+    check(scene.document() == single, "Pending repeated placement changed the Scene");
+    click("sequence:apply_nested");
+    const auto repeated = scene.document();
+    const auto& extra = scene.entity(child).get<AnimationSequence>().sequence_extra_placements;
+    check(extra.size() == 1 && extra[0].start_seconds == 4 && extra[0].rate == .5 && extra[0].loop,
+          "Timeline additional start/rate/loop did not reach the native value");
+    editor.undo();
+    frame();
+    check(scene.document() == single, "Repeated placement did not use one Undo operation");
+    editor.redo();
+    frame();
+    check(scene.document() == repeated, "Repeated placement Redo lost its configuration");
+    click("sequence:nested_loop"); // Finite primary would overlap the additional placement.
+    click("sequence:apply_nested");
+    check(scene.document() == repeated && !test::ui_targets.at("sequence:open_nested").enabled,
+          "Overlapping repeated placement was partially applied");
+    click("sequence:reset_nested");
+    click("sequence:remove_nested_extra:0");
+    check(scene.document() == repeated, "Removing a pending placement changed the Scene");
+    click("sequence:apply_nested");
+    check(scene.entity(child).get<AnimationSequence>().sequence_extra_placements.empty(),
+          "Timeline did not remove just the extra placement");
+    editor.undo();
+    frame();
+    check(scene.document() == repeated, "Placement removal Undo did not restore the list");
     const auto ready = [&] {
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(20);
         while (!editor.frame_export_ready()) {
@@ -113,7 +143,8 @@ void nested_editor_workflow(SceneDocument& project, Scene& scene, AnimationTimel
     click("sequence:remove_nested");
     const auto unbound = scene.entity(child).get<AnimationSequence>();
     check(!unbound.sequence.entity && unbound.sequence_loop && unbound.loop &&
-              !unbound.play_on_start && unbound.playback_speed == 2,
+              !unbound.play_on_start && unbound.playback_speed == 2 &&
+              unbound.sequence_extra_placements.size() == 1,
           "Removing nested placement lost standalone settings");
     editor.undo();
     frame();

@@ -51,6 +51,14 @@ Json document_runtime_features(const Json& document) {
                     }
             if (const auto sequence = values->find("forge.animation_sequence");
                 sequence != values->end() && !sequence->is_null()) {
+                if (const auto placements = sequence->find("sequence_extra_placements");
+                    placements != sequence->end()) {
+                    if (!placements->is_array())
+                        throw std::runtime_error(
+                            "game.export.document: Invalid controller placement collection");
+                    if (!placements->empty())
+                        result["sequence_placement"] = sequence_placement_runtime_profile_version;
+                }
                 if (sequence->value("sequence_rate", 1.) != 1)
                     result["sequence_rate"] = sequence_rate_runtime_profile_version;
                 if (const auto loop = sequence->find("sequence_loop"); loop != sequence->end()) {

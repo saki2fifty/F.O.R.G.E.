@@ -1611,13 +1611,17 @@ fixture with the project font. Actual pointer input selects Gallery188's fast
 repeating child. The image shows its parent-length strip/cycle marks, start/rate/
 Loop in parent controls and shared Scene history actions. All required controls
 are inside the fixture clip bounds. Frame export is disabled because this isolated
-fixture has no graphical Game host. PNG SHA256: `f19a4f98837f1e817235b609adb31b047c6d34af5652543fae4450dbc5b98755`.
+fixture has no graphical Game host. PNG SHA256: `39f61967092b3df681e612311c470f29785b5385c6eba3d8fc2494b2d3ac45c6`.
 
 Capture: forge_animation_sequence_editor_tests --capture-child-loops, product Scene
-`464f19c9-df21-40d7-bed2-6cc379eba627`, local source based on 66688f9 with child-loop
-changes; unassigned build identity. C++/CMake input digest:
-`b58de8b671032e2db11ee2c67f5f9d913f6fed4ae1c3191cb7e52f6467bb0bee`. Build/test receipts are
-child-loop-composed-capture-build/tests.json in local batch 285 evidence. This is
+`464f19c9-df21-40d7-bed2-6cc379eba627`, local source based on a5bdcaa with repeated-placement
+controls; unassigned build identity. C++/CMake input digest:
+`c1ce490103ac36b8b717efa051a34e9b65083267ecfbb93bf68c82da1ae07f0d`.
+The passing sequence_child_loop_capture consumer is recorded separately in the
+historical repeated-integration-tests aggregate in local batch 286 evidence;
+that aggregate also contains two failed consumers and is not an all-green gate.
+The new Additional placements section is visible; prior loop controls retain their
+values and actions. This is
 neither full Windows Main nor physical GPU/DPI/input/performance acceptance.
 
 [Child-loop Game output](../../../manual/images/child-sequence-loop-game.png) is
@@ -2372,3 +2376,36 @@ Scene identity: `9d6071e9-9b8f-46b5-b0d8-332c5814ecfc`. Receipts are
 `collection-vulkan-build.json` and `collection-vulkan-tests.json` in local batch 284
 evidence. This establishes neither physical GPU/input/DPI nor Windows Main,
 graphical player or performance acceptance.
+
+## Repeated controller placement controls
+
+[Repeated controller placements](../../../manual/images/repeated-sequence-placements.png)
+is the unretouched 720×1700 actual Timeline at 100%, captured through the existing
+SDL/ImGui software fixture from product Gallery189, Scene
+`b4d9b562-6ed1-4fd6-92d1-f39b0598ba27`. Pointer input selects the locomotion child.
+Its three strips and complete start/rate/loop/add/remove/apply controls are visible
+and checked against the fixture clip bounds. The PNG is an exact byte copy of
+`forge_animation_sequence_editor_tests --capture-placements` output; SHA256:
+`a067aefa335b4453fea8a756d38323566032a7769f9600c1b1ac108c0b14eef4`.
+Source is based on local a5bdcaa with repeated placements, C++/CMake input digest
+`9f3899b568a9c8a76e088826820e26e3ddf0e058d699885b4a8d5bbd97828ef6`.
+The passing sequence_placement_capture consumer is in repeated-product-mcp-tests
+in local batch 286 evidence; its historical aggregate contains an unrelated failed
+MCP fixture assertion and is not an all-green gate. Both controls images were
+personally reviewed. No pixels were cropped, resized, annotated, retouched or
+generated. These are headless CPU controls captures, not full Windows Main or
+physical hardware acceptance. Frame export is disabled in this isolated fixture
+because it has no graphical Game host.
+
+[Repeated placement Game output](../../../manual/images/repeated-sequence-game.png)
+is the actual 640×360 RuntimeWorld/FrameRenderer readback from Gallery189 at fixed
+tick 405 (approximately 6.75s), on Diligent software Vulkan. Four exact authored /
+source-hidden relocated display pairs cover ticks 75/225/405 and portrait sizing.
+All four images were personally reviewed. Lossless PPM-to-PNG conversion preserves
+every RGB byte and dimension; PNG SHA256:
+`19b09f44d21d2e5071efc81f3993c5095843b4b5aed81d6be52fb54320a5309b`.
+The source digest is the same 9f3899b568a9c8a76e088826820e26e3ddf0e058d699885b4a8d5bbd97828ef6
+above. Reproduction uses sequence_placement_gallery_vulkan; local batch 286 owns
+repeated-vulkan-build.json, repeated-product-vulkan-tests.json and the exact image
+provenance receipt. No retouching, cropping or resizing; no Windows/full Main,
+graphical EXE, physical GPU or performance acceptance.

@@ -18,6 +18,8 @@ static_assert(forge::sequence_rate_runtime_profile_version == 1);
 static_assert(forge::sequence_loop_runtime_profile_version == 1);
 static_assert(forge::sequence_arrangement_runtime_profile_version == 1);
 static_assert(forge::sequence_clip_limit == 8);
+static_assert(forge::sequence_placement_limit == 8);
+static_assert(forge::sequence_placement_runtime_profile_version == 1);
 struct SequenceProbe {
     std::uint32_t ticks = 0;
     double time = 0, blend = 0;
@@ -121,6 +123,20 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                             if (admitted.time == config.duration && local == 0)
                                 local = placement.duration;
                         }
+                        double rate = placement.sequence_rate;
+                        bool loop = placement.sequence_loop;
+                        if (!placement.sequence_extra_placements.empty()) {
+                            const auto& extra = placement.sequence_extra_placements.front();
+                            check(
+                                placement.sequence_extra_placements.size() == 1 &&
+                                    extra.start_seconds == 4.5 && extra.rate == .5 && !extra.loop,
+                                "Repeated typed controller placements differ through matching SDK");
+                            if (admitted.time >= 4.5) {
+                                rate = .5;
+                                loop = false;
+                                local = std::min(6., (admitted.time - 4.5) * .5);
+                            }
+                        }
                         check(client.entity_reference(child.id(), child_ref) == 1 &&
                                   placement.sequence.scene.str() == ref.scene_uuid &&
                                   placement.sequence_start_seconds == 1 &&
@@ -128,9 +144,8 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                                   !placement.play_on_start && placement.loop &&
                                   client.animation_playback(child_ref.scene_uuid,
                                                             child_ref.entity_uuid, status) == 1 &&
-                                  status.duration == 6 &&
-                                  bool(status.loop) == placement.sequence_loop &&
-                                  status.speed == config.playback_speed * placement.sequence_rate &&
+                                  status.duration == 6 && bool(status.loop) == loop &&
+                                  status.speed == config.playback_speed * rate &&
                                   (placement.sequence_rate == 1 || placement.sequence_rate == 2) &&
                                   std::abs(status.time - local) < 1e-9,
                               "Nested typed values/derived status differ through matching SDK");

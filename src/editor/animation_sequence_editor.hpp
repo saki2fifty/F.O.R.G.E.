@@ -66,6 +66,7 @@ class AnimationSequenceEditor {
         time_ = offset_ = next_offset_ = 0;
         pending_track_fields_ = 0;
         extra_clips_ = Json::array();
+        nested_placements_ = Json::array();
         view_ = {};
     }
     void request_save() {
@@ -907,6 +908,7 @@ class AnimationSequenceEditor {
     bool nested_loop_ = false;
     unsigned pending_track_fields_ = 0;
     Json extra_clips_ = Json::array();
+    Json nested_placements_ = Json::array();
     bool ready_ = false, stale_ = false, preview_ = false, playing_ = false, pending_ = false,
          closing_ = false, locked_ = false;
     bool frame_source_current() const {
@@ -1045,9 +1047,13 @@ class AnimationSequenceEditor {
         ImGui::EndDisabled();
         for (const auto& id : children) {
             const auto value = scene_->entity(id).get<AnimationSequence>();
-            const double parent_length = std::min(
-                std::max(0., config.duration - value.sequence_start_seconds),
-                value.sequence_loop ? config.duration : value.duration / value.sequence_rate);
+            const auto placement_at = [&](std::size_t index) {
+                return index
+                           ? value.sequence_extra_placements[index - 1]
+                           : SequenceControllerPlacement{value.sequence_start_seconds,
+                                                         value.sequence_rate, value.sequence_loop};
+            };
+            const auto placement_count = 1 + value.sequence_extra_placements.size();
             std::string name = id;
             for (const auto& row : snapshot.at("entities"))
                 if (row.at("id") == id) {
@@ -1077,20 +1083,29 @@ class AnimationSequenceEditor {
             };
             draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y},
                                 IM_COL32(32, 42, 52, 255));
-            draw->AddRectFilled(
-                {x(value.sequence_start_seconds), origin.y + 3},
-                {x(value.sequence_start_seconds + parent_length), origin.y + size.y - 3},
-                IM_COL32(72, 153, 117, 255));
-            if (value.sequence_loop)
-                for (std::size_t cycle = 1; cycle < detail::SequenceClockMapping::maximum_spans;
-                     ++cycle) {
-                    const auto offset = cycle * value.duration / value.sequence_rate;
-                    if (offset >= parent_length)
-                        break;
-                    draw->AddLine({x(value.sequence_start_seconds + offset), origin.y + 3},
-                                  {x(value.sequence_start_seconds + offset), origin.y + size.y - 3},
-                                  IM_COL32(34, 80, 59, 255));
-                }
+            for (std::size_t p = 0; p < placement_count; ++p) {
+                const auto placement = placement_at(p);
+                const double limit =
+                    p + 1 < placement_count ? placement_at(p + 1).start_seconds : config.duration;
+                const double length =
+                    std::max(0., std::min(config.duration, limit) - placement.start_seconds);
+                const double parent_length =
+                    placement.loop ? length : std::min(length, value.duration / placement.rate);
+                draw->AddRectFilled(
+                    {x(placement.start_seconds), origin.y + 3},
+                    {x(placement.start_seconds + parent_length), origin.y + size.y - 3},
+                    p % 2 ? IM_COL32(88, 161, 187, 255) : IM_COL32(72, 153, 117, 255));
+                if (placement.loop)
+                    for (std::size_t cycle = 1; cycle < detail::SequenceClockMapping::maximum_spans;
+                         ++cycle) {
+                        const auto offset = cycle * value.duration / placement.rate;
+                        if (offset >= parent_length)
+                            break;
+                        draw->AddLine({x(placement.start_seconds + offset), origin.y + 3},
+                                      {x(placement.start_seconds + offset), origin.y + size.y - 3},
+                                      IM_COL32(34, 80, 59, 255));
+                    }
+            }
             draw->AddLine({x(time_), origin.y}, {x(time_), origin.y + size.y},
                           IM_COL32(255, 203, 78, 255), 2);
             if (ImGui::IsItemActive() && ImGui::IsMouseDown(0)) {
@@ -1100,8 +1115,8 @@ class AnimationSequenceEditor {
                 if (ready_ && !stale_)
                     seek_preview();
             }
-            ImGui::TextWrapped("Start %.3f s | Parent length %.3f s | Rate %.3gx%s%s",
-                               value.sequence_start_seconds, parent_length, value.sequence_rate,
+            ImGui::TextWrapped("%zu placement(s) | Primary start %.3f s | Rate %.3gx%s%s",
+                               placement_count, value.sequence_start_seconds, value.sequence_rate,
                                value.sequence_loop ? " | Repeats" : "",
                                value.enabled ? "" : " | Disabled");
             ImGui::PopID();
@@ -1123,6 +1138,12 @@ class AnimationSequenceEditor {
             nested_start_ = target.get<AnimationSequence>().sequence_start_seconds;
             nested_rate_ = target.get<AnimationSequence>().sequence_rate;
             nested_loop_ = target.get<AnimationSequence>().sequence_loop;
+            nested_placements_ = Json::array();
+            for (const auto& row : snapshot.at("entities"))
+                if (row.at("id") == nested_)
+                    nested_placements_ = row.at("components")
+                                             .at("forge.animation_sequence")
+                                             .value("sequence_extra_placements", Json::array());
         }
         ImGui::TextUnformatted("Start in parent");
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
@@ -1147,11 +1168,82 @@ class AnimationSequenceEditor {
             pending_ = true;
         }
         FORGE_UI_PROBE("sequence:nested_loop");
-        ui::help("Repeat the child's local duration through the remaining parent span. "
+        ui::help("Repeat the child's local duration until the next placement or parent end. "
                  "Descendants reset with it; the root owns playback controls. "
                  "A controller admits at most 256 derived spans.");
+        const auto changed_placement = [&] {
+            if (!pending_)
+                pending_revision_ = scene_->revision();
+            pending_ = true;
+        };
+        ImGui::SeparatorText("Additional placements");
+        ImGui::TextWrapped("Repeat this controller on the same parent. Starts increase; finite "
+                           "placements cannot overlap. A loop ends at the next placement.");
+        for (std::size_t i = 0; i < nested_placements_.size(); ++i) {
+            ImGui::PushID(int(i));
+            ImGui::Text("Placement %zu", i + 2);
+            double start = nested_placements_[i].at("start_seconds"),
+                   rate = nested_placements_[i].at("rate");
+            bool loop = nested_placements_[i].at("loop");
+            ImGui::TextUnformatted("Start in parent");
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+            if (ImGui::InputDouble("##additional start", &start, 0, 0, "%.3f s")) {
+                nested_placements_[i]["start_seconds"] = start;
+                changed_placement();
+            }
+            FORGE_UI_PROBE("sequence:nested_extra_start:" + std::to_string(i));
+            ImGui::TextUnformatted("Placement rate");
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+            if (ImGui::InputDouble("##additional rate", &rate, 0, 0, "%.3gx")) {
+                nested_placements_[i]["rate"] = rate;
+                changed_placement();
+            }
+            FORGE_UI_PROBE("sequence:nested_extra_rate:" + std::to_string(i));
+            if (ImGui::Checkbox("Loop in parent", &loop)) {
+                nested_placements_[i]["loop"] = loop;
+                changed_placement();
+            }
+            FORGE_UI_PROBE("sequence:nested_extra_loop:" + std::to_string(i));
+            const bool remove =
+                ui::button("Remove controller placement",
+                           "Remove only this additional placement when timing is applied.");
+            FORGE_UI_PROBE("sequence:remove_nested_extra:" + std::to_string(i));
+            ImGui::PopID();
+            if (remove) {
+                nested_placements_.erase(nested_placements_.begin() + i);
+                changed_placement();
+                break;
+            }
+        }
+        const double last_start = nested_placements_.empty()
+                                      ? nested_start_
+                                      : nested_placements_.back().at("start_seconds").get<double>();
+        const double last_rate = nested_placements_.empty()
+                                     ? nested_rate_
+                                     : nested_placements_.back().at("rate").get<double>();
+        const bool last_loop = nested_placements_.empty()
+                                   ? nested_loop_
+                                   : nested_placements_.back().at("loop").get<bool>();
+        const double natural_end =
+            std::isfinite(last_start) && std::isfinite(last_rate) && last_rate > 0
+                ? last_start + target.get<AnimationSequence>().duration / last_rate
+                : last_start;
+        const double next_start = last_loop ? std::min(config.duration, natural_end) : natural_end;
+        ImGui::BeginDisabled(nested_placements_.size() >= sequence_placement_limit - 1 ||
+                             !std::isfinite(last_rate) || last_rate <= 0 ||
+                             !std::isfinite(next_start) || next_start <= last_start ||
+                             next_start > config.duration);
+        if (ui::button("Add controller placement",
+                       "Append after the last placement's first cycle, clipped to parent end; "
+                       "maximum eight placements.")) {
+            nested_placements_.push_back(
+                {{"start_seconds", next_start}, {"rate", 1.}, {"loop", false}});
+            changed_placement();
+        }
+        FORGE_UI_PROBE("sequence:add_nested_extra");
+        ImGui::EndDisabled();
         if (ui::button("Apply placement timing",
-                       "Commit placement start, rate and looping in one Scene Undo step."))
+                       "Commit all placement starts, rates and looping in one Scene Undo step."))
             apply_pending();
         FORGE_UI_PROBE("sequence:apply_nested");
         if (ui::button("Reset pending placement timing",
@@ -1549,14 +1641,25 @@ class AnimationSequenceEditor {
                 if (pending_ && scene_->revision() != pending_revision_)
                     throw std::runtime_error(
                         "Scene changed. Reset the pending placement timing before applying it.");
-                apply_authoring(*scene_,
-                                Json::array({property(nested_, "sequence_start_seconds",
-                                                      nested_start_, "forge.animation_sequence"),
-                                             property(nested_, "sequence_rate", nested_rate_,
-                                                      "forge.animation_sequence"),
-                                             property(nested_, "sequence_loop", nested_loop_,
-                                                      "forge.animation_sequence")}),
-                                scene_->revision());
+                for (const auto& placement : nested_placements_) {
+                    const double start = placement.at("start_seconds");
+                    if (!std::isfinite(start) || start < 0 ||
+                        start > parent.get<AnimationSequence>().duration)
+                        throw std::runtime_error(
+                            "Additional placement starts must be inside the parent sequence");
+                }
+                apply_authoring(
+                    *scene_,
+                    Json::array({{{"operation", "property.set_many"},
+                                  {"arguments",
+                                   {{"entity", nested_},
+                                    {"component", "forge.animation_sequence"},
+                                    {"values",
+                                     {{"sequence_start_seconds", nested_start_},
+                                      {"sequence_rate", nested_rate_},
+                                      {"sequence_loop", nested_loop_},
+                                      {"sequence_extra_placements", nested_placements_}}}}}}}),
+                    scene_->revision());
                 pending_ = false;
                 stop_preview();
                 error_.clear();

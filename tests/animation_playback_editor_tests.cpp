@@ -184,8 +184,27 @@ int main() {
                         "Live collection inspection changed values or sent a playback command");
                 status.erase("sequence_clips");
                 status["sequence_controller"] = true;
+                status["sequence_placements"] = {
+                    {"active_placement", 1},
+                    {"active", false},
+                    {"placements",
+                     Json::array({{{"start_seconds", .5}, {"rate", 2.}, {"loop", false}},
+                                  {{"start_seconds", 2.}, {"rate", .5}, {"loop", true}}})}};
+                const auto repeated_status = status;
                 frame();
                 frame();
+                require(test::ui_targets.contains("live-animation:controller_window"),
+                        "Live repeated controller omitted its selected placement");
+                if (scale == 1 && window_width == 1400) {
+                    click("live-animation:controller_placements");
+                    for (unsigned i = 0; i < 2; ++i)
+                        require(test::ui_targets.contains("live-animation:controller_placement:" +
+                                                          std::to_string(i)),
+                                "Live repeated controller omitted an authored placement");
+                    click("live-animation:controller_placements");
+                }
+                require(status == repeated_status && submits == before,
+                        "Live controller placement inspection mutated playback/configuration");
                 for (const auto* key :
                      {"live-animation:pause", "live-animation:restart", "live-animation:playhead"})
                     require(!test::ui_targets.at(key).enabled,

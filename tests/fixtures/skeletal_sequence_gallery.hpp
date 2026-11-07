@@ -14,16 +14,31 @@ inline constexpr auto sequence_rate_scene_path = "Scenes/186-nested-sequence-rat
 inline constexpr auto sequence_collection_scene_path =
     "Scenes/187-sequence-clip-collections.scene.json";
 inline constexpr auto sequence_child_loop_scene_path = "Scenes/188-child-sequence-loops.scene.json";
-inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& root,
-                                                bool placement_rates = false,
-                                                bool collections = false,
-                                                bool child_loops = false) {
-    if (unsigned(placement_rates) + unsigned(collections) + unsigned(child_loops) > 1)
-        throw std::runtime_error("Select one skeletal sequence Gallery profile");
-    const auto path = child_loops       ? sequence_child_loop_scene_path
-                      : collections     ? sequence_collection_scene_path
-                      : placement_rates ? sequence_rate_scene_path
-                                        : skeletal_sequence_scene_path;
+inline constexpr auto sequence_placement_scene_path = "Scenes/189-controller-placements.scene.json";
+enum class SequenceGalleryProfile { Direct, Rates, Collections, ChildLoops, ControllerPlacements };
+inline const char* sequence_gallery_path(SequenceGalleryProfile profile) {
+    switch (profile) {
+    case SequenceGalleryProfile::Direct:
+        return skeletal_sequence_scene_path;
+    case SequenceGalleryProfile::Rates:
+        return sequence_rate_scene_path;
+    case SequenceGalleryProfile::Collections:
+        return sequence_collection_scene_path;
+    case SequenceGalleryProfile::ChildLoops:
+        return sequence_child_loop_scene_path;
+    case SequenceGalleryProfile::ControllerPlacements:
+        return sequence_placement_scene_path;
+    }
+    throw std::runtime_error("Unknown skeletal sequence Gallery profile");
+}
+inline AssetId
+author_skeletal_sequence_gallery(const std::filesystem::path& root,
+                                 SequenceGalleryProfile profile = SequenceGalleryProfile::Direct) {
+    const bool placement_rates = profile == SequenceGalleryProfile::Rates,
+               collections = profile == SequenceGalleryProfile::Collections,
+               child_loops = profile == SequenceGalleryProfile::ChildLoops,
+               placements = profile == SequenceGalleryProfile::ControllerPlacements;
+    const auto path = sequence_gallery_path(profile);
     if (std::filesystem::exists(root / path))
         throw std::runtime_error("Skeletal sequence Gallery already exists");
     auto catalog = AssetCatalog::open_project(root);
@@ -47,13 +62,14 @@ inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& roo
     const auto controller =
         authoring_command(scene, "entity.create",
                           {{"recipe", "animation.sequence"},
-                           {"name", child_loops   ? "Eight-second repeating sections"
+                           {"name", placements    ? "Eight-second repeated placements"
+                                    : child_loops ? "Eight-second repeating sections"
                                     : collections ? "Sixteen-second clip collection"
                                                   : "Four-second shared sequence"}})
             .at("selected")
             .get<std::string>();
     AnimationSequence sequence;
-    sequence.duration = child_loops ? 8 : collections ? 16 : 4;
+    sequence.duration = child_loops || placements ? 8 : collections ? 16 : 4;
     sequence.loop = true;
     scene.entity(controller).set(sequence);
     const auto reference = scene.reference(controller);
@@ -78,7 +94,7 @@ inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& roo
         bindings[1] = child("Slow child - 0.5x", reference, .5, 0);
         bindings[2] = child("Nested child - 0.5x of fast parent", bindings[0], .5, .5);
     }
-    if (child_loops) {
+    if (child_loops || placements) {
         const auto child = [&](const char* name, EntityRef parent, double duration, double rate,
                                double start) {
             const auto id = authoring_command(scene, "entity.create",
@@ -97,10 +113,29 @@ inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& roo
                                 .get<std::string>();
             return scene.reference(id);
         };
-        bindings[0] = child("Fast repeating section - 2x", reference, 2, 2, .5);
-        bindings[1] = child("Repeating morph section", reference, 4, 1, 1);
-        bindings[2] =
-            child("Repeating mapped section inside fast parent", bindings[0], 1.5, 1, .25);
+        bindings[0] = child(placements ? "Locomotion - finite, slow loop, normal loop"
+                                       : "Fast repeating section - 2x",
+                            reference, 2, 2, .5);
+        bindings[1] = child(placements ? "Morph - finite and fast repeated placement"
+                                       : "Repeating morph section",
+                            reference, 4, 1, 1);
+        bindings[2] = child(placements ? "Mapped - repeated inside locomotion"
+                                       : "Repeating mapped section inside fast parent",
+                            bindings[0], 1.5, 1, .25);
+        if (placements) {
+            const std::array<Json, 3> extras{
+                Json::array({{{"start_seconds", 2.5}, {"rate", .5}, {"loop", true}},
+                             {{"start_seconds", 5.5}, {"rate", 1.}, {"loop", true}}}),
+                Json::array({{{"start_seconds", 5.5}, {"rate", 2.}, {"loop", false}}}),
+                Json::array({{{"start_seconds", 1.75}, {"rate", 1.}, {"loop", true}}})};
+            for (std::size_t i = 0; i < bindings.size(); ++i)
+                authoring_command(
+                    scene, "property.set_many",
+                    {{"entity", bindings[i].entity.str()},
+                     {"component", "forge.animation_sequence"},
+                     {"values",
+                      {{"sequence_loop", false}, {"sequence_extra_placements", extras[i]}}}});
+        }
     }
     const auto place = [&](const auto& model, const char* name, double x, AssetId first,
                            AssetId next, double next_start, EntityRef binding) {
