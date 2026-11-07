@@ -118,6 +118,45 @@ int main(int argc, char** argv) {
         }
         {
             using package_detail::document_runtime_features;
+            for (const char* component : {"forge.animator", "forge.transform_animator"})
+                for (const char* channel : {"components", "property_overrides"})
+                    for (const char* rows : {"entities", "members", "overrides"}) {
+                        Json document{
+                            {rows,
+                             Json::array({{{channel,
+                                            {{component,
+                                              {{"sequence_extra_clips",
+                                                Json::array({{{"clip", AssetId::generate()},
+                                                              {"start_seconds", 2.}}})}}}}}}})}};
+                        if (std::string_view(rows) == "overrides")
+                            document["base"] = AssetId::generate();
+                        check(document_runtime_features(document) ==
+                                  Json{{"sequence_arrangement", 1}},
+                              "Collection requirements lost a Scene/Prefab/variant list");
+                        document[rows][0][channel][component]["sequence_extra_clips"] =
+                            Json::array();
+                        check(document_runtime_features(document).empty(),
+                              "Empty legacy collections require a new runtime kit");
+                        document[rows][0][channel][component]["sequence_extra_clips"] = "invalid";
+                        reject([&] { (void)document_runtime_features(document); });
+                    }
+            AssetCatalog features(scratch / "sequence-arrangement-compatibility");
+            AssetRecord record{AssetId::generate(), SceneAsset::type,
+                               "Scenes/Collection.scene.json", 1};
+            record.metadata["forge.runtime_document"]["runtime_features"] = {
+                {"sequence_arrangement", 1}};
+            features.add(record);
+            reject([&] { validate_runtime_compatibility(features, Json::object()); });
+            for (const Json& invalid : {Json(), Json(false), Json(-1), Json(0), Json(1.), Json("1"),
+                                        Json(2), Json(std::uint64_t{1} << 32)})
+                reject([&] {
+                    validate_runtime_compatibility(features,
+                                                   {{"runtime_sequence_arrangement", invalid}});
+                });
+            validate_runtime_compatibility(features, {{"runtime_sequence_arrangement", 1}});
+        }
+        {
+            using package_detail::document_runtime_features;
             for (const auto& [component, requirement, support, properties] :
                  std::array<std::tuple<const char*, const char*, const char*, Json>, 2>{
                      {{"forge.animator", "skeletal_sequence", "runtime_skeletal_sequence",

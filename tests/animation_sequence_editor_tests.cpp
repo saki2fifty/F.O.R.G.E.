@@ -639,6 +639,10 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 5 && std::string_view(argv[1]) == "--collections") {
+            skeletal_sequence_editor(argv[2], argv[3], argv[4], true);
+            return 0;
+        }
         if (argc == 5 && std::string_view(argv[1]) == "--skeletal") {
             skeletal_sequence_editor(argv[2], argv[3], argv[4]);
             return 0;

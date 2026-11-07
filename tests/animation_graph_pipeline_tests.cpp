@@ -76,11 +76,12 @@ struct World {
     std::shared_ptr<AnimationRuntime> animation;
     EntityId actor;
     std::uint64_t tick_id = 0;
-    World(const std::filesystem::path& project, const Json& source, EntityId id)
+    World(const std::filesystem::path& project, const Json& source, EntityId id, bool admit = true)
         : engine(WorldRole::Runtime, false, {animation_module(project)}), scene(engine.world()),
           animation(animation_runtime(engine.world())), actor(id) {
         scene.restore_snapshot(source);
-        ready();
+        if (admit)
+            ready();
     }
     void ready() {
         const auto deadline = std::chrono::steady_clock::now() + 10s;
@@ -467,6 +468,49 @@ void camera_profile_recovery(const std::filesystem::path& root, const Json& sour
         rejects([&] { rated_cold.animation->restore(invalid); });
         check(rated_cold.animation->checkpoint() == rated_checkpoint,
               "Rejected rate wrapper changed a graph/skeletal/camera world");
+    }
+    const double clip_duration =
+        AnimationPlaybackAccess::status(*rated.animation, rated.scene.reference(sibling))
+            .at("sequence_clips")
+            .at("duration_seconds");
+    const auto spacing = clip_duration * .5;
+    child.duration = 4.5 * clip_duration + 1;
+    scene.entity(child_id).set(child);
+    track.sequence_next_start_seconds = spacing;
+    for (std::size_t i = 2; i < sequence_clip_limit; ++i)
+        track.sequence_extra_clips.push_back({track.clip, i * spacing});
+    scene.entity(sibling).set(track);
+    const auto collection_source = scene.document();
+    World collection(root, collection_source, actor);
+    AnimationPlaybackAccess::control(*collection.animation, group,
+                                     {{"operation", "seek"}, {"position_seconds", 1.5}});
+    const auto collection_graph = collection.pose(.25);
+    const auto collection_sibling =
+        collection.animation->presentation(collection.scene.entity(sibling).id(), 1);
+    const auto collection_checkpoint = collection.animation->checkpoint();
+    check(collection_checkpoint.at("version") == 12 &&
+              collection_checkpoint.at("sequence_arrangement_profile") == 11 &&
+              collection_checkpoint.at("sequence_rate_profile") == 10 &&
+              collection_checkpoint.at("skeletal_sequence_profile") == 9 &&
+              collection_checkpoint.at("animation_profile") == 8 &&
+              collection_checkpoint.at("sequence_profile") == 7,
+          "Eight-clip recovery lost a graph/camera/nested/rate profile");
+    World collection_cold(root, collection_source, actor, false);
+    collection_cold.animation->restore(collection_checkpoint);
+    same_pose(collection_cold.current_pose(), collection_graph, "Graph under collection recovery");
+    same_pose(
+        collection_cold.animation->presentation(collection_cold.scene.entity(sibling).id(), 1),
+        collection_sibling, "Eight-clip sibling recovery");
+    check(collection_cold.animation->checkpoint() == collection_checkpoint,
+          "Cold composed collection recovery changed its exact checkpoint");
+    for (const char* field :
+         {"sequence_arrangement_profile", "sequence_rate_profile", "skeletal_sequence_profile",
+          "animation_profile", "sequence_profile"}) {
+        auto invalid = collection_checkpoint;
+        invalid[field] = 1u;
+        rejects([&] { collection_cold.animation->restore(invalid); });
+        check(collection_cold.animation->checkpoint() == collection_checkpoint,
+              "Rejected collection wrapper changed an admitted world");
     }
 }
 void work_budget_cases(const std::filesystem::path& root,

@@ -144,8 +144,8 @@ int main() {
                         "Sequence controller did not expose live controls");
                 grouped["entities"][0]["components"] = {
                     {"forge.transform_animator", {{"sequence", ref}}}};
-                require(!AnimationPlaybackEditor::selected(grouped, ref.entity.str()),
-                        "Bound track exposed independently editable live controls");
+                require(AnimationPlaybackEditor::selected(grouped, ref.entity.str()) == ref,
+                        "Bound object track did not expose read-only live status");
                 const EntityRef controller{ref.scene, EntityId::generate()};
                 status["sequence_controller"] = false;
                 status["sequence"] = controller;
@@ -160,6 +160,29 @@ int main() {
                 require(
                     selected_controller == controller && submits == before,
                     "Live model selection did not reveal its owning sequence without a command");
+                Json clips = Json::array();
+                for (unsigned i = 0; i < 8; ++i)
+                    clips.push_back({{"clip", AssetId::generate()},
+                                     {"start_seconds", .5 * i},
+                                     {"duration_seconds", 1}});
+                status["sequence_clips"] = {
+                    {"clips", clips}, {"active_primary", 4}, {"active_next", 5}};
+                const auto collection_status = status;
+                frame();
+                frame();
+                require(test::ui_targets.contains("live-animation:clip_window"),
+                        "Live eight-clip status omitted its active window");
+                if (scale == 1 && window_width == 1400) {
+                    click("live-animation:placements");
+                    for (unsigned i = 0; i < 8; ++i)
+                        require(test::ui_targets.contains("live-animation:placement:" +
+                                                          std::to_string(i)),
+                                "Live collection list omitted a placement");
+                    click("live-animation:placements");
+                }
+                require(status == collection_status && submits == before,
+                        "Live collection inspection changed values or sent a playback command");
+                status.erase("sequence_clips");
                 status["sequence_controller"] = true;
                 frame();
                 frame();

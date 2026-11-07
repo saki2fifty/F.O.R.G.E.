@@ -151,6 +151,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             if (features != document->end()) {
                 require(features->is_object(), "Invalid authored document runtime features");
                 for (const auto& [name, version] : features->items()) {
+                    if (name == "sequence_arrangement") {
+                        require(version.is_number_integer() &&
+                                    version == sequence_arrangement_runtime_profile_version,
+                                "Unsupported authored sequence collection profile");
+                        const auto support = engine.find("runtime_sequence_arrangement");
+                        require(support != engine.end() && support->is_number_integer() &&
+                                    *support == sequence_arrangement_runtime_profile_version,
+                                "Sequence clip collections require the runtime kit packaged with "
+                                "this editor");
+                        continue;
+                    }
                     if (name == "sequence_rate") {
                         require(version.is_number_integer() &&
                                     version == sequence_rate_runtime_profile_version,

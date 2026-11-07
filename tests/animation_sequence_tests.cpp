@@ -14,6 +14,7 @@
 #include <forge/scene_identity.hpp>
 #include <iostream>
 #include <limits>
+#include <source_location>
 #include <string_view>
 #include <thread>
 using namespace forge;
@@ -25,7 +26,12 @@ void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
 }
-void near(double a, double b) { check(std::abs(a - b) < 1e-5, "Sequence numeric oracle differs"); }
+void near(double a, double b, const std::source_location& where = std::source_location::current()) {
+    if (!(std::abs(a - b) < 1e-5))
+        throw std::runtime_error(std::string(where.file_name()) + ":" +
+                                 std::to_string(where.line()) + ": sequence value " +
+                                 std::to_string(a) + " vs " + std::to_string(b));
+}
 template <class F> void rejects(F function) {
     bool rejected = false;
     try {
@@ -586,19 +592,26 @@ void camera_shots(const std::filesystem::path& root) {
 #include "nested_sequence_audio_tests.hpp"
 #include "nested_sequence_tests.hpp"
 #include "sequence_clip_blend_tests.hpp"
+#include "sequence_collection_runtime_tests.hpp"
 #include "sequence_property_blend_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
         const bool properties_only =
             argc == 3 && std::string_view(argv[2]) == "--property-pairs-only";
-        check(argc == 2 || properties_only,
+        const bool collections_only =
+            argc == 3 && std::string_view(argv[2]) == "--collections-only";
+        check(argc == 2 || properties_only || collections_only,
               "Need sequence scratch root and optional property mode");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);
         AssetImportService imports(lease, transform_animation_import_registry(),
                                    {"windows", "d3d12", "desktop"});
+        if (collections_only) {
+            sequence_collection_runtime_tests(root, lease, imports);
+            return 0;
+        }
         if (properties_only) {
             sequence_property_blend_tests(root, lease, imports);
             return 0;

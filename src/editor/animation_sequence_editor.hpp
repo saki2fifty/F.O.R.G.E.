@@ -64,6 +64,7 @@ class AnimationSequenceEditor {
         closing_ = false;
         time_ = offset_ = next_offset_ = 0;
         pending_track_fields_ = 0;
+        extra_clips_ = Json::array();
         view_ = {};
     }
     void request_save() {
@@ -441,7 +442,10 @@ class AnimationSequenceEditor {
             ImGui::EndDisabled();
             const auto origin = ImGui::GetCursorScreenPos();
             const auto size = ImVec2{std::max(40.f, ImGui::GetContentRegionAvail().x),
-                                     (value.sequence_next_clip.id ? 40 : 24) * ui::interface_scale};
+                                     (value.sequence_extra_clips.empty()
+                                          ? (value.sequence_next_clip.id ? 40 : 24)
+                                          : 16 * (value.sequence_extra_clips.size() + 2) + 8) *
+                                         ui::interface_scale};
             ImGui::InvisibleButton("##track span", size);
             FORGE_UI_PROBE("sequence:span:" + id + (skeletal ? ":skeletal" : ""));
             auto* draw = ImGui::GetWindowDrawList();
@@ -459,7 +463,18 @@ class AnimationSequenceEditor {
                        float(std::clamp(view_.fraction(seconds * animation_timebase), 0., 1.)) *
                            size.x;
             };
-            if (clips.is_object()) {
+            if (clips.is_object() && clips.contains("clips")) {
+                const auto& collection = clips.at("clips");
+                const float height = (size.y - 6) / float(collection.size());
+                for (std::size_t i = 0; i < collection.size(); ++i) {
+                    const double start = collection[i].at("start_seconds");
+                    const double end = start + collection[i].at("duration_seconds").get<double>();
+                    const float y = origin.y + 3 + float(i) * height;
+                    draw->AddRectFilled({x(start), y}, {x(end), y + height - 1},
+                                        i % 2 ? IM_COL32(131, 92, 181, 255)
+                                              : IM_COL32(55, 125, 164, 255));
+                }
+            } else if (clips.is_object()) {
                 const double primary_end =
                     value.sequence_start_seconds + clips.at("duration_seconds").get<double>();
                 const bool paired = clips.contains("next");
@@ -500,12 +515,18 @@ class AnimationSequenceEditor {
             if (actor.has<Animator>())
                 draw_track(row, actor.get<Animator>(), "forge.animator");
         }
-        const auto draw_fields = [&](const auto& value, const char* asset_type) {
+        const auto draw_fields = [&](const auto value, const char* asset_type) {
             if (value.sequence == controller_) {
                 if (!pending_) {
                     offset_ = value.sequence_start_seconds;
                     next_offset_ = value.sequence_next_start_seconds;
                     pending_track_fields_ = 0;
+                    extra_clips_ = Json::array();
+                    for (const auto& row : snapshot.at("entities"))
+                        if (row.at("id") == track_)
+                            extra_clips_ = row.at("components")
+                                               .at(track_component_)
+                                               .value("sequence_extra_clips", Json::array());
                 }
                 ImGui::TextUnformatted(value.sequence_next_clip.id ? "Primary clip start"
                                                                    : "Clip start");
@@ -527,6 +548,21 @@ class AnimationSequenceEditor {
                         pending_track_fields_ |= 2;
                     }
                     FORGE_UI_PROBE("sequence:next_start");
+                }
+                for (std::size_t i = 0; i < extra_clips_.size(); ++i) {
+                    ImGui::PushID(int(i));
+                    ImGui::Text("Clip %zu start", i + 3);
+                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+                    double start = extra_clips_[i].at("start_seconds");
+                    if (ImGui::InputDouble("##extra track start", &start, 0, 0, "%.3f s")) {
+                        if (!pending_)
+                            pending_revision_ = scene_->revision();
+                        extra_clips_[i]["start_seconds"] = start;
+                        pending_ = true;
+                        pending_track_fields_ |= 4;
+                    }
+                    FORGE_UI_PROBE("sequence:extra_start:" + std::to_string(i));
+                    ImGui::PopID();
                 }
                 if (ui::button(value.sequence_next_clip.id ? "Apply track timing"
                                                            : "Apply track start",
@@ -562,6 +598,8 @@ class AnimationSequenceEditor {
                 if (catalog_ && asset_ref_picker(*catalog_, next, asset_type, "Next clip", true)) {
                     try {
                         Json values{{"sequence_next_clip", next}};
+                        if (next.is_null() && !value.sequence_extra_clips.empty())
+                            values["sequence_extra_clips"] = Json::array();
                         if (!value.sequence_next_clip.id && !next.is_null()) {
                             double start = value.sequence_start_seconds;
                             if (ready_ && !stale_ && context_) {
@@ -587,6 +625,94 @@ class AnimationSequenceEditor {
                     }
                 }
                 FORGE_UI_PROBE("sequence:next_clip");
+                for (std::size_t i = 0; i < extra_clips_.size(); ++i) {
+                    ImGui::PushID(int(i));
+                    Json clip = extra_clips_[i].at("clip");
+                    const auto label = "Clip " + std::to_string(i + 3);
+                    ImGui::SetNextItemWidth(
+                        std::max(80.f, ImGui::GetContentRegionAvail().x -
+                                           ImGui::CalcTextSize(label.c_str()).x -
+                                           ImGui::GetStyle().ItemInnerSpacing.x));
+                    if (catalog_ &&
+                        asset_ref_picker(*catalog_, clip, asset_type, label.c_str(), false)) {
+                        try {
+                            extra_clips_[i]["clip"] = clip;
+                            set_track_fields({{"sequence_extra_clips", extra_clips_}});
+                            stop_preview();
+                        } catch (const std::exception& e) {
+                            error_ = e.what();
+                        }
+                    }
+                    FORGE_UI_PROBE("sequence:extra_clip:" + std::to_string(i));
+                    const bool remove =
+                        ui::button("Remove clip", "Remove this placement as one Scene Undo step.");
+                    FORGE_UI_PROBE("sequence:remove_extra:" + std::to_string(i));
+                    ImGui::PopID();
+                    if (remove) {
+                        try {
+                            extra_clips_.erase(extra_clips_.begin() + i);
+                            set_track_fields({{"sequence_extra_clips", extra_clips_}});
+                            stop_preview();
+                        } catch (const std::exception& e) {
+                            error_ = e.what();
+                        }
+                        break;
+                    }
+                }
+                ImGui::BeginDisabled(!value.sequence_next_clip.id ||
+                                     extra_clips_.size() >= sequence_clip_limit - 2);
+                if (ui::button("Add clip", "Duplicate the last clip at its end; maximum eight "
+                                           "clips. Refresh to validate and preview.")) {
+                    try {
+                        const auto id = value.sequence_extra_clips.empty()
+                                            ? value.sequence_next_clip.id
+                                            : value.sequence_extra_clips.back().clip.id;
+                        const auto start = value.sequence_extra_clips.empty()
+                                               ? value.sequence_next_start_seconds
+                                               : value.sequence_extra_clips.back().start_seconds;
+                        double duration = 0;
+                        if (ready_ && context_) {
+                            const auto status = AnimationPlaybackAccess::status(
+                                *context_->animation, {controller_.scene, EntityId::parse(track_)},
+                                track_component_ == "forge.animator"
+                                    ? AnimationPlaybackAccess::PlayerKind::Skeletal
+                                    : AnimationPlaybackAccess::PlayerKind::Transform);
+                            const auto clips = status.value("sequence_clips", Json());
+                            if (clips.is_object()) {
+                                const auto inspect = [&](const Json& clip) {
+                                    if (clip.at("clip") == Json(id))
+                                        duration = clip.at("duration_seconds");
+                                };
+                                if (clips.contains("clips"))
+                                    for (const auto& clip : clips.at("clips"))
+                                        inspect(clip);
+                                else {
+                                    inspect(clips);
+                                    if (clips.contains("next"))
+                                        inspect(clips.at("next"));
+                                }
+                            }
+                        }
+                        if (duration <= 0)
+                            throw std::runtime_error(
+                                "Refresh the sequence preview before adding this clip.");
+                        if (start + duration > config.duration)
+                            throw std::runtime_error(
+                                "Extend the sequence duration before adding another clip.");
+                        extra_clips_.push_back({{"clip", id}, {"start_seconds", start + duration}});
+                        set_track_fields({{"sequence_extra_clips", extra_clips_}});
+                        stop_preview();
+                    } catch (const std::exception& e) {
+                        error_ = e.what();
+                    }
+                }
+                FORGE_UI_PROBE("sequence:add_clip");
+                ImGui::EndDisabled();
+                if (!extra_clips_.empty())
+                    ImGui::TextWrapped(
+                        "Up to eight clips; ordered starts and ends, at most two adjacent clips "
+                        "overlapping. Gaps hold the previous endpoint.");
+
                 if (value.sequence_next_clip.id && track_component_ == "forge.animator")
                     ImGui::TextWrapped("Clips need the same exact skeleton/model revision and "
                                        "ordered starts/ends. Each clip samples its own phase; "
@@ -603,9 +729,11 @@ class AnimationSequenceEditor {
                         "Refresh to validate and preview.");
                 if (ui::button("Remove from sequence",
                                "Keep the primary clip and standalone settings; "
-                               "clear the sequence binding and next clip.")) {
+                               "clear the sequence binding and additional clips.")) {
                     try {
                         Json values{{"sequence", nullptr}};
+                        if (!value.sequence_extra_clips.empty())
+                            values["sequence_extra_clips"] = Json::array();
                         if (value.sequence_next_clip.id)
                             values["sequence_next_clip"] = nullptr;
                         set_track_fields(values);
@@ -771,6 +899,7 @@ class AnimationSequenceEditor {
     bool frame_exporting_ = false, saved_preview_ = false, saved_playing_ = false;
     double time_ = 0, offset_ = 0, next_offset_ = 0, nested_start_ = 0, nested_rate_ = 1;
     unsigned pending_track_fields_ = 0;
+    Json extra_clips_ = Json::array();
     bool ready_ = false, stale_ = false, preview_ = false, playing_ = false, pending_ = false,
          closing_ = false, locked_ = false;
     bool frame_source_current() const {
@@ -1437,11 +1566,19 @@ class AnimationSequenceEditor {
                 (!std::isfinite(next_offset_) || next_offset_ < offset_ || next_offset_ > duration))
                 throw std::runtime_error(
                     "Next clip start must follow the primary start and stay inside the sequence");
+            for (const auto& extra : extra_clips_) {
+                const double start = extra.at("start_seconds");
+                if (!std::isfinite(start) || start < 0 || start > duration)
+                    throw std::runtime_error(
+                        "Additional clip starts must stay inside the sequence");
+            }
             Json values = Json::object();
             if (!pending_ || (pending_track_fields_ & 1))
                 values["sequence_start_seconds"] = offset_;
             if (next_clip && (pending_track_fields_ & 2))
                 values["sequence_next_start_seconds"] = next_offset_;
+            if (pending_track_fields_ & 4)
+                values["sequence_extra_clips"] = extra_clips_;
             set_track_fields(values);
             pending_ = false;
             stop_preview();

@@ -25,6 +25,7 @@ class TransformAnimationPlayback {
     bool has_next_sequence_clips() const;
     bool has_nested_sequences() const;
     bool has_sequence_rates() const;
+    bool has_sequence_arrangements() const;
     void prepare_sequence_preview_root(EntityRef);
     bool pending() const { return pending_; }
     std::vector<std::uint64_t> take_discontinuities();
@@ -42,7 +43,8 @@ class TransformAnimationPlayback {
     void project_camera_shots(Json&, double alpha) const;
     Json audio_cues_checkpoint() const;
     Json camera_presentation(flecs::entity_t, double alpha) const;
-    void restore(const Json&, const Json& sequences, unsigned profile = 3, bool rates = false);
+    void restore(const Json&, const Json& sequences, unsigned profile = 3, bool rates = false,
+                 bool arrangements = false);
     void pose_validator(AnimationRuntime::PoseValidator callback) {
         validator_ = std::move(callback);
     }
@@ -73,6 +75,10 @@ class TransformAnimationPlayback {
         ResourceIdentity clip, next_clip;
         std::vector<MaterialParameterOverride> unanimated;
     };
+    struct ExtraClip {
+        ResourceLease<TransformAnimationAsset> clip;
+        std::vector<std::size_t> material_order, component_order;
+    };
     struct State {
         TransformAnimator config;
         AssetRef<TransformAnimationAsset> requested;
@@ -82,7 +88,11 @@ class TransformAnimationPlayback {
         AssetRef<TransformAnimationAsset> requested_next;
         ResourceTicket next_ticket;
         ResourceLease<TransformAnimationAsset> next_clip;
+        std::vector<AssetRef<TransformAnimationAsset>> requested_extras;
+        std::vector<ResourceTicket> extra_tickets;
+        std::vector<ExtraClip> extra_clips;
         std::optional<detail::SequenceClipSpan> span;
+        std::optional<detail::SequenceClipArrangement> arrangement;
         std::vector<std::size_t> material_order, component_order;
         double time = 0;
         double previous = 0, advance = 0;
@@ -163,6 +173,15 @@ class TransformAnimationPlayback {
     void synchronize_materials();
     double sequence_time(const State&, double) const;
     double clip_span_duration(const State&) const;
+    struct ClipView {
+        const TransformAnimationClip& clip;
+        std::span<const std::size_t> material_order, component_order;
+    };
+    nlohmann::json extra_clips_checkpoint(const State&) const;
+    ClipView clip_view(const State&, std::size_t) const;
+    AssetRef<TransformAnimationAsset> clip_reference(const State&, std::size_t) const;
+    double clip_start_seconds(const State&, std::size_t) const;
+    detail::SequenceClipArrangement::Sample clip_sample(const State&, double) const;
     LocalTransform sample_pose(const State&, double) const;
     AnimationPropertyValues sample_properties(const State&, double) const;
     void sample_materials(const State&, double, std::span<AnimationMaterialValues>) const;

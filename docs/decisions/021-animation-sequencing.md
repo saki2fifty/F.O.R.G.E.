@@ -341,6 +341,41 @@ previous profiles and meanings. Generic property authoring/history and MCP use t
 same admitted field. The Timeline exposes local placement start and rate together
 and displays the parent-time length as local duration divided by placement rate.
 
+## Bounded clip collections — accepted design
+
+2026-11-07. Extend the existing player-owned arrangement to at most eight clips.
+Keep the primary/next fields and their default behavior; append a default-empty
+typed `sequence_extra_clips` collection of clip references and controller-local
+start seconds. It admits at most six extra entries and requires the initial pair.
+Use the existing registered vector, reflected reference and collection-limit
+owners. No clip-placement entities, persistent placement identities, clocks or
+independent pose writers are introduced.
+
+Starts and ends must be ordered, with at most two adjacent clips contributing.
+Reject triple overlaps; equal endpoints are valid. Reuse the existing pair span
+for each adjacent window. Gaps hold the outgoing endpoint until the next start,
+then cut. Outside the whole arrangement, hold its first/last values. The common
+derived timing owner selects a window without allocation during sampling.
+
+All referenced resources and revisions must be admitted together. Every clip must
+match the established channel/binding/skeleton/model contract. Preserve complete
+candidate publication, future-step preflight and last-good retry. Reuse native
+sampler state and existing root-motion/rate interval ownership. Do not allocate
+temporary sampling contexts every tick or change existing standalone/pair costs.
+
+The new opt-in profile reports the selected adjacent pair through existing copied
+and C++/SDK clip identities, while time/duration describe the full placed span.
+Existing one/two-clip configurations retain their current observed identities and
+semantics. Installed native values require matching SDK rebuilds; callback tables
+remain unchanged. A new runtime document/kit capability and private recovery
+profile must guard the complete collection and every selected revision.
+
+Implement native source/Prefab/history, Timeline add/remove/timing/clip selection,
+copied preview/live observations, generic automation/MCP and export in the same
+batch. A collection or timing helper alone is not a completed feature. Repeated
+controller placements, child looping, arbitrary multiway blends and unrestricted
+arrangements remain outside this bounded design.
+
 ## Scene-owned UI values through reflected builtin admission
 
 2026-11-03. Optional UiValues joins the existing component-field candidate owner.

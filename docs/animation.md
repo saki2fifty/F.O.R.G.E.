@@ -274,6 +274,14 @@ precede the primary start and end. The existing two-clip span owner supports a
 natural overlap, a touching cut or a held gap. Each clip samples its own clamped
 local time. The controller may truncate the track at its end.
 
+An optional typed `sequence_extra_clips` vector appends up to six placements after
+the original pair, for eight total. Each placement retains an independent sampler
+context and exact admitted resources, including repeated references. The shared
+[bounded arrangement profile](transform-animation.md#bounded-clip-collections)
+requires ordered starts/ends and at most two adjacent contributions, and specifies
+recovery12, active-pair observation and runtime-kit compatibility. Empty vectors
+retain the legacy single/pair behavior below.
+
 This profile excludes States, Blend Spaces, Graphs and standalone blend/subtree/
 mask/additive selection on that Animator. It retains standalone loop, speed and
 start intent for removal from the sequence. Both clips require the same exact
@@ -291,7 +299,7 @@ validates the complete proposed next root sample before replacing accepted lease
 pending inputs retry, and a rejected replacement retains the old revision.
 
 The Timeline uses explicit player-kind observations for rows on a mixed holder.
-Both start edits use one existing Scene `property.set_many` transaction. Its stopped
+Clip-list edits and pending start fields use existing Scene `property.set_many` transactions; applying multiple timing fields uses one Undo step. Its stopped
 preview copies native model poses, morphs and joint transforms; the standalone
 skeletal preview directs bound players to the sequence Timeline. Inspector opens
 the owning Timeline, and the live panel keeps track controls read only with a

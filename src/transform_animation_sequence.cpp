@@ -122,6 +122,10 @@ bool TransformAnimationPlayback::has_nested_sequences() const {
     return std::any_of(sequence_states_.begin(), sequence_states_.end(),
                        [](const auto& item) { return item.second.parent != 0; });
 }
+bool TransformAnimationPlayback::has_sequence_arrangements() const {
+    return std::any_of(states_.begin(), states_.end(),
+                       [](const auto& item) { return bool(item.second.arrangement); });
+}
 bool TransformAnimationPlayback::has_sequence_rates() const {
     return std::any_of(sequence_states_.begin(), sequence_states_.end(), [](const auto& item) {
         return item.second.parent && item.second.config.sequence_rate != 1;
@@ -307,6 +311,8 @@ void TransformAnimationPlayback::synchronize_sequences() {
             errors_.erase(id);
 }
 double TransformAnimationPlayback::sequence_time(const State& state, double time) const {
+    if (state.arrangement)
+        return state.arrangement->relative_time(time);
     return state.span ? state.span->relative_time(time)
                       : std::clamp(time - state.config.sequence_start_seconds * animation_timebase,
                                    0., double(state.clip->duration));
@@ -353,7 +359,12 @@ std::optional<AnimationPlayback> TransformAnimationPlayback::playback(EntityRef 
         result.clip = state.config.clip.id;
         result.time = state.time / animation_timebase;
         result.duration = clip_span_duration(state) / animation_timebase;
-        if (state.span && state.next_clip) {
+        if (state.arrangement) {
+            const auto sample = clip_sample(state, state.time);
+            result.clip = clip_reference(state, sample.primary).id;
+            result.blend_clip = clip_reference(state, sample.next).id;
+            result.blend_weight = sample.weight;
+        } else if (state.span && state.next_clip) {
             result.blend_clip = state.config.sequence_next_clip.id;
             result.blend_weight = state.span->next_weight(state.time);
         }
@@ -398,6 +409,25 @@ Json TransformAnimationPlayback::sequence_clip_status(EntityRef ref) const {
     if (found == states_.end() || !found->second.clip || !found->second.sequence)
         return nullptr;
     const auto& state = found->second;
+    if (state.arrangement) {
+        const auto sample = clip_sample(state, state.time);
+        const auto description = [&](std::size_t index) {
+            return Json{{"clip", clip_reference(state, index).id},
+                        {"start_seconds", clip_start_seconds(state, index)},
+                        {"duration_seconds",
+                         double(clip_view(state, index).clip.duration) / animation_timebase}};
+        };
+        auto result = description(sample.primary);
+        result["sequence"] = state.config.sequence;
+        result["next"] = description(sample.next);
+        result["next"]["weight"] = sample.weight;
+        result["active_primary"] = sample.primary;
+        result["active_next"] = sample.next;
+        result["clips"] = Json::array();
+        for (std::size_t i = 0; i < state.arrangement->size(); ++i)
+            result["clips"].push_back(description(i));
+        return result;
+    }
     Json result{{"clip", state.config.clip.id},
                 {"sequence", state.config.sequence},
                 {"start_seconds", state.config.sequence_start_seconds},

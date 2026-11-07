@@ -95,10 +95,47 @@ sequence entry-pending state. After admitting the complete resource pair, mismat
 are rejected before restoring poses/clocks. A fresh worker can therefore restore
 without a prior preparation pass. Without a next slot, the current older-profile readers and
 writers retain their behavior. Scene/Prefab and clip source/cook formats do not
-change. More than two clips on one player remain outside this profile.
+change. Default-empty collections retain this pair profile; nonempty collections use the bounded arrangement profile below.
 [Skeletal sequence tracks](animation.md) use the same controller with their own
 Animator clip references and native pose/morph owner. [Silent movie export](sequence-movie-export.md) uses the existing preview
 capture owner; it does not add simulation or encoding to the animation runtime.
+
+### Bounded clip collections
+
+Both player components append `sequence_extra_clips`, a typed vector of up to six
+`SequenceClipPlacement<T>` values (`clip`, `start_seconds`) after their existing
+primary/next fields. The default is empty. A nonempty list requires a bound primary
+and next clip. All starts are finite within 0–3600 seconds and the controller's
+duration. Resource admission additionally requires ordered ends and rejects triple
+overlap. At most eight clips and two adjacent contributions are admitted.
+
+`SequenceClipArrangement` derives neighboring windows through the existing pair
+span. Existing providers retain resources, root clocks, validation and publication.
+Transform curves use primary-canonical Material/reflected binding orders even when
+both active clips are later placements. Every admitted clip passes the target
+checks. Pending requests remain separate from accepted leases so asynchronous
+repair can hold the last complete native values. Skeletal placements retain their
+own sampler contexts, including repeated references to the same resource. Root
+motion splits all starts/ends through cumulative placement rates and uses one
+explicit pair at both interval endpoints.
+
+For nonempty collections, public playback's existing clip/blend IDs and weight
+identify the active pair; time and duration describe the whole track. Private
+`sequence_clips` additionally exposes `clips`, `active_primary` and `active_next`.
+Legacy empty lists preserve all existing single/pair observation meanings. Timeline
+uses these admitted descriptors and the existing Scene property/history owner for
+list selection, add/remove and one-step pending timing. Inspector/automation/MCP use
+the registered vector and typed reference schema. Unknown source fields retain the
+existing positional extension semantics; no placement IDs are introduced.
+
+Private recovery12 wraps the prior profile in `sequence_arrangement_profile` and
+records each extra clip's identity, start and selected revision. Admission precedes
+exact configuration/profile comparison and complete candidate publication. A
+runtime document using the list declares `sequence_arrangement: 1` and requires
+`runtime_sequence_arrangement: 1` in its kit, including partial Prefab variants.
+Source formats stay unchanged; native value layout additions require a matching
+exact installed SDK rebuild. Unrestricted arrangements, multiway overlap, repeated
+controller placements and child loop overrides remain outside this profile.
 
 ### Nested controller placements
 

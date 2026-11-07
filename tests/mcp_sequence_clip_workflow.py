@@ -18,6 +18,11 @@ def check_sequence_clip_workflow(client, discover, arguments, mutate, project,
     assert fields['sequence_next_start_seconds']['default'] == 0
     assert fields['sequence_next_start_seconds']['minimum'] == 0
     assert fields['sequence_next_start_seconds']['maximum'] == 3600
+    collection = fields['sequence_extra_clips']
+    assert collection['type'] == 'vector' and collection['maximum_count'] == 6
+    element_fields = {field['id']: field for field in collection['element']['fields']}
+    assert element_fields['clip']['asset_type'] == fields['sequence_next_clip']['asset_type']
+    assert collection['default'] == []
     controller = mutate('forge_entity_create', arguments=dict(recipe='animation.sequence', name='Cut'))
     assert controller['ok'], controller
     controller = controller['result']['results'][0]['selected']
@@ -69,12 +74,36 @@ def check_sequence_clip_workflow(client, discover, arguments, mutate, project,
                 entity=actor, component=component['id'], values=invalid))
             assert not result['ok'] and discover()['revision'] == before['revision'], result
             assert track() == expected
+    extras = [dict(clip=values['clip'], start_seconds=1 + .5 * i) for i in range(6)]
+    extras[0]['future'] = dict(note='opaque placement extension')
+    request = arguments(arguments=dict(entity=actor, component=component['id'],
+                                       values=dict(sequence_extra_clips=extras)))
+    added = client.tool('forge_property_set_many', **request)
+    assert added['ok'], added
+    assert client.tool('forge_property_set_many', **request) == added
+    assert track()['sequence_extra_clips'] == extras
+    assert mutate('forge_history_undo')['result']['changed'] and track() == expected
+    assert mutate('forge_history_redo')['result']['changed']
+    expected = track()
+    failed(client.tool('forge_property_set_many', **dict(request, sequence=discover()['next_sequence'])),
+           'stale_revision')
+    for invalid in (dict(sequence=None), dict(sequence_next_clip=None),
+                    dict(sequence_extra_clips=extras + [extras[-1]]),
+                    dict(sequence_extra_clips={}),
+                    dict(sequence_extra_clips=[dict(clip=None, start_seconds=2)]),
+                    dict(sequence_extra_clips=[dict(clip=values['clip'], start_seconds=.25)]),
+                    dict(sequence_extra_clips=[dict(clip=values['clip'], start_seconds=False)])):
+        before = discover()
+        result = mutate('forge_property_set_many', arguments=dict(
+            entity=actor, component=component['id'], values=invalid))
+        assert not result['ok'] and discover()['revision'] == before['revision'], result
+        assert track() == expected
     assert mutate('forge_document_save')['ok']
     saved = json.loads((project / 'Scenes/main.scene.json').read_bytes())
     saved_track = next(row for row in saved['entities'] if row['id'] == actor)['components'][component['id']]
     assert saved_track == expected
-    assert mutate('forge_property_set', arguments=dict(entity=actor, component=component['id'],
-                   field='sequence_next_clip', value=None))['ok']
+    assert mutate('forge_property_set_many', arguments=dict(entity=actor, component=component['id'],
+                   values=dict(sequence_next_clip=None, sequence_extra_clips=[])))['ok']
     assert track()['sequence_next_clip'] is None and track()['clip'] == values['clip']
     assert mutate('forge_document_open', path='Scenes/main.scene.json', discard=True)['ok']
     assert track() == expected

@@ -89,6 +89,49 @@ void sequence_component_blends(const std::filesystem::path& root) {
                   value.weight == .5,
               "Sequence blend rounded discrete values or changed an unanimated field");
     };
+    {
+        auto collection = track;
+        for (std::size_t i = 2; i < sequence_clip_limit; ++i)
+            collection.sequence_extra_clips.push_back({{i % 2 ? next : first}, double(i)});
+        auto longer = sequence;
+        longer.duration = 10;
+        scene.entity(controller).set(longer);
+        scene.entity(actor).set(collection);
+        const auto collection_source = scene.snapshot();
+        scene.restore_snapshot(saved);
+        Runtime many(root, collection_source, catalog);
+        many.ready();
+        for (const double time : {1.5, 2.25, 2.75, 3.5, 4.25, 5.5, 6.25, 7.499999, 7.5, 8.5}) {
+            AnimationPlaybackAccess::control(*many.animation, track.sequence,
+                                             {{"operation", "seek"}, {"position_seconds", time}});
+            const auto active = std::clamp(int(std::floor(time)) - 1, 0, 6);
+            const auto at = std::clamp(time - active, 0., 2.);
+            const auto bt = std::clamp(time - active - 1, 0., 2.);
+            const auto weight = std::clamp(time - active - 1, 0., 1.);
+            const auto speed = std::lerp((active % 2 ? 100. : 20.) + 10 * at,
+                                         (active % 2 ? 20. : 100.) + 10 * bt, weight);
+            verify(many.scene.entity(actor).get<Motion>(), speed,
+                   active % 2 ? weight < .5 : weight >= .5);
+        }
+        Runtime fixed_many(root, collection_source, catalog);
+        fixed_many.ready();
+        for (unsigned tick = 0; tick < 30; ++tick)
+            fixed_many.simulation.tick(.25);
+        verify(fixed_many.scene.entity(actor).get<Motion>(), 70, true);
+        const auto copied = fixed_many.simulation.presentation(.5);
+        bool found = false;
+        for (const auto& row : copied.at("entities"))
+            if (row.at("id") == actor) {
+                const auto& value = row.at("components").at(codec.key());
+                near(value.at("speed"), 60);
+                check(value.at("enabled") == true &&
+                          value.at("marker").get<std::int64_t>() == INT64_MIN &&
+                          value.at("score").get<std::uint64_t>() == UINT64_MAX,
+                      "Eight-clip copied presentation rounded an exact held primitive");
+                found = true;
+            }
+        check(found, "Eight-clip presentation lost its reflected component");
+    }
     live.simulation.tick(1.f);
     live.simulation.tick(.5f);
     verify(entity.get<Motion>(), 70, true);

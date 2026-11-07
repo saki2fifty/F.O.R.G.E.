@@ -66,6 +66,7 @@ Json reference_document(Json source, bool incoming) {
         config["sequence_start_seconds"] = 0;
         config["sequence_next_clip"] = nullptr;
         config["sequence_next_start_seconds"] = 0;
+        config["sequence_extra_clips"] = Json::array();
         config["playback_speed"] = 1;
         config["loop"] = false;
     }
@@ -94,11 +95,23 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
             return components.contains("forge.animation_sequence") &&
                    components.at("forge.animation_sequence").value("sequence_rate", 1.) != 1;
         });
+    const bool collections = std::any_of(
+        source.at("entities").begin(), source.at("entities").end(), [](const Json& row) {
+            const auto& components = row.at("components");
+            return components.contains("forge.animator") &&
+                   !components.at("forge.animator")
+                        .value("sequence_extra_clips", Json::array())
+                        .empty();
+        });
     World live(root, source), first(root, reference_document(source, false)),
         next(root, reference_document(source, true));
     Json observations = Json::array();
     bool morphs = false, mapped_motion = false;
-    for (const double seconds : {0., .75, 1.25, 1.75, 2.5, 3.5}) {
+    const std::vector<double> sample_times =
+        collections
+            ? std::vector<double>{0, .75, 1.25, 1.75, 2.5, 3.5, 5.25, 7.75, 10.25, 14.75, 15.5}
+            : std::vector<double>{0, .75, 1.25, 1.75, 2.5, 3.5};
+    for (const double seconds : sample_times) {
         live.seek(controller, seconds);
         Json sample = Json::array();
         for (const auto& actor : actors) {
@@ -126,12 +139,37 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
                                    0., child->duration);
                 rate *= child->sequence_rate;
             }
-            const auto a_time = std::clamp(local, 0., a_duration);
-            const auto b_time = std::clamp(local - start, 0., b_duration);
-            const auto weight = std::clamp((local - start) / (a_duration - start), 0., 1.);
-            first.seek(actor, a_time);
-            next.seek(actor, b_time);
-            const auto a = first.pose(actor), b = next.pose(actor), actual = live.pose(actor);
+            std::size_t active = 0;
+            double a_start = config.sequence_start_seconds, b_start = start;
+            if (collections) {
+                check(config.sequence_extra_clips.size() == 6,
+                      "Collection Gallery needs eight placements per model");
+                const auto placed_start = [&](std::size_t i) {
+                    return i == 0   ? config.sequence_start_seconds
+                           : i == 1 ? start
+                                    : config.sequence_extra_clips[i - 2].start_seconds;
+                };
+                while (active + 2 < sequence_clip_limit &&
+                       local >=
+                           std::max(placed_start(active) + (active % 2 ? b_duration : a_duration),
+                                    placed_start(active + 1)))
+                    ++active;
+                a_start = placed_start(active);
+                b_start = placed_start(active + 1);
+            }
+            const auto first_duration = active % 2 ? b_duration : a_duration;
+            const auto next_duration = active % 2 ? a_duration : b_duration;
+            const auto a_time = std::clamp(local - a_start, 0., first_duration);
+            const auto b_time = std::clamp(local - b_start, 0., next_duration);
+            const auto weight =
+                b_start >= a_start + first_duration
+                    ? (local >= b_start ? 1. : 0.)
+                    : std::clamp((local - b_start) / (a_start + first_duration - b_start), 0., 1.);
+            auto& a_world = active % 2 ? next : first;
+            auto& b_world = active % 2 ? first : next;
+            a_world.seek(actor, a_time);
+            b_world.seek(actor, b_time);
+            const auto a = a_world.pose(actor), b = b_world.pose(actor), actual = live.pose(actor);
             check(!actual.is_null() && actual.at("local").size() == a.at("local").size() &&
                       a.at("local").size() == b.at("local").size(),
                   "Gallery sequence lost a model pose");
@@ -141,6 +179,26 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
                         near(actual.at("local")[joint].at(channel)[lane],
                              a.at("local")[joint].at(channel)[lane].get<double>() * (1 - weight) +
                                  b.at("local")[joint].at(channel)[lane].get<double>() * weight);
+            for (std::size_t joint = 0; joint < actual.at("local").size(); ++joint) {
+                const auto& qa = a.at("local")[joint].at("rotation");
+                const auto& qb = b.at("local")[joint].at("rotation");
+                double dot = 0;
+                for (unsigned lane = 0; lane < 4; ++lane)
+                    dot += qa[lane].get<double>() * qb[lane].get<double>();
+                std::array<double, 4> expected;
+                double length_squared = 0;
+                for (unsigned lane = 0; lane < 4; ++lane) {
+                    expected[lane] = qa[lane].get<double>() * (1 - weight) +
+                                     qb[lane].get<double>() * weight * (dot < 0 ? -1 : 1);
+                    length_squared += expected[lane] * expected[lane];
+                }
+                check(length_squared > 0, "Reference skeletal rotation is degenerate");
+                double agreement = 0;
+                for (unsigned lane = 0; lane < 4; ++lane)
+                    agreement += actual.at("local")[joint].at("rotation")[lane].get<double>() *
+                                 expected[lane] / std::sqrt(length_squared);
+                near(std::abs(agreement), 1);
+            }
             check(actual.at("morphs").size() == a.at("morphs").size() &&
                       a.at("morphs").size() == b.at("morphs").size(),
                   "Sequence morph defaults or node channels changed");
@@ -160,14 +218,20 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
             const auto status = AnimationPlaybackAccess::status(*live.animation, ref);
             near(status.at("speed"), rate);
             near(status.at("blend_weight"), weight);
-            near(status.at("sequence_clips").at("duration_seconds"), a_duration);
-            near(status.at("sequence_clips").at("next").at("duration_seconds"), b_duration);
+            near(status.at("sequence_clips").at("duration_seconds"), first_duration);
+            near(status.at("sequence_clips").at("next").at("duration_seconds"), next_duration);
+            if (collections)
+                check(status.at("sequence_clips").at("active_primary") == active &&
+                          status.at("sequence_clips").at("clips").size() == 8,
+                      "Collection Gallery reported another active pair or list");
             if (actor == mapped_actor && weight > 0)
                 mapped_motion |= a.at("local") != b.at("local");
             sample.push_back({{"pose", actual}, {"playback", status}});
         }
         const auto checkpoint = live.animation->checkpoint();
-        check(checkpoint.at("version") == (rates ? 11 : 10),
+        check(checkpoint.at("version") == (collections ? 12
+                                           : rates     ? 11
+                                                       : 10),
               "Gallery omitted the skeletal/rate recovery profile");
         World recovered(root, source);
         recovered.animation->restore(checkpoint);
@@ -184,28 +248,34 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
 int main(int argc, char** argv) {
     try {
         if (argc == 3 && (std::string_view(argv[1]) == "--author" ||
-                          std::string_view(argv[1]) == "--author-rates")) {
+                          std::string_view(argv[1]) == "--author-rates" ||
+                          std::string_view(argv[1]) == "--author-collections")) {
             std::cout << test::author_skeletal_sequence_gallery(
-                             argv[2], std::string_view(argv[1]) == "--author-rates")
+                             argv[2], std::string_view(argv[1]) == "--author-rates",
+                             std::string_view(argv[1]) == "--author-collections")
                              .str()
                       << '\n';
             return 0;
         }
         const bool rates = argc == 4 && std::string_view(argv[1]) == "--rates";
-        check(argc == 3 || rates,
-              "Need [--rates] Gallery and scratch, or --author[-rates] Gallery");
-        const auto scratch =
-            std::filesystem::absolute(argv[rates ? 3 : 2]) / AssetId::generate().str();
+        const bool collections = argc == 4 && std::string_view(argv[1]) == "--collections";
+        check(argc == 3 || rates || collections,
+              "Need [--rates|--collections] Gallery and scratch, or --author[-rates|-collections] "
+              "Gallery");
+        const auto scratch = std::filesystem::absolute(argv[rates || collections ? 3 : 2]) /
+                             AssetId::generate().str();
         const auto root = scratch / "SourceProject";
         std::filesystem::create_directories(scratch);
-        std::filesystem::copy(argv[rates ? 2 : 1], root, std::filesystem::copy_options::recursive);
-        const auto path =
-            rates ? test::sequence_rate_scene_path : test::skeletal_sequence_scene_path;
+        std::filesystem::copy(argv[rates || collections ? 2 : 1], root,
+                              std::filesystem::copy_options::recursive);
+        const auto path = collections ? test::sequence_collection_scene_path
+                          : rates     ? test::sequence_rate_scene_path
+                                      : test::skeletal_sequence_scene_path;
         AssetId id;
         if (std::filesystem::exists(root / path))
             id = read(root / path).at("asset_id").get<AssetId>();
         else
-            id = test::author_skeletal_sequence_gallery(root, rates);
+            id = test::author_skeletal_sequence_gallery(root, rates, collections);
         const auto saved = read(root / path);
         const auto expected = exercise(root, id);
         check(read(root / path) == saved, "Gallery execution changed its editable Scene source");

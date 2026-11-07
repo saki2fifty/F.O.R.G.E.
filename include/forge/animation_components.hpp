@@ -1,9 +1,12 @@
 #pragma once
 #include <forge/asset_ref.hpp>
 #include <forge/model_asset.hpp>
+#include <vector>
 namespace forge {
 inline constexpr unsigned skeletal_sequence_runtime_profile_version = 1;
 inline constexpr unsigned sequence_rate_runtime_profile_version = 1;
+inline constexpr unsigned sequence_arrangement_runtime_profile_version = 1;
+inline constexpr std::size_t sequence_clip_limit = 8;
 struct SkeletonAsset {
     static constexpr const char* type = "skeleton";
 };
@@ -24,6 +27,11 @@ struct AnimationGraphAsset {
 };
 struct TransformAnimationAsset {
     static constexpr const char* type = "transform_animation";
+};
+template <class ClipAsset> struct SequenceClipPlacement {
+    AssetRef<ClipAsset> clip{};
+    double start_seconds = 0;
+    bool operator==(const SequenceClipPlacement&) const = default;
 };
 // Scene/Prefab-owned coordination of existing clips; AnimationRuntime owns time.
 struct AnimationSequence {
@@ -64,6 +72,7 @@ struct TransformAnimator {
     // natural overlap with the primary clip defines a linear crossfade.
     AssetRef<TransformAnimationAsset> sequence_next_clip{};
     double sequence_next_start_seconds = 0;
+    std::vector<SequenceClipPlacement<TransformAnimationAsset>> sequence_extra_clips{};
     bool operator==(const TransformAnimator&) const = default;
 };
 struct Animator {
@@ -103,6 +112,7 @@ struct Animator {
     double sequence_start_seconds = 0;
     AssetRef<AnimationClipAsset> sequence_next_clip{};
     double sequence_next_start_seconds = 0;
+    std::vector<SequenceClipPlacement<AnimationClipAsset>> sequence_extra_clips{};
     bool operator==(const Animator&) const = default;
 };
 // Opt-in constraints on an imported model holder. Values are in skeleton model

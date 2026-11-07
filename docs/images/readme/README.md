@@ -2333,3 +2333,26 @@ Gallery Scene identity is `de4aa15d-0b35-40f6-b01a-8f1ea883fa4b`. Native numeric
 compare independent standalone phases, morph values, retargeted poses and recovery.
 These captures establish neither complete Windows Main execution nor physical
 GPU/input/DPI, graphical player, external-client or performance acceptance.
+
+`manual/images/sequence-clip-collection.png` is the actual 720×1100 SDL/ImGui
+Timeline captured by `sequence_collection_editor` after adding eight skeletal clip
+placements, editing timing/selection and exercising Undo and stale-revision rejection.
+It uses production widgets and the original Locomotion model in a copied Scene.
+The PNG is copied without retouching. SHA256: `026bb92d6a4efc06438c910a1f091139efaf582736a177a37b1799e7f601743e`.
+C++/CMake input digest: `ebbb915659528088ceecef3cca24302f2d041349a466058417f8eee5e172e3a3`.
+Capture/test receipts are `collection-editor-build.json` and
+`collection-editor-tests.json` under local batch 284 evidence. This is a shared
+native widget capture on Linux/software SDL; no Windows Main, physical GPU/DPI,
+graphical player or performance acceptance is implied.
+
+`manual/images/sequence-clip-collection-game.png` is the 640×360 Gallery187 Game
+readback at fixed tick 645 (approximately 10.75s). RuntimeWorld/FrameRenderer uses
+Diligent software Vulkan. Four exact source-hidden relocated image pairs cover
+ticks 105/345/645 and a portrait view. All four authored captures were personally
+reviewed. PPM-to-PNG conversion preserves dimensions and every RGB pixel; no crop,
+resize or retouching. SHA256: `643287edc9370fe7c9e09c455cf1ecbe3b30fde727546569b911c5e757760a83`.
+C++/CMake input digest: `0e8f0c3e317f999fceb9d40766947256351f22dd46e4e708587df572367ff7d2`.
+Scene identity: `9d6071e9-9b8f-46b5-b0d8-332c5814ecfc`. Receipts are
+`collection-vulkan-build.json` and `collection-vulkan-tests.json` in local batch 284
+evidence. This establishes neither physical GPU/input/DPI nor Windows Main,
+graphical player or performance acceptance.

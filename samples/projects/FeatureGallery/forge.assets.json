@@ -12605,6 +12605,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "9d6071e9-9b8f-46b5-b0d8-332c5814ecfc",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/187-sequence-clip-collections.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "9e8d033f-751e-4bb8-99a4-8d8f4b3ebb51",
       "metadata": {
         "forge.import": {

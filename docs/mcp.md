@@ -1145,6 +1145,24 @@ revision, permission, Scene history and save rules. States, Blend Spaces, Graphs
 and standalone blend selections cannot share that Animator's bound profile.
 Published retargeted clips require the same target skeleton/model binding.
 
+Both `forge.animator` and `forge.transform_animator` expose `sequence_extra_clips`
+as a vector (default empty, maximum six). Its element schema describes typed
+`clip` references and finite `start_seconds`. With the original primary/next pair,
+this permits eight placements. Set the list through `forge_property_set_many` with
+other required binding fields in one candidate; it uses the same revision, replay,
+permission, Undo/Redo and document Save owners. Clearing the sequence or next clip
+requires clearing this list in the same transaction. Source admission validates
+references/count/ordered starts; resource preparation additionally validates every
+clip's channels, target/skeleton/model compatibility, ordered ends and at most two
+adjacent contributions. A valid source list is not proof of runtime admission.
+
+For admitted nonempty lists, `sequence_clips.clips` describes the complete ordered
+list, with zero-based `active_primary` and `active_next`. Existing public clip/blend
+identities and weight describe that active pair; track time/duration describe the
+whole span. Mixed holders retain typed `players` observations. The parent controller
+still owns Play operations; there is no independent placement clock or mutation
+endpoint. See [bounded collections](transform-animation.md#bounded-clip-collections).
+
 Nested controllers use `forge_property_set_many` on `forge.animation_sequence`:
 `sequence` selects the parent, `sequence_start_seconds` is the start in parent
 seconds and `sequence_rate` is local seconds per parent second (default 1,

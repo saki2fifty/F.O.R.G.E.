@@ -11,9 +11,14 @@ namespace forge::test {
 inline constexpr auto skeletal_sequence_scene_path =
     "Scenes/185-skeletal-sequence-tracks.scene.json";
 inline constexpr auto sequence_rate_scene_path = "Scenes/186-nested-sequence-rates.scene.json";
+inline constexpr auto sequence_collection_scene_path =
+    "Scenes/187-sequence-clip-collections.scene.json";
 inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& root,
-                                                bool placement_rates = false) {
-    const auto path = placement_rates ? sequence_rate_scene_path : skeletal_sequence_scene_path;
+                                                bool placement_rates = false,
+                                                bool collections = false) {
+    const auto path = collections       ? sequence_collection_scene_path
+                      : placement_rates ? sequence_rate_scene_path
+                                        : skeletal_sequence_scene_path;
     if (std::filesystem::exists(root / path))
         throw std::runtime_error("Skeletal sequence Gallery already exists");
     auto catalog = AssetCatalog::open_project(root);
@@ -34,13 +39,15 @@ inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& roo
         asset(AnimationClipAsset::type, "Assets/AnimationRetarget/Swing.retarget.json");
     EngineContext engine;
     Scene scene(engine.world());
-    const auto controller = authoring_command(scene, "entity.create",
-                                              {{"recipe", "animation.sequence"},
-                                               {"name", "Four-second shared sequence"}})
-                                .at("selected")
-                                .get<std::string>();
+    const auto controller =
+        authoring_command(scene, "entity.create",
+                          {{"recipe", "animation.sequence"},
+                           {"name", collections ? "Sixteen-second clip collection"
+                                                : "Four-second shared sequence"}})
+            .at("selected")
+            .get<std::string>();
     AnimationSequence sequence;
-    sequence.duration = 4;
+    sequence.duration = collections ? 16 : 4;
     sequence.loop = true;
     scene.entity(controller).set(sequence);
     const auto reference = scene.reference(controller);
@@ -86,13 +93,30 @@ inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& roo
                              {"playback_speed", 0},
                              {"play_on_start", false},
                              {"root_motion", 0}}}});
+        if (collections) {
+            auto extras = Json::array();
+            for (std::size_t i = 2; i < sequence_clip_limit; ++i)
+                extras.push_back(
+                    {{"clip", i % 2 ? next : first}, {"start_seconds", i * next_start}});
+            authoring_command(scene, "property.set_many",
+                              {{"entity", id.str()},
+                               {"component", "forge.animator"},
+                               {"values", {{"sequence_extra_clips", extras}}}});
+        }
     };
-    place(locomotion, "Left - Forward to Strafe", -4, locomotion.bindings.at("/animations/0"),
-          locomotion.bindings.at("/animations/1"), .5, bindings[0]);
-    place(morphs, "Center - Base to Overlay morphs", 0, morphs.bindings.at("/animations/0"),
-          morphs.bindings.at("/animations/1"), 1.5, bindings[1]);
-    place(target, "Right - Rest to mapped Swing", 4, target.bindings.at("/animations/0"), mapped, 1,
-          bindings[2]);
+    place(locomotion,
+          collections ? "Left - Eight Forward and Strafe clips" : "Left - Forward to Strafe", -4,
+          locomotion.bindings.at("/animations/0"), locomotion.bindings.at("/animations/1"), .5,
+          bindings[0]);
+    place(morphs,
+          collections ? "Center - Eight Base and Overlay morph clips"
+                      : "Center - Base to Overlay morphs",
+          0, morphs.bindings.at("/animations/0"), morphs.bindings.at("/animations/1"), 1.5,
+          bindings[1]);
+    place(target,
+          collections ? "Right - Eight Rest and mapped Swing clips"
+                      : "Right - Rest to mapped Swing",
+          4, target.bindings.at("/animations/0"), mapped, collections ? 2 : 1, bindings[2]);
     const auto camera = authoring_command(scene, "entity.create",
                                           {{"recipe", "render.camera"}, {"name", "Game camera"}})
                             .at("selected")

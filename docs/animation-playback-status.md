@@ -76,9 +76,15 @@ player-kind queries use the same existing owners. Each `sequence_clips` object
 describes that player's actual primary/next identities, controller, starts, durations
 and derived contribution. A bound player's `time` and `duration` describe its placed
 span, with controller-derived speed/loop/playback and independently sampled clips.
+For a nonempty bounded collection, the existing primary/next fields identify the
+active adjacent pair; `clips` describes all placements and zero-based
+`active_primary`/`active_next` identify that window. Time/duration describe the
+whole track. Empty collections retain legacy primary/next meanings.
 The optional `sequence` identifies its controller. These observations are copied
 values, never a second player database or advancing clock. The live Inspector reads
-bound track timing and selects its controller for playback changes.
+bound object/model track timing and selects its controller for playback changes.
+Its optional Clip placements tree shows the copied list without sending commands;
+independent track controls remain disabled.
 
 Status does not include a cumulative loop counter. [Named states](animation-states.md) own
 automatic transitions, and [root motion](animation-root-motion.md) has a separate

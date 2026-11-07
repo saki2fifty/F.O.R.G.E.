@@ -15,6 +15,8 @@
 namespace {
 static_assert(forge::skeletal_sequence_runtime_profile_version == 1);
 static_assert(forge::sequence_rate_runtime_profile_version == 1);
+static_assert(forge::sequence_arrangement_runtime_profile_version == 1);
+static_assert(forge::sequence_clip_limit == 8);
 struct SequenceProbe {
     std::uint32_t ticks = 0;
     double time = 0, blend = 0;
@@ -22,6 +24,27 @@ struct SequenceProbe {
 void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
+}
+template <class Player>
+void check_collection(const Player& player, const ForgeSdkAnimationPlaybackV1& status,
+                      double step) {
+    check(player.sequence_extra_clips.size() == 6 && player.sequence_start_seconds == 0 &&
+              player.sequence_next_start_seconds == step &&
+              std::abs(status.duration - 9 * step) < 1e-9,
+          "Eight-clip native values/span differ through matching SDK");
+    for (std::size_t i = 0; i < player.sequence_extra_clips.size(); ++i) {
+        const auto& extra = player.sequence_extra_clips[i];
+        check(extra.start_seconds == (i + 2) * step &&
+                  extra.clip == (i % 2 ? player.sequence_next_clip : player.clip),
+              "Typed native clip placement lost its time or asset identity");
+    }
+    const auto active = std::clamp(int(std::floor(status.time / step)) - 1, 0, 6);
+    const auto weight = std::clamp((status.time - (active + 1) * step) / step, 0., 1.);
+    check((active % 2 ? player.sequence_next_clip : player.clip).id.str() == status.clip_uuid &&
+              (active % 2 ? player.clip : player.sequence_next_clip).id.str() ==
+                  status.blend_clip_uuid &&
+              std::abs(status.blend_weight - weight) < 1e-9,
+          "Eight-clip active IDs or independent phase differ through matching SDK");
 }
 int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char* error, uint32_t capacity) {
     try {
@@ -127,7 +150,12 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                                   client.animation_seek(child_ref.scene_uuid, child_ref.entity_uuid,
                                                         .25) == 0,
                               "C++ independently controlled a bound track");
-                        if (player.sequence_next_clip.id) {
+                        if (!player.sequence_extra_clips.empty()) {
+                            check_collection(player, status, 1);
+                            const auto copied = player;
+                            child.set(copied);
+                            ++pairs;
+                        } else if (player.sequence_next_clip.id) {
                             check(player.clip.id && player.sequence_next_start_seconds == 1 &&
                                       std::abs(status.duration - 3) < 1e-9 &&
                                       player.sequence_next_clip.id.str() ==
@@ -167,7 +195,14 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                                                      properties->sequence_start_seconds,
                                                  0., status.duration)) < 1e-9,
                                 "Mixed actor did not preserve transform-first SDK status");
-                        else
+                        else if (!player.sequence_extra_clips.empty()) {
+                            check_collection(player, status, .5);
+                            check(std::abs(
+                                      status.time -
+                                      std::clamp(controllers.at(player.sequence.entity.str()).time,
+                                                 0., 4.5)) < 1e-9,
+                                  "Eight-clip skeletal clock differs through matching SDK");
+                        } else
                             check(
                                 player.clip.id.str() == status.clip_uuid &&
                                     player.sequence_next_clip.id.str() == status.blend_clip_uuid &&

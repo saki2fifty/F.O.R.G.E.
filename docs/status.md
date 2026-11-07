@@ -5,6 +5,18 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source supports up to eight compatible clips on each Transform Animator or
+direct skeletal sequence track, with at most two adjacent contributions. Existing
+providers own clocks, resources, canonical Material/reflected bindings, per-placement
+skeletal samplers, complete candidates and root-motion boundaries. Timeline edits,
+source/Prefab/history, scoped MCP and the matching installed SDK use those owners.
+Recovery12 composes existing rate/graph/camera/nested profiles; nonempty lists require
+the matching runtime kit's collection capability. Gallery187 supplies three original
+eight-clip models. Native values, actual shared widgets and source-hidden relocated
+software-Vulkan images have local checks; this remains outside the accepted Windows
+package above. See [the collection contract](transform-animation.md#bounded-clip-collections)
+and [the user workflow](../manual/editor/animation-sequences.md).
+
 Local source adds bounded ASCII/binary FBX7 model import through the existing
 Content, Model, reimport, placement and automation/MCP owners. Supported meshes,
 basic materials and PNG/JPEG images, linear skins and baked transform clips use

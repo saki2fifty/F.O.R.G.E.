@@ -30,10 +30,12 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
     scene_names = ('62-coordinated-animation.scene.json', '68-sequence-camera-shots.scene.json',
                    '70-sequence-audio-cues.scene.json', '145-sequence-clip-blending.scene.json',
                    '146-nested-sequences.scene.json', '36-animation-root-motion.scene.json')
-    scenarios = [(name, False, False) for name in scene_names]
-    scenarios.append(('36-animation-root-motion.scene.json', True, False))
-    scenarios.append(('146-nested-sequences.scene.json', False, True))
-    for scene_name, mixed, rated in scenarios:
+    scenarios = [(name, False, False, False) for name in scene_names]
+    scenarios.append(('36-animation-root-motion.scene.json', True, False, False))
+    scenarios.append(('146-nested-sequences.scene.json', False, True, False))
+    scenarios.extend((name, False, False, True) for name in (
+        '36-animation-root-motion.scene.json', '145-sequence-clip-blending.scene.json'))
+    for scene_name, mixed, rated, collections in scenarios:
         source_path = root / 'Scenes' / scene_name
         original = source_path.read_bytes()
         source = json.loads(original)
@@ -73,6 +75,15 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
         controllers = [r for r in source['entities'] if 'forge.animation_sequence' in r['components']]
         controller, = [r for r in controllers if not r['components']['forge.animation_sequence'].get('sequence')]
         nested = len(controllers) > 1
+        if collections:
+            controller['components']['forge.animation_sequence'].update(duration=5 if skeletal else 10, loop=False)
+            for row in source['entities']:
+                player = row['components'].get('forge.animator' if skeletal else 'forge.transform_animator')
+                if not player or not player.get('sequence'):
+                    continue
+                player['sequence_extra_clips'] = [dict(
+                    clip=player['sequence_next_clip'] if i % 2 else player['clip'],
+                    start_seconds=.5*i if skeletal else i) for i in range(2, 8)]
         if rated:
             for child in controllers:
                 placement = child['components']['forge.animation_sequence']
@@ -112,7 +123,8 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                            for d in state['diagnostics']), state['diagnostics']
             values = rows(state)
             probe = values[controller['id']]['project.sequence_probe']
-            expected = {1: 2.5, 2: .5+dt, 3: .5+2*dt, 4: 4 if skeletal else 0, 5: dt,
+            expected = {1: 2.5, 2: .5+dt, 3: .5+2*dt, 4: (0 if controller['components']['forge.animation_sequence']['loop'] else
+                            controller['components']['forge.animation_sequence']['duration']), 5: dt,
                         6: .75}.get(tick, .75+(tick-6)*dt)
             assert probe['ticks'] == tick and abs(probe['time']-expected) < 2e-6, (tick, probe, expected)
             assert probe['blend'] == ((.75 if tick < 3 else 1) if transition else 0), (tick, probe)
@@ -134,9 +146,12 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                     # The SDK Play watch below checks both typed observations.
                     status = None
                 if status is not None:
-                    assert status['duration'] == 1.5 and status['speed'] == 1 and not status['loop']
-                    assert abs(status['time'] - min(expected, 1.5)) < 2e-6
-                    weight = max(0, min(1, (min(expected, 1.5)-.5)*2))
+                    duration = 4.5 if collections else 1.5
+                    assert status['duration'] == duration and status['speed'] == 1 and not status['loop']
+                    assert abs(status['time'] - min(expected, duration)) < 2e-6
+                    active = max(0, min(6, int(status['time']*2)-1)) if collections else 0
+                    weight = max(0, min(1, (status['time']-.5*(active+1))*2))
+                    assert len(player.get('sequence_extra_clips', [])) == (6 if collections else 0)
                     assert abs(status['blend_weight']-weight) < 2e-6
             if transition:
                 # Native C++ updates only the duration. The actual copied view
@@ -167,9 +182,12 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                     intensity = .8+2.2*u*u*(3-2*u)
                     assert abs(actual['forge.light']['intensity']-intensity) < 2e-6
                 elif actor['components']['forge.transform_animator'].get('sequence_next_clip'):
-                    a = -3 + 4*min(1., max(0., expected/2))
-                    b = 3 - 4*min(1., max(0., (expected-1)/2))
-                    weight = min(1., max(0., expected-1))
+                    active = max(0, min(6, int(expected)-1)) if collections else 0
+                    at = min(1., max(0., (expected-active)/2))
+                    bt = min(1., max(0., (expected-active-1)/2))
+                    a = 3-4*at if active % 2 else -3+4*at
+                    b = -3+4*bt if active % 2 else 3-4*bt
+                    weight = min(1., max(0., expected-active-1))
                     x = a*(1-weight) + b*weight
                     assert abs(actual['forge.local_translation']['x']-x) < 2e-6, (tick, actual, x)
                 else:
@@ -198,7 +216,10 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                 if tick in (1, 4, 6, 12):
                     checkpoint = state['recovery']
                     assert checkpoint is not None
-                    if skeletal:
+                    if collections:
+                        assert checkpoint['animation']['version'] == 12
+                        assert checkpoint['animation']['sequence_arrangement_profile'] == (10 if skeletal else 6)
+                    elif skeletal:
                         assert checkpoint['animation']['version'] == 10
                     if rated:
                         assert checkpoint['animation']['version'] == 11
@@ -281,4 +302,4 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
             check_camera(restarted, 0)
         finally:
             editor.close()
-print('Exact C++ object/skeletal/nested/camera-shot controls and typed fields, four recoveries per scene and SDK Play PASS')
+print('Exact C++ object/skeletal/eight-clip/nested/camera-shot controls and typed fields, four recoveries per scene and SDK Play PASS')

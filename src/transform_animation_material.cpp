@@ -50,6 +50,15 @@ void TransformAnimationPlayback::synchronize_materials() {
                     !resource_detail::terminal(next_requested.state))
                     throw AnimationMaterialPending("Waiting for selected incoming material clip");
             }
+            for (std::size_t i = 0; i < state.extra_tickets.size(); ++i) {
+                const auto requested_extra = state.extra_tickets[i].inspect();
+                const auto admitted = i < state.extra_clips.size()
+                                          ? state.extra_clips[i].clip.identity()
+                                          : ResourceIdentity{};
+                if (requested_extra.identity != admitted &&
+                    !resource_detail::terminal(requested_extra.state))
+                    throw AnimationMaterialPending("Waiting for selected extra material clip");
+            }
             auto identity = asset_detail::prepared_model_draw_key(draw, false);
             if (!state.material || state.material->identity != identity ||
                 state.material->clip != state.clip.identity() ||
@@ -59,6 +68,9 @@ void TransformAnimationPlayback::synchronize_materials() {
                                                    renderer.material_parameters);
                 if (state.next_clip)
                     validate_animation_material_target(state.next_clip.get(), draw,
+                                                       renderer.material_parameters);
+                for (const auto& extra : state.extra_clips)
+                    validate_animation_material_target(extra.clip.get(), draw,
                                                        renderer.material_parameters);
                 state.material =
                     MaterialTarget{std::move(draw), std::move(identity), state.clip.identity(),

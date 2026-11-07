@@ -37,6 +37,18 @@ Json document_runtime_features(const Json& document) {
                     if (bound)
                         result["skeletal_sequence"] = skeletal_sequence_runtime_profile_version;
                 }
+            for (const char* component : {"forge.animator", "forge.transform_animator"})
+                if (const auto animator = values->find(component);
+                    animator != values->end() && !animator->is_null())
+                    if (const auto clips = animator->find("sequence_extra_clips");
+                        clips != animator->end()) {
+                        if (!clips->is_array())
+                            throw std::runtime_error(
+                                "game.export.document: Invalid sequence clip collection");
+                        if (!clips->empty())
+                            result["sequence_arrangement"] =
+                                sequence_arrangement_runtime_profile_version;
+                    }
             if (const auto sequence = values->find("forge.animation_sequence");
                 sequence != values->end() && !sequence->is_null())
                 if (sequence->value("sequence_rate", 1.) != 1)

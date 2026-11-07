@@ -25,6 +25,23 @@
 #include <stdexcept>
 namespace forge::detail {
 namespace {
+template <class T> Json encode_sequence_clips(const std::vector<SequenceClipPlacement<T>>& clips) {
+    auto result = Json::array();
+    for (const auto& clip : clips)
+        result.push_back({{"clip", clip.clip.id ? Json(clip.clip.id) : Json()},
+                          {"start_seconds", clip.start_seconds}});
+    return result;
+}
+template <class T> std::vector<SequenceClipPlacement<T>> decode_sequence_clips(const Json& value) {
+    if (!value.is_array() || value.size() > sequence_clip_limit - 2)
+        throw std::runtime_error("Sequence extra clip collection must have at most six entries");
+    std::vector<SequenceClipPlacement<T>> result;
+    result.reserve(value.size());
+    for (const auto& clip : value)
+        result.push_back(
+            {{clip.at("clip").get<AssetId>()}, clip.at("start_seconds").get<double>()});
+    return result;
+}
 template <class T> Json encode(const T& p) {
     if constexpr (std::is_same_v<T, NodeVisibility>)
         return {{"visible", p.visible}};
@@ -150,7 +167,8 @@ template <class T> Json encode(const T& p) {
                 {"sequence_start_seconds", p.sequence_start_seconds},
                 {"sequence_next_clip",
                  p.sequence_next_clip.id ? Json(p.sequence_next_clip.id) : Json()},
-                {"sequence_next_start_seconds", p.sequence_next_start_seconds}};
+                {"sequence_next_start_seconds", p.sequence_next_start_seconds},
+                {"sequence_extra_clips", encode_sequence_clips(p.sequence_extra_clips)}};
     else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
         Json value = {
             {"enabled", p.enabled},   {"weight", p.weight},     {"twist_degrees", p.twist_degrees},
@@ -208,7 +226,8 @@ template <class T> Json encode(const T& p) {
                 {"sequence_start_seconds", p.sequence_start_seconds},
                 {"sequence_next_clip",
                  p.sequence_next_clip.id ? Json(p.sequence_next_clip.id) : Json()},
-                {"sequence_next_start_seconds", p.sequence_next_start_seconds}};
+                {"sequence_next_start_seconds", p.sequence_next_start_seconds},
+                {"sequence_extra_clips", encode_sequence_clips(p.sequence_extra_clips)}};
     else if constexpr (std::is_same_v<T, AudioSource>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"play_on_start", p.play_on_start},
@@ -557,6 +576,11 @@ template <class T> Value decode(const Json& p) {
         if (!std::isfinite(v.sequence_next_start_seconds) || v.sequence_next_start_seconds < 0 ||
             v.sequence_next_start_seconds > 3600)
             throw std::runtime_error("Sequence next clip start must be within 0–3600 seconds");
+        v.sequence_extra_clips = decode_sequence_clips<TransformAnimationAsset>(
+            p.value("sequence_extra_clips", Json::array()));
+        animation_detail::validate_sequence_extras(
+            v.sequence_extra_clips, v.clip, v.sequence_next_clip,
+            bool(v.sequence.entity || v.sequence_next_clip.id), v.sequence_next_start_seconds);
         return v;
     } else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
         T v;
@@ -635,6 +659,8 @@ template <class T> Value decode(const Json& p) {
         if (p.contains("sequence_next_clip") && !p.at("sequence_next_clip").is_null())
             v.sequence_next_clip.id = p.at("sequence_next_clip").get<AssetId>();
         v.sequence_next_start_seconds = p.value("sequence_next_start_seconds", 0.);
+        v.sequence_extra_clips = decode_sequence_clips<AnimationClipAsset>(
+            p.value("sequence_extra_clips", Json::array()));
         // A shared Prefab template retains clip data with null native member links.
         // Complete Scene/source admission checks controller presence below; decoding
         // also serves those intentionally unresolved template/comparison values.
@@ -818,6 +844,14 @@ template <class T> void register_asset_ref(flecs::world& w, const char* name) {
             const char* str = text.c_str();
             return serializer->value(flecs::String, &str);
         });
+}
+template <class T>
+void register_sequence_clips(flecs::world& w, const char* value_name, const char* list_name) {
+    using Placement = SequenceClipPlacement<T>;
+    w.component<Placement>(value_name)
+        .template member<AssetRef<T>>("clip")
+        .template member<double>("start_seconds");
+    w.component<std::vector<Placement>>(list_name).opaque(reflected_vector<Placement>);
 }
 template <class T> flecs::entity register_type(flecs::world& w, const char* name) {
     auto c = w.component<T>(name);
@@ -1452,6 +1486,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
     } else if constexpr (std::is_same_v<T, TransformAnimator>) {
         (void)authoring_value_adapters(w);
         register_asset_ref<TransformAnimationAsset>(w, "forge.transform_animation_ref");
+        register_sequence_clips<TransformAnimationAsset>(w, "forge.transform_sequence_clip",
+                                                         "forge.transform_sequence_clips");
         c.template member<AssetRef<TransformAnimationAsset>>("clip")
             .template member<bool>("enabled")
             .template member<bool>("play_on_start")
@@ -1460,7 +1496,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<EntityRef>("sequence")
             .template member<double>("sequence_start_seconds")
             .template member<AssetRef<TransformAnimationAsset>>("sequence_next_clip")
-            .template member<double>("sequence_next_start_seconds");
+            .template member<double>("sequence_next_start_seconds")
+            .template member<std::vector<SequenceClipPlacement<TransformAnimationAsset>>>(
+                "sequence_extra_clips");
     } else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
         register_asset_ref<ModelNodeAsset>(w, "forge.model_node_ref");
         if constexpr (std::is_same_v<T, TwoBoneIK>)
@@ -1494,6 +1532,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         register_asset_ref<SkeletonAsset>(w, "forge.skeleton_ref");
         (void)authoring_value_adapters(w);
         register_asset_ref<AnimationClipAsset>(w, "forge.animation_clip_ref");
+        register_sequence_clips<AnimationClipAsset>(w, "forge.skeletal_sequence_clip",
+                                                    "forge.skeletal_sequence_clips");
         register_asset_ref<AnimationStatesAsset>(w, "forge.animation_states_ref");
         register_asset_ref<AnimationMaskAsset>(w, "forge.animation_mask_ref");
         register_asset_ref<AnimationBlendSpaceAsset>(w, "forge.animation_blend_space_ref");
@@ -1530,7 +1570,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<EntityRef>("sequence")
             .template member<double>("sequence_start_seconds")
             .template member<AssetRef<AnimationClipAsset>>("sequence_next_clip")
-            .template member<double>("sequence_next_start_seconds");
+            .template member<double>("sequence_next_start_seconds")
+            .template member<std::vector<SequenceClipPlacement<AnimationClipAsset>>>(
+                "sequence_extra_clips");
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         w.component<AssetRef<AudioClipAsset>>("forge.audio_clip_ref")
             .opaque(flecs::String)
@@ -3165,6 +3207,10 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = 4;
             value["description"] = "Local seconds per parent second; cumulative rate 1/64–64. "
                                    "Ignored without a parent.";
+        } else if (field == "sequence_extra_clips") {
+            value["display_name"] = "Additional sequence clips";
+            value["description"] = "Up to six placements after the primary/next pair; at most "
+                                   "eight clips and two adjacent contributions.";
         } else if (field == "sequence_next_clip") {
             value["display_name"] = "Next clip";
         } else if (field == "sequence_next_start_seconds") {
@@ -3262,8 +3308,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] =
                 field == "skeleton"
                     ? "Registered skeleton identity; clip must bind to this exact skeleton revision"
-                : field == "sequence_next_clip" ? "Optional next transform-only clip with matching "
-                                                  "channels; requires a sequence"
+                : field == "sequence_next_clip"
+                    ? "Optional compatible next clip; requires a sequence controller"
                 : name == "forge.transform_animator"
                     ? "Reusable local-transform animation clip"
                     : "Registered clip identity produced for the chosen skeleton";
@@ -3855,6 +3901,11 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.navigation_link")
             for (const auto& [member, value] : type.defaults.items())
                 c.lookup(member.c_str()).add<ReflectedNoAnimation>();
+        if (name == "forge.transform_animator" || name == "forge.animator") {
+            c.lookup("sequence_extra_clips")
+                .set<ReflectedSequenceLimit>({sequence_clip_limit - 2})
+                .add<ReflectedNoAnimation>();
+        }
         if (name == "forge.ui_values") {
             c.lookup("values").set<ReflectedSequenceKey>({"name"});
             c.lookup("values").set<ReflectedSequenceLimit>({UiValues::max_entries});
@@ -3956,6 +4007,13 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.ui_localization" || name == "forge.application_state_gate" ||
             name == "forge.input_message" || name == "forge.navigation_link")
             references.push_back({world.id<std::string>(), "string"});
+        if (name == "forge.transform_animator")
+            references.push_back(
+                {world.id<std::vector<SequenceClipPlacement<TransformAnimationAsset>>>(),
+                 "vector"});
+        if (name == "forge.animator")
+            references.push_back(
+                {world.id<std::vector<SequenceClipPlacement<AnimationClipAsset>>>(), "vector"});
         if (name == "forge.mesh_renderer") {
             references.push_back({world.id<std::string>(), "string"});
             references.push_back({world.id<std::vector<MaterialSlotOverride>>(), "vector"});
@@ -4144,7 +4202,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         current["sequence_rate"] = type.defaults.at("sequence_rate");
     if (std::string_view(type.name) == "forge.animator" ||
         std::string_view(type.name) == "forge.transform_animator")
-        for (const auto* field : {"sequence_next_clip", "sequence_next_start_seconds"})
+        for (const auto* field :
+             {"sequence_next_clip", "sequence_next_start_seconds", "sequence_extra_clips"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.particle_emitter")
@@ -4266,6 +4325,17 @@ void validate_components(const Json& components, ComponentReferences references,
         }
         validate_reflected_json(schema, known);
         const auto value = type.decode(data); // Cross-member invariants remain FORGE-owned.
+        if (const auto* player = std::get_if<TransformAnimator>(&value)) {
+            if (references == ComponentReferences::Resolved)
+                animation_detail::validate_sequence_extras(
+                    player->sequence_extra_clips, player->clip, player->sequence_next_clip,
+                    bool(player->sequence.entity), player->sequence_next_start_seconds);
+            else if (reference_intent && reference_intent->contains(type.name))
+                animation_detail::validate_sequence_extras(
+                    player->sequence_extra_clips, player->clip, player->sequence_next_clip,
+                    !reference_intent->at(type.name).value("sequence", Json()).is_null(),
+                    player->sequence_next_start_seconds);
+        }
         if (const auto* animator = std::get_if<Animator>(&value)) {
             if (references == ComponentReferences::Resolved)
                 animation_detail::validate_sequence_binding(*animator);

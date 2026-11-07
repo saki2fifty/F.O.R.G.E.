@@ -1,7 +1,8 @@
 #pragma once
+#include "sequence_collection_editor_workflow.hpp"
 void skeletal_sequence_editor(const std::filesystem::path& gallery,
                               const std::filesystem::path& scratch,
-                              const std::filesystem::path& output) {
+                              const std::filesystem::path& output, bool collections = false) {
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root.parent_path());
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
@@ -105,89 +106,96 @@ void skeletal_sequence_editor(const std::filesystem::path& gallery,
         editor.undo();
         frame();
         check(scene.document() == before, "Skeletal timing was not one complete Undo transaction");
-        input.click("sequence:refresh");
-        ready();
-        const auto authored = scene.document();
-        const auto revision = scene.revision();
-        const auto token = editor.begin_frame_export();
-        editor.sample_frame_export(token, .75);
-        const auto preview = editor.preview(authored);
-        const auto near_pose = [](double actual, double expected) {
-            check(std::isfinite(actual) && std::abs(actual - expected) < .003,
-                  "Stopped skeletal sample exceeds the native animation tolerance");
-        };
-        bool model_found = false, joint_found = false;
-        for (const auto& row : preview.at("entities")) {
-            if (row.at("id") == actor) {
-                check(row.at("model_animation_ready"), "Stopped skeletal model was not ready");
-                const auto& pose = row.at("animation_pose").at("local")[0];
-                near_pose(pose.at("translation")[0], .25);
-                near_pose(pose.at("translation")[2], .75);
-                model_found = true;
+        if (collections)
+            sequence_collection_editor_workflow(scene, editor, input, frame, ready, controller_id,
+                                                actor, selected.bindings.at("/animations/0"));
+        else {
+            input.click("sequence:refresh");
+            ready();
+            const auto authored = scene.document();
+            const auto revision = scene.revision();
+            const auto token = editor.begin_frame_export();
+            editor.sample_frame_export(token, .75);
+            const auto preview = editor.preview(authored);
+            const auto near_pose = [](double actual, double expected) {
+                check(std::isfinite(actual) && std::abs(actual - expected) < .003,
+                      "Stopped skeletal sample exceeds the native animation tolerance");
+            };
+            bool model_found = false, joint_found = false;
+            for (const auto& row : preview.at("entities")) {
+                if (row.at("id") == actor) {
+                    check(row.at("model_animation_ready"), "Stopped skeletal model was not ready");
+                    const auto& pose = row.at("animation_pose").at("local")[0];
+                    near_pose(pose.at("translation")[0], .25);
+                    near_pose(pose.at("translation")[2], .75);
+                    model_found = true;
+                }
+                const auto entity = scene.entity(row.at("id").get<std::string>());
+                if (entity.has<ModelSource>() &&
+                    entity.get<ModelSource>().node.id == selected.bindings.at("/nodes/0") &&
+                    entity.target(flecs::ChildOf) == scene.entity(actor)) {
+                    near_pose(row.at("components").at("forge.local_translation").at("x"), .25);
+                    near_pose(row.at("components").at("forge.local_translation").at("z"), .75);
+                    joint_found = true;
+                }
             }
-            const auto entity = scene.entity(row.at("id").get<std::string>());
-            if (entity.has<ModelSource>() &&
-                entity.get<ModelSource>().node.id == selected.bindings.at("/nodes/0") &&
-                entity.target(flecs::ChildOf) == scene.entity(actor)) {
-                near_pose(row.at("components").at("forge.local_translation").at("x"), .25);
-                near_pose(row.at("components").at("forge.local_translation").at("z"), .75);
-                joint_found = true;
-            }
+            check(model_found && joint_found && scene.document() == authored &&
+                      scene.revision() == revision,
+                  "Stopped skeletal preview lost its native pose or changed authored content");
+            editor.end_frame_export(token);
+            input.click("sequence:remove");
+            const auto standalone = scene.entity(actor).get<Animator>();
+            check(!standalone.sequence.entity && !standalone.sequence_next_clip.id &&
+                      standalone.clip == animator.clip && standalone.playback_speed == 0 &&
+                      !standalone.play_on_start,
+                  "Removing a skeletal track changed retained standalone settings");
+            editor.undo();
+            frame();
+            inspector.fixture_focus_component = "forge.animator";
+            inspecting = true;
+            frame();
+            frame();
+            input.click("component-sequence:forge.animator");
+            check(opened_controller == controller,
+                  "Inspector did not open the skeletal player's owning sequence");
+            inspecting = false;
+            const auto light_scene = read_json(root / "Scenes/62-coordinated-animation.scene.json");
+            AssetId property_clip;
+            for (const auto& row : light_scene.at("entities"))
+                if (row.at("components").contains("forge.light") &&
+                    row.at("components").contains("forge.transform_animator"))
+                    property_clip = row.at("components")
+                                        .at("forge.transform_animator")
+                                        .at("clip")
+                                        .get<AssetId>();
+            check(bool(property_clip), "Missing published mixed property clip");
+            scene.entity(actor).set(Light{}).set(AudioSource{});
+            TransformAnimator properties{{property_clip}};
+            properties.sequence = controller;
+            scene.entity(actor).set(properties);
+            frame();
+            input.select(("sequence:track:" + actor).c_str());
+            input.click("sequence:refresh");
+            ready();
+            input.click("asset-picker:transform_animation:Next clip");
+            input.type("asset-search:transform_animation:Next clip", "LightAndSound");
+            input.select(("picker-option:" + property_clip.str()).c_str());
+            near(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds, 1);
+            near(scene.entity(actor).get<Animator>().sequence_next_start_seconds, .5);
+            const auto mixed = scene.document();
+            input.type("sequence:start", ".25");
+            input.type("sequence:next_start", "1.25");
+            input.click("sequence:apply_start");
+            near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, .25);
+            near(scene.entity(actor).get<Animator>().sequence_start_seconds, 0);
+            editor.undo();
+            frame();
+            check(scene.document() == mixed,
+                  "Mixed Timeline property editing changed the skeletal player or Undo boundary");
+            input.select(("sequence:track:" + actor + ":skeletal").c_str());
+            input.click("sequence:refresh");
+            ready();
         }
-        check(model_found && joint_found && scene.document() == authored &&
-                  scene.revision() == revision,
-              "Stopped skeletal preview lost its native pose or changed authored content");
-        editor.end_frame_export(token);
-        input.click("sequence:remove");
-        const auto standalone = scene.entity(actor).get<Animator>();
-        check(!standalone.sequence.entity && !standalone.sequence_next_clip.id &&
-                  standalone.clip == animator.clip && standalone.playback_speed == 0 &&
-                  !standalone.play_on_start,
-              "Removing a skeletal track changed retained standalone settings");
-        editor.undo();
-        frame();
-        inspector.fixture_focus_component = "forge.animator";
-        inspecting = true;
-        frame();
-        frame();
-        input.click("component-sequence:forge.animator");
-        check(opened_controller == controller,
-              "Inspector did not open the skeletal player's owning sequence");
-        inspecting = false;
-        const auto light_scene = read_json(root / "Scenes/62-coordinated-animation.scene.json");
-        AssetId property_clip;
-        for (const auto& row : light_scene.at("entities"))
-            if (row.at("components").contains("forge.light") &&
-                row.at("components").contains("forge.transform_animator"))
-                property_clip =
-                    row.at("components").at("forge.transform_animator").at("clip").get<AssetId>();
-        check(bool(property_clip), "Missing published mixed property clip");
-        scene.entity(actor).set(Light{}).set(AudioSource{});
-        TransformAnimator properties{{property_clip}};
-        properties.sequence = controller;
-        scene.entity(actor).set(properties);
-        frame();
-        input.select(("sequence:track:" + actor).c_str());
-        input.click("sequence:refresh");
-        ready();
-        input.click("asset-picker:transform_animation:Next clip");
-        input.type("asset-search:transform_animation:Next clip", "LightAndSound");
-        input.select(("picker-option:" + property_clip.str()).c_str());
-        near(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds, 1);
-        near(scene.entity(actor).get<Animator>().sequence_next_start_seconds, .5);
-        const auto mixed = scene.document();
-        input.type("sequence:start", ".25");
-        input.type("sequence:next_start", "1.25");
-        input.click("sequence:apply_start");
-        near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, .25);
-        near(scene.entity(actor).get<Animator>().sequence_start_seconds, 0);
-        editor.undo();
-        frame();
-        check(scene.document() == mixed,
-              "Mixed Timeline property editing changed the skeletal player or Undo boundary");
-        input.select(("sequence:track:" + actor + ":skeletal").c_str());
-        input.click("sequence:refresh");
-        ready();
         frame();
         std::filesystem::create_directories(output.parent_path());
         capture.save(output);

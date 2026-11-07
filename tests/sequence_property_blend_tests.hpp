@@ -58,15 +58,22 @@ void sequence_property_blend_tests(const std::filesystem::path& root,
         AnimationPlaybackAccess::control(*value.animation, ref,
                                          {{"operation", "seek"}, {"position_seconds", seconds}});
     };
-    auto verify = [&](const Json& snapshot, double first_time, double next_time, double weight) {
+    auto verify = [&](const Json& snapshot, double first_time, double next_time, double weight,
+                      bool reversed = false) {
+        const auto& begin = reversed ? c : a;
+        const auto& end = reversed ? d : b;
+        const auto& incoming_begin = reversed ? a : c;
+        const auto& incoming_end = reversed ? b : d;
         const auto& components = row(snapshot, actor).at("components");
         for (const auto& field : animation_property_bindings()) {
             const auto i = unsigned(field.property);
             const double expected =
                 field.property == AnimationProperty::SpriteFrame
-                    ? (weight < .5 ? (first_time < 1 ? 0 : 1) : (next_time < 1 ? 2 : 3))
-                    : (1 - weight) * (a[i] + first_time * (b[i] - a[i])) +
-                          weight * (c[i] + next_time * (d[i] - c[i]));
+                    ? (weight < .5 ? (first_time < 1 ? begin[i] : end[i])
+                                   : (next_time < 1 ? incoming_begin[i] : incoming_end[i]))
+                    : (1 - weight) * (begin[i] + first_time * (end[i] - begin[i])) +
+                          weight * (incoming_begin[i] +
+                                    next_time * (incoming_end[i] - incoming_begin[i]));
             near(components.at(field.component).at(field.field).template get<double>(), expected);
         }
         check(components.at("future.sequence_properties") == Json{{"keep", {1, "opaque", nullptr}}},
@@ -127,6 +134,49 @@ void sequence_property_blend_tests(const std::filesystem::path& root,
     seek(properties, .75);
     verify(properties.scene.snapshot(), .75, .25, .5);
     near(properties.scene.entity(actor).get<LocalTranslation>().x, 0);
+
+    const auto collection_source = [&](Json document, AssetId first, AssetId next) {
+        for (auto& item : document["entities"])
+            if (item["id"] == controller)
+                item["components"]["forge.animation_sequence"]["duration"] = 5;
+            else if (item["id"] == actor) {
+                auto& track = item["components"]["forge.transform_animator"];
+                track["sequence_extra_clips"] = Json::array();
+                for (std::size_t i = 2; i < sequence_clip_limit; ++i)
+                    track["sequence_extra_clips"].push_back(
+                        {{"clip", i % 2 ? next : first}, {"start_seconds", .5 * i}});
+            }
+        return document;
+    };
+    const auto full_collection = collection_source(source, primary, secondary);
+    for (const auto& document :
+         {full_collection, collection_source(property_source, property_primary, property_next)}) {
+        Runtime many(root, document);
+        for (const double time : {.75, 1.25, 1.75, 2.25, 2.75, 3.25, 3.749999, 3.75, 4.25, 4.5}) {
+            seek(many, time);
+            const auto active = std::clamp(int(std::floor(time * 2)) - 1, 0, 6);
+            const auto first_time = std::clamp(time - .5 * active, 0., 1.);
+            const auto next_time = std::clamp(time - .5 * (active + 1), 0., 1.);
+            const auto weight = std::clamp((time - .5 * (active + 1)) * 2, 0., 1.);
+            verify(many.scene.snapshot(), first_time, next_time, weight, active % 2);
+        }
+    }
+    const auto held_last =
+        make("Assets/PropertyCollectionHeld.animation.json", c, d, true, all_properties, true);
+    auto held_collection = full_collection;
+    for (auto& item : held_collection["entities"])
+        if (item["id"] == actor)
+            item["components"]["forge.transform_animator"]["sequence_extra_clips"].back()["clip"] =
+                held_last;
+    Runtime held_many(root, held_collection);
+    seek(held_many, 3.75);
+    verify(held_many.scene.snapshot(), .75, 0, .5);
+    seek(held_many, 0);
+    for (unsigned tick = 0; tick < 18; ++tick)
+        held_many.simulation.tick(.25);
+    verify(held_many.scene.snapshot(), 1, 1, 1);
+    verify(held_many.simulation.presentation(.5), 1, 1, 1);
+    near(row(held_many.simulation.presentation(.5), actor).at("world_affine")[3], 4);
 
     Runtime fixed(root, source);
     for (unsigned i = 0; i < 3; ++i)

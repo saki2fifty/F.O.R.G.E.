@@ -1,0 +1,129 @@
+#pragma once
+#include "skeletal_sequence_tests.hpp"
+// Reuse the original locomotion model and native Scene/animation fixture.
+void skeletal_sequence_collection_tests(const std::filesystem::path& project, const Json& source,
+                                        EntityId actor, AssetId forward, AssetId strafe) {
+    EngineContext author;
+    Scene scene(author.world());
+    scene.restore_snapshot(source);
+    const auto controller_id = configure_skeletal_sequence(scene, actor, forward, strafe);
+    const auto controller = scene.reference(controller_id);
+    const auto actor_ref = scene.reference(actor.str());
+    auto sequence = scene.entity(controller_id).get<AnimationSequence>();
+    sequence.duration = 5;
+    scene.entity(controller_id).set(sequence);
+    auto config = scene.entity(actor.str()).get<Animator>();
+    for (std::size_t i = 2; i < sequence_clip_limit; ++i)
+        config.sequence_extra_clips.push_back({{i % 2 ? strafe : forward}, .5 * i});
+    scene.entity(actor.str()).set(config);
+    const auto authored = scene.snapshot();
+    Fixture runtime(project, authored, actor);
+    const auto seek = [&](Fixture& value, double seconds) {
+        AnimationPlaybackAccess::control(*value.animation, controller,
+                                         {{"operation", "seek"}, {"position_seconds", seconds}});
+    };
+    for (unsigned step = 0; step <= 80; ++step) {
+        const double time = step / 16.;
+        seek(runtime, time);
+        const auto index = std::size_t(std::clamp(int(std::floor(time * 2)) - 1, 0, 6));
+        const auto weight = std::clamp((time - .5 * (index + 1)) * 2, 0., 1.);
+        const auto a = 2 * std::clamp(time - .5 * index, 0., 1.);
+        const auto b = 2 * std::clamp(time - .5 * (index + 1), 0., 1.);
+        const auto x = index % 2 ? a * (1 - weight) : b * weight;
+        const auto z = index % 2 ? b * weight : a * (1 - weight);
+        const auto pose = runtime.pose();
+        near(pose.at("local")[0].at("translation")[0], x);
+        near(pose.at("local")[0].at("translation")[2], z);
+        const auto playback = runtime.animation->playback(actor_ref);
+        require(playback && playback->clip == (index % 2 ? strafe : forward) &&
+                    playback->blend_clip == (index % 2 ? forward : strafe),
+                "Skeletal collection active clip identities differ");
+        near(playback->blend_weight, weight);
+        near(playback->duration, 4.5);
+        const auto status = AnimationPlaybackAccess::status(*runtime.animation, actor_ref);
+        require(status.at("sequence_clips").at("clips").size() == 8 &&
+                    status.at("sequence_clips").at("active_primary") == index,
+                "Skeletal collection status omitted its list or active window");
+    }
+    seek(runtime, 2.75);
+    const auto checkpoint = runtime.animation->checkpoint();
+    require(checkpoint.at("version") == 12 && checkpoint.at("sequence_arrangement_profile") == 10 &&
+                checkpoint.at("entries")[0].at("sequence").at("extra_clips").size() == 6,
+            "Skeletal collection checkpoint omitted profile or resource revisions");
+    Fixture restored(project, authored, actor, false);
+    restored.animation->restore(checkpoint);
+    near(restored.animation->playback(controller)->time, 2.75);
+    near(restored.pose().at("local")[0].at("translation")[0], .25);
+    near(restored.pose().at("local")[0].at("translation")[2], .75);
+    for (unsigned variant = 0; variant < 4; ++variant) {
+        auto bad = checkpoint;
+        if (variant == 0) {
+            bad["version"] = bad.at("sequence_arrangement_profile");
+            bad.erase("sequence_arrangement_profile");
+        } else {
+            auto& extra = bad["entries"][0]["sequence"]["extra_clips"][4];
+            if (variant == 1)
+                extra["revision"] = "invalid";
+            else if (variant == 2)
+                extra["clip"] = AssetId::generate();
+            else
+                extra["start_seconds"] = 3.125;
+        }
+        const auto before = restored.scene.snapshot();
+        bool rejected = false;
+        try {
+            restored.animation->restore(bad);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        require(rejected && restored.scene.snapshot() == before,
+                "Rejected skeletal collection recovery changed the Scene");
+        near(restored.animation->playback(controller)->time, 2.75);
+    }
+    // Every half-second overlap integrates the mean of the adjacent velocities.
+    // Four forward/strafe placements give 4.5 units along each axis per cycle.
+    config.root_motion = 1;
+    scene.entity(actor.str()).set(config);
+    Fixture moving(project, scene.snapshot(), actor);
+    for (unsigned step = 0; step < 20; ++step)
+        moving.simulation.tick(.25f);
+    near(moving.local().translation.x, 4.5);
+    near(moving.local().translation.z, 4.5);
+    near(moving.pose().at("local")[0].at("translation")[0], 0);
+    near(moving.pose().at("local")[0].at("translation")[2], 0);
+    Fixture whole(project, scene.snapshot(), actor);
+    whole.simulation.tick(5);
+    near(whole.local().translation.x, 4.5);
+    near(whole.local().translation.z, 4.5);
+    sequence.loop = true;
+    scene.entity(controller_id).set(sequence);
+    Fixture looping(project, scene.snapshot(), actor);
+    looping.simulation.tick(10.25f);
+    near(looping.local().translation.x, 9);
+    near(looping.local().translation.z, 9.5);
+    // Nested placement rates remap every clip boundary into the root interval.
+    sequence.loop = false;
+    sequence.duration = 3;
+    scene.entity(controller_id).set(sequence);
+    const auto child_id =
+        authoring_command(scene, "entity.create", {{"recipe", "animation.sequence"}})
+            .at("selected")
+            .get<std::string>();
+    AnimationSequence child;
+    child.duration = 5;
+    child.sequence = controller;
+    child.sequence_start_seconds = .25;
+    child.sequence_rate = 2;
+    scene.entity(child_id).set(child);
+    config.sequence = scene.reference(child_id);
+    scene.entity(actor.str()).set(config);
+    Fixture nested(project, scene.snapshot(), actor);
+    nested.simulation.tick(3);
+    near(nested.local().translation.x, 4.5);
+    near(nested.local().translation.z, 4.5);
+    require(nested.animation->checkpoint().at("sequence_arrangement_profile") == 11,
+            "Collection recovery lost the nested placement-rate profile");
+    std::cout
+        << "Eight-clip skeletal collections: repeated resources, independent poses, "
+           "active IDs, cold recovery and root-motion boundary/rate/loop integration passed\n";
+}

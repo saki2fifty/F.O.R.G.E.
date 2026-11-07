@@ -67,6 +67,12 @@ struct Playback {
     EntityRef reference;
     flecs::entity_t sequence = 0;
     std::optional<detail::SequenceClipSpan> sequence_span;
+    std::optional<detail::SequenceClipArrangement> sequence_arrangement;
+    struct SequenceExtra {
+        Pair assets;
+        std::unique_ptr<Sampler> sampler;
+    };
+    std::vector<SequenceExtra> sequence_extras;
     Pair assets, blend_assets, third_assets;
     std::unique_ptr<Sampler> third_sampler;
     std::vector<AnimatedTransformChannel> transform_channels;
@@ -100,6 +106,8 @@ const Animator& requested_configuration(const Playback& p) {
     return (p.definition || p.space || p.graph) ? p.requested : p.config;
 }
 double playback_duration(const Playback& p) {
+    if (p.sequence_arrangement)
+        return p.sequence_arrangement->duration_us / animation_timebase;
     if (p.sequence_span)
         return p.sequence_span->duration_us / animation_timebase;
     if (p.graph)
@@ -111,6 +119,8 @@ double sequence_track_time(const Playback& p, double controller_seconds) {
                       playback_duration(p));
 }
 double sequence_track_weight(const Playback& p, double time) {
+    if (p.sequence_arrangement)
+        return p.sequence_arrangement->sample(time * animation_timebase).weight;
     return p.sequence_span ? p.sequence_span->next_weight(time * animation_timebase) : 0.;
 }
 std::pair<double, double> sequence_clip_times(const Playback& p, double time) {
@@ -120,13 +130,56 @@ std::pair<double, double> sequence_clip_times(const Playback& p, double time) {
                              double(p.blend_assets.clip->info().duration))
                 : 0.};
 }
+const Pair& sequence_clip_assets(const Playback& p, std::size_t index) {
+    return index == 0   ? p.assets
+           : index == 1 ? p.blend_assets
+                        : p.sequence_extras.at(index - 2).assets;
+}
+Sampler* sequence_clip_sampler(Playback& p, std::size_t index) {
+    return index == 0   ? p.sampler.get()
+           : index == 1 ? p.blend_sampler.get()
+                        : p.sequence_extras.at(index - 2).sampler.get();
+}
+detail::SequenceClipArrangement::Sample sequence_clip_sample(const Playback& p, double time) {
+    if (p.sequence_arrangement)
+        return p.sequence_arrangement->sample(time * animation_timebase);
+    const auto [first, next] = sequence_clip_times(p, time);
+    return {0, p.sequence_span ? 1u : 0u, first * animation_timebase, next * animation_timebase,
+            sequence_track_weight(p, time)};
+}
+AssetId sequence_clip_id(const Playback& p, std::size_t index) {
+    return index == 0   ? p.config.clip.id
+           : index == 1 ? p.config.sequence_next_clip.id
+                        : p.config.sequence_extra_clips.at(index - 2).clip.id;
+}
+double sequence_clip_start(const Playback& p, std::size_t index) {
+    return index == 0   ? p.config.sequence_start_seconds
+           : index == 1 ? p.config.sequence_next_start_seconds
+                        : p.config.sequence_extra_clips.at(index - 2).start_seconds;
+}
+void reset_direct_sampling(Playback& p) {
+    p.sampler->reset();
+    if (p.blend_sampler)
+        p.blend_sampler->reset();
+    for (auto& extra : p.sequence_extras)
+        extra.sampler->reset();
+}
 Json sequence_binding_checkpoint(const Playback& p) {
-    return {{"controller", p.config.sequence},
-            {"start_seconds", p.config.sequence_start_seconds},
-            {"next_clip",
-             p.config.sequence_next_clip.id ? Json(p.config.sequence_next_clip.id) : Json()},
-            {"next_revision", p.blend_assets.clip_revision},
-            {"next_start_seconds", p.config.sequence_next_start_seconds}};
+    Json result = {{"controller", p.config.sequence},
+                   {"start_seconds", p.config.sequence_start_seconds},
+                   {"next_clip",
+                    p.config.sequence_next_clip.id ? Json(p.config.sequence_next_clip.id) : Json()},
+                   {"next_revision", p.blend_assets.clip_revision},
+                   {"next_start_seconds", p.config.sequence_next_start_seconds}};
+    if (p.sequence_arrangement) {
+        result["extra_clips"] = Json::array();
+        for (std::size_t i = 0; i < p.sequence_extras.size(); ++i)
+            result["extra_clips"].push_back(
+                {{"clip", p.config.sequence_extra_clips[i].clip.id},
+                 {"start_seconds", p.config.sequence_extra_clips[i].start_seconds},
+                 {"revision", p.sequence_extras[i].assets.clip_revision}});
+    }
+    return result;
 }
 std::array<double, animation_graph_input_limit> graph_inputs(const Animator& config,
                                                              const AnimationGraph& graph) {
@@ -342,12 +395,16 @@ MorphPose sample_morphs(const Playback& p, double time, double blend, double out
     if (!p.assets.model || p.morph_defaults.empty())
         return {};
     if (p.sequence) {
-        const auto [first_time, next_time] = sequence_clip_times(p, time);
-        const auto first = p.assets.model.clip->morphs->sample(first_time);
-        const auto next = p.blend_assets.model
-                              ? p.blend_assets.model.clip->morphs->sample(next_time)
-                              : MorphPose{};
-        return blend_morph_samples(p.morph_defaults, first, next, sequence_track_weight(p, time));
+        const auto sample = sequence_clip_sample(p, time);
+        const auto& primary = sequence_clip_assets(p, sample.primary);
+        const auto& secondary = sequence_clip_assets(p, sample.next);
+        const auto first =
+            primary.model.clip->morphs->sample(sample.primary_us / animation_timebase);
+        const auto next =
+            p.blend_assets.model
+                ? secondary.model.clip->morphs->sample(sample.next_us / animation_timebase)
+                : MorphPose{};
+        return blend_morph_samples(p.morph_defaults, first, next, sample.weight);
     }
     if (p.graph) {
         const auto& graph = p.graph->graph;
@@ -439,15 +496,25 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
                         bool apply_constraints = true,
                         const std::vector<LocalPoseOverride>* base = nullptr) {
     std::unique_ptr<Sampler> first, second, third;
-    auto* sampler = p.sampler.get();
-    auto* blend_sampler = p.blend_sampler.get();
+    const auto sequence_sample =
+        p.sequence ? sequence_clip_sample(p, time) : detail::SequenceClipArrangement::Sample{};
+    const auto& primary_assets =
+        p.sequence ? sequence_clip_assets(p, sequence_sample.primary) : p.assets;
+    const auto& secondary_assets = p.sequence && p.sequence_span
+                                       ? sequence_clip_assets(p, sequence_sample.next)
+                                       : p.blend_assets;
+    auto* sampler =
+        p.sequence ? sequence_clip_sampler(p, sequence_sample.primary) : p.sampler.get();
+    auto* blend_sampler = p.sequence && p.sequence_span
+                              ? sequence_clip_sampler(p, sequence_sample.next)
+                              : p.blend_sampler.get();
     auto* third_sampler = p.third_sampler.get();
     const auto joint = root_joint(p);
     if (temporary) {
-        first = std::make_unique<Sampler>(p.assets.skeleton, p.assets.clip);
+        first = std::make_unique<Sampler>(p.assets.skeleton, primary_assets.clip);
         sampler = first.get();
-        if (p.blend_assets.clip) {
-            second = std::make_unique<Sampler>(p.assets.skeleton, p.blend_assets.clip);
+        if (secondary_assets.clip) {
+            second = std::make_unique<Sampler>(p.assets.skeleton, secondary_assets.clip);
             blend_sampler = second.get();
         }
         if (p.third_assets.clip) {
@@ -464,14 +531,15 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
     std::vector<Matrix> model;
     std::optional<LocalPose> outgoing_root;
     if (p.sequence) {
-        const auto [first_time, next_time] = sequence_clip_times(p, time);
-        const auto first_ratio = float(first_time / p.assets.clip->info().duration);
+        const auto first_ratio = float(sequence_sample.primary_us / animation_timebase /
+                                       primary_assets.clip->info().duration);
         if (blend_sampler) {
-            const auto weight = float(sequence_track_weight(p, time));
+            const auto weight = float(sequence_sample.weight);
             const std::array<WeightedAnimationSample, 2> layers{
                 WeightedAnimationSample{sampler, first_ratio, 1 - weight},
                 WeightedAnimationSample{blend_sampler,
-                                        float(next_time / p.blend_assets.clip->info().duration),
+                                        float(sequence_sample.next_us / animation_timebase /
+                                              secondary_assets.clip->info().duration),
                                         weight}};
             model = sampler->sample_weighted(layers);
         } else
@@ -575,7 +643,7 @@ RootRigid sequence_root_motion(Playback& p, std::size_t joint,
                             interval.rate));
     };
     const auto part = [&](double begin, double end) {
-        std::array<double, 8> points{begin, end};
+        std::array<double, sequence_clip_limit * 2 + 4> points{begin, end};
         std::size_t count = 2;
         const auto split = [&](double point) {
             if (point > begin && point < end)
@@ -583,14 +651,14 @@ RootRigid sequence_root_motion(Playback& p, std::size_t joint,
         };
         split(interval.offset);
         split(interval.end);
-        split(interval.offset + p.config.sequence_start_seconds / interval.rate);
-        split(interval.offset +
-              (p.config.sequence_start_seconds + p.assets.clip->info().duration) / interval.rate);
-        if (p.sequence_span) {
-            split(interval.offset + p.config.sequence_next_start_seconds / interval.rate);
+        const auto clip_count = p.sequence_arrangement ? p.sequence_arrangement->size()
+                                : p.sequence_span      ? 2u
+                                                       : 1u;
+        for (std::size_t i = 0; i < clip_count; ++i) {
+            const auto start = sequence_clip_start(p, i);
+            split(interval.offset + start / interval.rate);
             split(interval.offset +
-                  (p.config.sequence_next_start_seconds + p.blend_assets.clip->info().duration) /
-                      interval.rate);
+                  (start + sequence_clip_assets(p, i).clip->info().duration) / interval.rate);
         }
         std::sort(points.begin(), points.begin() + count);
         RootRigid result;
@@ -598,20 +666,25 @@ RootRigid sequence_root_motion(Playback& p, std::size_t joint,
             const auto from = track_time(points[i - 1]), to = track_time(points[i]);
             if (from == to)
                 continue;
-            const auto [first_begin, next_begin] = sequence_clip_times(p, from);
-            const auto [first_end, next_end] = sequence_clip_times(p, to);
-            auto delta = first_begin == first_end
-                             ? RootRigid{}
-                             : layer_motion(p, p.assets, joint, first_begin,
-                                            first_end - first_begin, false, first_end, {});
+            auto first = sequence_clip_sample(p, from);
+            auto last = sequence_clip_sample(p, to);
+            if (p.sequence_arrangement) {
+                const auto window =
+                    p.sequence_arrangement->sample((from + to) * .5 * animation_timebase).primary;
+                first = p.sequence_arrangement->sample_window(window, from * animation_timebase);
+                last = p.sequence_arrangement->sample_window(window, to * animation_timebase);
+            }
+            const auto motion = [&](std::size_t index, double begin_us, double end_us) {
+                return begin_us == end_us ? RootRigid{}
+                                          : layer_motion(p, sequence_clip_assets(p, index), joint,
+                                                         begin_us / animation_timebase,
+                                                         (end_us - begin_us) / animation_timebase,
+                                                         false, end_us / animation_timebase, {});
+            };
+            auto delta = motion(first.primary, first.primary_us, last.primary_us);
             if (p.sequence_span) {
-                const auto next = next_begin == next_end
-                                      ? RootRigid{}
-                                      : layer_motion(p, p.blend_assets, joint, next_begin,
-                                                     next_end - next_begin, false, next_end, {});
-                delta = root_blend(delta, next,
-                                   (sequence_track_weight(p, from) + sequence_track_weight(p, to)) *
-                                       .5);
+                const auto next = motion(first.next, first.next_us, last.next_us);
+                delta = root_blend(delta, next, (first.weight + last.weight) * .5);
             }
             result = root_compose(result, delta);
         }
@@ -824,6 +897,12 @@ struct AnimationRuntime::Impl {
         if (model_resources)
             model_resources->close();
     }
+    bool has_sequence_arrangements() const {
+        return transforms.has_sequence_arrangements() ||
+               std::any_of(states.begin(), states.end(), [](const auto& value) {
+                   return bool(value.second.sequence_arrangement);
+               });
+    }
     std::optional<AnimationPlayback> skeletal_playback(EntityRef reference) const {
         if (!context.on_owner_thread())
             return {};
@@ -859,8 +938,12 @@ struct AnimationRuntime::Impl {
             result.loop = controller->loop;
             result.playing = controller->playing;
             result.finished = controller->finished;
-            result.blend_clip = p.config.sequence_next_clip.id;
-            result.blend_weight = sequence_track_weight(p, result.time);
+            const auto sample = sequence_clip_sample(p, result.time);
+            if (p.sequence_arrangement)
+                result.clip = sequence_clip_id(p, sample.primary);
+            result.blend_clip =
+                p.config.sequence_next_clip.id ? sequence_clip_id(p, sample.next) : AssetId{};
+            result.blend_weight = sample.weight;
         }
         if (p.definition) {
             result.state = p.config.state;
@@ -884,9 +967,7 @@ struct AnimationRuntime::Impl {
             playback.entry_pending = false;
             playback.discontinuous = true;
             playback.model_pose_applied = false;
-            playback.sampler->reset();
-            if (playback.blend_sampler)
-                playback.blend_sampler->reset();
+            reset_direct_sampling(playback);
             playback.root_samples.clear();
             root_motions.erase(id);
         }
@@ -967,7 +1048,10 @@ struct AnimationRuntime::Impl {
             weights.emplace(id, sequence_track_weight(playback, time));
             auto interval = transforms.sequence_interval(playback.sequence);
             interval.discontinuous |= seek.contains(interval.root);
-            if (playback.sequence_span)
+            if (playback.sequence_arrangement)
+                interval.discontinuous |= playback.sequence_arrangement->cut_crossed(
+                    playback.time * animation_timebase, time * animation_timebase);
+            else if (playback.sequence_span)
                 interval.discontinuous |= playback.sequence_span->cut_crossed(
                     playback.time * animation_timebase, time * animation_timebase);
             intervals.emplace(id, interval);
@@ -1516,22 +1600,26 @@ struct AnimationRuntime::Impl {
         auto loaded = load(second);
         if (!loaded)
             return false;
-        if (loaded->skeleton != p.assets.skeleton ||
-            loaded->skeleton_revision != p.assets.skeleton_revision ||
-            bool(loaded->model) != bool(p.assets.model) ||
-            loaded->model_generation != p.assets.model_generation)
-            throw ArchiveError("Blend clips must use the same exact skeleton and model revision");
-        if (loaded->model) {
-            p.morph_defaults =
-                merge_morph_defaults(p.morph_defaults, loaded->model.clip->morph_defaults);
-            p.morph_mask = morph_subtree_mask(p, p.blend_mask);
-            std::set<std::pair<std::size_t, AnimatedTransformPath>> seen;
-            for (const auto& c : p.transform_channels)
-                seen.emplace(c.node, c.path);
-            for (const auto& c : loaded->model.clip->transform_channels)
-                if (seen.emplace(c.node, c.path).second)
-                    p.transform_channels.push_back(c);
-        }
+        const auto admit = [&](const Pair& incoming) {
+            if (incoming.skeleton != p.assets.skeleton ||
+                incoming.skeleton_revision != p.assets.skeleton_revision ||
+                bool(incoming.model) != bool(p.assets.model) ||
+                incoming.model_generation != p.assets.model_generation)
+                throw ArchiveError(
+                    "Blend clips must use the same exact skeleton and model revision");
+            if (incoming.model) {
+                p.morph_defaults =
+                    merge_morph_defaults(p.morph_defaults, incoming.model.clip->morph_defaults);
+                p.morph_mask = morph_subtree_mask(p, p.blend_mask);
+                std::set<std::pair<std::size_t, AnimatedTransformPath>> seen;
+                for (const auto& c : p.transform_channels)
+                    seen.emplace(c.node, c.path);
+                for (const auto& c : incoming.model.clip->transform_channels)
+                    if (seen.emplace(c.node, c.path).second)
+                        p.transform_channels.push_back(c);
+            }
+        };
+        admit(*loaded);
         p.blend_assets = std::move(*loaded);
         p.blend_sampler = std::make_unique<Sampler>(p.assets.skeleton, p.blend_assets.clip);
         if (p.config.sequence.entity)
@@ -1539,6 +1627,28 @@ struct AnimationRuntime::Impl {
                 p.config.sequence_start_seconds, p.config.sequence_next_start_seconds,
                 double(p.assets.clip->info().duration) * animation_timebase,
                 double(p.blend_assets.clip->info().duration) * animation_timebase);
+        if (!p.config.sequence_extra_clips.empty()) {
+            std::array<detail::SequenceClipArrangement::Clip, sequence_clip_limit> placements{};
+            placements[0] = {p.config.sequence_start_seconds,
+                             double(p.assets.clip->info().duration) * animation_timebase};
+            placements[1] = {p.config.sequence_next_start_seconds,
+                             double(p.blend_assets.clip->info().duration) * animation_timebase};
+            p.sequence_extras.reserve(p.config.sequence_extra_clips.size());
+            for (std::size_t i = 0; i < p.config.sequence_extra_clips.size(); ++i) {
+                auto config = p.config;
+                config.clip = p.config.sequence_extra_clips[i].clip;
+                auto extra = load(config);
+                if (!extra)
+                    return false;
+                admit(*extra);
+                placements[i + 2] = {p.config.sequence_extra_clips[i].start_seconds,
+                                     double(extra->clip->info().duration) * animation_timebase};
+                auto sampler = std::make_unique<Sampler>(p.assets.skeleton, extra->clip);
+                p.sequence_extras.push_back({std::move(*extra), std::move(sampler)});
+            }
+            p.sequence_arrangement = detail::SequenceClipArrangement::make(
+                std::span(placements).first(p.sequence_extras.size() + 2));
+        }
         return true;
     }
     void catalog(std::shared_ptr<const AssetCatalog> selected) {
@@ -2326,13 +2436,18 @@ struct AnimationRuntime::Impl {
                 used.insert({config.skeleton.id, config.sequence_next_clip.id});
                 used_clips.insert(config.sequence_next_clip.id);
             }
+            for (const auto& extra : config.sequence_extra_clips) {
+                used.insert({config.skeleton.id, extra.clip.id});
+                used_clips.insert(extra.clip.id);
+            }
         };
         context.world().each([&](flecs::entity e, const Animator&) {
             if (e.has(flecs::Prefab) || !context.reference(e.id()))
                 return;
             auto config = runtime_animator(e, conditions);
-            const bool sequence_profile =
-                config.sequence.scene || config.sequence.entity || config.sequence_next_clip.id;
+            const bool sequence_profile = config.sequence.scene || config.sequence.entity ||
+                                          config.sequence_next_clip.id ||
+                                          !config.sequence_extra_clips.empty();
             // A paused resource refresh may retain a previous good selection.
             // Its cached enable must still stop execution immediately on exit.
             if (!config.enabled)
@@ -2440,6 +2555,10 @@ struct AnimationRuntime::Impl {
                      (config.sequence_next_clip.id &&
                       config.sequence_next_start_seconds > transforms.sequence_duration(sequence))))
                     throw ArchiveError("Skeletal track start exceeds its sequence duration");
+                for (const auto& extra : config.sequence_extra_clips)
+                    if (extra.start_seconds > transforms.sequence_duration(sequence))
+                        throw ArchiveError(
+                            "Extra skeletal clip start exceeds its sequence duration");
                 detail::validate_reflected_value(e, config);
                 if (!config.blend_clip.id && config.blend_weight != 0)
                     throw ArchiveError("Animator blend target needs a second clip");
@@ -2468,9 +2587,15 @@ struct AnimationRuntime::Impl {
                     const bool same_mask =
                         bool(next.mask) == bool(old->second.mask) &&
                         (!next.mask || next.mask.identity() == old->second.mask.identity());
+                    const bool same_extras =
+                        next.sequence_extras.size() == old->second.sequence_extras.size() &&
+                        std::equal(
+                            next.sequence_extras.begin(), next.sequence_extras.end(),
+                            old->second.sequence_extras.begin(),
+                            [&](const auto& a, const auto& b) { return same(a.assets, b.assets); });
                     if (same(next.assets, old->second.assets) &&
                         same(next.blend_assets, old->second.blend_assets) && same_mask &&
-                        next.config == old->second.config) {
+                        same_extras && next.config == old->second.config) {
                         reload_pending.erase(e.id());
                         return;
                     }
@@ -2542,6 +2667,7 @@ struct AnimationRuntime::Impl {
                            old->second.config.sequence_next_clip == config.sequence_next_clip &&
                            old->second.config.sequence_next_start_seconds ==
                                config.sequence_next_start_seconds &&
+                           old->second.config.sequence_extra_clips == config.sequence_extra_clips &&
                            !old->second.definition && !old->second.space && !old->second.graph) {
                     if (old->second.config.enabled != config.enabled ||
                         old->second.config.root_motion != config.root_motion ||
@@ -2899,9 +3025,7 @@ bool AnimationRuntime::control(EntityRef reference, AnimationControl command,
     p.outgoing_time = p.outgoing_previous = p.outgoing_advance = 0;
     p.frozen.clear();
     p.frozen_morphs.clear();
-    p.sampler->reset();
-    if (p.blend_sampler)
-        p.blend_sampler->reset();
+    reset_direct_sampling(p);
     reset_graph_sampling(p);
     p.playing = p.entry_pending = p.discontinuous = true;
     p.model_pose_applied = false;
@@ -2941,9 +3065,7 @@ bool AnimationRuntime::seek(EntityRef reference, double seconds, std::uint64_t c
     p.entry_pending = false;
     p.model_pose_applied = false;
     p.discontinuous = true;
-    p.sampler->reset();
-    if (p.blend_sampler)
-        p.blend_sampler->reset();
+    reset_direct_sampling(p);
     p.root_samples.clear();
     reset_graph_sampling(p);
     impl_->root_motions.erase(entity);
@@ -3017,7 +3139,24 @@ Json AnimationPlaybackAccess::status(AnimationRuntime& runtime, EntityRef ref, P
                          {"sequence", p.config.sequence},
                          {"start_seconds", p.config.sequence_start_seconds},
                          {"duration_seconds", p.assets.clip->info().duration}};
-                if (p.sequence_span)
+                if (p.sequence_arrangement) {
+                    const auto sample = sequence_clip_sample(p, value->time);
+                    const auto describe = [&](std::size_t index) {
+                        return Json{{"clip", sequence_clip_id(p, index)},
+                                    {"start_seconds", sequence_clip_start(p, index)},
+                                    {"duration_seconds",
+                                     sequence_clip_assets(p, index).clip->info().duration}};
+                    };
+                    clips = describe(sample.primary);
+                    clips["sequence"] = p.config.sequence;
+                    clips["next"] = describe(sample.next);
+                    clips["next"]["weight"] = sample.weight;
+                    clips["active_primary"] = sample.primary;
+                    clips["active_next"] = sample.next;
+                    clips["clips"] = Json::array();
+                    for (std::size_t i = 0; i < p.sequence_arrangement->size(); ++i)
+                        clips["clips"].push_back(describe(i));
+                } else if (p.sequence_span)
                     clips["next"] = {{"clip", p.config.sequence_next_clip.id},
                                      {"start_seconds", p.config.sequence_next_start_seconds},
                                      {"duration_seconds", p.blend_assets.clip->info().duration},
@@ -3222,9 +3361,7 @@ void AnimationRuntime::reset_presentation() {
         p.previous_rig = p.rig;
         p.outgoing_previous = p.outgoing_time;
         p.outgoing_advance = 0;
-        p.sampler->reset();
-        if (p.blend_sampler)
-            p.blend_sampler->reset();
+        reset_direct_sampling(p);
         reset_graph_sampling(p);
     }
 }
@@ -3517,23 +3654,44 @@ Json AnimationRuntime::checkpoint() const {
         result["version"] = 11;
         result["sequence_entries"] = impl_->transforms.sequence_checkpoint(7, true);
     }
+    if (impl_ && impl_->has_sequence_arrangements()) {
+        result["sequence_arrangement_profile"] = result.at("version").get<unsigned>();
+        result["version"] = 12;
+    }
     return result;
 }
 void AnimationRuntime::restore(const Json& input) {
     if (!impl_)
         throw ArchiveError("Animation runtime is unavailable");
     std::optional<Json> normalized;
-    const bool rate_profile = input.at("version") == 11;
-    if (rate_profile) {
-        if (!input.at("version").is_number_integer() || !input.contains("sequence_rate_profile") ||
-            !input.at("sequence_rate_profile").is_number_unsigned() ||
-            input.at("sequence_rate_profile").get<unsigned>() < 7 ||
-            input.at("sequence_rate_profile").get<unsigned>() > 10)
-            throw ArchiveError("Sequence placement-rate recovery profile is invalid");
+    const bool arrangement_profile = input.at("version") == 12;
+    if (arrangement_profile) {
+        if (!input.at("version").is_number_integer() ||
+            !input.contains("sequence_arrangement_profile") ||
+            !input.at("sequence_arrangement_profile").is_number_unsigned() ||
+            input.at("sequence_arrangement_profile").get<unsigned>() < 3 ||
+            input.at("sequence_arrangement_profile").get<unsigned>() > 11)
+            throw ArchiveError("Sequence collection recovery profile is invalid");
         normalized = input;
-        normalized->at("version") = input.at("sequence_rate_profile");
+        normalized->at("version") = input.at("sequence_arrangement_profile");
+        normalized->erase("sequence_arrangement_profile");
+    } else if (input.contains("sequence_arrangement_profile"))
+        throw ArchiveError("Unexpected sequence collection recovery profile");
+    const auto& rate_input = normalized ? *normalized : input;
+    const bool rate_profile = rate_input.at("version") == 11;
+    if (rate_profile) {
+        if (!rate_input.at("version").is_number_integer() ||
+            !rate_input.contains("sequence_rate_profile") ||
+            !rate_input.at("sequence_rate_profile").is_number_unsigned() ||
+            rate_input.at("sequence_rate_profile").get<unsigned>() < 7 ||
+            rate_input.at("sequence_rate_profile").get<unsigned>() > 10)
+            throw ArchiveError("Sequence placement-rate recovery profile is invalid");
+        const auto underlying = rate_input.at("sequence_rate_profile").get<unsigned>();
+        if (!normalized)
+            normalized = rate_input;
+        normalized->at("version") = underlying;
         normalized->erase("sequence_rate_profile");
-    } else if (input.contains("sequence_rate_profile"))
+    } else if (rate_input.contains("sequence_rate_profile"))
         throw ArchiveError("Unexpected sequence placement-rate recovery profile");
     const auto& checkpoint = normalized ? *normalized : input;
     const bool skeletal_sequence_profile = checkpoint.at("version") == 10;
@@ -3899,6 +4057,8 @@ void AnimationRuntime::restore(const Json& input) {
             impl_->context.services().resources()->synchronize();
         impl_->synchronize();
     }
+    if (arrangement_profile != impl_->has_sequence_arrangements())
+        throw ArchiveError("Sequence collection recovery does not match admitted players");
     // Validate recovered channel values and instance scopes with temporary
     // samplers before replacing any playback state or mutating the world.
     auto swap_sources = [&] {
@@ -3927,7 +4087,7 @@ void AnimationRuntime::restore(const Json& input) {
     swap_sources();
     impl_->transforms.restore(data.value("transform_entries", Json::array()),
                               data.at("version") >= 3 ? data.at("sequence_entries") : Json::array(),
-                              sequence_profile, rate_profile);
+                              sequence_profile, rate_profile, arrangement_profile);
     for (auto& value : values) {
         auto& p = *value.playback;
         const auto time = value.time;
@@ -3948,9 +4108,7 @@ void AnimationRuntime::restore(const Json& input) {
             p.frozen = std::move(value.frozen);
             p.frozen_morphs = std::move(value.frozen_morphs);
         }
-        p.sampler->reset();
-        if (p.blend_sampler)
-            p.blend_sampler->reset();
+        reset_direct_sampling(p);
         reset_graph_sampling(p);
         // The recovery envelope does not contain renderer-local history. Until
         // the next successful fixed application, keep any prior good draw.

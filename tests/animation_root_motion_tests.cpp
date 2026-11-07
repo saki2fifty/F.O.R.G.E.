@@ -36,11 +36,13 @@ struct Fixture {
     RuntimeSimulation simulation;
     std::shared_ptr<AnimationRuntime> animation;
     EntityId actor;
-    Fixture(const std::filesystem::path& project, const Json& doc, EntityId id)
+    Fixture(const std::filesystem::path& project, const Json& doc, EntityId id, bool admit = true)
         : engine(WorldRole::Runtime, false, {animation_module(project)}), scene(engine.world()),
           simulation(engine.world(), scene), animation(animation_runtime(engine.world())),
           actor(id) {
         scene.restore_snapshot(doc);
+        if (!admit)
+            return;
         const auto deadline = std::chrono::steady_clock::now() + 10s;
         while (!animation->prepare_initial_pose()) {
             require(std::chrono::steady_clock::now() < deadline, "Root motion admission timeout");
@@ -76,7 +78,7 @@ struct Fixture {
 };
 } // namespace
 #include "animation_seeking_tests.hpp"
-#include "skeletal_sequence_tests.hpp"
+#include "skeletal_sequence_collection_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 5 || argc == 6,
@@ -135,6 +137,10 @@ int main(int argc, char** argv) {
                         scene.revision());
         const auto source = scene.document();
         if (argc == 6) {
+            if (std::string_view(argv[5]) == "--collections") {
+                skeletal_sequence_collection_tests(project, source, actor, forward, strafe);
+                return 0;
+            }
             require(std::string_view(argv[5]) == "--prepare", "Unknown root fixture mode");
             atomic_write(project / "main.scene.json", source.dump(2));
             std::cout << project.string() << '\n';

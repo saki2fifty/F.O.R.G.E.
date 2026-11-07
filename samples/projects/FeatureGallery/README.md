@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Eight-clip sequence arrangements
+
+Open `Scenes/187-sequence-clip-collections.scene.json` and press **Play → Game**.
+Three original models each have eight placements on one sixteen-second controller:
+Forward/Strafe motion, Base/Overlay morph animation and Rest/mapped Swing clips.
+Select **Sixteen-second clip collection** and choose **Open sequence timeline**.
+Use the numbered start controls, clip pickers, **Add clip** and **Remove clip**;
+choose **Apply track timing**, **Refresh clips**, preview, then **Save scene**.
+At most two adjacent clips contribute at once. No C++ module is required. See the
+[sequence guide](../../../manual/editor/animation-sequences.md).
+
 ## Nested playback rates
 
 **186-nested-sequence-rates** uses a four-second root with children at **2×** and **0.5×**,

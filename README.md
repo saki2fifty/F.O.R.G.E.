@@ -54,6 +54,9 @@ Gallery153 includes an incoming blend, a return blend and an overview gap.
 [Nested playback rates](manual/editor/animation-sequences.md#place-a-sequence-inside-another)
 let child sections run faster or slower while one root controls the arrangement.
 Gallery186 includes direct, morph and mapped animation with fast/slow/nested timing.
+[Eight clips per track](manual/editor/animation-sequences.md#arrange-up-to-eight-clips-on-one-object)
+share the same sequence clock with adjacent overlaps, held gaps and one-step Timeline edits.
+Gallery187 includes direct, morph and mapped arrangements, with the same saved content in exported games.
 
 
 ## Texture painting

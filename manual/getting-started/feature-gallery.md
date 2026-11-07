@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**187-sequence-clip-collections** gives three original models eight clip placements
+each on one sixteen-second controller. Open it and press **Play → Game** for direct,
+morph and mapped motion. Select **Sixteen-second clip collection**, open its Timeline,
+edit numbered starts and clip pickers, or use **Add clip** and **Remove clip**.
+Apply timing, refresh, preview and save the Scene before exporting with the matching
+runtime kit. No project C++ is required. See
+[Eight-clip arrangements](../editor/animation-sequences.md).
+
 **186-nested-sequence-rates** uses a four-second root with children at **2×** and **0.5×**,
 plus a child at **0.5×** inside the fast section. They coordinate original motion,
 morph and mapped clips.

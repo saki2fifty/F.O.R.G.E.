@@ -1,10 +1,10 @@
 # Coordinate several animations
 
 An **Animation Sequence** makes several objects use one playback time. Each object
-keeps its reusable animation clip and a start time inside the sequence. A second
-clip can crossfade transforms and matching property tracks on the same object.
-Existing skeletal Animators can also join a sequence and blend two compatible
-clips, including their model morphs.
+keeps its reusable animation clips and their start times inside the sequence.
+Each object can arrange up to eight compatible clips, with at most two adjacent
+clips contributing at once. Tracks can animate transforms and matching properties,
+or an existing skeletal Animator's joints and model morphs.
 Sequences can also contain other sequences, sharing their root controller's
 playback time.
 
@@ -59,12 +59,51 @@ clip starts, then the pose cuts to that clip. Before and after the whole track,
 the first and last poses hold.
 
 Choose **None / Clear** in **Next clip** to return to a single clip. **Remove from
-sequence** clears the controller binding and next clip while keeping the primary
+sequence** clears the controller binding and all additional clips while keeping the primary
 clip and its standalone settings. Undo restores the arrangement. A missing or
 incompatible clip is reported during **Refresh clips** or Play preparation; correct
 its selection, track set or timing and refresh again. After publishing a corrected
 clip, allow its replacement to finish loading; the previous diagnostic can remain
 until the corrected clip is admitted.
+
+## Arrange up to eight clips on one object
+
+Open **FeatureGallery / Scenes / 187-sequence-clip-collections.scene.json** and press
+**Play → Game** to try three eight-clip tracks. The left model plays Forward and
+Strafe clips, the center model plays Base and Overlay morph clips, and the right
+model plays Rest and mapped Swing clips. The shared controller loops every sixteen
+seconds. Select **Sixteen-second clip collection** and open its Timeline to edit
+the individual placements. No C++ module is required.
+
+![Three original models playing eight-clip skeletal, morph and mapped arrangements](../images/sequence-clip-collection-game.png)
+
+The models follow different clip timings on the same sixteen-second controller.
+
+Start with the **Clip** and **Next clip** workflow above. It works for both
+Transform Animator tracks and direct skeletal Animator tracks.
+
+1. Choose **Refresh clips** so Timeline knows the published clip durations.
+2. Choose **Add clip**. It copies the last selected clip and places the copy at that clip's end. Extend the controller's **Duration** first if the new start would fall beyond it. You can add six placements after the original pair, for eight clips total.
+3. Use **Clip 3**, **Clip 4** and the later asset pickers to choose other compatible clips. **Remove clip** removes that placement; each addition, removal or selection uses one Scene Undo step.
+4. Edit **Clip 3 start** and the later start fields. You can edit them together with **Primary clip start** and **Next clip start**, then choose **Apply track timing** for one complete Undo step. **Reset pending timing** discards pending field edits. If another edit changes the Scene before applying, reset the pending timing and enter it again.
+5. Choose **Refresh clips**, then preview or scrub. The stacked strips show every clip's start and duration. Save the Scene before exporting the game.
+
+![Timeline showing eight clip strips and their separate start controls](../images/sequence-clip-collection.png)
+
+Each placement has its own start; Timeline keeps the whole track on one controller.
+
+Starts and ends must stay in order. At most two adjacent clips may overlap at any
+time; a third overlapping clip is rejected during Refresh or Play preparation.
+A gap holds the previous endpoint until the next clip starts. Before the track
+starts and after it ends, the first and last values hold. The controller can still
+stop or loop before a clip's endpoint.
+
+All clips need the same compatible track profile described below. Refresh validates
+every clip, including those later than the current playhead. Repeated placements of
+the same clip keep independent local phases. **None / Clear** in **Next clip**
+clears the later placements too. **Remove from sequence** also clears them while
+retaining the primary clip and standalone playback settings. Undo restores the full
+arrangement. Export uses the runtime kit packaged with the editor.
 
 ### Crossfade property tracks
 
@@ -162,11 +201,12 @@ The clips sample their own local times. Their overlap blends skeletal poses and
 morph weights; a gap holds the primary endpoint until the next clip starts.
 Sequence timing governs bound Animators even when their retained standalone speed
 is zero or Play On Start is off. **Remove from sequence** retains those settings
-and the primary clip; Undo restores the binding and next clip.
+and the primary clip; Undo restores the binding and every additional placement.
 
 Select a bound model in Edit and choose **Open sequence timeline** in its Animator
 to return to the arrangement. During Play, **Live sequence track** shows read-only
-timing; choose **Select controller** to pause, restart or seek the sequence.
+timing. An eight-clip track also shows the active clip numbers; expand **Clip placements**
+to inspect all starts and durations. Choose **Select controller** to pause, restart or seek the sequence.
 For nested arrangements, control the outermost sequence. Seeking shows a pose
 without moving the character across the skipped interval. Standalone Animation
 Preview is for unbound Animators; use Timeline preview for bound models.
@@ -174,7 +214,7 @@ Preview is for unbound Animators; use Timeline preview for bound models.
 If Refresh or Play reports an incompatible clip or changed model revision, correct
 the selection or republish the model/retargeted clip, then refresh. A rejected
 replacement leaves the accepted assets active. Each player supports
-one primary clip and one optional next clip; this workflow does not author bone
+up to eight clips, with at most two adjacent contributions; this workflow does not author bone
 keyframes or place a States, Blend Space or Graph player on a sequence.
 
 ## Place a sequence inside another
@@ -412,11 +452,12 @@ last value. A sequence's end can cut a clip short. The controller's loop, speed 
 playback intent govern all its tracks; the individual clips' standalone settings
 stay stored for when they are removed from the sequence.
 
-**Remove from sequence** keeps the primary clip and clears its controller and next
-clip. Each object supports one primary clip and one optional compatible next clip.
+**Remove from sequence** keeps the primary clip and clears its controller and all
+additional placements. Each object supports up to eight compatible clips, with at
+most two adjacent clips contributing at once.
 Camera shots support cuts and compatible view/lens transitions. This sequence mode
 does not crossfade rendered images or author bone keyframes. Matching Material and component-field
-tracks use the two-clip workflow above. Use the
+tracks use the same clip-pair and additional-placement workflows above. Use the
 preview export options above to save a silent movie. Each controller has at most one
 parent placement; place a copy of a complete linked group to reuse it independently.
 

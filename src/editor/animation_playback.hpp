@@ -16,11 +16,7 @@ class AnimationPlaybackEditor {
             if (row.value("id", "") == selected && row.contains("components") &&
                 (row.at("components").contains("forge.animator") ||
                  row.at("components").contains("forge.animation_sequence") ||
-                 (row.at("components").contains("forge.transform_animator") &&
-                  row.at("components")
-                      .at("forge.transform_animator")
-                      .value("sequence", nlohmann::json())
-                      .is_null())))
+                 row.at("components").contains("forge.transform_animator")))
                 return EntityRef{effective.at("asset_id").get<AssetId>(),
                                  EntityId::parse(selected)};
         return {};
@@ -77,6 +73,27 @@ class AnimationPlaybackEditor {
                                    status.value("transition_weight", 1.) * 100);
             if (status.value("blend_weight", 0.) > 0)
                 ImGui::TextWrapped("Clip mix: %.1f%%", status.value("blend_weight", 0.) * 100);
+            const auto arrangement = status.find("sequence_clips");
+            if (arrangement != status.end() && arrangement->is_object() &&
+                arrangement->contains("clips") && arrangement->at("clips").is_array()) {
+                const auto& clips = arrangement->at("clips");
+                ImGui::TextWrapped("Active clips %zu and %zu of %zu",
+                                   arrangement->at("active_primary").get<std::size_t>() + 1,
+                                   arrangement->at("active_next").get<std::size_t>() + 1,
+                                   clips.size());
+                FORGE_UI_PROBE("live-animation:clip_window");
+                const bool open = ImGui::TreeNode("Clip placements");
+                FORGE_UI_PROBE("live-animation:placements");
+                if (open) {
+                    for (std::size_t i = 0; i < clips.size(); ++i) {
+                        ImGui::TextWrapped("Clip %zu: start %.3f s, duration %.3f s", i + 1,
+                                           clips[i].at("start_seconds").get<double>(),
+                                           clips[i].at("duration_seconds").get<double>());
+                        FORGE_UI_PROBE("live-animation:placement:" + std::to_string(i));
+                    }
+                    ImGui::TreePop();
+                }
+            }
         } else
             ImGui::TextWrapped(
                 "%s", status.is_object()

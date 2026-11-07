@@ -50,12 +50,23 @@ void sequence_material_blends(const std::filesystem::path& root) {
                                     {},
                                     {Json{{"key", "amount"}}, "value"}},
                                    incoming ? .8 : .2);
+        source.add_component_field({"forge.ui_values",
+                                    "values",
+                                    ui->at("admission"),
+                                    AnimationComponentValueType::Scalar,
+                                    {},
+                                    {Json{{"key", "amount2"}}, "value"}},
+                                   incoming ? .4 : .1);
         source.document["channels"] = Json::array();
         if (incoming) {
             std::reverse(source.document["material_bindings"].begin(),
                          source.document["material_bindings"].end());
             for (auto& key : source.document["keys"])
                 std::reverse(key["material_values"].begin(), key["material_values"].end());
+            std::reverse(source.document["component_bindings"].begin(),
+                         source.document["component_bindings"].end());
+            for (auto& key : source.document["keys"])
+                std::reverse(key["component_values"].begin(), key["component_values"].end());
         }
         document->edit(document->revision(), "Sequence material clip",
                        [&](auto& value) { value = source.document; });
@@ -78,7 +89,7 @@ void sequence_material_blends(const std::filesystem::path& root) {
     scene.entity(actor)
         .set<MeshRenderer>({engine_primitive(0)})
         .set<Light>({})
-        .set<UiValues>({{{"amount", .2}, {"manual", .75}}});
+        .set<UiValues>({{{"amount", .2}, {"amount2", .1}, {"manual", .75}}});
     TransformAnimator track{{first}};
     track.sequence = {scene.asset_id(), EntityId::parse(controller)};
     track.sequence_next_clip = {next};
@@ -108,10 +119,74 @@ void sequence_material_blends(const std::filesystem::path& root) {
         near(color->parameter.value[2], .3 - .2 * weight);
         near(color->parameter.value[3], 1);
         const auto& fields = target.get<UiValues>().values;
-        check(fields.size() == 2, "Mixed sequence resized reflected fields");
+        check(fields.size() == 3, "Mixed sequence resized reflected fields");
         for (const auto& value : fields)
-            near(value.value, value.name == "amount" ? .2 + .6 * weight : .75);
+            near(value.value, value.name == "amount"    ? .2 + .6 * weight
+                              : value.name == "amount2" ? .1 + .3 * weight
+                                                        : .75);
     };
+    {
+        auto collection = track;
+        for (std::size_t i = 2; i < sequence_clip_limit; ++i)
+            collection.sequence_extra_clips.push_back({{i % 2 ? next : first}, double(i)});
+        auto longer = sequence;
+        longer.duration = 10;
+        scene.entity(controller).set(longer);
+        scene.entity(actor).set(collection);
+        const auto collection_source = scene.document();
+        scene.restore_snapshot(saved);
+        World arranged(root, collection_source);
+        arranged.animation->catalog(catalog);
+        arranged.ready("Eight-clip Material/reflected collection");
+        for (const auto [time, expected] : std::array<std::array<double, 2>, 7>{{{1.5, .5},
+                                                                                 {2.25, .75},
+                                                                                 {3.75, .75},
+                                                                                 {4.25, .75},
+                                                                                 {5.5, .5},
+                                                                                 {7.75, .75},
+                                                                                 {8.5, 1}}}) {
+            AnimationPlaybackAccess::control(*arranged.animation, track.sequence,
+                                             {{"operation", "seek"}, {"position_seconds", time}});
+            verify(arranged.scene.entity(actor), expected);
+            near(arranged.scene.entity(actor).get<Light>().intensity, 2 + 4 * expected);
+        }
+        const auto recovered_collection = arranged.animation->checkpoint();
+        World restored(root, collection_source);
+        restored.animation->catalog(catalog);
+        restored.animation->restore(recovered_collection);
+        verify(restored.scene.entity(actor), 1);
+        // An incompatible future-only binding must reject the complete candidate.
+        const auto extra = make("OnlyExtra.animation.json", true);
+        collection.sequence_extra_clips.back().clip = {extra};
+        scene.entity(controller).set(longer);
+        scene.entity(actor).set(collection);
+        const auto extra_source = scene.document();
+        scene.restore_snapshot(saved);
+        World future(root, extra_source);
+        future.animation->catalog(
+            std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root)));
+        future.ready("Future-only extra Material clip");
+        const auto before_revision = future.scene.snapshot();
+        TransformAnimationDocument replacement(lease, "OnlyExtra.animation.json");
+        replacement.edit_source(replacement.revision(), "Future extra revision", [&](auto& source) {
+            source.set_material_value(source.clip().keys.front().id, slot, "roughnessFactor",
+                                      {1.2});
+        });
+        future.animation->catalog(publish(replacement));
+        rejects([&] { future.ready("Invalid future-only extra revision"); });
+        check(future.scene.snapshot() == before_revision,
+              "Future extra Material revision partially published current fields");
+        replacement.edit_source(replacement.revision(), "Future extra repair", [&](auto& source) {
+            source.set_material_value(source.clip().keys.front().id, slot, "roughnessFactor", {.4});
+        });
+        future.animation->catalog(publish(replacement));
+        future.ready("Corrected future-only extra revision");
+        AnimationPlaybackAccess::control(*future.animation, track.sequence,
+                                         {{"operation", "seek"}, {"position_seconds", 8.5}});
+        near(roughness(future.scene.entity(actor).get<MeshRenderer>()), .4);
+        check(!future.animation->playback(track.sequence)->finished,
+              "Collection child endpoint finished its longer controller");
+    }
     live.simulation.tick(1.f);
     live.simulation.tick(.5f);
     verify(entity, .5);
@@ -135,9 +210,11 @@ void sequence_material_blends(const std::filesystem::path& root) {
                          value.at("key") == "roughnessFactor" ? .35 : .15);
             near(row.at("components").at("forge.light").at("intensity"), 3);
             const auto& fields = row.at("components").at("forge.ui_values").at("values");
-            check(fields.size() == 2, "Mixed presentation resized reflected fields");
+            check(fields.size() == 3, "Mixed presentation resized reflected fields");
             for (const auto& value : fields)
-                near(value.at("value"), value.at("name") == "amount" ? .35 : .75);
+                near(value.at("value"), value.at("name") == "amount"    ? .35
+                                        : value.at("name") == "amount2" ? .175
+                                                                        : .75);
             found = true;
         }
     check(found && entity.get<MeshRenderer>() == native,

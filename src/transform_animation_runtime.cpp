@@ -3,6 +3,7 @@
 #include "animation_material_patch.hpp"
 #include "animation_material_values.hpp"
 #include "animation_property_state.hpp"
+#include "animation_sequence_binding.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
 #include <algorithm>
@@ -134,11 +135,17 @@ void TransformAnimationPlayback::synchronize() {
                            state.requested_next})
             if (asset.id)
                 previous_assets.insert(asset.id);
+        for (const auto& clip : state.config.sequence_extra_clips)
+            previous_assets.insert(clip.clip.id);
+        for (const auto clip : state.requested_extras)
+            previous_assets.insert(clip.id);
     }
     players_.each([&](flecs::entity entity, const TransformAnimator& config) {
         const auto reference = context_.reference(entity.id());
         if (entity.has(flecs::Prefab) || !reference || !config.enabled ||
-            (!config.clip.id && !config.sequence_next_clip.id) || !conditions.active(entity.id()))
+            (!config.clip.id && !config.sequence_next_clip.id &&
+             config.sequence_extra_clips.empty()) ||
+            !conditions.active(entity.id()))
             return;
         alive.insert(entity.id());
         if (alive.size() > 256) {
@@ -179,6 +186,14 @@ void TransformAnimationPlayback::synchronize() {
                                   sequence_states_.at(sequence).config.duration))
                 throw std::runtime_error(
                     "Next clip requires a sequence and a start within its duration");
+            animation_detail::validate_sequence_extras(config.sequence_extra_clips, config.clip,
+                                                       config.sequence_next_clip, bool(sequence),
+                                                       config.sequence_next_start_seconds);
+            for (const auto& extra : config.sequence_extra_clips) {
+                if (extra.start_seconds > sequence_states_.at(sequence).config.duration)
+                    throw std::runtime_error("Extra clip start exceeds the sequence duration");
+                used.insert(extra.clip.id);
+            }
             if (config.sequence_next_clip.id)
                 used.insert(config.sequence_next_clip.id);
             used.insert(config.clip.id);
@@ -188,10 +203,14 @@ void TransformAnimationPlayback::synchronize() {
                 state.config.sequence != config.sequence ||
                 state.config.sequence_start_seconds != config.sequence_start_seconds ||
                 state.config.sequence_next_clip != config.sequence_next_clip ||
+                state.config.sequence_extra_clips != config.sequence_extra_clips ||
                 (config.sequence_next_clip.id &&
                  state.config.sequence_next_start_seconds != config.sequence_next_start_seconds);
             state.requested = config.clip;
             state.requested_next = config.sequence_next_clip;
+            state.requested_extras.clear();
+            for (const auto& extra : config.sequence_extra_clips)
+                state.requested_extras.push_back(extra.clip);
             auto ticket = request(config.clip);
             state.ticket = ticket;
             auto clip = pool_.acquire(ticket);
@@ -202,6 +221,16 @@ void TransformAnimationPlayback::synchronize() {
                 pending_ = true;
                 return;
             }
+            const auto validate_channels = [&](const TransformAnimationClip& incoming) {
+                const auto supported = [](const TransformAnimationClip& value) {
+                    return value.channels || value.properties || !value.material_bindings.empty() ||
+                           !value.component_bindings.empty();
+                };
+                if (!supported(clip.get()) || !supported(incoming) ||
+                    clip->channels != incoming.channels || clip->properties != incoming.properties)
+                    throw std::runtime_error("Sequence crossfade requires matching transform "
+                                             "channels and built-in property tracks");
+            };
             ResourceTicket next_ticket;
             ResourceLease<TransformAnimationAsset> next_clip;
             std::optional<detail::SequenceClipSpan> span;
@@ -216,27 +245,56 @@ void TransformAnimationPlayback::synchronize() {
                     pending_ = true;
                     return;
                 }
-                const auto supported_pair = [](const TransformAnimationClip& value) {
-                    return value.channels || value.properties || !value.material_bindings.empty() ||
-                           !value.component_bindings.empty();
-                };
-                if (!supported_pair(clip.get()) || !supported_pair(next_clip.get()) ||
-                    clip->channels != next_clip->channels ||
-                    clip->properties != next_clip->properties)
-                    throw std::runtime_error(
-                        "Sequence crossfade requires matching transform channels and built-in "
-                        "property tracks");
+                validate_channels(next_clip.get());
                 span = detail::SequenceClipSpan::make(config.sequence_start_seconds,
                                                       config.sequence_next_start_seconds,
                                                       clip->duration, next_clip->duration);
             }
+            std::array<ExtraClip, sequence_clip_limit - 2> extra_clips{};
+            state.extra_tickets.resize(config.sequence_extra_clips.size());
+            // Pending revisions stay distinct from admitted leases, including
+            // repairs of a previously rejected Material target.
+            for (std::size_t i = 0; i < config.sequence_extra_clips.size(); ++i)
+                state.extra_tickets[i] = request(config.sequence_extra_clips[i].clip);
+            for (std::size_t i = 0; i < config.sequence_extra_clips.size(); ++i) {
+                auto& extra = extra_clips[i];
+                const auto& requested = state.extra_tickets[i];
+                extra.clip = pool_.acquire(requested);
+                if (!extra.clip) {
+                    const auto info = requested.inspect();
+                    if (resource_detail::terminal(info.state))
+                        throw std::runtime_error(info.diagnostic);
+                    pending_ = true;
+                    return;
+                }
+                validate_channels(extra.clip.get());
+            }
+            std::optional<detail::SequenceClipArrangement> arrangement;
+            if (!config.sequence_extra_clips.empty()) {
+                std::array<detail::SequenceClipArrangement::Clip, sequence_clip_limit> placements{};
+                placements[0] = {config.sequence_start_seconds, double(clip->duration)};
+                placements[1] = {config.sequence_next_start_seconds, double(next_clip->duration)};
+                for (std::size_t i = 0; i < config.sequence_extra_clips.size(); ++i)
+                    placements[i + 2] = {config.sequence_extra_clips[i].start_seconds,
+                                         double(extra_clips[i].clip->duration)};
+                arrangement = detail::SequenceClipArrangement::make(
+                    std::span(placements).first(config.sequence_extra_clips.size() + 2));
+            }
+            bool extra_revision_changed =
+                state.extra_clips.size() != config.sequence_extra_clips.size();
+            if (!extra_revision_changed)
+                for (std::size_t i = 0; i < state.extra_clips.size(); ++i)
+                    extra_revision_changed |=
+                        state.extra_clips[i].clip.identity() != extra_clips[i].clip.identity();
             const bool next_revision_changed = bool(state.next_clip) != bool(next_clip) ||
                                                (state.next_clip && next_clip &&
                                                 state.next_clip.identity() != next_clip.identity());
-            const bool pair_changed = changed || !state.clip || next_revision_changed ||
-                                      state.clip.identity().revision != clip.identity().revision;
+            const bool clips_changed = changed || !state.clip || next_revision_changed ||
+                                       extra_revision_changed ||
+                                       state.clip.identity().revision != clip.identity().revision;
             std::vector<std::size_t> material_order, component_order;
-            if (pair_changed) {
+            std::vector<ExtraClip> admitted_extras;
+            if (clips_changed) {
                 if (next_clip) {
                     material_order = sequence_binding_order(
                         clip->material_bindings, next_clip->material_bindings,
@@ -248,17 +306,34 @@ void TransformAnimationPlayback::synchronize() {
                 (void)prepare_animation_components(context_, entity, clip.get(), 0, true);
                 if (next_clip)
                     (void)prepare_animation_components(context_, entity, next_clip.get(), 0, true);
+                admitted_extras.reserve(config.sequence_extra_clips.size());
+                for (std::size_t i = 0; i < config.sequence_extra_clips.size(); ++i) {
+                    auto& extra = extra_clips[i];
+                    extra.material_order = sequence_binding_order(
+                        clip->material_bindings, extra.clip->material_bindings,
+                        "Material slots, keys and semantic types");
+                    extra.component_order = sequence_binding_order(
+                        clip->component_bindings, extra.clip->component_bindings,
+                        "reflected fields, schemas and value types");
+                    (void)prepare_animation_components(context_, entity, extra.clip.get(), 0, true);
+                    admitted_extras.push_back(std::move(extra));
+                }
             }
             if (clip->properties & AnimationPropertyState::sprite_mask) {
                 const auto values =
                     AnimationPropertyState::from(entity, AnimationPropertyState::sprite_mask);
                 const auto frames = detail::sprite_frame_key_limit(*values.sprite);
-                if (changed || next_revision_changed || !state.clip ||
+                if (changed || next_revision_changed || extra_revision_changed || !state.clip ||
                     state.clip.identity().revision != clip.identity().revision ||
                     state.sprite_frames != frames) {
                     values.validate_clip(clip.get());
                     if (next_clip)
                         values.validate_clip(next_clip.get());
+                    for (const auto& extra : admitted_extras)
+                        values.validate_clip(extra.clip.get());
+                    if (!clips_changed)
+                        for (const auto& extra : state.extra_clips)
+                            values.validate_clip(extra.clip.get());
                 }
                 state.sprite_frames = frames;
             } else
@@ -267,8 +342,7 @@ void TransformAnimationPlayback::synchronize() {
                 state.time = 0;
                 state.playing = config.play_on_start;
             }
-            if (changed || !state.clip || next_revision_changed ||
-                state.clip.identity().revision != clip.identity().revision) {
+            if (clips_changed) {
                 state.discontinuous = true;
                 state.previous = state.time;
                 state.advance = 0;
@@ -281,7 +355,11 @@ void TransformAnimationPlayback::synchronize() {
             state.next_clip = std::move(next_clip);
             state.next_ticket = std::move(next_ticket);
             state.span = std::move(span);
-            if (pair_changed) {
+            state.arrangement = std::move(arrangement);
+            if (clips_changed) {
+                state.extra_clips = std::move(admitted_extras);
+                if (extra_revision_changed)
+                    state.material.reset();
                 state.material_order = std::move(material_order);
                 state.component_order = std::move(component_order);
             }
@@ -297,10 +375,13 @@ void TransformAnimationPlayback::synchronize() {
     });
     auto retained = used;
     for (const auto& [id, state] : states_)
-        if (alive.contains(id))
+        if (alive.contains(id)) {
             for (auto asset : {state.config.clip, state.config.sequence_next_clip})
                 if (asset.id)
                     retained.insert(asset.id);
+            for (const auto& extra : state.config.sequence_extra_clips)
+                retained.insert(extra.clip.id);
+        }
     // Keep admitted last-good leases while a replacement prepares. Retire old
     // requests through the same bounded pool, including changes on live actors.
     for (auto asset : previous_assets)
@@ -317,77 +398,121 @@ void TransformAnimationPlayback::synchronize() {
     synchronize_audio_cues();
 }
 double TransformAnimationPlayback::clip_span_duration(const State& state) const {
+    if (state.arrangement)
+        return state.arrangement->duration_us;
     return state.span ? state.span->duration_us : double(state.clip->duration);
 }
+AssetRef<TransformAnimationAsset>
+TransformAnimationPlayback::clip_reference(const State& state, std::size_t index) const {
+    return index == 0   ? state.config.clip
+           : index == 1 ? state.config.sequence_next_clip
+                        : state.config.sequence_extra_clips.at(index - 2).clip;
+}
+double TransformAnimationPlayback::clip_start_seconds(const State& state, std::size_t index) const {
+    return index == 0   ? state.config.sequence_start_seconds
+           : index == 1 ? state.config.sequence_next_start_seconds
+                        : state.config.sequence_extra_clips.at(index - 2).start_seconds;
+}
+TransformAnimationPlayback::ClipView
+TransformAnimationPlayback::clip_view(const State& state, std::size_t index) const {
+    if (index == 0)
+        return {state.clip.get(), {}, {}};
+    if (index == 1)
+        return {state.next_clip.get(), state.material_order, state.component_order};
+    const auto& clip = state.extra_clips.at(index - 2);
+    return {clip.clip.get(), clip.material_order, clip.component_order};
+}
+detail::SequenceClipArrangement::Sample TransformAnimationPlayback::clip_sample(const State& state,
+                                                                                double time) const {
+    if (state.arrangement)
+        return state.arrangement->sample(time);
+    const bool pair = state.span && state.next_clip;
+    return {
+        0, pair ? 1u : 0u, std::clamp(time, 0., double(state.clip->duration)),
+        pair ? std::clamp(time - state.span->next_offset_us, 0., double(state.next_clip->duration))
+             : 0.,
+        pair ? state.span->next_weight(time) : 0.};
+}
 LocalTransform TransformAnimationPlayback::sample_pose(const State& state, double time) const {
-    const auto first = state.clip->sample(time);
-    if (!state.span || !state.next_clip)
+    const auto sample = clip_sample(state, time);
+    const auto first = clip_view(state, sample.primary).clip.sample(sample.primary_us);
+    if (sample.weight == 0)
         return first;
-    const auto weight = state.span->next_weight(time);
-    if (weight == 0)
-        return first;
-    const auto next = state.next_clip->sample(time - state.span->next_offset_us);
-    return weight == 1 ? next : interpolate_animation_poses(first, next, weight);
+    const auto next = clip_view(state, sample.next).clip.sample(sample.next_us);
+    return sample.weight == 1 ? next : interpolate_animation_poses(first, next, sample.weight);
 }
 AnimationPropertyValues TransformAnimationPlayback::sample_properties(const State& state,
                                                                       double time) const {
-    auto first = state.clip->sample_properties(time);
-    if (!state.span || !state.next_clip)
+    const auto sample = clip_sample(state, time);
+    auto first = clip_view(state, sample.primary).clip.sample_properties(sample.primary_us);
+    if (sample.weight == 0)
         return first;
-    const auto weight = state.span->next_weight(time);
-    if (weight == 0)
-        return first;
-    const auto next = state.next_clip->sample_properties(time - state.span->next_offset_us);
-    if (weight == 1)
+    const auto next = clip_view(state, sample.next).clip.sample_properties(sample.next_us);
+    if (sample.weight == 1)
         return next;
     for (const auto& binding : animation_property_bindings()) {
         if (!(state.clip->properties & animation_property_bit(binding.property)))
             continue;
         const auto index = unsigned(binding.property);
         first[index] = animation_property_discrete(binding.property)
-                           ? (weight < .5 ? first[index] : next[index])
-                           : std::lerp(first[index], next[index], weight);
+                           ? (sample.weight < .5 ? first[index] : next[index])
+                           : std::lerp(first[index], next[index], sample.weight);
     }
     return first;
 }
 void TransformAnimationPlayback::sample_materials(const State& state, double time,
                                                   std::span<AnimationMaterialValues> output) const {
-    state.clip->sample_materials(time, output);
-    if (!state.span || !state.next_clip)
+    const auto sample = clip_sample(state, time);
+    const auto first = clip_view(state, sample.primary);
+    if (first.material_order.empty())
+        first.clip.sample_materials(sample.primary_us, output);
+    else {
+        std::array<AnimationMaterialValues, material_parameter_override_limit> values;
+        first.clip.sample_materials(sample.primary_us, std::span(values).first(output.size()));
+        for (std::size_t i = 0; i < output.size(); ++i)
+            output[i] = values[first.material_order[i]];
+    }
+    if (sample.weight == 0)
         return;
-    const double weight = state.span->next_weight(time);
-    if (weight == 0)
-        return;
+    const auto next = clip_view(state, sample.next);
     std::array<AnimationMaterialValues, material_parameter_override_limit> incoming;
-    state.next_clip->sample_materials(time - state.span->next_offset_us,
-                                      std::span(incoming).first(output.size()));
+    next.clip.sample_materials(sample.next_us, std::span(incoming).first(output.size()));
     for (std::size_t i = 0; i < output.size(); ++i)
         for (unsigned lane = 0;
              lane < material_parameter_width(state.clip->material_bindings[i].type); ++lane) {
-            const double next = incoming[state.material_order.at(i)][lane];
-            output[i][lane] = weight == 1 ? next : std::lerp(output[i][lane], next, weight);
+            const double value =
+                incoming[next.material_order.empty() ? i : next.material_order[i]][lane];
+            output[i][lane] =
+                sample.weight == 1 ? value : std::lerp(output[i][lane], value, sample.weight);
         }
 }
 void TransformAnimationPlayback::sample_components(const State& state, double time,
                                                    std::span<Json> output) const {
-    state.clip->sample_component_values(time, output);
-    if (!state.span || !state.next_clip)
+    const auto sample = clip_sample(state, time);
+    const auto first = clip_view(state, sample.primary);
+    if (first.component_order.empty())
+        first.clip.sample_component_values(sample.primary_us, output);
+    else {
+        std::array<Json, 64> values;
+        first.clip.sample_component_values(sample.primary_us,
+                                           std::span(values).first(output.size()));
+        for (std::size_t i = 0; i < output.size(); ++i)
+            output[i] = values[first.component_order[i]];
+    }
+    if (sample.weight == 0)
         return;
-    const double weight = state.span->next_weight(time);
-    if (weight == 0)
-        return;
+    const auto next = clip_view(state, sample.next);
     std::array<Json, 64> incoming;
-    state.next_clip->sample_component_values(time - state.span->next_offset_us,
-                                             std::span(incoming).first(output.size()));
+    next.clip.sample_component_values(sample.next_us, std::span(incoming).first(output.size()));
     for (std::size_t i = 0; i < output.size(); ++i) {
-        const auto& next = incoming[state.component_order.at(i)];
-        if (weight == 1)
-            output[i] = next;
+        const auto& value = incoming[next.component_order.empty() ? i : next.component_order[i]];
+        if (sample.weight == 1)
+            output[i] = value;
         else if (state.clip->component_bindings[i].value_type ==
                  AnimationComponentValueType::Scalar)
-            output[i] = std::lerp(output[i].get<double>(), next.get<double>(), weight);
-        else if (weight >= .5)
-            output[i] = next;
+            output[i] = std::lerp(output[i].get<double>(), value.get<double>(), sample.weight);
+        else if (sample.weight >= .5)
+            output[i] = value;
     }
 }
 bool TransformAnimationPlayback::has_next_sequence_clips() const {
@@ -575,7 +700,17 @@ void TransformAnimationPlayback::tick(double seconds, bool deliver_events) {
             state.time = sequence_time(state, group->second.time);
             state.advance = state.time - state.previous;
             state.discontinuous |= group->second.discontinuous;
-            if (state.span && state.next_clip && state.advance > 0) {
+            if (state.arrangement && state.advance > 0) {
+                state.discontinuous |= state.arrangement->cut_crossed(state.previous, state.time);
+                for (std::size_t i = 0; i < state.arrangement->size(); ++i) {
+                    const auto offset = state.arrangement->clip_offset_us(i);
+                    const auto duration = state.arrangement->clip_duration_us(i);
+                    state.discontinuous |=
+                        held_crossed(clip_view(state, i).clip.keys,
+                                     std::clamp(state.previous - offset, 0., duration),
+                                     std::clamp(state.time - offset, 0., duration));
+                }
+            } else if (state.span && state.next_clip && state.advance > 0) {
                 state.discontinuous |=
                     state.span->cut_crossed(state.previous, state.time) ||
                     held_crossed(state.next_clip->keys,
@@ -584,7 +719,7 @@ void TransformAnimationPlayback::tick(double seconds, bool deliver_events) {
                                  std::clamp(state.time - state.span->next_offset_us, 0.,
                                             state.span->next_duration_us));
             }
-            if (state.time >= state.previous &&
+            if (!state.arrangement && state.time >= state.previous &&
                 held_crossed(state.clip->keys, state.previous, state.time))
                 state.discontinuous = true;
         } else if (state.playing) {
@@ -726,6 +861,14 @@ std::vector<std::uint64_t> TransformAnimationPlayback::take_discontinuities() {
     discontinuities_.clear();
     return result;
 }
+Json TransformAnimationPlayback::extra_clips_checkpoint(const State& state) const {
+    auto result = Json::array();
+    for (std::size_t i = 0; i < state.extra_clips.size(); ++i)
+        result.push_back({{"clip", state.config.sequence_extra_clips[i].clip.id},
+                          {"start_seconds", state.config.sequence_extra_clips[i].start_seconds},
+                          {"revision", state.extra_clips[i].clip.identity().revision}});
+    return result;
+}
 Json TransformAnimationPlayback::checkpoint() const {
     if (!checkpoint_ready())
         throw std::runtime_error("Transform animation is not ready for recovery");
@@ -747,13 +890,15 @@ Json TransformAnimationPlayback::checkpoint() const {
             value["sequence_next_revision"] = state.next_clip.identity().revision;
             value["sequence_next_start_seconds"] = state.config.sequence_next_start_seconds;
         }
+        if (state.arrangement)
+            value["sequence_extra_clips"] = extra_clips_checkpoint(state);
         result.push_back(std::move(value));
     }
     return result;
 }
 void TransformAnimationPlayback::restore(const Json& values) { restore(values, Json::array()); }
 void TransformAnimationPlayback::restore(const Json& values, const Json& sequences,
-                                         unsigned profile, bool rates) {
+                                         unsigned profile, bool rates, bool arrangements) {
     const bool audio_entries = profile >= 5;
     const bool nested_entries = profile >= 7;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
@@ -844,6 +989,13 @@ void TransformAnimationPlayback::restore(const Json& values, const Json& sequenc
                    value.contains("sequence_next_revision") ||
                    value.contains("sequence_next_start_seconds"))
             throw std::runtime_error("Unexpected sequence next clip recovery metadata");
+        if (state.arrangement) {
+            if (!arrangements || !value.contains("sequence_extra_clips") ||
+                value.at("sequence_extra_clips") != extra_clips_checkpoint(state))
+                throw std::runtime_error(
+                    "Sequence collection recovery resource/configuration differs");
+        } else if (value.contains("sequence_extra_clips"))
+            throw std::runtime_error("Unexpected sequence collection recovery metadata");
         const auto expected_sequence =
             state.config.sequence.entity ? Json(state.config.sequence) : Json();
         if (value.value("sequence", Json()) != expected_sequence ||
