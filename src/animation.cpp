@@ -630,63 +630,73 @@ RootRigid sequence_root_motion(Playback& p, std::size_t joint,
                                const TransformAnimationPlayback::SequenceInterval& interval) {
     if (!std::isfinite(interval.begin) || !std::isfinite(interval.advance) ||
         !std::isfinite(interval.duration) || interval.duration <= 0 || interval.begin < 0 ||
-        interval.begin > interval.duration || interval.advance < 0 ||
-        !std::isfinite(interval.rate) || interval.rate <= 0)
+        interval.begin > interval.duration || interval.advance < 0 || !interval.placement ||
+        !std::isfinite(interval.placement->rate()) || interval.placement->rate() <= 0)
         throw ArchiveError("Skeletal sequence root motion interval is invalid");
     if (interval.advance == 0)
         return {};
-    const auto track_time = [&](double root_time) {
-        return sequence_track_time(
-            p, std::min(interval.local_duration,
-                        std::clamp(root_time - interval.offset, 0.,
-                                   std::max(0., interval.end - interval.offset)) *
-                            interval.rate));
-    };
     const auto part = [&](double begin, double end) {
-        std::array<double, sequence_clip_limit * 2 + 4> points{begin, end};
-        std::size_t count = 2;
-        const auto split = [&](double point) {
-            if (point > begin && point < end)
-                points.at(count++) = point;
-        };
-        split(interval.offset);
-        split(interval.end);
-        const auto clip_count = p.sequence_arrangement ? p.sequence_arrangement->size()
-                                : p.sequence_span      ? 2u
-                                                       : 1u;
-        for (std::size_t i = 0; i < clip_count; ++i) {
-            const auto start = sequence_clip_start(p, i);
-            split(interval.offset + start / interval.rate);
-            split(interval.offset +
-                  (start + sequence_clip_assets(p, i).clip->info().duration) / interval.rate);
-        }
-        std::sort(points.begin(), points.begin() + count);
         RootRigid result;
-        for (std::size_t i = 1; i < count; ++i) {
-            const auto from = track_time(points[i - 1]), to = track_time(points[i]);
-            if (from == to)
+        for (const auto& span : interval.placement->spans()) {
+            if (!span.active)
                 continue;
-            auto first = sequence_clip_sample(p, from);
-            auto last = sequence_clip_sample(p, to);
-            if (p.sequence_arrangement) {
-                const auto window =
-                    p.sequence_arrangement->sample((from + to) * .5 * animation_timebase).primary;
-                first = p.sequence_arrangement->sample_window(window, from * animation_timebase);
-                last = p.sequence_arrangement->sample_window(window, to * animation_timebase);
-            }
-            const auto motion = [&](std::size_t index, double begin_us, double end_us) {
-                return begin_us == end_us ? RootRigid{}
-                                          : layer_motion(p, sequence_clip_assets(p, index), joint,
-                                                         begin_us / animation_timebase,
-                                                         (end_us - begin_us) / animation_timebase,
-                                                         false, end_us / animation_timebase, {});
+            const auto first_time = std::max(begin, span.begin / animation_timebase);
+            const auto last_time = std::min(end, span.end / animation_timebase);
+            if (last_time <= first_time)
+                continue;
+            const auto track_time = [&](double root_time) {
+                return sequence_track_time(
+                    p, span.sample(root_time * animation_timebase, interval.placement->rate()) /
+                           animation_timebase);
             };
-            auto delta = motion(first.primary, first.primary_us, last.primary_us);
-            if (p.sequence_span) {
-                const auto next = motion(first.next, first.next_us, last.next_us);
-                delta = root_blend(delta, next, (first.weight + last.weight) * .5);
+            std::array<double, sequence_clip_limit * 2 + 2> points{first_time, last_time};
+            std::size_t count = 2;
+            const auto split = [&](double point) {
+                if (point > first_time && point < last_time)
+                    points.at(count++) = point;
+            };
+            const auto clip_count = p.sequence_arrangement ? p.sequence_arrangement->size()
+                                    : p.sequence_span      ? 2u
+                                                           : 1u;
+            for (std::size_t i = 0; i < clip_count; ++i) {
+                const auto start = sequence_clip_start(p, i);
+                const auto root_point = [&](double local) {
+                    return span.root_point(local * animation_timebase, interval.placement->rate()) /
+                           animation_timebase;
+                };
+                split(root_point(start));
+                split(root_point(start + sequence_clip_assets(p, i).clip->info().duration));
             }
-            result = root_compose(result, delta);
+            std::sort(points.begin(), points.begin() + count);
+            for (std::size_t i = 1; i < count; ++i) {
+                const auto from = track_time(points[i - 1]), to = track_time(points[i]);
+                if (from == to)
+                    continue;
+                auto first = sequence_clip_sample(p, from);
+                auto last = sequence_clip_sample(p, to);
+                if (p.sequence_arrangement) {
+                    const auto window =
+                        p.sequence_arrangement->sample((from + to) * .5 * animation_timebase)
+                            .primary;
+                    first =
+                        p.sequence_arrangement->sample_window(window, from * animation_timebase);
+                    last = p.sequence_arrangement->sample_window(window, to * animation_timebase);
+                }
+                const auto motion = [&](std::size_t index, double begin_us, double end_us) {
+                    return begin_us == end_us
+                               ? RootRigid{}
+                               : layer_motion(p, sequence_clip_assets(p, index), joint,
+                                              begin_us / animation_timebase,
+                                              (end_us - begin_us) / animation_timebase, false,
+                                              end_us / animation_timebase, {});
+                };
+                auto delta = motion(first.primary, first.primary_us, last.primary_us);
+                if (p.sequence_span) {
+                    const auto next = motion(first.next, first.next_us, last.next_us);
+                    delta = root_blend(delta, next, (first.weight + last.weight) * .5);
+                }
+                result = root_compose(result, delta);
+            }
         }
         return result;
     };
@@ -3658,24 +3668,45 @@ Json AnimationRuntime::checkpoint() const {
         result["sequence_arrangement_profile"] = result.at("version").get<unsigned>();
         result["version"] = 12;
     }
+    if (impl_ && impl_->transforms.has_sequence_loops()) {
+        result["sequence_loop_profile"] = result.at("version").get<unsigned>();
+        result["version"] = 13;
+        result["sequence_entries"] =
+            impl_->transforms.sequence_checkpoint(7, impl_->transforms.has_sequence_rates(), true);
+    }
     return result;
 }
 void AnimationRuntime::restore(const Json& input) {
     if (!impl_)
         throw ArchiveError("Animation runtime is unavailable");
     std::optional<Json> normalized;
-    const bool arrangement_profile = input.at("version") == 12;
-    if (arrangement_profile) {
-        if (!input.at("version").is_number_integer() ||
-            !input.contains("sequence_arrangement_profile") ||
-            !input.at("sequence_arrangement_profile").is_number_unsigned() ||
-            input.at("sequence_arrangement_profile").get<unsigned>() < 3 ||
-            input.at("sequence_arrangement_profile").get<unsigned>() > 11)
-            throw ArchiveError("Sequence collection recovery profile is invalid");
+    const bool loop_profile = input.at("version") == 13;
+    if (loop_profile) {
+        if (!input.at("version").is_number_integer() || !input.contains("sequence_loop_profile") ||
+            !input.at("sequence_loop_profile").is_number_unsigned() ||
+            input.at("sequence_loop_profile").get<unsigned>() < 7 ||
+            input.at("sequence_loop_profile").get<unsigned>() > 12)
+            throw ArchiveError("Sequence placement-loop recovery profile is invalid");
         normalized = input;
-        normalized->at("version") = input.at("sequence_arrangement_profile");
+        normalized->at("version") = input.at("sequence_loop_profile");
+        normalized->erase("sequence_loop_profile");
+    } else if (input.contains("sequence_loop_profile"))
+        throw ArchiveError("Unexpected sequence placement-loop recovery profile");
+    const auto& arrangement_input = normalized ? *normalized : input;
+    const bool arrangement_profile = arrangement_input.at("version") == 12;
+    if (arrangement_profile) {
+        if (!arrangement_input.at("version").is_number_integer() ||
+            !arrangement_input.contains("sequence_arrangement_profile") ||
+            !arrangement_input.at("sequence_arrangement_profile").is_number_unsigned() ||
+            arrangement_input.at("sequence_arrangement_profile").get<unsigned>() < 3 ||
+            arrangement_input.at("sequence_arrangement_profile").get<unsigned>() > 11)
+            throw ArchiveError("Sequence collection recovery profile is invalid");
+        const auto underlying = arrangement_input.at("sequence_arrangement_profile");
+        if (!normalized)
+            normalized = arrangement_input;
+        normalized->at("version") = underlying;
         normalized->erase("sequence_arrangement_profile");
-    } else if (input.contains("sequence_arrangement_profile"))
+    } else if (arrangement_input.contains("sequence_arrangement_profile"))
         throw ArchiveError("Unexpected sequence collection recovery profile");
     const auto& rate_input = normalized ? *normalized : input;
     const bool rate_profile = rate_input.at("version") == 11;
@@ -4087,7 +4118,7 @@ void AnimationRuntime::restore(const Json& input) {
     swap_sources();
     impl_->transforms.restore(data.value("transform_entries", Json::array()),
                               data.at("version") >= 3 ? data.at("sequence_entries") : Json::array(),
-                              sequence_profile, rate_profile, arrangement_profile);
+                              sequence_profile, rate_profile, arrangement_profile, loop_profile);
     for (auto& value : values) {
         auto& p = *value.playback;
         const auto time = value.time;

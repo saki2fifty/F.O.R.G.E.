@@ -480,37 +480,62 @@ void camera_profile_recovery(const std::filesystem::path& root, const Json& sour
     for (std::size_t i = 2; i < sequence_clip_limit; ++i)
         track.sequence_extra_clips.push_back({track.clip, i * spacing});
     scene.entity(sibling).set(track);
-    const auto collection_source = scene.document();
-    World collection(root, collection_source, actor);
-    AnimationPlaybackAccess::control(*collection.animation, group,
-                                     {{"operation", "seek"}, {"position_seconds", 1.5}});
-    const auto collection_graph = collection.pose(.25);
-    const auto collection_sibling =
-        collection.animation->presentation(collection.scene.entity(sibling).id(), 1);
-    const auto collection_checkpoint = collection.animation->checkpoint();
-    check(collection_checkpoint.at("version") == 12 &&
-              collection_checkpoint.at("sequence_arrangement_profile") == 11 &&
-              collection_checkpoint.at("sequence_rate_profile") == 10 &&
-              collection_checkpoint.at("skeletal_sequence_profile") == 9 &&
-              collection_checkpoint.at("animation_profile") == 8 &&
-              collection_checkpoint.at("sequence_profile") == 7,
-          "Eight-clip recovery lost a graph/camera/nested/rate profile");
-    World collection_cold(root, collection_source, actor, false);
-    collection_cold.animation->restore(collection_checkpoint);
-    same_pose(collection_cold.current_pose(), collection_graph, "Graph under collection recovery");
-    same_pose(
-        collection_cold.animation->presentation(collection_cold.scene.entity(sibling).id(), 1),
-        collection_sibling, "Eight-clip sibling recovery");
-    check(collection_cold.animation->checkpoint() == collection_checkpoint,
-          "Cold composed collection recovery changed its exact checkpoint");
-    for (const char* field :
-         {"sequence_arrangement_profile", "sequence_rate_profile", "skeletal_sequence_profile",
-          "animation_profile", "sequence_profile"}) {
-        auto invalid = collection_checkpoint;
-        invalid[field] = 1u;
-        rejects([&] { collection_cold.animation->restore(invalid); });
+    for (const bool looping : {false, true}) {
+        child.sequence_loop = looping;
+        scene.entity(child_id).set(child);
+        const auto collection_source = scene.document();
+        World collection(root, collection_source, actor);
+        AnimationPlaybackAccess::control(*collection.animation, group,
+                                         {{"operation", "seek"}, {"position_seconds", 1.5}});
+        const auto collection_graph = collection.pose(.25);
+        const auto collection_sibling =
+            collection.animation->presentation(collection.scene.entity(sibling).id(), 1);
+        const auto collection_checkpoint = collection.animation->checkpoint();
+        check(collection_checkpoint.at("version") == (looping ? 13 : 12) &&
+                  (!looping || collection_checkpoint.at("sequence_loop_profile") == 12) &&
+                  collection_checkpoint.at("sequence_arrangement_profile") == 11 &&
+                  collection_checkpoint.at("sequence_rate_profile") == 10 &&
+                  collection_checkpoint.at("skeletal_sequence_profile") == 9 &&
+                  collection_checkpoint.at("animation_profile") == 8 &&
+                  collection_checkpoint.at("sequence_profile") == 7,
+              "Eight-clip recovery lost a graph/camera/nested/rate profile");
+        World collection_cold(root, collection_source, actor, false);
+        collection_cold.animation->restore(collection_checkpoint);
+        same_pose(collection_cold.current_pose(), collection_graph,
+                  "Graph under collection recovery");
+        same_pose(
+            collection_cold.animation->presentation(collection_cold.scene.entity(sibling).id(), 1),
+            collection_sibling, "Eight-clip sibling recovery");
         check(collection_cold.animation->checkpoint() == collection_checkpoint,
-              "Rejected collection wrapper changed an admitted world");
+              "Cold composed collection recovery changed its exact checkpoint");
+        std::vector<const char*> wrappers{"sequence_arrangement_profile", "sequence_rate_profile",
+                                          "skeletal_sequence_profile", "animation_profile",
+                                          "sequence_profile"};
+        if (looping)
+            wrappers.push_back("sequence_loop_profile");
+        for (const char* field : wrappers) {
+            auto invalid = collection_checkpoint;
+            invalid[field] = 1u;
+            rejects([&] { collection_cold.animation->restore(invalid); });
+            check(collection_cold.animation->checkpoint() == collection_checkpoint,
+                  "Rejected collection wrapper changed an admitted world");
+        }
+        if (looping)
+            for (const bool stripped : {false, true}) {
+                auto invalid = collection_checkpoint;
+                if (stripped) {
+                    invalid["version"] = invalid.at("sequence_loop_profile");
+                    invalid.erase("sequence_loop_profile");
+                } else
+                    for (auto& entry : invalid["sequence_entries"])
+                        if (entry.at("entity") == Json(scene.reference(child_id)))
+                            entry["sequence_loop"] = false;
+                rejects([&] { collection_cold.animation->restore(invalid); });
+                check(collection_cold.animation->checkpoint() == collection_checkpoint,
+                      "Rejected compound loop recovery changed an admitted world");
+                same_pose(collection_cold.current_pose(), collection_graph,
+                          "Graph after rejected loop recovery");
+            }
     }
 }
 void work_budget_cases(const std::filesystem::path& root,

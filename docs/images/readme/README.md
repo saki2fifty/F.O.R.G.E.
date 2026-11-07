@@ -1603,19 +1603,35 @@ Windows/MSVC/D3D12, physical input/DPI/GPU/audio, performance or graphical EXE
 acceptance.
 
 
-## Nested sequence Timeline
+## Nested sequence and child-loop Timeline
 
 [Nested sequence placement](../../../manual/images/nested-sequences.png) is the
-unretouched 720×1100 production Animation Timeline at 100%, rendered by the SDL/ImGui
-software fixture with the project font. Actual pointer input selects the original
-Gallery146 child row on its eight-second parent. The green six-second placement,
-start/rate fields, Apply placement timing/Reset pending placement timing, local
-navigation and detachment are visible. Source Scene files are unchanged by capture.
-Frame export is disabled because this isolated fixture has no graphical Game host.
-PNG SHA256: `4ac8a14a3a594cbd98c23de84db01bc783b113cfb6c10ab43bfc200edb4a88f8`.
-Capture: forge_animation_sequence_editor_tests --capture-nested; local native
-build from 351e03a plus placement-rate changes, unassigned build identity. Exact
-C++/CMake input digest: `78e946af839eca00c00fb7b2fdb10f667ae22b7196d1ea5dc9e8b210d9dfc970`.
+unretouched 720×1200 production Timeline, rendered at 100% by the SDL/ImGui software
+fixture with the project font. Actual pointer input selects Gallery188's fast
+repeating child. The image shows its parent-length strip/cycle marks, start/rate/
+Loop in parent controls and shared Scene history actions. All required controls
+are inside the fixture clip bounds. Frame export is disabled because this isolated
+fixture has no graphical Game host. PNG SHA256: `f19a4f98837f1e817235b609adb31b047c6d34af5652543fae4450dbc5b98755`.
+
+Capture: forge_animation_sequence_editor_tests --capture-child-loops, product Scene
+`464f19c9-df21-40d7-bed2-6cc379eba627`, local source based on 66688f9 with child-loop
+changes; unassigned build identity. C++/CMake input digest:
+`b58de8b671032e2db11ee2c67f5f9d913f6fed4ae1c3191cb7e52f6467bb0bee`. Build/test receipts are
+child-loop-composed-capture-build/tests.json in local batch 285 evidence. This is
+neither full Windows Main nor physical GPU/DPI/input/performance acceptance.
+
+[Child-loop Game output](../../../manual/images/child-sequence-loop-game.png) is
+Gallery188's actual 640×360 RuntimeWorld/FrameRenderer readback at fixed tick 405,
+approximately 6.75s, on Diligent software Vulkan. Lossless PPM-to-PNG conversion
+preserves all RGB bytes/dimensions. Four exact authored/source-hidden relocated
+pairs cover ticks 75/225/405 plus portrait presentation. PNG SHA256:
+`ce896f6746a0403b8eb16d8854d40c7b3586aa2f7298ab2975b462ca06bfedb2`. C++/CMake input digest:
+`493c04541aca5f6154a28ca59f064e8d249e195f4ab8346c26ddcb47dc987c3f`. Receipts are child-loop-vulkan-build.json
+and child-loop-product-vulkan-tests.json in local batch 285 evidence. All four
+source images and the controls capture were personally reviewed. No image was
+cropped, resized, annotated, composited, retouched or generated. These checks do
+not establish Windows/full Main, graphical EXE, physical hardware or performance
+acceptance.
 
 [Nested sequence Game output](../../../manual/images/nested-sequence-game.png)
 is the actual 640×360 RuntimeWorld/FrameRenderer image from Gallery186 at fixed
@@ -1704,7 +1720,7 @@ external MCP client or graphical EXE acceptance.
 
 [Incoming shot controls](../../../manual/images/camera-transition-editor.png)
 shows the production Timeline with Gallery153's incoming shot selected and **Shot
-blend in** editable. The unretouched720×1400 PNG comes from the actual SDL/ImGui
+blend in** editable. The unretouched 720×1400 PNG comes from the actual SDL/ImGui
 software capture in `tests/sequence_clip_capture.hpp`.
 
 [Transition Game view](../../../manual/images/camera-transition-gallery.png)
@@ -2037,7 +2053,7 @@ exported-game or hardware performance acceptance.
 
 ## BC6 HDR texture output
 
-`manual/images/bc6-hdr-texture-export.png` is the canonical unretouched720x650
+`manual/images/bc6-hdr-texture-export.png` is the canonical unretouched 720x650
 production Texture viewer capture. The original Gallery unsigned BC6 texture is
 published; its editable source is absent from the control fixture. Actual pointer
 input selects HDR color and the native HDR chooser/file task saves decoded texels.
@@ -2209,7 +2225,7 @@ physical GPU/input/DPI, graphical EXE, external-client or performance acceptance
 ## Interactive scene UI surfaces
 
 [Scene surface controls](../../../manual/images/ui-surface-gallery.png) shows the
-actual640x360 GamePresentation output in Gallery174, paused at tick1 after a
+actual 640x360 GamePresentation output in Gallery174, paused at tick1 after a
 native Step click on the left Quad. The right monitor displays the same output
 through its Camera relay. The native control focus, tick text, field, guide and
 rendered scene are unretouched. The RGB PPM readback was losslessly transcoded to

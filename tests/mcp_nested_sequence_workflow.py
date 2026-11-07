@@ -17,6 +17,8 @@ def check_nested_sequence_workflow(client, discover, arguments, mutate, project)
     assert fields['sequence_rate']['minimum'] == .25
     assert fields['sequence_rate']['maximum'] == 4
     assert fields['sequence_rate']['display_name'] == 'Placement rate'
+    assert fields['sequence_loop']['default'] is False
+    assert fields['sequence_loop']['display_name'] == 'Loop in parent'
     ids = []
     for name in ('Parent', 'Child'):
         result = mutate('forge_entity_create', arguments=dict(recipe='animation.sequence', name=name))
@@ -35,7 +37,8 @@ def check_nested_sequence_workflow(client, discover, arguments, mutate, project)
 
     before = config()
     values = dict(sequence=dict(scene=snapshot()['asset_id'], entity=parent),
-                  sequence_start_seconds=.5, sequence_rate=2, loop=True, playback_speed=0, play_on_start=False)
+                  sequence_start_seconds=.5, sequence_rate=2, sequence_loop=True,
+                  loop=False, playback_speed=0, play_on_start=False)
     request = arguments(arguments=dict(entity=child, component=component['id'], values=values))
     changed = client.tool('forge_property_set_many', **request)
     assert changed['ok'], changed
@@ -57,6 +60,12 @@ def check_nested_sequence_workflow(client, discover, arguments, mutate, project)
         state = discover()
         result = mutate('forge_property_set', arguments=dict(entity=child, component=component['id'],
                         field='sequence_rate', value=value))
+        assert not result['ok'] and discover()['revision'] == state['revision'], result
+        assert config() == placed
+    for value in (0, 1, 'true', None, [], {}):
+        state = discover()
+        result = mutate('forge_property_set', arguments=dict(entity=child, component=component['id'],
+                        field='sequence_loop', value=value))
         assert not result['ok'] and discover()['revision'] == state['revision'], result
         assert config() == placed
     assert mutate('forge_document_save')['ok']

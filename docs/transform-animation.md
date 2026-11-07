@@ -134,43 +134,53 @@ exact configuration/profile comparison and complete candidate publication. A
 runtime document using the list declares `sequence_arrangement: 1` and requires
 `runtime_sequence_arrangement: 1` in its kit, including partial Prefab variants.
 Source formats stay unchanged; native value layout additions require a matching
-exact installed SDK rebuild. Unrestricted arrangements, multiway overlap, repeated
-controller placements and child loop overrides remain outside this profile.
+exact installed SDK rebuild. Unrestricted arrangements, multiway overlap and
+repeated independent controller placements remain separate. Child loops use the
+nested timing profile below and can be combined with collections.
 
 ### Nested controller placements
 
 `AnimationSequence.sequence` is an optional typed parent EntityRef;
 `sequence_start_seconds` is its finite start in immediate-parent seconds (0–3600,
 not beyond the parent duration). `sequence_rate` is local seconds per parent second,
-finite within 0.25–4, default 1. Missing fields backfill null/zero/one. The reference
+finite within 0.25–4, default 1. `sequence_loop`, default false, repeats local duration
+through the remaining parent span. Missing fields backfill null/zero/one/false. The reference
 adapter reuses Scene duplication, Prefab member links and generic Inspector /
 automation/MCP property edits, revision and history. No separate arrangement
 database or advancing child clock is introduced.
 
 The existing provider validates the active graph: same loaded Scene, available
 controller, no cycles, within the 64-controller budget. Disabled/inactive ancestors
-retire their descendants. Each private SequenceState derives its root, accumulated
-offset, cumulative placement rate and ancestor-clipped endpoint. The cumulative rate
-must remain within 1/64–64. Parent starts divide by the parent's cumulative rate;
-local duration divides by the child's cumulative rate to obtain the root endpoint.
-Provider sampling multiplies clamped root-relative time by that cumulative rate.
+retire their descendants. Each private SequenceState derives its root and an
+immutable root-to-local timing map. Ordinary placements use one inline affine span;
+looping placements and their descendants compose bounded spans at admission. The
+cumulative rate must remain within 1/64–64. Parent starts and clip/cue boundaries
+invert through the admitted rate and span. More than 256 spans per controller
+rejects before enumeration. The existing provider reuses the admitted mapping
+until its own geometry or its parent's admitted mapping changes; sampling allocates
+no timing storage.
 Bound standalone speed, loop and play-on-start values remain stored; observed
 speed is root playback_speed times cumulative placement rate. Root controllers
-ignore their stored sequence_rate; they retain their normal standalone semantics. Root seek/restart stages
+ignore stored sequence_rate and sequence_loop; they retain their normal standalone semantics. Root seek/restart stages
 all descendant clocks and poses before publication. Child control/seek rejects.
-Object values clamp to the finite local span; copied scalar presentation samples
-root time before clamping. Camera selection applies only within the placement,
+Child loops select the incoming local start at an internal reset. Ancestor resets
+clear descendant entry gaps, while final clipped values hold after the last span.
+Copied presentation snaps on resets rather than interpolating across cycles.
+Camera selection applies only within actual active spans,
 retaining the exact final shot frame at its end and ordinary cameras outside it.
 The existing one-director-per-Scene rule applies across the arrangement.
 
-Sound cue points divide by the cumulative rate and translate into the root's unwrapped interval.
-Skeletal root-motion placement/clip boundaries use the same inverse mapping; native
+Sound cue points invert through every admitted span into the root's unwrapped interval;
+coincident mappings of the same cue/root point are emitted once. Skeletal root-motion
+placement/clip boundaries use the same inverse mapping and integrate each active
+span independently, sampling both endpoints in that span. Resets add no movement
+between outgoing and incoming poses. Native
 pose/morph sampling retains independent clip-local phases. The existing
 periodic-range and bounded 128-occurrence batch preserve offset entry/end,
 multiple periods, root wrap and deterministic ordering. Seek/recovery do not replay
 crossed sounds. Ancestor truncation excludes points beyond the clipped end.
 
-The Timeline edits one borrowed Scene history. Nested rows expose pending start/rate fields in one Scene transaction,
+The Timeline edits one borrowed Scene history. Nested rows expose pending start/rate/loop fields in one Scene transaction,
 apply/reset, local child/parent navigation and detachment. Local copied preview
 first validates the original active binding through the same provider, then isolates
 the selected root and includes all descendants and writer guards. Its own stored
@@ -190,6 +200,14 @@ clocks before adoption. Default-rate configurations keep their prior profiles.
 Runtime feature `sequence_rate: 1` (including partial Prefab variant overrides) requires
 `runtime_sequence_rate: 1` in the selected kit. Source/native value and exact installed
 SDK fingerprints change; callbacks and clip formats do not.
+
+Bound child loops require private recovery 13, wrapping the prior profile 7–12 in
+`sequence_loop_profile` and recording `sequence_loop` on every controller entry.
+Restore validates the admitted loop intent and derived local clocks before adoption;
+missing wrappers or changed flags reject atomically. Default-false arrangements
+retain their earlier profiles. Runtime document feature `sequence_loop: 1`, including
+partial Prefab overrides, requires kit `runtime_sequence_loop: 1`. A stored true
+flag retains this export requirement even when its current controller is unbound.
 
 The current complete transform/property candidate and writer-conflict checks run
 before any pose write. Existing AnimationService status/control/seek operations

@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**188-child-sequence-loops** repeats original motion, morph and mapped animation
+under one eight-second root. The right model follows a looping child inside the
+fast left section. Press **Play → Game**, or select **Eight-second repeating
+sections** and open its Timeline. Select a child under **Nested sequences** to
+change **Start in parent**, **Placement rate** and **Loop in parent** together.
+Apply timing, refresh and save before export with the matching runtime kit.
+See [Nested sequences and child loops](../editor/animation-sequences.md).
+
 **187-sequence-clip-collections** gives three original models eight clip placements
 each on one sixteen-second controller. Open it and press **Play → Game** for direct,
 morph and mapped motion. Select **Sixteen-second clip collection**, open its Timeline,

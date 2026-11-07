@@ -260,7 +260,11 @@ void nested_sequence_tests(const std::filesystem::path& root, AssetId motion, As
     // Reference adapters belong to the same Scene/Prefab owner as other native links.
     EngineContext persisted_engine;
     Scene persisted(persisted_engine.world());
-    persisted.reset(changed(child, {{"sequence_rate", 2.}}));
+    auto portable_source = changed(child, {{"sequence_rate", 2.}, {"sequence_loop", true}});
+    for (auto& row : portable_source["entities"])
+        if (row.at("id") == grand)
+            row["components"]["forge.animation_sequence"]["sequence_loop"] = true;
+    persisted.reset(portable_source);
     persisted.reparent_entity(child, parent, ReparentMode::KeepLocal);
     persisted.reparent_entity(grand, child, ReparentMode::KeepLocal);
     for (const auto& id : {actor, lamp, shot_camera, shot})
@@ -273,6 +277,9 @@ void nested_sequence_tests(const std::filesystem::path& root, AssetId motion, As
               persisted.entity(copied_grand).get<AnimationSequence>().sequence ==
                   EntityRef{persisted.asset_id(), EntityId::parse(copied_child)},
           "Nested subtree duplicate did not remap controller parents");
+    check(persisted.entity(copied_child).get<AnimationSequence>().sequence_loop &&
+              persisted.entity(copied_grand).get<AnimationSequence>().sequence_loop,
+          "Nested subtree duplicate lost explicit placement looping");
     const auto detached = persisted.duplicate_subtree(grand);
     check(persisted.entity(detached).get<AnimationSequence>().sequence == ref(child),
           "Child-only duplicate retargeted its external parent");
@@ -285,6 +292,9 @@ void nested_sequence_tests(const std::filesystem::path& root, AssetId motion, As
         const auto leaf_id = named(target, "Grandchild", inner_id);
         near(target.entity(inner_id).get<AnimationSequence>().sequence_rate, 2);
         near(target.entity(leaf_id).get<AnimationSequence>().sequence_rate, 1);
+        check(target.entity(inner_id).get<AnimationSequence>().sequence_loop &&
+                  target.entity(leaf_id).get<AnimationSequence>().sequence_loop,
+              "Portable Prefab or reopened instance lost child loop intent");
         check(target.entity(inner_id).get<AnimationSequence>().sequence ==
                       EntityRef{target.asset_id(), EntityId::parse(instance)} &&
                   target.entity(leaf_id).get<AnimationSequence>().sequence ==

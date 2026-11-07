@@ -6099,6 +6099,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "464f19c9-df21-40d7-bed2-6cc379eba627",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/188-child-sequence-loops.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "4660b557-cf48-4bc6-896d-ce536722d079",
       "metadata": {},
       "schema_version": 3,

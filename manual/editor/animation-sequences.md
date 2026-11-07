@@ -225,13 +225,12 @@ at one second: the three tones sound at parent times one, three and five seconds
 the gold panel moves, and the child switches between two cameras. The normal
 overview camera appears before and after the child placement.
 
-![Timeline showing a child sequence placed at one second inside its parent](../images/nested-sequences.png)
-
-Select the child row to edit its start and playback rate, or open its own Timeline.
+Select the child row to edit its start, playback rate and placement looping, or open
+its own Timeline.
 
 1. Create two **Animation Sequence** controllers in the same Scene. Give the parent enough **Duration** for the arrangement; the child's duration and placement rate control its length in the parent.
 2. Open the parent's sequence Timeline. Select the child controller in Hierarchy, position the playhead and choose **Add selected sequence**.
-3. Select the child under **Nested sequences**. Enter **Start in parent** and **Placement rate**, then choose **Apply placement timing**. This saves both fields in one Scene Undo step. **Reset pending placement timing** discards both pending values. Apply or reset before opening or removing the placement.
+3. Select the child under **Nested sequences**. Enter **Start in parent** and **Placement rate**. Enable **Loop in parent** to repeat the child through the remaining parent duration. Choose **Apply placement timing** to save all three fields in one Scene Undo step. **Reset pending placement timing** discards the pending values. Apply or reset before opening or removing the placement.
 4. Choose **Refresh clips**, then **Preview sequence**. The green strip marks the child placement. Scrub the parent to inspect its descendants together. Game preview and frame export use the same composed camera image.
 5. Choose **Open nested timeline** to edit the child's own objects, shots, sound cues or further child placements. Its local preview uses its own stored timing. **Open parent timeline** returns to the parent arrangement; refresh the parent to review the combined result.
 6. Choose **Save scene**. Game Play and export use the saved parent bindings and prepared clips and sounds.
@@ -244,11 +243,42 @@ rates multiply through nested children, and the cumulative rate must stay within
 Object, property and skeletal tracks, camera shots and sound cues follow the same
 local timing. Playback status shows the resulting speed.
 
-While placed, the child's clock, loop and start/stop intent come from the root.
+While placed, the child's clock and start/stop intent come from the root.
 Its own **Playback speed**, **Loop** and **Play on start** stay stored for local
-preview or standalone use; **Placement rate** applies when it has a parent.
+preview or standalone use; **Placement rate** and **Loop in parent** apply when it
+has a parent.
 Pause, seek or restart the root to control the arrangement. A bound child cannot
-be controlled independently and does not loop separately.
+be controlled independently.
+
+### Loop a child section
+
+With **Loop in parent** enabled, the green strip fills the remaining parent span
+and its marks show local cycle boundaries. For example, a one-second child at
+rate **2** repeats every half parent second. Each reset also restarts its descendants,
+including any gap before a descendant's start. A final partial cycle holds its
+clipped value when the parent ends. Camera shots follow the active local windows;
+sound cues repeat during forward Play, and skeletal root movement accumulates
+without a jump from an outgoing endpoint to the next cycle's start.
+
+Open **188-child-sequence-loops** to try fast, morph and nested mapped sections.
+Select **Eight-second repeating sections**, open its Timeline and select the fast
+child under **Nested sequences**.
+
+![Repeating child sections with start, rate and Loop in parent controls in the Timeline](../images/nested-sequences.png)
+The two-second fast section runs at **2×**; its strip marks one-parent-second cycles.
+
+![Three original animated models following repeating nested sections in Game](../images/child-sequence-loop-game.png)
+Gallery188 at about 6.75 seconds: the middle model shows morph animation and the
+mapped model follows a loop inside the fast section.
+
+A controller supports at most **256 derived spans**, including repeats inherited
+from ancestors. If refresh or Play reports this limit, lengthen the child duration,
+reduce its placement rate or shorten the parent. Sound cues also retain the
+**128 occurrences per tick** limit; an overfull tick queues no cues. These settings
+require the runtime kit packaged with the editor and a rebuild of C++ modules
+against its matching SDK.
+
+### Compare nested playback rates
 
 Open **186-nested-sequence-rates** to compare rates in Game. Its left model follows
 a **2×** child that starts at 0.5 seconds; its center follows a **0.5×** child.
@@ -261,6 +291,8 @@ ready for Play and export with a matching runtime kit.
 ![Three original animated models following nested Scene controllers with different playback rates](../images/nested-sequence-game.png)
 The models share a four-second root loop while their child sections sample different local times.
 
+### Placement limits and saving
+
 Child starts must be inside their immediate parent's duration. Ancestor ends
 truncate longer placements. Object tracks hold their first and last values
 outside the placement; camera shots direct only within it, including their exact
@@ -269,8 +301,9 @@ translated parent times during forward playback, including each root loop.
 Seeking and silent Timeline preview do not play skipped sounds.
 
 **Remove sequence placement** clears the parent link and keeps the child, tracks,
-start, placement rate and standalone settings. Undo restores the link. Inspector also exposes
-**Parent sequence**, **Start in parent** and **Placement rate**. Circular links, missing controllers,
+start, placement rate, placement looping and standalone settings. Undo restores the
+link. Inspector also exposes **Parent sequence**, **Start in parent**,
+**Placement rate** and **Loop in parent**. Circular links, missing controllers,
 cross-Scene parents and out-of-range cumulative rates are reported during refresh or Play preparation. Include
 the complete linked group when making a Prefab. Up to 64 enabled controllers can
 participate; one controller with camera shots can direct each loaded Scene.

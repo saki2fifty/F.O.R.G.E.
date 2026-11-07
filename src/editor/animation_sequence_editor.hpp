@@ -3,6 +3,7 @@
 #include "../animation_material_patch.hpp"
 #include "../animation_playback_access.hpp"
 #include "../camera_shot_blend.hpp"
+#include "../sequence_clock_mapping.hpp"
 #include "animation_timeline_view.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
@@ -293,7 +294,8 @@ class AnimationSequenceEditor {
             ImGui::TextWrapped("Sequence controller is missing. Scene Undo can restore it.");
             return;
         }
-        const auto snapshot = scene_->effective_document();
+        auto snapshot = scene_->effective_document();
+        const auto snapshot_revision = scene_->revision();
         const auto config = entity.get<AnimationSequence>();
         std::string sequence_name = controller_.entity.str();
         for (const auto& row : snapshot.at("entities"))
@@ -515,6 +517,10 @@ class AnimationSequenceEditor {
             if (actor.has<Animator>())
                 draw_track(row, actor.get<Animator>(), "forge.animator");
         }
+        // Add selected object can introduce this component during the same draw.
+        // Refresh only after an authored change, preserving opaque source fields.
+        if (snapshot_revision != scene_->revision())
+            snapshot = scene_->effective_document();
         const auto draw_fields = [&](const auto value, const char* asset_type) {
             if (value.sequence == controller_) {
                 if (!pending_) {
@@ -898,6 +904,7 @@ class AnimationSequenceEditor {
     double saved_preview_time_ = 0;
     bool frame_exporting_ = false, saved_preview_ = false, saved_playing_ = false;
     double time_ = 0, offset_ = 0, next_offset_ = 0, nested_start_ = 0, nested_rate_ = 1;
+    bool nested_loop_ = false;
     unsigned pending_track_fields_ = 0;
     Json extra_clips_ = Json::array();
     bool ready_ = false, stale_ = false, preview_ = false, playing_ = false, pending_ = false,
@@ -1038,6 +1045,9 @@ class AnimationSequenceEditor {
         ImGui::EndDisabled();
         for (const auto& id : children) {
             const auto value = scene_->entity(id).get<AnimationSequence>();
+            const double parent_length = std::min(
+                std::max(0., config.duration - value.sequence_start_seconds),
+                value.sequence_loop ? config.duration : value.duration / value.sequence_rate);
             std::string name = id;
             for (const auto& row : snapshot.at("entities"))
                 if (row.at("id") == id) {
@@ -1069,9 +1079,18 @@ class AnimationSequenceEditor {
                                 IM_COL32(32, 42, 52, 255));
             draw->AddRectFilled(
                 {x(value.sequence_start_seconds), origin.y + 3},
-                {x(value.sequence_start_seconds + value.duration / value.sequence_rate),
-                 origin.y + size.y - 3},
+                {x(value.sequence_start_seconds + parent_length), origin.y + size.y - 3},
                 IM_COL32(72, 153, 117, 255));
+            if (value.sequence_loop)
+                for (std::size_t cycle = 1; cycle < detail::SequenceClockMapping::maximum_spans;
+                     ++cycle) {
+                    const auto offset = cycle * value.duration / value.sequence_rate;
+                    if (offset >= parent_length)
+                        break;
+                    draw->AddLine({x(value.sequence_start_seconds + offset), origin.y + 3},
+                                  {x(value.sequence_start_seconds + offset), origin.y + size.y - 3},
+                                  IM_COL32(34, 80, 59, 255));
+                }
             draw->AddLine({x(time_), origin.y}, {x(time_), origin.y + size.y},
                           IM_COL32(255, 203, 78, 255), 2);
             if (ImGui::IsItemActive() && ImGui::IsMouseDown(0)) {
@@ -1081,9 +1100,10 @@ class AnimationSequenceEditor {
                 if (ready_ && !stale_)
                     seek_preview();
             }
-            ImGui::TextDisabled("Start %.3f s | Parent length %.3f s | Rate %.3gx%s",
-                                value.sequence_start_seconds, value.duration / value.sequence_rate,
-                                value.sequence_rate, value.enabled ? "" : " | Disabled");
+            ImGui::TextWrapped("Start %.3f s | Parent length %.3f s | Rate %.3gx%s%s",
+                               value.sequence_start_seconds, parent_length, value.sequence_rate,
+                               value.sequence_loop ? " | Repeats" : "",
+                               value.enabled ? "" : " | Disabled");
             ImGui::PopID();
         }
         if (nested_.empty())
@@ -1102,6 +1122,7 @@ class AnimationSequenceEditor {
         if (!pending_) {
             nested_start_ = target.get<AnimationSequence>().sequence_start_seconds;
             nested_rate_ = target.get<AnimationSequence>().sequence_rate;
+            nested_loop_ = target.get<AnimationSequence>().sequence_loop;
         }
         ImGui::TextUnformatted("Start in parent");
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
@@ -1120,8 +1141,17 @@ class AnimationSequenceEditor {
         }
         FORGE_UI_PROBE("sequence:nested_rate");
         ImGui::TextWrapped("Local seconds per parent second: 0.25–4. Cumulative rate: 1/64–64.");
+        if (ImGui::Checkbox("Loop in parent", &nested_loop_)) {
+            if (!pending_)
+                pending_revision_ = scene_->revision();
+            pending_ = true;
+        }
+        FORGE_UI_PROBE("sequence:nested_loop");
+        ui::help("Repeat the child's local duration through the remaining parent span. "
+                 "Descendants reset with it; the root owns playback controls. "
+                 "A controller admits at most 256 derived spans.");
         if (ui::button("Apply placement timing",
-                       "Commit placement start and rate in one Scene Undo step."))
+                       "Commit placement start, rate and looping in one Scene Undo step."))
             apply_pending();
         FORGE_UI_PROBE("sequence:apply_nested");
         if (ui::button("Reset pending placement timing",
@@ -1523,6 +1553,8 @@ class AnimationSequenceEditor {
                                 Json::array({property(nested_, "sequence_start_seconds",
                                                       nested_start_, "forge.animation_sequence"),
                                              property(nested_, "sequence_rate", nested_rate_,
+                                                      "forge.animation_sequence"),
+                                             property(nested_, "sequence_loop", nested_loop_,
                                                       "forge.animation_sequence")}),
                                 scene_->revision());
                 pending_ = false;

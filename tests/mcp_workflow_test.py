@@ -1,6 +1,5 @@
 """Native project/source/Play/UI/navigation/export owners through actual MCP."""
 from contextlib import contextmanager
-import gzip
 import json
 import os
 from pathlib import Path
@@ -9,7 +8,7 @@ import shutil
 import sys
 import tempfile
 import time
-from mcp_test_client import CAPTURE, Client, failed, test_symlink, finish_host
+from mcp_test_client import Client, failed, test_symlink, finish_host, write_capture
 from mcp_input_messages_play import check_input_messages_play
 from mcp_ui_sequence_play import check_ui_sequence_play
 from mcp_camera_shot_play import check_camera_shot_play
@@ -2109,8 +2108,7 @@ for legacy in (False, True):
             assert 'forge_export_run' not in names
             assert ('forge_script_preview' in names) == (mode != 'read')
 
-with gzip.open(sys.argv[6], 'wt', encoding='utf-8') as output:
-    json.dump(CAPTURE, output, separators=(',', ':'))
+write_capture(sys.argv[6])
 print('Both MCP protocols: collision collection discovery/validation/history/revisions/permissions, named profiles and actual Play route/step/live tuning verified' if NAVIGATION_COLLECTION_ONLY else
       'Both MCP protocols: authored navigation link discovery/history/revisions/validation, named-profile bake and actual Play traversal verified' if NAVIGATION_LINKS_ONLY else
       'Both MCP protocols: Decal Projector live tuning, validation, scope, paused clock and authored isolation verified' if DECALS_ONLY else

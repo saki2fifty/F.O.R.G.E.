@@ -1,5 +1,20 @@
 # Feature Gallery
 
+## Child sequence loops
+
+Open `Scenes/188-child-sequence-loops.scene.json` and press **Play → Game**.
+An eight-second root coordinates three original models: a two-second section
+repeats at **2×**, a four-second morph section repeats at **1×**, and a mapped
+section repeats inside the fast section. The nested entry gap resets with its
+parent; the root's end can truncate the final local cycle.
+
+Select **Eight-second repeating sections**, open its Timeline and select a child
+under **Nested sequences**. Edit **Start in parent**, **Placement rate** and
+**Loop in parent**, then choose **Apply placement timing**. Refresh, preview and
+save the Scene before export. Camera and lighting are included; no project C++
+is required. Use the matching runtime kit and rebuild any C++ modules against
+its SDK. The native limit is 256 derived spans per controller.
+
 ## Eight-clip sequence arrangements
 
 Open `Scenes/187-sequence-clip-collections.scene.json` and press **Play → Game**.

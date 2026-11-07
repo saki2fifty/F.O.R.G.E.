@@ -22,10 +22,7 @@ flecs::entity_t TransformAnimationPlayback::scene_membership(flecs::entity entit
 }
 double TransformAnimationPlayback::controller_time(const SequenceState& state,
                                                    double root_time) const {
-    return std::min(state.config.duration * animation_timebase,
-                    std::clamp(root_time - state.root_offset, 0.,
-                               std::max(0., state.root_end - state.root_offset)) *
-                        state.root_rate);
+    return state.mapping->sample(root_time);
 }
 TransformAnimationPlayback::SequenceStep
 TransformAnimationPlayback::sequence_step(const SequenceState& state, double seconds) const {
@@ -68,14 +65,18 @@ void TransformAnimationPlayback::validate_sequence_sample(const SequenceTimes& t
     }
     apply(times_at(times), false, times);
 }
-double TransformAnimationPlayback::controller_presentation_time(flecs::entity_t id,
-                                                                double alpha) const {
-    const auto& state = sequence_states_.at(id);
+double TransformAnimationPlayback::root_presentation_time(const SequenceState& state,
+                                                          double alpha) const {
     const auto& root = sequence_states_.at(state.root);
     const bool wrapped = root.config.loop &&
                          root.previous + root.advance >= root.config.duration * animation_timebase;
-    return controller_time(
-        state, root.advance == 0 || wrapped ? root.time : root.previous + root.advance * alpha);
+    const bool reset = state.mapping->reset_crossed(root.previous, root.previous + root.advance);
+    return root.advance == 0 || wrapped || reset ? root.time : root.previous + root.advance * alpha;
+}
+double TransformAnimationPlayback::controller_presentation_time(flecs::entity_t id,
+                                                                double alpha) const {
+    const auto& state = sequence_states_.at(id);
+    return controller_time(state, root_presentation_time(state, alpha));
 }
 flecs::entity_t TransformAnimationPlayback::resolve_sequence(flecs::entity entity,
                                                              EntityRef reference) const {
@@ -101,14 +102,11 @@ TransformAnimationPlayback::sequence_interval(flecs::entity_t id) const {
     return {root.previous / animation_timebase,
             root.advance / animation_timebase,
             root.config.duration,
-            state.root_offset / animation_timebase,
-            state.root_end / animation_timebase,
             root.config.loop,
             root.playing,
             state.discontinuous || root.discontinuous,
             state.root,
-            state.root_rate,
-            state.config.duration};
+            state.mapping.get()};
 }
 double TransformAnimationPlayback::sequence_sample_time(flecs::entity_t id, double alpha,
                                                         const SequenceTimes& seek) const {
@@ -129,6 +127,11 @@ bool TransformAnimationPlayback::has_sequence_arrangements() const {
 bool TransformAnimationPlayback::has_sequence_rates() const {
     return std::any_of(sequence_states_.begin(), sequence_states_.end(), [](const auto& item) {
         return item.second.parent && item.second.config.sequence_rate != 1;
+    });
+}
+bool TransformAnimationPlayback::has_sequence_loops() const {
+    return std::any_of(sequence_states_.begin(), sequence_states_.end(), [](const auto& item) {
+        return item.second.parent && item.second.config.sequence_loop;
     });
 }
 void TransformAnimationPlayback::prepare_sequence_preview_root(EntityRef reference) {
@@ -213,9 +216,7 @@ void TransformAnimationPlayback::synchronize_sequences() {
             auto& state = candidates.at(id);
             state.parent = 0;
             state.root = id;
-            state.root_offset = 0;
-            state.root_rate = 1;
-            state.root_end = state.config.duration * animation_timebase;
+            const auto old = sequence_states_.find(id);
             if (state.config.sequence.entity) {
                 const auto entity = context_.world().entity(id);
                 const auto membership = scene_membership(entity);
@@ -245,27 +246,38 @@ void TransformAnimationPlayback::synchronize_sequences() {
                     throw std::runtime_error("Nested start exceeds its parent sequence duration");
                 state.parent = resolved.entity;
                 state.root = placement.root;
-                state.root_rate = placement.root_rate * state.config.sequence_rate;
-                if (!std::isfinite(state.root_rate) || state.root_rate < 1. / 64 ||
-                    state.root_rate > 64)
+                const auto rate = placement.mapping->rate() * state.config.sequence_rate;
+                if (!std::isfinite(rate) || rate < 1. / 64 || rate > 64)
                     throw std::runtime_error(
                         "Cumulative sequence placement rate must be within 1/64–64");
-                state.root_offset = placement.root_offset + state.config.sequence_start_seconds *
-                                                                animation_timebase /
-                                                                placement.root_rate;
-                state.root_end =
-                    std::min(placement.root_end, state.root_offset + state.config.duration *
-                                                                         animation_timebase /
-                                                                         state.root_rate);
+                const bool geometry_changed =
+                    !state.mapping || old == sequence_states_.end() ||
+                    old->second.parent != state.parent ||
+                    old->second.config.duration != state.config.duration ||
+                    old->second.config.sequence_start_seconds !=
+                        state.config.sequence_start_seconds ||
+                    old->second.config.sequence_rate != state.config.sequence_rate ||
+                    old->second.config.sequence_loop != state.config.sequence_loop ||
+                    !sequence_states_.contains(state.parent) ||
+                    sequence_states_.at(state.parent).mapping != placement.mapping;
+                if (geometry_changed)
+                    state.mapping = std::make_shared<const detail::SequenceClockMapping>(
+                        detail::SequenceClockMapping::child(
+                            *placement.mapping,
+                            state.config.sequence_start_seconds * animation_timebase,
+                            state.config.duration * animation_timebase, state.config.sequence_rate,
+                            state.config.sequence_loop));
                 state.time = controller_time(state, candidates.at(state.root).time);
                 state.playing = state.entry_pending = false;
+            } else if (!state.mapping || old == sequence_states_.end() || old->second.parent ||
+                       old->second.config.duration != state.config.duration) {
+                state.mapping = std::make_shared<const detail::SequenceClockMapping>(
+                    detail::SequenceClockMapping::root(state.config.duration * animation_timebase));
             }
-            const auto old = sequence_states_.find(id);
-            const bool changed =
-                reset.contains(id) || old == sequence_states_.end() ||
-                old->second.parent != state.parent || old->second.root != state.root ||
-                old->second.root_offset != state.root_offset ||
-                old->second.root_rate != state.root_rate || old->second.root_end != state.root_end;
+            const bool changed = reset.contains(id) || old == sequence_states_.end() ||
+                                 old->second.parent != state.parent ||
+                                 old->second.root != state.root ||
+                                 old->second.mapping != state.mapping;
             state.discontinuous |= changed;
             if (changed) {
                 state.previous = state.time;
@@ -347,12 +359,11 @@ std::optional<AnimationPlayback> TransformAnimationPlayback::playback(EntityRef 
         const auto& root = sequence_states_.at(state.root);
         result.time = state.time / animation_timebase;
         result.duration = state.config.duration;
-        result.speed = root.config.playback_speed * state.root_rate;
-        result.loop = !state.parent && state.config.loop;
+        result.speed = root.config.playback_speed * state.mapping->rate();
+        result.loop = state.parent ? state.config.sequence_loop : state.config.loop;
         result.enabled = state.config.enabled;
         result.playing =
-            root.playing && result.speed > 0 &&
-            (!state.parent || (root.time >= state.root_offset && root.time < state.root_end));
+            root.playing && result.speed > 0 && (!state.parent || state.mapping->active(root.time));
     } else if (const auto at = states_.find(resolved.entity);
                at != states_.end() && at->second.clip) {
         const auto& state = at->second;
@@ -375,11 +386,10 @@ std::optional<AnimationPlayback> TransformAnimationPlayback::playback(EntityRef 
         if (state.sequence) {
             const auto& sequence = sequence_states_.at(state.sequence);
             const auto& root = sequence_states_.at(sequence.root);
-            result.speed = root.config.playback_speed * sequence.root_rate;
+            result.speed = root.config.playback_speed * sequence.mapping->rate();
             result.loop = false;
             result.playing =
-                root.playing && result.speed > 0 && root.time >= sequence.root_offset &&
-                root.time < sequence.root_end &&
+                root.playing && result.speed > 0 && sequence.mapping->active(root.time) &&
                 sequence.time >= state.config.sequence_start_seconds * animation_timebase &&
                 state.time < clip_span_duration(state);
         }
@@ -513,7 +523,8 @@ bool TransformAnimationPlayback::control(EntityRef ref, AnimationControl command
         states_.at(id).playing = playing;
     return true;
 }
-Json TransformAnimationPlayback::sequence_checkpoint(unsigned profile, bool rates) const {
+Json TransformAnimationPlayback::sequence_checkpoint(unsigned profile, bool rates,
+                                                     bool loops) const {
     auto result = Json::array();
     for (const auto& [id, state] : sequence_states_) {
         (void)id;
@@ -533,6 +544,8 @@ Json TransformAnimationPlayback::sequence_checkpoint(unsigned profile, bool rate
         }
         if (rates)
             result.back()["sequence_rate"] = state.config.sequence_rate;
+        if (loops)
+            result.back()["sequence_loop"] = state.config.sequence_loop;
     }
     return result;
 }
@@ -640,13 +653,9 @@ TransformAnimationPlayback::sample_camera_shot(flecs::entity_t membership, doubl
         return {};
     const auto& shots = at->second;
     const auto& group = sequence_states_.at(shots.front().sequence);
-    const auto& root = sequence_states_.at(group.root);
     const auto duration = group.config.duration * animation_timebase;
-    const bool wrapped = root.config.loop &&
-                         root.previous + root.advance >= root.config.duration * animation_timebase;
-    const auto root_time =
-        root.advance == 0 || wrapped ? root.time : root.previous + root.advance * alpha;
-    if (root_time < group.root_offset || root_time > group.root_end)
+    const auto root_time = root_presentation_time(group, alpha);
+    if (!group.mapping->active(root_time, true))
         return {};
     const auto time = controller_presentation_time(shots.front().sequence, alpha);
     for (std::size_t i = 0; i < shots.size(); ++i) {
@@ -891,28 +900,36 @@ void TransformAnimationPlayback::dispatch_audio_cues() {
         const auto& sequence = sequence_states_.at(placement.root);
         if (sequence.advance <= 0)
             continue;
-        const auto point = placement.root_offset +
-                           cue.config.time_seconds * animation_timebase / placement.root_rate;
-        if (placement.root_offset > placement.root_end || point > placement.root_end)
-            continue;
         const auto end = sequence.previous + sequence.advance;
         const auto duration = sequence.config.duration * animation_timebase;
-        const bool entry = sequence.entry_pending && sequence.previous == 0 && point == 0;
-        double first = 0, occurrences = point > sequence.previous && point <= end ? 1 : 0;
-        if (sequence.config.loop)
-            std::tie(first, occurrences) =
-                animation_periodic_range(sequence.previous, end, point, duration);
-        if (!std::isfinite(occurrences) || occurrences + unsigned(entry) > events.size() - count) {
-            cue_error(cue, "Audio Cue batch exceeds 128 occurrences; no cues queued this tick",
-                      false);
-            return;
-        }
-        if (entry)
-            events[count++] = {&cue, 0};
-        for (std::size_t i = 0; i < static_cast<std::size_t>(occurrences); ++i) {
-            const auto time = sequence.config.loop ? point + (first + i) * duration : point;
-            events[count++] = {&cue,
-                               std::clamp((time - sequence.previous) / sequence.advance, 0., 1.)};
+        std::optional<double> previous_point;
+        for (const auto& span : placement.mapping->spans()) {
+            const auto local = cue.config.time_seconds * animation_timebase;
+            if (!span.active || local < span.local_begin || local > span.local_end)
+                continue;
+            const auto point = span.root_point(local, placement.mapping->rate());
+            // An inherited endpoint and entry can describe the same cue/root point.
+            if (previous_point && *previous_point == point)
+                continue;
+            previous_point = point;
+            const bool entry = sequence.entry_pending && sequence.previous == 0 && point == 0;
+            double first = 0, occurrences = point > sequence.previous && point <= end ? 1 : 0;
+            if (sequence.config.loop)
+                std::tie(first, occurrences) =
+                    animation_periodic_range(sequence.previous, end, point, duration);
+            if (!std::isfinite(occurrences) ||
+                occurrences + unsigned(entry) > events.size() - count) {
+                cue_error(cue, "Audio Cue batch exceeds 128 occurrences; no cues queued this tick",
+                          false);
+                return;
+            }
+            if (entry)
+                events[count++] = {&cue, 0};
+            for (std::size_t i = 0; i < static_cast<std::size_t>(occurrences); ++i) {
+                const auto time = sequence.config.loop ? point + (first + i) * duration : point;
+                events[count++] = {
+                    &cue, std::clamp((time - sequence.previous) / sequence.advance, 0., 1.)};
+            }
         }
     }
     std::sort(events.begin(), events.begin() + count, [](const auto& a, const auto& b) {

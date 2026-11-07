@@ -15,6 +15,7 @@
 namespace {
 static_assert(forge::skeletal_sequence_runtime_profile_version == 1);
 static_assert(forge::sequence_rate_runtime_profile_version == 1);
+static_assert(forge::sequence_loop_runtime_profile_version == 1);
 static_assert(forge::sequence_arrangement_runtime_profile_version == 1);
 static_assert(forge::sequence_clip_limit == 8);
 struct SequenceProbe {
@@ -112,6 +113,14 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                             return;
                         ForgeSdkEntityRefV1 child_ref{};
                         ForgeSdkAnimationPlaybackV1 status{};
+                        const double unwrapped =
+                            std::max(0., (admitted.time - 1) * placement.sequence_rate);
+                        double local = std::min(unwrapped, placement.duration);
+                        if (placement.sequence_loop && unwrapped > 0) {
+                            local = std::fmod(unwrapped, placement.duration);
+                            if (admitted.time == config.duration && local == 0)
+                                local = placement.duration;
+                        }
                         check(client.entity_reference(child.id(), child_ref) == 1 &&
                                   placement.sequence.scene.str() == ref.scene_uuid &&
                                   placement.sequence_start_seconds == 1 &&
@@ -119,18 +128,19 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                                   !placement.play_on_start && placement.loop &&
                                   client.animation_playback(child_ref.scene_uuid,
                                                             child_ref.entity_uuid, status) == 1 &&
-                                  status.duration == 6 && !status.loop &&
+                                  status.duration == 6 &&
+                                  bool(status.loop) == placement.sequence_loop &&
                                   status.speed == config.playback_speed * placement.sequence_rate &&
                                   (placement.sequence_rate == 1 || placement.sequence_rate == 2) &&
-                                  std::abs(status.time -
-                                           std::clamp((admitted.time - 1) * placement.sequence_rate,
-                                                      0., 6.)) < 1e-9,
+                                  std::abs(status.time - local) < 1e-9,
                               "Nested typed values/derived status differ through matching SDK");
                         check(client.animation_control(child_ref.scene_uuid, child_ref.entity_uuid,
                                                        FORGE_SDK_ANIMATION_PAUSE) == 0 &&
                                   client.animation_seek(child_ref.scene_uuid, child_ref.entity_uuid,
                                                         .25) == 0,
                               "C++ independently controlled a bound sequence");
+                        const auto copied = placement;
+                        child.set(copied);
                         controllers.emplace(child_ref.entity_uuid, status);
                         ++nested;
                     });

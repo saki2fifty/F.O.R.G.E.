@@ -158,13 +158,17 @@ int main(int argc, char** argv) {
         {
             using package_detail::document_runtime_features;
             for (const auto& [component, requirement, support, properties] :
-                 std::array<std::tuple<const char*, const char*, const char*, Json>, 2>{
+                 std::array<std::tuple<const char*, const char*, const char*, Json>, 3>{
                      {{"forge.animator", "skeletal_sequence", "runtime_skeletal_sequence",
                        Json::object()},
                       {"forge.animation_sequence",
                        "sequence_rate",
                        "runtime_sequence_rate",
-                       {{"sequence_rate", 2.}}}}}) {
+                       {{"sequence_rate", 2.}}},
+                      {"forge.animation_sequence",
+                       "sequence_loop",
+                       "runtime_sequence_loop",
+                       {{"sequence_loop", true}}}}}) {
                 const Json required{{requirement, 1}};
                 const auto none = Json::object();
                 const Json scene_ref = EntityRef{AssetId::generate(), EntityId::generate()};
@@ -184,8 +188,10 @@ int main(int argc, char** argv) {
                                   "Skeletal sequence requirements lost a Scene/Prefab/variant "
                                   "binding");
                             document[rows][0][channel][component]["sequence"] = nullptr;
-                            if (std::string_view(component) == "forge.animation_sequence")
+                            if (std::string_view(component) == "forge.animation_sequence") {
                                 document[rows][0][channel][component]["sequence_rate"] = 1.;
+                                document[rows][0][channel][component]["sequence_loop"] = false;
+                            }
                             check(document_runtime_features(document) == none,
                                   "Unbound skeletal clips require a new runtime kit");
                         }
@@ -208,7 +214,7 @@ int main(int argc, char** argv) {
                                {"overrides", Json::array({{{"property_overrides",
                                                             {{component, properties}}}}})}}) ==
                               required,
-                          "Partial variant rate override lost its runtime requirement");
+                          "Partial variant placement override lost its runtime requirement");
                 AssetCatalog features(scratch / (std::string(requirement) + "-compatibility"));
                 AssetRecord record{AssetId::generate(), "scene", "skeletal.scene.json", 5};
                 record.metadata["forge.runtime_document"] = {{"runtime_features", required}};
@@ -229,6 +235,14 @@ int main(int argc, char** argv) {
                 features.replace(record);
                 validate_runtime_compatibility(features, Json::object());
             }
+            for (const Json& invalid :
+                 {Json(), Json(0), Json(1), Json("true"), Json::array(), Json::object()})
+                reject([&] {
+                    (void)document_runtime_features(
+                        {{"overrides", Json::array({{{"property_overrides",
+                                                      {{"forge.animation_sequence",
+                                                        {{"sequence_loop", invalid}}}}}}})}});
+                });
         }
         {
             const Json required{{"reflection_capture", runtime_reflection_profile_version}};

@@ -6,6 +6,7 @@ namespace forge {
 inline constexpr unsigned skeletal_sequence_runtime_profile_version = 1;
 inline constexpr unsigned sequence_rate_runtime_profile_version = 1;
 inline constexpr unsigned sequence_arrangement_runtime_profile_version = 1;
+inline constexpr unsigned sequence_loop_runtime_profile_version = 1;
 inline constexpr std::size_t sequence_clip_limit = 8;
 struct SkeletonAsset {
     static constexpr const char* type = "skeleton";
@@ -43,6 +44,8 @@ struct AnimationSequence {
     double sequence_start_seconds = 0;
     // Local seconds per parent second; standalone playback_speed stays separate.
     double sequence_rate = 1;
+    // Repeat this placement through the remaining parent span; ignored on roots.
+    bool sequence_loop = false;
     bool operator==(const AnimationSequence&) const = default;
 };
 // Scene-owned shot arrangement. Selection is derived in copied presentation;

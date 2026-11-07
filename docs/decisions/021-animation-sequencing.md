@@ -341,6 +341,45 @@ previous profiles and meanings. Generic property authoring/history and MCP use t
 same admitted field. The Timeline exposes local placement start and rate together
 and displays the parent-time length as local duration divided by placement rate.
 
+### Child placement loop override
+
+2026-11-07. Add a dedicated default-false `AnimationSequence.sequence_loop`.
+A bound true value repeats the child's local duration through the remaining
+parent-local active span. An ancestor's reset also resets descendants. Root
+playback controls remain authoritative; stored standalone `loop`, speed and start
+intent retain their meanings, and a root ignores its stored placement-loop flag.
+
+The existing sequence provider derives a piecewise root-to-local mapping during
+admission. Each active span is affine with the existing cumulative rate. Compose
+the parent's spans, placement start/rate and local cycle boundaries; reject more
+than 256 spans per controller before enumerating them. There is no serialized span
+list, independent placement identity, second clock or additional manager. Ordinary
+nonloop placements retain one inline affine span and allocation-free sampling.
+Invalid replacement geometry preserves the last admitted complete configuration.
+
+Select the incoming span at an internal reset. An ancestor reset clears a
+descendant to its entry value, including the inactive gap before its placement;
+other inactive gaps hold local endpoints. Retain the final clipped local value
+after the last span. A placement
+starting exactly at the parent's endpoint has a zero-length endpoint span; it
+does not become playing. Presentation snaps when a reset is crossed. Camera
+activity uses the selected active span rather than the bounding interval.
+
+Sound cue points invert through each span. Entry and local endpoint cues retain
+their existing inclusive forward-event convention; the same cue/root point is
+emitted once if coincident spans produce it. Root-loop periodic delivery and the
+128-event all-or-none tick budget retain their owners. Skeletal root motion
+integrates each active span separately, splitting at existing clip boundaries and
+sampling both interval endpoints in the same span/window. A clock reset never
+creates motion between an outgoing endpoint and the incoming start. Repeated
+root cycles retain the existing whole-cycle composition/power path.
+
+Source/Prefab/history, Timeline placement controls, copied preview/live views,
+generic automation/MCP, matching SDK values, exact recovery and runtime kit guards
+belong to this additive profile. Local preview isolates the selected controller
+through the existing validated preview owner. Repeated independently authored
+controller placements and unrestricted arrangements remain separate capabilities.
+
 ## Bounded clip collections — accepted design
 
 2026-11-07. Extend the existing player-owned arrangement to at most eight clips.

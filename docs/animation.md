@@ -298,6 +298,12 @@ and controller loops. Presentation never extracts root movement. Resource reload
 validates the complete proposed next root sample before replacing accepted leases;
 pending inputs retry, and a rejected replacement retains the old revision.
 
+Explicit child `AnimationSequence.sequence_loop` placements use the existing
+provider's bounded root-to-local spans, including inherited descendant resets.
+Skeletal/morph phases follow the selected span; root-motion integration samples
+both endpoints in each active span without adding movement across a reset.
+See [nested timing and loop recovery](transform-animation.md#nested-controller-placements).
+
 The Timeline uses explicit player-kind observations for rows on a mixed holder.
 Clip-list edits and pending start fields use existing Scene `property.set_many` transactions; applying multiple timing fields uses one Undo step. Its stopped
 preview copies native model poses, morphs and joint transforms; the standalone

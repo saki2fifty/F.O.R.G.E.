@@ -1,27 +1,38 @@
 #pragma once
-enum class SequenceCapture { Transforms, Nested, CameraTransition, Properties, Bindings };
+enum class SequenceCapture {
+    Transforms,
+    Nested,
+    ChildLoops,
+    CameraTransition,
+    Properties,
+    Bindings
+};
 void capture_sequence_pair(const std::filesystem::path& gallery,
                            const std::filesystem::path& scratch,
                            const std::filesystem::path& output,
                            SequenceCapture profile = SequenceCapture::Transforms) {
-    const bool nested = profile == SequenceCapture::Nested;
+    const bool child_loops = profile == SequenceCapture::ChildLoops;
+    const bool nested = profile == SequenceCapture::Nested || child_loops;
     const bool camera_transition = profile == SequenceCapture::CameraTransition;
     const bool property_pair = profile == SequenceCapture::Properties;
     const bool binding_pair = profile == SequenceCapture::Bindings;
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root.parent_path());
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
+    if (child_loops && !std::filesystem::exists(root / test::sequence_child_loop_scene_path))
+        test::author_skeletal_sequence_gallery(root, false, false, true);
     if (!SDL_Init(SDL_INIT_VIDEO))
         throw std::runtime_error(SDL_GetError());
     {
-        const int height = camera_transition ? 1400 : 1100;
+        const int height = child_loops ? 1200 : camera_transition ? 1400 : nested ? 1300 : 1100;
         test::ImGuiSoftwareCapture capture(720, height);
         ui::style(1);
         EngineContext engine;
         Scene scene(engine.world());
         SceneDocument project(scene);
         project.open_project(root);
-        project.open_scene(binding_pair    ? "Scenes/184-sequence-binding-crossfades.scene.json"
+        project.open_scene(child_loops     ? test::sequence_child_loop_scene_path
+                           : binding_pair  ? "Scenes/184-sequence-binding-crossfades.scene.json"
                            : property_pair ? "Scenes/183-sequence-property-crossfades.scene.json"
                            : camera_transition ? "Scenes/153-camera-transitions.scene.json"
                            : nested            ? "Scenes/146-nested-sequences.scene.json"
@@ -36,7 +47,8 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
                         .value("sequence", Json{})
                         .is_null())
                     controller = {scene.asset_id(), row.at("id").get<EntityId>()};
-                else if (nested)
+                else if (nested && (!child_loops ||
+                                    row.value("name", std::string()).starts_with("Fast repeating")))
                     actor = row.at("id").get<std::string>();
             }
             if (camera_transition && row.at("components").contains("forge.camera_shot") &&
@@ -141,8 +153,8 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
                 ? std::vector<const char*>{"sequence:shot_start", "sequence:shot_end",
                                            "sequence:shot_blend", "sequence:apply_shot"}
             : nested ? std::vector<const char*>{"sequence:nested_start", "sequence:nested_rate",
-                                                "sequence:apply_nested", "sequence:open_nested",
-                                                "sequence:remove_nested"}
+                                                "sequence:nested_loop",  "sequence:apply_nested",
+                                                "sequence:open_nested",  "sequence:remove_nested"}
                      : std::vector<const char*>{"sequence:start", "sequence:next_start",
                                                 "sequence:clip", "sequence:next_clip"};
         for (const char* key : controls) {

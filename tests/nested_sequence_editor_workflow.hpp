@@ -42,10 +42,13 @@ void nested_editor_workflow(SceneDocument& project, Scene& scene, AnimationTimel
     const auto timing = scene.document();
     type("sequence:nested_start", "1");
     type("sequence:nested_rate", "2");
+    click("sequence:nested_loop");
     check(scene.document() == timing, "Pending nested start changed the Scene");
     click("sequence:apply_nested");
     near(scene.entity(child).get<AnimationSequence>().sequence_start_seconds, 1);
     near(scene.entity(child).get<AnimationSequence>().sequence_rate, 2);
+    check(scene.entity(child).get<AnimationSequence>().sequence_loop,
+          "Timeline placement loop did not reach the typed controller");
     editor.undo();
     frame();
     check(scene.document() == timing, "Nested start did not use Scene history");
@@ -109,8 +112,8 @@ void nested_editor_workflow(SceneDocument& project, Scene& scene, AnimationTimel
     const auto placed = scene.document();
     click("sequence:remove_nested");
     const auto unbound = scene.entity(child).get<AnimationSequence>();
-    check(!unbound.sequence.entity && unbound.loop && !unbound.play_on_start &&
-              unbound.playback_speed == 2,
+    check(!unbound.sequence.entity && unbound.sequence_loop && unbound.loop &&
+              !unbound.play_on_start && unbound.playback_speed == 2,
           "Removing nested placement lost standalone settings");
     editor.undo();
     frame();

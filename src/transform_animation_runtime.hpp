@@ -1,9 +1,11 @@
 #pragma once
 #include "animation_material_inputs.hpp"
 #include "sequence_clip_span.hpp"
+#include "sequence_clock_mapping.hpp"
 #include <forge/animation.hpp>
 #include <forge/resource.hpp>
 #include <forge/transform_animation.hpp>
+#include <memory>
 #include <set>
 namespace forge {
 template <> struct ResourceTraits<TransformAnimationAsset> {
@@ -26,6 +28,7 @@ class TransformAnimationPlayback {
     bool has_nested_sequences() const;
     bool has_sequence_rates() const;
     bool has_sequence_arrangements() const;
+    bool has_sequence_loops() const;
     void prepare_sequence_preview_root(EntityRef);
     bool pending() const { return pending_; }
     std::vector<std::uint64_t> take_discontinuities();
@@ -36,7 +39,7 @@ class TransformAnimationPlayback {
     EntityRef parent_sequence(EntityRef) const;
     bool control(EntityRef, AnimationControl);
     bool seek(EntityRef, double seconds);
-    Json sequence_checkpoint(unsigned profile = 3, bool rates = false) const;
+    Json sequence_checkpoint(unsigned profile = 3, bool rates = false, bool loops = false) const;
     Json camera_shots_checkpoint(bool transitions = false) const;
     bool has_camera_blends() const;
     Json tune_camera_shot(EntityRef, const Json& value);
@@ -44,7 +47,7 @@ class TransformAnimationPlayback {
     Json audio_cues_checkpoint() const;
     Json camera_presentation(flecs::entity_t, double alpha) const;
     void restore(const Json&, const Json& sequences, unsigned profile = 3, bool rates = false,
-                 bool arrangements = false);
+                 bool arrangements = false, bool loops = false);
     void pose_validator(AnimationRuntime::PoseValidator callback) {
         validator_ = std::move(callback);
     }
@@ -59,10 +62,11 @@ class TransformAnimationPlayback {
     double sequence_sample_time(flecs::entity_t id, double alpha = 1,
                                 const SequenceTimes& seek = {}) const;
     struct SequenceInterval {
-        double begin = 0, advance = 0, duration = 0, offset = 0, end = 0;
+        double begin = 0, advance = 0, duration = 0;
         bool loop = false, playing = false, discontinuous = false;
         flecs::entity_t root = 0;
-        double rate = 1, local_duration = 0;
+        // Consumed synchronously while the provider's admitted state is stable.
+        const detail::SequenceClockMapping* placement = nullptr;
     };
     SequenceInterval sequence_interval(flecs::entity_t id) const;
     SequenceTimes next_sequence_times(double seconds) const;
@@ -106,8 +110,7 @@ class TransformAnimationPlayback {
         AnimationSequence config;
         EntityRef entity;
         flecs::entity_t parent = 0, root = 0;
-        double root_offset = 0, root_end = 0;
-        double root_rate = 1;
+        std::shared_ptr<const detail::SequenceClockMapping> mapping;
         double time = 0, previous = 0, advance = 0;
         bool playing = false, discontinuous = true, entry_pending = true;
     };
@@ -162,6 +165,7 @@ class TransformAnimationPlayback {
     void error(flecs::entity_t, const std::string&);
     static flecs::entity_t scene_membership(flecs::entity);
     double controller_time(const SequenceState&, double root_time) const;
+    double root_presentation_time(const SequenceState&, double alpha) const;
     SequenceStep sequence_step(const SequenceState&, double seconds) const;
     double controller_presentation_time(flecs::entity_t, double alpha) const;
     void synchronize_sequences();

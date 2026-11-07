@@ -1168,6 +1168,16 @@ Nested controllers use `forge_property_set_many` on `forge.animation_sequence`:
 seconds and `sequence_rate` is local seconds per parent second (default 1,
 finite 0.25–4). Rates multiply through the active chain within 1/64–64. The root owns
 play/pause/seek; stored child playback_speed/loop/play_on_start stay separate.
+`sequence_loop` is a separate default-false boolean: true repeats the child's local
+duration through the remaining parent span and resets descendants with it. Set it
+with start/rate through the same `forge_property_set_many` transaction; clearing
+the parent retains all placement intent for later reuse. Root controllers ignore
+their stored placement-loop flag. Admission composes at most 256 root-time spans
+per controller, including inherited repeats; excessive geometry rejects preparation
+without replacing the admitted candidate. Sound points retain the 128-event
+all-or-none tick budget, and skeletal root motion integrates active spans without
+adding reset jumps. Controller watch `loop` reports placement looping; child controls
+remain read only. These are existing fields/operations, with no new MCP endpoint.
 Generic discovery, Scene permission/revision, replay, history and Save apply.
 Invalid local rates reject without mutation; invalid/cyclic/composed bindings
 reject preparation through the same runtime owner. Watch speed includes the

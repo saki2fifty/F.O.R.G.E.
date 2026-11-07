@@ -151,6 +151,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             if (features != document->end()) {
                 require(features->is_object(), "Invalid authored document runtime features");
                 for (const auto& [name, version] : features->items()) {
+                    if (name == "sequence_loop") {
+                        require(version.is_number_integer() &&
+                                    version == sequence_loop_runtime_profile_version,
+                                "Unsupported authored child sequence loop profile");
+                        const auto support = engine.find("runtime_sequence_loop");
+                        require(support != engine.end() && support->is_number_integer() &&
+                                    *support == sequence_loop_runtime_profile_version,
+                                "Child sequence loops require the runtime kit packaged with "
+                                "this editor");
+                        continue;
+                    }
                     if (name == "sequence_arrangement") {
                         require(version.is_number_integer() &&
                                     version == sequence_arrangement_runtime_profile_version,

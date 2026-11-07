@@ -123,6 +123,84 @@ void skeletal_sequence_collection_tests(const std::filesystem::path& project, co
     near(nested.local().translation.z, 4.5);
     require(nested.animation->checkpoint().at("sequence_arrangement_profile") == 11,
             "Collection recovery lost the nested placement-rate profile");
+    // A five-local-second child at 2x repeats three full cycles and a half
+    // local second inside this eight-second root. Held clip endpoints and clock
+    // resets contribute no motion between the outgoing and incoming poses.
+    sequence.duration = 8;
+    scene.entity(controller_id).set(sequence);
+    child.sequence_loop = true;
+    scene.entity(child_id).set(child);
+    // Compression error in the original imported clips is checked against the
+    // source-space oracle above. Repetitions must compose those same admitted
+    // native deltas, rather than multiply one fixed absolute error tolerance.
+    const auto cycle_motion = whole.local().translation;
+    Fixture prefix_reference(project, whole.scene.snapshot(), actor);
+    const auto initial_prefix = prefix_reference.local().translation;
+    prefix_reference.simulation.tick(.5f);
+    const auto partial_pose = prefix_reference.local().translation;
+    const LocalTranslation partial_motion{partial_pose.x - initial_prefix.x,
+                                          partial_pose.y - initial_prefix.y,
+                                          partial_pose.z - initial_prefix.z};
+    near(partial_motion.x, 0);
+    near(partial_motion.z, 1);
+    prefix_reference.simulation.tick(.5f);
+    const auto prefix_pose = prefix_reference.local().translation;
+    const LocalTranslation prefix_motion{prefix_pose.x - initial_prefix.x,
+                                         prefix_pose.y - initial_prefix.y,
+                                         prefix_pose.z - initial_prefix.z};
+    near(prefix_motion.x, .5);
+    near(prefix_motion.z, 1.5);
+    std::cout << "Admitted native cycle/prefix deltas: " << cycle_motion.x << "," << cycle_motion.z
+              << " / " << prefix_motion.x << "," << prefix_motion.z << '\n';
+    for (const bool segmented : {false, true}) {
+        Fixture repeated(project, scene.snapshot(), actor);
+        for (unsigned i = 0; i < (segmented ? 64u : 1u); ++i)
+            repeated.simulation.tick(segmented ? .125f : 8.f);
+        const auto expected_x = 3 * cycle_motion.x + partial_motion.x;
+        const auto expected_z = 3 * cycle_motion.z + partial_motion.z;
+        near(repeated.local().translation.x, expected_x);
+        near(repeated.local().translation.z, expected_z);
+        const auto checkpoint = repeated.animation->checkpoint();
+        require(checkpoint.at("version") == 13 && checkpoint.at("sequence_loop_profile") == 12 &&
+                    checkpoint.at("sequence_arrangement_profile") == 11,
+                "Skeletal looping collection lost its composed recovery profile");
+        Fixture cold(project, repeated.scene.snapshot(), actor, false);
+        cold.animation->restore(checkpoint);
+        near(cold.local().translation.x, expected_x);
+        near(cold.local().translation.z, expected_z);
+    }
+    sequence.loop = true;
+    scene.entity(controller_id).set(sequence);
+    Fixture repeated_roots(project, scene.snapshot(), actor);
+    repeated_roots.simulation.tick(16.5f);
+    near(repeated_roots.local().translation.x, 6 * cycle_motion.x + 3 * partial_motion.x);
+    near(repeated_roots.local().translation.z, 6 * cycle_motion.z + 3 * partial_motion.z);
+    sequence.loop = false;
+    scene.entity(controller_id).set(sequence);
+    const auto grand_id =
+        authoring_command(scene, "entity.create", {{"recipe", "animation.sequence"}})
+            .at("selected")
+            .get<std::string>();
+    AnimationSequence grand;
+    grand.duration = 1;
+    grand.sequence = scene.reference(child_id);
+    grand.sequence_start_seconds = 1;
+    scene.entity(grand_id).set(grand);
+    config.sequence = scene.reference(grand_id);
+    // This short descendant admits the original pair; later collection starts
+    // would be outside its duration and must remain rejected by admission.
+    config.sequence_extra_clips.clear();
+    scene.entity(actor.str()).set(config);
+    Fixture finite_descendant(project, scene.snapshot(), actor);
+    finite_descendant.simulation.tick(8);
+    near(finite_descendant.local().translation.x, 3 * prefix_motion.x);
+    near(finite_descendant.local().translation.z, 3 * prefix_motion.z);
+    grand.sequence_loop = true;
+    scene.entity(grand_id).set(grand);
+    Fixture repeated_descendant(project, scene.snapshot(), actor);
+    repeated_descendant.simulation.tick(8);
+    near(repeated_descendant.local().translation.x, 12 * prefix_motion.x);
+    near(repeated_descendant.local().translation.z, 12 * prefix_motion.z);
     std::cout
         << "Eight-clip skeletal collections: repeated resources, independent poses, "
            "active IDs, cold recovery and root-motion boundary/rate/loop integration passed\n";

@@ -589,6 +589,7 @@ void camera_shots(const std::filesystem::path& root) {
                  "typed duplicate-name references and exact recovery passed\n";
 }
 #include "audio_cue_tests.hpp"
+#include "child_sequence_loop_tests.hpp"
 #include "nested_sequence_audio_tests.hpp"
 #include "nested_sequence_tests.hpp"
 #include "sequence_clip_blend_tests.hpp"
@@ -601,7 +602,9 @@ int main(int argc, char** argv) {
             argc == 3 && std::string_view(argv[2]) == "--property-pairs-only";
         const bool collections_only =
             argc == 3 && std::string_view(argv[2]) == "--collections-only";
-        check(argc == 2 || properties_only || collections_only,
+        const bool child_loops_only =
+            argc == 3 && std::string_view(argv[2]) == "--child-loops-only";
+        check(argc == 2 || properties_only || collections_only || child_loops_only,
               "Need sequence scratch root and optional property mode");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
@@ -616,6 +619,13 @@ int main(int argc, char** argv) {
             sequence_property_blend_tests(root, lease, imports);
             return 0;
         }
+        if (child_loops_only) {
+            const auto motion = clip(lease, imports, "Assets/LoopMotion.animation.json", false);
+            const auto pulse = clip(lease, imports, "Assets/LoopPulse.animation.json", true);
+            child_sequence_loop_tests(root, motion, pulse);
+            child_sequence_loop_audio_tests(root);
+            return 0;
+        }
         camera_shot_identity(root);
         camera_shots(root);
         audio_cue_tests(root);
@@ -624,6 +634,8 @@ int main(int argc, char** argv) {
         const auto held = clip(lease, imports, "Assets/Held.animation.json", false, true);
         nested_audio_cue_tests(root);
         nested_sequence_tests(root, motion, pulse);
+        child_sequence_loop_tests(root, motion, pulse);
+        child_sequence_loop_audio_tests(root);
         sequence_clip_blend_tests(root, lease, imports, motion, pulse, held);
         sequence_property_blend_tests(root, lease, imports);
         persistence(root, motion);

@@ -5,6 +5,16 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds explicit child sequence loops through the existing root clock.
+Dedicated placement-loop intent composes bounded root-time spans for descendants,
+camera windows, cue occurrences and skeletal root-motion intervals. The Timeline
+edits start/rate/loop in one Scene Undo operation, while generic source/Prefab/MCP
+and matching SDK values retain their existing owners. Recovery 13 and runtime-kit
+capability 1 guard the profile; Gallery188 demonstrates original motion, morph and
+nested mapped sections. Windows/full Main and physical acceptance remain pending.
+See [nested timing](transform-animation.md#nested-controller-placements) and
+[the user workflow](../manual/editor/animation-sequences.md#place-a-sequence-inside-another).
+
 Local source supports up to eight compatible clips on each Transform Animator or
 direct skeletal sequence track, with at most two adjacent contributions. Existing
 providers own clocks, resources, canonical Material/reflected bindings, per-placement

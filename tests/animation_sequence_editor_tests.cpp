@@ -1,5 +1,6 @@
 #include "animation_timeline.hpp"
 #include "component_inspector.hpp"
+#include "fixtures/skeletal_sequence_gallery.hpp"
 #include "imgui_input_driver.hpp"
 #include "imgui_software_capture.hpp"
 #include "model_selection.hpp"
@@ -21,7 +22,7 @@ void near(double a, double b) {
 #include "nested_sequence_editor_workflow.hpp"
 #include "sequence_frame_export_tests.hpp"
 void exercise(const std::filesystem::path& gallery, const std::filesystem::path& scratch,
-              float scale, ImVec2 display) {
+              float scale, ImVec2 display, bool nested_only = false) {
     const auto began = std::chrono::steady_clock::now();
     const auto progress = [&](const char* stage) {
         std::cerr << "Sequence UI " << scale << " " << display.x << "x" << display.y << " " << stage
@@ -354,6 +355,11 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     progress("object tracks passed");
     nested_editor_workflow(project, scene, editor, context, controller, clip, frame, click, type);
     progress("nested sequences passed");
+    if (nested_only) {
+        test::observe_ui = false;
+        ImGui::DestroyContext();
+        return;
+    }
     const auto camera = authoring_command(scene, "entity.create",
                                           {{"name", "Equal camera name"},
                                            {"recipe", "render.camera"},
@@ -639,6 +645,10 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 4 && std::string_view(argv[1]) == "--nested-workflow") {
+            exercise(argv[2], argv[3], 1.f, {960, 640}, true);
+            return 0;
+        }
         if (argc == 5 && std::string_view(argv[1]) == "--collections") {
             skeletal_sequence_editor(argv[2], argv[3], argv[4], true);
             return 0;
@@ -665,6 +675,10 @@ int main(int argc, char** argv) {
         }
         if (argc == 5 && std::string_view(argv[1]) == "--capture-nested") {
             capture_sequence_pair(argv[2], argv[3], argv[4], SequenceCapture::Nested);
+            return 0;
+        }
+        if (argc == 5 && std::string_view(argv[1]) == "--capture-child-loops") {
+            capture_sequence_pair(argv[2], argv[3], argv[4], SequenceCapture::ChildLoops);
             return 0;
         }
         check(argc == 3, "Need Gallery and sequence UI scratch root");

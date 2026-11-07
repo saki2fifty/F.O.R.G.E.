@@ -50,9 +50,17 @@ Json document_runtime_features(const Json& document) {
                                 sequence_arrangement_runtime_profile_version;
                     }
             if (const auto sequence = values->find("forge.animation_sequence");
-                sequence != values->end() && !sequence->is_null())
+                sequence != values->end() && !sequence->is_null()) {
                 if (sequence->value("sequence_rate", 1.) != 1)
                     result["sequence_rate"] = sequence_rate_runtime_profile_version;
+                if (const auto loop = sequence->find("sequence_loop"); loop != sequence->end()) {
+                    if (!loop->is_boolean())
+                        throw std::runtime_error(
+                            "game.export.document: Invalid sequence loop flag");
+                    if (loop->get<bool>())
+                        result["sequence_loop"] = sequence_loop_runtime_profile_version;
+                }
+            }
             if (const auto probe = values->find("forge.reflection_probe");
                 probe != values->end() && !probe->is_null())
                 if (const auto capture = probe->find("runtime_capture"); capture != probe->end()) {
