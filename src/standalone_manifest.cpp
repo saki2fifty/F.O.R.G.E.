@@ -16,6 +16,7 @@
 #include <forge/audio_components.hpp>
 #include <forge/fog_volume.hpp>
 #include <forge/game_content.hpp>
+#include <forge/game_settings.hpp>
 #include <forge/input_message.hpp>
 #include <forge/mesh_wind.hpp>
 #include <forge/model_asset.hpp>
@@ -83,6 +84,15 @@ Json verify_distribution_files(const std::filesystem::path& root,
 }
 void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& engine,
                                     const Json* project) {
+    const auto require_audio_routing = [&] {
+        const auto support = engine.find("runtime_audio_routing");
+        require(support != engine.end() && support->is_number_integer() &&
+                    *support == audio_routing_profile_version,
+                "Custom audio routing requires the runtime kit packaged with this editor");
+    };
+    if (project && project->contains("game") &&
+        !audio_routing_settings(project->at("game").at("audio")).buses.empty())
+        require_audio_routing();
     if (project && detail::read_runtime_execution(*project).ecs_workers > 1) {
         const auto support = engine.find("runtime_ecs_workers");
         require(support != engine.end() && support->is_number_integer() &&
@@ -151,6 +161,13 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             if (features != document->end()) {
                 require(features->is_object(), "Invalid authored document runtime features");
                 for (const auto& [name, version] : features->items()) {
+                    if (name == "audio_routing") {
+                        require(version.is_number_integer() &&
+                                    version == audio_routing_profile_version,
+                                "Unsupported authored custom audio routing profile");
+                        require_audio_routing();
+                        continue;
+                    }
                     if (name == "sequence_placement") {
                         require(version.is_number_integer() &&
                                     version == sequence_placement_runtime_profile_version,

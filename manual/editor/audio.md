@@ -159,6 +159,7 @@ Start with a comfortable speaker/headphone volume. The example is a quiet, four-
 - **Outer opening (deg):** full outer angle, at least the inner opening. Volume fades between the openings; equal openings make a hard boundary.
 - **Outside volume:** `0–1`, default `.25`; outside the outer opening, this multiplies distance falloff and gain. `0` is silent; `1` preserves volume.
 - **Mix channel:** choose **Master**, **Music**, **Effects** or **Dialogue**. Music, Effects and Dialogue use their own volume before Master. Changing channel keeps the sound playing.
+- **Custom Bus:** choose a saved project bus, or **Stock mix channel** to use Mix channel. A custom selection preserves the stored stock choice. Changing a valid route keeps the sound's playback position.
 
 Numeric fields commit with **Enter**. Errors leave the previous authored value intact. Object scale does not multiply gain or range. Parent transforms still move a child's position normally.
 
@@ -176,11 +177,56 @@ Effects and Dialogue. Stop Play, change one channel's default volume, save setti
 and Play again to compare. Select each named emitter to inspect or change its
 **Mix channel**. Export preserves its routes and cooked tone.
 
+### Create custom buses and sends
+
+1. Stop Play and open **Tools → Project Settings → Game defaults → Custom audio buses**.
+2. Click **Add custom bus**. Set its **Key** to `rain` and **Label** to `Rain`.
+3. Set **Initial volume** to `0.5` and **Output** to `effects`.
+4. Click **Add send**, choose `music` as **Send target**, and set **Send gain** to `0.25`.
+5. Click **Save Settings**. Select an Audio Source in the Inspector and choose **Custom Bus → Rain (rain)**.
+6. Save the Scene and start Play. The source now follows both paths; live bus and category faders let you compare them.
+
+![Project Settings custom audio bus with the rain key, Effects output and a quarter-gain Music send](../images/audio-routing-project.png)
+
+Set the bus output and additional sends in the project settings draft, then save.
+
+Keys are stable project-local names: a lowercase ASCII letter followed by letters,
+digits or underscores, at most 64 bytes. Labels are optional display text, at
+most 128 UTF-8 bytes. `master`, `music`, `effects` and `dialogue` are reserved
+terminal names. Sources and route targets bind to keys, so changing a label keeps
+their selection. Changing or removing a key requires updating its references.
+
+An output carries the full bus signal after its Initial volume. Each send adds
+another path after that same fader. Target custom buses apply their own faders;
+Music, Effects and Dialogue apply their category volume before Master. Paths add
+without normalization and can amplify the sound. In this example, with category
+and Master volumes at 1, the combined amplitude is `0.5 × (1 + 0.25) = 0.625`
+times the source output.
+
+There can be 16 custom buses and 3 sends per bus. Missing targets, duplicate targets,
+cycles and graphs whose potential path sum exceeds 16 cannot be saved, including
+cycles through muted buses or zero-gain sends. Resolve the displayed routing
+error before saving. An unresolved source key remains visible and reports a
+Play error for that source; it does not silently select the stock channel.
+
+Routes are scalar volume paths. They do not add shared bus effects, a send/return
+effect rack or acoustic room simulation. Source filters, echo, reverb, pause,
+streaming and one-shots keep their existing controls. Export requires the matching
+runtime kit packaged with the editor. Stop Play and save settings and Scenes
+before exporting.
+
+Open **191 — Audio routing** in the Feature Gallery for three pitched emitters
+using Rain, Room and stock Dialogue. The camera, light and bus definitions are
+included; no project C++ is required. Adjust the live faders, or stop and edit the
+source selection and saved project graph before exporting.
+
 ### Adjust the current game while it plays
 
 During Play, open **Tools → Project Settings**. **Live audio mix** shows the sound
 output, whether it is paused, voice counts and clip cache use. Change Master,
 Music, Effects or Dialogue, then click **Apply live mix** to hear the change.
+If the project has custom buses, **Custom bus volumes** adds one fader per key.
+These affect the bus output and all its sends; topology stays fixed during Play.
 **Reload live values** discards an unapplied draft. Controls briefly disable while
 the game applies a request; a rejected request shows an error and can be retried.
 
@@ -189,6 +235,11 @@ affect only the current Play session. Stop and Play again to return to saved
 defaults. To make a starting mix permanent, stop, edit **Game defaults** and save
 settings. Try the live sliders in **33 — Audio mixer** or **34 — Audio import
 processing**.
+
+![Live audio mix with Master and category faders plus the rain custom bus fader](../images/audio-routing-live.png)
+
+Edit a session draft, then use Apply live mix; Reload live values restores the
+runtime's current values.
 
 ## Position and listener
 
@@ -250,7 +301,7 @@ do not provide a smoothed, sample-accurate automation envelope.
 Open **85 — Audio filters** in the Feature Gallery. Only **Dry tone** starts
 automatically. Stop it under **Live sound**, then use **Play / Restart** on either
 filtered speaker to compare the same recording. Saved filter settings also apply
-in an exported game. These are source filters. Custom effect buses, send/return routing and automatic
+in an exported game. These are source filters. Shared bus effects, effect send/return processing and automatic
 acoustic occlusion are unavailable. See the reverb controls below for diffuse tails.
 
 ## Add an echo
@@ -304,7 +355,7 @@ Decay is a nominal effect setting rather than a physical room measurement. A
 reverb tail is retired after twice the decay plus 0.5 seconds from its observed
 clip end; pausing freezes that time. Echo followed by reverb adds their retained
 tail spans. Tails occupy the normal voice limits until retirement. This is a
-per-source effect; shared effect buses, send/return routing, impulse-response
+per-source effect; shared effect buses, effect send/return processing, impulse-response
 files and acoustic room simulation are unavailable.
 
 ## Start or stop a source during Play

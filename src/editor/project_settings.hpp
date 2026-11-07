@@ -1,4 +1,5 @@
 #pragma once
+#include "audio_routing.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
 #include "widgets.hpp"
@@ -202,6 +203,7 @@ class ProjectSettingsEditor {
                                    "Zero mutes while playback time continues. Player settings can "
                                    "override this default.");
                 }
+                AudioRoutingEditor::draw(game["audio"]);
                 double sensitivity = game["input"]["mouse_sensitivity"];
                 if (ImGui::InputDouble("Mouse sensitivity", &sensitivity, .1, 1, "%.2f"))
                     game["input"]["mouse_sensitivity"] = sensitivity;

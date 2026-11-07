@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdint>
 #include <forge/engine_assets.hpp>
+#include <forge/game_settings.hpp>
 #include <forge/model_asset.hpp>
 #include <forge/project.hpp>
 #include <forge/project_paths.hpp>
@@ -534,6 +535,46 @@ inline bool physics_layer_picker(const std::filesystem::path& root, const char* 
     }
     return changed;
 }
+inline bool audio_bus_picker(const std::filesystem::path& root, const char* label, Json& value) {
+    const auto current = value.get<std::string>();
+    const bool opened =
+        ImGui::BeginCombo(label, current.empty() ? "Stock mix channel" : current.c_str());
+    FORGE_UI_PROBE("audio-source:custom-bus");
+    bool changed = false;
+    if (opened) {
+        if (ImGui::Selectable("Stock mix channel", current.empty())) {
+            value = "";
+            changed = true;
+        }
+        if (current.empty())
+            ImGui::SetItemDefaultFocus();
+        try {
+            // Read the saved project owner only while choosing a route. Settings drafts
+            // become source options after their ordinary Save boundary.
+            const auto project = ProjectSettings(root).document();
+            if (project.contains("game")) {
+                const auto routing = audio_routing_settings(project.at("game").at("audio"));
+                for (const auto& bus : routing.buses) {
+                    const auto text =
+                        bus.label.empty() ? bus.key : bus.label + " (" + bus.key + ")";
+                    if (ImGui::Selectable(text.c_str(), current == bus.key)) {
+                        value = bus.key;
+                        changed = true;
+                    }
+                    if (current == bus.key)
+                        ImGui::SetItemDefaultFocus();
+                    FORGE_UI_PROBE("audio-source:bus:" + bus.key);
+                }
+            }
+        } catch (const std::exception& error) {
+            ui::field_error(error.what());
+        }
+        ImGui::EndCombo();
+    }
+    ui::help("Choose a saved project bus or use the stock Mix channel. Unresolved keys stay "
+             "visible and fail explicitly during Play.");
+    return changed;
+}
 inline bool property_field_body(const std::filesystem::path& root, const Json& field, Json& value,
                                 bool commit_on_enter, std::optional<AssetId> owner) {
     auto visible_label = property_label(field);
@@ -674,6 +715,9 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
     else if (type == "float64")
         changed = numeric_property<double>(label.c_str(), ImGuiDataType_Double, "%.9g", value,
                                            commit_on_enter);
+    else if (type == "string" &&
+             field.value("property_id", std::string{}) == "forge.audio_source.custom_bus")
+        changed = audio_bus_picker(root, label.c_str(), value);
     else if (type == "string") {
         auto buffer = value.get<std::string>();
         changed = ImGui::InputText(label.c_str(), &buffer,

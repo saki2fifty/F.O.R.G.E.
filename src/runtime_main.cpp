@@ -272,6 +272,8 @@ int main(int argc, char** argv) {
                 const auto& audio = project.document().at("game").at("audio");
                 audio_config->master_volume = audio.at("master_volume").get<float>();
                 audio_config->channel_volumes = forge::audio_channel_volumes(audio);
+                audio_config->routing = forge::audio_routing_settings(audio);
+                audio_config->bus_volumes = forge::audio_bus_volumes(audio);
             }
         }
         forge::PhysicsConfig physics_config =
@@ -317,12 +319,21 @@ int main(int argc, char** argv) {
             auto tile_maps = forge::detail::checkpoint_runtime_tile_maps(runtime->engine.world());
             if (tile_maps.is_null())
                 return forge::Json(); // A binding/edit has not reached its admitted boundary.
-            forge::Json checkpoint = {{"version", 2},
+            const bool custom_audio = audio_config && !audio_config->routing.buses.empty();
+            forge::Json checkpoint = {{"version", custom_audio ? 3 : 2},
                                       {"session", session},
                                       {"tick", clock.tick()},
                                       {"simulation_hz", clock.status().at("simulation_hz")},
                                       {"scene", runtime->scene.snapshot()},
                                       {"physics", runtime->physics()->checkpoint()}};
+            if (custom_audio)
+                checkpoint["audio"] = {
+                    {"version", 1},
+                    {"routing", forge::audio_routing_json(audio_config->routing)},
+                    {"mix",
+                     forge::AudioMixValues{audio_config->master_volume,
+                                           audio_config->channel_volumes, audio_config->bus_volumes}
+                         .document()}};
             checkpoint["tile_maps"] = std::move(tile_maps);
             if (execution.ecs_workers != 1)
                 checkpoint["ecs_workers"] = execution.ecs_workers;
@@ -455,6 +466,7 @@ int main(int argc, char** argv) {
                         replacement_phase("replace-world-ready");
                         candidate->simulation.input().configure(input_map);
                         std::uint64_t recovered_tick = 0;
+                        std::optional<forge::AudioMixValues> recovered_mix;
                         replacement_phase("replace-scene-begin");
                         if (request.contains("recovery") && !request.at("recovery").is_null()) {
                             auto recovery = request.at("recovery");
@@ -462,7 +474,10 @@ int main(int argc, char** argv) {
                                 throw std::runtime_error("Recovery checkpoint exceeds 8 MiB");
                             auto checksum = recovery.at("integrity").get<std::string>();
                             recovery.erase("integrity");
-                            if (integrity(recovery) != checksum || recovery.at("version") != 2 ||
+                            const bool custom_audio =
+                                audio_config && !audio_config->routing.buses.empty();
+                            if (integrity(recovery) != checksum ||
+                                recovery.at("version") != (custom_audio ? 3 : 2) ||
                                 forge::detail::read_runtime_execution(recovery) != execution ||
                                 recovery.at("simulation_hz") !=
                                     clock.status().at("simulation_hz") ||
@@ -472,6 +487,32 @@ int main(int argc, char** argv) {
                                 recovery.at("tick") != recovery.at("physics").at("tick"))
                                 throw std::runtime_error("Recovery checkpoint integrity, identity, "
                                                          "session or boundary mismatch");
+                            if (custom_audio) {
+                                const auto& audio = recovery.at("audio");
+                                if (!audio.is_object() || audio.size() != 3 ||
+                                    audio.at("version") != 1 ||
+                                    audio.at("routing") !=
+                                        forge::audio_routing_json(audio_config->routing))
+                                    throw std::runtime_error(
+                                        "Recovery audio routing differs from the project");
+                                recovered_mix = forge::AudioMixValues::parse(audio.at("mix"));
+                                if (!recovered_mix->buses)
+                                    throw std::runtime_error(
+                                        "Recovery audio needs all custom bus faders");
+                                (void)forge::AudioRoutingProjection::compile(
+                                    audio_config->routing, *recovered_mix->buses, true);
+                                // Optional device startup can leave a data-only candidate without
+                                // Audio. Its complete host settings still validate and survive.
+                                if (candidate->engine.services().available(
+                                        forge::Capability::Audio))
+                                    std::static_pointer_cast<forge::AudioRuntime>(
+                                        candidate->engine.services().audio())
+                                        ->mix_volumes(recovered_mix->master,
+                                                      recovered_mix->channels,
+                                                      *recovered_mix->buses);
+                            } else if (recovery.contains("audio"))
+                                throw std::runtime_error(
+                                    "Recovery audio routing requires the matching project graph");
                             candidate->scene.restore_snapshot(recovery.at("scene"));
                             candidate->engine.world().modules().scene_ready();
                             replacement_phase("replace-scene-ready");
@@ -535,6 +576,11 @@ int main(int argc, char** argv) {
                         if (runtime)
                             runtime->simulation.suspend_audio();
                         runtime.swap(candidate);
+                        if (recovered_mix) {
+                            audio_config->master_volume = recovered_mix->master;
+                            audio_config->channel_volumes = recovered_mix->channels;
+                            audio_config->bus_volumes = *recovered_mix->buses;
+                        }
                         runtime->engine.services().profiling(profiling_enabled);
                         runtime->engine.services().profiling_systems(profiling_systems);
                         clock.restore_tick(recovered_tick, forge::RuntimeClock::Clock::now());
@@ -557,9 +603,12 @@ int main(int argc, char** argv) {
                             throw std::runtime_error("Live audio mix requires enabled audio");
                         std::static_pointer_cast<forge::AudioRuntime>(
                             runtime->engine.services().audio())
-                            ->mix_volumes(mix.master, mix.channels);
+                            ->mix_volumes(mix.master, mix.channels,
+                                          mix.buses.value_or(audio_config->bus_volumes));
                         audio_config->master_volume = mix.master;
                         audio_config->channel_volumes = mix.channels;
+                        if (mix.buses)
+                            audio_config->bus_volumes = *mix.buses;
                     } else if (command == "audio_source") {
                         if (!runtime->engine.services().available(forge::Capability::Audio))
                             throw std::runtime_error("Source playback requires enabled audio");

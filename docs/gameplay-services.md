@@ -300,6 +300,15 @@ target with their own host.
 | `rebind_commit` | optional `clear`, `allow_conflicts` | Validate and persist the chosen slot; sharing must be deliberate |
 | `rebind_reset` | optional `action` | Restore project defaults and cancel the pending candidate |
 
+`set_settings.values.audio` may contain a `bus_volumes` object of numeric0..1
+overrides for project-defined audio keys. Partial maps use project defaults for
+other buses; unknown keys reject. This is the ordinary user-settings document,
+not a topology edit or a live-only mixer command. The existing resolver,
+GameSession and settings transaction apply the complete candidate to active/
+preparing/future worlds and roll back custom as well as stock gains if saving
+fails. Project routing remains authored `game.audio.routing`. See
+[audio routing](audio.md#custom-audio-routing-and-sends).
+
 The graphical standalone host installs these services. Provider/cursor/navigation
 availability must be queried or handled as a rejected request; schema inspection
 worlds do not supply a game host. The standalone reference game exercises the

@@ -29,6 +29,9 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t siz
             next.outer_angle = 100;
             next.outer_gain = .4f;
             next.bus = 2; // Effects; shares the gameplay Master pause/output owner.
+            // Optional project route demonstration: define room and rain in game.audio.routing.
+            if (old.custom_bus == "room")
+                next.custom_bus = "rain";
             next.low_pass_enabled = true;
             next.high_pass_enabled = true;
             next.low_pass_hz = 4000;

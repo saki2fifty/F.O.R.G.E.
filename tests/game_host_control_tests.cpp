@@ -29,12 +29,15 @@ void run(const std::filesystem::path& root) {
                                    {"name", "Jump"},
                                    {"kind", "digital"},
                                    {"bindings", Json::array({{{"control", "key.space"}}})}}})}});
-    const auto defaults = default_game_settings("org.forge.host-test", "Host test");
+    auto defaults = default_game_settings("org.forge.host-test", "Host test");
+    defaults["audio"]["routing"] =
+        audio_routing_json({{{"rain", "", .5f, "effects", {}}, {"room", "", .75f, "rain", {}}}});
     auto queue = std::make_shared<GameControlQueue>();
     GameSessionConfig config;
     config.controls = queue;
     config.input = input;
     config.audio = AudioConfig{content, AudioOutput::Offline, true};
+    config.audio->routing = audio_routing_settings(defaults.at("audio"));
     EngineModule module;
     module.id = "game.test";
     module.dependencies = {"forge.game"};
@@ -260,16 +263,25 @@ void run(const std::filesystem::path& root) {
                       {{"master_volume", .5},
                        {"music_volume", .25},
                        {"effects_volume", .75},
-                       {"dialogue_volume", 0}}}}}})
+                       {"dialogue_volume", 0},
+                       {"bus_volumes", {{"rain", .25}, {"room", .5}}}}}}}})
                       .state == "succeeded" &&
               applications == 0 &&
               game.active().simulation.input().latch(1).actions.at(action).held,
           "Volume/VSync change reset held controls or repositioned the window");
     auto audio = std::static_pointer_cast<AudioRuntime>(game.active().engine.services().audio());
     check(audio->status().at("master_volume") == .5 &&
-              audio->status().at("channel_volumes") == Json::array({.25, .75, 0}),
+              audio->status().at("channel_volumes") == Json::array({.25, .75, 0}) &&
+              audio->status().at("bus_volumes") == Json({{"rain", .25}, {"room", .5}}),
           "Persisted channel preferences did not reach active audio provider");
     const auto mix_before = audio->status();
+    check(request(
+              {{"operation", "set_settings"},
+               {"values", {{"audio", {{"master_volume", 0}, {"bus_volumes", {{"unknown", 1}}}}}}}})
+                      .state == "failed" &&
+              audio->status().at("bus_volumes") == mix_before.at("bus_volumes") &&
+              audio->status().at("master_volume") == mix_before.at("master_volume"),
+          "Invalid player bus key partially changed the active mix");
     check(request({{"operation", "set_settings"},
                    {"values", {{"audio", {{"music_volume", .1}, {"dialogue_volume", 2}}}}}})
                       .state == "failed" &&
@@ -279,18 +291,21 @@ void run(const std::filesystem::path& root) {
     const auto held_preferences = storage.root() / "settings-held.json";
     std::filesystem::rename(preferences, held_preferences);
     std::filesystem::create_directory(preferences);
-    const auto failed_mix_save = request({{"operation", "set_settings"},
-                                          {"values",
-                                           {{"audio",
-                                             {{"master_volume", .1},
-                                              {"music_volume", .9},
-                                              {"effects_volume", .2},
-                                              {"dialogue_volume", .5}}}}}});
+    const auto failed_mix_save =
+        request({{"operation", "set_settings"},
+                 {"values",
+                  {{"audio",
+                    {{"master_volume", .1},
+                     {"music_volume", .9},
+                     {"effects_volume", .2},
+                     {"dialogue_volume", .5},
+                     {"bus_volumes", {{"rain", .125}, {"room", .75}}}}}}}});
     std::filesystem::remove(preferences);
     std::filesystem::rename(held_preferences, preferences);
     check(failed_mix_save.state == "failed" &&
               audio->status().at("master_volume") == mix_before.at("master_volume") &&
               audio->status().at("channel_volumes") == mix_before.at("channel_volumes") &&
+              audio->status().at("bus_volumes") == mix_before.at("bus_volumes") &&
               host.settings().at("audio").at("music_volume") == .25,
           "Preferences write failure did not roll back all live mix channels");
     check(request({{"operation", "set_settings"}, {"values", {{"display", {{"width", 777}}}}}})

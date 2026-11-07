@@ -69,15 +69,17 @@ struct Fixture {
     Scene scene;
     RuntimeSimulation simulation;
     std::shared_ptr<AudioRuntime> audio;
-    explicit Fixture(const std::filesystem::path& root, float volume = 1, bool physics = false)
-        : engine(WorldRole::Runtime, false,
-                 [&] {
-                     std::vector<EngineModule> modules{
-                         audio_module({root, AudioOutput::Offline, true, volume})};
-                     if (physics)
-                         modules.push_back(physics_module());
-                     return modules;
-                 }()),
+    explicit Fixture(const std::filesystem::path& root, float volume = 1, bool physics = false,
+                     AudioRouting routing = {})
+        : engine(
+              WorldRole::Runtime, false,
+              [&] {
+                  std::vector<EngineModule> modules{audio_module(
+                      {root, AudioOutput::Offline, true, volume, {1, 1, 1}, std::move(routing)})};
+                  if (physics)
+                      modules.push_back(physics_module());
+                  return modules;
+              }()),
           scene(engine.world()), simulation(engine.world(), scene),
           audio(std::static_pointer_cast<AudioRuntime>(engine.services().audio())) {}
     void load(const Json& doc) {
@@ -576,6 +578,39 @@ int main(int argc, char** argv) {
             {{"entity", a}, {"component", "forge.audio_source"}, {"field", "low_pass_hz"}});
         check(author.scene.entity(a).get<AudioSource>().low_pass_hz == 1000,
               "Filter Revert did not restore the Prefab cutoff");
+        authoring_command(author.scene, "property.set",
+                          {{"entity", a},
+                           {"component", "forge.audio_source"},
+                           {"field", "custom_bus"},
+                           {"value", ""}});
+        expected = library.source(prefab);
+        candidate = expected;
+        candidate["members"][0]["components"]["forge.audio_source"]["custom_bus"] = "rain";
+        library.publish(author.scene, expected, candidate);
+        check(author.scene.entity(a).get<AudioSource>().custom_bus.empty() &&
+                  author.scene.entity(b).get<AudioSource>().custom_bus == "rain",
+              "Explicit empty custom route override lost intent during Prefab publication");
+        authoring_command(author.scene, "property.set",
+                          {{"entity", b},
+                           {"component", "forge.audio_source"},
+                           {"field", "custom_bus"},
+                           {"value", "room"}});
+        const auto routed_prefabs = author.scene.snapshot();
+        check(author.scene.undo() &&
+                  author.scene.entity(b).get<AudioSource>().custom_bus == "rain" &&
+                  author.scene.redo() && author.scene.snapshot() == routed_prefabs,
+              "Prefab custom route lost native string Undo/Redo");
+        Fixture routed_reopen(root, 1, false,
+                              {{{"rain", "", 1, "effects", {}}, {"room", "", 1, "rain", {}}}});
+        routed_reopen.load(routed_prefabs);
+        check(routed_reopen.scene.snapshot() == routed_prefabs &&
+                  routed_reopen.scene.entity(b).get<AudioSource>().custom_bus == "room",
+              "Prefab custom route failed saved native string reconstruction");
+        authoring_command(
+            author.scene, "property.revert",
+            {{"entity", b}, {"component", "forge.audio_source"}, {"field", "custom_bus"}});
+        check(author.scene.entity(b).get<AudioSource>().custom_bus == "rain",
+              "Custom route Revert did not restore the inherited key");
         const auto wrong_ref = author.ref();
         std::thread wrong([&] { reject([&] { author.audio->play(wrong_ref); }); });
         wrong.join();

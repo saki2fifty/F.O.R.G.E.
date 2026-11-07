@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <forge/asset_ref.hpp>
+#include <string>
 namespace forge {
 struct AudioClipAsset {
     static constexpr const char* type = "audio_clip";
@@ -29,6 +30,8 @@ struct AudioSource {
     float echo_seconds = .25f, echo_feedback = .35f;
     bool reverb_enabled = false;
     float reverb_decay = 1.5f, reverb_damping = .5f, reverb_wet = .25f;
+    // A project-defined key overrides the retained stock bus; empty uses bus0..3.
+    std::string custom_bus{};
     bool operator==(const AudioSource&) const = default;
 };
 struct AudioListener {

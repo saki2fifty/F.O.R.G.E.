@@ -1,5 +1,6 @@
 #include "animation_playback_access.hpp"
 #include "application_state_resource.hpp"
+#include "audio_source_access.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_property_tune.hpp"
 #include "runtime_tile_map.hpp"
@@ -82,6 +83,13 @@ Json RuntimeWorld::tune_property(EntityRef target, const std::string& type,
     }
     if (type == "forge.audio_source" && !engine.services().available(Capability::Audio))
         throw std::runtime_error("Live audio tuning requires enabled audio");
+    if (type == "forge.audio_source" && property == "custom_bus") {
+        if (!value.is_string())
+            throw std::runtime_error("Custom audio bus must be a project-defined key or empty");
+        AudioSourceAccess::validate_route(
+            *std::static_pointer_cast<AudioRuntime>(engine.services().audio()),
+            value.get_ref<const std::string&>());
+    }
     auto applied = scene.tune_runtime_property(target.entity.str(), type, property, value);
     if (RuntimePropertyTune::state_condition_type(type))
         simulation.reconcile_state_conditions();

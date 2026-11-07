@@ -60,6 +60,13 @@ with host('edit') as config:
     target = discovery['response']['result']['target']
     revision = discovery['response']['revision']
     assert discovery['response']['result']['mutation_available']
+    numeric = dict(api=1, method='test.numeric_map', target=target, values=dict(a=.5, b=1))
+    observed = exchange(config, wire(config, numeric))
+    assert observed['response']['ok'] and observed['response']['result'] == numeric['values']
+    for values in ({}, dict(a=1, b=1, c=1), dict(oversize=1), dict(a=True), dict(a=-1), dict(a='1')):
+        error(exchange(config, wire(config, dict(numeric, values=values))), 'invalid_arguments')
+    unchanged = exchange(config, wire(config, dict(api=1, method='scene.read', target=target)))
+    assert unchanged['next_sequence'] == 1 and unchanged['response']['revision'] == revision
     apply = dict(api=1, method='scene.apply', target=target, expected_revision=revision,
                  commands=[dict(operation='entity.create', arguments=dict(kind=0, name='Live cube'))])
     error(exchange(config, wire(config, apply, 1, token='wrong')), 'unauthorized')
@@ -136,7 +143,10 @@ for mode, code in [('read', 'capability_denied'), ('busy', 'busy')]:
         data = discovery['response']
         assert not data['result']['mutation_available']
         if mode == 'read':
-            assert data['result']['capabilities'] == ['scene.read'] and not data['result']['commands']
+            assert data['result']['capabilities'] == ['scene.read', 'document.read'] and not data['result']['commands']
+            observed = exchange(config, wire(config, dict(api=1, method='test.numeric_map',
+                target=data['result']['target'], values=dict(a=.25))))
+            assert observed['response']['ok'] and observed['response']['result'] == dict(a=.25)
         request = dict(api=1, method='scene.apply', target=data['result']['target'],
                        expected_revision=data['revision'],
                        commands=[dict(operation='entity.create', arguments=dict(kind=0))])

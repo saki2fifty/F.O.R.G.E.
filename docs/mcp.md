@@ -1539,6 +1539,30 @@ one-shots. Source/category gain applies after effects so mute covers retained
 tails while their time continues. Effect-parameter edits clear source effect
 history; Source Pause/Resume retains it and Stop/Restart uses the normal lifecycle.
 
+### Custom audio buses and live faders
+
+Use `forge_project_settings_read/edit/save` with the observed settings digest to
+author `game.audio.routing`. The shared audio value owner validates version1,
+at most16 stable-key definitions, finite faders, target resolution, up to3
+post-fader sends per bus, cycles, duplicate targets and potential path gain16.
+Project topology is not a user-settings override. Discovery describes the actual
+fields and limits; no agent-specific graph or persistence owner exists.
+
+`forge_property_set` / `forge_property_set_many` author AudioSource `custom_bus`
+through ordinary revision, history and Prefab rules. Empty retains stock `bus`;
+nonempty binds a project key. `forge_play_tune` checks live custom keys before
+mutation. `forge_play_watch` and `forge_play_audio` report the admitted stock/
+custom source selection, project routing and current `bus_volumes`.
+
+`forge_play_audio_mix` takes `values` with `master_volume`, three
+`channel_volumes`, and optional `bus_volumes` (object of key→finite0..1).
+Omission preserves custom faders; an explicit map must exactly match the admitted
+project key set. Existing Play permission, launch/session/generation, revision,
+sequence and single-command readiness checks remain required. Rejected maps
+preserve the healthy mix and report `mix_error`; valid retries remain available.
+These controls do not save project defaults or player preferences and do not
+change paused game time. See [audio routing](audio.md#custom-audio-routing-and-sends).
+
 ## Ordered Sprite frame regions
 
 Native discovery for forge.sprite_renderer includes frame_regions as a vector of

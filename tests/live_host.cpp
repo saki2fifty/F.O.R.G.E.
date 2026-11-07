@@ -17,7 +17,22 @@ int main(int argc, char** argv) {
         forge::EngineContext scene_engine;
         forge::Scene scene(scene_engine.world());
         forge::LiveAuthoring live;
-        live.start(scene, std::string(argv[1]) != "read");
+        forge::LiveAuthoringMethod map;
+        map.name = "test.numeric_map";
+        map.capability = "document.read";
+        map.input_schema = {
+            {"type", "object"},
+            {"additionalProperties", false},
+            {"required", {"values"}},
+            {"properties",
+             {{"values",
+               {{"type", "object"},
+                {"minProperties", 1},
+                {"maxProperties", 2},
+                {"propertyNames", {{"type", "string"}, {"minLength", 1}, {"maxLength", 4}}},
+                {"additionalProperties", {{"type", "number"}, {"minimum", 0}, {"maximum", 1}}}}}}}};
+        map.invoke = [](const forge::Json& request) { return request.at("values"); };
+        live.start(scene, std::string(argv[1]) != "read", {std::move(map)});
         std::cout << live.connection().dump() << std::endl;
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(60);
         while (std::chrono::steady_clock::now() < end) {

@@ -57,6 +57,8 @@ int main(int argc, char** argv) {
         const auto settings = ProjectSettings::defaults("Live audio mix test");
         auto project = settings;
         project["game"] = default_game_settings("org.forge.audio-mix-test", "Live audio mix test");
+        project["game"]["audio"]["routing"] =
+            audio_routing_json({{{"bed", "Background", .5f, "music", {}}}});
         atomic_write(root / "forge.project.json", project.dump(2));
         {
             std::ofstream out(root / "tone.wav", std::ios::binary);
@@ -88,6 +90,7 @@ int main(int argc, char** argv) {
                                                        {"components",
                                                         {{"forge.audio_source",
                                                           {{"clip", clip.id},
+                                                           {"custom_bus", "bed"},
                                                            {"play_on_start", true},
                                                            {"loop", true},
                                                            {"gain", 1},
@@ -140,6 +143,28 @@ int main(int argc, char** argv) {
                         play.audio_status().at("paused") == true &&
                         play.timing().at("tick") == tick && play.snapshot() == before,
                     "Actual transport changed paused scene/clock or lost mixer values");
+            require(play.audio_status().at("bus_volumes").at("bed") == .5,
+                    "Legacy transport mix erased the project custom fader");
+            auto custom_mix = mix;
+            custom_mix["bus_volumes"] = {{"bed", .125}};
+            require(play.submit_audio_mix(custom_mix), "Custom mix was not queued");
+            wait([&] { return play.control_ready() && !play.audio_mix_pending(); });
+            require(play.audio_mix_error().empty() &&
+                        play.audio_status().at("bus_volumes").at("bed") == .125 &&
+                        play.snapshot() == before && play.timing().at("tick") == tick,
+                    "Custom transport mix changed Scene/time or lost its fader");
+            auto invalid_mix = custom_mix;
+            invalid_mix["bus_volumes"] = Json::object();
+            const auto custom_before = play.audio_status();
+            require(play.submit_audio_mix(invalid_mix),
+                    "Invalid custom key set did not reach native admission");
+            wait([&] { return play.control_ready() && !play.audio_mix_error().empty(); });
+            require(play.audio_status().at("bus_volumes") == custom_before.at("bus_volumes") &&
+                        play.audio_status().at("master_volume") ==
+                            custom_before.at("master_volume"),
+                    "Rejected custom key set changed admitted transport mix");
+            require(play.submit_audio_mix(custom_mix), "Custom rejection prevented retry");
+            wait([&] { return play.control_ready() && !play.audio_mix_pending(); });
             play.watch_audio_source(source);
             wait([&] {
                 return play.audio_source_status().is_object() &&

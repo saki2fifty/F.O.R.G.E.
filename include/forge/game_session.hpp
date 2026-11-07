@@ -68,6 +68,8 @@ class GameSession {
     void input_map(InputMap);
     void master_volume(float);
     void mix_volumes(float master, const std::array<float, 3>& channels);
+    void mix_volumes(float master, const std::array<float, 3>& channels,
+                     const AudioBusVolumes& buses);
     Json status() const;
     LoadingState loading_state() const;
     Json presentation() const;

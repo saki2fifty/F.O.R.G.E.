@@ -51,7 +51,7 @@ bool same_failed_config(const AudioSource& a, const AudioSource& b) {
         return true;
     if (a.clip != b.clip || a.play_on_start != b.play_on_start || a.loop != b.loop ||
         a.spatialized != b.spatialized || a.attenuation != b.attenuation ||
-        a.cone_enabled != b.cone_enabled || a.bus != b.bus ||
+        a.cone_enabled != b.cone_enabled || a.bus != b.bus || a.custom_bus != b.custom_bus ||
         a.pause_with_game != b.pause_with_game || a.low_pass_enabled != b.low_pass_enabled ||
         a.high_pass_enabled != b.high_pass_enabled || a.echo_enabled != b.echo_enabled ||
         a.reverb_enabled != b.reverb_enabled)
@@ -99,6 +99,8 @@ struct AudioMotion {
 struct AudioRuntime::Impl {
     WorldContext& world;
     AudioConfig config;
+    AudioRoutingProjection routing;
+    Json routing_document;
     AssetCatalog catalog;
     ma_engine engine{};
     ma_sound_group group{};
@@ -314,10 +316,14 @@ struct AudioRuntime::Impl {
             return memory;
         }
     };
-    static void apply_voice_gain(Voice& voice, const std::array<float, 3>& channels) {
+    static void apply_voice_gain(Voice& voice, const std::array<float, 3>& channels,
+                                 const AudioRoutingProjection& routing) {
         if (!voice.ready)
             return;
-        const auto channel = voice.authored.bus == 0 ? 1 : channels.at(voice.authored.bus - 1);
+        const auto channel =
+            voice.authored.custom_bus.empty()
+                ? (voice.authored.bus == 0 ? 1 : channels.at(voice.authored.bus - 1))
+                : routing.gain(voice.authored.custom_bus, voice.authored.bus, channels);
         auto* output =
             voice.effects ? voice.effects->output() : static_cast<ma_node*>(&voice.sound);
         // Source/category faders follow buffered effects, so mute also covers
@@ -346,7 +352,11 @@ struct AudioRuntime::Impl {
     Double3 listener_velocity{};
     std::set<std::uint64_t> spatial_errors;
     Impl(WorldContext& w, AudioConfig c)
-        : world(w), config(std::move(c)), catalog(AssetCatalog::open_project(config.project)) {
+        : world(w), config(std::move(c)),
+          routing(AudioRoutingProjection::compile(config.routing, config.bus_volumes)),
+          routing_document(audio_routing_json(config.routing)),
+          catalog(AssetCatalog::open_project(config.project)) {
+        config.bus_volumes = routing.volumes();
         if (!std::isfinite(config.master_volume) || config.master_volume < 0 ||
             config.master_volume > 1)
             throw std::runtime_error("Gameplay master volume must be between zero and one");
@@ -705,7 +715,7 @@ struct AudioRuntime::Impl {
             v.effects = std::move(next);
             v.effects_tail_start.reset();
             v.effects_drained = ma_sound_at_end(&v.sound);
-            apply_voice_gain(v, config.channel_volumes);
+            apply_voice_gain(v, config.channel_volumes, routing);
         } else if (v.follows_game_pause != config_value.pause_with_game) {
             checked(ma_node_attach_output_bus(v.effects ? v.effects->output()
                                                         : static_cast<ma_node*>(&v.sound),
@@ -736,7 +746,7 @@ struct AudioRuntime::Impl {
         }
         const bool spatial_valid = listener_valid && source_pose_valid && direction_valid;
         v.source_volume = (!config_value.spatialized || spatial_valid) ? config_value.gain : 0;
-        apply_voice_gain(v, config.channel_volumes);
+        apply_voice_gain(v, config.channel_volumes, routing);
         if (config_value.spatialized && !spatial_valid) {
             if (spatial_errors.insert(e.id()).second)
                 diagnostic("audio.spatial_unavailable",
@@ -913,6 +923,9 @@ struct AudioRuntime::Impl {
             try {
                 ++configuration_checks;
                 detail::validate_audio_source(e, config_value);
+                if (!config_value.custom_bus.empty())
+                    (void)routing.gain(config_value.custom_bus, config_value.bus,
+                                       config.channel_volumes);
                 auto found = voices.find(e.id());
                 if (found != voices.end() && (found->second->authored.clip != config_value.clip ||
                                               found->second->ref != ref)) {
@@ -1224,6 +1237,10 @@ void AudioRuntime::control_unpaused_source(EntityRef ref, AudioSourceOperation o
     impl_->queue(ref, operation, true);
     impl_->flush_commands();
 }
+void AudioSourceAccess::validate_route(AudioRuntime& runtime, std::string_view key) {
+    runtime.impl_->check();
+    (void)runtime.impl_->routing.gain(key, 0, runtime.impl_->config.channel_volumes);
+}
 Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
     runtime.impl_->check();
     const auto resolved = runtime.impl_->world.resolve(ref);
@@ -1267,6 +1284,8 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
             {"paused", runtime.impl_->is_paused || (runtime.impl_->is_game_paused &&
                                                     entity.get<AudioSource>().pause_with_game)},
             {"pause_with_game", entity.get<AudioSource>().pause_with_game},
+            {"bus", entity.get<AudioSource>().bus},
+            {"custom_bus", entity.get<AudioSource>().custom_bus},
             {"low_pass_enabled", entity.get<AudioSource>().low_pass_enabled},
             {"high_pass_enabled", entity.get<AudioSource>().high_pass_enabled},
             {"low_pass_hz", entity.get<AudioSource>().low_pass_hz},
@@ -1303,6 +1322,8 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
             {"paused", runtime.impl_->is_paused || (runtime.impl_->is_game_paused &&
                                                     found->second->authored.pause_with_game)},
             {"pause_with_game", found->second->authored.pause_with_game},
+            {"bus", found->second->authored.bus},
+            {"custom_bus", found->second->authored.custom_bus},
             {"low_pass_enabled", found->second->authored.low_pass_enabled},
             {"high_pass_enabled", found->second->authored.high_pass_enabled},
             {"low_pass_hz", found->second->authored.low_pass_hz},
@@ -1333,19 +1354,26 @@ void AudioSourceAccess::control(AudioRuntime& runtime, EntityRef ref,
     runtime.impl_->flush_commands(); // Owner boundary; no simulation tick or pose resampling.
 }
 void AudioRuntime::mix_volumes(float master, const std::array<float, 3>& channels) {
+    mix_volumes(master, channels, impl_->routing.volumes());
+}
+void AudioRuntime::mix_volumes(float master, const std::array<float, 3>& channels,
+                               const AudioBusVolumes& buses) {
     impl_->check();
     for (float value : {master, channels[0], channels[1], channels[2]})
         if (!std::isfinite(value) || value < 0 || value > 1)
             throw std::runtime_error("Audio mix volumes must be finite and between zero and one");
+    auto routing = AudioRoutingProjection::compile(impl_->config.routing, buses, true);
     ma_sound_group_set_volume(&impl_->group, master);
     for (const auto& [id, voice] : impl_->voices) {
         (void)id;
-        Impl::apply_voice_gain(*voice, channels);
+        Impl::apply_voice_gain(*voice, channels, routing);
         for (auto& shot : voice->one_shots)
-            Impl::apply_voice_gain(*shot, channels);
+            Impl::apply_voice_gain(*shot, channels, routing);
     }
     impl_->config.master_volume = master;
     impl_->config.channel_volumes = channels;
+    impl_->config.bus_volumes = routing.volumes();
+    impl_->routing = std::move(routing);
 }
 Json AudioRuntime::status() const {
     impl_->check();
@@ -1370,7 +1398,7 @@ Json AudioRuntime::status() const {
             stream_memory(*shot);
     }
     const auto resources = impl_->clips.statistics();
-    return {
+    Json result{
         {"mixed_frames", impl_->mixed_frames.load(std::memory_order_relaxed)},
         {"playing_sources", playing},
         {"configuration_checks", impl_->configuration_checks},
@@ -1402,6 +1430,11 @@ Json AudioRuntime::status() const {
         {"master_volume", impl_->config.master_volume},
         {"channel_volumes", impl_->config.channel_volumes},
         {"tick", impl_->tick}};
+    if (!impl_->routing.buses().empty()) {
+        result["routing"] = impl_->routing_document;
+        result["bus_volumes"] = impl_->routing.volumes();
+    }
+    return result;
 }
 bool AudioRuntime::wait_for_sources(std::chrono::milliseconds timeout) {
     return impl_->wait_sources(timeout, false);
@@ -1536,7 +1569,7 @@ double AudioPreviewAccess::seek(AudioRuntime& runtime, EntityRef ref, double sec
     voice.ready = true;
     ma_sound_set_spatialization_enabled(&voice.sound, MA_FALSE);
     ma_sound_set_looping(&voice.sound, voice.authored.loop);
-    impl.apply_voice_gain(voice, impl.config.channel_volumes);
+    impl.apply_voice_gain(voice, impl.config.channel_volumes, impl.routing);
     checked(ma_sound_start(&voice.sound), "Preview sound resume");
     return double(frame) / data.rate;
 }

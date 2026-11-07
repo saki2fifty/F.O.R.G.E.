@@ -203,6 +203,11 @@ struct SdkPlayRuntime::State {
         session_config.input = config.input;
         session_config.physics = config.physics;
         session_config.audio = config.audio;
+        if (session_config.audio) {
+            const auto& audio = defaults.at("audio");
+            session_config.audio->routing = audio_routing_settings(audio);
+            session_config.audio->bus_volumes = audio_bus_volumes(audio);
+        }
         session_config.content_root = config.project;
         session_config.ui = config.ui;
         session_config.modules = modules;
@@ -246,7 +251,8 @@ struct SdkPlayRuntime::State {
             resolved_settings.at("audio").contains("master_volume") &&
             resolved_settings.at("audio").at("master_volume").is_number())
             game->mix_volumes(resolved_settings.at("audio").at("master_volume").get<float>(),
-                              audio_channel_volumes(resolved_settings.at("audio")));
+                              audio_channel_volumes(resolved_settings.at("audio")),
+                              audio_bus_volumes(resolved_settings.at("audio")));
         host = std::make_unique<GameHostControls>(*game, queue, *storage, config.project, defaults,
                                                   config.input, user_settings, platform);
         if (!load_error.empty())
@@ -1371,7 +1377,10 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             const auto mix = AudioMixValues::parse(request.at("mix"));
             if (!s.game->active().engine.services().available(Capability::Audio))
                 return s.build_error(id, "Live audio mix requires enabled audio");
-            s.game->mix_volumes(mix.master, mix.channels);
+            if (mix.buses)
+                s.game->mix_volumes(mix.master, mix.channels, *mix.buses);
+            else
+                s.game->mix_volumes(mix.master, mix.channels);
             return s.snapshot_response(id);
         }
         if (command == "audio_source") {

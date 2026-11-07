@@ -103,8 +103,10 @@ struct Running {
     Scene scene;
     RuntimeSimulation simulation;
     std::shared_ptr<AudioRuntime> audio;
-    Running(const std::filesystem::path& root, const Json& doc)
-        : engine(WorldRole::Runtime, false, {audio_module({root, AudioOutput::Offline, true})}),
+    Running(const std::filesystem::path& root, const Json& doc, AudioRouting routing = {})
+        : engine(
+              WorldRole::Runtime, false,
+              {audio_module({root, AudioOutput::Offline, true, 1, {1, 1, 1}, std::move(routing)})}),
           scene(engine.world()), simulation(engine.world(), scene),
           audio(std::static_pointer_cast<AudioRuntime>(engine.services().audio())) {
         scene.restore_snapshot(doc);
@@ -139,6 +141,43 @@ void compare(Running& streamed, Running& resident, unsigned quanta, const std::s
                                    std::to_string(i) + " actual=" + std::to_string(a[i]) +
                                    " expected=" + std::to_string(b[i]));
     }
+}
+void custom_routing(const std::filesystem::path& root, AssetId stream, AssetId resident) {
+    const AudioRouting routing{
+        {{"rain", "", .5f, "effects", {{"music", .25f}}}, {"dry", "", 1, "master", {}}}};
+    auto streamed_doc = document(stream), resident_doc = document(resident);
+    streamed_doc["entities"][0]["components"]["forge.audio_source"]["custom_bus"] = "rain";
+    resident_doc["entities"][0]["components"]["forge.audio_source"]["gain"] = .3125f;
+    Running actual(root, streamed_doc, routing), expected(root, resident_doc);
+    actual.audio->mix_volumes(1, {1, 1, 1}, {{"rain", .25f}, {"dry", 1}});
+    actual.prepared();
+    expected.prepared();
+    compare(actual, expected, 80, "Custom fader admitted during stream preparation");
+    actual.audio->mix_volumes(1, {1, 1, 1}, {{"rain", .5f}, {"dry", 1}});
+    expected.set([](auto& value) { value.gain = .625f; });
+    compare(actual, expected, 80, "Stream custom send PCM");
+    actual.audio->mix_volumes(1, {.25f, .5f, 1});
+    expected.set([](auto& value) { value.gain = .28125f; });
+    compare(actual, expected, 80, "Stream custom terminal fader PCM");
+    actual.set([](auto& value) { value.custom_bus = "dry"; });
+    expected.set([](auto& value) { value.gain = 1; });
+    compare(actual, expected, 80, "Stream custom reroute cursor continuity");
+    actual.audio->mix_volumes(1, {1, 1, 1}, {{"rain", .125f}, {"dry", .25f}});
+    expected.set([](auto& value) { value.gain = .25f; });
+    actual.control(AudioSourceOperation::OneShot);
+    expected.control(AudioSourceOperation::OneShot);
+    actual.prepared();
+    expected.prepared();
+    compare(actual, expected, 80, "Stream custom one-shot output");
+    require(actual.audio->status().at("stream_voices") == 2 &&
+                actual.audio->status().at("decoded_bytes") == 0,
+            "Custom one-shot fixture did not use owned streamed voices");
+    for (auto* world : {&actual, &expected})
+        world->audio->paused(true);
+    compare(actual, expected, 8, "Custom stream full suspension");
+    for (auto* world : {&actual, &expected})
+        world->audio->paused(false);
+    compare(actual, expected, 80, "Custom stream resume PCM");
 }
 void playback(const std::filesystem::path& root, AssetId stream, AssetId resident) {
     for (bool loop : {false, true})
@@ -333,6 +372,7 @@ int main(int argc, char** argv) {
                                        root / "Assets" / (name + "-resident.wav"));
             const auto streamed = publish(root, name, true);
             const auto resident = publish(root, name + "-resident", false);
+            custom_routing(root, streamed.id, resident.id);
             playback(root, streamed.id, resident.id);
             transport(root, streamed.id, resident.id);
             preview(root, streamed, resident);

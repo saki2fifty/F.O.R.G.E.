@@ -8001,6 +8001,16 @@
       "type": "material"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "65ecaf43-33c6-4db6-8df9-fee538c58553",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/191-audio-routing.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "e3e63753-959d-4018-8c88-61f2b90c2f43"
       ],

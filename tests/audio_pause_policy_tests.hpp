@@ -79,6 +79,7 @@ void audio_pause_lifecycle_tests(const std::filesystem::path& root, AssetId clip
     };
     GameSessionConfig config;
     config.audio = AudioConfig{root, AudioOutput::Offline, true};
+    config.audio->routing = {{{"quiet", "Quiet", .5f, "music", {}}}};
     config.modules = {module};
     config.preparation = [&](std::uint64_t) { return std::make_unique<Observe>(candidate_audio); };
     GameSession session(config);
@@ -118,6 +119,28 @@ void audio_pause_lifecycle_tests(const std::filesystem::path& root, AssetId clip
     const EntityRef live_ref{snapshot.at("asset_id").get<AssetId>(),
                              snapshot.at("entities")[0].at("id").get<EntityId>()};
     auto& active_world = session.active();
+    const auto before_route = active_world.scene.snapshot();
+    const auto before_route_audio = current->status();
+    reject([&] {
+        active_world.tune_property(live_ref, "forge.audio_source", "custom_bus", "missing");
+    });
+    check(active_world.scene.snapshot() == before_route && current->status() == before_route_audio,
+          "Rejected live custom route changed the world or destroyed its voice");
+    active_world.tune_property(live_ref, "forge.audio_source", "custom_bus", "quiet");
+    check(current->status().at("voices") == 1 && energy(current) > 1e-6 &&
+              current->status().at("tick") == 0,
+          "Live custom route did not update without a simulation tick");
+    const auto mix_before = current->status();
+    reject([&] { session.mix_volumes(.125f, {0, 0, 0}, {{"missing", 1}}); });
+    check(current->status() == mix_before, "Invalid session custom mix changed active output");
+    session.mix_volumes(1, {1, 1, 1}, {{"quiet", 0}});
+    (void)energy(current);
+    check(energy(current) == 0, "Session custom fader leaked independent paused output");
+    session.mix_volumes(1, {1, 1, 1});
+    check(current->status().at("bus_volumes").at("quiet") == 0,
+          "Legacy session mix erased a custom override");
+    session.mix_volumes(1, {1, 1, 1}, {{"quiet", 1}});
+    active_world.tune_property(live_ref, "forge.audio_source", "custom_bus", "");
     active_world.tune_property(live_ref, "forge.audio_source", "pause_with_game", true);
     check(energy(current) == 0 && current->status().at("tick") == 0,
           "Live runtime owner did not apply pause policy without a fixed tick");

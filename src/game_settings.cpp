@@ -49,6 +49,18 @@ bool valid_application_id(std::string_view id) {
             return false;
     return true;
 }
+AudioRouting audio_routing_settings(const Json& audio) {
+    object(audio, "audio");
+    return audio.contains("routing") ? audio_routing_from_json(audio.at("routing"))
+                                     : AudioRouting{};
+}
+AudioBusVolumes audio_bus_volumes(const Json& audio) {
+    const auto routing = audio_routing_settings(audio);
+    const auto overrides = audio.contains("bus_volumes")
+                               ? audio_bus_volumes_from_json(audio.at("bus_volumes"))
+                               : AudioBusVolumes{};
+    return AudioRoutingProjection::compile(routing, overrides).volumes();
+}
 Json default_game_settings(std::string application_id, std::string title) {
     Json result = {{"version", 1},
                    {"application_id", std::move(application_id)},
@@ -93,6 +105,7 @@ void validate_game_settings(const Json& data) {
     object(data.at("audio"), "audio");
     number(data.at("audio").at("master_volume"), 0, 1, "master volume");
     (void)audio_channel_volumes(data.at("audio"));
+    (void)audio_bus_volumes(data.at("audio"));
     object(data.at("input"), "input");
     number(data.at("input").at("mouse_sensitivity"), .01, 100, "mouse sensitivity");
     const auto& input = data.at("input");
@@ -122,7 +135,8 @@ Json resolve_game_settings(const Json& defaults, const Json& user, const InputMa
                 (key == "display" && (member == "mode" || member == "width" || member == "height" ||
                                       member == "display" || member == "vsync")) ||
                 (key == "audio" && (member == "master_volume" || member == "music_volume" ||
-                                    member == "effects_volume" || member == "dialogue_volume")) ||
+                                    member == "effects_volume" || member == "dialogue_volume" ||
+                                    member == "bus_volumes")) ||
                 (key == "input" &&
                  (member == "mouse_sensitivity" || member == "gamepad_sensitivity" ||
                   member == "invert_mouse_y" || member == "invert_gamepad_y" ||
@@ -130,7 +144,13 @@ Json resolve_game_settings(const Json& defaults, const Json& user, const InputMa
             if (!allowed)
                 throw std::runtime_error("game.settings: Unsupported user setting: " + key + "." +
                                          member);
-            result[key][member] = item;
+            if (key == "audio" && member == "bus_volumes") {
+                (void)audio_bus_volumes_from_json(item);
+                auto volumes = result[key].value(member, Json::object());
+                volumes.update(item);
+                result[key][member] = std::move(volumes);
+            } else
+                result[key][member] = item;
         }
     }
     validate_game_settings(result);

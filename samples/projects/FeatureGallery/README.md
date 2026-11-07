@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Custom audio buses and sends
+
+Open `Scenes/191-audio-routing.scene.json` and press **Play → Game**. Three pitched
+emitters compare `rain`, `room` and stock Dialogue routing. The saved project graph
+routes Rain at0.5 to Effects plus a0.25 Music send; Room at0.75 feeds Rain plus a0.5
+Dialogue send. The scene includes its camera and light and needs no project C++.
+
+Select either routed emitter to inspect **Custom Bus**. During Play, open
+**Tools → Project Settings → Live audio mix**, adjust the custom and category
+faders, then **Apply live mix**. Stop Play to edit **Game defaults → Custom audio
+buses**. Save Settings and the Scene, set this Scene as startup and export with
+the matching bundled kit. Routes add without normalization; labels can change
+without changing source keys. See the [audio guide](../../../manual/editor/audio.md#create-custom-buses-and-sends).
+
 ## Layered clip overlaps
 
 Open `Scenes/190-multiway-sequence-blends.scene.json` and press **Play → Game**.

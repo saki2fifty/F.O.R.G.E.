@@ -608,12 +608,29 @@ struct PlayAutomation {
                 true));
         }
         auto mix_properties = properties(), mix_required = required();
-        mix_properties["values"] = {{"type", "object"}};
+        const Json volume_schema{{"type", "number"}, {"minimum", 0}, {"maximum", 1}};
+        mix_properties["values"] = automation_object(
+            {{"master_volume", volume_schema},
+             {"channel_volumes",
+              {{"type", "array"}, {"items", volume_schema}, {"minItems", 3}, {"maxItems", 3}}},
+             {"bus_volumes",
+              {{"type", "object"},
+               {"maxProperties", audio_custom_bus_limit},
+               {"additionalProperties", volume_schema},
+               {"propertyNames",
+                {{"type", "string"},
+                 {"maxLength", audio_bus_key_limit},
+                 {"pattern", "^[a-z][a-z0-9_]*$"}}}}}},
+            {"master_volume", "channel_volumes"});
         mix_required.push_back("values");
         methods.push_back(automation_method(
             "play.audio.mix",
-            "Queue validated live mix values through the existing AudioMix owner.", "play.execute",
-            automation_object(mix_properties, mix_required), true,
+            "Queue live Master, three category faders and optional custom bus_volumes through the "
+            "existing AudioMix owner. "
+            "Omitting bus_volumes preserves custom faders; when present its keys must exactly "
+            "match the admitted project graph. "
+            "Topology and project defaults remain unchanged.",
+            "play.execute", automation_object(mix_properties, mix_required), true,
             [&files, &play, providers](const Json& request) {
                 current(play, files, providers, request);
                 if (!play.submit_audio_mix(request.at("values")))

@@ -15,6 +15,7 @@ def validate_guides(stage):
                 assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
 
 focused_targets = {
+    '--audio-routing-only': 'audio_gameplay',
     '--animation-graphs-only': 'animation_gameplay',
     '--ecs-workers-only': 'parallel_motion_gameplay',
     '--sequence-only': 'sequence_gameplay',
@@ -207,6 +208,15 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
                             str(moved/'bin'/('forge_runtime'+exe)),str(module)],
                            env=env,cwd=moved,check=True,timeout=90)
             print('Installed public AudioSource filter values, commands and recovery passed')
+            sys.exit(0)
+        if sys.argv[4] == '--audio-routing-only':
+            source = Path(__file__).resolve().parents[1]
+            assert (moved/'sdk/include/forge/audio_components.hpp').read_bytes() == (source/'include/forge/audio_components.hpp').read_bytes()
+            subprocess.run([sys.executable, str(Path(__file__).with_name('audio_routing_process_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)),
+                            str(source/'samples/projects/FeatureGallery'), str(module)],
+                           env=env, cwd=moved, check=True, timeout=90)
+            print('Installed-only AudioSource custom route layout, original C++ writes, both relocated runtime hosts and private recovery passed')
             sys.exit(0)
         if audio_pause_only:
             subprocess.run([sys.executable,str(Path(__file__).with_name('unpaused_audio_process_test.py')),

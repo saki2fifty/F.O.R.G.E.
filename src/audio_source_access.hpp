@@ -4,6 +4,7 @@
 namespace forge {
 // Private editor Play access; no backend object or new gameplay service crosses the wire.
 struct AudioSourceAccess {
+    static void validate_route(AudioRuntime&, std::string_view);
     static Json status(AudioRuntime&, EntityRef);
     static void control(AudioRuntime&, EntityRef, AudioSourceOperation);
     static void control(AudioRuntime& runtime, EntityRef source, bool play) {

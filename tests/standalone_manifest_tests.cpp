@@ -1,6 +1,7 @@
 #include "animation_clip_selection.hpp"
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
+#include "audio_routing_package_tests.hpp"
 #include "audio_stream_profile.hpp"
 #include "fog_volume_package_tests.hpp"
 #include "game_export.hpp"
@@ -41,6 +42,7 @@ int main(int argc, char** argv) {
         };
         const auto scratch = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         const auto project = scratch / "source", out = scratch / "game";
+        audio_routing_package_tests(scratch, check, reject);
         {
             AssetCatalog features(scratch / "fbx-compatibility");
             AssetRecord record{};
@@ -762,6 +764,28 @@ int main(int argc, char** argv) {
             check(result.at("ok") && std::filesystem::exists(exported / "forge_game"),
                   "Export assembly failed");
             const auto first = asset_storage::read(exported / "forge.standalone.json");
+            const auto before_audio = project_settings.at("game").at("audio");
+            project_settings["game"]["audio"]["routing"] =
+                audio_routing_json({{{"rain", "Rain", .5f, "effects", {{"music", .25f}}}}});
+            ProjectSettings(project).save(project_settings);
+            reject([&] { export_standalone_game(lease, request); });
+            check(asset_storage::read(exported / "forge.standalone.json") == first,
+                  "Unsupported routing kit replaced the last good distribution");
+            runtime["engine"]["runtime_audio_routing"] = audio_routing_profile_version;
+            asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
+            (void)export_standalone_game(lease, request);
+            const auto routed_export =
+                open_standalone_distribution(exported, target, "static-core", std::string(64, 'a'));
+            check(routed_export.settings.at("game").at("audio").at("routing") ==
+                      project_settings.at("game").at("audio").at("routing"),
+                  "Standalone export dropped project routing topology/defaults");
+            project_settings["game"]["audio"] = before_audio;
+            ProjectSettings(project).save(project_settings);
+            runtime["engine"].erase("runtime_audio_routing");
+            asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
+            (void)export_standalone_game(lease, request);
+            check(asset_storage::read(exported / "forge.standalone.json") == first,
+                  "Legacy audio export did not restore its existing manifest shape");
             project_settings["ecs_workers"] = 4;
             ProjectSettings(project).save(project_settings);
             reject([&] { export_standalone_game(lease, request); });

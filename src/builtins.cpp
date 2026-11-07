@@ -17,6 +17,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstring>
+#include <forge/audio_routing.hpp>
 #include <forge/primitive_catalog.hpp>
 #include <forge/render_view.hpp>
 #include <forge/ui_localization.hpp>
@@ -265,7 +266,8 @@ template <class T> Json encode(const T& p) {
                 {"reverb_enabled", p.reverb_enabled},
                 {"reverb_decay", p.reverb_decay},
                 {"reverb_damping", p.reverb_damping},
-                {"reverb_wet", p.reverb_wet}};
+                {"reverb_wet", p.reverb_wet},
+                {"custom_bus", p.custom_bus}};
     else if constexpr (std::is_same_v<T, AudioListener>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, CharacterController2D>)
@@ -730,6 +732,11 @@ template <class T> Value decode(const Json& p) {
         v.reverb_decay = p.value("reverb_decay", 1.5f);
         v.reverb_damping = p.value("reverb_damping", .5f);
         v.reverb_wet = p.value("reverb_wet", .25f);
+        v.custom_bus = p.value("custom_bus", std::string{});
+        if (!v.custom_bus.empty() && !valid_audio_bus_key(v.custom_bus))
+            throw std::runtime_error(
+                "Custom audio bus needs a project key: lowercase letters, digits or underscore, "
+                "starting with a letter; stock names are reserved");
         if (v.maximum_distance < v.minimum_distance)
             throw std::runtime_error("Audio maximum distance must be at least minimum distance");
         if (v.outer_angle < v.inner_angle)
@@ -1609,6 +1616,7 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
                 "sequence_extra_clips")
             .template member<bool>("sequence_multiway");
     } else if constexpr (std::is_same_v<T, AudioSource>) {
+        w.component<std::string>("forge.authored_string").opaque(reflected_string);
         w.component<AssetRef<AudioClipAsset>>("forge.audio_clip_ref")
             .opaque(flecs::String)
             .serialize(
@@ -1644,7 +1652,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("reverb_enabled")
             .template member<float>("reverb_decay")
             .template member<float>("reverb_damping")
-            .template member<float>("reverb_wet");
+            .template member<float>("reverb_wet")
+            .template member<std::string>("custom_bus");
     } else if constexpr (std::is_same_v<T, AudioListener>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, CharacterController2D>)
@@ -3030,6 +3039,9 @@ Json registration_options(const Builtin& type, const std::string& field) {
                              "history without restarting the clip"},
             {"reverb_damping", "Reduce high frequencies in the feedback tail: zero is bright, "
                                "larger values soften the decay"},
+            {"custom_bus", "Optional project-defined bus key. Empty uses the stock Mix channel. "
+                           "Define custom routing in Project Settings; names are case-sensitive. "
+                           "The stock choice is retained while a custom bus is selected"},
             {"reverb_wet",
              "Linear reverb blend: zero bypasses, one outputs only the reverberated signal"},
             {"low_pass_hz", "Low-pass cutoff in Hz; frequencies above it are reduced. Changing "
@@ -4063,7 +4075,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<UiLocalizationAsset>();
         add_reference.template operator()<ApplicationStatesAsset>();
         if (name == "forge.ui_localization" || name == "forge.application_state_gate" ||
-            name == "forge.input_message" || name == "forge.navigation_link")
+            name == "forge.input_message" || name == "forge.navigation_link" ||
+            name == "forge.audio_source")
             references.push_back({world.id<std::string>(), "string"});
         if (name == "forge.transform_animator")
             references.push_back(
@@ -4324,7 +4337,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
                                   "reverb_enabled",
                                   "reverb_decay",
                                   "reverb_damping",
-                                  "reverb_wet"})
+                                  "reverb_wet",
+                                  "custom_bus"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")

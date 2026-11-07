@@ -403,6 +403,18 @@ supporting surface-wrapper metadata; rebuild retained Materials after Shader
 recooking. See [local fog volumes](local-fog-volumes.md).
 
 
+### Custom audio routing compatibility
+
+A nonempty project `game.audio.routing.buses` graph requires the integer
+`engine.runtime_audio_routing:1` from `audio_routing.hpp`. Retained nonempty
+AudioSource `custom_bus` values also record `audio_routing:1` in authored document
+runtime features, including unbound components and partial Prefab/variant property
+overrides. Export checks both project topology and the existing reachable document
+closure before promotion. Missing, malformed or future kit profiles reject;
+empty graph/selection keeps legacy admission. Source key identities and graph
+defaults remain project content, not kit metadata. See
+[audio routing](audio.md#custom-audio-routing-and-sends).
+
 ### Streamed audio runtime compatibility
 
 A reachable AudioClip with `forge.audio.playback_storage:"stream"` requires

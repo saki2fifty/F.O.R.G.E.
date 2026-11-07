@@ -235,7 +235,9 @@ struct ProjectAutomation {
                     "digest. Edit supports name, simulation frequency, ecs_workers (integer "
                     "1..16 including the owner; explicitly parallel C++ systems only), startup "
                     "scene, input (including analog outer_deadzone and "
-                    "response_exponent bindings), physics and game configuration. Save uses "
+                    "response_exponent bindings), physics and game configuration including "
+                    "game.audio.routing (bounded custom bus keys, outputs and post-fader sends). "
+                    "Save uses "
                     "ordinary baseline checks; settings have no Scene Undo.",
                 "document.write", automation_object(std::move(properties), std::move(required)),
                 true, [&editor, &document, action](const Json& request) {

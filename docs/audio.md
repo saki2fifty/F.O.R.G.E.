@@ -201,7 +201,8 @@ RuntimeWorld live tuning calls the existing source refresh path without a fixed
 tick/new velocity sample. Copied source observations report admitted filter flags
 and cutoffs. Full/game/source pause, mute, one-shot limits and retirement retain
 the current audio owners. This is per-source filtering, not a general DSP graph,
-shared effect buses, send/return routing, acoustic occlusion or reverb. Gallery85
+shared effect buses, effect send/return processing or acoustic occlusion. Source
+reverb and scalar custom sends have their own controls. Gallery85
 compares the same original recording with dry/low-pass/high-pass sources.
 
 ## Source echo and effect tails
@@ -256,7 +257,8 @@ copied observations, with normal ownership/permission/revision/generation/histor
 rules. No extra effect tools/manager or agent-only playback implementation exists.
 Gallery90 compares the same original processed recording with dry/quarter-/half-
 second echoes and ordinary export dependencies. There is no general DSP graph,
-shared effect bus, sends, reverb, acoustic simulation or smoothed automation.
+shared effect bus, effect send/return processing, acoustic simulation or smoothed
+automation. Scalar custom sends and source reverb are separate capabilities.
 
 ## Common mix channels
 
@@ -292,8 +294,54 @@ Project Settings owns shared defaults; Inspector owns each source route and its
 independent prefab mask. Gallery33 uses the original tone at three pitches for
 separate audible channels, with relocated source-free PCM proof. SDK component
 layout/fingerprint changes require matching C++ rebuild; ABI1 remains unchanged.
-Four common channels are available. Custom buses, shared effects, unbounded streaming and
-separate custom bus graphs remain future capabilities.
+Four common channels remain available. Project-defined scalar buses extend those
+terminals as described below. Shared bus effects and unbounded streaming remain
+unimplemented.
+
+## Custom audio routing and sends
+
+Optional `game.audio.routing` is `{version:1,buses:[...]}`. At most16 definitions
+have stable lowercase ASCII keys (letter first, up to64 bytes), optional single-line
+UTF-8 labels (up to128 bytes), finite volume0..1, one output and up to3 sends
+`{target,gain}` with gain0..1. The terminal keys master/music/effects/dialogue are
+reserved. All targets must resolve; duplicates and cycles reject even when their
+current gains are zero. Preflight potential summed path gain with every custom
+fader at1; no bus may exceed16. Values are never normalized to hide amplification.
+
+AudioSource appends `custom_bus`, default empty. Empty uses the unchanged stock
+bus0..3; nonempty selects an exact project key while retaining the stock choice.
+The existing codec/reflection/backfill, Scene/Prefab/history and native source
+validation own it. Labels never bind identities. Unknown custom keys reject
+source admission; live tuning checks them before mutating the Scene or voice.
+The changed public source layout requires the matching SDK rebuild; ABI1 tables
+are unchanged. C++ modules can copy/edit AudioSource.custom_bus through shared
+Flecs. Project topology remains authored settings, not an SDK-owned graph.
+
+AudioRoutingProjection compiles bounded deterministic coefficients onto the four
+terminals. Main output has weight1 and sends are additional post-custom-fader
+paths. Terminal category faders follow their path sums; Master applies once.
+Without bus DSP or delay, this is the same scalar output as summing the graph's
+paths. Existing per-voice output applies the result after source effects, using
+the current engine, cursors, pause groups, one-shots and stream leases. Muting
+also covers buffered tails while time continues; rerouting does not restart sound.
+No callback reads project maps or performs graph traversal/allocation.
+
+Project Settings edits the existing settings draft; saving/restarting Play admits
+the topology. Inspector source selection reads saved project definitions while
+the picker is open. Missing selections remain explicit. Live mix adds custom
+key faders through the existing AudioMix draft/command owner. User audio
+preferences can contain partial `bus_volumes` numeric overrides, resolved against
+the project defaults; they cannot override topology. Unknown keys reject.
+An explicit live `bus_volumes` map must match every admitted key. Legacy requests
+without that map preserve current custom faders. GameSession preflights before
+updating active/candidate worlds and future Scene configuration; settings rollback
+restores the complete mix through the same owner.
+
+Project topology and retained nonempty source selections require runtime-kit
+`runtime_audio_routing:1`, including partial/unbound Prefab values. Empty graph/
+selection retains legacy kit admission. See [ADR036](decisions/036-audio-routing.md)
+for the ownership and private recovery boundary. Scalar sends do not provide bus
+effects, convolution, acoustic simulation or a second audio clock.
 
 ## Per-source reverberation
 
@@ -347,13 +395,13 @@ relocated export; no source WAV or project C++ is required at playback.
 Project Settings presents a runtime-only section above the disabled authored
 defaults during Play. It reports output mode, pause state, playing/allocated
 voices and decoded clip cache count/bytes from the existing runtime snapshot.
-Four linear0–1 sliders edit a session-local draft; Apply live mix sends one
+Four stock linear0–1 sliders and any custom-key faders edit a session-local draft; Apply live mix sends one
 request and Reload live values discards that draft. Neither action edits project
 settings, scene history or saved player preferences. Dragging a slider sends no
 per-frame transport traffic. Pending requests disable further edits.
 
 The private `audio_mix` request admits one finite master and exactly three finite
-channel values before changing the existing AudioRuntime. SDK Play also requires
+channel values plus an optional complete custom `bus_volumes` map before changing the existing AudioRuntime. SDK Play also requires
 the current active world generation. Disabled audio and invalid/stale requests
 retain the previous complete mix. PlaySession uses its existing single correlated
 transport worker, keeps audio telemetry from receipts, and queues at most one mix
@@ -362,10 +410,11 @@ the healthy session remains usable and a later Apply can retry.
 
 Both legacy and SDK Play update gains without restarting voices, reopening output
 or advancing a paused simulation. Retained runtime configuration preserves the
-mix through world reconstruction within the same process. Stop, a new process or
-a new Play session reloads saved defaults. The editor clears its draft and queued
-request on teardown. No installed SDK API/layout, authored schema, backend, thread
-or exported editor is added. Gallery33 demonstrates category balancing; Gallery34
+mix through world reconstruction within the same process. Stop or a new Play
+session reloads saved defaults; a new process does too unless an explicit custom
+routing recovery envelope restores its complete host mix. The editor clears its draft and queued
+request on teardown. The mix command adds no C ABI table, backend, thread
+or exported editor. Gallery33 demonstrates category balancing; Gallery34
 also exercises the live controls with processed cooked PCM.
 
 ## Editor clip audition
@@ -506,7 +555,13 @@ ABI1 tables, authored formats and private recovery envelopes remain unchanged.
 
 The device callback mixes continuously and never advances gameplay time. Pause stops the gameplay group while keeping the device alive. Step updates intent/transforms once with the group still stopped; it does not request an audio timeslice. Resume starts the group. Play commands restart the source at frame0; Stop stops and resets it. Basic playback counts are diagnostic presentation state, not authoritative simulation clocks.
 
-Recovery reconstructs autoplay from recovered authored source components, from frame0; other playback is stopped. No sample cursor or audio blob enters the private physics checkpoint or scene. Candidates start with their group paused; probes use no-device composition. The physics/private recovery envelope remains unchanged. The movement-only ABI1 contract mentioned in the original phase record has since been retired.
+Recovery reconstructs autoplay from recovered source components at frame0; other
+playback is stopped. No sample cursor, effect memory or audio blob enters the
+physics checkpoint or Scene. Candidates start suspended. Custom routing uses
+private root checkpoint3/audio block1 with exact project graph and complete host
+faders, admitted before candidate publication. Invalid graph/faders preserve the
+active world and host mix. Legacy projects retain root2; it cannot restore a
+required custom profile. Exact-SDK Play retains its explicit recovery restriction.
 
 ## Composition and SDK
 
@@ -546,7 +601,7 @@ generations, routing and voices. Seek and stopped Timeline preview request no
 sound. Existing effects retain their ordinary audio lifetime. Private animation
 recovery preserves cue intent without recovering or replaying audio cursors.
 
-Later work includes unbounded music streaming, voice stealing, custom buses, cue graphs, shared effect buses, impulse responses, acoustic room simulation, multiple listeners, sample-accurate recovery continuity and device selection.
+Later work includes unbounded music streaming, voice stealing, cue graphs, shared effect buses, impulse responses, acoustic room simulation, multiple listeners, sample-accurate recovery continuity and device selection.
 
 
 ## AudioClip import and selected revisions

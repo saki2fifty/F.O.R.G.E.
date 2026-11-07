@@ -1,5 +1,25 @@
 # 2026-11-07
 
+## Custom audio buses and sends
+
+Project settings add up to16 stable-key scalar buses, one output and up to3
+post-fader sends per bus. Shared validation rejects missing/duplicate targets,
+cycles and excessive potential gain. AudioSource.custom_bus selects a saved key
+through the existing codec, reflection, Inspector, Scene/Prefab and history owners;
+empty preserves the stock channel. One existing per-voice gain owner applies the
+derived terminal projection after source effects, retaining playback cursors,
+pause policy, one-shots and owned streaming.
+
+Project routing controls, source selection, live custom faders, user overrides,
+both runtime hosts and automation/MCP share those owners. Numeric-map schemas use
+the common authoring validator. Custom routing requires kit profile1; ordinary
+private recovery uses root3/audio1 with complete graph/faders, without saving sound
+cursors or effect memory. Exact-SDK Play retains its recovery restriction. Matching
+SDK rebuild is required for the appended source string; ABI1 tables and pins are
+unchanged. Original editable Gallery191 and illustrated guides cover the workflow.
+Bus effects, convolution and broader acoustics remain unavailable. Windows and
+physical acceptance remain queued; no new numbered delivery is implied.
+
 ## Project-wide C++ source search
 
 C++ Sources adds Find in Project with literal text, case and whole-word controls,

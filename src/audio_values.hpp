@@ -1,10 +1,13 @@
 #pragma once
 #include "builtins.hpp"
 #include <algorithm>
+#include <forge/audio_routing.hpp>
 #include <string_view>
 namespace forge::detail {
 // Shared AudioSource domain rules. Reflection remains the scalar authority.
 inline void validate_audio_source(const AudioSource& value) {
+    if (!value.custom_bus.empty() && !valid_audio_bus_key(value.custom_bus))
+        throw std::runtime_error("Invalid custom audio bus key");
     if (value.maximum_distance < value.minimum_distance)
         throw std::runtime_error("Audio maximum distance must be at least minimum distance");
     if (value.outer_angle < value.inner_angle)

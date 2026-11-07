@@ -1,5 +1,6 @@
 #pragma once
 #include "../audio_mix.hpp"
+#include "editor_state.hpp"
 #include "ui_probe.hpp"
 #include "widgets.hpp"
 #include <functional>
@@ -79,9 +80,28 @@ class AudioMixEditor {
             ui::help("Linear volume. Zero silences this channel while playback time continues. "
                      "Master also affects sources routed directly to it. Apply sends this draft.");
         }
+        if (draft_->buses && !draft_->buses->empty()) {
+            ui::heading("Custom bus volumes", "Project routes are fixed during Play. These faders "
+                                              "affect all paths leaving each bus.");
+            for (auto& [key, volume] : *draft_->buses) {
+                ui::IdScope scope(key.c_str());
+                float candidate = volume;
+                if (ImGui::SliderFloat(key.c_str(), &candidate, 0, 1, "%.3f",
+                                       ImGuiSliderFlags_AlwaysClamp)) {
+                    if (std::isfinite(candidate) && candidate >= 0 && candidate <= 1) {
+                        volume = candidate;
+                        error_.clear();
+                    } else
+                        error_ = "Volume must be finite and between zero and one.";
+                }
+                FORGE_UI_PROBE("live-audio:bus:" + key);
+                ui::help("Post-fader output and sends. Zero mutes this bus while source and effect "
+                         "time continue. Apply sends the complete draft.");
+            }
+        }
         ImGui::BeginDisabled(!dirty());
         if (ui::button("Apply live mix",
-                       "Apply these four volumes to the running game. No project file changes.")) {
+                       "Apply these volumes to the running game. No project file changes.")) {
             try {
                 if (submit(draft_->document())) {
                     baseline_ = draft_;

@@ -2,7 +2,36 @@
   "game": {
     "application_id": "org.forge.feature-gallery",
     "audio": {
-      "master_volume": 1.0
+      "master_volume": 1.0,
+      "routing": {
+        "buses": [
+          {
+            "key": "rain",
+            "label": "Rain",
+            "output": "effects",
+            "sends": [
+              {
+                "gain": 0.25,
+                "target": "music"
+              }
+            ],
+            "volume": 0.5
+          },
+          {
+            "key": "room",
+            "label": "Room",
+            "output": "rain",
+            "sends": [
+              {
+                "gain": 0.5,
+                "target": "dialogue"
+              }
+            ],
+            "volume": 0.75
+          }
+        ],
+        "version": 1
+      }
     },
     "display": {
       "display": 0,

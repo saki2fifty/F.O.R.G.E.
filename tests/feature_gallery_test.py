@@ -12,6 +12,14 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+routing_path = 'Scenes/191-audio-routing.scene.json'
+assert by_source[routing_path]['type'] == 'scene'
+routing = project['game']['audio']['routing']
+assert routing['version'] == 1 and {bus['key'] for bus in routing['buses']} == {'rain', 'room'}
+routed_scene = json.loads((project_root / routing_path).read_text(encoding='utf-8'))
+routed_sounds = [row['components']['forge.audio_source'] for row in routed_scene['entities']
+                 if 'forge.audio_source' in row['components']]
+assert len(routed_sounds) == 3 and {row['custom_bus'] for row in routed_sounds} == {'rain', 'room', ''}
 for row in assets:
     if row['type'] == 'scene':
         saved = json.loads((project_root / row['source']).read_text(encoding='utf-8'))
@@ -718,6 +726,21 @@ def call(method, **fields):
     assert result['ok'], (method, result)
     return result
 
+def reflected_float_literals(value, field):
+    # Integer JSON literals are valid inputs to reflected floating fields. Normalize
+    # only those declared fields; discrete values and unknown extensions stay exact.
+    kind = field.get('type')
+    if kind in ('float32', 'float64') and type(value) is int:
+        return float(value)
+    if kind == 'struct' and isinstance(value, dict):
+        for child in field.get('fields', []):
+            if child['id'] in value:
+                value[child['id']] = reflected_float_literals(value[child['id']], child)
+    elif kind in ('array', 'vector') and isinstance(value, list):
+        value = [reflected_float_literals(item, field['element']) for item in value]
+    return value
+
+
 def same_authored_value(actual, expected, location='$'):
     # SceneDraft recasts reflected float32 values. Native JSON float parsing may
     # differ by a final float32 ULP across platforms; document structure and
@@ -853,10 +876,15 @@ try:
                 transform.setdefault('sequence_start_seconds', 0.)
                 transform.setdefault('sequence_next_clip', None)
                 transform.setdefault('sequence_next_start_seconds', 0.)
+                transform.setdefault('sequence_extra_clips', [])
+                transform.setdefault('sequence_multiway', False)
             sequence = row['components'].get('forge.animation_sequence')
             if sequence is not None:
                 sequence.setdefault('sequence', None)
                 sequence.setdefault('sequence_start_seconds', 0.)
+                sequence.setdefault('sequence_rate', 1.)
+                sequence.setdefault('sequence_loop', False)
+                sequence.setdefault('sequence_extra_placements', [])
             avoidance = row['components'].get('forge.navigation_avoidance')
             if avoidance is not None:
                 avoidance.setdefault('shared_group', 0)
@@ -874,6 +902,16 @@ try:
                 animator.setdefault('blend_space', None)
                 animator.setdefault('blend_position', 0.)
                 animator.setdefault('blend_position_y', 0.)
+                animator.setdefault('graph', None)
+                for slot in range(1, 5):
+                    animator.setdefault(f'graph_override_{slot}', False)
+                    animator.setdefault(f'graph_input_{slot}', 0.)
+                animator.setdefault('sequence', None)
+                animator.setdefault('sequence_start_seconds', 0.)
+                animator.setdefault('sequence_next_clip', None)
+                animator.setdefault('sequence_next_start_seconds', 0.)
+                animator.setdefault('sequence_extra_clips', [])
+                animator.setdefault('sequence_multiway', False)
             sound = row['components'].get('forge.audio_source')
             if sound is not None:
                 sound.setdefault('cone_enabled', False)
@@ -894,6 +932,7 @@ try:
                 sound.setdefault('reverb_decay', 1.5)
                 sound.setdefault('reverb_damping', .5)
                 sound.setdefault('reverb_wet', .25)
+                sound.setdefault('custom_bus', '')
             body = row['components'].get('forge.physics_body')
             if body is not None:
                 body.setdefault('continuous_collision', False)
@@ -932,6 +971,11 @@ try:
                 joint.setdefault('swing_plane_angle', 45.)
                 joint.setdefault('distance_spring_frequency', 0.)
                 joint.setdefault('distance_spring_damping', 1.)
+        component_schema = {item['id']: item for item in context['schema']['components']}
+        for entity in expected['entities']:
+            for name, value in entity['components'].items():
+                if name in component_schema:
+                    reflected_float_literals(value, dict(type='struct', fields=component_schema[name]['fields']))
         same_authored_value(loaded, expected, str(path))
         assert context['revision'] == result['revision']
         for entity in loaded['entities']:

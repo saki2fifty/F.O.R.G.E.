@@ -18,6 +18,7 @@ from mcp_runtime_workers_play import check_runtime_workers_play
 from mcp_animation_graph_play import check_animation_graph_play
 from mcp_sequence_property_play import check_sequence_property_play
 from mcp_skeletal_sequence_play import check_skeletal_sequence_play
+from mcp_audio_routing_play import check_audio_routing_play
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 SEQUENCE_PROPERTIES_ONLY = sys.argv[7:] == ['--sequence-properties-only']
@@ -47,7 +48,8 @@ GESTURES_ONLY = sys.argv[7:] == ['--gestures-only']
 TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 AUDIO_STREAMING_ONLY = sys.argv[7:] == ['--audio-streaming-only']
-AUDIO_PAUSE_ONLY = AUDIO_STREAMING_ONLY or sys.argv[7:] == ['--audio-pause-only']
+AUDIO_ROUTING_ONLY = sys.argv[7:] == ['--audio-routing-only']
+AUDIO_PAUSE_ONLY = AUDIO_ROUTING_ONLY or AUDIO_STREAMING_ONLY or sys.argv[7:] == ['--audio-pause-only']
 GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
 MESSAGES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--input-messages-only'
 UI_SEQUENCE_ONLY = sys.argv[7:] == ['--ui-sequence-only']
@@ -1183,6 +1185,14 @@ for legacy in (False, True):
                 assert 'forge_play_profile_control' not in visible
                 assert 'forge_play_profile_refresh' not in visible
             print(('legacy' if legacy else 'current') + ': native ECS plan through actual MCP/Play; stale generation, Stop/Clear and authored isolation verified')
+            continue
+        if AUDIO_ROUTING_ONLY:
+            check_audio_routing_play(read, ok, control, mutate, until, edit_settings, root, advertised)
+            with editor('read') as (_, restricted), Client(restricted, legacy) as reader:
+                visible = {t['name'] for t in reader.request('tools/list')['result']['tools']}
+                assert 'forge_play_audio' in visible and 'forge_play_audio_mix' not in visible
+                assert 'forge_project_settings_edit' not in visible
+            print(('legacy' if legacy else 'current') + ': scoped audio routing settings, source/history, native Play faders/tuning, rejection and authored isolation passed')
             continue
         if AUDIO_PAUSE_ONLY:
             actor = ok('forge_entity_create', arguments=dict(kind=0, name='Independent audio'))['results'][0]['selected']

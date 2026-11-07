@@ -127,15 +127,26 @@ bool valid_workflow_arguments(const Json& value, const Json& schema) {
                     return false;
     }
     if (value.is_object()) {
+        if (value.size() < schema.value("minProperties", std::size_t{}) ||
+            value.size() > schema.value("maxProperties", std::size_t(1048576)))
+            return false;
         for (const auto& required : schema.value("required", Json::array()))
             if (!value.contains(required.get<std::string>()))
                 return false;
         const auto properties = schema.value("properties", Json::object());
+        const auto additional = schema.value("additionalProperties", Json(true));
         for (auto field = value.begin(); field != value.end(); ++field) {
+            if (schema.contains("propertyNames") &&
+                !valid_workflow_arguments(field.key(), schema.at("propertyNames")))
+                return false;
             if (properties.contains(field.key())) {
                 if (!valid_workflow_arguments(field.value(), properties.at(field.key())))
                     return false;
-            } else if (!schema.value("additionalProperties", true))
+            } else if (additional.is_boolean()) {
+                if (!additional.get<bool>())
+                    return false;
+            } else if (!additional.is_object() ||
+                       !valid_workflow_arguments(field.value(), additional))
                 return false;
         }
     }

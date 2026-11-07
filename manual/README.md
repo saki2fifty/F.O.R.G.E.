@@ -81,7 +81,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Physics](editor/physics.md)
 - [Navigation profiles, authored links, polygon regions, static collision collection, moving obstacles and destinations](editor/navigation.md)
 - [Create patrol, wait and chase graphs and behavior trees](editor/navigation-behavior.md)
-- [Audio: import, stream, preview, filters, effects, mixing and music/UI pause](editor/audio.md)
+- [Audio: import, stream, preview, filters, effects, custom buses/sends, live mixing and music/UI pause](editor/audio.md)
 - [Runtime UI: HUDs, interactive quad/animated-mesh surfaces, camera-image panels, menus, animation, filters, shadows, backdrops, gradients, alpha/luminance masks and static/animated panel shadows](editor/runtime-ui.md)
 - [Animate named UI values with a Scene sequence](editor/sequence-ui.md)
 - [Translate a game's menus and HUD](editor/ui-localization.md)

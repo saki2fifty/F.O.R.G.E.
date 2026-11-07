@@ -2,6 +2,7 @@
 #include <array>
 #include <chrono>
 #include <forge/audio_components.hpp>
+#include <forge/audio_routing.hpp>
 #include <forge/audio_service.hpp>
 #include <forge/world.hpp>
 #include <span>
@@ -13,6 +14,8 @@ struct AudioConfig {
     bool required = false;
     float master_volume = 1;
     std::array<float, 3> channel_volumes{1, 1, 1};
+    AudioRouting routing{};
+    AudioBusVolumes bus_volumes{};
 };
 EngineModule audio_module(AudioConfig);
 class AudioRuntime : public AudioService {
@@ -28,6 +31,8 @@ class AudioRuntime : public AudioService {
     void game_paused(bool value);
     void master_volume(float value);
     void mix_volumes(float master, const std::array<float, 3>& channels);
+    void mix_volumes(float master, const std::array<float, 3>& channels,
+                     const AudioBusVolumes& buses);
     void play(EntityRef) override;
     void play_one_shot(EntityRef) override;
     void stop_source(EntityRef) override;

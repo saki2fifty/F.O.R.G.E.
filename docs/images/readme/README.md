@@ -2457,3 +2457,26 @@ Game build digest is `16dbaeda70b007c5cecc5a65db75caa12f48ac71ffe6fd16d1e04960d3
 The Game consumer passes in multiway-product-vulkan-tests; exact receipts and
 image hashes remain in local batch287 evidence. Neither capture establishes
 Windows/full Main, graphical EXE, physical GPU/input/DPI or performance acceptance.
+
+## Custom audio routing controls
+
+[Project buses and sends](../../../manual/images/audio-routing-project.png) and
+[live custom faders](../../../manual/images/audio-routing-live.png) are original
+700×480 outputs from `audio_mix_editor`, using production AudioRoutingEditor and
+AudioMixEditor controls through `tests/imgui_software_capture.hpp` and the pinned
+SDL software/ImGui renderer. Captured on Linux/GCC12 from local50c968d plus the
+audio-routing implementation; C++/CMake build input digest
+`562df57227f387789e31aa2646c53170e512725c484557074f4aea516354dde9`.
+The corresponding six focused control tests pass, including native PCM, both
+runtime hosts, recovery rejection, kit admission and scaled UI input.
+
+The isolated UI fixture supplies an explicit offline status sample; it is not
+full Main or a physical output capture. Four interface scales and a700-pixel
+layout have native capture variants. The compact native viewport keeps controls
+legible in the manual. Canonical files copy original pixels and
+dimensions without crop, resize, retouch or annotation. Project PNG SHA256:
+`a5e97d889a30b9566651758a77758339226648ecac0b667608ec78eb465547a4`;
+live PNG SHA256:
+`9c850952c8a145e1566d1c54100f40d260ba199ad4141bde45c14fa5d33bfefb`.
+These captures establish neither Windows/physical playback nor hardware/DPI or
+performance acceptance. Exact source/capture hashes remain in local batch289.

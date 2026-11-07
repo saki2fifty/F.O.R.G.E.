@@ -76,6 +76,8 @@ int main(int argc, char** argv) {
                 ProjectSettings initial(root);
                 auto data = initial.document();
                 data["game"] = default_game_settings("org.forge.audio-ui", "Audio UI");
+                data["game"]["audio"]["routing"] =
+                    audio_routing_json({{{"rain", "Rain", .5f, "effects", {}}}});
                 initial.save(std::move(data));
             }
             {
@@ -313,6 +315,16 @@ int main(int argc, char** argv) {
                 require(scene.undo() && scene.entity(id).get<AudioSource>().bus == 0 &&
                             scene.redo() && scene.entity(id).get<AudioSource>().bus == 1,
                         "Mix channel dropdown lost Scene Undo/Redo");
+                click("custom_bus");
+                key(ImGuiKey_DownArrow);
+                key(ImGuiKey_Enter);
+                require(scene.entity(id).get<AudioSource>().custom_bus == "rain" &&
+                            scene.entity(id).get<AudioSource>().bus == 1,
+                        "Custom route picker lost its saved key or retained stock choice");
+                require(scene.undo() && scene.entity(id).get<AudioSource>().custom_bus.empty() &&
+                            scene.redo() &&
+                            scene.entity(id).get<AudioSource>().custom_bus == "rain",
+                        "Custom route picker lost Scene Undo/Redo");
                 numeric("doppler", "1.5");
                 require(scene.entity(id).get<AudioSource>().doppler == 1.5f,
                         "Actual Doppler control did not commit");
