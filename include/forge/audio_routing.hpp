@@ -10,6 +10,7 @@
 
 namespace forge {
 inline constexpr unsigned audio_routing_profile_version = 1;
+inline constexpr unsigned audio_bus_effects_profile_version = 1;
 inline constexpr std::size_t audio_custom_bus_limit = 16;
 inline constexpr std::size_t audio_bus_send_limit = 3;
 inline constexpr std::size_t audio_bus_key_limit = 64;
@@ -22,11 +23,27 @@ struct AudioBusSend {
     float gain = 1;
     bool operator==(const AudioBusSend&) const = default;
 };
+// Linear processors, in high-pass -> low-pass -> echo -> reverb order.
+// Disabled parameters are retained; defaults serialize without an effects block.
+struct AudioBusEffects {
+    bool low_pass_enabled = false, high_pass_enabled = false;
+    float low_pass_hz = 20000, high_pass_hz = 20;
+    bool echo_enabled = false;
+    float echo_seconds = .25f, echo_feedback = .35f;
+    bool reverb_enabled = false;
+    float reverb_decay = 1.5f, reverb_damping = .5f, reverb_wet = .25f;
+    bool active() const {
+        return low_pass_enabled || high_pass_enabled || (echo_enabled && echo_feedback > 0) ||
+               (reverb_enabled && reverb_wet > 0);
+    }
+    bool operator==(const AudioBusEffects&) const = default;
+};
 struct AudioBusDefinition {
     std::string key, label;
     float volume = 1;
     std::string output = "master";
     std::vector<AudioBusSend> sends;
+    AudioBusEffects effects{};
     bool operator==(const AudioBusDefinition&) const = default;
 };
 struct AudioRouting {
@@ -38,7 +55,8 @@ struct AudioBusWeights {
     std::array<double, 4> terminals{};
     bool operator==(const AudioBusWeights&) const = default;
 };
-// Derived immutable scalar data only. Settings remain the graph's owner.
+// Derived immutable scalar path coefficients; bus DSP is not projected here.
+// Settings own topology; active effects use the runtime's native bus graph.
 class AudioRoutingProjection {
     std::vector<AudioBusWeights> buses_;
     AudioBusVolumes volumes_;
@@ -52,6 +70,9 @@ class AudioRoutingProjection {
                const std::array<float, 3>& channels) const;
 };
 void validate_audio_routing(const AudioRouting&);
+void validate_audio_bus_effects(const AudioBusEffects&);
+AudioBusEffects audio_bus_effects_from_json(const nlohmann::json&);
+nlohmann::json audio_bus_effects_json(const AudioBusEffects&);
 void validate_audio_bus_volumes(const AudioBusVolumes&);
 AudioRouting audio_routing_from_json(const nlohmann::json&);
 nlohmann::json audio_routing_json(const AudioRouting&);

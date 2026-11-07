@@ -1,5 +1,20 @@
 # 2026-11-07
 
+## Shared linear audio bus effects
+
+Project buses add default-bypassed high/low-pass, echo and reverb settings. Native
+inputs mix sources before the existing shared processor implementation; bounded
+fanout applies bus faders and sends afterward. Separate game-paused/independent
+histories preserve the existing pause domains without duplicating clip cursors,
+voices or stream readers. Source controls retain their own effects and change
+future bus input; shared tails remain bus-owned and do not delay cue completion.
+
+Project Settings, live memory observations, automation/MCP, both hosts, fresh
+recovery and matching kit admission share the existing owners. Installed SDK
+component layouts/fingerprint and C ABI1 callbacks/operations are unchanged.
+Gallery196 is editable/exportable with two shared buses, three original tones
+and illustrated controls. Windows/physical acceptance remains separate.
+
 ## Completion-aware sound-cue events
 
 SoundCue adds an optional completion timing mode with a zero-to-3600-second gap.

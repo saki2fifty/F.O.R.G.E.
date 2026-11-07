@@ -303,6 +303,44 @@ void custom_routing(const std::filesystem::path& root, AssetId stream, AssetId r
         world->audio->paused(false);
     compare(actual, expected, 80, "Custom stream resume PCM");
 }
+void shared_bus_effects(const std::filesystem::path& root, AssetId stream, AssetId resident) {
+    for (float pitch : {1.f, 2.f}) {
+        AudioBusEffects effects;
+        effects.low_pass_enabled = true;
+        effects.low_pass_hz = 2400;
+        effects.echo_enabled = true;
+        effects.echo_seconds = .03f;
+        effects.echo_feedback = .5f;
+        effects.reverb_enabled = true;
+        effects.reverb_decay = .4f;
+        effects.reverb_wet = .3f;
+        const AudioRouting routing{{{"shared", "", .5f, "master", {{"effects", .25f}}, effects}}};
+        auto streamed = document(stream, pitch), ordinary = document(resident, pitch);
+        streamed["entities"][0]["components"]["forge.audio_source"]["custom_bus"] = "shared";
+        auto& reference = ordinary["entities"][0]["components"]["forge.audio_source"];
+        reference.update(audio_bus_effects_json(effects));
+        reference["gain"] = .625f;
+        Running actual(root, streamed, routing), expected(root, ordinary);
+        actual.prepared();
+        expected.prepared();
+        compare(actual, expected, 200, "Shared bus streamed/resident ordinary-effect PCM");
+        actual.control(AudioSourceOperation::OneShot);
+        expected.control(AudioSourceOperation::OneShot);
+        actual.prepared();
+        expected.prepared();
+        compare(actual, expected, 80, "Shared bus streamed overlapping one-shot PCM");
+        const auto status = actual.audio->status();
+        require(status.at("stream_voices") == 2 && status.at("decoded_bytes") == 0 &&
+                    status.at("bus_effect_chains") == 2,
+                "Shared bus processing duplicated stream readers or scaled effects with voices");
+        for (auto* game : {&actual, &expected})
+            game->audio->paused(true);
+        compare(actual, expected, 8, "Shared bus streamed full suspension");
+        for (auto* game : {&actual, &expected})
+            game->audio->paused(false);
+        compare(actual, expected, 80, "Shared bus streamed resume history");
+    }
+}
 void playback(const std::filesystem::path& root, AssetId stream, AssetId resident) {
     for (bool loop : {false, true})
         for (float pitch : {.5f, 1.f, 2.f}) {
@@ -500,6 +538,7 @@ int main(int argc, char** argv) {
             repeating_cue(root, streamed.id, resident.id);
             completion_cue(root, streamed.id, resident.id);
             custom_routing(root, streamed.id, resident.id);
+            shared_bus_effects(root, streamed.id, resident.id);
             playback(root, streamed.id, resident.id);
             transport(root, streamed.id, resident.id);
             preview(root, streamed, resident);

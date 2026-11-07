@@ -123,10 +123,9 @@ struct AudioRuntime::Impl {
     struct ReverbNode : ma_node_base {
         unsigned channels;
         detail::AudioReverb signal;
-        ReverbNode(ma_engine& engine, const AudioSource& source)
+        ReverbNode(ma_engine& engine, float decay, float damping, float wet)
             : ma_node_base{}, channels(ma_engine_get_channels(&engine)),
-              signal(ma_engine_get_sample_rate(&engine), channels, source.reverb_decay,
-                     source.reverb_damping, source.reverb_wet) {
+              signal(ma_engine_get_sample_rate(&engine), channels, decay, damping, wet) {
             static const ma_node_vtable table{process, nullptr, 1, 1,
                                               MA_NODE_FLAG_CONTINUOUS_PROCESSING |
                                                   MA_NODE_FLAG_ALLOW_NULL_INPUT};
@@ -162,7 +161,7 @@ struct AudioRuntime::Impl {
             return *this;
         }
     };
-    struct SourceEffects {
+    struct EffectsChain {
         ma_lpf_node low{};
         ma_hpf_node high{};
         ma_delay_node echo{};
@@ -175,17 +174,17 @@ struct AudioRuntime::Impl {
         float echo_seconds = 0, echo_feedback = 0;
         std::uint64_t tail_frames = 0;
         std::uint64_t echo_buffer_bytes = 0;
-        static bool has_echo(const AudioSource& source) {
+        template <class T> static bool has_echo(const T& source) {
             return source.echo_enabled && source.echo_feedback > 0;
         }
-        static bool has_reverb(const AudioSource& source) {
+        template <class T> static bool has_reverb(const T& source) {
             return source.reverb_enabled && source.reverb_wet > 0;
         }
         EffectMemory memory() const {
             return {echo_buffer_bytes, reverb ? reverb->signal.bytes() : 0};
         }
         // Build detached nodes; never reinitialize DSP state on the device thread.
-        void initialize(ma_engine& engine, const AudioSource& source) {
+        template <class T> void initialize(ma_engine& engine, const T& source) {
             auto* graph = ma_engine_get_node_graph(&engine);
             const auto channels = ma_engine_get_channels(&engine);
             const auto rate = ma_engine_get_sample_rate(&engine);
@@ -226,7 +225,8 @@ struct AudioRuntime::Impl {
             }
             tail_frames = echo_tail_frames;
             if (has_reverb(source)) {
-                reverb = std::make_unique<ReverbNode>(engine, source);
+                reverb = std::make_unique<ReverbNode>(engine, source.reverb_decay,
+                                                      source.reverb_damping, source.reverb_wet);
                 reverb_decay = source.reverb_decay;
                 reverb_damping = source.reverb_damping;
                 reverb_wet = source.reverb_wet;
@@ -241,7 +241,7 @@ struct AudioRuntime::Impl {
                             "Audio reverb input");
             }
         }
-        bool matches(const AudioSource& source) const {
+        template <class T> bool matches(const T& source) const {
             return low_ready == source.low_pass_enabled && high_ready == source.high_pass_enabled &&
                    (!low_ready || low_hz == source.low_pass_hz) &&
                    (!high_ready || high_hz == source.high_pass_hz) &&
@@ -266,7 +266,7 @@ struct AudioRuntime::Impl {
                    : low_ready ? static_cast<ma_node*>(&low)
                                : static_cast<ma_node*>(&high);
         }
-        ~SourceEffects() {
+        ~EffectsChain() {
             // Native node uninit detaches and waits for in-flight processing.
             reverb.reset();
             if (echo_ready)
@@ -277,6 +277,141 @@ struct AudioRuntime::Impl {
                 ma_lpf_node_uninit(&low, nullptr);
         }
     };
+    // Native input buses perform the summation. This node only supplies silence
+    // when idle so filters and shared tails retain the domain's output time.
+    struct BusInput : ma_node_base {
+        unsigned channels;
+        explicit BusInput(ma_engine& engine)
+            : ma_node_base{}, channels(ma_engine_get_channels(&engine)) {
+            static const ma_node_vtable table{process, nullptr, 1, 1,
+                                              MA_NODE_FLAG_CONTINUOUS_PROCESSING |
+                                                  MA_NODE_FLAG_ALLOW_NULL_INPUT};
+            auto config = ma_node_config_init();
+            config.vtable = &table;
+            config.pInputChannels = &channels;
+            config.pOutputChannels = &channels;
+            checked(ma_node_init(ma_engine_get_node_graph(&engine), &config, nullptr, this),
+                    "Audio bus input");
+        }
+        ~BusInput() { ma_node_uninit(this, nullptr); }
+        static void process(ma_node* node, const float** inputs, ma_uint32* input_frames,
+                            float** outputs, ma_uint32* output_frames) noexcept {
+            const auto& self = *static_cast<BusInput*>(static_cast<ma_node_base*>(node));
+            const auto taken = std::min(*input_frames, *output_frames);
+            auto* output = outputs[0];
+            const auto samples = std::size_t(taken) * self.channels;
+            if (inputs && inputs[0])
+                std::copy_n(inputs[0], samples, output);
+            else
+                std::fill_n(output, samples, 0.f);
+            std::fill(output + samples, output + std::size_t(*output_frames) * self.channels, 0.f);
+            *input_frames = taken;
+        }
+    };
+    struct BusNode {
+        std::unique_ptr<BusInput> input;
+        std::unique_ptr<EffectsChain> effects;
+        ma_splitter_node output{};
+        bool output_ready = false;
+        void initialize(ma_engine& engine, const AudioBusDefinition& bus) {
+            auto config = ma_splitter_node_config_init(ma_engine_get_channels(&engine));
+            config.outputBusCount = ma_uint32(1 + bus.sends.size());
+            checked(
+                ma_splitter_node_init(ma_engine_get_node_graph(&engine), &config, nullptr, &output),
+                "Audio bus outputs");
+            output_ready = true;
+            input = std::make_unique<BusInput>(engine);
+            if (bus.effects.active()) {
+                effects = std::make_unique<EffectsChain>();
+                effects->initialize(engine, bus.effects);
+                checked(ma_node_attach_output_bus(input.get(), 0, effects->input(), 0),
+                        "Audio bus effect input");
+                checked(ma_node_attach_output_bus(effects->output(), 0, &output, 0),
+                        "Audio bus effect output");
+            } else
+                checked(ma_node_attach_output_bus(input.get(), 0, &output, 0),
+                        "Audio bus passthrough");
+        }
+        ~BusNode() {
+            // Uninit detaches all adjacent nodes and waits for native readers.
+            input.reset();
+            effects.reset();
+            if (output_ready)
+                ma_splitter_node_uninit(&output, nullptr);
+        }
+    };
+    bool native_bus_processing = false;
+    std::map<std::string, std::array<std::unique_ptr<BusNode>, 2>, std::less<>> bus_nodes;
+    std::array<std::array<ma_sound_group, 3>, 2> terminals{};
+    std::array<std::array<bool, 3>, 2> terminal_ready{};
+    ma_node* route_parent(const AudioSource& source) {
+        const unsigned domain = source.pause_with_game ? 1 : 0;
+        if (native_bus_processing && !source.custom_bus.empty())
+            return bus_nodes.at(source.custom_bus)[domain]->input.get();
+        if (native_bus_processing && source.bus)
+            return &terminals[domain].at(source.bus - 1);
+        return source.pause_with_game ? &pausable_group : &group;
+    }
+    void apply_bus_mix(const std::array<float, 3>& channels, const AudioBusVolumes& volumes) {
+        if (!native_bus_processing)
+            return;
+        for (unsigned domain = 0; domain < 2; ++domain) {
+            for (unsigned category = 0; category < 3; ++category)
+                ma_sound_group_set_volume(&terminals[domain][category], channels[category]);
+            for (const auto& bus : config.routing.buses) {
+                auto& node = *bus_nodes.at(bus.key)[domain];
+                const auto volume = volumes.at(bus.key);
+                checked(ma_node_set_output_bus_volume(&node.output, 0, volume), "Audio bus volume");
+                for (unsigned i = 0; i < bus.sends.size(); ++i)
+                    checked(ma_node_set_output_bus_volume(&node.output, i + 1,
+                                                          volume * bus.sends[i].gain),
+                            "Audio bus send volume");
+            }
+        }
+    }
+    void initialize_bus_graph() {
+        native_bus_processing = std::ranges::any_of(
+            config.routing.buses, [](const auto& bus) { return bus.effects.active(); });
+        if (!native_bus_processing)
+            return;
+        for (unsigned domain = 0; domain < 2; ++domain) {
+            for (unsigned category = 0; category < 3; ++category) {
+                // Terminal faders never change pitch. Native pitching would add
+                // resampler history on only the category branch of a fanout.
+                checked(ma_sound_group_init(&engine, MA_SOUND_FLAG_NO_PITCH,
+                                            domain ? &pausable_group : &group,
+                                            &terminals[domain][category]),
+                        "Audio terminal group");
+                terminal_ready[domain][category] = true;
+                checked(ma_sound_group_start(&terminals[domain][category]),
+                        "Start audio terminal group");
+            }
+            for (const auto& bus : config.routing.buses) {
+                auto& node = bus_nodes[bus.key][domain];
+                node = std::make_unique<BusNode>();
+                node->initialize(engine, bus);
+            }
+            const auto target = [&](const std::string& key) -> ma_node* {
+                if (key == "master")
+                    return domain ? &pausable_group : &group;
+                constexpr std::array names{"music", "effects", "dialogue"};
+                for (unsigned i = 0; i < names.size(); ++i)
+                    if (key == names[i])
+                        return &terminals[domain][i];
+                return bus_nodes.at(key)[domain]->input.get();
+            };
+            for (const auto& bus : config.routing.buses) {
+                auto& node = *bus_nodes.at(bus.key)[domain];
+                checked(ma_node_attach_output_bus(&node.output, 0, target(bus.output), 0),
+                        "Audio bus main route");
+                for (unsigned i = 0; i < bus.sends.size(); ++i)
+                    checked(ma_node_attach_output_bus(&node.output, i + 1,
+                                                      target(bus.sends[i].target), 0),
+                            "Audio bus send route");
+            }
+        }
+        apply_bus_mix(config.channel_volumes, routing.volumes());
+    }
     struct Voice {
         AudioSource authored;
         EntityRef ref;
@@ -292,9 +427,10 @@ struct AudioRuntime::Impl {
         std::uint64_t stream_initial_frame = 0;
         std::uint64_t cue_event_ticket = 0;
         bool follows_game_pause = true;
+        ma_node* route_parent = nullptr;
         float source_volume = 1;
         AudioMotion motion;
-        std::unique_ptr<SourceEffects> effects;
+        std::unique_ptr<EffectsChain> effects;
         std::optional<std::uint64_t> effects_tail_start;
         bool effects_drained = false;
         EffectMemory effect_memory() const { return effects ? effects->memory() : EffectMemory{}; }
@@ -320,12 +456,13 @@ struct AudioRuntime::Impl {
             return memory;
         }
     };
-    static void apply_voice_gain(Voice& voice, const std::array<float, 3>& channels,
-                                 const AudioRoutingProjection& routing) {
+    void apply_voice_gain(Voice& voice, const std::array<float, 3>& channels,
+                          const AudioRoutingProjection& routing) {
         if (!voice.ready)
             return;
         const auto channel =
-            voice.authored.custom_bus.empty()
+            native_bus_processing ? 1.f
+            : voice.authored.custom_bus.empty()
                 ? (voice.authored.bus == 0 ? 1 : channels.at(voice.authored.bus - 1))
                 : routing.gain(voice.authored.custom_bus, voice.authored.bus, channels);
         auto* output =
@@ -450,6 +587,7 @@ struct AudioRuntime::Impl {
                     "Pausable audio group");
             pausable_group_ready = true;
             checked(ma_sound_group_start(&pausable_group), "Start pausable audio group");
+            initialize_bus_graph();
             if (!ec.noDevice)
                 checked(ma_engine_start(&engine), "Audio device start");
         } catch (...) {
@@ -474,6 +612,13 @@ struct AudioRuntime::Impl {
         pending_sources.clear();
         requests.clear();
         clips.close();
+        bus_nodes.clear();
+        for (unsigned domain = 0; domain < 2; ++domain)
+            for (unsigned category = 0; category < 3; ++category)
+                if (terminal_ready[domain][category]) {
+                    ma_sound_group_uninit(&terminals[domain][category]);
+                    terminal_ready[domain][category] = false;
+                }
         if (stream_retirement)
             stream_retirement->close();
         if (pausable_group_ready) {
@@ -932,7 +1077,8 @@ struct AudioRuntime::Impl {
             !is_paused && is_game_paused && std::ranges::any_of(voices, [](const auto& entry) {
                 return !entry.second->authored.pause_with_game;
             });
-        const bool should_play = !is_paused && (!is_game_paused || independent);
+        const bool should_play =
+            !is_paused && (!is_game_paused || independent || native_bus_processing);
         if (bool(ma_sound_group_is_playing(&group)) != should_play)
             checked(should_play ? ma_sound_group_start(&group) : ma_sound_group_stop(&group),
                     "Audio output pause/resume");
@@ -1061,14 +1207,14 @@ struct AudioRuntime::Impl {
     }
     void configure_effects(Voice& v, bool reset = false) {
         const auto& config_value = v.authored;
-        auto* parent = config_value.pause_with_game ? &pausable_group : &group;
+        auto* parent = route_parent(config_value);
         const bool filtered = config_value.low_pass_enabled || config_value.high_pass_enabled ||
-                              SourceEffects::has_echo(config_value) ||
-                              SourceEffects::has_reverb(config_value);
+                              EffectsChain::has_echo(config_value) ||
+                              EffectsChain::has_reverb(config_value);
         if (reset || (v.effects ? !v.effects->matches(config_value) : filtered)) {
-            std::unique_ptr<SourceEffects> next;
+            std::unique_ptr<EffectsChain> next;
             if (filtered) {
-                next = std::make_unique<SourceEffects>();
+                next = std::make_unique<EffectsChain>();
                 next->initialize(engine, config_value);
                 checked(ma_node_set_state(next->output(), !v.source_paused &&
                                                                   (ma_sound_is_playing(&v.sound) ||
@@ -1089,12 +1235,13 @@ struct AudioRuntime::Impl {
             v.effects_tail_start.reset();
             v.effects_drained = ma_sound_at_end(&v.sound);
             apply_voice_gain(v, config.channel_volumes, routing);
-        } else if (v.follows_game_pause != config_value.pause_with_game) {
+        } else if (v.route_parent != parent) {
             checked(ma_node_attach_output_bus(v.effects ? v.effects->output()
                                                         : static_cast<ma_node*>(&v.sound),
                                               0, parent, 0),
                     "Audio pause routing");
         }
+        v.route_parent = parent;
         v.follows_game_pause = config_value.pause_with_game;
     }
     void configure_voice(Voice& v, flecs::entity e, float fixed_delta, bool loading_only,
@@ -1868,10 +2015,11 @@ void AudioRuntime::mix_volumes(float master, const std::array<float, 3>& channel
     ma_sound_group_set_volume(&impl_->group, master);
     for (const auto& [id, voice] : impl_->voices) {
         (void)id;
-        Impl::apply_voice_gain(*voice, channels, routing);
+        impl_->apply_voice_gain(*voice, channels, routing);
         for (auto& shot : voice->one_shots)
-            Impl::apply_voice_gain(*shot, channels, routing);
+            impl_->apply_voice_gain(*shot, channels, routing);
     }
+    impl_->apply_bus_mix(channels, routing.volumes());
     impl_->config.master_volume = master;
     impl_->config.channel_volumes = channels;
     impl_->config.bus_volumes = routing.volumes();
@@ -1899,6 +2047,17 @@ Json AudioRuntime::status() const {
         for (const auto& shot : voice->one_shots)
             stream_memory(*shot);
     }
+    Impl::EffectMemory bus_memory;
+    unsigned bus_chains = 0;
+    for (const auto& [key, domains] : impl_->bus_nodes) {
+        (void)key;
+        for (const auto& node : domains)
+            if (node->effects) {
+                bus_memory += node->effects->memory();
+                ++bus_chains;
+            }
+    }
+    memory += bus_memory;
     const auto resources = impl_->clips.statistics();
     Json result{
         {"mixed_frames", impl_->mixed_frames.load(std::memory_order_relaxed)},
@@ -1926,6 +2085,10 @@ Json AudioRuntime::status() const {
         {"retiring_streams", impl_->stream_slots ? impl_->stream_slots->retiring.load() : 0},
         {"echo_buffer_bytes", memory.echo},
         {"reverb_buffer_bytes", memory.reverb},
+        {"bus_processing", impl_->native_bus_processing},
+        {"bus_effect_chains", bus_chains},
+        {"bus_echo_buffer_bytes", bus_memory.echo},
+        {"bus_reverb_buffer_bytes", bus_memory.reverb},
         {"pending_sources", impl_->pending_sources.size()},
         {"pending_clips", resources.pending},
         {"failed_sources", impl_->failures.size()},

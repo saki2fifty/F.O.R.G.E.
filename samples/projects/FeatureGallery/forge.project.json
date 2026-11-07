@@ -28,6 +28,51 @@
               }
             ],
             "volume": 0.75
+          },
+          {
+            "effects": {
+              "echo_enabled": true,
+              "echo_feedback": 0.5,
+              "echo_seconds": 0.09000000357627869,
+              "high_pass_enabled": false,
+              "high_pass_hz": 20.0,
+              "low_pass_enabled": false,
+              "low_pass_hz": 20000.0,
+              "reverb_damping": 0.5,
+              "reverb_decay": 1.5,
+              "reverb_enabled": false,
+              "reverb_wet": 0.25
+            },
+            "key": "gallery_echo",
+            "label": "Shared echo",
+            "output": "gallery_room",
+            "sends": [
+              {
+                "gain": 0.25,
+                "target": "master"
+              }
+            ],
+            "volume": 0.6000000238418579
+          },
+          {
+            "effects": {
+              "echo_enabled": false,
+              "echo_feedback": 0.3499999940395355,
+              "echo_seconds": 0.25,
+              "high_pass_enabled": false,
+              "high_pass_hz": 20.0,
+              "low_pass_enabled": true,
+              "low_pass_hz": 4200.0,
+              "reverb_damping": 0.5,
+              "reverb_decay": 0.4000000059604645,
+              "reverb_enabled": true,
+              "reverb_wet": 0.30000001192092896
+            },
+            "key": "gallery_room",
+            "label": "Shared room",
+            "output": "effects",
+            "sends": [],
+            "volume": 0.699999988079071
           }
         ],
         "version": 1

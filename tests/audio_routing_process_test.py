@@ -35,7 +35,7 @@ def rejected(work):
     raise AssertionError('Invalid audio routing request was accepted')
 
 
-def verify(runtime, gallery, module=None):
+def verify_profile(runtime, gallery, module, bus_effects):
     runtime, gallery = Path(runtime).resolve(), Path(gallery).resolve()
     with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
         root = Path(folder)
@@ -43,6 +43,11 @@ def verify(runtime, gallery, module=None):
         graph = dict(version=1, buses=[dict(key='rain', label='Rain', volume=.5,
             output='effects', sends=[dict(target='music', gain=.25)]),
             dict(key='room', label='Room', volume=.75, output='rain', sends=[])])
+        if bus_effects:
+            graph['buses'][0]['effects'] = dict(echo_enabled=True, echo_seconds=.02,
+                                               echo_feedback=.5)
+            graph['buses'][1]['effects'] = dict(low_pass_enabled=True, low_pass_hz=1200,
+                                               reverb_enabled=True, reverb_decay=.4)
         game['audio']['routing'] = graph
         game['application_id'] = 'org.forge.audio-routing-test'
         project = dict(version=2, name='Audio routing', simulation_hz=60,
@@ -80,6 +85,11 @@ def verify(runtime, gallery, module=None):
             try:
                 initial = activate(worker, scene, sdk)
                 assert initial['audio']['bus_volumes'] == dict(rain=.5, room=.75)
+                assert initial['audio']['bus_processing'] == bus_effects
+                assert initial['audio']['bus_effect_chains'] == (4 if bus_effects else 0)
+                if bus_effects:
+                    assert initial['audio']['bus_echo_buffer_bytes'] > 0
+                    assert initial['audio']['bus_reverb_buffer_bytes'] > 0
                 generation = initial['activation']['generation'] if sdk else initial['world_generation']
                 tick, admitted = initial['timing']['tick'], initial['scene']
                 values = dict(master_volume=.25, channel_volumes=[.5, .75, 0],
@@ -129,7 +139,11 @@ def verify(runtime, gallery, module=None):
                 recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])
             assert recovered['audio']['master_volume'] == .5
             assert recovered['audio']['bus_volumes'] == dict(rain=.125, room=.25)
-            for mode in ('missing_faders', 'unknown_key', 'changed_graph', 'legacy_version'):
+            assert recovered['audio']['bus_processing'] == bus_effects
+            modes = ['missing_faders', 'unknown_key', 'changed_graph', 'legacy_version']
+            if bus_effects:
+                modes.append('changed_effect')
+            for mode in modes:
                 invalid = copy.deepcopy(checkpoint)
                 if mode == 'missing_faders':
                     del invalid['audio']['mix']['bus_volumes']
@@ -137,6 +151,8 @@ def verify(runtime, gallery, module=None):
                     invalid['audio']['mix']['bus_volumes'] = dict(rain=1, missing=1)
                 elif mode == 'changed_graph':
                     invalid['audio']['routing']['buses'][0]['output'] = 'master'
+                elif mode == 'changed_effect':
+                    invalid['audio']['routing']['buses'][0]['effects']['echo_feedback'] = .25
                 else:
                     invalid['version'] = 2
                 invalid = signed_checkpoint(invalid)
@@ -149,7 +165,12 @@ def verify(runtime, gallery, module=None):
         finally:
             worker.close()
         assert all(hashlib.sha256(path.read_bytes()).hexdigest() == digest for path, digest in original.items())
-    print('Both audio routing hosts, live key admission, source tuning and private recovery passed')
+    print('Both audio routing hosts, live key admission, source tuning and private recovery passed; bus effects=' + str(bus_effects))
+
+
+def verify(runtime, gallery, module=None):
+    for effects in (False, True):
+        verify_profile(runtime, gallery, module, effects)
 
 
 if __name__ == '__main__':

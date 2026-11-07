@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace forge::detail {
-// Private per-voice diffusion. Construction owns every allocation; processing
+// Private bounded diffusion. Construction owns every allocation; processing
 // touches only preallocated samples. The audio runtime remains the graph owner.
 class AudioReverb {
   public:

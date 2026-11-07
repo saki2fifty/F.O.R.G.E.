@@ -16,7 +16,8 @@ struct AudioRoutingEditor {
         FORGE_UI_PROBE("audio-routing:tree");
         if (!expanded)
             return;
-        ui::help("Project-local scalar routing. Save Settings, then restart Play. Sources select "
+        ui::help("Project-local routing and shared effects. Save Settings, then restart Play. "
+                 "Sources select "
                  "stable keys; changing a key does not rename references in Scenes or Prefabs.");
         if (!audio.contains("routing")) {
             if (ui::button("Add custom bus",
@@ -67,6 +68,7 @@ struct AudioRoutingEditor {
                         audio["bus_volumes"].erase(key);
                 }
                 FORGE_UI_PROBE("audio-routing:volume:" + std::to_string(i));
+                effects(bus, i);
                 target("Output", bus["output"], buses);
                 FORGE_UI_PROBE("audio-routing:output:" + std::to_string(i));
                 ui::help(
@@ -147,6 +149,59 @@ struct AudioRoutingEditor {
     }
 
   private:
+    static void effects(Json& bus, [[maybe_unused]] std::size_t index) {
+        const bool open = ImGui::TreeNode("Shared effects");
+        FORGE_UI_PROBE("audio-routing:fx:" + std::to_string(index));
+        if (!open)
+            return;
+        try {
+            auto value = bus.contains("effects") ? audio_bus_effects_from_json(bus.at("effects"))
+                                                 : AudioBusEffects{};
+            bool changed = false;
+            const auto toggle = [&](const char* label, [[maybe_unused]] const char* key,
+                                    bool& flag) {
+                changed |= ImGui::Checkbox(label, &flag);
+                FORGE_UI_PROBE("audio-routing:fx-" + std::string(key) + ":" +
+                               std::to_string(index));
+            };
+            const auto parameter = [&](const char* label, [[maybe_unused]] const char* key,
+                                       float& number, float minimum, float maximum) {
+                changed |= ImGui::SliderFloat(label, &number, minimum, maximum, "%.3f",
+                                              ImGuiSliderFlags_AlwaysClamp);
+                FORGE_UI_PROBE("audio-routing:fx-" + std::string(key) + ":" +
+                               std::to_string(index));
+            };
+            ui::help("Incoming signals mix before High-pass > Low-pass > Echo > Reverb. The bus "
+                     "volume and sends follow effects. Game-paused and independent audio retain "
+                     "separate histories; Source Stop does not erase shared tails.");
+            toggle("High-pass filter", "high-pass", value.high_pass_enabled);
+            parameter("High-pass cutoff (Hz)", "high-pass-hz", value.high_pass_hz, 20, 20000);
+            toggle("Low-pass filter", "low-pass", value.low_pass_enabled);
+            parameter("Low-pass cutoff (Hz)", "low-pass-hz", value.low_pass_hz, 20, 20000);
+            toggle("Echo", "echo", value.echo_enabled);
+            parameter("Echo interval (s)", "echo-seconds", value.echo_seconds, .01f, 1);
+            parameter("Echo feedback", "echo-feedback", value.echo_feedback, 0, .75f);
+            toggle("Reverb", "reverb", value.reverb_enabled);
+            parameter("Reverb decay (s)", "reverb-decay", value.reverb_decay, .1f, 10);
+            parameter("Reverb damping", "reverb-damping", value.reverb_damping, 0, .95f);
+            parameter("Reverb wet mix", "reverb-wet", value.reverb_wet, 0, 1);
+            ui::help("Inactive parameters are saved too. Feedback can amplify peaks; reduce "
+                     "source or bus volume as needed. Save Settings applies this complete draft.");
+            if (ui::button("Reset effects", "Restore bypassed defaults for this bus."))
+                bus.erase("effects");
+            else if (changed) {
+                validate_audio_bus_effects(value);
+                if (value == AudioBusEffects{})
+                    bus.erase("effects");
+                else
+                    bus["effects"] = audio_bus_effects_json(value);
+            }
+            FORGE_UI_PROBE("audio-routing:fx-reset:" + std::to_string(index));
+        } catch (const std::exception& error) {
+            ui::field_error(error.what());
+        }
+        ImGui::TreePop();
+    }
     static void target(const char* label, Json& value, const Json& buses) {
         const auto current = value.get<std::string>();
         if (!ImGui::BeginCombo(label, current.c_str()))

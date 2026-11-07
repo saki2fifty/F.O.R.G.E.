@@ -46,7 +46,64 @@ std::string text(const nlohmann::json& value, std::size_t maximum) {
     require(result.size() <= maximum, "routing text exceeds its byte limit");
     return result;
 }
+constexpr std::array effect_flags{
+    std::pair{"low_pass_enabled", &AudioBusEffects::low_pass_enabled},
+    std::pair{"high_pass_enabled", &AudioBusEffects::high_pass_enabled},
+    std::pair{"echo_enabled", &AudioBusEffects::echo_enabled},
+    std::pair{"reverb_enabled", &AudioBusEffects::reverb_enabled}};
+struct EffectParameter {
+    const char* name;
+    float AudioBusEffects::* member;
+    double minimum, maximum;
+};
+constexpr std::array effect_parameters{
+    EffectParameter{"low_pass_hz", &AudioBusEffects::low_pass_hz, 20, 20000},
+    EffectParameter{"high_pass_hz", &AudioBusEffects::high_pass_hz, 20, 20000},
+    EffectParameter{"echo_seconds", &AudioBusEffects::echo_seconds, .01f, 1},
+    EffectParameter{"echo_feedback", &AudioBusEffects::echo_feedback, 0, .75},
+    EffectParameter{"reverb_decay", &AudioBusEffects::reverb_decay, .1, 10},
+    EffectParameter{"reverb_damping", &AudioBusEffects::reverb_damping, 0, .95},
+    EffectParameter{"reverb_wet", &AudioBusEffects::reverb_wet, 0, 1}};
+void effect_number(double value, const EffectParameter& parameter) {
+    require(std::isfinite(value) && value >= parameter.minimum && value <= parameter.maximum,
+            std::string("invalid bus effect parameter ") + parameter.name);
+}
 } // namespace
+void validate_audio_bus_effects(const AudioBusEffects& value) {
+    for (const auto& parameter : effect_parameters)
+        effect_number(value.*parameter.member, parameter);
+}
+AudioBusEffects audio_bus_effects_from_json(const nlohmann::json& value) {
+    require(value.is_object(), "bus effects must be an object");
+    AudioBusEffects result;
+    for (const auto& [key, item] : value.items()) {
+        const auto flag = std::ranges::find_if(
+            effect_flags, [&](const auto& entry) { return key == entry.first; });
+        if (flag != effect_flags.end()) {
+            require(item.is_boolean(), "bus effect switches must be boolean");
+            result.*flag->second = item.get<bool>();
+            continue;
+        }
+        const auto parameter = std::ranges::find_if(
+            effect_parameters, [&](const auto& entry) { return key == entry.name; });
+        require(parameter != effect_parameters.end(), "unsupported bus effect field " + key);
+        require(item.is_number(), "bus effect parameters must be numeric");
+        const auto number = item.get<double>();
+        effect_number(number, *parameter);
+        result.*parameter->member = float(number);
+    }
+    validate_audio_bus_effects(result);
+    return result;
+}
+nlohmann::json audio_bus_effects_json(const AudioBusEffects& value) {
+    validate_audio_bus_effects(value);
+    auto result = nlohmann::json::object();
+    for (const auto& [name, member] : effect_flags)
+        result[name] = value.*member;
+    for (const auto& parameter : effect_parameters)
+        result[parameter.name] = value.*parameter.member;
+    return result;
+}
 bool valid_audio_bus_key(std::string_view key) noexcept {
     if (key.empty() || key.size() > audio_bus_key_limit || key.front() < 'a' || key.front() > 'z' ||
         terminal(key))
@@ -80,6 +137,7 @@ AudioRoutingProjection AudioRoutingProjection::compile(const AudioRouting& routi
                 "bus labels need at most 128 UTF-8 bytes without control characters");
         (void)nlohmann::json(bus.label).dump();
         volume(bus.volume);
+        validate_audio_bus_effects(bus.effects);
         require(bus.sends.size() <= audio_bus_send_limit,
                 "a bus supports one output and at most three sends");
         const auto target_key = [](std::string_view key) {
@@ -177,7 +235,7 @@ AudioRouting audio_routing_from_json(const nlohmann::json& value) {
             "buses must be an array with at most 16 entries");
     AudioRouting result;
     for (const auto& entry : buses) {
-        fields(entry, {"key", "label", "volume", "output", "sends"});
+        fields(entry, {"key", "label", "volume", "output", "sends", "effects"});
         AudioBusDefinition bus;
         bus.key = text(entry.at("key"), audio_bus_key_limit);
         bus.output = text(entry.at("output"), audio_bus_key_limit);
@@ -185,6 +243,8 @@ AudioRouting audio_routing_from_json(const nlohmann::json& value) {
             bus.label = text(entry.at("label"), audio_bus_label_limit);
         if (entry.contains("volume"))
             bus.volume = read_volume(entry.at("volume"));
+        if (entry.contains("effects"))
+            bus.effects = audio_bus_effects_from_json(entry.at("effects"));
         if (entry.contains("sends")) {
             const auto& sends = entry.at("sends");
             require(sends.is_array() && sends.size() <= audio_bus_send_limit,
@@ -212,6 +272,8 @@ nlohmann::json audio_routing_json(const AudioRouting& value) {
                          {"volume", bus.volume},
                          {"output", bus.output},
                          {"sends", std::move(sends)}});
+        if (bus.effects != AudioBusEffects{})
+            buses.back()["effects"] = audio_bus_effects_json(bus.effects);
     }
     return {{"version", 1}, {"buses", std::move(buses)}};
 }

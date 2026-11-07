@@ -236,7 +236,16 @@ struct ProjectAutomation {
                     "1..16 including the owner; explicitly parallel C++ systems only), startup "
                     "scene, input (including analog outer_deadzone and "
                     "response_exponent bindings), physics and game configuration including "
-                    "game.audio.routing (bounded custom bus keys, outputs and post-fader sends). "
+                    "game.audio.routing (bounded custom bus keys, outputs, post-fader sends and "
+                    "optional effects: high/low pass, echo and reverb). "
+                    "Bus effects fields: high_pass_enabled/low_pass_enabled with high_pass_hz/"
+                    "low_pass_hz (20..20000); echo_enabled, echo_seconds (0.01..1), "
+                    "echo_feedback (0..0.75); "
+                    "reverb_enabled, reverb_decay (0.1..10), reverb_damping (0..0.95), reverb_wet "
+                    "(0..1). "
+                    "Switches are booleans; inactive numeric parameters remain validated. "
+                    "Effects/topology are "
+                    "Edit-mode settings; Play changes faders through the existing audio mix. "
                     "Save uses "
                     "ordinary baseline checks; settings have no Scene Undo.",
                 "document.write", automation_object(std::move(properties), std::move(required)),

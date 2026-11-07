@@ -2460,8 +2460,8 @@ Windows/full Main, graphical EXE, physical GPU/input/DPI or performance acceptan
 
 ## Custom audio routing controls
 
-[Project buses and sends](../../../manual/images/audio-routing-project.png) and
-[live custom faders](../../../manual/images/audio-routing-live.png) are original
+The initial [project buses and sends](../../../manual/images/audio-routing-project.png) and
+[live custom faders](../../../manual/images/audio-routing-live.png) snapshot comprised
 700×480 outputs from `audio_mix_editor`, using production AudioRoutingEditor and
 AudioMixEditor controls through `tests/imgui_software_capture.hpp` and the pinned
 SDL software/ImGui renderer. Captured on Linux/GCC12 from local50c968d plus the
@@ -2479,7 +2479,9 @@ dimensions without crop, resize, retouch or annotation. Project PNG SHA256:
 live PNG SHA256:
 `9c850952c8a145e1566d1c54100f40d260ba199ad4141bde45c14fa5d33bfefb`.
 These captures establish neither Windows/physical playback nor hardware/DPI or
-performance acceptance. Exact source/capture hashes remain in local batch289.
+performance acceptance. Exact initial source/capture hashes remain in local batch289.
+The shared-bus-controls record below owns the refreshed project PNG; the live PNG
+retains its original bytes.
 
 
 ## Sound-cue controls and offsets
@@ -2559,3 +2561,28 @@ source archive. Images have no cropping, resizing, retouching or generation.
 These isolated controls do not establish full Main, Windows, physical audio,
 GPU/DPI, external-client or performance acceptance. The existing manual/package
 writer validates canonical assets; no alternative publishing path is introduced.
+
+
+## Shared audio bus effect controls
+
+[Shared effects](../../../manual/images/audio-bus-effects.png) is an original
+700×1050 render of production AudioRoutingEditor controls. A valid project draft
+shows active0.09-second/.5-feedback echo and0.4-second/.3-wet reverberation,
+with a0.6bus fader, Effects output and0.25Music send. The fixture expands the
+actual Shared effects tree; its draft is unchanged by viewing. Four-scale native
+input tests edit/reset the same controls. The refreshed
+[project route](../../../manual/images/audio-routing-project.png) is an original
+850×480 render with the added collapsed Shared effects section. The live mixer
+image remains attributable to its unchanged initial capture.
+
+Capture source is local98893bc plus shared-bus implementation, through
+`tests/audio_mix_editor_tests.cpp`, production routing/mix widgets and the pinned
+ImGui/SDL software backend in `tests/imgui_software_capture.hpp`. These are native
+control fixtures, not full Main, Windows or physical playback/hardware acceptance.
+Canonical files retain original pixels/dimensions without retouch, crop or resize.
+Local batch294 owns source/executable hashes, input digests and sanitizer capture
+comparison; independent PCM, streams, both hosts/recovery, kit and both MCP
+framings have their separate runtime checks.
+
+Shared effects PNG SHA256: `c9485544a22c3defda95da67085f2619ff44b3f15d00d3af3495a08e8f6c2f1c`.
+Refreshed project PNG SHA256: `cd18a698edd2e470fdb816e92956abccf2b41f23ac6277cea5c3603c4351eeda`.

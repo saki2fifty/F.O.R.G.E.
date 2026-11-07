@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**196-shared-audio-bus-effects** mixes three original pitched tones through shared
+echo and filtered reverb buses, with an additional dry send. Open it and press
+**Play → Game**. One independent tone continues during gameplay Pause; the other
+two pause. Open **Tools → Project Settings → Game defaults → Custom audio buses**
+and expand **Shared effects** after stopping Play to change the processing.
+Save Settings and the Scene before exporting with the matching runtime kit.
+See [Shared audio effects](../editor/audio.md).
+
 **195-completion-sound-cues** waits for each event's own voices and tails before
 requesting the next layered/ordered/weighted choice. Open it and press **Play →
 Game**. Select **Completion layered events - select for Live sound** to watch

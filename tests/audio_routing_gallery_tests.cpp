@@ -87,8 +87,9 @@ void verify(const std::filesystem::path& gallery, const std::filesystem::path& s
     const auto document = read(source / example);
     const auto authored_routing =
         audio_routing_settings(ProjectSettings(source).document().at("game").at("audio"));
-    require(authored_routing == routes(),
-            "Gallery routing defaults differ from the numeric example");
+    for (const auto& expected : routes().buses)
+        require(std::ranges::find(authored_routing.buses, expected) != authored_routing.buses.end(),
+                "Gallery routing defaults differ from the numeric example");
     EngineContext inspector;
     Scene schema_scene(inspector.world());
     const auto catalog = AssetCatalog::open_project(source);
@@ -152,8 +153,10 @@ void verify(const std::filesystem::path& gallery, const std::filesystem::path& s
     compare(256);
     require(energy > 1e-6 && exported.audio->status().at("voices") == 3,
             "Routing Gallery did not produce three audible voices");
+    auto volumes = exported.audio->status().at("bus_volumes").get<AudioBusVolumes>();
+    volumes.at("rain") = volumes.at("room") = 1;
     for (auto* game : {&authored, &exported})
-        game->audio->mix_volumes(.5f, {.25f, .5f, .75f}, {{"rain", 1}, {"room", 1}});
+        game->audio->mix_volumes(.5f, {.25f, .5f, .75f}, volumes);
     for (const auto& row : document["entities"]) {
         const auto id = row.at("id").get<std::string>();
         if (!gains.contains(id))
@@ -178,11 +181,18 @@ void verify(const std::filesystem::path& gallery, const std::filesystem::path& s
     std::cout << "Original routing Gallery: independent three-tone PCM, live faders and relocated "
                  "cooked content with source hidden passed\n";
 }
+#include "audio_bus_effects_gallery_tests.hpp"
 #include "sound_cue_gallery_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 4 && std::string_view(argv[1]) == "--publish-completion-sound-cues")
+        if (argc == 4 && std::string_view(argv[1]) == "--publish-bus-effects")
+            author_bus_effects_gallery(std::filesystem::absolute(argv[3]),
+                                       std::filesystem::absolute(argv[2]));
+        else if (argc == 4 && std::string_view(argv[1]) == "--bus-effects")
+            verify_bus_effects_gallery(std::filesystem::absolute(argv[2]),
+                                       std::filesystem::absolute(argv[3]));
+        else if (argc == 4 && std::string_view(argv[1]) == "--publish-completion-sound-cues")
             publish_sound_cue_gallery(std::filesystem::absolute(argv[2]),
                                       std::filesystem::absolute(argv[3]),
                                       completion_sound_cue_gallery);

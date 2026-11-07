@@ -200,9 +200,9 @@ asset IO, chain construction or authoring mutation.
 RuntimeWorld live tuning calls the existing source refresh path without a fixed
 tick/new velocity sample. Copied source observations report admitted filter flags
 and cutoffs. Full/game/source pause, mute, one-shot limits and retirement retain
-the current audio owners. This is per-source filtering, not a general DSP graph,
-shared effect buses, effect send/return processing or acoustic occlusion. Source
-reverb and scalar custom sends have their own controls. Gallery85
+the current audio owners. These controls filter individual sources. Shared bus effects have separate
+project settings below; a general DSP graph and acoustic occlusion are unavailable.
+Source reverb and custom sends have their own controls. Gallery85
 compares the same original recording with dry/low-pass/high-pass sources.
 
 ## Source echo and effect tails
@@ -256,9 +256,9 @@ Existing property/Play automation and MCP bindings expose the same fields and
 copied observations, with normal ownership/permission/revision/generation/history
 rules. No extra effect tools/manager or agent-only playback implementation exists.
 Gallery90 compares the same original processed recording with dry/quarter-/half-
-second echoes and ordinary export dependencies. There is no general DSP graph,
-shared effect bus, effect send/return processing, acoustic simulation or smoothed
-automation. Scalar custom sends and source reverb are separate capabilities.
+second echoes and ordinary export dependencies. Shared bus processing is configured
+separately below. General DSP graphs, acoustic simulation and smoothed effect
+automation remain unavailable.
 
 ## Common mix channels
 
@@ -294,9 +294,8 @@ Project Settings owns shared defaults; Inspector owns each source route and its
 independent prefab mask. Gallery33 uses the original tone at three pitches for
 separate audible channels, with relocated source-free PCM proof. SDK component
 layout/fingerprint changes require matching C++ rebuild; ABI1 remains unchanged.
-Four common channels remain available. Project-defined scalar buses extend those
-terminals as described below. Shared bus effects and unbounded streaming remain
-unimplemented.
+Four common channels remain available. Project-defined buses extend those
+terminals as described below. Streaming retains its separate bounded profile.
 
 ## Custom audio routing and sends
 
@@ -340,8 +339,61 @@ restores the complete mix through the same owner.
 Project topology and retained nonempty source selections require runtime-kit
 `runtime_audio_routing:1`, including partial/unbound Prefab values. Empty graph/
 selection retains legacy kit admission. See [ADR036](decisions/036-audio-routing.md)
-for the ownership and private recovery boundary. Scalar sends do not provide bus
-effects, convolution, acoustic simulation or a second audio clock.
+for the ownership and private recovery boundary. Optional shared effects use the
+native profile described below; scalar projection alone does not process effects.
+Convolution, acoustic simulation and a second audio clock are not provided.
+
+## Shared linear bus effects
+
+Optional `effects` on each `game.audio.routing.buses` row retains the existing
+source effect field names and bounds: `high_pass_enabled`, `high_pass_hz`20..20000,
+`low_pass_enabled`, `low_pass_hz`20..20000, `echo_enabled`, `echo_seconds`.01..1,
+`echo_feedback`0...75, `reverb_enabled`, `reverb_decay`.1..10,
+`reverb_damping`0...95 and `reverb_wet`0..1. Booleans are strict, numeric values
+must be finite, unknown fields reject and inactive values remain validated.
+Default `AudioBusEffects{}` omits the block, preserving legacy serialization.
+Any explicit `effects` block requires `runtime_audio_bus_effects:1`, including
+empty/default blocks and dormant settings: older strict routing readers reject
+the field itself. Typed default serialization omits the block, retaining legacy
+kit admission without rewriting raw project settings. The installed SDK value header set, fingerprint,
+AudioSource layout and C ABI1 callbacks/operations are unchanged.
+
+Effects-free projects retain the scalar path. With an active bus processor,
+AudioRuntime owns a native bus graph with two pause domains per custom bus.
+Native input buses sum signals; a continuous passthrough supplies silence for
+idle filter histories. Existing EffectsChain implements HPF→LPF→echo→reverb.
+A native splitter applies the bus fader and send gains after processing, routing
+to the same-domain downstream bus or stock terminal. Terminal faders explicitly
+disable unused native pitching to avoid an extra resampler on only some fanout
+branches. Category and existing Master faders then apply once. Source/one-shot
+cursors, streaming readers, spatialization and voice admission retain their owners.
+Callbacks allocate nothing and access no ECS/project maps.
+
+Two histories preserve independent versus game-paused audio. Linear superposition
+matches combined processing when both domains run, within floating-point/nonfinite
+protection limits. Game pause freezes only its domain; full suspension freezes
+both. Independent history keeps draining after its originating voices retire.
+Source controls/rerouting affect future input and preserve existing shared bus
+history. Cue completion remains Source-owned and excludes shared tails. Bus mute
+silences that bus after effects while its time continues; downstream histories can
+still sound. The existing parent-group buffered control boundary remains.
+
+Topology/effects are project settings admitted before Play; live commands change
+only faders. Recovery preserves exact configuration and mix, with fresh processing
+history, through the existing wrapper. No effect memory or source cursor is saved.
+The existing exact-SDK Play recovery restriction remains.
+
+Each AudioRuntime admits at most sixteen buses with two native domains each.
+Its effects remain resident for that runtime and require no tail registry or
+extra voice slots. Candidate/active worlds retain their existing separate owners.
+At fixed48kHz stereo,32maximum echo buffers use12288000payload bytes and32reverb
+chains use1904640payload bytes with the existing implementation. Global delay
+memory includes source and bus ownership; `bus_echo_buffer_bytes`,
+`bus_reverb_buffer_bytes`, `bus_effect_chains` and `bus_processing` distinguish
+shared processing. Counts exclude native/filter overhead and decoded/stream data.
+These bounds do not establish physical device deadline or performance acceptance.
+See [ADR041](decisions/041-audio-bus-effects.md). Nonlinear processors, convolution,
+cyclic audio routing and richer acoustics remain unavailable.
 
 ## Per-source reverberation
 
@@ -357,9 +409,9 @@ The FORGE-owned private AudioReverb uses four unequal delays per channel, an
 orthogonal feedback mix, duration-scaled losses and one-pole feedback damping.
 Channels have different delays and independent state. Decay is nominal; no physical
 room or exact universal reverberation-time equivalence is claimed. Existing pinned
-miniaudio provides graph routing and callback lifetime only. SourceEffects owns a
-stable-address custom node after HPF→LPF→echo; no effect bus graph or second mixer
-is introduced. Construction allocates on the owner, processing accesses only
+miniaudio provides graph routing and callback lifetime only. The existing
+EffectsChain owns a stable-address custom node after HPF→LPF→echo; sources and
+shared bus domains reuse this implementation. No second mixer is introduced. Construction allocates on the owner, processing accesses only
 preallocated samples, and node uninitialization detaches/waits before DSP storage
 is destroyed. Continuous callbacks consume native padded input counts, including
 null silence. Callbacks never access ECS, files, services or project ownership.
@@ -685,7 +737,7 @@ Source status includes `delayed_one_shots`; Live sound admits Pause/Resume/Stop
 while a voice is waiting, including through the existing scoped MCP controls.
 
 Later work includes unbounded music streaming, voice stealing, cyclic cue
-graphs, shared effect buses, impulse responses, acoustic room simulation, multiple
+graphs, nonlinear bus processors, impulse responses, acoustic room simulation, multiple
 listeners, sample-accurate recovery continuity and device selection.
 
 

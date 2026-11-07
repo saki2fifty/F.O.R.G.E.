@@ -48,6 +48,42 @@ void capture_controls(const std::filesystem::path& captures, float scale, bool c
         capture.save(captures / name);
     }
 }
+void capture_bus_effects(const std::filesystem::path& captures) {
+    test::ImGuiSoftwareCapture capture(700, 1050);
+    ui::style(1);
+    auto& io = ImGui::GetIO();
+    io.ConfigInputTrickleEventQueue = false;
+    AudioBusEffects effects;
+    effects.echo_enabled = effects.reverb_enabled = true;
+    effects.echo_seconds = .09f;
+    effects.echo_feedback = .5f;
+    effects.reverb_decay = .4f;
+    effects.reverb_wet = .3f;
+    Json audio{
+        {"routing", audio_routing_json(
+                        {{{"room", "Shared room", .6f, "effects", {{"music", .25f}}, effects}}})}};
+    const auto before = audio;
+    ImGuiID effects_tree = 0;
+    test::observe_ui = true;
+    for (unsigned frame = 0; frame < 4; ++frame) {
+        capture.new_frame();
+        ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize({700, 1050}, ImGuiCond_Always);
+        ImGui::Begin("Project Settings");
+        if (effects_tree)
+            ImGui::GetStateStorage()->SetInt(effects_tree, 1);
+        ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+        test::ui_targets.clear();
+        AudioRoutingEditor::draw(audio);
+        effects_tree = test::ui_targets.at("audio-routing:fx:0").id;
+        ImGui::End();
+        capture.render();
+    }
+    const auto reset = test::ui_targets.at("audio-routing:fx-reset:0");
+    require(reset.maximum.y <= reset.clip_maximum.y && audio == before,
+            "Actual shared effects capture clipped controls or changed the settings draft");
+    capture.save(captures / "audio-bus-effects.png");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -193,6 +229,21 @@ int main(int argc, char** argv) {
                         routing.buses[0].label == "Rain" && routing.buses[0].volume == .5f &&
                         routing.buses[0].sends == std::vector<AudioBusSend>{{"master", .25f}},
                     "Actual routing controls lost keys, labels, fader or send draft");
+            click("audio-routing:fx:0");
+            click("audio-routing:fx-echo:0");
+            number("audio-routing:fx-echo-seconds:0", "0.02");
+            number("audio-routing:fx-echo-feedback:0", "0.5");
+            click("audio-routing:fx-reverb:0");
+            number("audio-routing:fx-reverb-decay:0", "0.4");
+            const auto fx = audio_routing_settings(project_audio).buses[0].effects;
+            require(fx.echo_enabled && fx.echo_seconds == .02f && fx.echo_feedback == .5f &&
+                        fx.reverb_enabled && fx.reverb_decay == .4f,
+                    "Actual shared-effect controls lost the complete project draft");
+            click("audio-routing:fx-reset:0");
+            require(!project_audio["routing"]["buses"][0].contains("effects") &&
+                        audio_routing_settings(project_audio).buses[0].effects == AudioBusEffects{},
+                    "Reset effects did not restore omitted bypass defaults");
+            click("audio-routing:fx:0");
             click("audio-routing:remove-send:0:0");
             require(audio_routing_settings(project_audio).buses[0].sends.empty(),
                     "Remove send did not edit the existing draft");
@@ -219,6 +270,7 @@ int main(int argc, char** argv) {
             for (float scale : {.65f, 1.f, 1.5f, 2.f})
                 capture_controls(captures, scale, false);
             capture_controls(captures, 1, true);
+            capture_bus_effects(captures);
         } else
             require(argc == 1, "Need optional captures directory");
         std::cout << "Live audio mix actual scaled input, draft/admission/apply/reload/session "

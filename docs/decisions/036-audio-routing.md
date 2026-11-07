@@ -1,7 +1,8 @@
 # ADR036 — Project-owned scalar audio routing
 
 Date:2026-11-07. Accepted; the bounded scalar profile is implemented locally.
-Windows, physical output and delivery acceptance remain separate.
+Windows, physical output and delivery acceptance remain separate. Optional shared
+linear bus processing deliberately extends this initial profile in [ADR041](041-audio-bus-effects.md).
 
 ## Existing ownership and decision
 

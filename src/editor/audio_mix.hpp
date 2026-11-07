@@ -49,6 +49,16 @@ class AudioMixEditor {
         ImGui::Text("Clip cache: %llu clips | %.2f MiB resident PCM",
                     static_cast<unsigned long long>(status.value("clips", std::uint64_t{})),
                     status.value("decoded_bytes", std::uint64_t{}) / (1024. * 1024.));
+        if (status.value("bus_processing", false)) {
+            ImGui::TextWrapped("Shared bus effects: %u chains | %.2f MiB delay memory",
+                               status.value("bus_effect_chains", 0u),
+                               (status.value("bus_echo_buffer_bytes", std::uint64_t{}) +
+                                status.value("bus_reverb_buffer_bytes", std::uint64_t{})) /
+                                   (1024. * 1024.));
+            ui::help("Bus effects are project settings. Source controls affect their future input; "
+                     "shared tails retain their own bus and game-pause domain. Bus faders follow "
+                     "effects. Downstream tails may continue when an upstream bus is muted.");
+        }
         if (status.value("stream_backing_files", 0u)) {
             ImGui::TextWrapped("Streams: %u / 8 reserved (%u preparing, %u retiring)",
                                status.value("reserved_streams", 0u),

@@ -1570,6 +1570,24 @@ post-fader sends per bus, cycles, duplicate targets and potential path gain16.
 Project topology is not a user-settings override. Discovery describes the actual
 fields and limits; no agent-specific graph or persistence owner exists.
 
+Each bus accepts an optional `effects` object. Its fields are
+`high_pass_enabled` / `high_pass_hz` and `low_pass_enabled` / `low_pass_hz`
+(20..20000 Hz), `echo_enabled` / `echo_seconds` (.01..1) / `echo_feedback`
+(0...75), and `reverb_enabled` / `reverb_decay` (.1..10) / `reverb_damping`
+(0...95) / `reverb_wet` (0..1). Switches require booleans; numeric parameters
+are finite and bounded even while disabled. Unsupported fields reject before
+draft publication, preserving the observed settings digest. Empty/default effect
+settings remain bypassed; an explicit block still requires the current runtime kit
+because older strict readers reject the field. Save settings in Edit mode, then start Play. Effects and
+topology cannot be changed by a live fader request; the usual settings permission,
+stale-baseline and document boundaries remain in force.
+
+`forge_play_audio` includes `bus_processing`, `bus_effect_chains`,
+`bus_echo_buffer_bytes` and `bus_reverb_buffer_bytes` in the copied audio value.
+Global effect memory includes the source and shared bus chains. Bus effects mix
+within the source's game-pause domain. Source controls change future input;
+shared history and cue completion keep their respective existing owners.
+
 `forge_property_set` / `forge_property_set_many` author AudioSource `custom_bus`
 through ordinary revision, history and Prefab rules. Empty retains stock `bus`;
 nonempty binds a project key. `forge_play_tune` checks live custom keys before

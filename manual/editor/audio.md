@@ -209,16 +209,61 @@ cycles through muted buses or zero-gain sends. Resolve the displayed routing
 error before saving. An unresolved source key remains visible and reports a
 Play error for that source; it does not silently select the stock channel.
 
-Routes are scalar volume paths. They do not add shared bus effects, a send/return
-effect rack or acoustic room simulation. Source filters, echo, reverb, pause,
-streaming and one-shots keep their existing controls. Export requires the matching
-runtime kit packaged with the editor. Stop Play and save settings and Scenes
-before exporting.
+Buses without active shared effects use volume routing. To process several sources
+together, configure **Shared effects** on their custom bus as described below.
+Source filters, echo, reverb, pause, streaming and one-shots keep their existing
+controls. Export requires the matching runtime kit packaged with the editor.
+Stop Play and save settings and Scenes before exporting.
 
 Open **191 — Audio routing** in the Feature Gallery for three pitched emitters
 using Rain, Room and stock Dialogue. The camera, light and bus definitions are
 included; no project C++ is required. Adjust the live faders, or stop and edit the
 source selection and saved project graph before exporting.
+
+### Process several sources through shared effects
+
+1. Stop Play and open **Tools → Project Settings → Game defaults → Custom audio buses**.
+2. Expand the bus you want to process, then **Shared effects**.
+3. Turn on **High-pass filter**, **Low-pass filter**, **Echo** or **Reverb** and adjust their parameters.
+4. Click **Save Settings**. Select each source in the Inspector and choose that bus in **Custom Bus**.
+5. Save the Scene and start Play. The sources now feed the same bus processing.
+
+![Project Settings Shared effects with echo and reverb controls, bus volume, Effects output and Music send](../images/audio-bus-effects.png)
+
+Enable and adjust shared processing on the bus, then save project settings before Play.
+
+Processing order is High-pass → Low-pass → Echo → Reverb. High/low-pass cutoffs
+range from 20 to 20000 Hz. Echo interval is 0.01–1 seconds, with feedback 0–0.75;
+zero feedback bypasses echo. Reverb decay is 0.1–10 seconds, damping 0–0.95 and wet
+mix 0–1; zero wet mix bypasses reverb. Inactive parameters are saved too.
+**Reset effects** restores bypassed defaults for that bus.
+
+**Initial volume** and additional send gains follow the effects. A send to another
+custom bus feeds that bus's processing before its fader. Paths add and feedback
+can amplify peaks, so reduce source or bus volume when needed. Muting a bus
+silences its own retained output while processing keeps advancing; a downstream
+bus can still have a tail from earlier input. Master and category faders control
+the full signal reaching their respective output.
+
+Sources with **Pause with game** on share one processing history; sources with it
+off share a separate history that keeps playing during game pause. Full suspension
+freezes both. Pausing, stopping, restarting or rerouting one source changes its
+future input; it does not erase a shared tail already produced by several sources.
+Completion-aware sound cues wait for their Source voices and source effects,
+without waiting for shared bus tails. Controls take effect at normal buffered
+output boundaries.
+
+Open **196 — Shared audio bus effects** in the Feature Gallery to try two shared
+buses with three original pitched tones. The independent tone keeps sounding
+through gameplay Pause, while the other two pause with the game. Its camera,
+light and project bus definitions are included; no project C++ is needed.
+
+The bus layout and effects stay fixed during Play. **Live audio mix** shows their
+chain count and delay memory; use its existing faders to adjust the current session.
+Saving project settings makes defaults available to the next Play/export. Recovery
+rebuilds fresh effect history from saved configuration and restored faders.
+Shared effects do not provide convolution, nonlinear processors, arbitrary cyclic
+routing or physical acoustic room simulation.
 
 ### Adjust the current game while it plays
 

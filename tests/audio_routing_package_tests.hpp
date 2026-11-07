@@ -14,6 +14,29 @@ void audio_routing_package_tests(const std::filesystem::path& scratch, Check che
     reject([&] { validate_runtime_compatibility(catalog, Json::object(), &project); });
     const Json matching{{"runtime_audio_routing", audio_routing_profile_version}};
     validate_runtime_compatibility(catalog, matching, &project);
+    auto processed = project;
+    processed["game"]["audio"]["routing"]["buses"][0]["effects"] = {{"echo_enabled", true}};
+    reject([&] { validate_runtime_compatibility(catalog, matching, &processed); });
+    auto effect_kit = matching;
+    effect_kit["runtime_audio_bus_effects"] = audio_bus_effects_profile_version;
+    validate_runtime_compatibility(catalog, effect_kit, &processed);
+    for (const Json& invalid :
+         {Json(), Json(false), Json(-1), Json(0), Json(1.), Json("1"), Json(2)}) {
+        effect_kit["runtime_audio_bus_effects"] = invalid;
+        reject([&] { validate_runtime_compatibility(catalog, effect_kit, &processed); });
+    }
+    // Dormant settings still need a runtime that understands their saved values.
+    processed["game"]["audio"]["routing"]["buses"][0]["effects"] = {{"echo_seconds", .5}};
+    reject([&] { validate_runtime_compatibility(catalog, matching, &processed); });
+    processed["game"]["audio"]["routing"]["buses"][0]["effects"] = Json::object();
+    // Older strict routing readers reject the field even when it is empty/default.
+    reject([&] { validate_runtime_compatibility(catalog, matching, &processed); });
+    effect_kit["runtime_audio_bus_effects"] = audio_bus_effects_profile_version;
+    validate_runtime_compatibility(catalog, effect_kit, &processed);
+    processed["game"]["audio"]["routing"]["buses"][0]["effects"] =
+        audio_bus_effects_json(AudioBusEffects{});
+    reject([&] { validate_runtime_compatibility(catalog, matching, &processed); });
+    validate_runtime_compatibility(catalog, effect_kit, &processed);
     for (const Json& invalid : {Json(), Json(false), Json(-1), Json(0), Json(1.), Json("1"),
                                 Json(2), Json(std::uint64_t{1} << 32)})
         reject([&] {

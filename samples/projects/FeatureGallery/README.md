@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Shared audio bus effects
+
+Open `Scenes/196-shared-audio-bus-effects.scene.json` and press **Play → Game**.
+Three original pitched tones feed shared echo and filtered reverberation, with an
+additional dry send. One source continues during gameplay Pause; two pause with
+the game. The Scene includes its camera/light and project bus definitions. No
+project C++ is required.
+
+Stop Play, open **Tools → Project Settings → Game defaults → Custom audio buses**
+and expand **Shared effects** to edit processing. Save Settings and the Scene
+before exporting with the matching runtime kit. During Play, the existing live
+faders control each bus after effects. Source Stop changes future bus input and
+preserves already mixed shared tails. See the [audio guide](../../../manual/editor/audio.md).
+
 ## Completion-aware sound-cue events
 
 Open `Scenes/195-completion-sound-cues.scene.json` and press **Play → Game**. Each

@@ -12,6 +12,15 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+shared_path = 'Scenes/196-shared-audio-bus-effects.scene.json'
+assert by_source[shared_path]['type'] == 'scene'
+shared_scene = json.loads((project_root/shared_path).read_text(encoding='utf-8'))
+shared_sounds = [row['components']['forge.audio_source'] for row in shared_scene['entities'] if 'forge.audio_source' in row['components']]
+assert len(shared_sounds) == 3 and {row['custom_bus'] for row in shared_sounds} == {'gallery_echo', 'gallery_room'}
+assert sum(row['pause_with_game'] for row in shared_sounds) == 2
+shared_buses = {row['key']: row for row in project['game']['audio']['routing']['buses']}
+assert shared_buses['gallery_echo']['effects']['echo_enabled']
+assert shared_buses['gallery_room']['effects']['low_pass_enabled'] and shared_buses['gallery_room']['effects']['reverb_enabled']
 completion_path = 'Scenes/195-completion-sound-cues.scene.json'
 assert by_source[completion_path]['type'] == 'scene'
 completion_scene = json.loads((project_root/completion_path).read_text(encoding='utf-8'))
@@ -46,7 +55,7 @@ assert all(not row['components']['forge.audio_source']['play_on_start'] for row 
 routing_path = 'Scenes/191-audio-routing.scene.json'
 assert by_source[routing_path]['type'] == 'scene'
 routing = project['game']['audio']['routing']
-assert routing['version'] == 1 and {bus['key'] for bus in routing['buses']} == {'rain', 'room'}
+assert routing['version'] == 1 and {bus['key'] for bus in routing['buses']} == {'rain', 'room', 'gallery_echo', 'gallery_room'}
 routed_scene = json.loads((project_root / routing_path).read_text(encoding='utf-8'))
 routed_sounds = [row['components']['forge.audio_source'] for row in routed_scene['entities']
                  if 'forge.audio_source' in row['components']]

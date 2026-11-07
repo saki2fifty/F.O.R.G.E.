@@ -90,9 +90,21 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                     *support == audio_routing_profile_version,
                 "Custom audio routing requires the runtime kit packaged with this editor");
     };
-    if (project && project->contains("game") &&
-        !audio_routing_settings(project->at("game").at("audio")).buses.empty())
-        require_audio_routing();
+    if (project && project->contains("game")) {
+        const auto& audio = project->at("game").at("audio");
+        const auto routing = audio_routing_settings(audio);
+        if (!routing.buses.empty())
+            require_audio_routing();
+        // Earlier strict readers reject the field itself, including empty/default blocks.
+        if (audio.contains("routing") &&
+            std::ranges::any_of(audio.at("routing").at("buses"),
+                                [](const auto& bus) { return bus.contains("effects"); })) {
+            const auto support = engine.find("runtime_audio_bus_effects");
+            require(support != engine.end() && support->is_number_integer() &&
+                        *support == audio_bus_effects_profile_version,
+                    "Audio bus effects require the runtime kit packaged with this editor");
+        }
+    }
     if (project && detail::read_runtime_execution(*project).ecs_workers > 1) {
         const auto support = engine.find("runtime_ecs_workers");
         require(support != engine.end() && support->is_number_integer() &&
