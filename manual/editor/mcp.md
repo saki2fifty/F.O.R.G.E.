@@ -175,7 +175,11 @@ logs, supply validated input, adjust supported live fields, control watched
 sounds/animations and use declared game-UI commands. It must use the current Play
 launch/session/world and check actual acknowledgements. A queued tuning request
 can still be rejected by the runtime. These changes do not silently change source
-or authored values. For Navigation Agent, supported live fields include Enabled,
+or authored values. For a [Sound Cue](audio.md), author its complete graph through
+the usual Scene property commands, watch that cue entity and request `one_shot`
+with `forge_play_audio_control`. Each request consumes an event choice; retrying
+it requests another event. The cue's Audio Sources retain pause/stop ownership.
+For Navigation Agent, supported live fields include Enabled,
 Has Destination, Speed, Stopping Distance and world destination coordinates; its
 NavMesh asset is selected while authoring. Pause before changing several goal
 coordinates and inspect Navigation progress after Step or Resume.

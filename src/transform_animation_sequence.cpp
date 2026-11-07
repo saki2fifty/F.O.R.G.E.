@@ -922,9 +922,10 @@ void TransformAnimationPlayback::synchronize_audio_cues() {
                 scene_membership(actor) != membership)
                 throw std::runtime_error(
                     "Audio Cue sequence and source must belong to the same loaded Scene");
-            if (!controller.has<AnimationSequence>() || !actor.has<AudioSource>())
+            if (!controller.has<AnimationSequence>() ||
+                (actor.has<AudioSource>() == actor.has<SoundCue>()))
                 throw std::runtime_error(
-                    "Audio Cue requires an Animation Sequence and an Audio Source");
+                    "Audio Cue requires an Animation Sequence and an Audio Source or Sound Cue");
             if (!conditions.active(controller.id()) || !conditions.active(actor.id()))
                 return;
             if (!sequence_states_.contains(controller.id()) ||
@@ -936,7 +937,7 @@ void TransformAnimationPlayback::synchronize_audio_cues() {
             }
             if (config.time_seconds > sequence_states_.at(controller.id()).config.duration)
                 throw std::runtime_error("Audio Cue time exceeds its sequence duration");
-            if (!actor.get<AudioSource>().clip.id)
+            if (actor.has<AudioSource>() && !actor.get<AudioSource>().clip.id)
                 throw std::runtime_error("Audio Cue's Audio Source requires a clip");
             cue.sequence = controller.id();
             cue.ready = true;

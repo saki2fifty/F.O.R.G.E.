@@ -2480,3 +2480,23 @@ live PNG SHA256:
 `9c850952c8a145e1566d1c54100f40d260ba199ad4141bde45c14fa5d33bfefb`.
 These captures establish neither Windows/physical playback nor hardware/DPI or
 performance acceptance. Exact source/capture hashes remain in local batch289.
+
+
+## Event sound-cue controls
+
+[Graph editor](../../../manual/images/audio-sound-cue.png) and
+[live cue requests](../../../manual/images/audio-sound-cue-live.png) are original
+700×1100 and700×260 production SoundCueEditor/Live sound controls rendered through
+tests/imgui_software_capture.hpp and the pinned ImGui/SDL software backend. Capture
+source is d5f99df plus the event-cue implementation; directly used source/Scene
+hashes and original PNGs are archived with the local validation evidence. Actual
+Gallery192 data and four offline AudioRuntime triggers supply the visible values.
+Pointer input expands nodes; four-scale production input/history/project-scope
+checks own widget behavior. Source hash9a4b06bd974f8b1f66a751db74c25f706929b4eacf11b8d5e76a9955ee142eac;
+live hashbb11cb749b1337ac9f8d6bcfff963d30186fb5dbb5ae082e548a7513b53d7af7.
+
+Both final original images were visually reviewed. No cropping, pixel editing or
+image generation was used. These are isolated controls, not full Main or physical
+Windows/audio/GPU acceptance. The compact live viewport has separate sequential
+ImGui/SDL backend ownership; earlier blank output was rejected during visual
+review and is not used by the manual.

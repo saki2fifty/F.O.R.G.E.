@@ -14,6 +14,7 @@
 #include <forge/assets.hpp>
 #include <forge/audio.hpp>
 #include <forge/project_paths.hpp>
+#include <forge/sound_cue.hpp>
 #include <fstream>
 #include <miniaudio.h>
 #include <optional>
@@ -344,6 +345,13 @@ struct AudioRuntime::Impl {
         AudioSourceOperation operation;
     };
     std::vector<Command> commands;
+    struct CuePlayback {
+        EntityRef ref;
+        SoundCue definition;
+        SoundCueState state;
+        std::vector<EntityRef> last_sources;
+    };
+    std::map<std::uint64_t, CuePlayback> cue_states;
     std::uint64_t configuration_checks = 0;
     std::string listener_error;
     AudioMotion listener_motion;
@@ -508,7 +516,78 @@ struct AudioRuntime::Impl {
                                                              : info.diagnostic);
         return clips.acquire(found->second);
     }
+    SoundCueProgram cue_program(EntityRef ref, bool unpaused_only = false) {
+        const auto resolved = world.resolve(ref);
+        if (resolved.state != WorldContext::ResolveState::Available)
+            throw std::runtime_error("Sound Cue is missing, ambiguous or stale");
+        const auto entity = world.world().entity(resolved.entity);
+        if (!entity.has<SoundCue>() || entity.has<AudioSource>())
+            throw std::runtime_error("Sound Cue requires its own entity without an Audio Source");
+        ApplicationStateActivation conditions(world);
+        if (!conditions.active(entity.id()))
+            throw std::runtime_error("Sound Cue is inactive in the current application state");
+        auto program = SoundCueProgram::compile(entity.get<SoundCue>());
+        if (!program.definition().enabled || program.definition().nodes.empty())
+            throw std::runtime_error("Sound Cue is disabled or has no nodes");
+        // Resolve every declared leaf, including branches not selected this time.
+        for (const auto& node : program.definition().nodes) {
+            if (node.kind != 0)
+                continue;
+            const auto target = world.resolve(node.source);
+            if (node.source.scene != ref.scene ||
+                target.state != WorldContext::ResolveState::Available)
+                throw std::runtime_error("Sound Cue sources must resolve in its own loaded Scene");
+            const auto source = world.world().entity(target.entity);
+            if (!source.has<AudioSource>() || source.has<SoundCue>() ||
+                !conditions.active(source.id()))
+                throw std::runtime_error("Sound Cue requires active Audio Source leaves without nested cues");
+            const auto& value = source.get<AudioSource>();
+            detail::validate_audio_source(source, value);
+            (void)routing.gain(value.custom_bus, value.bus, config.channel_volumes);
+            if (!value.clip.id)
+                throw std::runtime_error("Sound Cue Audio Source leaf requires a clip");
+            if (unpaused_only) {
+                const auto voice = voices.find(source.id());
+                if (is_paused || value.pause_with_game ||
+                    (voice != voices.end() && voice->second->authored.pause_with_game))
+                    throw std::runtime_error("Control-domain Sound Cues require every source to ignore game pause");
+            }
+        }
+        return program;
+    }
+    void queue_cue(EntityRef ref, bool unpaused_only) {
+        const auto program = cue_program(ref, unpaused_only);
+        const auto id = world.resolve(ref).entity;
+        const auto found = cue_states.find(id);
+        if (found == cue_states.end() && cue_states.size() >= max_voices)
+            throw std::runtime_error("Sound Cue active selection-state limit is256");
+        const bool same = found != cue_states.end() && found->second.ref == ref &&
+                          found->second.definition == program.definition();
+        auto selected = program.select(same ? found->second.state : SoundCueState{});
+        CuePlayback next{ref, program.definition(), selected.next, std::move(selected.sources)};
+        const auto before = commands.size();
+        try {
+            for (const auto target : next.last_sources)
+                queue_source(target, AudioSourceOperation::OneShot, unpaused_only);
+            cue_states.insert_or_assign(id, std::move(next));
+        } catch (...) {
+            commands.resize(before);
+            throw;
+        }
+    }
     void queue(EntityRef ref, AudioSourceOperation operation, bool unpaused_only = false) {
+        check();
+        const auto resolved = world.resolve(ref);
+        if (resolved.state == WorldContext::ResolveState::Available &&
+            world.world().entity(resolved.entity).has<SoundCue>()) {
+            if (operation != AudioSourceOperation::OneShot)
+                throw std::runtime_error("Sound Cues accept only the one_shot trigger operation");
+            queue_cue(ref, unpaused_only);
+            return;
+        }
+        queue_source(ref, operation, unpaused_only);
+    }
+    void queue_source(EntityRef ref, AudioSourceOperation operation, bool unpaused_only) {
         check();
         if (std::uint32_t(operation) > std::uint32_t(AudioSourceOperation::OneShot))
             throw std::runtime_error("Unknown audio source operation");
@@ -983,6 +1062,15 @@ struct AudioRuntime::Impl {
             }
         }
         std::erase_if(voices, [&](const auto& p) { return !present.contains(p.first); });
+        std::erase_if(cue_states, [&](const auto& row) {
+            const auto resolved = world.resolve(row.second.ref);
+            if (resolved.state != WorldContext::ResolveState::Available ||
+                resolved.entity != row.first)
+                return true;
+            const flecs::entity entity = world.world().entity(row.first);
+            return !entity.has<SoundCue>() || !conditions.active(row.first) ||
+                   entity.get<SoundCue>() != row.second.definition;
+        });
         std::erase_if(spatial_errors, [&](auto id) { return !present.contains(id); });
         std::erase_if(failed_config, [&](const auto& p) { return !present.contains(p.first); });
         std::erase_if(failures, [&](const auto& p) { return !present.contains(p.first); });
@@ -1248,6 +1336,18 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
         throw std::runtime_error("AudioSource has no admitted voice in the current world");
     const auto found = runtime.impl_->voices.find(resolved.entity);
     const auto entity = runtime.impl_->world.world().entity(resolved.entity);
+    if (entity.has<SoundCue>()) {
+        const auto program = runtime.impl_->cue_program(ref);
+        const auto found_cue = runtime.impl_->cue_states.find(resolved.entity);
+        const bool current = found_cue != runtime.impl_->cue_states.end() &&
+                             found_cue->second.ref == ref &&
+                             found_cue->second.definition == program.definition();
+        return {{"source", ref}, {"kind", "sound_cue"}, {"available", true},
+                {"pending", false}, {"maximum_outputs", program.maximum_outputs()},
+                {"accepted_triggers", current ? found_cue->second.state.triggers : 0},
+                {"node_visits", current ? Json(found_cue->second.state.visits) : Json(SoundCueState{}.visits)},
+                {"last_sources", current ? Json(found_cue->second.last_sources) : Json::array()}};
+    }
     const bool known = found != runtime.impl_->voices.end() && found->second->ref == ref &&
                        entity.has<AudioSource>() &&
                        entity.get<AudioSource>().clip == found->second->authored.clip;

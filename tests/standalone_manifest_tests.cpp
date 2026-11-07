@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "audio_routing_package_tests.hpp"
+#include "sound_cue_package_tests.hpp"
 #include "audio_stream_profile.hpp"
 #include "fog_volume_package_tests.hpp"
 #include "game_export.hpp"
@@ -43,6 +44,7 @@ int main(int argc, char** argv) {
         const auto scratch = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         const auto project = scratch / "source", out = scratch / "game";
         audio_routing_package_tests(scratch, check, reject);
+        sound_cue_package_tests(scratch, check, reject);
         {
             AssetCatalog features(scratch / "fbx-compatibility");
             AssetRecord record{};

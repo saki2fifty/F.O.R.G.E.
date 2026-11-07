@@ -601,7 +601,68 @@ generations, routing and voices. Seek and stopped Timeline preview request no
 sound. Existing effects retain their ordinary audio lifetime. Private animation
 recovery preserves cue intent without recovering or replaying audio cursors.
 
-Later work includes unbounded music streaming, voice stealing, cue graphs, shared effect buses, impulse responses, acoustic room simulation, multiple listeners, sample-accurate recovery continuity and device selection.
+## Event sound-cue composition
+
+`forge.sound_cue` is an optional Scene/Prefab-owned SoundCue component. Its root,
+seed and ordered node/edge values are authoritative. SoundCueProgram is a bounded
+immutable derivation; AudioRuntime keeps only transient selection state indexed by
+the existing native entity generation and durable reference. It adds no clip
+registry, sample clock, mixer, source voice or backend node.
+
+The profile admits32nodes, eight children per branch and16emitted source requests
+per event. Node kinds are native reflected enum values0 Source,1 Layer,2 Weighted
+and3 Ordered. Source nodes contain a typed EntityRef and no children; branches
+contain no source and one to eight edges. Edge targets are zero-based indices in
+this component's node list. Weighted edges accept integer weights1..65535; other
+edges require1. Null Source leaves and an empty graph are editable drafts, but
+cannot be triggered until every declared leaf is complete. Validation inspects
+all nodes, including disabled/unselected branches, for shape, cycles, targets and
+potential Layer fanout. No unbounded or recursive cue-entity references are allowed.
+
+Each visited node has a transient64bit visit count. Layer visits children in stored
+order; Ordered uses its previous visit count modulo its child count. Weighted uses
+a local standard MT19937 seeded by `{seed,node_index,visit_low,visit_high}` through
+standard seed_seq. The first32bit output maps to the bounded cumulative weight
+range using a64bit product and upper32bits. Rounding differs by at most one ticket
+per2^32values; this is reproducible event selection, not a cryptographic or acoustic
+quality claim. Shared nodes advance per visit. Counter exhaustion rejects without
+advancement; the caller's input state is never mutated by selection.
+
+The existing AudioService one-shot operation and ABI1 SDK callback accept either
+an AudioSource or a SoundCue entity. A cue entity must not also have AudioSource;
+it accepts only OneShot. The callback table and operation values are unchanged.
+The public installed component header/fingerprint requires matching C++ modules.
+Timeline AudioCue events can target a SoundCue through the same AudioService.
+
+Before enqueue, the runtime compiles the entire definition and resolves every
+leaf in the cue's loaded Scene. It validates active application-state conditions,
+source values/clip assignment and custom bus keys. Control-domain requests also
+require every declared source to ignore gameplay pause and active output. The
+event expands into existing generation/clip-bound one-shot commands. A rejected
+append rolls back every command from that event; selection advances only after
+the complete enqueue succeeds. Subsequent loading, voice budgets, stale source
+changes and backend errors retain ordinary one-shot semantics/diagnostics. An
+accepted event is not an atomic guarantee of audible voices.
+
+Graph changes, source-world retirement or fresh/recovered runtime replacement
+reset selection state. Source cursors, effect memory, one-shots and cue selection
+counters are not recovered. Cue status reports its kind, maximum fanout, accepted
+trigger count, node visits and most recently selected source references; it does
+not claim ownership of those sources' other voices. Scene values remain unchanged
+by triggers. Nested native vector/reference metadata uses the existing admission,
+copy, Prefab member remapping and history owners. Inspector graph drafts publish
+complete candidates using property.set_many and the captured Scene revision.
+
+Automation/MCP uses existing entity recipes/property editing and scoped Play
+watch/audio controls. Discovery exposes the component's nested enum, typed refs
+and collection bounds; `one_shot` consumes selection state and is not safe to retry
+as an idempotent operation. Runtime document capability `sound_cues:1` requires
+kit `runtime_sound_cues:1`, including retained partial component/property values.
+Scenes without that component do not require this capability.
+
+Later work includes unbounded music streaming, voice stealing, timed/cyclic cue
+graphs, shared effect buses, impulse responses, acoustic room simulation, multiple
+listeners, sample-accurate recovery continuity and device selection.
 
 
 ## AudioClip import and selected revisions

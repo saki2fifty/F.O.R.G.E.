@@ -398,6 +398,67 @@ C++ code can call the matching SDK's `audio_source` callback with
 `audio_one_shot(scene_uuid, entity_uuid)`. Use persistent scene/entity UUIDs and call during a fixed
 game tick. Rebuild project code when the installed SDK fingerprint changes.
 
+## Compose event sounds
+
+A **Sound Cue** chooses or layers existing Audio Sources when an event requests a
+one-shot. Each source keeps its clip, pitch, gain, spatial settings, bus, effects
+and pause policy. Put the cue on its own entity in the same Scene as its sources.
+
+To choose between two effects with relative weights 3 and 1:
+
+1. Create two **Audio Source** entities and assign imported clips. Disable **Play On Start** so their main sounds wait for an event.
+2. Choose **Entity → Create → Audio → Sound Cue**, select it, then click **Inspector → Sound Cue → Edit sound cue**.
+3. Click **Add source node** three times. Nodes are numbered from zero. Keep **Root node** at 0.
+4. Change Node 0 to **Weighted choice**. Assign the first source to Node 1 and the second source to Node 2 using their **Audio Source** pickers.
+5. In Node 0, click **Add child** twice. Set their **Child node** values to 1 and 2, and their **Weight (1–65535)** values to 3 and 1.
+6. Set **Seed**, then click **Apply sound cue**. Apply publishes the complete graph as one Undo step. Save the Scene to write it to disk.
+7. Start Play, select the cue entity, then click **Live sound → Trigger cue**. The panel shows accepted triggers. Repeat to hear its choices.
+
+**Layer** requests every child together. **Ordered choice** requests one child per
+visit, wrapping to the first after the last. It does not wait for a clip to finish
+or schedule a playlist. A graph can combine these branches. Weights apply to
+Weighted choice; use positive integer weights to express relative frequency.
+The same seed and selection state reproduce the same choices. A repeated shared
+node advances on each visit, including multiple visits in one Layer.
+
+![Sound Cue graph editor with a selected source and weighted child nodes using weights three and one](../images/audio-sound-cue.png)
+
+Expand a node to edit its source, kind or children. The included example combines
+a Layer, an Ordered choice and this Weighted choice.
+
+Edits stay in a detached draft until Apply. **Reset sound cue draft** reloads the
+current Scene values. If the Scene changes, reset before applying. An unapplied
+draft for another object remains available when you return to that object; use
+**Discard other cue draft** to begin editing a different cue. Disconnect a node's
+incoming children and choose another root before removing it. Removing a node
+adjusts later node numbers while retaining their existing connections.
+
+Use up to 32 nodes, eight children per branch and 16 emitted one-shots per trigger.
+Cycles, missing child indices, invalid weights and oversized layers are rejected.
+Assign every Source node before triggering, including sources in currently unused
+branches. Sources must belong to the cue's Scene and be active. Missing references
+remain visible for repair. Prefab capture and duplication retain admitted internal
+source links; external links must be contained in the captured subtree.
+
+During Play, cue entities accept **Trigger cue** only. To stop or pause sound,
+select its Audio Source and use that source's controls. Those controls also affect
+other sounds using the same source. Source voice limits still apply; an accepted
+trigger does not guarantee that every requested effect fits the current budget.
+
+![Live sound panel showing four accepted Sound Cue triggers and the Trigger cue button](../images/audio-sound-cue-live.png)
+
+Use the tinted Live sound controls for temporary event requests during Play.
+Enable sound during gameplay Pause by disabling **Pause with game** on the
+participating sources. C++ actions that run while the game is paused require that
+setting on every declared source, including unused branches.
+
+To trigger a cue on the Scene Timeline, select its entity and choose **Add cue from
+selected sound** in the controller's sound-cue section. Preview and seeking remain
+silent. C++ code uses `audio_one_shot(scene_uuid, cue_entity_uuid)` from the matching
+installed SDK; rebuild project code when its fingerprint changes. Cue selection
+state restarts after a graph change or runtime-world replacement, including
+recovery. It is not saved as an authored Scene value.
+
 ## Registered clips
 
 Import runs in a separate worker. It validates the audio source, prepares immutable audio

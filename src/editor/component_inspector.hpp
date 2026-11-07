@@ -10,6 +10,7 @@
 #include "property_drawer.hpp"
 #include "rig_target_gesture.hpp"
 #include "sprite_inspector.hpp"
+#include "sound_cue.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/authoring.hpp>
@@ -627,6 +628,10 @@ class ComponentInspector {
                 FORGE_UI_PROBE("navigation:destination-tool");
                 ImGui::EndDisabled();
             }
+            if (key == "forge.sound_cue") {
+                sound_cue_.draw(scene, entity, values.at(key), path_text(project.project()));
+                continue;
+            }
             Json sprite_fields;
             const Json* fields = &type.at("fields");
             if (RuntimePropertyTune::sprite_type(key)) {
@@ -910,5 +915,6 @@ class ComponentInspector {
     char search_[192]{}, filter_[192]{};
     std::map<std::string, std::string> errors_;
     std::string variant_entity_, variant_error_;
+    SoundCueEditor sound_cue_;
 };
 } // namespace forge

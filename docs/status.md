@@ -5,6 +5,16 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source includes bounded Scene-owned event sound cues through existing
+AudioSource voices and the one-shot queue. Source, Layer, Weighted and per-trigger
+Ordered nodes share native/Prefab/history/Inspector/live/Timeline/SDK and automation/
+MCP owners. Gallery192 supplies the editable looping example. Current local source
+checks cover independent PCM, moved source-hidden content, both runtime hosts,
+portable references, installed-only C++ and MCP framings. Runtime sound_cues:1
+requires the matching kit. Selection resets on graph/world replacement; timed or
+cyclic cue graphs and shared bus DSP remain outside this profile. Windows/full
+editor and physical-device acceptance remain queued. See [Audio](audio.md).
+
 Local source adds explicit child sequence loops through the existing root clock.
 Dedicated placement-loop intent composes bounded root-time spans for descendants,
 camera windows, cue occurrences and skeletal root-motion intervals. The Timeline

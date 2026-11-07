@@ -12,6 +12,14 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+cue_path = 'Scenes/192-event-sound-cues.scene.json'
+assert by_source[cue_path]['type'] == 'scene'
+cue_scene = json.loads((project_root/cue_path).read_text(encoding='utf-8'))
+graphs = [row['components']['forge.sound_cue'] for row in cue_scene['entities'] if 'forge.sound_cue' in row['components']]
+assert len(graphs)==1 and len(graphs[0]['nodes'])==7 and graphs[0]['root']==0
+assert [node['kind'] for node in graphs[0]['nodes']]==[1,0,3,0,2,0,0]
+assert [edge['weight'] for edge in graphs[0]['nodes'][4]['children']]==[3,1]
+assert all(not row['components']['forge.audio_source']['play_on_start'] for row in cue_scene['entities'] if 'forge.audio_source' in row['components'])
 routing_path = 'Scenes/191-audio-routing.scene.json'
 assert by_source[routing_path]['type'] == 'scene'
 routing = project['game']['audio']['routing']

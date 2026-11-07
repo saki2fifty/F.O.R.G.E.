@@ -8,6 +8,7 @@
 #include <forge/application_state_components.hpp>
 #include <forge/application_states.hpp>
 #include <forge/authoring.hpp>
+#include <forge/sound_cue.hpp>
 #include <forge/prefab_authoring.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
@@ -589,6 +590,7 @@ void camera_shots(const std::filesystem::path& root) {
                  "typed duplicate-name references and exact recovery passed\n";
 }
 #include "audio_cue_tests.hpp"
+#include "sound_cue_prefab_tests.hpp"
 #include "child_sequence_loop_tests.hpp"
 #include "nested_sequence_audio_tests.hpp"
 #include "nested_sequence_tests.hpp"
@@ -636,6 +638,7 @@ int main(int argc, char** argv) {
         camera_shot_identity(root);
         camera_shots(root);
         audio_cue_tests(root);
+        sound_cue_prefab_tests(root);
         const auto motion = clip(lease, imports, "Assets/Motion.animation.json", false);
         const auto pulse = clip(lease, imports, "Assets/Pulse.animation.json", true);
         const auto held = clip(lease, imports, "Assets/Held.animation.json", false, true);

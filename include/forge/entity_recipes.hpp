@@ -29,6 +29,7 @@ inline const std::vector<EntityRecipe>& entity_recipes() {
                "forge.particle_emitter"},
               {"audio.source", "Audio Source", "Audio", no_primitive, "forge.audio_source"},
               {"audio.listener", "Audio Listener", "Audio", no_primitive, "forge.audio_listener"},
+              {"audio.sound_cue", "Sound Cue", "Audio", no_primitive, "forge.sound_cue"},
               {"animation.sequence", "Animation Sequence", "Animation", no_primitive,
                "forge.animation_sequence"},
               {"animation.camera_shot", "Camera Shot", "Animation", no_primitive,

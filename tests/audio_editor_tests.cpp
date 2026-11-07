@@ -58,8 +58,13 @@ void directional_guides() {
 }
 } // namespace
 #include "audio_reverb_editor_capture.hpp"
+#include "sound_cue_editor_capture.hpp"
 int main(int argc, char** argv) {
     try {
+        if (argc == 4 && std::string_view(argv[1]) == "--capture-sound-cue") {
+            capture_sound_cue_editor(std::filesystem::absolute(argv[2]),std::filesystem::absolute(argv[3]));
+            return 0;
+        }
         if (argc == 4 && std::string_view(argv[1]) == "--capture-reverb") {
             capture_reverb_inspector(std::filesystem::absolute(argv[2]),
                                      std::filesystem::absolute(argv[3]));
@@ -140,6 +145,9 @@ int main(int argc, char** argv) {
                 unsigned live_requests = 0;
                 AudioSourceOperation live_operation = AudioSourceOperation::Stop;
                 AudioSourceEditor sound;
+                SoundCueEditor detached_cue;
+                bool detached_cue_view = false;
+                std::string cue_project_scope = "project-a";
                 const EntityRef sound_ref{scene.asset_id(), EntityId::parse(id)};
                 Json sound_status{{"source", sound_ref}, {"available", true}, {"playing", false},
                                   {"paused", true},      {"loop", true},      {"duration", 1}};
@@ -162,7 +170,12 @@ int main(int argc, char** argv) {
                                            live_operation = value;
                                            return true;
                                        });
-                        } else
+                        } else if (detached_cue_view)
+                            detached_cue.draw(
+                                scene, selected,
+                                sound_cue_json(scene.entity(selected).get<SoundCue>()),
+                                cue_project_scope);
+                        else
                             inspector.draw(scene, project, selected);
                         ImGui::End();
                     }
@@ -170,10 +183,14 @@ int main(int argc, char** argv) {
                 };
                 auto click = [&](const char* field) {
                     const auto name =
-                        std::string(live     ? "live-audio-source:"
-                                    : mixing ? "project-audio:"
-                                             : "component-field:forge.audio_source:") +
-                        field;
+                        std::string_view(field).starts_with("sound-cue:") ||
+                                std::string_view(field).starts_with("entity-picker-row:") ||
+                                std::string_view(field).starts_with("live-sound-cue:")
+                            ? std::string(field)
+                            : std::string(live     ? "live-audio-source:"
+                                          : mixing ? "project-audio:"
+                                                   : "component-field:forge.audio_source:") +
+                                  field;
                     frame();
                     require(test::ui_targets.contains(name), "Missing audio widget: " + name);
                     auto target = test::ui_targets.at(name);
@@ -483,6 +500,89 @@ int main(int argc, char** argv) {
                             audio_channel_volumes(saved) == std::array<float, 3>{.25f, .5f, .75f} &&
                             scene.snapshot() == scene_before_mix,
                         "Scaled mixer values did not persist independently of authored scene");
+                mixing = false;
+                live = false;
+                const auto cue_id =
+                    authoring_command(scene, "entity.create", {{"recipe", "audio.sound_cue"}})
+                        .at("selected")
+                        .get<std::string>();
+                const EntityRef leaf{scene.asset_id(), EntityId::parse(id)};
+                const auto initial_cue = sound_cue_json({true, 1, 0, {{0, leaf, {}}}});
+                authoring_command(scene, "property.set_many",
+                                  {{"entity", cue_id},
+                                   {"component", "forge.sound_cue"},
+                                   {"values", initial_cue}});
+                selected = cue_id;
+                const auto before_cue = scene.snapshot();
+                click("sound-cue:edit");
+                frame();
+                require(scene.snapshot() == before_cue &&
+                            !test::ui_targets.at("sound-cue:apply").enabled,
+                        "Opening cue editor mutated scene or dirtied its graph draft");
+                click("sound-cue:add-node");
+                require(scene.snapshot() == before_cue,
+                        "Cue node append escaped its detached draft");
+                click("sound-cue:source:1");
+                click(("entity-picker-row:" + id).c_str());
+                click("sound-cue:kind:0");
+                key(ImGuiKey_DownArrow);
+                key(ImGuiKey_Enter);
+                click("sound-cue:add-child:0");
+                click("sound-cue:add-child:0");
+                click("sound-cue:apply");
+                const auto composed = scene.entity(cue_id).get<SoundCue>();
+                require(
+                    composed.nodes.size() == 2 && composed.nodes[0].kind == 1 &&
+                        composed.nodes[0].children == std::vector<SoundCueEdge>{{1, 1}, {1, 1}} &&
+                        composed.nodes[1].source == leaf,
+                    "Actual cue controls did not publish complete typed node/source/edge values");
+                require(scene.undo() && scene.entity(cue_id).get<SoundCue>().nodes.size() == 1 &&
+                            scene.redo() && scene.entity(cue_id).get<SoundCue>() == composed,
+                        "Cue Apply did not retain one Scene Undo/Redo transaction");
+                click("sound-cue:reset");
+                click("sound-cue:add-node");
+                authoring_command(scene, "entity.create", {{"name", "Unrelated change"}});
+                frame();
+                require(!test::ui_targets.at("sound-cue:apply").enabled,
+                        "Stale cue draft remained writable after Scene revision changed");
+                click("sound-cue:reset");
+                frame();
+                require(scene.entity(cue_id).get<SoundCue>() == composed &&
+                            !test::ui_targets.at("sound-cue:apply").enabled,
+                        "Reset published discarded node edits or dirtied the fresh cue draft");
+                require(AudioSourceEditor::selected(scene.effective_document(), cue_id) ==
+                            std::optional<EntityRef>{{scene.asset_id(), EntityId::parse(cue_id)}},
+                        "Existing source watch selector did not admit the cue entity");
+                detached_cue_view = true;
+                click("sound-cue:edit");
+                click("sound-cue:add-node");
+                const auto before_scope_change = scene.snapshot();
+                cue_project_scope = "project-b";
+                frame();
+                require(test::ui_targets.contains("sound-cue:discard-other") &&
+                            !test::ui_targets.contains("sound-cue:apply") &&
+                            scene.snapshot() == before_scope_change,
+                        "Same Scene/entity IDs in another project admitted an old cue draft");
+                cue_project_scope = "project-a";
+                frame();
+                require(test::ui_targets.contains("sound-cue:node:2"),
+                        "Returning to a cue's project lost the unapplied detached draft");
+                cue_project_scope = "project-b";
+                click("sound-cue:discard-other");
+                require(scene.snapshot() == before_scope_change,
+                        "Discarding a retired-project cue draft changed authored values");
+                detached_cue_view = false;
+                live = true;
+                live_width = 360;
+                sound_status = {{"kind", "sound_cue"},
+                                {"available", true},
+                                {"accepted_triggers", 4},
+                                {"maximum_outputs", 2}};
+                const auto requests_before = live_requests;
+                click("live-sound-cue:trigger");
+                require(live_requests == requests_before + 1 &&
+                            live_operation == AudioSourceOperation::OneShot,
+                        "Live cue button did not use the existing one-shot dispatch");
                 test::observe_ui = false;
                 ImGui::DestroyContext();
             }

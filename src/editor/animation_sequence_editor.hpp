@@ -1468,10 +1468,11 @@ class AnimationSequenceEditor {
             throw std::runtime_error("Choose an Audio Source in this Scene");
         const auto reference = source.get<EntityRef>();
         const auto actor = scene_->entity(reference.entity.str());
-        if (reference.scene != scene_->asset_id() || !actor || !actor.has<AudioSource>() ||
-            !actor.get<AudioSource>().clip.id)
+        if (reference.scene != scene_->asset_id() || !actor ||
+            (actor.has<AudioSource>() == actor.has<SoundCue>()) ||
+            (actor.has<AudioSource>() && !actor.get<AudioSource>().clip.id))
             throw std::runtime_error(
-                "Cue source must be an Audio Source with a clip in this Scene");
+                "Cue source must be an Audio Source with a clip or a Sound Cue in this Scene");
     }
     void apply_cue() {
         if (pending_ && scene_->revision() != pending_revision_)
@@ -1490,12 +1491,13 @@ class AnimationSequenceEditor {
                          const std::string& selected) {
         ImGui::SeparatorText("Audio cues");
         ImGui::TextWrapped(
-            "One-shot events during forward Play. Audio Source owns the clip and gain. "
+            "One-shot events during forward Play. Audio Sources own clips and gain; Sound Cues compose them. "
             "Preview here is silent; sources keep their normal audio controls.");
         const auto source_actor = selected.empty() ? flecs::entity{} : scene_->entity(selected);
-        ImGui::BeginDisabled(pending_ || !source_actor || !source_actor.has<AudioSource>() ||
-                             !source_actor.get<AudioSource>().clip.id);
-        if (ui::button("Add cue from selected Audio Source",
+        ImGui::BeginDisabled(pending_ || !source_actor ||
+                             (source_actor.has<AudioSource>() == source_actor.has<SoundCue>()) ||
+                             (source_actor.has<AudioSource>() && !source_actor.get<AudioSource>().clip.id));
+        if (ui::button("Add cue from selected sound",
                        "Create a cue at the playhead in one Scene Undo step.")) {
             try {
                 const Json source = EntityRef{scene_->asset_id(), EntityId::parse(selected)};

@@ -1,13 +1,18 @@
 #include "asset_bytes.hpp"
+#include "audio_source_access.hpp"
 #include "runtime_package.hpp"
+#include "standalone_manifest.hpp"
 #include <array>
 #include <cmath>
 #include <forge/audio.hpp>
+#include <forge/authoring.hpp>
+#include <forge/sound_cue.hpp>
 #include <forge/game_settings.hpp>
 #include <forge/project.hpp>
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <random>
 using namespace forge;
 namespace {
 constexpr auto example = "Scenes/191-audio-routing.scene.json";
@@ -172,10 +177,17 @@ void verify(const std::filesystem::path& gallery, const std::filesystem::path& s
     std::cout << "Original routing Gallery: independent three-tone PCM, live faders and relocated "
                  "cooked content with source hidden passed\n";
 }
+#include "sound_cue_gallery_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 3 && std::string_view(argv[1]) == "--author")
+        if (argc == 4 && std::string_view(argv[1]) == "--publish-sound-cues")
+            publish_sound_cue_gallery(std::filesystem::absolute(argv[2]),std::filesystem::absolute(argv[3]));
+        else if (argc == 4 && std::string_view(argv[1]) == "--sound-cues")
+            verify_sound_cue_gallery(argv[2],argv[3]);
+        else if (argc == 3 && std::string_view(argv[1]) == "--author-sound-cues")
+            author_sound_cue_gallery(std::filesystem::absolute(argv[2]));
+        else if (argc == 3 && std::string_view(argv[1]) == "--author")
             author(std::filesystem::absolute(argv[2]));
         else {
             require(argc == 3, "Need Gallery and private scratch, or --author ROOT");

@@ -15,7 +15,8 @@ class AudioSourceEditor {
             return {};
         for (const auto& entity : effective.at("entities"))
             if (entity.value("id", "") == selected && entity.contains("components") &&
-                entity.at("components").contains("forge.audio_source"))
+                (entity.at("components").contains("forge.audio_source") ||
+                 entity.at("components").contains("forge.sound_cue")))
                 return EntityRef{effective.at("asset_id").get<AssetId>(),
                                  EntityId::parse(selected)};
         return {};
@@ -38,6 +39,21 @@ class AudioSourceEditor {
         const bool available = status.is_object() && status.value("available", false);
         const bool loading = status.is_object() && status.value("pending", false);
         const bool admitted = available || loading;
+        if (status.is_object() && status.value("kind", std::string{}) == "sound_cue") {
+            ImGui::Text("Accepted triggers: %llu", static_cast<unsigned long long>(status.value("accepted_triggers",std::uint64_t{})));
+            ImGui::Text("Maximum one-shots per trigger: %u / 16", status.value("maximum_outputs",0u));
+            ui::help("Each trigger composes existing Audio Source one-shots. Individual sources own playback, pause and stop. Choices reset when the graph or runtime world is replaced.");
+            ImGui::BeginDisabled(!ready || pending || !available);
+            if (ui::button("Trigger cue", "Queue one event through the existing audio owner.")) {
+                error_ = submit(AudioSourceOperation::OneShot) ? "" : "Play is busy. Try again when controls are ready.";
+            }
+            FORGE_UI_PROBE("live-sound-cue:trigger");
+            ImGui::EndDisabled();
+            if (!error.empty()) ImGui::TextWrapped("Cue rejected: %s",error.c_str());
+            if (!error_.empty()) ImGui::TextWrapped("%s",error_.c_str());
+            ImGui::EndChild(); ImGui::PopStyleColor(2); ImGui::PopID();
+            return;
+        }
         const bool effect_tail =
             admitted && status.value("effects_tails", status.value("echo_tails", 0u)) > 0;
         const bool playing = admitted && (status.value("playing", false) ||

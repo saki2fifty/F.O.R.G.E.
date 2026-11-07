@@ -1,5 +1,27 @@
 # 2026-11-07
 
+## Event sound cues
+
+Scene/Prefab-owned SoundCue components compose existing AudioSource one-shots
+with bounded Source, Layer, Weighted and per-trigger Ordered nodes. Complete graph,
+source and queue admission precedes selection advancement; existing source voices,
+clips, effects, streaming and routing remain authoritative. Inspector graph drafts
+publish one history transaction, retain project scope and reject stale edits.
+Live cue controls, Timeline events, matching installed C++ and existing automation/
+MCP source/Play workflows share those owners. Playback controls advertise unsafe
+blind retries accurately.
+
+The profile supports32nodes, eight children and16one-shots per event. Private
+recovery restores graph data with fresh selection; timed/cyclic graphs and shared
+bus DSP remain outside this profile. Runtime kit sound_cues:1 prevents unsupported
+exports. Original editable Gallery192 combines all node kinds and includes camera,
+light and looping Timeline events. Independent leaf-request PCM, source-hidden
+cooked content, native controls/history, portable references, both runtime hosts,
+installed-only C++ and both MCP framings have scoped local checks. Illustrated
+instructions use original production controls with actual offline runtime state.
+Windows/full-editor and physical-device acceptance remain separate; no numbered
+Windows delivery accompanies this source change.
+
 ## Custom audio buses and sends
 
 Project settings add up to16 stable-key scalar buses, one output and up to3

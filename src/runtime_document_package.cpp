@@ -9,6 +9,7 @@
 #include <forge/animation_components.hpp>
 #include <forge/asset_discovery.hpp>
 #include <forge/audio_routing.hpp>
+#include <forge/audio_components.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/fog_volume.hpp>
 #include <forge/input_message.hpp>
@@ -26,6 +27,9 @@ Json document_runtime_features(const Json& document) {
             const auto values = row.find(channel);
             if (values == row.end())
                 continue;
+            if (const auto cue = values->find("forge.sound_cue");
+                cue != values->end() && !cue->is_null())
+                result["sound_cues"] = sound_cue_profile_version;
             if (const auto source = values->find("forge.audio_source");
                 source != values->end() && !source->is_null())
                 if (const auto route = source->find("custom_bus"); route != source->end()) {

@@ -328,7 +328,7 @@ references; it does not ship an editor or require a compiler for sequencing.
 event. The registered fields `forge.audio_cue.sequence` and `.source` are typed
 EntityRefs: existing duplication and ADR022 Prefab member links remap them, without
 interpreting opaque JSON. Enabled bound cues require an AnimationSequence and an
-AudioSource with a clip in the same loaded Scene membership. Missing IDs stay
+AudioSource with a clip or a SoundCue event graph in the same loaded Scene membership. Missing IDs stay
 stored and diagnosable; a null controller detaches the cue while retaining source
 and time. Time must be finite, 0–3600 seconds, and within the controller duration.
 Disabled/invalid controllers emit no cues. Invalid cue bindings are isolated from

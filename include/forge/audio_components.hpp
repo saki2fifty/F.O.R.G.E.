@@ -1,7 +1,9 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include <forge/asset_ref.hpp>
 #include <string>
+#include <vector>
 namespace forge {
 struct AudioClipAsset {
     static constexpr const char* type = "audio_clip";
@@ -37,5 +39,27 @@ struct AudioSource {
 struct AudioListener {
     bool enabled = true;
     bool operator==(const AudioListener&) const = default;
+};
+inline constexpr unsigned sound_cue_profile_version = 1;
+inline constexpr std::size_t sound_cue_node_limit = 32;
+inline constexpr std::size_t sound_cue_child_limit = 8;
+inline constexpr std::size_t sound_cue_output_limit = 16;
+struct SoundCueEdge {
+    std::uint32_t target = 0, weight = 1;
+    bool operator==(const SoundCueEdge&) const = default;
+};
+struct SoundCueNode {
+    // 0 Source, 1 Layer, 2 Weighted choice, 3 Ordered choice (one child per trigger).
+    std::uint32_t kind = 0;
+    EntityRef source{};
+    std::vector<SoundCueEdge> children;
+    bool operator==(const SoundCueNode&) const = default;
+};
+// Event composition only: AudioSource retains all clip, spatial and voice ownership.
+struct SoundCue {
+    bool enabled = true;
+    std::uint32_t seed = 1, root = 0;
+    std::vector<SoundCueNode> nodes;
+    bool operator==(const SoundCue&) const = default;
 };
 } // namespace forge

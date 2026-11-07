@@ -20,12 +20,14 @@
 #include <forge/audio_routing.hpp>
 #include <forge/primitive_catalog.hpp>
 #include <forge/render_view.hpp>
+#include <forge/sound_cue.hpp>
 #include <forge/ui_localization.hpp>
 #include <mutex>
 #include <numbers>
 #include <stdexcept>
 namespace forge::detail {
 namespace {
+ecs_entity_t builtin_enum(flecs::world&, const std::string&, const std::string&);
 template <class T> Json encode_sequence_clips(const std::vector<SequenceClipPlacement<T>>& clips) {
     auto result = Json::array();
     for (const auto& clip : clips)
@@ -160,6 +162,8 @@ template <class T> Json encode(const T& p) {
                 {"end_seconds", p.end_seconds},
                 {"enabled", p.enabled},
                 {"blend_in_seconds", p.blend_in_seconds}};
+    else if constexpr (std::is_same_v<T, SoundCue>)
+        return sound_cue_json(p);
     else if constexpr (std::is_same_v<T, AudioCue>)
         return {{"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
                 {"source", p.source.entity ? Json(p.source) : Json()},
@@ -569,6 +573,8 @@ template <class T> Value decode(const Json& p) {
             v.start_seconds < 0 || v.start_seconds >= v.end_seconds || v.end_seconds > 3600)
             throw std::runtime_error("Camera Shot requires 0 <= start < end <= 3600 seconds");
         return v;
+    } else if constexpr (std::is_same_v<T, SoundCue>) {
+        return sound_cue_from_json(p);
     } else if constexpr (std::is_same_v<T, AudioCue>) {
         AudioCue v;
         if (!p.at("sequence").is_null())
@@ -1517,6 +1523,43 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<double>("end_seconds")
             .template member<bool>("enabled")
             .template member<double>("blend_in_seconds");
+    } else if constexpr (std::is_same_v<T, SoundCue>) {
+        (void)authoring_value_adapters(w);
+        w.component<SoundCueEdge>("forge.sound_cue_edge")
+            .member<std::uint32_t>("target")
+            .member<std::uint32_t>("weight");
+        w.component<std::vector<SoundCueEdge>>("forge.sound_cue_edges")
+            .opaque(reflected_vector<SoundCueEdge>);
+        auto node = w.component<SoundCueNode>("forge.sound_cue_node");
+        node.member<std::uint32_t>("kind")
+            .member<EntityRef>("source")
+            .member<std::vector<SoundCueEdge>>("children");
+        w.component<std::vector<SoundCueNode>>("forge.sound_cue_nodes")
+            .opaque(reflected_vector<SoundCueNode>);
+        c.template member<bool>("enabled")
+            .template member<std::uint32_t>("seed")
+            .template member<std::uint32_t>("root")
+            .template member<std::vector<SoundCueNode>>("nodes");
+        ecs_struct_desc_t shape{};
+        shape.entity = node.id();
+        shape.create_member_entities = true;
+        unsigned field_index = 0;
+        for (const auto& [field, offset] :
+             {std::pair{"kind", offsetof(SoundCueNode, kind)},
+              std::pair{"source", offsetof(SoundCueNode, source)},
+              std::pair{"children", offsetof(SoundCueNode, children)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), node.id(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("Sound Cue node Meta disagrees with its typed layout");
+            shape.members[field_index] = *member;
+            shape.members[field_index].name = field;
+            if (std::string_view(field) == "kind")
+                shape.members[field_index].type = builtin_enum(w, "forge.sound_cue_node", "kind");
+            shape.members[field_index++].use_offset = true;
+        }
+        if (!ecs_struct_init(w, &shape))
+            throw std::runtime_error("Sound Cue nested member registration failed");
+        node.lookup("children").set<ReflectedSequenceLimit>({sound_cue_child_limit});
     } else if constexpr (std::is_same_v<T, AudioCue>) {
         (void)authoring_value_adapters(w);
         c.template member<EntityRef>("sequence")
@@ -1955,6 +1998,10 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world& w) {
                 return register_type<AudioListener>(w, "forge.audio_listener");
             }),
+        descriptor<SoundCue>(
+            "forge.sound_cue", "Bounded event composition of existing Audio Source one-shots",
+            "unitless", {}, {},
+            [](flecs::world& w) { return register_type<SoundCue>(w, "forge.sound_cue"); }),
         descriptor<AnimationSequence>(
             "forge.animation_sequence", "Coordinate object clips on one animation timeline",
             "unitless", {}, {},
@@ -3195,13 +3242,23 @@ Json registration_options(const Builtin& type, const std::string& field) {
                     : "Local direction; normalized when preparing IK";
         }
     }
+    if (name == "forge.sound_cue") {
+        if (field == "seed")
+            value["description"] = "Stable seed for reproducible weighted event choices";
+        else if (field == "root") {
+            value["description"] = "Zero-based root node; empty drafts require zero";
+            value["minimum"] = 0;
+            value["maximum"] = sound_cue_node_limit - 1;
+        } else if (field == "nodes")
+            value["description"] = "Up to32 acyclic Source, Layer, Weighted or Ordered nodes; at most16 emitted sources";
+    }
     if (name == "forge.audio_cue") {
         if (field == "sequence") {
             value["display_name"] = "Sequence controller";
             value["description"] = "Scene Animation Sequence that owns this cue's timing";
         } else if (field == "source") {
-            value["display_name"] = "Audio Source";
-            value["description"] = "Audio Source in the same loaded Scene; owns clip and gain";
+            value["display_name"] = "Sound target";
+            value["description"] = "Audio Source or Sound Cue in the same loaded Scene";
         } else if (field == "time_seconds") {
             value["display_name"] = "Time (seconds)";
             value["minimum"] = 0;
@@ -3747,7 +3804,10 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
                           const std::string& field) {
     const char* type = nullptr;
     std::vector<const char*> names;
-    if ((component == "forge.camera" || component == "forge.light") && field == "basis") {
+    if (component == "forge.sound_cue_node" && field == "kind") {
+        type = "forge.SoundCueKind";
+        names = {"Source", "Layer", "Weighted", "Ordered"};
+    } else if ((component == "forge.camera" || component == "forge.light") && field == "basis") {
         type = "forge.ViewBasis";
         names = {"ForgePositiveZ", "GltfNegativeZ"};
     } else if (component == "forge.navigation_region_2d" && field == "source") {
@@ -3949,7 +4009,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
                name == "forge.animation_sequence" || name == "forge.camera_shot" ||
                name == "forge.audio_cue" || name == "forge.two_bone_ik" || name == "forge.aim_ik")
                 ? 3u
-            : name.starts_with("forge.audio_") ? 2u
+            : (name.starts_with("forge.audio_") || name == "forge.sound_cue") ? 2u
             : (name == "forge.physics_body" || name == "forge.physics_body_2d" ||
                name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||
                name == "forge.character_controller" || name == "forge.character_controller_2d" ||
@@ -3960,6 +4020,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
             continue;
         const auto c = type.register_type(world);
         annotate_type(world, c, type);
+        if (name == "forge.sound_cue")
+            c.lookup("nodes").set<ReflectedSequenceLimit>({sound_cue_node_limit});
         if (name == "forge.navigation_link")
             for (const auto& [member, value] : type.defaults.items())
                 c.lookup(member.c_str()).add<ReflectedNoAnimation>();
@@ -4043,7 +4105,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.animator" || name == "forge.physics_joint" ||
             name == "forge.physics_joint_2d" || name == "forge.transform_animator" ||
             name == "forge.animation_sequence" || name == "forge.camera_shot" ||
-            name == "forge.audio_cue" || name == "forge.navigation_behavior")
+            name == "forge.audio_cue" || name == "forge.sound_cue" ||
+            name == "forge.navigation_behavior")
             references = authoring_value_adapters(world);
         // Native typed identity remains authoritative even when an earlier SDK
         // schema registered a reference before its builtin family used a label.
@@ -4087,6 +4150,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
                 {world.id<std::vector<SequenceClipPlacement<AnimationClipAsset>>>(), "vector"});
         if (name == "forge.animation_sequence")
             references.push_back({world.id<std::vector<SequenceControllerPlacement>>(), "vector"});
+        if (name == "forge.sound_cue") {
+            references.push_back({world.id<std::vector<SoundCueNode>>(), "vector"});
+            references.push_back({world.id<std::vector<SoundCueEdge>>(), "vector"});
+        }
         if (name == "forge.mesh_renderer") {
             references.push_back({world.id<std::string>(), "string"});
             references.push_back({world.id<std::vector<MaterialSlotOverride>>(), "vector"});

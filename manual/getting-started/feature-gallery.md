@@ -962,6 +962,18 @@ The falling red cube uses physics; the gold panel and three tones use the scene
 sequence. The HUD pulse follows recorded time. Choose 180 frames at 30 FPS to
 record the full six-second sequence through **Run → Record game…**.
 
+## Choose and layer event sounds
+
+Open **192-event-sound-cues**, press **Play** and open **Game**. Its two-second
+Timeline requests four events, each layering the base tone with a middle tone or
+a weighted high/middle choice. No project C++ is required. Stop and select
+**Layered event - select for Trigger cue**, then open **Sound Cue → Edit sound
+cue**. Expand a node to inspect its source, children or weights. **Apply sound
+cue** publishes one Scene Undo step; save the Scene afterward. During Play,
+**Live sound → Trigger cue** requests another event. Individual Audio Sources own
+pause/stop, effects and routing. Save this Scene as startup and export with the
+matching kit. See [Compose event sounds](../editor/audio.md).
+
 ## Export a sequence movie
 
 Open **181-sequence-movies**, select **Movie preview - open Timeline, then Export

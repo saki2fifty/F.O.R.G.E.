@@ -843,7 +843,11 @@ relax structured protocol validation.
 `watch` selects an Inspector entity for native audio/animation observation.
 `audio_control`/`animation_control` require the exact watched entity; a human
 selection change cannot redirect them. Mix and CPU controls use their native
-owners. `profile_refresh` requests one snapshot without taking over the Profiler
+owners. Audio watch also admits a SoundCue entity. Its only playback operation is
+`one_shot`, which consumes its next event choice; source entities retain voice
+pause/stop ownership. Existing Scene creation/property commands author the complete
+bounded graph, with nested integer choices and typed source references in discovery.
+`profile_refresh` requests one snapshot without taking over the Profiler
 window's watch. Its value includes `ecs`, the last requested/collected native fixed-pipeline plan, merge markers and cumulative native system CPU totals. Start collection and advance a fixed tick after requesting observations; Pause reads never run gameplay. Stop retains the plan, Clear invalidates its copy without resetting native lifetime counters, and replacement begins empty. The same bounded data feeds the Profiler's ECS systems view; native IDs are world-local diagnostic handles. UI commands go through the actual presenter's declared command
 list, ID queue and acknowledgements, never DOM/script injection.
 

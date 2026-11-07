@@ -117,6 +117,7 @@ struct Fixture {
 #include "audio_pause_policy_tests.hpp"
 #include "audio_reverb_runtime_tests.hpp"
 #include "audio_source_control_tests.hpp"
+#include "sound_cue_runtime_tests.hpp"
 int main(int argc, char** argv) {
     try {
         check(argc == 2 || (argc == 3 && std::string_view(argv[2]) == "--reverb-only"),
@@ -138,6 +139,7 @@ int main(int argc, char** argv) {
         doppler_tests(root, record.id);
         audio_source_control_tests(root, record.id);
         audio_one_shot_tests(root, record.id);
+        sound_cue_runtime_tests(root, record.id);
         audio_source_pause_tests(root);
         audio_pause_policy_tests(root, record.id);
         audio_filter_tests(root, record.id);

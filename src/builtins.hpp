@@ -21,7 +21,7 @@ using Value =
     std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive, PhysicsBody,
                  PhysicsJoint, BoxCollider, SphereCollider, CapsuleCollider, CylinderCollider,
                  AssetCollider, CharacterController, CharacterController2D, AudioSource,
-                 AudioListener, Animator, TransformAnimator, AnimationSequence, CameraShot,
+                 AudioListener, SoundCue, Animator, TransformAnimator, AnimationSequence, CameraShot,
                  TwoBoneIK, AimIK, NavigationSurface, NavigationLink, NavigationRegion2D,
                  NavigationObstacle, NavigationBehavior, NavigationAgent, NavigationAvoidance,
                  UiDocument, UiLocalization, UiValues, ApplicationStates, ApplicationStateGate,

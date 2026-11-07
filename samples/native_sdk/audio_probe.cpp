@@ -5,10 +5,12 @@
 #include <forge/native_sdk.h>
 #include <forge/native_sdk_identity.h>
 #include <forge/sdk_client.hpp>
+#include <utility>
 namespace {
 int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* h, char*, uint32_t) {
     flecs::world w(h->world);
     w.component<forge::AudioSource>("forge.audio_source");
+    w.component<forge::SoundCue>("forge.sound_cue");
     return 1;
 }
 int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t size) {
@@ -17,6 +19,24 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t siz
         return 0;
     }
     flecs::world w(h->world);
+    // Optional Sound Cue example. The component owns its typed node/edge arrays;
+    // the existing one-shot callback dispatches the event through its source leaves.
+    w.system<forge::SoundCue>()
+        .kind(h->fixed_phase)
+        .each([h](forge::SoundCue& cue) {
+            if (cue.seed != 29) {
+                cue.seed = 29;
+                if (cue.root < cue.nodes.size()) {
+                    auto& root = cue.nodes[cue.root];
+                    if (root.kind != 0 && root.children.size() >= 2)
+                        std::swap(root.children.front(), root.children.back());
+                }
+            }
+            if (!forge::sdk::Client(h).audio_one_shot("11111111-1111-4111-8111-111111111111",
+                                                      "44444444-4444-4444-8444-444444444444"))
+                h->diagnostic(h->context, 3u, "Audio SDK cue trigger rejected");
+        })
+        .add(h->fixed_tag);
     w.system<const forge::AudioSource>()
         .kind(h->fixed_phase)
         .each([h](flecs::entity e, const forge::AudioSource& old) {

@@ -540,7 +540,7 @@ the gold panel moves and the camera changes view.
 To add a sound to your own sequence:
 
 1. Create an **Audio Source** and assign an Audio Clip. Turn **Play on start** off if this sound should start only from cues. The source owns volume, pitch, looping and mixer settings; cue playback requests a one-shot effect.
-2. Open the controller's sequence Timeline. Select the source in Hierarchy and choose **Add cue from selected Audio Source**. It creates a cue at the playhead.
+2. Open the controller's sequence Timeline. Select the source in Hierarchy and choose **Add cue from selected sound**. It creates a cue at the playhead. You can also select a [Sound Cue](audio.md) entity to choose or layer its existing sources at that event.
 3. Select the cue under **Audio cues**. Choose **Cue source**, enter **Cue time**, then choose **Apply cue fields**. Source and time use one Scene Undo step. Apply or reset pending fields before changing selection.
 4. Choose **Save scene**, then use Game Play to hear it. Timeline preview and scrubbing stay silent. Export includes the saved cues and their prepared sounds.
 

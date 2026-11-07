@@ -9160,6 +9160,16 @@
       "type": "material"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "7067a5b8-251b-4b35-93b3-0fdf7871178b",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/192-event-sound-cues.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "3fd41841-5ad9-40ee-8354-3097141941f0",
         "53ad81ae-db81-4af6-9c55-70f045b7470f",

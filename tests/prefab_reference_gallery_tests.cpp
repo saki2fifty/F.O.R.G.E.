@@ -192,15 +192,22 @@ int main(int argc, char** argv) {
                                          {{"sequence", nullptr},
                                           {"sequence_start_seconds", 0.},
                                           {"sequence_next_clip", nullptr},
-                                          {"sequence_next_start_seconds", 0.}}},
+                                          {"sequence_next_start_seconds", 0.},
+                                          {"sequence_extra_clips", Json::array()},
+                                          {"sequence_multiway", false}}},
+                                        {"forge.animator",
+                                         {{"sequence_extra_clips",Json::array()},
+                                          {"sequence_multiway",false}}},
                                         {"forge.animation_sequence",
-                                         {{"sequence", nullptr}, {"sequence_start_seconds", 0.}}},
+                                         {{"sequence", nullptr}, {"sequence_start_seconds", 0.},
+                                          {"sequence_rate",1.},{"sequence_loop",false},
+                                          {"sequence_extra_placements",Json::array()}}},
                                         {"forge.navigation_avoidance", {{"shared_group", 0u}}},
                                         {"forge.audio_source",
                                          {{"reverb_enabled", false},
                                           {"reverb_decay", 1.5},
                                           {"reverb_damping", .5},
-                                          {"reverb_wet", .25}}}};
+                                          {"reverb_wet", .25}, {"custom_bus",""}}}};
                 for (const auto& [component, defaults] : additions.items())
                     if (auto value = components.find(component); value != components.end())
                         for (const auto& [field, fallback] : defaults.items())

@@ -574,7 +574,7 @@ struct PlayAutomation {
             methods.push_back(automation_method(
                 animation ? "play.animation.control" : "play.audio.control",
                 "Control the exact watched entity through its existing live owner. Watch first, "
-                "then wait for an available status. Seek requires position_seconds.",
+                "then wait for an available status. Sound Cues accept only one_shot; leaf Audio Sources own playback. Seek requires position_seconds.",
                 "play.execute", automation_object(values, keys), true,
                 [&files, &play, providers, animation](const Json& request) {
                     current(play, files, providers, request);
@@ -606,6 +606,8 @@ struct PlayAutomation {
                     return Json{{"queued", true}};
                 },
                 true));
+            // Repeating a one-shot/restart is another event with identical arguments.
+            methods.back().idempotent = false;
         }
         auto mix_properties = properties(), mix_required = required();
         const Json volume_schema{{"type", "number"}, {"minimum", 0}, {"maximum", 1}};

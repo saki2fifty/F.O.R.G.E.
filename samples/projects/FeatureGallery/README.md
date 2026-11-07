@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Event sound cues
+
+Open `Scenes/192-event-sound-cues.scene.json` and press **Play → Game**. The looping
+two-second Timeline requests four events. Each layers the low base tone with an
+ordered choice: a middle tone, then a 3:1 weighted high/middle choice. The Scene
+includes its camera and light and needs no project C++.
+
+Select **Layered event - select for Trigger cue**. Stop Play to open **Sound Cue →
+Edit sound cue** and expand its Layer, Ordered or Weighted nodes. Apply changes
+as one Undo step, then save the Scene. During Play, **Live sound → Trigger cue**
+requests an additional event; the individual sources retain pause/stop controls.
+Set this Scene as startup and export with the matching runtime kit. See the
+[audio guide](../../../manual/editor/audio.md).
+
 ## Custom audio buses and sends
 
 Open `Scenes/191-audio-routing.scene.json` and press **Play → Game**. Three pitched
