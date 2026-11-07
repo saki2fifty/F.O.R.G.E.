@@ -1,5 +1,14 @@
 # Explore the Feature Gallery
 
+**186-nested-sequence-rates** uses a four-second root with children at **2×** and **0.5×**,
+plus a child at **0.5×** inside the fast section. They coordinate original motion,
+morph and mapped clips.
+Open it and press **Play → Game**. Select a child, open the parent's Timeline and
+edit **Start in parent** and **Placement rate** with **Apply placement timing**.
+Refresh, scrub and save the Scene. During Play, use **Select controller**
+to move up to the parent; pause, restart or seek the arrangement at the root. Set it as Startup Scene and export
+with the matching runtime kit; no project C++ is required.
+
 **185-skeletal-sequence-tracks** coordinates three original models with one
 four-second sequence. Open it and press **Play → Game** to see direct motion,
 morph animation and a mapped clip. Select **Four-second shared sequence**, choose

@@ -104,7 +104,8 @@ capture owner; it does not add simulation or encoding to the animation runtime.
 
 `AnimationSequence.sequence` is an optional typed parent EntityRef;
 `sequence_start_seconds` is its finite start in immediate-parent seconds (0–3600,
-not beyond the parent duration). Missing fields backfill null/zero. The reference
+not beyond the parent duration). `sequence_rate` is local seconds per parent second,
+finite within 0.25–4, default 1. Missing fields backfill null/zero/one. The reference
 adapter reuses Scene duplication, Prefab member links and generic Inspector /
 automation/MCP property edits, revision and history. No separate arrangement
 database or advancing child clock is introduced.
@@ -112,20 +113,27 @@ database or advancing child clock is introduced.
 The existing provider validates the active graph: same loaded Scene, available
 controller, no cycles, within the 64-controller budget. Disabled/inactive ancestors
 retire their descendants. Each private SequenceState derives its root, accumulated
-offset and ancestor-clipped endpoint. Bound standalone speed, loop and play-on-start
-values remain stored; effective timing comes from the root. Root seek/restart stages
+offset, cumulative placement rate and ancestor-clipped endpoint. The cumulative rate
+must remain within 1/64–64. Parent starts divide by the parent's cumulative rate;
+local duration divides by the child's cumulative rate to obtain the root endpoint.
+Provider sampling multiplies clamped root-relative time by that cumulative rate.
+Bound standalone speed, loop and play-on-start values remain stored; observed
+speed is root playback_speed times cumulative placement rate. Root controllers
+ignore their stored sequence_rate; they retain their normal standalone semantics. Root seek/restart stages
 all descendant clocks and poses before publication. Child control/seek rejects.
 Object values clamp to the finite local span; copied scalar presentation samples
 root time before clamping. Camera selection applies only within the placement,
 retaining the exact final shot frame at its end and ordinary cameras outside it.
 The existing one-director-per-Scene rule applies across the arrangement.
 
-Sound cue points translate into the root's unwrapped interval. The existing
+Sound cue points divide by the cumulative rate and translate into the root's unwrapped interval.
+Skeletal root-motion placement/clip boundaries use the same inverse mapping; native
+pose/morph sampling retains independent clip-local phases. The existing
 periodic-range and bounded 128-occurrence batch preserve offset entry/end,
 multiple periods, root wrap and deterministic ordering. Seek/recovery do not replay
 crossed sounds. Ancestor truncation excludes points beyond the clipped end.
 
-The Timeline edits one borrowed Scene history. Nested rows expose one pending start,
+The Timeline edits one borrowed Scene history. Nested rows expose pending start/rate fields in one Scene transaction,
 apply/reset, local child/parent navigation and detachment. Local copied preview
 first validates the original active binding through the same provider, then isolates
 the selected root and includes all descendants and writer guards. Its own stored
@@ -138,6 +146,13 @@ recovery validation; invalid metadata or inconsistent derived clocks reject befo
 adoption. Unnested configurations retain their supported older profiles. Installed
 native component values/fingerprint change; rebuild modules against the matching
 SDK. C callback layouts and Scene/Prefab/clip formats remain unchanged.
+Nondefault bound rates require private recovery 11, wrapping the prior profile 7–10
+in sequence_rate_profile and recording sequence_rate on every controller entry.
+Restore rejects missing/wrong wrappers, changed rates and inconsistent derived
+clocks before adoption. Default-rate configurations keep their prior profiles.
+Runtime feature `sequence_rate: 1` (including partial Prefab variant overrides) requires
+`runtime_sequence_rate: 1` in the selected kit. Source/native value and exact installed
+SDK fingerprints change; callbacks and clip formats do not.
 
 The current complete transform/property candidate and writer-conflict checks run
 before any pose write. Existing AnimationService status/control/seek operations

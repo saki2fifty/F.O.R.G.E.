@@ -1,4 +1,5 @@
 #include "animation_event_range.hpp"
+#include "animation_sequence_binding.hpp"
 #include "builtins.hpp"
 #include "camera_shot_blend.hpp"
 #include "json_row_index.hpp"
@@ -21,8 +22,10 @@ flecs::entity_t TransformAnimationPlayback::scene_membership(flecs::entity entit
 }
 double TransformAnimationPlayback::controller_time(const SequenceState& state,
                                                    double root_time) const {
-    return std::clamp(root_time - state.root_offset, 0.,
-                      std::max(0., state.root_end - state.root_offset));
+    return std::min(state.config.duration * animation_timebase,
+                    std::clamp(root_time - state.root_offset, 0.,
+                               std::max(0., state.root_end - state.root_offset)) *
+                        state.root_rate);
 }
 TransformAnimationPlayback::SequenceStep
 TransformAnimationPlayback::sequence_step(const SequenceState& state, double seconds) const {
@@ -103,7 +106,9 @@ TransformAnimationPlayback::sequence_interval(flecs::entity_t id) const {
             root.config.loop,
             root.playing,
             state.discontinuous || root.discontinuous,
-            state.root};
+            state.root,
+            state.root_rate,
+            state.config.duration};
 }
 double TransformAnimationPlayback::sequence_sample_time(flecs::entity_t id, double alpha,
                                                         const SequenceTimes& seek) const {
@@ -116,6 +121,11 @@ double TransformAnimationPlayback::sequence_sample_time(flecs::entity_t id, doub
 bool TransformAnimationPlayback::has_nested_sequences() const {
     return std::any_of(sequence_states_.begin(), sequence_states_.end(),
                        [](const auto& item) { return item.second.parent != 0; });
+}
+bool TransformAnimationPlayback::has_sequence_rates() const {
+    return std::any_of(sequence_states_.begin(), sequence_states_.end(), [](const auto& item) {
+        return item.second.parent && item.second.config.sequence_rate != 1;
+    });
 }
 void TransformAnimationPlayback::prepare_sequence_preview_root(EntityRef reference) {
     if (!states_.empty())
@@ -161,6 +171,7 @@ void TransformAnimationPlayback::synchronize_sequences() {
                 throw std::runtime_error(
                     "A sequence controller cannot also be an active clip player");
             SequenceState state;
+            animation_detail::validate_sequence_rate(config.sequence_rate);
             const auto old = sequence_states_.find(entity.id());
             if (old != sequence_states_.end() && old->second.entity == *reference &&
                 old->second.config.sequence == config.sequence)
@@ -199,6 +210,7 @@ void TransformAnimationPlayback::synchronize_sequences() {
             state.parent = 0;
             state.root = id;
             state.root_offset = 0;
+            state.root_rate = 1;
             state.root_end = state.config.duration * animation_timebase;
             if (state.config.sequence.entity) {
                 const auto entity = context_.world().entity(id);
@@ -229,20 +241,27 @@ void TransformAnimationPlayback::synchronize_sequences() {
                     throw std::runtime_error("Nested start exceeds its parent sequence duration");
                 state.parent = resolved.entity;
                 state.root = placement.root;
-                state.root_offset = placement.root_offset +
-                                    state.config.sequence_start_seconds * animation_timebase;
+                state.root_rate = placement.root_rate * state.config.sequence_rate;
+                if (!std::isfinite(state.root_rate) || state.root_rate < 1. / 64 ||
+                    state.root_rate > 64)
+                    throw std::runtime_error(
+                        "Cumulative sequence placement rate must be within 1/64–64");
+                state.root_offset = placement.root_offset + state.config.sequence_start_seconds *
+                                                                animation_timebase /
+                                                                placement.root_rate;
                 state.root_end =
-                    std::min(placement.root_end,
-                             state.root_offset + state.config.duration * animation_timebase);
+                    std::min(placement.root_end, state.root_offset + state.config.duration *
+                                                                         animation_timebase /
+                                                                         state.root_rate);
                 state.time = controller_time(state, candidates.at(state.root).time);
                 state.playing = state.entry_pending = false;
             }
             const auto old = sequence_states_.find(id);
-            const bool changed = reset.contains(id) || old == sequence_states_.end() ||
-                                 old->second.parent != state.parent ||
-                                 old->second.root != state.root ||
-                                 old->second.root_offset != state.root_offset ||
-                                 old->second.root_end != state.root_end;
+            const bool changed =
+                reset.contains(id) || old == sequence_states_.end() ||
+                old->second.parent != state.parent || old->second.root != state.root ||
+                old->second.root_offset != state.root_offset ||
+                old->second.root_rate != state.root_rate || old->second.root_end != state.root_end;
             state.discontinuous |= changed;
             if (changed) {
                 state.previous = state.time;
@@ -322,7 +341,7 @@ std::optional<AnimationPlayback> TransformAnimationPlayback::playback(EntityRef 
         const auto& root = sequence_states_.at(state.root);
         result.time = state.time / animation_timebase;
         result.duration = state.config.duration;
-        result.speed = root.config.playback_speed;
+        result.speed = root.config.playback_speed * state.root_rate;
         result.loop = !state.parent && state.config.loop;
         result.enabled = state.config.enabled;
         result.playing =
@@ -345,7 +364,7 @@ std::optional<AnimationPlayback> TransformAnimationPlayback::playback(EntityRef 
         if (state.sequence) {
             const auto& sequence = sequence_states_.at(state.sequence);
             const auto& root = sequence_states_.at(sequence.root);
-            result.speed = root.config.playback_speed;
+            result.speed = root.config.playback_speed * sequence.root_rate;
             result.loop = false;
             result.playing =
                 root.playing && result.speed > 0 && root.time >= sequence.root_offset &&
@@ -358,6 +377,16 @@ std::optional<AnimationPlayback> TransformAnimationPlayback::playback(EntityRef 
     result.progress = std::clamp(result.time / result.duration, 0., 1.);
     result.finished = !result.loop && result.time >= result.duration;
     return result;
+}
+EntityRef TransformAnimationPlayback::parent_sequence(EntityRef ref) const {
+    if (!ready())
+        return {};
+    const auto resolved = context_.resolve(ref);
+    if (resolved.state != WorldContext::ResolveState::Available)
+        return {};
+    const auto found = sequence_states_.find(resolved.entity);
+    return found != sequence_states_.end() && found->second.parent ? found->second.config.sequence
+                                                                   : EntityRef{};
 }
 Json TransformAnimationPlayback::sequence_clip_status(EntityRef ref) const {
     if (!ready())
@@ -454,7 +483,7 @@ bool TransformAnimationPlayback::control(EntityRef ref, AnimationControl command
         states_.at(id).playing = playing;
     return true;
 }
-Json TransformAnimationPlayback::sequence_checkpoint(unsigned profile) const {
+Json TransformAnimationPlayback::sequence_checkpoint(unsigned profile, bool rates) const {
     auto result = Json::array();
     for (const auto& [id, state] : sequence_states_) {
         (void)id;
@@ -472,6 +501,8 @@ Json TransformAnimationPlayback::sequence_checkpoint(unsigned profile) const {
                 state.config.sequence.entity ? Json(state.config.sequence) : Json();
             result.back()["sequence_start_seconds"] = state.config.sequence_start_seconds;
         }
+        if (rates)
+            result.back()["sequence_rate"] = state.config.sequence_rate;
     }
     return result;
 }
@@ -830,7 +861,8 @@ void TransformAnimationPlayback::dispatch_audio_cues() {
         const auto& sequence = sequence_states_.at(placement.root);
         if (sequence.advance <= 0)
             continue;
-        const auto point = placement.root_offset + cue.config.time_seconds * animation_timebase;
+        const auto point = placement.root_offset +
+                           cue.config.time_seconds * animation_timebase / placement.root_rate;
         if (placement.root_offset > placement.root_end || point > placement.root_end)
             continue;
         const auto end = sequence.previous + sequence.advance;

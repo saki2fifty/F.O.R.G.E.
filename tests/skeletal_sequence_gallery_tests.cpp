@@ -77,7 +77,8 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
     std::string mapped_actor;
     std::vector<std::string> actors;
     for (const auto& row : source.at("entities")) {
-        if (row.at("components").contains("forge.animation_sequence"))
+        if (row.at("components").contains("forge.animation_sequence") &&
+            row.at("components").at("forge.animation_sequence").value("sequence", Json()).is_null())
             controller = row.at("id");
         if (row.at("components").contains("forge.animator")) {
             actors.push_back(row.at("id"));
@@ -87,6 +88,12 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
     }
     check(!controller.empty() && actors.size() == 3,
           "Gallery needs one controller and three original model tracks");
+    const bool rates = std::any_of(
+        source.at("entities").begin(), source.at("entities").end(), [](const Json& row) {
+            const auto& components = row.at("components");
+            return components.contains("forge.animation_sequence") &&
+                   components.at("forge.animation_sequence").value("sequence_rate", 1.) != 1;
+        });
     World live(root, source), first(root, reference_document(source, false)),
         next(root, reference_document(source, true));
     Json observations = Json::array();
@@ -100,9 +107,28 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
             const auto a_duration = first.animation->playback(ref)->duration;
             const auto b_duration = next.animation->playback(ref)->duration;
             const auto start = config.sequence_next_start_seconds;
-            const auto a_time = std::clamp(seconds, 0., a_duration);
-            const auto b_time = std::clamp(seconds - start, 0., b_duration);
-            const auto weight = std::clamp((seconds - start) / (a_duration - start), 0., 1.);
+            // Build the reference mapping from saved values, independently of the
+            // runtime provider, then compare native standalone clip samples.
+            std::vector<AnimationSequence> chain;
+            auto owner = config.sequence;
+            for (;;) {
+                const auto sequence =
+                    live.scene.entity(owner.entity.str()).get<AnimationSequence>();
+                chain.push_back(sequence);
+                if (!sequence.sequence.entity)
+                    break;
+                owner = sequence.sequence;
+                check(chain.size() < 64, "Gallery reference chain is cyclic");
+            }
+            double local = seconds, rate = 1;
+            for (auto child = chain.rbegin() + 1; child != chain.rend(); ++child) {
+                local = std::clamp((local - child->sequence_start_seconds) * child->sequence_rate,
+                                   0., child->duration);
+                rate *= child->sequence_rate;
+            }
+            const auto a_time = std::clamp(local, 0., a_duration);
+            const auto b_time = std::clamp(local - start, 0., b_duration);
+            const auto weight = std::clamp((local - start) / (a_duration - start), 0., 1.);
             first.seek(actor, a_time);
             next.seek(actor, b_time);
             const auto a = first.pose(actor), b = next.pose(actor), actual = live.pose(actor);
@@ -128,20 +154,21 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
                     const double bv = b.at("morphs")[node].at("weights")[lane];
                     near(actual.at("morphs")[node].at("weights")[lane],
                          av * (1 - weight) + bv * weight);
-                    morphs |=
-                        seconds == 1.75 && weight > 0 && weight < 1 && std::abs(av - bv) > .01;
+                    morphs |= weight > 0 && weight < 1 && std::abs(av - bv) > .01;
                 }
             }
             const auto status = AnimationPlaybackAccess::status(*live.animation, ref);
+            near(status.at("speed"), rate);
             near(status.at("blend_weight"), weight);
             near(status.at("sequence_clips").at("duration_seconds"), a_duration);
             near(status.at("sequence_clips").at("next").at("duration_seconds"), b_duration);
-            if (actor == mapped_actor && seconds == 1.75)
-                mapped_motion = a.at("local") != b.at("local");
+            if (actor == mapped_actor && weight > 0)
+                mapped_motion |= a.at("local") != b.at("local");
             sample.push_back({{"pose", actual}, {"playback", status}});
         }
         const auto checkpoint = live.animation->checkpoint();
-        check(checkpoint.at("version") == 10, "Gallery omitted the skeletal recovery profile");
+        check(checkpoint.at("version") == (rates ? 11 : 10),
+              "Gallery omitted the skeletal/rate recovery profile");
         World recovered(root, source);
         recovered.animation->restore(checkpoint);
         for (const auto& actor : actors)
@@ -156,24 +183,32 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 3 && std::string_view(argv[1]) == "--author") {
-            std::cout << test::author_skeletal_sequence_gallery(argv[2]).str() << '\n';
+        if (argc == 3 && (std::string_view(argv[1]) == "--author" ||
+                          std::string_view(argv[1]) == "--author-rates")) {
+            std::cout << test::author_skeletal_sequence_gallery(
+                             argv[2], std::string_view(argv[1]) == "--author-rates")
+                             .str()
+                      << '\n';
             return 0;
         }
-        check(argc == 3, "Need Gallery and scratch, or --author Gallery");
-        const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
+        const bool rates = argc == 4 && std::string_view(argv[1]) == "--rates";
+        check(argc == 3 || rates,
+              "Need [--rates] Gallery and scratch, or --author[-rates] Gallery");
+        const auto scratch =
+            std::filesystem::absolute(argv[rates ? 3 : 2]) / AssetId::generate().str();
         const auto root = scratch / "SourceProject";
         std::filesystem::create_directories(scratch);
-        std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
+        std::filesystem::copy(argv[rates ? 2 : 1], root, std::filesystem::copy_options::recursive);
+        const auto path =
+            rates ? test::sequence_rate_scene_path : test::skeletal_sequence_scene_path;
         AssetId id;
-        if (std::filesystem::exists(root / test::skeletal_sequence_scene_path))
-            id = read(root / test::skeletal_sequence_scene_path).at("asset_id").get<AssetId>();
+        if (std::filesystem::exists(root / path))
+            id = read(root / path).at("asset_id").get<AssetId>();
         else
-            id = test::author_skeletal_sequence_gallery(root);
-        const auto saved = read(root / test::skeletal_sequence_scene_path);
+            id = test::author_skeletal_sequence_gallery(root, rates);
+        const auto saved = read(root / path);
         const auto expected = exercise(root, id);
-        check(read(root / test::skeletal_sequence_scene_path) == saved,
-              "Gallery execution changed its editable Scene source");
+        check(read(root / path) == saved, "Gallery execution changed its editable Scene source");
         const std::array roots{id};
         package_runtime_content(root, scratch / "Export", roots, {"windows", "d3d12"});
         std::filesystem::rename(scratch / "Export", scratch / "Relocated");

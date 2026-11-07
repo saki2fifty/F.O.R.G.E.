@@ -51,6 +51,10 @@ Real Windows editor captures using small validation scenes. Click an image to op
 [Smooth Camera Shot transitions](manual/editor/animation-sequences.md#camera-shots)
 move between adjacent camera views and lenses while preserving animated camera rigs.
 Gallery153 includes an incoming blend, a return blend and an overview gap.
+[Nested playback rates](manual/editor/animation-sequences.md#place-a-sequence-inside-another)
+let child sections run faster or slower while one root controls the arrangement.
+Gallery186 includes direct, morph and mapped animation with fast/slow/nested timing.
+
 
 ## Texture painting
 

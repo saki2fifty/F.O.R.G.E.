@@ -265,7 +265,12 @@ controller and standalone TransformAnimator. A controller's status has an empty
 clip UUID; its bound tracks expose status but reject independent control/seek.
 See [sequences](transform-animation.md#coordinated-scene-sequences). The new native
 component layouts change the exact SDK fingerprint; rebuild matching modules.
-C ABI1 tables remain unchanged.
+C ABI1 tables remain unchanged. AnimationSequence.sequence_rate is an installed
+double, default 1, independent of the retained standalone playback_speed. Bound
+positive rates multiply down the chain; public playback speed includes the result.
+The matching sequence SDK probe checks default and 2× children, rejects their direct
+controls and repeats exact fresh recovery. Rebuild against the current installed
+headers; do not reuse an older component layout with the new host.
 
 Matching C++ code can also read copied rigid-body COM, linear/angular velocity,
 activation and velocity at an absolute world point through the existing Physics

@@ -15158,6 +15158,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "c1f8a540-e0f5-49d5-9366-173126bb22ac",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/186-nested-sequence-rates.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "c2befb1a-37cf-4f0c-83ed-5eec551685cf",
       "metadata": {},
       "schema_version": 3,

@@ -562,13 +562,17 @@ RootRigid sequence_root_motion(Playback& p, std::size_t joint,
                                const TransformAnimationPlayback::SequenceInterval& interval) {
     if (!std::isfinite(interval.begin) || !std::isfinite(interval.advance) ||
         !std::isfinite(interval.duration) || interval.duration <= 0 || interval.begin < 0 ||
-        interval.begin > interval.duration || interval.advance < 0)
+        interval.begin > interval.duration || interval.advance < 0 ||
+        !std::isfinite(interval.rate) || interval.rate <= 0)
         throw ArchiveError("Skeletal sequence root motion interval is invalid");
     if (interval.advance == 0)
         return {};
     const auto track_time = [&](double root_time) {
-        return sequence_track_time(p, std::clamp(root_time - interval.offset, 0.,
-                                                 std::max(0., interval.end - interval.offset)));
+        return sequence_track_time(
+            p, std::min(interval.local_duration,
+                        std::clamp(root_time - interval.offset, 0.,
+                                   std::max(0., interval.end - interval.offset)) *
+                            interval.rate));
     };
     const auto part = [&](double begin, double end) {
         std::array<double, 8> points{begin, end};
@@ -579,12 +583,14 @@ RootRigid sequence_root_motion(Playback& p, std::size_t joint,
         };
         split(interval.offset);
         split(interval.end);
-        split(interval.offset + p.config.sequence_start_seconds);
-        split(interval.offset + p.config.sequence_start_seconds + p.assets.clip->info().duration);
+        split(interval.offset + p.config.sequence_start_seconds / interval.rate);
+        split(interval.offset +
+              (p.config.sequence_start_seconds + p.assets.clip->info().duration) / interval.rate);
         if (p.sequence_span) {
-            split(interval.offset + p.config.sequence_next_start_seconds);
-            split(interval.offset + p.config.sequence_next_start_seconds +
-                  p.blend_assets.clip->info().duration);
+            split(interval.offset + p.config.sequence_next_start_seconds / interval.rate);
+            split(interval.offset +
+                  (p.config.sequence_next_start_seconds + p.blend_assets.clip->info().duration) /
+                      interval.rate);
         }
         std::sort(points.begin(), points.begin() + count);
         RootRigid result;
@@ -2997,6 +3003,11 @@ Json AnimationPlaybackAccess::status(AnimationRuntime& runtime, EntityRef ref, P
                 result["graph"] = player->second.requested.graph.id;
                 result["graph_inputs"] = graph_playback_inputs(player->second);
             }
+            if (!value->clip) {
+                const auto parent = runtime.impl_->transforms.parent_sequence(ref);
+                if (parent.entity)
+                    result["sequence"] = parent;
+            }
             auto clips = skeletal ? Json() : runtime.impl_->transforms.sequence_clip_status(ref);
             if (!skeletal && clips.is_object())
                 result["sequence"] = clips.at("sequence");
@@ -3501,12 +3512,30 @@ Json AnimationRuntime::checkpoint() const {
         result["skeletal_sequence_profile"] = result.at("version").get<unsigned>();
         result["version"] = 10;
     }
+    if (impl_ && impl_->transforms.has_sequence_rates()) {
+        result["sequence_rate_profile"] = result.at("version").get<unsigned>();
+        result["version"] = 11;
+        result["sequence_entries"] = impl_->transforms.sequence_checkpoint(7, true);
+    }
     return result;
 }
-void AnimationRuntime::restore(const Json& checkpoint) {
+void AnimationRuntime::restore(const Json& input) {
     if (!impl_)
         throw ArchiveError("Animation runtime is unavailable");
     std::optional<Json> normalized;
+    const bool rate_profile = input.at("version") == 11;
+    if (rate_profile) {
+        if (!input.at("version").is_number_integer() || !input.contains("sequence_rate_profile") ||
+            !input.at("sequence_rate_profile").is_number_unsigned() ||
+            input.at("sequence_rate_profile").get<unsigned>() < 7 ||
+            input.at("sequence_rate_profile").get<unsigned>() > 10)
+            throw ArchiveError("Sequence placement-rate recovery profile is invalid");
+        normalized = input;
+        normalized->at("version") = input.at("sequence_rate_profile");
+        normalized->erase("sequence_rate_profile");
+    } else if (input.contains("sequence_rate_profile"))
+        throw ArchiveError("Unexpected sequence placement-rate recovery profile");
+    const auto& checkpoint = normalized ? *normalized : input;
     const bool skeletal_sequence_profile = checkpoint.at("version") == 10;
     if (skeletal_sequence_profile) {
         if (!checkpoint.at("version").is_number_integer() ||
@@ -3518,8 +3547,10 @@ void AnimationRuntime::restore(const Json& checkpoint) {
             std::none_of(checkpoint.at("entries").begin(), checkpoint.at("entries").end(),
                          [](const auto& entry) { return entry.contains("sequence"); }))
             throw ArchiveError("Skeletal sequence recovery profile is invalid");
-        normalized = checkpoint;
-        normalized->at("version") = checkpoint.at("skeletal_sequence_profile");
+        const auto underlying = checkpoint.at("skeletal_sequence_profile").get<unsigned>();
+        if (!normalized)
+            normalized = checkpoint;
+        normalized->at("version") = underlying;
         normalized->erase("skeletal_sequence_profile");
     }
     const auto& selected_profile = normalized ? *normalized : checkpoint;
@@ -3896,7 +3927,7 @@ void AnimationRuntime::restore(const Json& checkpoint) {
     swap_sources();
     impl_->transforms.restore(data.value("transform_entries", Json::array()),
                               data.at("version") >= 3 ? data.at("sequence_entries") : Json::array(),
-                              sequence_profile);
+                              sequence_profile, rate_profile);
     for (auto& value : values) {
         auto& p = *value.playback;
         const auto time = value.time;

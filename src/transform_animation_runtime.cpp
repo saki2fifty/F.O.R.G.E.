@@ -753,7 +753,7 @@ Json TransformAnimationPlayback::checkpoint() const {
 }
 void TransformAnimationPlayback::restore(const Json& values) { restore(values, Json::array()); }
 void TransformAnimationPlayback::restore(const Json& values, const Json& sequences,
-                                         unsigned profile) {
+                                         unsigned profile, bool rates) {
     const bool audio_entries = profile >= 5;
     const bool nested_entries = profile >= 7;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
@@ -772,7 +772,8 @@ void TransformAnimationPlayback::restore(const Json& values, const Json& sequenc
     // A fresh worker may not have admitted either clip when restore begins.
     // Compare the recovery profile only after admission, before adopting state.
     if ((profile == 6 && !has_next_sequence_clips()) ||
-        (profile < 6 && has_next_sequence_clips()) || nested_entries != has_nested_sequences())
+        (profile < 6 && has_next_sequence_clips()) || nested_entries != has_nested_sequences() ||
+        rates != has_sequence_rates())
         throw std::runtime_error("Sequence pair/nested recovery profile differs");
     if (!sequences.is_array() || sequences.size() != sequence_states_.size())
         throw std::runtime_error("Animation sequence recovery configuration differs");
@@ -808,6 +809,10 @@ void TransformAnimationPlayback::restore(const Json& values, const Json& sequenc
                 throw std::runtime_error("Nested sequence recovery binding/intent differs");
         } else if (value.contains("sequence") || value.contains("sequence_start_seconds"))
             throw std::runtime_error("Unexpected nested sequence recovery fields");
+        if (rates ? (!value.contains("sequence_rate") ||
+                     value.at("sequence_rate") != state.config.sequence_rate)
+                  : value.contains("sequence_rate"))
+            throw std::runtime_error("Sequence recovery placement rate differs");
         state.discontinuous = true;
     }
     for (const auto& [id, state] : groups) {

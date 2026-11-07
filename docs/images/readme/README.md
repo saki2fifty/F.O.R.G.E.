@@ -1606,23 +1606,25 @@ acceptance.
 ## Nested sequence Timeline
 
 [Nested sequence placement](../../../manual/images/nested-sequences.png) is the
-unretouched 720×1100 production Animation Timeline at 100%, rendered with the same
-SDL/ImGui software fixture and project font. Actual pointer input selects the
-original Gallery146 child row on its eight-second parent. The green six-second
-placement, start field, apply/reset, local navigation and detachment controls are
-visible. The capture includes the selected controller name. No authored Gallery
-file changes during capture. Frame export is disabled because the isolated
-Timeline fixture has no graphical Game host.
-PNG SHA256: `0b96320ccb6be139998c71ccf7e1895bbb914fcccad1e9b5d809c58f2311a4bd`.
+unretouched 720×1100 production Animation Timeline at 100%, rendered by the SDL/ImGui
+software fixture with the project font. Actual pointer input selects the original
+Gallery146 child row on its eight-second parent. The green six-second placement,
+start/rate fields, Apply placement timing/Reset pending placement timing, local
+navigation and detachment are visible. Source Scene files are unchanged by capture.
+Frame export is disabled because this isolated fixture has no graphical Game host.
+PNG SHA256: `4ac8a14a3a594cbd98c23de84db01bc783b113cfb6c10ab43bfc200edb4a88f8`.
+Capture: forge_animation_sequence_editor_tests --capture-nested; local native
+build from 351e03a plus placement-rate changes, unassigned build identity. Exact
+C++/CMake input digest: `78e946af839eca00c00fb7b2fdb10f667ae22b7196d1ea5dc9e8b210d9dfc970`.
 
-Capture uses `forge_animation_sequence_editor_tests --capture-nested <Gallery>
-<private-scratch> <png>`, source based on 5027e2b and an unassigned build identity.
-The same source refreshes the two-clip Timeline image above because its visible
-header now identifies the selected controller. Exact executable/source/Scene/image
-proofs remain with the local capability validation owner. No pixels or controls
-are retouched; full Main, Windows/MSVC/D3D12, physical input/DPI/GPU/audio,
-performance and graphical EXE acceptance remain separate.
-
+[Nested sequence Game output](../../../manual/images/nested-sequence-game.png)
+is the actual 640×360 RuntimeWorld/FrameRenderer image from Gallery186 at fixed
+tick 150, using software Vulkan. The PPM-to-PNG conversion preserves every RGB byte.
+It shows original direct, morph and mapped models following fast/slow/nested
+controllers. The same output matches source-hidden relocated content; this is not
+Windows, graphical EXE, full Main or physical GPU acceptance. No controls, labels,
+framing or pixels are retouched. Capture source, executable, pixel hashes and
+comparison receipt remain in the local capability evidence owner.
 
 ## Source reverb Inspector
 
@@ -1706,7 +1708,7 @@ blend in** editable. The unretouched720×1400 PNG comes from the actual SDL/ImGu
 software capture in `tests/sequence_clip_capture.hpp`.
 
 [Transition Game view](../../../manual/images/camera-transition-gallery.png)
-shows the production FrameRenderer at tick150 in Gallery153 on software Vulkan.
+shows the production FrameRenderer at tick 150 in Gallery153 on software Vulkan.
 The animated camera rig is halfway through the incoming view/lens transition.
 Four source/source-hidden relocated display pairs match exactly; the stopped
 Timeline's three exported PNG samples also match independently read display pixels.

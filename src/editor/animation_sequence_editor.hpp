@@ -769,7 +769,7 @@ class AnimationSequenceEditor {
     std::uint64_t revision_ = 0, pending_revision_ = 0, frame_export_serial_ = 0;
     double saved_preview_time_ = 0;
     bool frame_exporting_ = false, saved_preview_ = false, saved_playing_ = false;
-    double time_ = 0, offset_ = 0, next_offset_ = 0, nested_start_ = 0;
+    double time_ = 0, offset_ = 0, next_offset_ = 0, nested_start_ = 0, nested_rate_ = 1;
     unsigned pending_track_fields_ = 0;
     bool ready_ = false, stale_ = false, preview_ = false, playing_ = false, pending_ = false,
          closing_ = false, locked_ = false;
@@ -940,7 +940,8 @@ class AnimationSequenceEditor {
                                 IM_COL32(32, 42, 52, 255));
             draw->AddRectFilled(
                 {x(value.sequence_start_seconds), origin.y + 3},
-                {x(value.sequence_start_seconds + value.duration), origin.y + size.y - 3},
+                {x(value.sequence_start_seconds + value.duration / value.sequence_rate),
+                 origin.y + size.y - 3},
                 IM_COL32(72, 153, 117, 255));
             draw->AddLine({x(time_), origin.y}, {x(time_), origin.y + size.y},
                           IM_COL32(255, 203, 78, 255), 2);
@@ -951,8 +952,9 @@ class AnimationSequenceEditor {
                 if (ready_ && !stale_)
                     seek_preview();
             }
-            ImGui::TextDisabled("Start %.3f s | Length %.3f s%s", value.sequence_start_seconds,
-                                value.duration, value.enabled ? "" : " | Disabled");
+            ImGui::TextDisabled("Start %.3f s | Parent length %.3f s | Rate %.3gx%s",
+                                value.sequence_start_seconds, value.duration / value.sequence_rate,
+                                value.sequence_rate, value.enabled ? "" : " | Disabled");
             ImGui::PopID();
         }
         if (nested_.empty())
@@ -961,14 +963,17 @@ class AnimationSequenceEditor {
         if (!target || !target.has<AnimationSequence>() ||
             target.get<AnimationSequence>().sequence != controller_) {
             ImGui::TextWrapped("The selected sequence is no longer placed here.");
-            if (ui::button("Reset pending sequence start", "Discard the pending field.")) {
+            if (ui::button("Reset pending placement timing",
+                           "Discard the pending placement fields.")) {
                 pending_ = false;
                 nested_.clear();
             }
             return false;
         }
-        if (!pending_)
+        if (!pending_) {
             nested_start_ = target.get<AnimationSequence>().sequence_start_seconds;
+            nested_rate_ = target.get<AnimationSequence>().sequence_rate;
+        }
         ImGui::TextUnformatted("Start in parent");
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
         if (ImGui::InputDouble("##nested start", &nested_start_, 0, 0, "%.3f s")) {
@@ -977,11 +982,21 @@ class AnimationSequenceEditor {
             pending_ = true;
         }
         FORGE_UI_PROBE("sequence:nested_start");
-        if (ui::button("Apply sequence start",
-                       "Commit the placement start in one Scene Undo step."))
+        ImGui::TextUnformatted("Placement rate");
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        if (ImGui::InputDouble("##nested rate", &nested_rate_, 0, 0, "%.3gx")) {
+            if (!pending_)
+                pending_revision_ = scene_->revision();
+            pending_ = true;
+        }
+        FORGE_UI_PROBE("sequence:nested_rate");
+        ImGui::TextWrapped("Local seconds per parent second: 0.25–4. Cumulative rate: 1/64–64.");
+        if (ui::button("Apply placement timing",
+                       "Commit placement start and rate in one Scene Undo step."))
             apply_pending();
         FORGE_UI_PROBE("sequence:apply_nested");
-        if (ui::button("Reset pending sequence start", "Reload the current Scene field."))
+        if (ui::button("Reset pending placement timing",
+                       "Reload the current Scene placement fields."))
             pending_ = false;
         FORGE_UI_PROBE("sequence:reset_nested");
         ImGui::BeginDisabled(pending_);
@@ -1374,10 +1389,12 @@ class AnimationSequenceEditor {
                     throw std::runtime_error("Nested start must be inside the parent sequence");
                 if (pending_ && scene_->revision() != pending_revision_)
                     throw std::runtime_error(
-                        "Scene changed. Reset the pending sequence start before applying it.");
+                        "Scene changed. Reset the pending placement timing before applying it.");
                 apply_authoring(*scene_,
                                 Json::array({property(nested_, "sequence_start_seconds",
-                                                      nested_start_, "forge.animation_sequence")}),
+                                                      nested_start_, "forge.animation_sequence"),
+                                             property(nested_, "sequence_rate", nested_rate_,
+                                                      "forge.animation_sequence")}),
                                 scene_->revision());
                 pending_ = false;
                 stop_preview();

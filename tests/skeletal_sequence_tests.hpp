@@ -228,6 +228,33 @@ void skeletal_sequence_tests(const std::filesystem::path& project, const Json& s
     nested_motion.simulation.tick(2.5f);
     near(nested_motion.local().translation.x, .5);
     near(nested_motion.local().translation.z, 1.5);
+    child.sequence_rate = 2;
+    scene.entity(nested_id).set(child);
+    animator.root_motion = 0;
+    scene.entity(actor.str()).set(animator);
+    Fixture rated(project, scene.snapshot(), actor);
+    AnimationPlaybackAccess::control(*rated.animation, controller,
+                                     {{"operation", "seek"}, {"position_seconds", 1.}});
+    near(rated.pose().at("local")[0].at("translation")[0], .25);
+    near(rated.pose().at("local")[0].at("translation")[2], .75);
+    near(rated.animation->playback(rated.scene.reference(actor.str()))->speed, 2);
+    const auto rated_checkpoint = rated.animation->checkpoint();
+    require(rated_checkpoint.at("version") == 11 &&
+                rated_checkpoint.at("sequence_rate_profile") == 10 &&
+                rated_checkpoint.at("skeletal_sequence_profile") == 7,
+            "Scaled skeletal recovery discarded its nested/skeletal profiles");
+    Fixture rated_restored(project, scene.snapshot(), actor);
+    rated_restored.animation->restore(rated_checkpoint);
+    near(rated_restored.pose().at("local")[0].at("translation")[0], .25);
+    near(rated_restored.pose().at("local")[0].at("translation")[2], .75);
+    require(rated_restored.animation->checkpoint() == rated_checkpoint,
+            "Scaled skeletal recovery changed the admitted clocks");
+    animator.root_motion = 1;
+    scene.entity(actor.str()).set(animator);
+    Fixture rated_motion(project, scene.snapshot(), actor);
+    rated_motion.simulation.tick(2.5f);
+    near(rated_motion.local().translation.x, .5);
+    near(rated_motion.local().translation.z, 1.5);
     auto disabled = nested_motion.scene.entity(controller_id).get<AnimationSequence>();
     disabled.enabled = false;
     nested_motion.scene.entity(controller_id).set(disabled);

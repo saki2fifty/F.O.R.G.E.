@@ -1,5 +1,20 @@
 # 2026-11-07
 
+## Nested sequence playback rates
+
+Scene controllers have a dedicated placement rate, independent of stored standalone
+speed/loop settings. Positive 0.25–4 local rates compose within 1/64–64 through the
+existing root clock. Transform/property/skeletal/morph tracks, root motion, Camera
+Shots and Audio Cues follow that mapping. Recovery preserves exact rates and all
+existing profiles; runtime-kit admission detects content requiring the new profile.
+Timeline edits start/rate in one Undo step and shows parent-time length. Live child
+controllers select their parent and reject independent playback controls. Existing
+Scene authoring, Prefab, C++ SDK and MCP owners expose the same fields and statuses.
+Gallery186 demonstrates fast, slow and nested sections using original assets; the
+manual includes authentic controls and rendered Game output. Native modules require
+a matching SDK rebuild; C callback tables and clip formats remain unchanged.
+Windows/full-editor and physical acceptance remain pending.
+
 ## Skeletal tracks on Scene sequences
 
 Direct Animators can share an existing Animation Sequence controller and arrange

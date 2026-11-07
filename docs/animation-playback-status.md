@@ -13,7 +13,9 @@ positive clip length. `progress=clamp(time/duration,0,1)`. Looping players never
 report `finished`; a nonloop reports it at the endpoint, even if an incoming fade
 continues after that point. Completion is a persistent status, not a consumed event.
 
-Effective `speed` includes named-state speed. `enabled` and `loop` reflect realized
+Effective `speed` includes named-state speed. For a sequence-bound player or
+controller it is the root playback speed multiplied by cumulative placement rate;
+its time and duration remain local seconds. `enabled` and `loop` reflect realized
 configuration. `playing` means enabled, positive speed and an active player; it
 includes a remaining named fade after clip completion. It describes the player's
 readiness for fixed ticks, not the global Pause state. Pause changes no clocks;
@@ -86,3 +88,9 @@ report their existing effective inputs through the same owner.
 
 [C++ playback controls](animation-playback-controls.md) use these same realized
 clocks for per-player Play, Pause, Restart and Seek before the Animation stage.
+
+A nested controller's copied host observation includes its admitted immediate
+parent in sequence. The live panel selects that controller and disables independent
+pause/restart/seek, using the same control rejection as native C++ and MCP. Continue
+up the parent chain to control the root. Entity-wide C++/SDK playback layouts are
+unchanged; their speed already includes the cumulative placement rate.

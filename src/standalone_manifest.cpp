@@ -151,6 +151,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             if (features != document->end()) {
                 require(features->is_object(), "Invalid authored document runtime features");
                 for (const auto& [name, version] : features->items()) {
+                    if (name == "sequence_rate") {
+                        require(version.is_number_integer() &&
+                                    version == sequence_rate_runtime_profile_version,
+                                "Unsupported authored sequence placement-rate profile");
+                        const auto support = engine.find("runtime_sequence_rate");
+                        require(support != engine.end() && support->is_number_integer() &&
+                                    *support == sequence_rate_runtime_profile_version,
+                                "Sequence placement rates require the runtime kit packaged with "
+                                "this editor");
+                        continue;
+                    }
                     if (name == "skeletal_sequence") {
                         require(version.is_number_integer() &&
                                     version == skeletal_sequence_runtime_profile_version,

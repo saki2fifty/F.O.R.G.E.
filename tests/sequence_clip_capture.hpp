@@ -140,8 +140,9 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
             camera_transition
                 ? std::vector<const char*>{"sequence:shot_start", "sequence:shot_end",
                                            "sequence:shot_blend", "sequence:apply_shot"}
-            : nested ? std::vector<const char*>{"sequence:nested_start", "sequence:apply_nested",
-                                                "sequence:open_nested", "sequence:remove_nested"}
+            : nested ? std::vector<const char*>{"sequence:nested_start", "sequence:nested_rate",
+                                                "sequence:apply_nested", "sequence:open_nested",
+                                                "sequence:remove_nested"}
                      : std::vector<const char*>{"sequence:start", "sequence:next_start",
                                                 "sequence:clip", "sequence:next_clip"};
         for (const char* key : controls) {

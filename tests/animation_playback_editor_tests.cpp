@@ -160,6 +160,16 @@ int main() {
                 require(
                     selected_controller == controller && submits == before,
                     "Live model selection did not reveal its owning sequence without a command");
+                status["sequence_controller"] = true;
+                frame();
+                frame();
+                for (const auto* key :
+                     {"live-animation:pause", "live-animation:restart", "live-animation:playhead"})
+                    require(!test::ui_targets.at(key).enabled,
+                            "Nested controller exposed independent live controls");
+                click("live-animation:controller");
+                require(selected_controller == controller && submits == before,
+                        "Live child selection did not reveal its parent without a command");
                 ImGui::DestroyContext();
             }
         std::cout << "Live animation actual buttons/release seek and status isolation pass eight "

@@ -8,12 +8,13 @@
 #include <forge/render_components.hpp>
 #include <forge/sdk_client.hpp>
 #include <limits>
-#include <set>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <thread>
 namespace {
 static_assert(forge::skeletal_sequence_runtime_profile_version == 1);
+static_assert(forge::sequence_rate_runtime_profile_version == 1);
 struct SequenceProbe {
     std::uint32_t ticks = 0;
     double time = 0, blend = 0;
@@ -79,7 +80,8 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                     seek(.5);
                 } else if (tick == 3) {
                     flecs::world current(host->world);
-                    std::set<std::string> controllers{ref.entity_uuid};
+                    std::map<std::string, ForgeSdkAnimationPlaybackV1> controllers{
+                        {ref.entity_uuid, admitted}};
                     unsigned nested = 0;
                     current.each([&](flecs::entity child,
                                      const forge::AnimationSequence& placement) {
@@ -95,16 +97,18 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                                   client.animation_playback(child_ref.scene_uuid,
                                                             child_ref.entity_uuid, status) == 1 &&
                                   status.duration == 6 && !status.loop &&
-                                  status.speed == config.playback_speed &&
-                                  std::abs(status.time - std::clamp(admitted.time - 1, 0., 6.)) <
-                                      1e-9,
+                                  status.speed == config.playback_speed * placement.sequence_rate &&
+                                  (placement.sequence_rate == 1 || placement.sequence_rate == 2) &&
+                                  std::abs(status.time -
+                                           std::clamp((admitted.time - 1) * placement.sequence_rate,
+                                                      0., 6.)) < 1e-9,
                               "Nested typed values/derived status differ through matching SDK");
                         check(client.animation_control(child_ref.scene_uuid, child_ref.entity_uuid,
                                                        FORGE_SDK_ANIMATION_PAUSE) == 0 &&
                                   client.animation_seek(child_ref.scene_uuid, child_ref.entity_uuid,
                                                         .25) == 0,
                               "C++ independently controlled a bound sequence");
-                        controllers.insert(child_ref.entity_uuid);
+                        controllers.emplace(child_ref.entity_uuid, status);
                         ++nested;
                     });
                     unsigned tracks = 0, pairs = 0;
@@ -150,25 +154,31 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                                   client.entity_reference(child.id(), child_ref) == 1 &&
                                   client.animation_playback(child_ref.scene_uuid,
                                                             child_ref.entity_uuid, status) == 1 &&
-                                  status.speed == config.playback_speed && !status.loop,
+                                  status.speed ==
+                                      controllers.at(player.sequence.entity.str()).speed &&
+                                  !status.loop,
                               "Skeletal sequence typed layout, clock or pair differs through SDK");
                         if (const auto* properties = child.try_get<forge::TransformAnimator>())
-                            check(properties->clip.id.str() == status.clip_uuid &&
-                                      std::abs(status.time -
-                                               std::clamp(admitted.time -
-                                                              properties->sequence_start_seconds,
-                                                          0., status.duration)) < 1e-9,
-                                  "Mixed actor did not preserve transform-first SDK status");
+                            check(
+                                properties->clip.id.str() == status.clip_uuid &&
+                                    std::abs(status.time -
+                                             std::clamp(
+                                                 controllers.at(player.sequence.entity.str()).time -
+                                                     properties->sequence_start_seconds,
+                                                 0., status.duration)) < 1e-9,
+                                "Mixed actor did not preserve transform-first SDK status");
                         else
-                            check(player.clip.id.str() == status.clip_uuid &&
-                                      player.sequence_next_clip.id.str() ==
-                                          status.blend_clip_uuid &&
-                                      status.duration == 1.5 &&
-                                      std::abs(status.time - std::clamp(admitted.time, 0., 1.5)) <
-                                          1e-9 &&
-                                      std::abs(status.blend_weight -
-                                               std::clamp((status.time - .5) * 2, 0., 1.)) < 1e-9,
-                                  "Skeletal sequence span or phase differs through SDK");
+                            check(
+                                player.clip.id.str() == status.clip_uuid &&
+                                    player.sequence_next_clip.id.str() == status.blend_clip_uuid &&
+                                    status.duration == 1.5 &&
+                                    std::abs(status.time -
+                                             std::clamp(
+                                                 controllers.at(player.sequence.entity.str()).time,
+                                                 0., 1.5)) < 1e-9 &&
+                                    std::abs(status.blend_weight -
+                                             std::clamp((status.time - .5) * 2, 0., 1.)) < 1e-9,
+                                "Skeletal sequence span or phase differs through SDK");
                         check(client.animation_control(child_ref.scene_uuid, child_ref.entity_uuid,
                                                        FORGE_SDK_ANIMATION_PAUSE) == 0 &&
                                   client.animation_seek(child_ref.scene_uuid, child_ref.entity_uuid,

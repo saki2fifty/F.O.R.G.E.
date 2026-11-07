@@ -49,7 +49,7 @@ class AnimationPlaybackEditor {
         ImGui::PushStyleColor(ImGuiCol_Border, ImVec4{.24f, .67f, .67f, 1});
         ImGui::BeginChild("##live-animation", {0, 0},
                           ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
-        ui::heading(bound      ? "Live sequence track"
+        ui::heading(bound      ? (sequence ? "Live nested sequence" : "Live sequence track")
                     : sequence ? "Live sequence"
                                : "Live animation",
                     "Adjust this entity's animation in the current Play session.");

@@ -122,6 +122,36 @@ void nested_audio_cue_tests(const std::filesystem::path& root) {
     shortened.simulation.tick(2);
     check(clipped_calls->calls == std::vector<EntityRef>{e, a, c},
           "Nested cues after an ancestor end escaped truncation");
+    auto rated = source;
+    for (auto& row : rated["entities"])
+        if (row.at("id") == child || row.at("id") == grand)
+            row["components"]["forge.animation_sequence"]["sequence_rate"] = 2.;
+    Runtime faster(root, rated);
+    const auto fast_calls = std::make_shared<CueRecorder>();
+    faster.engine.services().publish_audio(fast_calls);
+    faster.simulation.tick(.5);
+    check(fast_calls->calls == std::vector<EntityRef>{e, a},
+          "Scaled cue missed its exact placement entry");
+    faster.simulation.tick(.125);
+    check(fast_calls->calls == std::vector<EntityRef>{e, a, c},
+          "Scaled grandchild cue ignored cumulative rate");
+    const auto fast_checkpoint = faster.animation->checkpoint();
+    check(fast_checkpoint.at("version") == 11, "Scaled cue recovery omitted its rate profile");
+    Runtime fast_recovered(root, rated, false);
+    const auto recovered_calls = std::make_shared<CueRecorder>();
+    fast_recovered.engine.services().publish_audio(recovered_calls);
+    fast_recovered.animation->restore(fast_checkpoint);
+    check(recovered_calls->calls.empty(), "Scaled cue restore replayed events");
+    for (auto* world : {&faster, &fast_recovered}) {
+        world->simulation.tick(.125);
+        world->simulation.tick(.25);
+    }
+    check(fast_calls->calls == std::vector<EntityRef>{e, a, c, d, b} &&
+              recovered_calls->calls == std::vector<EntityRef>{d, b},
+          "Scaled cue endpoints/recovered intervals differ");
+    faster.simulation.tick(1);
+    check(fast_calls->calls == std::vector<EntityRef>{e, a, c, d, b, e},
+          "Scaled child cues changed the root wrap interval");
     std::cout << "Nested cues: exact offset entry/end, root wrap/multiple periods, pause/seek, "
                  "cold recovery and restart passed\n";
 }

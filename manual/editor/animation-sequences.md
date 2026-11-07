@@ -187,19 +187,39 @@ overview camera appears before and after the child placement.
 
 ![Timeline showing a child sequence placed at one second inside its parent](../images/nested-sequences.png)
 
-Select the child row to edit its start or open its own Timeline.
+Select the child row to edit its start and playback rate, or open its own Timeline.
 
-1. Create two **Animation Sequence** controllers in the same Scene. Give the parent enough **Duration** for the arrangement; the child's duration controls its placement length.
+1. Create two **Animation Sequence** controllers in the same Scene. Give the parent enough **Duration** for the arrangement; the child's duration and placement rate control its length in the parent.
 2. Open the parent's sequence Timeline. Select the child controller in Hierarchy, position the playhead and choose **Add selected sequence**.
-3. Select the child under **Nested sequences**. Enter **Start in parent**, then choose **Apply sequence start**. This uses one Scene Undo step. **Reset pending sequence start** discards the pending value. Apply or reset before opening or removing the placement.
+3. Select the child under **Nested sequences**. Enter **Start in parent** and **Placement rate**, then choose **Apply placement timing**. This saves both fields in one Scene Undo step. **Reset pending placement timing** discards both pending values. Apply or reset before opening or removing the placement.
 4. Choose **Refresh clips**, then **Preview sequence**. The green strip marks the child placement. Scrub the parent to inspect its descendants together. Game preview and frame export use the same composed camera image.
 5. Choose **Open nested timeline** to edit the child's own objects, shots, sound cues or further child placements. Its local preview uses its own stored timing. **Open parent timeline** returns to the parent arrangement; refresh the parent to review the combined result.
 6. Choose **Save scene**. Game Play and export use the saved parent bindings and prepared clips and sounds.
 
-While placed, the child's clock, speed, loop and start/stop intent come from the
-root controller. Its own **Playback speed**, **Loop** and **Play on start** stay
-stored for local preview or standalone use. Pause, seek or restart the root to
-control the arrangement. A bound child cannot be controlled independently.
+**Placement rate** is the number of child seconds per parent second. Set it to
+**2** to play a four-second child in two parent seconds, or **0.5** to take eight
+parent seconds. The strip shows this parent-time length. Rates can be **0.25–4**;
+rates multiply through nested children, and the cumulative rate must stay within
+**1/64–64**. The root's **Playback speed** also scales the complete arrangement.
+Object, property and skeletal tracks, camera shots and sound cues follow the same
+local timing. Playback status shows the resulting speed.
+
+While placed, the child's clock, loop and start/stop intent come from the root.
+Its own **Playback speed**, **Loop** and **Play on start** stay stored for local
+preview or standalone use; **Placement rate** applies when it has a parent.
+Pause, seek or restart the root to control the arrangement. A bound child cannot
+be controlled independently and does not loop separately.
+
+Open **186-nested-sequence-rates** to compare rates in Game. Its left model follows
+a **2×** child that starts at 0.5 seconds; its center follows a **0.5×** child.
+The right follows a **0.5×** child of the fast section, so its cumulative rate is
+**1×**. The fast parent's end also truncates that nested child. Select a child in
+Hierarchy, change **Placement rate** in Inspector or the parent's Timeline,
+refresh the preview and save the Scene. The included camera and light make it
+ready for Play and export with a matching runtime kit.
+
+![Three original animated models following nested Scene controllers with different playback rates](../images/nested-sequence-game.png)
+The models share a four-second root loop while their child sections sample different local times.
 
 Child starts must be inside their immediate parent's duration. Ancestor ends
 truncate longer placements. Object tracks hold their first and last values
@@ -209,9 +229,9 @@ translated parent times during forward playback, including each root loop.
 Seeking and silent Timeline preview do not play skipped sounds.
 
 **Remove sequence placement** clears the parent link and keeps the child, tracks,
-start value and standalone settings. Undo restores the link. Inspector also exposes
-**Parent sequence** and **Start in parent**. Circular links, missing controllers
-and cross-Scene parents are reported during refresh or Play preparation. Include
+start, placement rate and standalone settings. Undo restores the link. Inspector also exposes
+**Parent sequence**, **Start in parent** and **Placement rate**. Circular links, missing controllers,
+cross-Scene parents and out-of-range cumulative rates are reported during refresh or Play preparation. Include
 the complete linked group when making a Prefab. Up to 64 enabled controllers can
 participate; one controller with camera shots can direct each loaded Scene.
 

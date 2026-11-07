@@ -840,7 +840,7 @@ Collection, scoped reads, Clear/Stop and replacement use the existing owners.
 `forge_play_profile_trace` reads the cached isolated Play CPU profile as Trace Event
 JSON under `play.read`; it does not execute gameplay or require an execution grant.
 Start collection and request `profile_refresh` through the existing controls first.
-Use `limit`1..128 (default128) and `offset`0..512; `trace.otherData.measured_spans`
+Use `limit`1..128 (default 128) and `offset`0..512; `trace.otherData.measured_spans`
 gives the full measured count and `exported_spans` the page count. Keep the returned
 `profile_state` on subsequent pages; refresh, Clear, world replacement or other
 snapshot changes can reject it with `stale_profile`. Pause/Stop collection for
@@ -1144,6 +1144,16 @@ next clip. The asset type is `animation_clip`. Complete candidates use existing
 revision, permission, Scene history and save rules. States, Blend Spaces, Graphs
 and standalone blend selections cannot share that Animator's bound profile.
 Published retargeted clips require the same target skeleton/model binding.
+
+Nested controllers use `forge_property_set_many` on `forge.animation_sequence`:
+`sequence` selects the parent, `sequence_start_seconds` is the start in parent
+seconds and `sequence_rate` is local seconds per parent second (default 1,
+finite 0.25–4). Rates multiply through the active chain within 1/64–64. The root owns
+play/pause/seek; stored child playback_speed/loop/play_on_start stay separate.
+Generic discovery, Scene permission/revision, replay, history and Save apply.
+Invalid local rates reject without mutation; invalid/cyclic/composed bindings
+reject preparation through the same runtime owner. Watch speed includes the
+cumulative rate. See [nested timing](transform-animation.md#nested-controller-placements).
 
 Watch the controller before using scoped `forge_play_animation_control` to seek,
 pause or restart it. Bound players reject independent control. A model watch via
@@ -1632,7 +1642,7 @@ routing. `probe` is required. New-map capture requires `destination` (a NEW fold
 below Assets with an existing parent). Alternatively `update_assigned:true` targets
 the probe's existing independent imported capture DDS source; omit `destination`
 in that mode. Optional fields are `size` (16–1024, default256),
-`near_plane` (positive, default0.1), `far_plane` (greater than near, default100),
+`near_plane` (positive, default0.1), `far_plane` (greater than near, default 100),
 `layers` (uint32, default all bits) and `assign` (default true). No external output
 folder is needed. This uses the same image-task owner as PNG/sequence capture and
 cannot overlap those operations.

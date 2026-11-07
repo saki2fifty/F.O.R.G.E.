@@ -126,7 +126,8 @@ template <class T> Json encode(const T& p) {
                 {"loop", p.loop},
                 {"playback_speed", p.playback_speed},
                 {"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
-                {"sequence_start_seconds", p.sequence_start_seconds}};
+                {"sequence_start_seconds", p.sequence_start_seconds},
+                {"sequence_rate", p.sequence_rate}};
     else if constexpr (std::is_same_v<T, CameraShot>)
         return {{"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
                 {"camera", p.camera.entity ? Json(p.camera) : Json()},
@@ -505,6 +506,8 @@ template <class T> Value decode(const Json& p) {
         if (!std::isfinite(v.sequence_start_seconds) || v.sequence_start_seconds < 0 ||
             v.sequence_start_seconds > 3600)
             throw std::runtime_error("Nested sequence start must be within 0–3600 seconds");
+        v.sequence_rate = p.value("sequence_rate", 1.);
+        animation_detail::validate_sequence_rate(v.sequence_rate);
         return v;
     } else if constexpr (std::is_same_v<T, CameraShot>) {
         CameraShot v;
@@ -1430,7 +1433,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("loop")
             .template member<float>("playback_speed")
             .template member<EntityRef>("sequence")
-            .template member<double>("sequence_start_seconds");
+            .template member<double>("sequence_start_seconds")
+            .template member<double>("sequence_rate");
     } else if constexpr (std::is_same_v<T, CameraShot>) {
         (void)authoring_value_adapters(w);
         c.template member<EntityRef>("sequence")
@@ -3155,6 +3159,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
                 name == "forge.animation_sequence"
                     ? "Optional same-Scene parent; its root controls this sequence's timing"
                     : "Optional scene Animation Sequence that controls this clip's timing";
+        } else if (field == "sequence_rate" && name == "forge.animation_sequence") {
+            value["display_name"] = "Placement rate";
+            value["minimum"] = .25;
+            value["maximum"] = 4;
+            value["description"] = "Local seconds per parent second; cumulative rate 1/64–64. "
+                                   "Ignored without a parent.";
         } else if (field == "sequence_next_clip") {
             value["display_name"] = "Next clip";
         } else if (field == "sequence_next_start_seconds") {
@@ -4129,6 +4139,9 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         for (const auto* field : {"sequence", "sequence_start_seconds"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
+    if (std::string_view(type.name) == "forge.animation_sequence" &&
+        !current.contains("sequence_rate"))
+        current["sequence_rate"] = type.defaults.at("sequence_rate");
     if (std::string_view(type.name) == "forge.animator" ||
         std::string_view(type.name) == "forge.transform_animator")
         for (const auto* field : {"sequence_next_clip", "sequence_next_start_seconds"})

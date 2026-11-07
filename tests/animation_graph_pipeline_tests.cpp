@@ -430,6 +430,44 @@ void camera_profile_recovery(const std::filesystem::path& root, const Json& sour
     rejects([&] { compound_restored.animation->restore(invalid_compound); });
     check(compound_restored.animation->checkpoint() == compound_checkpoint,
           "Rejected combined wrapper changed an admitted graph/skeletal world");
+    const auto child_id = create("animation.sequence", "Scaled skeletal child");
+    AnimationSequence child;
+    child.duration = 4;
+    child.sequence = group;
+    child.sequence_start_seconds = .25;
+    child.sequence_rate = 2;
+    scene.entity(child_id).set(child);
+    track.sequence = scene.reference(child_id);
+    scene.entity(sibling).set(track);
+    const auto rated_source = scene.document();
+    World rated(root, rated_source, actor);
+    AnimationPlaybackAccess::control(*rated.animation, group,
+                                     {{"operation", "seek"}, {"position_seconds", 1.}});
+    const auto rated_graph = rated.pose(.25);
+    const auto rated_sibling = rated.animation->presentation(rated.scene.entity(sibling).id(), 1);
+    same_pose(rated_sibling, sibling_pose, "Scaled skeletal track beside graph/camera");
+    const auto rated_checkpoint = rated.animation->checkpoint();
+    check(rated_checkpoint.at("version") == 11 &&
+              rated_checkpoint.at("sequence_rate_profile") == 10 &&
+              rated_checkpoint.at("skeletal_sequence_profile") == 9 &&
+              rated_checkpoint.at("animation_profile") == 8 &&
+              rated_checkpoint.at("sequence_profile") == 7,
+          "Placement rates lost composed skeletal/graph/camera/nested recovery profiles");
+    World rated_cold(root, rated_source, actor);
+    rated_cold.animation->restore(rated_checkpoint);
+    same_pose(rated_cold.current_pose(), rated_graph, "Graph under placement-rate recovery");
+    same_pose(rated_cold.animation->presentation(rated_cold.scene.entity(sibling).id(), 1),
+              rated_sibling, "Scaled skeletal sibling recovery");
+    check(rated_cold.animation->checkpoint() == rated_checkpoint,
+          "Placement-rate compound recovery changed clocks or admitted poses");
+    for (const char* field :
+         {"sequence_rate_profile", "skeletal_sequence_profile", "animation_profile"}) {
+        auto invalid = rated_checkpoint;
+        invalid[field] = 1u;
+        rejects([&] { rated_cold.animation->restore(invalid); });
+        check(rated_cold.animation->checkpoint() == rated_checkpoint,
+              "Rejected rate wrapper changed a graph/skeletal/camera world");
+    }
 }
 void work_budget_cases(const std::filesystem::path& root,
                        const std::shared_ptr<ProjectLease>& lease, AssetImportService& service,

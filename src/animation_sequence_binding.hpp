@@ -4,6 +4,10 @@
 #include <optional>
 #include <stdexcept>
 namespace forge::animation_detail {
+inline void validate_sequence_rate(double rate) {
+    if (!std::isfinite(rate) || rate < .25 || rate > 4)
+        throw std::runtime_error("Sequence placement rate must be within 0.25–4");
+}
 // Configuration admission shared by native C++ values and authored decoding.
 // Controller resolution and resource compatibility stay with AnimationRuntime.
 inline void validate_sequence_binding(const Animator& value,

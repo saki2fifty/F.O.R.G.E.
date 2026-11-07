@@ -60,7 +60,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 ## Animation
 
 - [Transform animation timeline and nested and collection C++ component fields](editor/transform-animation.md)
-- [Coordinate skeletal and object clips, crossfade properties/Material/component fields, blend camera shots, nest sequences and export PNG/WebP/AVI previews](editor/animation-sequences.md)
+- [Coordinate skeletal and object clips, crossfade properties/Material/component fields, blend camera shots, nest sequences with playback rates and export PNG/WebP/AVI previews](editor/animation-sequences.md)
 - [Transfer animation between imported skeletons](editor/animation-retargeting.md)
 - [Compose clips, blends and additive layers with named graph inputs](editor/animation-graphs.md)
 - [Animation](editor/animation.md)

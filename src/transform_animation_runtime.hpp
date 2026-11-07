@@ -24,6 +24,7 @@ class TransformAnimationPlayback {
     bool checkpoint_ready() const;
     bool has_next_sequence_clips() const;
     bool has_nested_sequences() const;
+    bool has_sequence_rates() const;
     void prepare_sequence_preview_root(EntityRef);
     bool pending() const { return pending_; }
     std::vector<std::uint64_t> take_discontinuities();
@@ -31,16 +32,17 @@ class TransformAnimationPlayback {
     void restore(const Json&);
     std::optional<AnimationPlayback> playback(EntityRef) const;
     Json sequence_clip_status(EntityRef) const;
+    EntityRef parent_sequence(EntityRef) const;
     bool control(EntityRef, AnimationControl);
     bool seek(EntityRef, double seconds);
-    Json sequence_checkpoint(unsigned profile = 3) const;
+    Json sequence_checkpoint(unsigned profile = 3, bool rates = false) const;
     Json camera_shots_checkpoint(bool transitions = false) const;
     bool has_camera_blends() const;
     Json tune_camera_shot(EntityRef, const Json& value);
     void project_camera_shots(Json&, double alpha) const;
     Json audio_cues_checkpoint() const;
     Json camera_presentation(flecs::entity_t, double alpha) const;
-    void restore(const Json&, const Json& sequences, unsigned profile = 3);
+    void restore(const Json&, const Json& sequences, unsigned profile = 3, bool rates = false);
     void pose_validator(AnimationRuntime::PoseValidator callback) {
         validator_ = std::move(callback);
     }
@@ -58,6 +60,7 @@ class TransformAnimationPlayback {
         double begin = 0, advance = 0, duration = 0, offset = 0, end = 0;
         bool loop = false, playing = false, discontinuous = false;
         flecs::entity_t root = 0;
+        double rate = 1, local_duration = 0;
     };
     SequenceInterval sequence_interval(flecs::entity_t id) const;
     SequenceTimes next_sequence_times(double seconds) const;
@@ -94,6 +97,7 @@ class TransformAnimationPlayback {
         EntityRef entity;
         flecs::entity_t parent = 0, root = 0;
         double root_offset = 0, root_end = 0;
+        double root_rate = 1;
         double time = 0, previous = 0, advance = 0;
         bool playing = false, discontinuous = true, entry_pending = true;
     };

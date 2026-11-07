@@ -10,8 +10,11 @@
 namespace forge::test {
 inline constexpr auto skeletal_sequence_scene_path =
     "Scenes/185-skeletal-sequence-tracks.scene.json";
-inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& root) {
-    if (std::filesystem::exists(root / skeletal_sequence_scene_path))
+inline constexpr auto sequence_rate_scene_path = "Scenes/186-nested-sequence-rates.scene.json";
+inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& root,
+                                                bool placement_rates = false) {
+    const auto path = placement_rates ? sequence_rate_scene_path : skeletal_sequence_scene_path;
+    if (std::filesystem::exists(root / path))
         throw std::runtime_error("Skeletal sequence Gallery already exists");
     auto catalog = AssetCatalog::open_project(root);
     const auto before = catalog.document().at("assets");
@@ -41,8 +44,29 @@ inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& roo
     sequence.loop = true;
     scene.entity(controller).set(sequence);
     const auto reference = scene.reference(controller);
+    std::array<EntityRef, 3> bindings{reference, reference, reference};
+    if (placement_rates) {
+        const auto child = [&](const char* name, EntityRef parent, double rate, double start) {
+            const auto id = authoring_command(scene, "entity.create",
+                                              {{"recipe", "animation.sequence"},
+                                               {"name", name},
+                                               {"component_values",
+                                                {{"duration", 4},
+                                                 {"sequence", parent},
+                                                 {"sequence_start_seconds", start},
+                                                 {"sequence_rate", rate},
+                                                 {"playback_speed", 0},
+                                                 {"play_on_start", false}}}})
+                                .at("selected")
+                                .get<std::string>();
+            return scene.reference(id);
+        };
+        bindings[0] = child("Fast child - 2x", reference, 2, .5);
+        bindings[1] = child("Slow child - 0.5x", reference, .5, 0);
+        bindings[2] = child("Nested child - 0.5x of fast parent", bindings[0], .5, .5);
+    }
     const auto place = [&](const auto& model, const char* name, double x, AssetId first,
-                           AssetId next, double next_start) {
+                           AssetId next, double next_start, EntityRef binding) {
         asset_detail::ModelPlacementOptions options;
         options.name = name;
         options.transform.translation = {x, -1.5, 0};
@@ -56,7 +80,7 @@ inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& roo
                            {"component", "forge.animator"},
                            {"values",
                             {{"clip", first},
-                             {"sequence", reference},
+                             {"sequence", binding},
                              {"sequence_next_clip", next},
                              {"sequence_next_start_seconds", next_start},
                              {"playback_speed", 0},
@@ -64,11 +88,11 @@ inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& roo
                              {"root_motion", 0}}}});
     };
     place(locomotion, "Left - Forward to Strafe", -4, locomotion.bindings.at("/animations/0"),
-          locomotion.bindings.at("/animations/1"), .5);
+          locomotion.bindings.at("/animations/1"), .5, bindings[0]);
     place(morphs, "Center - Base to Overlay morphs", 0, morphs.bindings.at("/animations/0"),
-          morphs.bindings.at("/animations/1"), 1.5);
-    place(target, "Right - Rest to mapped Swing", 4, target.bindings.at("/animations/0"), mapped,
-          1);
+          morphs.bindings.at("/animations/1"), 1.5, bindings[1]);
+    place(target, "Right - Rest to mapped Swing", 4, target.bindings.at("/animations/0"), mapped, 1,
+          bindings[2]);
     const auto camera = authoring_command(scene, "entity.create",
                                           {{"recipe", "render.camera"}, {"name", "Game camera"}})
                             .at("selected")
@@ -82,9 +106,9 @@ inline AssetId author_skeletal_sequence_gallery(const std::filesystem::path& roo
             .at("selected")
             .get<std::string>();
     scene.entity(light).set<LocalRotation>({-.2, -.3, 0, .9327379053});
-    scene.save(root / skeletal_sequence_scene_path);
+    scene.save(root / path);
     catalog = AssetCatalog::open_project(root);
-    const auto record = catalog.add_scene(skeletal_sequence_scene_path);
+    const auto record = catalog.add_scene(path);
     catalog.save(AssetCatalog::project_index(root));
     const auto lease = std::make_shared<ProjectLease>(root);
     const std::array roots{record.id};

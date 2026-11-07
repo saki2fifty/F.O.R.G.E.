@@ -3,6 +3,7 @@
 #include <forge/model_asset.hpp>
 namespace forge {
 inline constexpr unsigned skeletal_sequence_runtime_profile_version = 1;
+inline constexpr unsigned sequence_rate_runtime_profile_version = 1;
 struct SkeletonAsset {
     static constexpr const char* type = "skeleton";
 };
@@ -32,6 +33,8 @@ struct AnimationSequence {
     // Optional placement on a parent controller; bound timing comes from its root.
     EntityRef sequence{};
     double sequence_start_seconds = 0;
+    // Local seconds per parent second; standalone playback_speed stays separate.
+    double sequence_rate = 1;
     bool operator==(const AnimationSequence&) const = default;
 };
 // Scene-owned shot arrangement. Selection is derived in copied presentation;

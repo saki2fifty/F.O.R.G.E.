@@ -315,6 +315,32 @@ reflected/material/skeletal crossfades and movie encoding are outside this contr
 profile. [Silent movie export](../sequence-movie-export.md) belongs to the existing
 preview capture owner and does not change controller clocks or simulation authority.
 
+### Independent placement rates
+
+2026-11-07. A dedicated `AnimationSequence.sequence_rate`, default 1, scales local
+seconds per parent second for a bound controller. The retained standalone
+`playback_speed`, `loop` and `play_on_start` values keep their original meaning.
+Rates are positive, within 0.25–4; the cumulative rate from a root must remain
+within 1/64–64. These bounds keep deep finite placements numerically useful within
+the existing duration and controller budgets. A root ignores its stored placement
+rate. No child clock, reverse playback, child looping or repeated placement is added.
+
+The existing provider derives a cumulative rate, root offset and ancestor-clipped
+end. All local sampling uses that mapping, including camera shots and independent
+skeletal/morph clip phases. Sound cue points and skeletal root-motion boundaries
+map back to root time through its inverse. Root seek/restart, complete candidate
+publication, copied local preview and last-good resource admission retain their
+owners. Observed speed includes the cumulative rate; child direct controls reject.
+
+Append the installed value deliberately and rebuild exact matching SDK modules;
+C callback tables remain unchanged. Runtime document/kit profile 1 is required
+when a nondefault rate is stored, including a partial Prefab override. Private recovery 11 wraps its existing
+profile and records all controller placement rates, rejecting changed rates or a
+missing wrapper before adoption. Existing default-rate checkpoints retain their
+previous profiles and meanings. Generic property authoring/history and MCP use the
+same admitted field. The Timeline exposes local placement start and rate together
+and displays the parent-time length as local duration divided by placement rate.
+
 ## Scene-owned UI values through reflected builtin admission
 
 2026-11-03. Optional UiValues joins the existing component-field candidate owner.

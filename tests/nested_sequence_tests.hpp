@@ -174,10 +174,93 @@ void nested_sequence_tests(const std::filesystem::path& root, AssetId motion, As
     check(pair_cold.animation->checkpoint() == pair_checkpoint,
           "Nested pair cold recovery changed selected clips/derived clocks");
 
+    // Placement rates map local seconds through the existing root, independently
+    // of the retained standalone speed/loop intent on both nested controllers.
+    for (const auto rates :
+         std::array<std::array<double, 2>, 5>{{{2, 2}, {.5, 2}, {.25, .25}, {4, 4}, {1.3, .7}}}) {
+        auto rated = source;
+        for (auto& entry : rated["entities"]) {
+            if (entry.at("id") == child)
+                entry["components"]["forge.animation_sequence"]["sequence_rate"] = rates[0];
+            if (entry.at("id") == grand)
+                entry["components"]["forge.animation_sequence"]["sequence_rate"] = rates[1];
+        }
+        Runtime scaled(root, rated);
+        const auto rate = rates[0] * rates[1];
+        const auto start = .5 + .5 / rates[0];
+        const auto end = std::min({4., .5 + 2 / rates[0], start + 1 / rate});
+        for (const double time : {0., .25, .75, 1., 1.25, 2., 3.75, 4.}) {
+            seek(scaled, time);
+            const double local =
+                std::min(1., std::clamp(time - start, 0., std::max(0., end - start)) * rate);
+            near(position(scaled), local * 4);
+            near(scaled.animation->playback(ref(grand))->time, local);
+            near(scaled.animation->playback(ref(grand))->speed, rate);
+            check(AnimationPlaybackAccess::status(*scaled.animation, ref(grand)).at("sequence") ==
+                      Json(ref(child)),
+                  "Live nested status lost its admitted parent controller");
+            check(selected_camera(scaled) ==
+                      EntityId::parse(time >= start && time <= end ? shot_camera : fallback),
+                  "Nested camera did not follow scaled/clipped parent time");
+        }
+        seek(scaled, 1.25);
+        const auto rated_checkpoint = scaled.animation->checkpoint();
+        check(rated_checkpoint.at("version") == 11 &&
+                  rated_checkpoint.at("sequence_rate_profile") == 7,
+              "Placement rate omitted its recovery wrapper");
+        Runtime resumed(root, rated, false);
+        resumed.animation->restore(rated_checkpoint);
+        check(resumed.animation->checkpoint() == rated_checkpoint,
+              "Scaled nested recovery changed clocks or configuration");
+        near(position(resumed), position(scaled));
+        auto bad = rated_checkpoint;
+        for (auto& entry : bad["sequence_entries"])
+            if (entry.at("entity") == Json(ref(child)))
+                entry["sequence_rate"] = 1.;
+        rejects([&] { resumed.animation->restore(bad); });
+        bad = rated_checkpoint;
+        bad["version"] = bad.at("sequence_rate_profile");
+        bad.erase("sequence_rate_profile");
+        rejects([&] { resumed.animation->restore(bad); });
+        near(position(resumed), position(scaled));
+    }
+    for (const double rate : {.25, 4.}) {
+        auto edge = source;
+        for (auto& entry : edge["entities"])
+            if (entry.at("id") == child || entry.at("id") == grand)
+                entry["components"]["forge.animation_sequence"]["sequence_rate"] = rate;
+        auto extra = *std::find_if(edge["entities"].begin(), edge["entities"].end(),
+                                   [&](const Json& row) { return row.at("id") == grand; });
+        const auto extra_id = EntityId::generate();
+        extra["id"] = extra_id;
+        extra["name"] = "Rate boundary";
+        extra["components"]["forge.animation_sequence"].update(
+            {{"sequence", ref(grand)}, {"sequence_start_seconds", 0}, {"sequence_rate", rate}});
+        edge["entities"].push_back(extra);
+        Runtime boundary(root, edge);
+        near(boundary.animation->playback({scene.asset_id(), extra_id})->speed, rate * rate * rate);
+        extra["id"] = EntityId::generate();
+        extra["components"]["forge.animation_sequence"]["sequence"] =
+            EntityRef{scene.asset_id(), extra_id};
+        edge["entities"].push_back(extra);
+        Runtime too_deep(root, edge, false);
+        rejects([&] { too_deep.animation->prepare_initial_pose(); });
+        near(position(too_deep), 99);
+    }
+    for (const double invalid_rate : {0., -.5, .249, 4.001, std::numeric_limits<double>::infinity(),
+                                      std::numeric_limits<double>::quiet_NaN()}) {
+        Runtime invalid(root, source, false);
+        auto config = invalid.scene.entity(child).get<AnimationSequence>();
+        config.sequence_rate = invalid_rate;
+        invalid.scene.entity(child).set(config);
+        rejects([&] { invalid.animation->prepare_initial_pose(); });
+        near(position(invalid), 99);
+    }
+
     // Reference adapters belong to the same Scene/Prefab owner as other native links.
     EngineContext persisted_engine;
     Scene persisted(persisted_engine.world());
-    persisted.reset(source);
+    persisted.reset(changed(child, {{"sequence_rate", 2.}}));
     persisted.reparent_entity(child, parent, ReparentMode::KeepLocal);
     persisted.reparent_entity(grand, child, ReparentMode::KeepLocal);
     for (const auto& id : {actor, lamp, shot_camera, shot})
@@ -200,6 +283,8 @@ void nested_sequence_tests(const std::filesystem::path& root, AssetId motion, As
     const auto verify = [&](const Scene& target, const std::string& instance) {
         const auto inner_id = named(target, "Child", instance);
         const auto leaf_id = named(target, "Grandchild", inner_id);
+        near(target.entity(inner_id).get<AnimationSequence>().sequence_rate, 2);
+        near(target.entity(leaf_id).get<AnimationSequence>().sequence_rate, 1);
         check(target.entity(inner_id).get<AnimationSequence>().sequence ==
                       EntityRef{target.asset_id(), EntityId::parse(instance)} &&
                   target.entity(leaf_id).get<AnimationSequence>().sequence ==
