@@ -272,6 +272,15 @@ The matching sequence SDK probe checks default and 2× children, rejects their d
 controls and repeats exact fresh recovery. Rebuild against the current installed
 headers; do not reuse an older component layout with the new host.
 
+`Animator` and `TransformAnimator` also append default-false `sequence_multiway`.
+Matching installed modules can copy/edit it through their existing typed component
+access. It opts a bound collection into up to eight overlapping phases. C ABI1
+playback records and callback tables stay unchanged: with more than two positive
+contributors, their two clip slots and relative weight are only a dominant/runner
+summary. Full local times/influences are available through the editor/MCP watch.
+The installed-only sequence probe covers both modes, relocated execution and four
+fresh recoveries per scenario. See [layered overlaps](transform-animation.md#layered-clip-overlaps).
+
 Matching C++ code can also read copied rigid-body COM, linear/angular velocity,
 activation and velocity at an absolute world point through the existing Physics
 service during a fixed tick. PostPhysics observes that tick's completed native

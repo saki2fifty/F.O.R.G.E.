@@ -7,6 +7,15 @@ clock, player registry or persistence format is introduced.
 
 ## Values and meaning
 
+For sequence clip collections, default mode preserves the exact adjacent-pair
+clip IDs and weight. An opted-in `sequence_multiway` collection with more than two
+positive contributors uses the same fixed native/C ABI1 slots only as a dominant/
+runner-up summary. `blend_weight` is the runner's normalized share of that pair;
+it cannot reconstruct the full pose. The complete private editor/MCP watch marks
+`summary_only:true` and lists every clip's local time and absolute influence.
+At most two contributors retain the old observations. See
+[layered overlaps](transform-animation.md#layered-clip-overlaps).
+
 Unbound skeletal status describes the selected incoming clip. `time` is its authoritative
 fixed time in seconds, wrapped into the current loop. `duration` is the admitted
 positive clip length. `progress=clamp(time/duration,0,1)`. Looping players never

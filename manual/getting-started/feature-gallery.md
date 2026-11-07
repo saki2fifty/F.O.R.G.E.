@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**190-multiway-sequence-blends** layers eight locomotion, morph and mapped clip
+phases on a four-second controller. Open its Timeline, select a model track and
+use **Layer overlapping clips** with the start fields. Save the Scene before
+export; during Play, expand **Clip placements** to inspect every local time and
+influence. See [Layer overlapping clips](../editor/animation-sequences.md).
+
 **189-controller-placements** repeats the same child controllers at separate times
 under one eight-second root. Open it and press **Play → Game**, or select
 **Eight-second repeated placements** and open its Timeline. The three original

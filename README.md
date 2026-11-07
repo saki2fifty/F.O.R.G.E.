@@ -56,6 +56,10 @@ let child sections run faster or slower while one root controls the arrangement.
 Gallery186 includes direct, morph and mapped animation with fast/slow/nested timing.
 [Eight clips per track](manual/editor/animation-sequences.md#arrange-up-to-eight-clips-on-one-object)
 share the same sequence clock with adjacent overlaps, held gaps and one-step Timeline edits.
+[Layer overlapping clips](manual/editor/animation-sequences.md#layer-more-than-two-overlapping-clips)
+opts into up to eight simultaneous contributors, with complete live influence
+inspection. Gallery190 demonstrates locomotion, morph and mapped poses using the
+same saved clips and source-hidden game export.
 Gallery187 includes direct, morph and mapped arrangements, with the same saved content in exported games.
 Nested controllers can also repeat through their parent with **Loop in parent**.
 Gallery188 demonstrates fast, morph and nested mapped sections; the root retains

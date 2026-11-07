@@ -182,6 +182,27 @@ int main() {
                 }
                 require(status == collection_status && submits == before,
                         "Live collection inspection changed values or sent a playback command");
+                status["sequence_clips"]["multiway"] = true;
+                status["sequence_clips"]["summary_only"] = true;
+                for (unsigned i = 0; i < 8; ++i) {
+                    status["sequence_clips"]["clips"][i]["weight"] = .125;
+                    status["sequence_clips"]["clips"][i]["time_seconds"] = .75;
+                }
+                const auto complete_status = status;
+                frame();
+                frame();
+                require(test::ui_targets.contains("live-animation:summary_only"),
+                        "Live multiway view omitted its two-slot summary label");
+                if (scale == 1 && window_width == 1400) {
+                    click("live-animation:placements");
+                    for (unsigned i = 0; i < 8; ++i)
+                        require(test::ui_targets.contains("live-animation:influence:" +
+                                                          std::to_string(i)),
+                                "Live multiway list omitted a local time/influence");
+                    click("live-animation:placements");
+                }
+                require(status == complete_status && submits == before,
+                        "Multiway live inspection changed values or sent a command");
                 status.erase("sequence_clips");
                 status["sequence_controller"] = true;
                 status["sequence_placements"] = {

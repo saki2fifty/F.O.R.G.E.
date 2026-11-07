@@ -173,6 +173,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                 "this editor");
                         continue;
                     }
+                    if (name == "sequence_mixing") {
+                        require(version.is_number_integer() &&
+                                    version == sequence_mixing_runtime_profile_version,
+                                "Unsupported authored sequence mixing profile");
+                        const auto support = engine.find("runtime_sequence_mixing");
+                        require(support != engine.end() && support->is_number_integer() &&
+                                    *support == sequence_mixing_runtime_profile_version,
+                                "Multiway sequence blends require the runtime kit packaged with "
+                                "this editor");
+                        continue;
+                    }
                     if (name == "sequence_arrangement") {
                         require(version.is_number_integer() &&
                                     version == sequence_arrangement_runtime_profile_version,

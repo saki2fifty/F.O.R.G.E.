@@ -92,7 +92,7 @@ class Sampler {
     std::vector<Matrix> sample_blended(float ratio, Sampler& second, float weight,
                                        std::span<const float> joint_mask = {},
                                        bool additive = false);
-    // At most three normalized absolute layers, sharing the admitted skeleton.
+    // At most eight normalized absolute layers, sharing the admitted skeleton.
     // All layers sample before the one blended local-to-model evaluation.
     std::vector<Matrix> sample_weighted(std::span<const WeightedAnimationSample>);
     // At most32 nodes/8 leaf occurrences/256 joints. Sample each distinct leaf

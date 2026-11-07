@@ -204,6 +204,7 @@ void TransformAnimationPlayback::synchronize() {
                 state.config.sequence_start_seconds != config.sequence_start_seconds ||
                 state.config.sequence_next_clip != config.sequence_next_clip ||
                 state.config.sequence_extra_clips != config.sequence_extra_clips ||
+                state.config.sequence_multiway != config.sequence_multiway ||
                 (config.sequence_next_clip.id &&
                  state.config.sequence_next_start_seconds != config.sequence_next_start_seconds);
             state.requested = config.clip;
@@ -278,7 +279,8 @@ void TransformAnimationPlayback::synchronize() {
                     placements[i + 2] = {config.sequence_extra_clips[i].start_seconds,
                                          double(extra_clips[i].clip->duration)};
                 arrangement = detail::SequenceClipArrangement::make(
-                    std::span(placements).first(config.sequence_extra_clips.size() + 2));
+                    std::span(placements).first(config.sequence_extra_clips.size() + 2),
+                    config.sequence_multiway);
             }
             bool extra_revision_changed =
                 state.extra_clips.size() != config.sequence_extra_clips.size();
@@ -425,7 +427,8 @@ TransformAnimationPlayback::clip_view(const State& state, std::size_t index) con
 detail::SequenceClipArrangement::Sample TransformAnimationPlayback::clip_sample(const State& state,
                                                                                 double time) const {
     if (state.arrangement)
-        return state.arrangement->sample(time);
+        return state.config.sequence_multiway ? state.arrangement->summary(time)
+                                              : state.arrangement->sample(time);
     const bool pair = state.span && state.next_clip;
     return {
         0, pair ? 1u : 0u, std::clamp(time, 0., double(state.clip->duration)),
@@ -434,6 +437,23 @@ detail::SequenceClipArrangement::Sample TransformAnimationPlayback::clip_sample(
         pair ? state.span->next_weight(time) : 0.};
 }
 LocalTransform TransformAnimationPlayback::sample_pose(const State& state, double time) const {
+    if (state.config.sequence_multiway && state.arrangement) {
+        const auto weights = state.arrangement->influences(time);
+        LocalTransform result;
+        double total = 0;
+        for (std::size_t i = 0; i < weights.count; ++i) {
+            const auto weight = weights.weights[i];
+            if (weight == 0)
+                continue;
+            const auto pose =
+                clip_view(state, i).clip.sample(state.arrangement->clip_time_us(i, time));
+            result = total == 0
+                         ? pose
+                         : interpolate_animation_poses(result, pose, weight / (total + weight));
+            total += weight;
+        }
+        return result;
+    }
     const auto sample = clip_sample(state, time);
     const auto first = clip_view(state, sample.primary).clip.sample(sample.primary_us);
     if (sample.weight == 0)
@@ -443,6 +463,33 @@ LocalTransform TransformAnimationPlayback::sample_pose(const State& state, doubl
 }
 AnimationPropertyValues TransformAnimationPlayback::sample_properties(const State& state,
                                                                       double time) const {
+    if (state.config.sequence_multiway && state.arrangement) {
+        const auto weights = state.arrangement->influences(time);
+        const auto strongest = weights.strongest();
+        AnimationPropertyValues result{};
+        double total = 0;
+        for (std::size_t i = 0; i < weights.count; ++i) {
+            if (weights.weights[i] == 0)
+                continue;
+            const auto values = clip_view(state, i).clip.sample_properties(
+                state.arrangement->clip_time_us(i, time));
+            const double alpha = weights.weights[i] / (total + weights.weights[i]);
+            for (const auto& binding : animation_property_bindings()) {
+                if (!(state.clip->properties & animation_property_bit(binding.property)))
+                    continue;
+                const auto index = unsigned(binding.property);
+                if (!animation_property_discrete(binding.property))
+                    // Preserve admitted scalar bounds even when a direct sum of
+                    // convex terms would exceed a saturated limit by one ulp.
+                    result[index] =
+                        total == 0 ? values[index] : std::lerp(result[index], values[index], alpha);
+                else if (i == strongest)
+                    result[index] = values[index];
+            }
+            total += weights.weights[i];
+        }
+        return result;
+    }
     const auto sample = clip_sample(state, time);
     auto first = clip_view(state, sample.primary).clip.sample_properties(sample.primary_us);
     if (sample.weight == 0)
@@ -462,6 +509,30 @@ AnimationPropertyValues TransformAnimationPlayback::sample_properties(const Stat
 }
 void TransformAnimationPlayback::sample_materials(const State& state, double time,
                                                   std::span<AnimationMaterialValues> output) const {
+    if (state.config.sequence_multiway && state.arrangement) {
+        const auto weights = state.arrangement->influences(time);
+        std::fill(output.begin(), output.end(), AnimationMaterialValues{});
+        std::array<AnimationMaterialValues, material_parameter_override_limit> incoming{};
+        double total = 0;
+        for (std::size_t layer = 0; layer < weights.count; ++layer) {
+            if (weights.weights[layer] == 0)
+                continue;
+            const auto view = clip_view(state, layer);
+            const double alpha = weights.weights[layer] / (total + weights.weights[layer]);
+            view.clip.sample_materials(state.arrangement->clip_time_us(layer, time),
+                                       std::span(incoming).first(output.size()));
+            for (std::size_t i = 0; i < output.size(); ++i)
+                for (unsigned lane = 0;
+                     lane < material_parameter_width(state.clip->material_bindings[i].type);
+                     ++lane) {
+                    const double value =
+                        incoming[view.material_order.empty() ? i : view.material_order[i]][lane];
+                    output[i][lane] = total == 0 ? value : std::lerp(output[i][lane], value, alpha);
+                }
+            total += weights.weights[layer];
+        }
+        return;
+    }
     const auto sample = clip_sample(state, time);
     const auto first = clip_view(state, sample.primary);
     if (first.material_order.empty())
@@ -488,6 +559,35 @@ void TransformAnimationPlayback::sample_materials(const State& state, double tim
 }
 void TransformAnimationPlayback::sample_components(const State& state, double time,
                                                    std::span<Json> output) const {
+    if (state.config.sequence_multiway && state.arrangement) {
+        const auto weights = state.arrangement->influences(time);
+        const auto strongest = weights.strongest();
+        std::fill(output.begin(), output.end(), Json(0.));
+        std::array<Json, 64> incoming;
+        double total = 0;
+        for (std::size_t layer = 0; layer < weights.count; ++layer) {
+            if (weights.weights[layer] == 0)
+                continue;
+            const auto view = clip_view(state, layer);
+            const double alpha = weights.weights[layer] / (total + weights.weights[layer]);
+            view.clip.sample_component_values(state.arrangement->clip_time_us(layer, time),
+                                              std::span(incoming).first(output.size()));
+            for (std::size_t i = 0; i < output.size(); ++i) {
+                const auto& value =
+                    incoming[view.component_order.empty() ? i : view.component_order[i]];
+                if (state.clip->component_bindings[i].value_type ==
+                    AnimationComponentValueType::Scalar)
+                    output[i] =
+                        total == 0
+                            ? value
+                            : Json(std::lerp(output[i].get<double>(), value.get<double>(), alpha));
+                else if (layer == strongest)
+                    output[i] = value;
+            }
+            total += weights.weights[layer];
+        }
+        return;
+    }
     const auto sample = clip_sample(state, time);
     const auto first = clip_view(state, sample.primary);
     if (first.component_order.empty())
@@ -871,7 +971,7 @@ Json TransformAnimationPlayback::extra_clips_checkpoint(const State& state) cons
                           {"revision", state.extra_clips[i].clip.identity().revision}});
     return result;
 }
-Json TransformAnimationPlayback::checkpoint() const {
+Json TransformAnimationPlayback::checkpoint(bool mixing) const {
     if (!checkpoint_ready())
         throw std::runtime_error("Transform animation is not ready for recovery");
     auto result = Json::array();
@@ -894,6 +994,8 @@ Json TransformAnimationPlayback::checkpoint() const {
         }
         if (state.arrangement)
             value["sequence_extra_clips"] = extra_clips_checkpoint(state);
+        if (mixing)
+            value["sequence_multiway"] = state.config.sequence_multiway;
         result.push_back(std::move(value));
     }
     return result;
@@ -901,7 +1003,7 @@ Json TransformAnimationPlayback::checkpoint() const {
 void TransformAnimationPlayback::restore(const Json& values) { restore(values, Json::array()); }
 void TransformAnimationPlayback::restore(const Json& values, const Json& sequences,
                                          unsigned profile, bool rates, bool arrangements,
-                                         bool loops, bool placements) {
+                                         bool loops, bool placements, bool mixing) {
     const bool audio_entries = profile >= 5;
     const bool nested_entries = profile >= 7;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
@@ -987,6 +1089,11 @@ void TransformAnimationPlayback::restore(const Json& values, const Json& sequenc
             !states_.contains(resolved.entity))
             throw std::runtime_error("Unresolved transform animation recovery target");
         const auto& state = states_.at(resolved.entity);
+        if (mixing ? (!value.contains("sequence_multiway") ||
+                      !value.at("sequence_multiway").is_boolean() ||
+                      value.at("sequence_multiway") != state.config.sequence_multiway)
+                   : (state.config.sequence_multiway || value.contains("sequence_multiway")))
+            throw std::runtime_error("Sequence mixing recovery configuration differs");
         const double time = value.at("time_us");
         if (!state.clip || value.at("clip") != Json(state.config.clip.id) ||
             value.at("revision") != state.clip.identity().revision || !std::isfinite(time) ||

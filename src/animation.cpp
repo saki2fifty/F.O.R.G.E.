@@ -142,7 +142,9 @@ Sampler* sequence_clip_sampler(Playback& p, std::size_t index) {
 }
 detail::SequenceClipArrangement::Sample sequence_clip_sample(const Playback& p, double time) {
     if (p.sequence_arrangement)
-        return p.sequence_arrangement->sample(time * animation_timebase);
+        return p.config.sequence_multiway
+                   ? p.sequence_arrangement->summary(time * animation_timebase)
+                   : p.sequence_arrangement->sample(time * animation_timebase);
     const auto [first, next] = sequence_clip_times(p, time);
     return {0, p.sequence_span ? 1u : 0u, first * animation_timebase, next * animation_timebase,
             sequence_track_weight(p, time)};
@@ -310,6 +312,8 @@ std::optional<std::size_t> root_joint(const Playback& p) {
     return selected;
 }
 std::size_t evaluated_joints(const Playback& p) {
+    if (p.config.sequence_multiway && p.sequence_arrangement)
+        return p.assets.skeleton->info().tracks * p.sequence_arrangement->size();
     if (p.graph)
         return p.assets.skeleton->info().tracks * p.graph->graph.nodes.size();
     if (p.space && p.space->space.dimensions == 2)
@@ -395,6 +399,23 @@ MorphPose sample_morphs(const Playback& p, double time, double blend, double out
     if (!p.assets.model || p.morph_defaults.empty())
         return {};
     if (p.sequence) {
+        if (p.config.sequence_multiway && p.sequence_arrangement) {
+            const auto& arrangement = *p.sequence_arrangement;
+            const auto weights = arrangement.influences(time * animation_timebase);
+            MorphPose result;
+            double total = 0;
+            for (std::size_t i = 0; i < weights.count; ++i) {
+                const auto weight = weights.weights[i];
+                if (weight == 0)
+                    continue;
+                const auto pose = sequence_clip_assets(p, i).model.clip->morphs->sample(
+                    arrangement.clip_time_us(i, time * animation_timebase) / animation_timebase);
+                result =
+                    blend_morph_samples(p.morph_defaults, result, pose, weight / (total + weight));
+                total += weight;
+            }
+            return result;
+        }
         const auto sample = sequence_clip_sample(p, time);
         const auto& primary = sequence_clip_assets(p, sample.primary);
         const auto& secondary = sequence_clip_assets(p, sample.next);
@@ -496,16 +517,19 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
                         bool apply_constraints = true,
                         const std::vector<LocalPoseOverride>* base = nullptr) {
     std::unique_ptr<Sampler> first, second, third;
+    std::array<std::unique_ptr<Sampler>, sequence_clip_limit> sequence_temporary;
+    const bool multiway = p.sequence && p.config.sequence_multiway && p.sequence_arrangement;
     const auto sequence_sample =
         p.sequence ? sequence_clip_sample(p, time) : detail::SequenceClipArrangement::Sample{};
     const auto& primary_assets =
-        p.sequence ? sequence_clip_assets(p, sequence_sample.primary) : p.assets;
+        p.sequence && !multiway ? sequence_clip_assets(p, sequence_sample.primary) : p.assets;
     const auto& secondary_assets = p.sequence && p.sequence_span
                                        ? sequence_clip_assets(p, sequence_sample.next)
                                        : p.blend_assets;
-    auto* sampler =
-        p.sequence ? sequence_clip_sampler(p, sequence_sample.primary) : p.sampler.get();
-    auto* blend_sampler = p.sequence && p.sequence_span
+    auto* sampler = p.sequence && !multiway ? sequence_clip_sampler(p, sequence_sample.primary)
+                                            : p.sampler.get();
+    auto* blend_sampler = multiway ? nullptr
+                          : p.sequence && p.sequence_span
                               ? sequence_clip_sampler(p, sequence_sample.next)
                               : p.blend_sampler.get();
     auto* third_sampler = p.third_sampler.get();
@@ -513,7 +537,7 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
     if (temporary) {
         first = std::make_unique<Sampler>(p.assets.skeleton, primary_assets.clip);
         sampler = first.get();
-        if (secondary_assets.clip) {
+        if (!multiway && secondary_assets.clip) {
             second = std::make_unique<Sampler>(p.assets.skeleton, secondary_assets.clip);
             blend_sampler = second.get();
         }
@@ -530,7 +554,25 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
     const auto ratio = float(std::clamp(time / playback_duration(p), 0., 1.));
     std::vector<Matrix> model;
     std::optional<LocalPose> outgoing_root;
-    if (p.sequence) {
+    if (multiway) {
+        const auto& arrangement = *p.sequence_arrangement;
+        const auto weights = arrangement.influences(time * animation_timebase);
+        std::array<WeightedAnimationSample, sequence_clip_limit> layers{};
+        for (std::size_t i = 0; i < weights.count; ++i) {
+            auto* layer = i == 0 ? sampler : sequence_clip_sampler(p, i);
+            if (temporary && i > 0) {
+                sequence_temporary[i] =
+                    std::make_unique<Sampler>(p.assets.skeleton, sequence_clip_assets(p, i).clip);
+                layer = sequence_temporary[i].get();
+            }
+            layer->root_motion_joint(joint);
+            layers[i] = {layer,
+                         float(arrangement.clip_time_us(i, time * animation_timebase) /
+                               arrangement.clip_duration_us(i)),
+                         float(weights.weights[i])};
+        }
+        model = sampler->sample_weighted(std::span(layers).first(weights.count));
+    } else if (p.sequence) {
         const auto first_ratio = float(sequence_sample.primary_us / animation_timebase /
                                        primary_assets.clip->info().duration);
         if (blend_sampler) {
@@ -672,6 +714,34 @@ RootRigid sequence_root_motion(Playback& p, std::size_t joint,
                 const auto from = track_time(points[i - 1]), to = track_time(points[i]);
                 if (from == to)
                     continue;
+                const auto motion = [&](std::size_t index, double begin_us, double end_us) {
+                    return begin_us == end_us
+                               ? RootRigid{}
+                               : layer_motion(p, sequence_clip_assets(p, index), joint,
+                                              begin_us / animation_timebase,
+                                              (end_us - begin_us) / animation_timebase, false,
+                                              end_us / animation_timebase, {});
+                };
+                if (p.config.sequence_multiway && p.sequence_arrangement) {
+                    const auto& arrangement = *p.sequence_arrangement;
+                    const auto weights = arrangement.average_influences(from * animation_timebase,
+                                                                        to * animation_timebase);
+                    RootRigid delta;
+                    double total = 0;
+                    for (std::size_t layer = 0; layer < weights.count; ++layer) {
+                        const auto weight = weights.weights[layer];
+                        if (weight == 0)
+                            continue;
+                        const auto incoming = motion(
+                            layer, arrangement.clip_time_us(layer, from * animation_timebase),
+                            arrangement.clip_time_us(layer, to * animation_timebase));
+                        delta = total == 0 ? incoming
+                                           : root_blend(delta, incoming, weight / (total + weight));
+                        total += weight;
+                    }
+                    result = root_compose(result, delta);
+                    continue;
+                }
                 auto first = sequence_clip_sample(p, from);
                 auto last = sequence_clip_sample(p, to);
                 if (p.sequence_arrangement) {
@@ -682,14 +752,6 @@ RootRigid sequence_root_motion(Playback& p, std::size_t joint,
                         p.sequence_arrangement->sample_window(window, from * animation_timebase);
                     last = p.sequence_arrangement->sample_window(window, to * animation_timebase);
                 }
-                const auto motion = [&](std::size_t index, double begin_us, double end_us) {
-                    return begin_us == end_us
-                               ? RootRigid{}
-                               : layer_motion(p, sequence_clip_assets(p, index), joint,
-                                              begin_us / animation_timebase,
-                                              (end_us - begin_us) / animation_timebase, false,
-                                              end_us / animation_timebase, {});
-                };
                 auto delta = motion(first.primary, first.primary_us, last.primary_us);
                 if (p.sequence_span) {
                     const auto next = motion(first.next, first.next_us, last.next_us);
@@ -912,6 +974,11 @@ struct AnimationRuntime::Impl {
                std::any_of(states.begin(), states.end(), [](const auto& value) {
                    return bool(value.second.sequence_arrangement);
                });
+    }
+    bool has_sequence_mixing() const {
+        return transforms.has_sequence_mixing() ||
+               std::any_of(states.begin(), states.end(),
+                           [](const auto& value) { return value.second.config.sequence_multiway; });
     }
     std::optional<AnimationPlayback> skeletal_playback(EntityRef reference) const {
         if (!context.on_owner_thread())
@@ -1657,7 +1724,8 @@ struct AnimationRuntime::Impl {
                 p.sequence_extras.push_back({std::move(*extra), std::move(sampler)});
             }
             p.sequence_arrangement = detail::SequenceClipArrangement::make(
-                std::span(placements).first(p.sequence_extras.size() + 2));
+                std::span(placements).first(p.sequence_extras.size() + 2),
+                p.config.sequence_multiway);
         }
         return true;
     }
@@ -2678,6 +2746,7 @@ struct AnimationRuntime::Impl {
                            old->second.config.sequence_next_start_seconds ==
                                config.sequence_next_start_seconds &&
                            old->second.config.sequence_extra_clips == config.sequence_extra_clips &&
+                           old->second.config.sequence_multiway == config.sequence_multiway &&
                            !old->second.definition && !old->second.space && !old->second.graph) {
                     if (old->second.config.enabled != config.enabled ||
                         old->second.config.root_motion != config.root_motion ||
@@ -3169,6 +3238,19 @@ Json AnimationPlaybackAccess::status(AnimationRuntime& runtime, EntityRef ref, P
                     clips["clips"] = Json::array();
                     for (std::size_t i = 0; i < p.sequence_arrangement->size(); ++i)
                         clips["clips"].push_back(describe(i));
+                    if (p.config.sequence_multiway) {
+                        clips["multiway"] = true;
+                        clips["summary_only"] = sample.summary_only;
+                        const auto weights =
+                            p.sequence_arrangement->influences(value->time * animation_timebase);
+                        for (std::size_t i = 0; i < weights.count; ++i) {
+                            clips["clips"][i]["weight"] = weights.weights[i];
+                            clips["clips"][i]["time_seconds"] =
+                                p.sequence_arrangement->clip_time_us(i, value->time *
+                                                                            animation_timebase) /
+                                animation_timebase;
+                        }
+                    }
                 } else if (p.sequence_span)
                     clips["next"] = {{"clip", p.config.sequence_next_clip.id},
                                      {"start_seconds", p.config.sequence_next_start_seconds},
@@ -3538,6 +3620,7 @@ Json AnimationRuntime::checkpoint() const {
         throw ArchiveError("Cannot checkpoint an Animator with invalid asset configuration");
     if (impl_ && !impl_->binding_errors.empty())
         throw ArchiveError("Cannot checkpoint an Animator with invalid model instance binding");
+    const bool mixing = impl_ && impl_->has_sequence_mixing();
     auto entries = Json::array();
     std::optional<ApplicationStateActivation> conditions;
     if (impl_)
@@ -3573,6 +3656,8 @@ Json AnimationRuntime::checkpoint() const {
                 entries.back().erase("blend");
                 entries.back()["sequence"] = sequence_binding_checkpoint(p);
             }
+            if (mixing)
+                entries.back()["sequence_multiway"] = p.config.sequence_multiway;
             if (p.graph)
                 entries.back()["graph"] = graph_checkpoint(p);
             if (p.space) {
@@ -3618,7 +3703,7 @@ Json AnimationRuntime::checkpoint() const {
         {"version", 3},
         {"entries", entries},
         {"sequence_entries", impl_ ? impl_->transforms.sequence_checkpoint() : Json::array()},
-        {"transform_entries", impl_ ? impl_->transforms.checkpoint() : Json::array()}};
+        {"transform_entries", impl_ ? impl_->transforms.checkpoint(mixing) : Json::array()}};
     if (impl_) {
         auto shots = impl_->transforms.camera_shots_checkpoint();
         if (!shots.empty()) {
@@ -3682,24 +3767,44 @@ Json AnimationRuntime::checkpoint() const {
         result["version"] = 14;
         result["sequence_entries"] = impl_->transforms.sequence_checkpoint(7, true, true, true);
     }
+    if (mixing) {
+        result["sequence_mixing_profile"] = result.at("version").get<unsigned>();
+        result["version"] = 15;
+    }
     return result;
 }
 void AnimationRuntime::restore(const Json& input) {
     if (!impl_)
         throw ArchiveError("Animation runtime is unavailable");
     std::optional<Json> normalized;
-    const bool placement_profile = input.at("version") == 14;
-    if (placement_profile) {
+    const bool mixing_profile = input.at("version") == 15;
+    if (mixing_profile) {
         if (!input.at("version").is_number_integer() ||
-            !input.contains("sequence_placement_profile") ||
-            !input.at("sequence_placement_profile").is_number_unsigned() ||
-            input.at("sequence_placement_profile").get<unsigned>() < 7 ||
-            input.at("sequence_placement_profile").get<unsigned>() > 13)
-            throw ArchiveError("Repeated sequence placement recovery profile is invalid");
+            !input.contains("sequence_mixing_profile") ||
+            !input.at("sequence_mixing_profile").is_number_unsigned() ||
+            input.at("sequence_mixing_profile").get<unsigned>() < 3 ||
+            input.at("sequence_mixing_profile").get<unsigned>() > 14)
+            throw ArchiveError("Sequence mixing recovery profile is invalid");
         normalized = input;
-        normalized->at("version") = input.at("sequence_placement_profile");
+        normalized->at("version") = input.at("sequence_mixing_profile");
+        normalized->erase("sequence_mixing_profile");
+    } else if (input.contains("sequence_mixing_profile"))
+        throw ArchiveError("Unexpected sequence mixing recovery profile");
+    const auto& placement_input = normalized ? *normalized : input;
+    const bool placement_profile = placement_input.at("version") == 14;
+    if (placement_profile) {
+        if (!placement_input.at("version").is_number_integer() ||
+            !placement_input.contains("sequence_placement_profile") ||
+            !placement_input.at("sequence_placement_profile").is_number_unsigned() ||
+            placement_input.at("sequence_placement_profile").get<unsigned>() < 7 ||
+            placement_input.at("sequence_placement_profile").get<unsigned>() > 13)
+            throw ArchiveError("Repeated sequence placement recovery profile is invalid");
+        const auto underlying = placement_input.at("sequence_placement_profile");
+        if (!normalized)
+            normalized = placement_input;
+        normalized->at("version") = underlying;
         normalized->erase("sequence_placement_profile");
-    } else if (input.contains("sequence_placement_profile"))
+    } else if (placement_input.contains("sequence_placement_profile"))
         throw ArchiveError("Unexpected repeated sequence placement recovery profile");
     const auto& loop_input = normalized ? *normalized : input;
     const bool loop_profile = loop_input.at("version") == 13;
@@ -3919,6 +4024,11 @@ void AnimationRuntime::restore(const Json& input) {
             }
         }
         auto& p = *selected;
+        if (mixing_profile ? (!entry.contains("sequence_multiway") ||
+                              !entry.at("sequence_multiway").is_boolean() ||
+                              entry.at("sequence_multiway") != p.config.sequence_multiway)
+                           : (p.config.sequence_multiway || entry.contains("sequence_multiway")))
+            throw ArchiveError("Sequence mixing recovery configuration differs");
         if (p.graph) {
             if (!graph_profile || !entry.contains("graph") ||
                 entry.at("graph") != graph_checkpoint(p))
@@ -4099,7 +4209,9 @@ void AnimationRuntime::restore(const Json& input) {
     std::size_t recovered_joints = 0;
     for (const auto& value : values) {
         const auto& p = *value.playback;
-        const auto layers = p.space && p.space->space.dimensions == 2 ? p.space_selection.count
+        const auto layers = p.config.sequence_multiway && p.sequence_arrangement
+                                ? p.sequence_arrangement->size()
+                            : p.space && p.space->space.dimensions == 2 ? p.space_selection.count
                             : (p.blend_sampler || (p.definition && value.blend < 1)) ? 2
                                                                                      : 1;
         recovered_joints += p.assets.skeleton->info().tracks * layers;
@@ -4115,6 +4227,8 @@ void AnimationRuntime::restore(const Json& input) {
     }
     if (arrangement_profile != impl_->has_sequence_arrangements())
         throw ArchiveError("Sequence collection recovery does not match admitted players");
+    if (mixing_profile != impl_->has_sequence_mixing())
+        throw ArchiveError("Sequence mixing recovery does not match admitted players");
     // Validate recovered channel values and instance scopes with temporary
     // samplers before replacing any playback state or mutating the world.
     auto swap_sources = [&] {
@@ -4144,7 +4258,7 @@ void AnimationRuntime::restore(const Json& input) {
     impl_->transforms.restore(data.value("transform_entries", Json::array()),
                               data.at("version") >= 3 ? data.at("sequence_entries") : Json::array(),
                               sequence_profile, rate_profile, arrangement_profile, loop_profile,
-                              placement_profile);
+                              placement_profile, mixing_profile);
     for (auto& value : values) {
         auto& p = *value.playback;
         const auto time = value.time;

@@ -171,6 +171,55 @@ This decision defines the implementation contract. Completion requires the nativ
 Timeline/Inspector, copied preview, automation/MCP, installed SDK, recovery and
 source-hidden export checks specified by the affected subsystem documentation.
 
+## Ordered multiway clip overlaps — accepted additive design
+
+2026-11-07. Append default-false `sequence_multiway` to TransformAnimator and
+Animator. It opts a bound clip collection into up to eight simultaneous contributors;
+the existing maximum of eight clips, ordered starts/ends and complete resource
+admission remain. False preserves the prior adjacent-pair profile, including triple
+overlap rejection and observed identities. Unbound values are retained and ignored.
+This extends one player-owned candidate; it adds no clock, placement identity,
+animation asset kind, independent pose writer or arbitration manager.
+
+Each adjacent pair keeps its current natural-overlap linear fade, or a cut after a
+gap. In clip order, an incoming fade overlays the earlier accumulated contribution.
+Thus the first influence is the product of every later one-minus-fade; each later
+influence is its own fade times those later factors. Nonnegative influences sum to
+one. Every clip samples at its independently clamped local phase. Holds, cuts and
+reset snapping retain their current timing owner. Admit all selected resources and
+bindings even when their current influence is zero.
+
+Continuous scalar/property/Material/reflected values use the normalized influences;
+rotation and skeletal poses use their established component-specific interpolation
+owners. Held discrete values choose the greatest influence, with the later clip
+winning a tie, preserving exact typed integer/Boolean values. Extend the existing
+native weighted sampler's FORGE-owned three-layer bound to eight through the same
+pinned public blending API and existing per-placement sampling contexts.
+
+Root-motion integration keeps the existing reset/root-loop and per-layer interval
+owners. Split at every clip boundary and average each influence analytically over
+the interval's product of linear fades. This reduces to the previous endpoint mean
+for a pair; no reset motion or presentation extraction is added. Use bounded inline
+polynomial storage and preflight limits before iteration or integer conversion.
+
+The complete private editor/MCP watch exposes ordered clip identities, local times
+and influences. Existing two-slot native/SDK fields remain exact for the old pair
+profile. With more than two contributors they provide only a clearly documented
+dominant/runner-up summary and relative pair influence, not a complete pose recipe.
+The complete watch marks that summary and exposes every contributor. Do not change
+C ABI1 records or callback tables to disguise this observation limit. Matching SDK
+modules can author/control the opt-in values and use the existing motion controls.
+
+Private recovery15 wraps its prior3–14 profile and validates exact opt-in flags and
+all selected revisions before adoption. Runtime document/kit capability
+`sequence_mixing:1` / `runtime_sequence_mixing:1` guards stored true flags, including
+partial Prefab overrides and unbound retained settings. Source/cook formats stay
+unchanged; native value changes require the matching rebuilt SDK. Timeline pending
+fields, Scene/Prefab/history, read-only live status, automation/MCP, native/SDK,
+recovery and an original source-hidden Gallery must pass together before completion.
+This bounded ordered profile does not claim arbitrary unbounded arrangements or
+concurrent/multi-parent controller writers.
+
 The existing Game viewport also consumes stopped sequence preview. Its explicit
 preview label and absent gameplay/runtime-UI execution preserve the authoring/Play
 boundary. The camera-shot extension adds cuts; the preview-frame consumer below

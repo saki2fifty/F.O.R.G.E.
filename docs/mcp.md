@@ -1153,15 +1153,30 @@ other required binding fields in one candidate; it uses the same revision, repla
 permission, Undo/Redo and document Save owners. Clearing the sequence or next clip
 requires clearing this list in the same transaction. Source admission validates
 references/count/ordered starts; resource preparation additionally validates every
-clip's channels, target/skeleton/model compatibility, ordered ends and at most two
-adjacent contributions. A valid source list is not proof of runtime admission.
+clip's channels, target/skeleton/model compatibility and ordered ends. Default mode
+admits two adjacent contributions; `sequence_multiway:true` opts into up to eight. A valid source list is not proof of runtime admission.
 
-For admitted nonempty lists, `sequence_clips.clips` describes the complete ordered
+For default-mode admitted nonempty lists, `sequence_clips.clips` describes the complete ordered
 list, with zero-based `active_primary` and `active_next`. Existing public clip/blend
 identities and weight describe that active pair; track time/duration describe the
 whole span. Mixed holders retain typed `players` observations. The parent controller
 still owns Play operations; there is no independent placement clock or mutation
 endpoint. See [bounded collections](transform-animation.md#bounded-clip-collections).
+
+For multiway clip overlaps, set Boolean `sequence_multiway` through the same
+player schema, optionally with starts/list edits in one `forge_property_set_many`.
+Its default is false; wrong types reject without revision/history changes. Save
+and Prefab operations preserve it through the existing Scene owner. Resource
+admission must still validate the complete selected clip set.
+
+An enabled nonempty collection's watch adds `multiway:true` and `summary_only`;
+each ordered `sequence_clips.clips` entry includes local `time_seconds` and a
+normalized `weight`. More than two positive contributors make the legacy
+clip/next/weight fields a dominant/runner-up summary, with relative pair influence.
+Use the complete list to inspect the actual blend. The read-only Inspector names
+that limit explicitly. Generic source and Play tools cover this workflow without
+a separate agent-owned animation implementation. Exact flag recovery15 and the
+matching runtime-kit requirement apply; see [layered overlap semantics](transform-animation.md#layered-clip-overlaps).
 
 Nested controllers use `forge_property_set_many` on `forge.animation_sequence`:
 `sequence` selects the parent, `sequence_start_seconds` is the start in parent

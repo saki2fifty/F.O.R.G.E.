@@ -3,6 +3,7 @@
 #include <bit>
 #include <cmath>
 #include <cstring>
+#include <forge/animation_components.hpp>
 #include <forge/animation_graph.hpp>
 #include <forge/transform.hpp>
 #include <ozz/animation/runtime/animation.h>
@@ -312,8 +313,8 @@ std::vector<Matrix> Sampler::sample_blended(float ratio, Sampler& second, float 
     return evaluate_model();
 }
 std::vector<Matrix> Sampler::sample_weighted(std::span<const WeightedAnimationSample> samples) {
-    if (samples.empty() || samples.size() > 3 || samples.front().sampler != this)
-        throw ArchiveError("Weighted animation sampling requires one to three layers");
+    if (samples.empty() || samples.size() > sequence_clip_limit || samples.front().sampler != this)
+        throw ArchiveError("Weighted animation sampling requires one to eight layers");
     double total = 0;
     for (std::size_t i = 0; i < samples.size(); ++i) {
         const auto& layer = samples[i];
@@ -330,7 +331,7 @@ std::vector<Matrix> Sampler::sample_weighted(std::span<const WeightedAnimationSa
         throw ArchiveError("Weighted animation influences must sum to one");
     if (samples.size() == 1)
         return sample(samples.front().ratio);
-    std::array<ozz::animation::BlendingJob::Layer, 3> layers{};
+    std::array<ozz::animation::BlendingJob::Layer, sequence_clip_limit> layers{};
     for (std::size_t i = 0; i < samples.size(); ++i) {
         samples[i].sampler->sample_local(samples[i].ratio);
         layers[i] = {samples[i].weight, ozz::make_span(samples[i].sampler->impl_->local), {}};

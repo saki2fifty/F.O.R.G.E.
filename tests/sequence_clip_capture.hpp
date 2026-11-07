@@ -4,6 +4,7 @@ enum class SequenceCapture {
     Nested,
     ChildLoops,
     ControllerPlacements,
+    Multiway,
     CameraTransition,
     Properties,
     Bindings
@@ -14,6 +15,7 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
                            SequenceCapture profile = SequenceCapture::Transforms) {
     const bool child_loops = profile == SequenceCapture::ChildLoops;
     const bool placements = profile == SequenceCapture::ControllerPlacements;
+    const bool multiway = profile == SequenceCapture::Multiway;
     const bool nested = profile == SequenceCapture::Nested || child_loops || placements;
     const bool camera_transition = profile == SequenceCapture::CameraTransition;
     const bool property_pair = profile == SequenceCapture::Properties;
@@ -26,10 +28,13 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
     if (placements && !std::filesystem::exists(root / test::sequence_placement_scene_path))
         test::author_skeletal_sequence_gallery(root,
                                                test::SequenceGalleryProfile::ControllerPlacements);
+    if (multiway && !std::filesystem::exists(root / test::sequence_multiway_scene_path))
+        test::author_skeletal_sequence_gallery(root, test::SequenceGalleryProfile::Multiway);
     if (!SDL_Init(SDL_INIT_VIDEO))
         throw std::runtime_error(SDL_GetError());
     {
-        const int height = placements          ? 1700
+        const int height = multiway            ? 1900
+                           : placements        ? 1700
                            : child_loops       ? 1200
                            : camera_transition ? 1400
                            : nested            ? 1300
@@ -40,7 +45,8 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
         Scene scene(engine.world());
         SceneDocument project(scene);
         project.open_project(root);
-        project.open_scene(placements      ? test::sequence_placement_scene_path
+        project.open_scene(multiway        ? test::sequence_multiway_scene_path
+                           : placements    ? test::sequence_placement_scene_path
                            : child_loops   ? test::sequence_child_loop_scene_path
                            : binding_pair  ? "Scenes/184-sequence-binding-crossfades.scene.json"
                            : property_pair ? "Scenes/183-sequence-property-crossfades.scene.json"
@@ -64,6 +70,9 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
                                     row.value("name", std::string()).starts_with("Fast repeating")))
                     actor = row.at("id").get<std::string>();
             }
+            if (multiway && row.at("components").contains("forge.animator") &&
+                row.at("name").get<std::string>().starts_with("Center"))
+                actor = row.at("id").get<std::string>();
             if (camera_transition && row.at("components").contains("forge.camera_shot") &&
                 row.at("components").at("forge.camera_shot").at("start_seconds") == 2)
                 actor = row.at("id").get<std::string>();
@@ -157,7 +166,7 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
         input.click(((camera_transition ? "sequence:shot:"
                       : nested          ? "sequence:nested:"
                                         : "sequence:track:") +
-                     actor)
+                     actor + (multiway ? ":skeletal" : ""))
                         .c_str());
         for (unsigned i = 0; i < 4; ++i)
             frame();
@@ -179,6 +188,15 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
         };
         for (const char* key : controls)
             require_visible(key);
+        if (multiway) {
+            require_visible("sequence:multiway");
+            require_visible("sequence:apply_start");
+            require_visible("sequence:extra_start:0");
+            require_visible("sequence:extra_start:5");
+            check(scene.entity(actor).get<Animator>().sequence_multiway &&
+                      editor.frame_export_ready(),
+                  "Multiway capture lost its saved overlap mode or introduced pending edits");
+        }
         if (placements)
             for (const char* key :
                  {"sequence:nested_extra_start:0", "sequence:nested_extra_rate:0",

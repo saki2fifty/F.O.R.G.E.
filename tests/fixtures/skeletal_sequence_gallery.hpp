@@ -15,7 +15,16 @@ inline constexpr auto sequence_collection_scene_path =
     "Scenes/187-sequence-clip-collections.scene.json";
 inline constexpr auto sequence_child_loop_scene_path = "Scenes/188-child-sequence-loops.scene.json";
 inline constexpr auto sequence_placement_scene_path = "Scenes/189-controller-placements.scene.json";
-enum class SequenceGalleryProfile { Direct, Rates, Collections, ChildLoops, ControllerPlacements };
+inline constexpr auto sequence_multiway_scene_path =
+    "Scenes/190-multiway-sequence-blends.scene.json";
+enum class SequenceGalleryProfile {
+    Direct,
+    Rates,
+    Collections,
+    ChildLoops,
+    ControllerPlacements,
+    Multiway
+};
 inline const char* sequence_gallery_path(SequenceGalleryProfile profile) {
     switch (profile) {
     case SequenceGalleryProfile::Direct:
@@ -28,6 +37,8 @@ inline const char* sequence_gallery_path(SequenceGalleryProfile profile) {
         return sequence_child_loop_scene_path;
     case SequenceGalleryProfile::ControllerPlacements:
         return sequence_placement_scene_path;
+    case SequenceGalleryProfile::Multiway:
+        return sequence_multiway_scene_path;
     }
     throw std::runtime_error("Unknown skeletal sequence Gallery profile");
 }
@@ -37,7 +48,8 @@ author_skeletal_sequence_gallery(const std::filesystem::path& root,
     const bool placement_rates = profile == SequenceGalleryProfile::Rates,
                collections = profile == SequenceGalleryProfile::Collections,
                child_loops = profile == SequenceGalleryProfile::ChildLoops,
-               placements = profile == SequenceGalleryProfile::ControllerPlacements;
+               placements = profile == SequenceGalleryProfile::ControllerPlacements,
+               multiway = profile == SequenceGalleryProfile::Multiway;
     const auto path = sequence_gallery_path(profile);
     if (std::filesystem::exists(root / path))
         throw std::runtime_error("Skeletal sequence Gallery already exists");
@@ -62,7 +74,8 @@ author_skeletal_sequence_gallery(const std::filesystem::path& root,
     const auto controller =
         authoring_command(scene, "entity.create",
                           {{"recipe", "animation.sequence"},
-                           {"name", placements    ? "Eight-second repeated placements"
+                           {"name", multiway      ? "Four-second layered clip overlaps"
+                                    : placements  ? "Eight-second repeated placements"
                                     : child_loops ? "Eight-second repeating sections"
                                     : collections ? "Sixteen-second clip collection"
                                                   : "Four-second shared sequence"}})
@@ -158,30 +171,39 @@ author_skeletal_sequence_gallery(const std::filesystem::path& root,
                              {"playback_speed", 0},
                              {"play_on_start", false},
                              {"root_motion", 0}}}});
-        if (collections) {
+        if (collections || multiway) {
             auto extras = Json::array();
             for (std::size_t i = 2; i < sequence_clip_limit; ++i)
                 extras.push_back(
                     {{"clip", i % 2 ? next : first}, {"start_seconds", i * next_start}});
-            authoring_command(scene, "property.set_many",
-                              {{"entity", id.str()},
-                               {"component", "forge.animator"},
-                               {"values", {{"sequence_extra_clips", extras}}}});
+            authoring_command(
+                scene, "property.set_many",
+                {{"entity", id.str()},
+                 {"component", "forge.animator"},
+                 {"values", {{"sequence_extra_clips", extras}, {"sequence_multiway", multiway}}}});
         }
     };
     place(locomotion,
-          collections ? "Left - Eight Forward and Strafe clips" : "Left - Forward to Strafe", -4,
-          locomotion.bindings.at("/animations/0"), locomotion.bindings.at("/animations/1"), .5,
-          bindings[0]);
+          multiway      ? "Left - Eight layered locomotion phases"
+          : collections ? "Left - Eight Forward and Strafe clips"
+                        : "Left - Forward to Strafe",
+          -4, locomotion.bindings.at("/animations/0"), locomotion.bindings.at("/animations/1"),
+          multiway ? .125 : .5, bindings[0]);
     place(morphs,
-          collections ? "Center - Eight Base and Overlay morph clips"
-                      : "Center - Base to Overlay morphs",
-          0, morphs.bindings.at("/animations/0"), morphs.bindings.at("/animations/1"), 1.5,
-          bindings[1]);
+          multiway      ? "Center - Eight layered morph phases"
+          : collections ? "Center - Eight Base and Overlay morph clips"
+                        : "Center - Base to Overlay morphs",
+          0, morphs.bindings.at(multiway ? "/animations/1" : "/animations/0"),
+          morphs.bindings.at("/animations/1"), multiway ? .125 : 1.5, bindings[1]);
     place(target,
-          collections ? "Right - Eight Rest and mapped Swing clips"
-                      : "Right - Rest to mapped Swing",
-          4, target.bindings.at("/animations/0"), mapped, collections ? 2 : 1, bindings[2]);
+          multiway      ? "Right - Eight layered mapped poses"
+          : collections ? "Right - Eight Rest and mapped Swing clips"
+                        : "Right - Rest to mapped Swing",
+          4, target.bindings.at("/animations/0"), mapped,
+          multiway      ? .25
+          : collections ? 2
+                        : 1,
+          bindings[2]);
     const auto camera = authoring_command(scene, "entity.create",
                                           {{"recipe", "render.camera"}, {"name", "Game camera"}})
                             .at("selected")

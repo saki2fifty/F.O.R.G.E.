@@ -527,6 +527,7 @@ class AnimationSequenceEditor {
                 if (!pending_) {
                     offset_ = value.sequence_start_seconds;
                     next_offset_ = value.sequence_next_start_seconds;
+                    multiway_ = value.sequence_multiway;
                     pending_track_fields_ = 0;
                     extra_clips_ = Json::array();
                     for (const auto& row : snapshot.at("entities"))
@@ -571,9 +572,16 @@ class AnimationSequenceEditor {
                     FORGE_UI_PROBE("sequence:extra_start:" + std::to_string(i));
                     ImGui::PopID();
                 }
+                if (ImGui::Checkbox("Layer overlapping clips", &multiway_)) {
+                    if (!pending_)
+                        pending_revision_ = scene_->revision();
+                    pending_ = true;
+                    pending_track_fields_ |= 8;
+                }
+                FORGE_UI_PROBE("sequence:multiway");
                 if (ui::button(value.sequence_next_clip.id ? "Apply track timing"
                                                            : "Apply track start",
-                               "Commit edited timing fields as one Scene Undo step."))
+                               "Commit timing and overlap mode as one Scene Undo step."))
                     apply_pending();
                 FORGE_UI_PROBE("sequence:apply_start");
                 if (ui::button(value.sequence_next_clip.id ? "Reset pending timing"
@@ -717,8 +725,9 @@ class AnimationSequenceEditor {
                 ImGui::EndDisabled();
                 if (!extra_clips_.empty())
                     ImGui::TextWrapped(
-                        "Up to eight clips; ordered starts and ends, at most two adjacent clips "
-                        "overlapping. Gaps hold the previous endpoint.");
+                        "Up to eight clips with ordered starts and ends. Layer overlapping "
+                        "clips enables multiway fades; otherwise at most two clips overlap. "
+                        "Gaps hold the previous endpoint.");
 
                 if (value.sequence_next_clip.id && track_component_ == "forge.animator")
                     ImGui::TextWrapped("Clips need the same exact skeleton/model revision and "
@@ -731,8 +740,8 @@ class AnimationSequenceEditor {
                         "reflected "
                         "field schemas/types, with ordered starts and ends. Binding order may "
                         "differ. "
-                        "Numeric values blend; Sprite frames and Boolean/integer fields switch "
-                        "halfway through the overlap. "
+                        "Numeric values blend; Sprite frames and Boolean/integer fields choose "
+                        "the strongest influence, with later clips winning ties. "
                         "Refresh to validate and preview.");
                 if (ui::button("Remove from sequence",
                                "Keep the primary clip and standalone settings; "
@@ -907,6 +916,7 @@ class AnimationSequenceEditor {
     double time_ = 0, offset_ = 0, next_offset_ = 0, nested_start_ = 0, nested_rate_ = 1;
     bool nested_loop_ = false;
     unsigned pending_track_fields_ = 0;
+    bool multiway_ = false;
     Json extra_clips_ = Json::array();
     Json nested_placements_ = Json::array();
     bool ready_ = false, stale_ = false, preview_ = false, playing_ = false, pending_ = false,
@@ -1714,6 +1724,8 @@ class AnimationSequenceEditor {
                 values["sequence_next_start_seconds"] = next_offset_;
             if (pending_track_fields_ & 4)
                 values["sequence_extra_clips"] = extra_clips_;
+            if (pending_track_fields_ & 8)
+                values["sequence_multiway"] = multiway_;
             set_track_fields(values);
             pending_ = false;
             stop_preview();

@@ -126,6 +126,49 @@ void sequence_material_blends(const std::filesystem::path& root) {
                                                         : .75);
     };
     {
+        auto layered = track;
+        layered.sequence_multiway = true;
+        layered.sequence_next_start_seconds = .5;
+        layered.sequence_extra_clips = {{{first}, 1.}};
+        scene.entity(actor).set(layered);
+        const auto layered_source = scene.document();
+        scene.restore_snapshot(saved);
+        World mixed(root, layered_source);
+        mixed.animation->catalog(catalog);
+        mixed.ready("Multiway Material/reflected collection");
+        for (unsigned step = 0; step <= 48; ++step) {
+            const double time = step / 16.;
+            const double alpha = std::clamp((time - .5) / 1.5, 0., 1.);
+            const double later = std::clamp((time - 1.) / 1.5, 0., 1.);
+            const double weight = alpha * (1 - later);
+            AnimationPlaybackAccess::control(*mixed.animation, track.sequence,
+                                             {{"operation", "seek"}, {"position_seconds", time}});
+            verify(mixed.scene.entity(actor), weight);
+            near(mixed.scene.entity(actor).get<Light>().intensity, 2 + 4 * weight);
+        }
+        const auto checkpoint = mixed.animation->checkpoint();
+        World cold(root, layered_source);
+        cold.animation->catalog(catalog);
+        cold.animation->restore(checkpoint);
+        verify(cold.scene.entity(actor), 0);
+        check(cold.animation->checkpoint() == checkpoint,
+              "Multiway Material/reflected recovery changed the candidate");
+        World sampled(root, layered_source);
+        sampled.animation->catalog(catalog);
+        sampled.ready("Copied multiway Material/reflected collection");
+        sampled.simulation.tick(1.f);
+        sampled.simulation.tick(.5f);
+        const auto copied = sampled.simulation.presentation(.5);
+        for (const auto& row : copied.at("entities"))
+            if (row.at("id") == actor) {
+                const auto& components = row.at("components");
+                near(components.at("forge.light").at("intensity"), 2 + 4 * (5. / 12));
+                for (const auto& value : components.at("forge.ui_values").at("values"))
+                    if (value.at("name") == "amount")
+                        near(value.at("value"), .2 + .6 * (5. / 12));
+            }
+    }
+    {
         auto collection = track;
         for (std::size_t i = 2; i < sequence_clip_limit; ++i)
             collection.sequence_extra_clips.push_back({{i % 2 ? next : first}, double(i)});

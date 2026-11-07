@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <flecs.h>
@@ -20,6 +21,7 @@ static_assert(forge::sequence_arrangement_runtime_profile_version == 1);
 static_assert(forge::sequence_clip_limit == 8);
 static_assert(forge::sequence_placement_limit == 8);
 static_assert(forge::sequence_placement_runtime_profile_version == 1);
+static_assert(forge::sequence_mixing_runtime_profile_version == 1);
 struct SequenceProbe {
     std::uint32_t ticks = 0;
     double time = 0, blend = 0;
@@ -48,6 +50,53 @@ void check_collection(const Player& player, const ForgeSdkAnimationPlaybackV1& s
                   status.blend_clip_uuid &&
               std::abs(status.blend_weight - weight) < 1e-9,
           "Eight-clip active IDs or independent phase differ through matching SDK");
+}
+template <class Player>
+void check_multiway(const Player& player, const ForgeSdkAnimationPlaybackV1& status,
+                    double duration, double step) {
+    check(player.sequence_multiway && player.sequence_extra_clips.size() == 6 &&
+              player.sequence_start_seconds == 0 && player.sequence_next_start_seconds == step &&
+              std::abs(status.duration - duration - 7 * step) < 1e-9,
+          "Matching SDK lost the multiway native flag or independent placement span");
+    std::array<double, 8> weights{};
+    double suffix = 1;
+    for (std::size_t i = 7; i > 0; --i) {
+        const double alpha = std::clamp((status.time - step * i) / (duration - step), 0., 1.);
+        weights[i] = alpha * suffix;
+        suffix *= 1 - alpha;
+    }
+    weights[0] = suffix;
+    std::size_t active = 0, first = 0, next = 1;
+    for (const auto weight : weights)
+        active += weight > 0;
+    double relative = 0;
+    if (active > 2) {
+        for (std::size_t i = 1; i < weights.size(); ++i)
+            if (weights[i] >= weights[first])
+                first = i;
+        next = first ? 0 : 1;
+        for (std::size_t i = 0; i < weights.size(); ++i)
+            if (i != first &&
+                (weights[i] > weights[next] || (weights[i] == weights[next] && i > next)))
+                next = i;
+        relative = weights[next] / (weights[first] + weights[next]);
+    } else {
+        while (first + 2 < weights.size() && status.time >= step * first + duration)
+            ++first;
+        next = first + 1;
+        relative = std::clamp((status.time - step * next) / (duration - step), 0., 1.);
+    }
+    const auto clip = [&](std::size_t i) {
+        return i % 2 ? player.sequence_next_clip : player.clip;
+    };
+    for (std::size_t i = 0; i < player.sequence_extra_clips.size(); ++i)
+        check(player.sequence_extra_clips[i].clip == clip(i + 2) &&
+                  player.sequence_extra_clips[i].start_seconds == (i + 2) * step,
+              "Matching SDK lost a multiway typed asset/time");
+    check(clip(first).id.str() == status.clip_uuid &&
+              clip(next).id.str() == status.blend_clip_uuid &&
+              std::abs(status.blend_weight - relative) < 1e-9,
+          "C ABI1 dominant/runner summary differs from independent multiway influences");
 }
 int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char* error, uint32_t capacity) {
     try {
@@ -176,7 +225,10 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                                                         .25) == 0,
                               "C++ independently controlled a bound track");
                         if (!player.sequence_extra_clips.empty()) {
-                            check_collection(player, status, 1);
+                            if (player.sequence_multiway)
+                                check_multiway(player, status, 2, .25);
+                            else
+                                check_collection(player, status, 1);
                             const auto copied = player;
                             child.set(copied);
                             ++pairs;
@@ -200,7 +252,8 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                         ForgeSdkAnimationPlaybackV1 status{};
                         check(player.sequence.scene.str() == ref.scene_uuid &&
                                   player.sequence_start_seconds == 0 &&
-                                  player.sequence_next_start_seconds == .5 &&
+                                  player.sequence_next_start_seconds ==
+                                      (player.sequence_multiway ? .125 : .5) &&
                                   player.sequence_next_clip.id == player.clip.id &&
                                   !player.play_on_start && player.loop &&
                                   player.playback_speed == 0 &&
@@ -221,11 +274,14 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                                                  0., status.duration)) < 1e-9,
                                 "Mixed actor did not preserve transform-first SDK status");
                         else if (!player.sequence_extra_clips.empty()) {
-                            check_collection(player, status, .5);
-                            check(std::abs(
-                                      status.time -
-                                      std::clamp(controllers.at(player.sequence.entity.str()).time,
-                                                 0., 4.5)) < 1e-9,
+                            if (player.sequence_multiway)
+                                check_multiway(player, status, 1, .125);
+                            else
+                                check_collection(player, status, .5);
+                            check(std::abs(status.time -
+                                           std::clamp(
+                                               controllers.at(player.sequence.entity.str()).time,
+                                               0., player.sequence_multiway ? 1.875 : 4.5)) < 1e-9,
                                   "Eight-clip skeletal clock differs through matching SDK");
                         } else
                             check(

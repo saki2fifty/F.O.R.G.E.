@@ -8,6 +8,7 @@ void sequence_collection_runtime_tests(const std::filesystem::path& root,
         clips[i] = clip(lease, imports, "Assets/Collection" + std::to_string(i) + ".animation.json",
                         false, false, animation_timebase, [i](auto& source) {
                             source.add_property(AnimationProperty::LightIntensity, 10 + i);
+                            source.add_property(AnimationProperty::LightRed, 1);
                         });
     EngineContext author;
     Scene scene(author.world());
@@ -129,6 +130,105 @@ void sequence_collection_runtime_tests(const std::filesystem::path& root,
         stepped.simulation.tick(.25);
     near(position(stepped), 3);
     near(row(stepped.simulation.presentation(.5), actor).at("world_affine")[3], 2.5);
+    // Dense overlapping placements must sample all eight clips, rather than
+    // treating the dominant/runner-up status projection as a pose recipe.
+    auto layered = track;
+    layered.sequence_multiway = true;
+    layered.sequence_next_start_seconds = .125;
+    for (std::size_t i = 0; i < layered.sequence_extra_clips.size(); ++i)
+        layered.sequence_extra_clips[i].start_seconds = .125 * (i + 2);
+    scene.entity(actor).set(layered);
+    const auto layered_source = scene.snapshot();
+    Runtime mixed(root, layered_source);
+    double copied_from = 0, copied_to = 0, copied_light = 0;
+    for (unsigned step = 0; step <= 128; ++step) {
+        const double time = step / 64.;
+        std::array<double, 8> weights{};
+        double suffix = 1;
+        for (std::size_t i = 7; i > 0; --i) {
+            const double alpha = std::clamp((time - .125 * i) / .875, 0., 1.);
+            weights[i] = alpha * suffix;
+            suffix *= 1 - alpha;
+        }
+        weights[0] = suffix;
+        double expected_position = 0, expected_light = 0;
+        for (std::size_t i = 0; i < weights.size(); ++i) {
+            expected_position += weights[i] * 4 * std::clamp(time - .125 * i, 0., 1.);
+            expected_light += weights[i] * (10 + i);
+        }
+        if (step == 48)
+            copied_from = expected_position;
+        if (step == 64)
+            copied_to = expected_position;
+        if (step == 56)
+            copied_light = expected_light;
+        seek(mixed, time);
+        near(position(mixed), expected_position);
+        near(mixed.scene.entity(actor).get<Light>().intensity, expected_light);
+        near(mixed.scene.entity(actor).get<Light>().color_r, 1);
+        const auto status = AnimationPlaybackAccess::status(*mixed.animation, actor_ref);
+        const auto& complete = status.at("sequence_clips");
+        check(complete.at("multiway") == true && complete.at("clips").size() == 8,
+              "Multiway watch omitted its complete contributor list");
+        std::size_t active = 0;
+        for (std::size_t i = 0; i < weights.size(); ++i) {
+            near(complete.at("clips")[i].at("weight"), weights[i]);
+            near(complete.at("clips")[i].at("time_seconds"), std::clamp(time - .125 * i, 0., 1.));
+            active += weights[i] > 0;
+        }
+        check(complete.at("summary_only") == (active > 2),
+              "Multiway watch misrepresented the two-slot summary");
+    }
+    seek(mixed, .75);
+    const auto mixed_checkpoint = mixed.animation->checkpoint();
+    check(mixed_checkpoint.at("version") == 15 &&
+              mixed_checkpoint.at("sequence_mixing_profile") == 12 &&
+              mixed_checkpoint.at("transform_entries")[0].at("sequence_multiway") == true,
+          "Multiway recovery lost its profile or exact opt-in");
+    Runtime mixed_cold(root, layered_source, false);
+    mixed_cold.animation->restore(mixed_checkpoint);
+    near(position(mixed_cold), position(mixed));
+    check(mixed_cold.animation->checkpoint() == mixed_checkpoint,
+          "Cold multiway recovery changed its selected resources/flags");
+    for (const Json& invalid : {Json(), Json(false), Json(1), Json("true")}) {
+        auto bad = mixed_checkpoint;
+        bad["transform_entries"][0]["sequence_multiway"] = invalid;
+        rejects([&] { mixed_cold.animation->restore(bad); });
+        near(position(mixed_cold), position(mixed));
+        check(mixed_cold.animation->checkpoint() == mixed_checkpoint,
+              "Rejected mixing recovery changed the retained candidate");
+    }
+    auto missing = mixed_checkpoint;
+    missing["transform_entries"][0].erase("sequence_multiway");
+    rejects([&] { mixed_cold.animation->restore(missing); });
+    auto downgraded = mixed_checkpoint;
+    downgraded["version"] = downgraded.at("sequence_mixing_profile");
+    downgraded.erase("sequence_mixing_profile");
+    rejects([&] { mixed_cold.animation->restore(downgraded); });
+    const auto retained_position = position(mixed);
+    auto legacy = layered;
+    legacy.sequence_multiway = false;
+    mixed.scene.entity(actor).set(legacy);
+    rejects([&] {
+        for (unsigned attempt = 0; !mixed.animation->prepare_initial_pose(); ++attempt) {
+            check(attempt < 1000, "Legacy overlap rejection stalled");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    });
+    near(position(mixed), retained_position);
+    mixed.scene.entity(actor).set(layered);
+    for (unsigned attempt = 0; !mixed.animation->prepare_initial_pose(); ++attempt) {
+        check(attempt < 1000, "Multiway profile repair stalled");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    // Object transforms retain their existing completed-pose interpolation;
+    // properties independently sample the complete set at presentation time.
+    Runtime multiway_ticks(root, layered_source);
+    for (unsigned tick = 0; tick < 4; ++tick)
+        multiway_ticks.simulation.tick(.25);
+    const auto copied = multiway_ticks.simulation.presentation(.5);
+    near(row(copied, actor).at("world_affine")[3], (copied_from + copied_to) * .5);
+    near(row(copied, actor).at("components").at("forge.light").at("intensity"), copied_light);
     std::cout
         << "Eight-clip transform collections: native resources, independent values, "
            "active IDs, recovery/rejection/repair, gaps/cuts and copied presentation passed\n";

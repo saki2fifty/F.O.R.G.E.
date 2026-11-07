@@ -8,6 +8,7 @@ inline constexpr unsigned sequence_rate_runtime_profile_version = 1;
 inline constexpr unsigned sequence_arrangement_runtime_profile_version = 1;
 inline constexpr unsigned sequence_loop_runtime_profile_version = 1;
 inline constexpr unsigned sequence_placement_runtime_profile_version = 1;
+inline constexpr unsigned sequence_mixing_runtime_profile_version = 1;
 inline constexpr std::size_t sequence_clip_limit = 8;
 inline constexpr std::size_t sequence_placement_limit = 8;
 struct SkeletonAsset {
@@ -84,6 +85,8 @@ struct TransformAnimator {
     AssetRef<TransformAnimationAsset> sequence_next_clip{};
     double sequence_next_start_seconds = 0;
     std::vector<SequenceClipPlacement<TransformAnimationAsset>> sequence_extra_clips{};
+    // Opt in to ordered overlays when more than two sequence clips overlap.
+    bool sequence_multiway = false;
     bool operator==(const TransformAnimator&) const = default;
 };
 struct Animator {
@@ -124,6 +127,7 @@ struct Animator {
     AssetRef<AnimationClipAsset> sequence_next_clip{};
     double sequence_next_start_seconds = 0;
     std::vector<SequenceClipPlacement<AnimationClipAsset>> sequence_extra_clips{};
+    bool sequence_multiway = false;
     bool operator==(const Animator&) const = default;
 };
 // Opt-in constraints on an imported model holder. Values are in skeleton model

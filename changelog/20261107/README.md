@@ -1,5 +1,22 @@
 # 2026-11-07
 
+## Layered sequence clip overlaps
+
+Animator and Transform Animator add default-off **Layer overlapping clips**.
+Existing tracks retain two adjacent contributors; enabled collections blend up to
+eight independent phases through the same root clock and complete candidate.
+Numeric, Material, reflected, skeletal and morph sampling share normalized ordered
+influences; exact Boolean/integer fields choose the strongest clip. Root motion
+uses analytic interval influence means and existing layer/reset owners.
+
+Timeline commits the option and pending starts in one Undo step. Live inspection
+lists every local time/influence and labels the dominant-pair summary. Recovery15
+composes prior profiles and validates exact flags; export requires matching kit
+support. Native SDK layouts require a rebuild, while C ABI1 records/tables remain
+unchanged. Original Gallery190 demonstrates locomotion, morph and mapped blends,
+with editable sources and source-hidden export. The manual includes the real
+Timeline controls.
+
 ## Repeated controller placements
 
 One child sequence supports up to eight ordered, nonoverlapping placements on its

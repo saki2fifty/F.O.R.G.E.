@@ -2409,3 +2409,33 @@ above. Reproduction uses sequence_placement_gallery_vulkan; local batch 286 owns
 repeated-vulkan-build.json, repeated-product-vulkan-tests.json and the exact image
 provenance receipt. No retouching, cropping or resizing; no Windows/full Main,
 graphical EXE, physical GPU or performance acceptance.
+
+## Layered sequence clip controls and Game output
+
+[Layered sequence controls](../../../manual/images/multiway-sequence-blends.png)
+is an exact byte copy of the real720×1900 Timeline at100%, selecting the center
+morph track in product Gallery190, Scene `0b7420da-58f3-4e0c-8ccb-cd602c8b6b3b`.
+The eight start fields, enabled **Layer overlapping clips**, apply/reset and
+primary/next selectors are visible and checked against the production fixture's
+clip bounds. Later asset rows use the normal scrollbar. SHA256:
+`02bc6ace7c8833b32ff99d093df68df2511a580264add8cb458ed2005210b32b`.
+The initial scratch capture and product capture have identical PNG bytes. The
+product sequence_multiway_capture consumer passes in multiway-product-ui-tests.
+This is an isolated production SDL/ImGui software UI fixture, not full Main;
+frame export has no graphical Game host and is disabled in this fixture.
+
+[Layered sequence Game output](../../../manual/images/multiway-sequence-game.png)
+is the640×360 RuntimeWorld/FrameRenderer readback at fixed tick54 (approximately
+0.9s) on Diligent software Vulkan. Four exact authored/source-hidden relocated
+display pairs cover ticks36/54/108 and portrait sizing. Every authored image was
+personally reviewed. PPM-to-PNG conversion preserves dimensions and every RGB
+pixel, using lossless scanline encoding; no crop, resize, retouch or annotations.
+SHA256: `470b5ed11900338b476dbe4a4c3a1fae29ca85ef9c0ef175f76c8464c9aa1f1f`.
+
+Both captures use local fbfa0fa with layered overlap changes. Timeline compile
+C++/CMake input digest: `fec59da2579087cf7567add0021720ba4e1b21a062f663db4457a8fa37b7a1b1`.
+The later live-status caption edit does not change these Timeline controls. The
+Game build digest is `16dbaeda70b007c5cecc5a65db75caa12f48ac71ffe6fd16d1e04960d3830918`.
+The Game consumer passes in multiway-product-vulkan-tests; exact receipts and
+image hashes remain in local batch287 evidence. Neither capture establishes
+Windows/full Main, graphical EXE, physical GPU/input/DPI or performance acceptance.

@@ -93,7 +93,7 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
             subprocess.run([sys.executable, str(Path(__file__).with_name('animation_sequence_process_test.py')),
                             str(moved/'bin'/('forge_runtime'+exe)),
                             str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),
-                            str(module)], env=env, cwd=moved, check=True, timeout=120)
+                            str(module)], env=env, cwd=moved, check=True, timeout=150)
             print('Installed-only paired sequence values, exact recovery and relocated SDK/runtime hosts passed')
             sys.exit(0)
         if sys.argv[4] == '--prefab-only':

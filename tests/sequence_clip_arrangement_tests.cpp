@@ -34,6 +34,97 @@ double value(const SequenceClipArrangement& arrangement, double seconds) {
     const auto b = 10 * double(sample.next + 1) + sample.next_us / animation_timebase;
     return std::lerp(a, b, sample.weight);
 }
+void multiway_influences() {
+    using Clip = SequenceClipArrangement::Clip;
+    const double unit = animation_timebase;
+    const std::array triple{Clip{0, 4 * unit}, Clip{1, 4 * unit}, Clip{2, 4 * unit}};
+    rejects([&] { return SequenceClipArrangement::make(triple); });
+    const auto layered = SequenceClipArrangement::make(triple, true);
+    const auto middle = layered.influences(3 * unit);
+    near(middle.weights[0], 2. / 9);
+    near(middle.weights[1], 4. / 9);
+    near(middle.weights[2], 1. / 3);
+    check(middle.strongest() == 1, "Dominant contribution is not the largest influence");
+    const auto summary = layered.summary(3 * unit);
+    check(summary.summary_only && summary.primary == 1 && summary.next == 2,
+          "Two-slot summary pretended to describe the complete three-clip pose");
+    near(summary.primary_us, 2 * unit);
+    near(summary.next_us, unit);
+    near(summary.weight, 3. / 7);
+    check(!layered.summary(2 * unit).summary_only && !layered.summary(4 * unit).summary_only,
+          "Ordinary adjacent pair acquired a multiway summary label");
+    check(layered.influences(2.5 * unit).strongest() == 1,
+          "Later equal-influence clip did not win the held-value tie");
+    const auto mean = layered.average_influences(2 * unit, 4 * unit);
+    near(mean.weights[0], 7. / 27);
+    near(mean.weights[1], 11. / 27);
+    near(mean.weights[2], 1. / 3);
+    const std::array gap{Clip{0, unit}, Clip{3, unit}};
+    const auto cut = SequenceClipArrangement::make(gap, true);
+    near(cut.clip_time_us(0, -unit), 0);
+    near(cut.clip_time_us(0, 20 * unit), unit);
+    near(cut.clip_time_us(1, 3.5 * unit), .5 * unit);
+    rejects([&] { return cut.clip_time_us(2, 0); });
+    rejects([&] { return cut.clip_time_us(0, std::numeric_limits<double>::infinity()); });
+    near(cut.influences(3 * unit).weights[1], 1);
+    near(cut.average_influences(2 * unit, 3 * unit).weights[0], 1);
+    near(cut.average_influences(3 * unit, 4 * unit).weights[1], 1);
+    near(cut.average_influences(2 * unit, 4 * unit).weights[0], .5);
+    near(cut.average_influences(2 * unit, 4 * unit).weights[1], .5);
+    std::array<Clip, sequence_clip_limit> clips{};
+    for (std::size_t i = 0; i < clips.size(); ++i)
+        clips[i] = {.25 * i, 4 * unit};
+    const auto all = SequenceClipArrangement::make(clips, true);
+    const auto reference = [&](std::size_t index, double seconds) {
+        // Closed-form suffix product, independent of the forward overlay sampler.
+        const auto alpha = [&](std::size_t i) {
+            return std::clamp((seconds - .25 * i) / 3.75, 0., 1.);
+        };
+        double weight = index ? alpha(index) : 1;
+        for (std::size_t later = index + 1; later < clips.size(); ++later)
+            weight *= 1 - alpha(later);
+        return weight;
+    };
+    for (int step = -16; step <= 112; ++step) {
+        const double seconds = step / 16.;
+        const auto sampled = all.influences(seconds * unit);
+        double sum = 0;
+        check(sampled.count == 8, "Layered influences lost a clip slot");
+        for (std::size_t i = 0; i < sampled.count; ++i) {
+            near(sampled.weights[i], reference(i, seconds));
+            check(sampled.weights[i] >= 0 && sampled.weights[i] <= 1,
+                  "A layered influence left its normalized range");
+            sum += sampled.weights[i];
+        }
+        near(sum, 1);
+        const auto instant = all.average_influences(seconds * unit, seconds * unit);
+        check(instant.weights == sampled.weights, "Zero-width influence mean changed its point");
+    }
+    for (const auto range : {std::array<double, 2>{1.75, 4}, {-1, 7}}) {
+        const auto average = all.average_influences(range[0] * unit, range[1] * unit);
+        constexpr unsigned steps = 4096;
+        double sum = 0;
+        for (std::size_t clip = 0; clip < clips.size(); ++clip) {
+            // Independent composite Simpson reference for all seven fade factors.
+            long double integral = 0;
+            for (unsigned i = 0; i <= steps; ++i) {
+                const double time = std::lerp(range[0], range[1], double(i) / steps);
+                const unsigned coefficient = i == 0 || i == steps ? 1 : i % 2 ? 4 : 2;
+                integral += coefficient * reference(clip, time);
+            }
+            near(average.weights[clip], double(integral / (3 * steps)));
+            sum += average.weights[clip];
+        }
+        near(sum, 1);
+    }
+    rejects([&] { return all.average_influences(2, 1); });
+    rejects([&] { return all.influences(std::numeric_limits<double>::quiet_NaN()); });
+    rejects([&] { return all.average_influences(0, std::numeric_limits<double>::infinity()); });
+    rejects([&] {
+        return all.average_influences(-std::numeric_limits<double>::max(),
+                                      std::numeric_limits<double>::max());
+    });
+}
 void source_collections(const std::filesystem::path& root) {
     std::filesystem::create_directories(root);
     PrefabLibrary library(root);
@@ -54,6 +145,10 @@ void source_collections(const std::filesystem::path& root) {
         auto sequence = scene.entity(controller).get<AnimationSequence>();
         sequence.duration = 10;
         scene.entity(controller).set(sequence);
+        check(std::string_view(component) == "forge.animator"
+                  ? !scene.entity(actor).get<Animator>().sequence_multiway
+                  : !scene.entity(actor).get<TransformAnimator>().sequence_multiway,
+              "New players must retain the legacy overlap profile by default");
         const auto before = scene.document();
         auto entries = Json::array();
         for (std::size_t i = 0; i < sequence_clip_limit - 2; ++i)
@@ -65,7 +160,8 @@ void source_collections(const std::filesystem::path& root) {
                     {"sequence", binding},
                     {"sequence_next_clip", next},
                     {"sequence_next_start_seconds", 1.},
-                    {"sequence_extra_clips", entries}};
+                    {"sequence_extra_clips", entries},
+                    {"sequence_multiway", true}};
         if (std::string_view(component) == "forge.animator")
             fields["skeleton"] = AssetId::generate();
         const auto set = [&](const Json& values) {
@@ -74,6 +170,10 @@ void source_collections(const std::filesystem::path& root) {
         };
         set(fields);
         const auto saved = scene.document();
+        check(std::string_view(component) == "forge.animator"
+                  ? scene.entity(actor).get<Animator>().sequence_multiway
+                  : scene.entity(actor).get<TransformAnimator>().sequence_multiway,
+              "Multiway opt-in did not reach native storage");
         for (const auto& row : saved.at("entities"))
             if (row.at("id") == actor)
                 check(row.at("components").at(component).at("sequence_extra_clips") == entries,
@@ -108,7 +208,10 @@ void source_collections(const std::filesystem::path& root) {
                     }
         check(described, "Collection omitted its discoverable clip field");
         for (const auto& bad :
-             std::vector<Json>{{{"sequence", nullptr}},
+             std::vector<Json>{{{"sequence_multiway", 1}},
+                               {{"sequence_multiway", "true"}},
+                               {{"sequence_multiway", nullptr}},
+                               {{"sequence", nullptr}},
                                {{"sequence_next_clip", nullptr}},
                                {{"sequence_extra_clips", Json::object()}},
                                {{"sequence_extra_clips",
@@ -140,7 +243,8 @@ void source_collections(const std::filesystem::path& root) {
                 continue;
             const auto& config = row.at("components").at(component);
             check(config.at("sequence").get<EntityRef>() == scene.reference(instance) &&
-                      config.at("sequence_extra_clips") == entries,
+                      config.at("sequence_extra_clips") == entries &&
+                      config.at("sequence_multiway") == true,
                   "Prefab collection lost controller remapping, asset IDs or opaque fields");
             found = true;
         }
@@ -248,6 +352,7 @@ int main(int argc, char** argv) {
         rejects([&] { (void)arrangement.sample_window(2, 0); });
         rejects([&] { (void)arrangement.sample(std::numeric_limits<double>::infinity()); });
         rejects([&] { (void)arrangement.relative_time(std::numeric_limits<double>::quiet_NaN()); });
+        multiway_influences();
         source_collections(std::filesystem::absolute(argv[1]) / AssetId::generate().str());
         std::cout << "Eight-clip timing, typed source/history/schema and portable Prefab admission "
                      "pass\n";

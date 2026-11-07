@@ -10,6 +10,41 @@ import time
 import uuid
 from physics_velocity_example_test import Worker
 
+def multiway_layers(time, duration, step):
+    weights = [0.] * 8
+    suffix = 1.
+    for index in range(7, 0, -1):
+        fade = max(0., min(1., (time-step*index)/(duration-step)))
+        weights[index] = fade*suffix
+        suffix *= 1-fade
+    weights[0] = suffix
+    if sum(value > 0 for value in weights) > 2:
+        first, second = sorted(range(8), key=lambda index: (weights[index], index), reverse=True)[:2]
+        relative = weights[second]/(weights[first]+weights[second])
+    else:
+        first = 0
+        while first+2 < 8 and time >= step*first+duration:
+            first += 1
+        second = first+1
+        relative = max(0., min(1., (time-step*second)/(duration-step)))
+    return weights, first, second, relative
+
+
+def check_multiway_watch(status, player, time, duration, step):
+    weights, primary, incoming, relative = multiway_layers(time, duration, step)
+    complete = status['sequence_clips']
+    assert complete['multiway'] is True
+    assert complete['summary_only'] == (sum(value > 0 for value in weights) > 2)
+    assert complete['active_primary'] == primary and complete['active_next'] == incoming
+    assert abs(status['blend_weight']-relative) < 1e-9
+    assert abs(complete['next']['weight']-relative) < 1e-9
+    for index, layer in enumerate(complete['clips']):
+        assert abs(layer['weight']-weights[index]) < 1e-9
+        assert abs(layer['time_seconds']-max(0., min(duration, time-step*index))) < 1e-9
+    identities = [player['clip'], player['sequence_next_clip']] + [row['clip'] for row in player['sequence_extra_clips']]
+    assert complete['clip'] == identities[primary] and complete['next']['clip'] == identities[incoming]
+
+
 runtime, gallery, module = (Path(arg).resolve() for arg in sys.argv[1:4])
 with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.parent) as scratch:
     root = Path(scratch) / 'project'
@@ -38,7 +73,12 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
         '36-animation-root-motion.scene.json', '145-sequence-clip-blending.scene.json'))
     scenarios = [(*scenario, False) for scenario in scenarios]
     scenarios.append(('146-nested-sequences.scene.json', False, True, False, True, True))
-    for scene_name, mixed, rated, collections, child_loop, placements in scenarios:
+    scenarios = [(*scenario, False) for scenario in scenarios]
+    scenarios.extend((name, False, False, True, False, False, True) for name in (
+        '36-animation-root-motion.scene.json', '145-sequence-clip-blending.scene.json'))
+    for scene_name, mixed, rated, collections, child_loop, placements, multiway in scenarios:
+        label = (scene_name, mixed, rated, collections, child_loop, placements, multiway)
+        print('SDK sequence scenario:', label, flush=True)
         source_path = root / 'Scenes' / scene_name
         original = source_path.read_bytes()
         source = json.loads(original)
@@ -84,9 +124,12 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                 player = row['components'].get('forge.animator' if skeletal else 'forge.transform_animator')
                 if not player or not player.get('sequence'):
                     continue
+                step = (.125 if skeletal else .25) if multiway else (.5 if skeletal else 1.)
+                player['sequence_next_start_seconds'] = step
+                player['sequence_multiway'] = multiway
                 player['sequence_extra_clips'] = [dict(
                     clip=player['sequence_next_clip'] if i % 2 else player['clip'],
-                    start_seconds=.5*i if skeletal else i) for i in range(2, 8)]
+                    start_seconds=step*i) for i in range(2, 8)]
         if rated:
             for child in controllers:
                 placement = child['components']['forge.animation_sequence']
@@ -157,7 +200,7 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                 player = actor['components']['forge.animator']
                 assert player['sequence'] == binding and player['sequence_start_seconds'] == 0
                 assert player['sequence_next_clip'] == player['clip']
-                assert player['sequence_next_start_seconds'] == .5
+                assert player['sequence_next_start_seconds'] == (.125 if multiway else .5)
                 assert not player['play_on_start'] and player['loop'] and player['playback_speed'] == 0
                 status = actor['animation_playback']
                 if mixed:
@@ -168,11 +211,17 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                     # The SDK Play watch below checks both typed observations.
                     status = None
                 if status is not None:
-                    duration = 4.5 if collections else 1.5
+                    duration = 1.875 if multiway else 4.5 if collections else 1.5
                     assert status['duration'] == duration and status['speed'] == 1 and not status['loop']
                     assert abs(status['time'] - min(expected, duration)) < 2e-6
                     active = max(0, min(6, int(status['time']*2)-1)) if collections else 0
                     weight = max(0, min(1, (status['time']-.5*(active+1))*2))
+                    if multiway:
+                        weights, active, incoming, weight = multiway_layers(status['time'], 1., .125)
+                        assert player['sequence_multiway'] is True
+                        expected_z = 2*sum(value*max(0., min(1., status['time']-.125*index))
+                                           for index, value in enumerate(weights))
+                        assert abs(actor['animation_pose']['local'][0]['translation'][2]-expected_z) < .003
                     assert len(player.get('sequence_extra_clips', [])) == (6 if collections else 0)
                     assert abs(status['blend_weight']-weight) < 2e-6
             if transition:
@@ -204,13 +253,20 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                     intensity = .8+2.2*u*u*(3-2*u)
                     assert abs(actual['forge.light']['intensity']-intensity) < 2e-6
                 elif actor['components']['forge.transform_animator'].get('sequence_next_clip'):
-                    active = max(0, min(6, int(expected)-1)) if collections else 0
-                    at = min(1., max(0., (expected-active)/2))
-                    bt = min(1., max(0., (expected-active-1)/2))
-                    a = 3-4*at if active % 2 else -3+4*at
-                    b = -3+4*bt if active % 2 else 3-4*bt
-                    weight = min(1., max(0., expected-active-1))
-                    x = a*(1-weight) + b*weight
+                    if multiway:
+                        weights, _, _, _ = multiway_layers(expected, 2., .25)
+                        x = sum(weight * ((3-2*max(0., min(2., expected-.25*index))) if index % 2
+                                          else (-3+2*max(0., min(2., expected-.25*index))))
+                                for index, weight in enumerate(weights))
+                        assert actor['components']['forge.transform_animator']['sequence_multiway'] is True
+                    else:
+                        active = max(0, min(6, int(expected)-1)) if collections else 0
+                        at = min(1., max(0., (expected-active)/2))
+                        bt = min(1., max(0., (expected-active-1)/2))
+                        a = 3-4*at if active % 2 else -3+4*at
+                        b = -3+4*bt if active % 2 else 3-4*bt
+                        weight = min(1., max(0., expected-active-1))
+                        x = a*(1-weight) + b*weight
                     assert abs(actual['forge.local_translation']['x']-x) < 2e-6, (tick, actual, x)
                 else:
                     u = min(1., max(0., (expected-.5)/2))
@@ -239,7 +295,9 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                     checkpoint = state['recovery']
                     assert checkpoint is not None
                     if collections:
-                        assert checkpoint['animation']['version'] == 12
+                        assert checkpoint['animation']['version'] == (15 if multiway else 12)
+                        if multiway:
+                            assert checkpoint['animation']['sequence_mixing_profile'] == 12
                         assert checkpoint['animation']['sequence_arrangement_profile'] == (10 if skeletal else 6)
                     elif skeletal:
                         assert checkpoint['animation']['version'] == 10
@@ -309,18 +367,26 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                     assert track_status['players']['forge.transform_animator']['sequence_clips'] == track_status['sequence_clips']
                     track_status = track_status['players']['forge.animator']
                 assert track_status['sequence'] == binding
-                assert track_status['blend_weight'] == .5
-                assert track_status['sequence_clips']['next']['weight'] == .5
-                assert track_status['sequence_clips']['next']['clip'] == skeletal_clip
+                if multiway:
+                    player = next(row['components']['forge.animator'] for row in source['entities'] if row['id'] == skeletal_actor)
+                    check_multiway_watch(track_status, player, seek_seconds, 1., .125)
+                else:
+                    assert track_status['blend_weight'] == .5
+                    assert track_status['sequence_clips']['next']['weight'] == .5
+                    assert track_status['sequence_clips']['next']['clip'] == skeletal_clip
             pair_actor = next((r for r in source['entities'] if r['components'].get(
                 'forge.transform_animator', {}).get('sequence_next_clip')), None)
             if pair_actor is not None:
                 actor_ref = dict(scene=source['asset_id'], entity=pair_actor['id'])
                 track_status = editor.request('snapshot', animation_watch=actor_ref)['animation_playback']
-                assert track_status['blend_weight'] == .5, track_status
-                assert track_status['sequence_clips']['next']['weight'] == .5, track_status
-                assert track_status['sequence_clips']['next']['clip'] == pair_actor['components'][
-                    'forge.transform_animator']['sequence_next_clip'], track_status
+                if multiway:
+                    check_multiway_watch(track_status, pair_actor['components']['forge.transform_animator'],
+                                         seek_seconds, 2., .25)
+                else:
+                    assert track_status['blend_weight'] == .5, track_status
+                    assert track_status['sequence_clips']['next']['weight'] == .5, track_status
+                    assert track_status['sequence_clips']['next']['clip'] == pair_actor['components'][
+                        'forge.transform_animator']['sequence_next_clip'], track_status
             restarted = editor.request('animation_playback', generation=generation, source=ref,
                                        operation='restart', animation_watch=ref)
             assert restarted['animation_playback']['time'] == 0
@@ -328,4 +394,5 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
             check_camera(restarted, 0)
         finally:
             editor.close()
+        print('SDK sequence passed:', label, flush=True)
 print('Exact C++ object/skeletal/eight-clip/nested-loop/camera-shot controls and typed fields, four recoveries per scene and SDK Play PASS')

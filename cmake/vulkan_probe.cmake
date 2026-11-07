@@ -436,6 +436,8 @@ if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
  add_test(NAME sequence_child_loop_gallery_vulkan COMMAND forge_animation_retarget_gallery_vulkan_probe "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/sequence-child-loop-gallery-vulkan" "Scenes/188-child-sequence-loops.scene.json" "Assets/OverlayColumn.gltf" 75 225 405)
  set_tests_properties(sequence_child_loop_gallery_vulkan PROPERTIES TIMEOUT 120)
  add_test(NAME sequence_placement_gallery_vulkan COMMAND forge_animation_retarget_gallery_vulkan_probe "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/sequence-placement-gallery-vulkan" "Scenes/189-controller-placements.scene.json" "Assets/OverlayColumn.gltf" 75 225 405)
+ add_test(NAME sequence_multiway_gallery_vulkan COMMAND forge_animation_retarget_gallery_vulkan_probe "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/sequence-multiway-gallery-vulkan" "Scenes/190-multiway-sequence-blends.scene.json" "Assets/OverlayColumn.gltf" 36 54 108)
+ set_tests_properties(sequence_multiway_gallery_vulkan PROPERTIES TIMEOUT 120)
  set_tests_properties(sequence_placement_gallery_vulkan PROPERTIES TIMEOUT 120)
  set_tests_properties(mesh_texture_paint_gallery_vulkan PROPERTIES TIMEOUT 120)
  add_executable(forge_texture_image_editor_vulkan_probe tests/texture_image_editor_vulkan_probe.cpp

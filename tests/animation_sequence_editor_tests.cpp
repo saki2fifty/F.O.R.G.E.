@@ -681,6 +681,10 @@ int main(int argc, char** argv) {
             capture_sequence_pair(argv[2], argv[3], argv[4], SequenceCapture::ChildLoops);
             return 0;
         }
+        if (argc == 5 && std::string_view(argv[1]) == "--capture-multiway") {
+            capture_sequence_pair(argv[2], argv[3], argv[4], SequenceCapture::Multiway);
+            return 0;
+        }
         if (argc == 5 && std::string_view(argv[1]) == "--capture-placements") {
             capture_sequence_pair(argv[2], argv[3], argv[4], SequenceCapture::ControllerPlacements);
             return 0;

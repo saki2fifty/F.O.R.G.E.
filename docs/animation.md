@@ -278,8 +278,10 @@ An optional typed `sequence_extra_clips` vector appends up to six placements aft
 the original pair, for eight total. Each placement retains an independent sampler
 context and exact admitted resources, including repeated references. The shared
 [bounded arrangement profile](transform-animation.md#bounded-clip-collections)
-requires ordered starts/ends and at most two adjacent contributions, and specifies
-recovery12, active-pair observation and runtime-kit compatibility. Empty vectors
+requires ordered starts/ends. Default mode admits two adjacent contributions;
+`sequence_multiway` opts into up to eight through the same pose owner. The linked
+contract specifies full influence watches, the limited native two-slot summary,
+recovery12/15 and runtime-kit compatibility. Empty vectors
 retain the legacy single/pair behavior below.
 
 This profile excludes States, Blend Spaces, Graphs and standalone blend/subtree/

@@ -106,8 +106,9 @@ Both player components append `sequence_extra_clips`, a typed vector of up to si
 `SequenceClipPlacement<T>` values (`clip`, `start_seconds`) after their existing
 primary/next fields. The default is empty. A nonempty list requires a bound primary
 and next clip. All starts are finite within 0–3600 seconds and the controller's
-duration. Resource admission additionally requires ordered ends and rejects triple
-overlap. At most eight clips and two adjacent contributions are admitted.
+duration. Resource admission additionally requires ordered ends. Default-false
+`sequence_multiway` preserves triple-overlap rejection and two adjacent
+contributions; the opt-in layered profile below permits up to eight contributors.
 
 `SequenceClipArrangement` derives neighboring windows through the existing pair
 span. Existing providers retain resources, root clocks, validation and publication.
@@ -119,8 +120,8 @@ own sampler contexts, including repeated references to the same resource. Root
 motion splits all starts/ends through cumulative placement rates and uses one
 explicit pair at both interval endpoints.
 
-For nonempty collections, public playback's existing clip/blend IDs and weight
-identify the active pair; time and duration describe the whole track. Private
+For default-mode nonempty collections, public playback's existing clip/blend IDs
+and weight identify the active pair; time and duration describe the whole track. Private
 `sequence_clips` additionally exposes `clips`, `active_primary` and `active_next`.
 Legacy empty lists preserve all existing single/pair observation meanings. Timeline
 uses these admitted descriptors and the existing Scene property/history owner for
@@ -134,9 +135,66 @@ exact configuration/profile comparison and complete candidate publication. A
 runtime document using the list declares `sequence_arrangement: 1` and requires
 `runtime_sequence_arrangement: 1` in its kit, including partial Prefab variants.
 Source formats stay unchanged; native value layout additions require a matching
-exact installed SDK rebuild. Unrestricted arrangements and multiway overlap
-remain separate. Repeated same-parent controller placements and child loops use
+exact installed SDK rebuild. The additive layered profile below supplies bounded
+multiway overlap; unrestricted arrangements remain outside this profile. Repeated same-parent controller placements and child loops use
 the nested timing profile below and can be combined with collections.
+
+### Layered clip overlaps
+
+`TransformAnimator` and `Animator` append default-false `sequence_multiway`. Old
+source values backfill false. A bound collection may enable it to admit three to
+eight simultaneous contributions while retaining the existing eight-placement
+limit, ordered starts/ends, whole-resource admission and one complete candidate.
+Unbound flags are retained and ignored. Standalone blend modes do not change.
+
+Each adjacent pair supplies its natural-overlap linear fade `a[i]`, or a cut after
+a gap. In clip order, each incoming fade overlays the accumulated prefix. For
+`N` clips, `w[0]=product(1-a[j],j=1..N-1)` and
+`w[i]=a[i]*product(1-a[j],j=i+1..N-1)`. Influences are nonnegative and sum to one.
+Every clip samples its independently clamped local time. The pure arrangement
+owner derives weights and clip-local times; providers reuse canonical Material/
+reflected binding orders and existing candidate validation. Numeric/morph values
+use these influences. Object rotations retain the existing normalized-prefix
+pose interpolation; skeletal poses use the pinned native weighted blending API.
+Numeric folds use the existing range-preserving interpolation, retaining admitted
+bounds even for saturated constant values. Discrete properties and exact typed
+Boolean/integer fields select the greatest
+individual influence, with later placements winning ties. They do not vote by
+value. All selected resources/bindings are admitted even at zero influence.
+
+The existing skeletal sampler supports eight independent layer contexts, including
+repeated resources. Multiway sampling counts all selected layers against the
+existing evaluated-joint budget. Blend Space selection retains its own smaller
+bound. Root motion splits at clip boundaries, root resets and placement spans,
+averages products of linear fades with bounded inline polynomial coefficients,
+and blends existing per-layer interval deltas. This reduces to the prior mean
+weight for a pair. Copied presentation extracts no motion. Object world transforms
+retain completed-pose interpolation; property/Material/reflected and skeletal
+presentation use their established sample-time owners.
+
+For an enabled nonempty collection, private `sequence_clips` adds `multiway:true`,
+`summary_only`, and each ordered `clips` entry's `time_seconds` and normalized
+`weight`. With more than two positive influences, existing native/SDK clip IDs
+name the dominant and runner-up (later ties), and `blend_weight` is the runner's
+weight divided by their sum. That projection is not a full pose recipe.
+`summary_only:true` labels it in the private watch. With at most two contributors,
+the old adjacent-pair observations remain exact. C ABI1 records/tables are
+unchanged; matching rebuilt SDK modules author the appended native flags.
+
+Private recovery15 wraps its preceding3–14 profile in `sequence_mixing_profile`.
+It records exact flags on every selected skeletal/transform entry, including
+false flags, and retains all earlier resource revisions. Missing/wrong flags,
+wrappers or selected revisions reject before adoption. False-only configurations
+retain their prior profiles. Stored true flags require document feature
+`sequence_mixing:1` and kit `runtime_sequence_mixing:1`, including unbound retained
+settings and partial Prefab overrides. No source/cook version changes.
+
+Timeline **Layer overlapping clips** joins pending starts in one revision-checked
+`property.set_many` transaction and one Undo step. Reset, stale revision rejection,
+Scene/Prefab persistence, generic automation/MCP and read-only live inspection use
+the existing owners. Original editable Gallery190 uses eight locomotion, morph
+and mapped phases with source-hidden export. See the
+[user workflow](../manual/editor/animation-sequences.md#layer-more-than-two-overlapping-clips).
 
 ### Nested controller placements
 

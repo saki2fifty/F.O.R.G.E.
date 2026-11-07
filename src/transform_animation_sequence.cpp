@@ -125,6 +125,10 @@ bool TransformAnimationPlayback::has_sequence_arrangements() const {
     return std::any_of(states_.begin(), states_.end(),
                        [](const auto& item) { return bool(item.second.arrangement); });
 }
+bool TransformAnimationPlayback::has_sequence_mixing() const {
+    return std::any_of(states_.begin(), states_.end(),
+                       [](const auto& item) { return item.second.config.sequence_multiway; });
+}
 bool TransformAnimationPlayback::has_sequence_rates() const {
     return std::any_of(sequence_states_.begin(), sequence_states_.end(), [](const auto& item) {
         return item.second.parent && item.second.config.sequence_rate != 1;
@@ -488,6 +492,16 @@ Json TransformAnimationPlayback::sequence_clip_status(EntityRef ref) const {
         result["clips"] = Json::array();
         for (std::size_t i = 0; i < state.arrangement->size(); ++i)
             result["clips"].push_back(description(i));
+        if (state.config.sequence_multiway) {
+            result["multiway"] = true;
+            result["summary_only"] = sample.summary_only;
+            const auto weights = state.arrangement->influences(state.time);
+            for (std::size_t i = 0; i < weights.count; ++i) {
+                result["clips"][i]["weight"] = weights.weights[i];
+                result["clips"][i]["time_seconds"] =
+                    state.arrangement->clip_time_us(i, state.time) / animation_timebase;
+            }
+        }
         return result;
     }
     Json result{{"clip", state.config.clip.id},

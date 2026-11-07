@@ -1,5 +1,20 @@
 # Feature Gallery
 
+## Layered clip overlaps
+
+Open `Scenes/190-multiway-sequence-blends.scene.json` and press **Play → Game**.
+The left model layers eight alternating locomotion phases, the center layers eight
+morph phases, and the right layers eight Rest/mapped Swing poses. They share a
+four-second looping controller and need no project C++ module.
+
+Select **Four-second layered clip overlaps**, open its Timeline and select a model
+track. **Layer overlapping clips** permits more than two contributions within the
+eight-clip limit. Edit starts and the option together, choose **Apply track timing**,
+then **Refresh clips** and preview. Starts and ends must stay ordered. Save the Scene
+and select it as the startup Scene before exporting with the bundled runtime kit.
+During Play, **Clip placements** lists local times/influences; a dominant pair is
+only a summary of a larger blend. See the [sequence guide](../../../manual/editor/animation-sequences.md#layer-more-than-two-overlapping-clips).
+
 ## Repeated controller placements
 
 Open `Scenes/189-controller-placements.scene.json` and press **Play → Game**.

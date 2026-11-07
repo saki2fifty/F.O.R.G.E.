@@ -480,8 +480,14 @@ void camera_profile_recovery(const std::filesystem::path& root, const Json& sour
     for (std::size_t i = 2; i < sequence_clip_limit; ++i)
         track.sequence_extra_clips.push_back({track.clip, i * spacing});
     scene.entity(sibling).set(track);
-    for (const unsigned profile : {0u, 1u, 2u}) {
-        const bool looping = profile != 0, placements = profile == 2;
+    for (const unsigned profile : {0u, 1u, 2u, 3u}) {
+        const bool looping = profile != 0, placements = profile >= 2, mixing = profile == 3;
+        track.sequence_multiway = mixing;
+        const auto step = mixing ? clip_duration * .125 : spacing;
+        track.sequence_next_start_seconds = step;
+        for (std::size_t i = 0; i < track.sequence_extra_clips.size(); ++i)
+            track.sequence_extra_clips[i].start_seconds = (i + 2) * step;
+        scene.entity(sibling).set(track);
         child.sequence_loop = looping;
         child.sequence_extra_placements =
             placements ? std::vector<SequenceControllerPlacement>{{1.25, .5, false}}
@@ -495,9 +501,11 @@ void camera_profile_recovery(const std::filesystem::path& root, const Json& sour
         const auto collection_sibling =
             collection.animation->presentation(collection.scene.entity(sibling).id(), 1);
         const auto collection_checkpoint = collection.animation->checkpoint();
-        check(collection_checkpoint.at("version") == (placements ? 14
-                                                      : looping  ? 13
-                                                                 : 12) &&
+        check(collection_checkpoint.at("version") == (mixing       ? 15
+                                                      : placements ? 14
+                                                      : looping    ? 13
+                                                                   : 12) &&
+                  (!mixing || collection_checkpoint.at("sequence_mixing_profile") == 14) &&
                   (!placements || collection_checkpoint.at("sequence_placement_profile") == 13) &&
                   (!looping || collection_checkpoint.at("sequence_loop_profile") == 12) &&
                   collection_checkpoint.at("sequence_arrangement_profile") == 11 &&
@@ -522,6 +530,8 @@ void camera_profile_recovery(const std::filesystem::path& root, const Json& sour
             wrappers.push_back("sequence_loop_profile");
         if (placements)
             wrappers.push_back("sequence_placement_profile");
+        if (mixing)
+            wrappers.push_back("sequence_mixing_profile");
         for (const char* field : wrappers) {
             auto invalid = collection_checkpoint;
             invalid[field] = 1u;
@@ -529,6 +539,28 @@ void camera_profile_recovery(const std::filesystem::path& root, const Json& sour
             check(collection_cold.animation->checkpoint() == collection_checkpoint,
                   "Rejected collection wrapper changed an admitted world");
         }
+        if (mixing)
+            for (const unsigned variant : {0u, 1u, 2u, 3u}) {
+                auto invalid = collection_checkpoint;
+                if (variant == 0) {
+                    invalid["version"] = invalid.at("sequence_mixing_profile");
+                    invalid.erase("sequence_mixing_profile");
+                } else
+                    for (auto& entry : invalid["entries"])
+                        if (entry.at("entity") == Json(scene.reference(sibling))) {
+                            if (variant == 1)
+                                entry["sequence_multiway"] = false;
+                            else if (variant == 2)
+                                entry.erase("sequence_multiway");
+                            else
+                                entry["sequence_multiway"] = "true";
+                        }
+                rejects([&] { collection_cold.animation->restore(invalid); });
+                check(collection_cold.animation->checkpoint() == collection_checkpoint,
+                      "Rejected full mixing profile chain changed the admitted world");
+                same_pose(collection_cold.current_pose(), collection_graph,
+                          "Graph after rejected multiway recovery");
+            }
         if (placements)
             for (const bool stripped : {false, true}) {
                 auto invalid = collection_checkpoint;

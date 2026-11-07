@@ -175,7 +175,8 @@ template <class T> Json encode(const T& p) {
                 {"sequence_next_clip",
                  p.sequence_next_clip.id ? Json(p.sequence_next_clip.id) : Json()},
                 {"sequence_next_start_seconds", p.sequence_next_start_seconds},
-                {"sequence_extra_clips", encode_sequence_clips(p.sequence_extra_clips)}};
+                {"sequence_extra_clips", encode_sequence_clips(p.sequence_extra_clips)},
+                {"sequence_multiway", p.sequence_multiway}};
     else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
         Json value = {
             {"enabled", p.enabled},   {"weight", p.weight},     {"twist_degrees", p.twist_degrees},
@@ -234,7 +235,8 @@ template <class T> Json encode(const T& p) {
                 {"sequence_next_clip",
                  p.sequence_next_clip.id ? Json(p.sequence_next_clip.id) : Json()},
                 {"sequence_next_start_seconds", p.sequence_next_start_seconds},
-                {"sequence_extra_clips", encode_sequence_clips(p.sequence_extra_clips)}};
+                {"sequence_extra_clips", encode_sequence_clips(p.sequence_extra_clips)},
+                {"sequence_multiway", p.sequence_multiway}};
     else if constexpr (std::is_same_v<T, AudioSource>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"play_on_start", p.play_on_start},
@@ -596,6 +598,7 @@ template <class T> Value decode(const Json& p) {
         if (!std::isfinite(v.sequence_next_start_seconds) || v.sequence_next_start_seconds < 0 ||
             v.sequence_next_start_seconds > 3600)
             throw std::runtime_error("Sequence next clip start must be within 0–3600 seconds");
+        v.sequence_multiway = p.value("sequence_multiway", false);
         v.sequence_extra_clips = decode_sequence_clips<TransformAnimationAsset>(
             p.value("sequence_extra_clips", Json::array()));
         animation_detail::validate_sequence_extras(
@@ -679,6 +682,7 @@ template <class T> Value decode(const Json& p) {
         if (p.contains("sequence_next_clip") && !p.at("sequence_next_clip").is_null())
             v.sequence_next_clip.id = p.at("sequence_next_clip").get<AssetId>();
         v.sequence_next_start_seconds = p.value("sequence_next_start_seconds", 0.);
+        v.sequence_multiway = p.value("sequence_multiway", false);
         v.sequence_extra_clips = decode_sequence_clips<AnimationClipAsset>(
             p.value("sequence_extra_clips", Json::array()));
         // A shared Prefab template retains clip data with null native member links.
@@ -1527,7 +1531,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<AssetRef<TransformAnimationAsset>>("sequence_next_clip")
             .template member<double>("sequence_next_start_seconds")
             .template member<std::vector<SequenceClipPlacement<TransformAnimationAsset>>>(
-                "sequence_extra_clips");
+                "sequence_extra_clips")
+            .template member<bool>("sequence_multiway");
     } else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
         register_asset_ref<ModelNodeAsset>(w, "forge.model_node_ref");
         if constexpr (std::is_same_v<T, TwoBoneIK>)
@@ -1601,7 +1606,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<AssetRef<AnimationClipAsset>>("sequence_next_clip")
             .template member<double>("sequence_next_start_seconds")
             .template member<std::vector<SequenceClipPlacement<AnimationClipAsset>>>(
-                "sequence_extra_clips");
+                "sequence_extra_clips")
+            .template member<bool>("sequence_multiway");
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         w.component<AssetRef<AudioClipAsset>>("forge.audio_clip_ref")
             .opaque(flecs::String)
@@ -3247,8 +3253,14 @@ Json registration_options(const Builtin& type, const std::string& field) {
                 "parent, each with its own start, rate and loop. Ignored on roots.";
         } else if (field == "sequence_extra_clips") {
             value["display_name"] = "Additional sequence clips";
-            value["description"] = "Up to six placements after the primary/next pair; at most "
-                                   "eight clips and two adjacent contributions.";
+            value["description"] =
+                "Up to six placements after the primary/next pair; at most "
+                "eight clips. Enable Layer overlapping clips for multiway fades.";
+        } else if (field == "sequence_multiway") {
+            value["display_name"] = "Layer overlapping clips";
+            value["description"] =
+                "Blend every overlapping sequence clip as ordered incoming overlays. "
+                "Disabled retains the two-contributor profile; ignored without a controller.";
         } else if (field == "sequence_next_clip") {
             value["display_name"] = "Next clip";
         } else if (field == "sequence_next_start_seconds") {
@@ -3943,6 +3955,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("sequence_extra_clips")
                 .set<ReflectedSequenceLimit>({sequence_clip_limit - 2})
                 .add<ReflectedNoAnimation>();
+            world.component<ReflectedMemberDefault>(reflected_member_default_type);
+            c.lookup("sequence_multiway")
+                .set<ReflectedMemberDefault>({false})
+                .add<ReflectedNoAnimation>();
         }
         if (name == "forge.animation_sequence")
             c.lookup("sequence_extra_placements")
@@ -4247,8 +4263,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.animator" ||
         std::string_view(type.name) == "forge.transform_animator")
-        for (const auto* field :
-             {"sequence_next_clip", "sequence_next_start_seconds", "sequence_extra_clips"})
+        for (const auto* field : {"sequence_next_clip", "sequence_next_start_seconds",
+                                  "sequence_extra_clips", "sequence_multiway"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.particle_emitter")

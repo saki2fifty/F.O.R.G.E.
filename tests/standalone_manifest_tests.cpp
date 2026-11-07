@@ -157,6 +157,50 @@ int main(int argc, char** argv) {
         }
         {
             using package_detail::document_runtime_features;
+            for (const char* component : {"forge.animator", "forge.transform_animator"})
+                for (const char* channel : {"components", "property_overrides"})
+                    for (const char* rows : {"entities", "members", "overrides"}) {
+                        Json document{
+                            {rows,
+                             Json::array(
+                                 {{{channel, {{component, {{"sequence_multiway", true}}}}}}})}};
+                        if (std::string_view(rows) == "overrides")
+                            document["base"] = AssetId::generate();
+                        check(document_runtime_features(document) == Json{{"sequence_mixing", 1}},
+                              "Retained/partial multiway flags lost the runtime kit guard");
+                        document[rows][0][channel][component]["sequence_multiway"] = false;
+                        check(document_runtime_features(document).empty(),
+                              "Legacy overlap mode unexpectedly requires a new runtime kit");
+                        for (const Json& invalid :
+                             {Json(), Json(1), Json("true"), Json::object()}) {
+                            document[rows][0][channel][component]["sequence_multiway"] = invalid;
+                            reject([&] { (void)document_runtime_features(document); });
+                        }
+                    }
+            AssetCatalog features(scratch / "sequence-mixing-compatibility");
+            AssetRecord record{AssetId::generate(), SceneAsset::type, "Scenes/Mixing.scene.json",
+                               1};
+            record.metadata["forge.runtime_document"]["runtime_features"] = {
+                {"sequence_mixing", 1}};
+            features.add(record);
+            validate_runtime_compatibility(features, {{"runtime_sequence_mixing", 1}});
+            reject([&] { validate_runtime_compatibility(features, Json::object()); });
+            for (const Json& invalid :
+                 {Json(), Json(false), Json(-1), Json(0), Json(1.), Json("1"), Json(2)}) {
+                reject([&] {
+                    validate_runtime_compatibility(features,
+                                                   {{"runtime_sequence_mixing", invalid}});
+                });
+                record.metadata["forge.runtime_document"]["runtime_features"]["sequence_mixing"] =
+                    invalid;
+                features.replace(record);
+                reject([&] {
+                    validate_runtime_compatibility(features, {{"runtime_sequence_mixing", 1}});
+                });
+            }
+        }
+        {
+            using package_detail::document_runtime_features;
             for (const auto& [component, requirement, support, properties] :
                  std::array<std::tuple<const char*, const char*, const char*, Json>, 4>{
                      {{"forge.animator", "skeletal_sequence", "runtime_skeletal_sequence",

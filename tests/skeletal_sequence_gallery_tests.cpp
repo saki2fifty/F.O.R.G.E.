@@ -287,6 +287,7 @@ Json exercise(const std::filesystem::path& root, AssetId id) {
     check(mapped_motion, "Gallery did not exercise mapped motion");
     return observations;
 }
+#include "sequence_multiway_gallery_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -294,9 +295,12 @@ int main(int argc, char** argv) {
                           std::string_view(argv[1]) == "--author-rates" ||
                           std::string_view(argv[1]) == "--author-collections" ||
                           std::string_view(argv[1]) == "--author-child-loops" ||
-                          std::string_view(argv[1]) == "--author-placements")) {
+                          std::string_view(argv[1]) == "--author-placements" ||
+                          std::string_view(argv[1]) == "--author-multiway")) {
             std::cout << test::author_skeletal_sequence_gallery(
-                             argv[2], std::string_view(argv[1]) == "--author-rates"
+                             argv[2], std::string_view(argv[1]) == "--author-multiway"
+                                          ? test::SequenceGalleryProfile::Multiway
+                                      : std::string_view(argv[1]) == "--author-rates"
                                           ? test::SequenceGalleryProfile::Rates
                                       : std::string_view(argv[1]) == "--author-collections"
                                           ? test::SequenceGalleryProfile::Collections
@@ -313,18 +317,21 @@ int main(int argc, char** argv) {
         const bool collections = argc == 4 && std::string_view(argv[1]) == "--collections";
         const bool child_loops = argc == 4 && std::string_view(argv[1]) == "--child-loops";
         const bool placements = argc == 4 && std::string_view(argv[1]) == "--placements";
-        check(argc == 3 || rates || collections || child_loops || placements,
-              "Need [--rates|--collections|--child-loops|--placements] Gallery and scratch, or "
-              "--author[-rates|-collections|-child-loops|-placements] "
+        const bool multiway = argc == 4 && std::string_view(argv[1]) == "--multiway";
+        check(argc == 3 || rates || collections || child_loops || placements || multiway,
+              "Need [--rates|--collections|--child-loops|--placements|--multiway] Gallery and "
+              "scratch, or "
+              "--author[-rates|-collections|-child-loops|-placements|-multiway] "
               "Gallery");
-        const bool selected = rates || collections || child_loops || placements;
+        const bool selected = rates || collections || child_loops || placements || multiway;
         const auto scratch =
             std::filesystem::absolute(argv[selected ? 3 : 2]) / AssetId::generate().str();
         const auto root = scratch / "SourceProject";
         std::filesystem::create_directories(scratch);
         std::filesystem::copy(argv[selected ? 2 : 1], root,
                               std::filesystem::copy_options::recursive);
-        const auto profile = placements    ? test::SequenceGalleryProfile::ControllerPlacements
+        const auto profile = multiway      ? test::SequenceGalleryProfile::Multiway
+                             : placements  ? test::SequenceGalleryProfile::ControllerPlacements
                              : child_loops ? test::SequenceGalleryProfile::ChildLoops
                              : collections ? test::SequenceGalleryProfile::Collections
                              : rates       ? test::SequenceGalleryProfile::Rates
@@ -336,7 +343,10 @@ int main(int argc, char** argv) {
         else
             id = test::author_skeletal_sequence_gallery(root, profile);
         const auto saved = read(root / path);
-        const auto expected = exercise(root, id);
+        const auto run = [&](const auto& path) {
+            return multiway ? exercise_multiway_gallery(path, id) : exercise(path, id);
+        };
+        const auto expected = run(root);
         check(read(root / path) == saved, "Gallery execution changed its editable Scene source");
         const std::array roots{id};
         package_runtime_content(root, scratch / "Export", roots, {"windows", "d3d12"});
@@ -347,7 +357,7 @@ int main(int argc, char** argv) {
                   !std::filesystem::exists(
                       scratch / "Relocated/Assets/AnimationRetarget/Swing.retarget.json"),
               "Runtime export retained editable animation sources");
-        check(exercise(scratch / "Relocated", id) == expected,
+        check(run(scratch / "Relocated") == expected,
               "Source-hidden relocated skeletal Gallery samples changed");
         std::cout << "Original skeletal/morph/mapped tracks, independent phases, recovery and "
                      "source-hidden export PASS\n";

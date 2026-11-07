@@ -79,6 +79,7 @@ struct Fixture {
 } // namespace
 #include "animation_seeking_tests.hpp"
 #include "skeletal_sequence_collection_tests.hpp"
+#include "skeletal_sequence_multiway_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 5 || argc == 6,
@@ -137,6 +138,10 @@ int main(int argc, char** argv) {
                         scene.revision());
         const auto source = scene.document();
         if (argc == 6) {
+            if (std::string_view(argv[5]) == "--multiway") {
+                skeletal_sequence_multiway_tests(project, source, actor, forward, strafe);
+                return 0;
+            }
             if (std::string_view(argv[5]) == "--collections") {
                 skeletal_sequence_collection_tests(project, source, actor, forward, strafe);
                 return 0;

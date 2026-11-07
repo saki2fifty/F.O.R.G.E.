@@ -2,8 +2,8 @@
 
 An **Animation Sequence** makes several objects use one playback time. Each object
 keeps its reusable animation clips and their start times inside the sequence.
-Each object can arrange up to eight compatible clips, with at most two adjacent
-clips contributing at once. Tracks can animate transforms and matching properties,
+Each object can arrange up to eight compatible clips. The default permits two
+adjacent contributions; **Layer overlapping clips** enables all eight to blend. Tracks can animate transforms and matching properties,
 or an existing skeletal Animator's joints and model morphs.
 Sequences can also contain other sequences, sharing their root controller's
 playback time.
@@ -92,8 +92,9 @@ Transform Animator tracks and direct skeletal Animator tracks.
 
 Each placement has its own start; Timeline keeps the whole track on one controller.
 
-Starts and ends must stay in order. At most two adjacent clips may overlap at any
-time; a third overlapping clip is rejected during Refresh or Play preparation.
+Starts and ends must stay in order. With **Layer overlapping clips** off, at most
+two adjacent clips may overlap; a third overlapping clip is rejected during Refresh
+or Play preparation. Enable the option to use the layered workflow below.
 A gap holds the previous endpoint until the next clip starts. Before the track
 starts and after it ends, the first and last values hold. The controller can still
 stop or loop before a clip's endpoint.
@@ -104,6 +105,47 @@ the same clip keep independent local phases. **None / Clear** in **Next clip**
 clears the later placements too. **Remove from sequence** also clears them while
 retaining the primary clip and standalone playback settings. Undo restores the full
 arrangement. Export uses the runtime kit packaged with the editor.
+
+## Layer more than two overlapping clips
+
+Open **FeatureGallery / Scenes / 190-multiway-sequence-blends.scene.json** and press
+**Play → Game**. Three original models blend eight locomotion phases, eight morph
+phases and eight Rest/mapped Swing poses. The controller loops every four seconds.
+No C++ module is required. The models use their existing published clips, sampled
+at different local times.
+
+![Original locomotion, morph and mapped models playing the layered sequence](../images/multiway-sequence-game.png)
+
+The three models share one controller while their independent clip phases blend.
+
+1. Stop Play. Select **Four-second layered clip overlaps**, choose **Open sequence timeline**, then select **Center - Eight layered morph phases**.
+2. Enable **Layer overlapping clips** on a track that has three or more compatible clips. Inspector exposes the same option on its Animator or Transform Animator.
+3. Edit the clip starts, keeping starts and ends in order. Choose **Apply track timing** to commit the option and pending starts together as one Scene Undo step. **Reset pending timing** discards both. Apply or reset before switching tracks or choosing other clips.
+4. Choose **Refresh clips**, then **Preview sequence**. Scrub near **0.900 s** in the example to see all eight locomotion and morph phases contribute. Each incoming clip fades over its overlap with the preceding clip and layers over the earlier result. Gaps hold the previous endpoint.
+5. Choose **Save scene**. To export the example, choose it as the startup Scene and export with the runtime kit packaged with the editor.
+
+![Timeline with eight overlapping clip strips, their starts and the enabled Layer overlapping clips option](../images/multiway-sequence-blends.png)
+
+The selected morph track keeps one controller and eight independent clip phases.
+Scroll down to reach its later asset pickers.
+
+Continuous values and morph weights blend. Sprite frames and Boolean/integer fields
+come from the clip with the greatest influence; the later clip wins a tie. A clip's
+combined influence can shrink as later clips fade in. There is no separate editable
+weight curve in this workflow.
+
+During Play, select a bound object and expand **Live sequence track → Clip placements**
+to inspect each clip's local time and influence. These values are read-only; select
+the controller to pause, restart or seek. With more than two contributors, the
+**Dominant pair relative mix** is only a summary: the expanded list describes the
+full blend. Seeking exactly to a looping controller's end returns to its start.
+
+All selected clips must be compatible, including clips with zero current influence.
+The option changes the overlap limit, not the eight-clip limit or ordered-end rule.
+If Refresh rejects an arrangement, correct its starts or clips and refresh again.
+Disabling the option while three clips overlap rejects that replacement and keeps
+the last accepted pose. States, Blend Spaces and Graphs cannot be bound as these
+clip tracks. C++ changes require the matching bundled SDK.
 
 ### Crossfade property tracks
 
@@ -214,8 +256,8 @@ Preview is for unbound Animators; use Timeline preview for bound models.
 If Refresh or Play reports an incompatible clip or changed model revision, correct
 the selection or republish the model/retargeted clip, then refresh. A rejected
 replacement leaves the accepted assets active. Each player supports
-up to eight clips, with at most two adjacent contributions; this workflow does not author bone
-keyframes or place a States, Blend Space or Graph player on a sequence.
+up to eight clips, with **Layer overlapping clips** enabling multiway blends;
+this workflow does not author bone keyframes or place a States, Blend Space or Graph player on a sequence.
 
 ## Place a sequence inside another
 
@@ -520,13 +562,14 @@ playback intent govern all its tracks; the individual clips' standalone settings
 stay stored for when they are removed from the sequence.
 
 **Remove from sequence** keeps the primary clip and clears its controller and all
-additional placements. Each object supports up to eight compatible clips, with at
-most two adjacent clips contributing at once.
+additional placements. Each object supports up to eight compatible clips. The
+default permits two adjacent contributions; **Layer overlapping clips** enables
+multiway blends.
 Camera shots support cuts and compatible view/lens transitions. This sequence mode
 does not crossfade rendered images or author bone keyframes. Matching Material and component-field
 tracks use the same clip-pair and additional-placement workflows above. Use the
-preview export options above to save a silent movie. Each controller has at most one
-parent placement; place a copy of a complete linked group to reuse it independently.
+preview export options above to save a silent movie. Each child has one parent controller and up to eight nonoverlapping placements on
+that parent. Copy a complete linked group to reuse it independently.
 
 Pause, Step and simulation Speed work as they do for other animations. C++ can use
 the existing animation playback/control/seek operations on the controller. Bound

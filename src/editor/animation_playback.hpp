@@ -71,12 +71,20 @@ class AnimationPlaybackEditor {
             if (status.value("transitioning", false))
                 ImGui::TextWrapped("Incoming fade: %.1f%%",
                                    status.value("transition_weight", 1.) * 100);
-            if (status.value("blend_weight", 0.) > 0)
-                ImGui::TextWrapped("Clip mix: %.1f%%", status.value("blend_weight", 0.) * 100);
             const auto arrangement = status.find("sequence_clips");
+            const bool summary_only = arrangement != status.end() && arrangement->is_object() &&
+                                      arrangement->value("summary_only", false);
+            if (status.value("blend_weight", 0.) > 0)
+                ImGui::TextWrapped(summary_only ? "Dominant pair relative mix: %.1f%%"
+                                                : "Clip mix: %.1f%%",
+                                   status.value("blend_weight", 0.) * 100);
             if (arrangement != status.end() && arrangement->is_object() &&
                 arrangement->contains("clips") && arrangement->at("clips").is_array()) {
                 const auto& clips = arrangement->at("clips");
+                if (summary_only) {
+                    ImGui::TextWrapped("Dominant pair summary; full influences below");
+                    FORGE_UI_PROBE("live-animation:summary_only");
+                }
                 ImGui::TextWrapped("Active clips %zu and %zu of %zu",
                                    arrangement->at("active_primary").get<std::size_t>() + 1,
                                    arrangement->at("active_next").get<std::size_t>() + 1,
@@ -89,6 +97,12 @@ class AnimationPlaybackEditor {
                         ImGui::TextWrapped("Clip %zu: start %.3f s, duration %.3f s", i + 1,
                                            clips[i].at("start_seconds").get<double>(),
                                            clips[i].at("duration_seconds").get<double>());
+                        if (arrangement->value("multiway", false)) {
+                            ImGui::TextWrapped("Local %.3f s | Influence %.1f%%",
+                                               clips[i].at("time_seconds").get<double>(),
+                                               100 * clips[i].at("weight").get<double>());
+                            FORGE_UI_PROBE("live-animation:influence:" + std::to_string(i));
+                        }
                         FORGE_UI_PROBE("live-animation:placement:" + std::to_string(i));
                     }
                     ImGui::TreePop();

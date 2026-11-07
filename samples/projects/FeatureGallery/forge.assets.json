@@ -889,6 +889,16 @@
       "type": "model_node"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "0b7420da-58f3-4e0c-8ccb-cd602c8b6b3b",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/190-multiway-sequence-blends.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "ba211baa-94a2-4383-8e5c-efba91783d90"
       ],

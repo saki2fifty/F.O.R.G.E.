@@ -52,6 +52,14 @@ def check_skeletal_sequence_play(read, ok, control, mutate, until, discovery):
                                                         values=dict(sequence_loop=True,
                                                             sequence_extra_placements=[dict(
                                                                 start_seconds=3.25, rate=.5, loop=False)])))
+            ok('forge_property_set_many', arguments=dict(entity=actor_id, component='forge.animator',
+                values=dict(sequence_multiway=True, sequence_next_start_seconds=.125,
+                            sequence_extra_clips=[dict(clip=clip, start_seconds=.125*i) for i in range(2, 8)])))
+            property_clip = light['forge.transform_animator']['clip']
+            ok('forge_property_set_many', arguments=dict(entity=actor_id, component='forge.transform_animator',
+                values=dict(sequence_multiway=True, sequence_start_seconds=0,
+                            sequence_next_clip=property_clip, sequence_next_start_seconds=.25,
+                            sequence_extra_clips=[dict(clip=property_clip, start_seconds=.25*i) for i in range(2, 8)])))
             ok('forge_document_save')
             saved = read('forge_scene_read')
         print('Skeletal MCP: launch', launch, flush=True)
@@ -61,7 +69,7 @@ def check_skeletal_sequence_play(read, ok, control, mutate, until, discovery):
         paused = until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
         failed(mutate('forge_play_animation_control', launch=paused['launch'], session=paused['session'],
                       generation=paused['generation'], entity=controller, operation='seek', position_seconds=.75), 'stale_watch')
-        for seconds in ((.75, 1.875, 3, 4) if launch == 0 else (.75, 3, 3.25, 4)):
+        for seconds in ((.75, 1.875, 3, 4) if launch == 0 else (.75, .95, 3, 3.25, 4)):
             print('Skeletal MCP: sample', launch, seconds, flush=True)
             control('forge_play_watch', entity=controller)
             until(status, lambda row: row.get('available') and row.get('sequence_controller'))
@@ -78,23 +86,73 @@ def check_skeletal_sequence_play(read, ok, control, mutate, until, discovery):
             weight = max(0, min(1, (local_seconds-.5*(active+1))*2))
             expected_rate = .5 if launch and seconds >= 3.25 else 2
             assert skeletal['speed'] == properties['speed'] == expected_rate
-            assert skeletal['sequence'] == binding and skeletal['duration'] == 4.5
-            assert abs(skeletal['time']-min(local_seconds, 4.5)) < 1e-8
+            duration = 1.875 if launch else 4.5
+            assert skeletal['sequence'] == binding and skeletal['duration'] == duration
+            assert abs(skeletal['time']-min(local_seconds, duration)) < 1e-8
+            if launch:
+                time = min(local_seconds, duration)
+                weights = [0.] * 8
+                suffix = 1.
+                for index in range(7, 0, -1):
+                    alpha = max(0., min(1., (time-.125*index)/.875))
+                    weights[index] = alpha*suffix
+                    suffix *= 1-alpha
+                weights[0] = suffix
+                complete = skeletal['sequence_clips']
+                count = sum(value > 0 for value in weights)
+                assert complete['multiway'] is True and complete['summary_only'] == (count > 2)
+                for index, layer in enumerate(complete['clips']):
+                    assert abs(layer['weight']-weights[index]) < 1e-8
+                    assert abs(layer['time_seconds']-max(0., min(1., time-.125*index))) < 1e-8
+                if count > 2:
+                    ordered = sorted(range(8), key=lambda index: (weights[index], index), reverse=True)
+                    active, incoming = ordered[:2]
+                    weight = weights[incoming] / (weights[active]+weights[incoming])
+                else:
+                    active = max(0, min(6, int((time-1)/.125)+1)) if time >= 1 else 0
+                    incoming = active+1
+                    weight = max(0., min(1., (time-.125*incoming)/.875))
+            else:
+                incoming = active+1
             assert abs(skeletal['blend_weight']-weight) < 1e-8
             assert skeletal['sequence_clips']['clip'] == clip
             assert skeletal['sequence_clips']['next']['clip'] == clip
             assert len(skeletal['sequence_clips']['clips']) == 8
             assert skeletal['sequence_clips']['active_primary'] == active
-            assert skeletal['sequence_clips']['active_next'] == active + 1
+            assert skeletal['sequence_clips']['active_next'] == incoming
             assert properties['sequence_clips'] == observed['sequence_clips']
             assert properties['sequence_clips']['clip'] == light['forge.transform_animator']['clip']
-            assert properties['duration'] == 2 and properties['blend_weight'] == 0
-            u = max(0, min(1, (local_seconds-1)/2))
-            until(sample, lambda row: abs(row['components']['forge.light']['intensity']-(.8+2.2*u*u*(3-2*u))) < 1e-5)
+            if launch:
+                property_time = min(local_seconds, 3.75)
+                assert properties['duration'] == 3.75 and abs(properties['time']-property_time) < 1e-8
+                property_weights = [0.] * 8
+                suffix = 1.
+                for index in range(7, 0, -1):
+                    alpha = max(0., min(1., (property_time-.25*index)/1.75))
+                    property_weights[index] = alpha*suffix
+                    suffix *= 1-alpha
+                property_weights[0] = suffix
+                complete = properties['sequence_clips']
+                assert complete['multiway'] is True
+                assert complete['summary_only'] == (sum(value > 0 for value in property_weights) > 2)
+                expected_intensity = 0.
+                for index, weight in enumerate(property_weights):
+                    phase = max(0., min(2., property_time-.25*index))
+                    layer = complete['clips'][index]
+                    assert abs(layer['weight']-weight) < 1e-8 and abs(layer['time_seconds']-phase) < 1e-8
+                    u = phase/2
+                    expected_intensity += weight*(.8+2.2*u*u*(3-2*u))
+            else:
+                assert properties['duration'] == 2 and properties['blend_weight'] == 0
+                u = max(0, min(1, (local_seconds-1)/2))
+                expected_intensity = .8+2.2*u*u*(3-2*u)
+            until(sample, lambda row: abs(row['components']['forge.light']['intensity']-expected_intensity) < 1e-5)
             row = sample()
             pose = row['animation_pose']['local'][0]['translation']
-            expected_z = 2*(max(0, min(1, local_seconds-.5*active))*(1-weight)+
-                            max(0, min(1, local_seconds-.5*(active+1)))*weight)
+            expected_z = (2*sum(value*max(0., min(1., time-.125*index))
+                                for index, value in enumerate(weights)) if launch else
+                          2*(max(0, min(1, local_seconds-.5*active))*(1-weight)+
+                             max(0, min(1, local_seconds-.5*(active+1)))*weight))
             assert abs(pose[2]-expected_z) < .003, (launch, seconds, pose, expected_z)
             assert read('forge_play_status')['timing']['tick'] == paused['timing']['tick']
             assert read('forge_scene_read') == saved

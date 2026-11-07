@@ -18,6 +18,9 @@ def check_sequence_clip_workflow(client, discover, arguments, mutate, project,
     assert fields['sequence_next_start_seconds']['default'] == 0
     assert fields['sequence_next_start_seconds']['minimum'] == 0
     assert fields['sequence_next_start_seconds']['maximum'] == 3600
+    assert fields['sequence_multiway']['type'] == 'bool'
+    assert fields['sequence_multiway']['default'] is False
+    assert fields['sequence_multiway']['display_name'] == 'Layer overlapping clips'
     collection = fields['sequence_extra_clips']
     assert collection['type'] == 'vector' and collection['maximum_count'] == 6
     element_fields = {field['id']: field for field in collection['element']['fields']}
@@ -44,7 +47,7 @@ def check_sequence_clip_workflow(client, discover, arguments, mutate, project,
     values = dict(clip='939f0601-ce25-4f57-99fe-e359f4ad2de1',
                   sequence=dict(scene=snapshot()['asset_id'], entity=controller),
                   sequence_next_clip='b198df2e-54af-47ca-bcb8-7a70f873f79b',
-                  sequence_next_start_seconds=.5)
+                  sequence_next_start_seconds=.5, sequence_multiway=True)
     request = arguments(arguments=dict(entity=actor, component=component['id'], values=values))
     changed = client.tool('forge_property_set_many', **request)
     assert changed['ok'], changed
@@ -60,6 +63,12 @@ def check_sequence_clip_workflow(client, discover, arguments, mutate, project,
         before = discover()
         result = mutate('forge_property_set', arguments=dict(entity=actor, component=component['id'],
                         field='sequence_next_start_seconds', value=invalid))
+        assert not result['ok'] and discover()['revision'] == before['revision'], result
+        assert track() == expected
+    for invalid in (None, 0, 1, 'true', [], {}):
+        before = discover()
+        result = mutate('forge_property_set', arguments=dict(entity=actor, component=component['id'],
+                        field='sequence_multiway', value=invalid))
         assert not result['ok'] and discover()['revision'] == before['revision'], result
         assert track() == expected
     if component_id == 'forge.animator':

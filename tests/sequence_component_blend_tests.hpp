@@ -90,6 +90,44 @@ void sequence_component_blends(const std::filesystem::path& root) {
               "Sequence blend rounded discrete values or changed an unanimated field");
     };
     {
+        auto layered = track;
+        layered.sequence_multiway = true;
+        layered.sequence_next_start_seconds = .5;
+        layered.sequence_extra_clips = {{{first}, 1.}};
+        scene.entity(actor).set(layered);
+        const auto layered_source = scene.snapshot();
+        scene.restore_snapshot(saved);
+        Runtime mixed(root, layered_source, catalog);
+        mixed.ready();
+        for (unsigned step = 0; step <= 96; ++step) {
+            const double time = step / 32.;
+            const double a = std::clamp((time - .5) / 1.5, 0., 1.);
+            const double b = std::clamp((time - 1.) / 1.5, 0., 1.);
+            const std::array weights{(1 - a) * (1 - b), a * (1 - b), b};
+            std::size_t strongest = 0;
+            for (std::size_t i = 1; i < weights.size(); ++i)
+                if (weights[i] >= weights[strongest])
+                    strongest = i;
+            const double speed = weights[0] * (20 + 10 * std::clamp(time, 0., 2.)) +
+                                 weights[1] * (100 + 10 * std::clamp(time - .5, 0., 2.)) +
+                                 weights[2] * (20 + 10 * std::clamp(time - 1., 0., 2.));
+            AnimationPlaybackAccess::control(*mixed.animation, track.sequence,
+                                             {{"operation", "seek"}, {"position_seconds", time}});
+            verify(mixed.scene.entity(actor).get<Motion>(), speed, strongest == 1);
+        }
+        // At1.5s the middle clip is strongest (4/9), although the two other
+        // clips together carry5/9. Discrete fields choose one clip, not a vote.
+        AnimationPlaybackAccess::control(*mixed.animation, track.sequence,
+                                         {{"operation", "seek"}, {"position_seconds", 1.5}});
+        verify(mixed.scene.entity(actor).get<Motion>(), 65, true);
+        const auto checkpoint = mixed.animation->checkpoint();
+        Runtime cold(root, layered_source, catalog);
+        cold.animation->restore(checkpoint);
+        verify(cold.scene.entity(actor).get<Motion>(), 65, true);
+        check(cold.animation->checkpoint() == checkpoint,
+              "Multiway typed recovery changed exact Boolean/integer fields");
+    }
+    {
         auto collection = track;
         for (std::size_t i = 2; i < sequence_clip_limit; ++i)
             collection.sequence_extra_clips.push_back({{i % 2 ? next : first}, double(i)});
