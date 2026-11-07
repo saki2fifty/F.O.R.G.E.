@@ -135,8 +135,10 @@ def verify(runtime, gallery, module=None):
             assert worker.process.wait(timeout=5)==0
         finally:
             worker.close()
+        from sound_cue_repeat_process import check_repeating_hosts
+        check_repeating_hosts(runtime, root, scene, ref, cue_id, a, module)
         assert all(hashlib.sha256(path.read_bytes()).hexdigest()==digest for path,digest in original.items())
-    print('Both cue runtime hosts, Timeline dispatch, stale/unsupported controls, recovered graph/fresh selection and three clean exits passed')
+    print('Both cue hosts, Timeline and repeating output-time events, controls, fresh recovery and six clean exits passed')
 
 
 if __name__ == '__main__':

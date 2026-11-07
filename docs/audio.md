@@ -565,7 +565,7 @@ required custom profile. Exact-SDK Play retains its explicit recovery restrictio
 
 ## Composition and SDK
 
-`forge_runtime --project PATH --audio device` explicitly enables optional real output. Plain `--project` supplies the asset root only; protocol hello keeps the existing clock/input/gravity configuration authority, including recovery from the active play session. `--audio offline` selects no-device logic tests; omitting `--audio` remains headless. The experimental profile uses `--sdk-project PATH` with the same audio option. A consumer requiring Audio must declare dependency `forge.audio`; unavailable required services prevent consumer startup. Optional output failure emits a diagnostic and continues without Audio capability.
+`forge_runtime --project PATH --audio device` explicitly enables optional real output. Plain `--project` supplies the asset root only; protocol hello keeps the existing clock/input/gravity configuration authority, including recovery from the active play session. `--audio offline` selects explicit PCM-read tests; private `--audio null-test` uses the existing null device to exercise host/output-clock progression without physical audio acceptance; omitting `--audio` remains headless. The experimental profile uses `--sdk-project PATH` with the same audio option. A consumer requiring Audio must declare dependency `forge.audio`; unavailable required services prevent consumer startup. Optional output failure emits a diagnostic and continues without Audio capability.
 Runtime Scene preparation requires an available audio provider for nondefinition
 AudioSource entities; headless scenes without that requirement still load normally.
 Schema-only authoring and validation retain data-only component support.
@@ -645,7 +645,7 @@ advancement; the caller's input state is never mutated by selection.
 
 The existing AudioService one-shot operation and ABI1 SDK callback accept either
 an AudioSource or a SoundCue entity. A cue entity must not also have AudioSource;
-it accepts only OneShot. The callback table and operation values are unchanged.
+event-only cues accept only OneShot. Configured repeating cues also accept the lifecycle operations described below. The callback table and operation values are unchanged.
 The public installed component header/fingerprint requires matching C++ modules.
 Timeline AudioCue events can target a SoundCue through the same AudioService.
 
@@ -881,3 +881,56 @@ native worker starvation/failure checks cover counters, resumed output, IO threa
 ownership, slot limits and joined cleanup. MCP exercises both framings through
 actual settings and worker publication. Platform and physical review remain
 separate from these no-device checks.
+
+
+## Repeating sound-cue events
+
+SoundCue root values `repeat_interval_seconds` (default 0), `repeat_on_start`
+(default false) and `repeat_pause_with_game` (default true) configure optional periodic
+events. Zero disables repetition; otherwise the finite interval must be 0.25..3600
+output seconds, rounded to native output frames. Every event still evaluates the
+bounded acyclic graph. This is periodic event production, not cyclic node graphs
+or clip-completion playlists. See [ADR039](decisions/039-repeating-sound-cue-events.md).
+
+The existing Restart operation (`play` in automation/private protocol) resets
+selection and starts a producer. Its first event waits for every declared source
+voice to prepare and the applicable output domain to run. Later deadlines use the
+same native engine clock. Pause/Resume preserve the remaining interval; Stop
+cancels future events. Already-requested sounds, including delayed voices, remain
+owned by their Audio Sources. OneShot always requests one event, even when the
+producer is stopped. A manually stopped startup producer stays stopped until
+Restart, a definition change or a new runtime world. Observed definition changes
+retire previous selection/production state.
+
+Full output suspension always holds production. Gameplay pause holds producers
+with `repeat_pause_with_game=true`; independent producers require every declared
+source to disable its own `pause_with_game`, including unused branches. Existing
+source gain, pitch, routing, streams, effects and budgets apply to each requested
+voice. Source removal or an invalid source policy stops production with a
+transient diagnostic; fix the source and explicitly Restart. No callback reads
+Scene or graph state.
+
+At most 32 producers run within the existing 256 cue-state limit. Each owner service
+boundary produces at most one event per active cue; missed periods are skipped
+and counted while the next deadline retains the original phase. A stalled host
+therefore cannot create an unbounded catch-up burst. Native device requests are
+owner-boundary dispatch, not a promise of callback-accurate starts across stalls.
+Offline PCM reads split at event deadlines and use the existing bounded loading
+owner to prepare newly created stream voices before advancing output time.
+Unrelated failed sources retain their diagnostics. Device playback remains
+asynchronous. Both runtime
+hosts service independent production outside fixed game ticks.
+
+Status exposes availability, running/explicitly-paused/domain-suspended state,
+source preparation, next remaining interval, skipped events and retained producer
+errors. These are transient runtime observations. Recovery retains authored
+configuration and starts fresh selection and production; active deadlines,
+producer controls, queued voices and effect state are not recovered. Startup
+intent may start a fresh producer in the recovered world.
+
+Scene/Prefab/history, Inspector, C++, automation and MCP use the same component
+values and existing owners. Missing native/JSON members default to 0/false/true.
+Any nondefault repeating intent, including retained partial Prefab values, requires
+`sound_cue_repeat:1` and kit `runtime_sound_cue_repeat:1`. C ABI1 callbacks and
+operation values are unchanged; C++ modules need matching installed component
+headers and fingerprint.

@@ -72,16 +72,15 @@ struct Fixture {
     RuntimeSimulation simulation;
     std::shared_ptr<AudioRuntime> audio;
     explicit Fixture(const std::filesystem::path& root, float volume = 1, bool physics = false,
-                     AudioRouting routing = {})
-        : engine(
-              WorldRole::Runtime, false,
-              [&] {
-                  std::vector<EngineModule> modules{audio_module(
-                      {root, AudioOutput::Offline, true, volume, {1, 1, 1}, std::move(routing)})};
-                  if (physics)
-                      modules.push_back(physics_module());
-                  return modules;
-              }()),
+                     AudioRouting routing = {}, AudioOutput output = AudioOutput::Offline)
+        : engine(WorldRole::Runtime, false,
+                 [&] {
+                     std::vector<EngineModule> modules{
+                         audio_module({root, output, true, volume, {1, 1, 1}, std::move(routing)})};
+                     if (physics)
+                         modules.push_back(physics_module());
+                     return modules;
+                 }()),
           scene(engine.world()), simulation(engine.world(), scene),
           audio(std::static_pointer_cast<AudioRuntime>(engine.services().audio())) {}
     void load(const Json& doc) {

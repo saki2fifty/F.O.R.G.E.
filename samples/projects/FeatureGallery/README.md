@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Repeating sound-cue events
+
+Open `Scenes/194-repeating-sound-cues.scene.json` and press **Play → Game**. The cue
+requests a layered/ordered/weighted event every 0.512 output seconds, with Source
+offsets of 0.128, 0.256 or 0.384 seconds. It runs independently during gameplay
+Pause. The Scene includes its camera and light and needs no project C++ or Timeline.
+
+Select **Repeating layered events - select for Live sound**. Stop Play and use
+**Sound Cue → Edit sound cue → Repeating events** to edit its interval, startup
+and game-pause settings; **Apply sound cue**, then save. During Play, **Live sound**
+starts, restarts, pauses, resumes or stops future events. Already-requested sounds
+keep their Audio Source controls. Set this Scene as startup and export with a
+matching runtime kit. See the [audio guide](../../../manual/editor/audio.md).
+
 ## Timed sound cues
 
 Open `Scenes/193-timed-sound-cues.scene.json` and press **Play → Game**. Each

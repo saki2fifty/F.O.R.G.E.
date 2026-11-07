@@ -161,13 +161,25 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             if (features != document->end()) {
                 require(features->is_object(), "Invalid authored document runtime features");
                 for (const auto& [name, version] : features->items()) {
+                    if (name == "sound_cue_repeat") {
+                        require(version.is_number_integer() &&
+                                    version == sound_cue_repeat_profile_version,
+                                "Unsupported authored cue repetition profile");
+                        const auto support = engine.find("runtime_sound_cue_repeat");
+                        require(support != engine.end() && support->is_number_integer() &&
+                                    *support == sound_cue_repeat_profile_version,
+                                "Repeating cues require the runtime kit packaged with this editor");
+                        continue;
+                    }
                     if (name == "sound_cue_timing") {
-                        require(version.is_number_integer() && version == sound_cue_timing_profile_version,
+                        require(version.is_number_integer() &&
+                                    version == sound_cue_timing_profile_version,
                                 "Unsupported authored Sound Cue timing profile");
                         const auto support = engine.find("runtime_sound_cue_timing");
-                        require(support != engine.end() && support->is_number_integer() &&
-                                    *support == sound_cue_timing_profile_version,
-                                "Timed Sound Cues require the runtime kit packaged with this editor");
+                        require(
+                            support != engine.end() && support->is_number_integer() &&
+                                *support == sound_cue_timing_profile_version,
+                            "Timed Sound Cues require the runtime kit packaged with this editor");
                         continue;
                     }
                     if (name == "sound_cues") {

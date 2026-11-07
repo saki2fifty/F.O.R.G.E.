@@ -22,6 +22,12 @@ class AudioStartDelay {
         remaining_ = std::uint64_t(std::llround(seconds * rate));
     }
     bool waiting() const { return remaining_ != 0 || due_.has_value(); }
+    static AudioStartDelay from_frames(std::uint64_t frames) {
+        AudioStartDelay result;
+        result.remaining_ = frames;
+        return result;
+    }
+    std::optional<std::uint64_t> deadline() const { return due_; }
     bool unarmed() const { return remaining_ != 0; }
     std::uint64_t remaining(std::uint64_t now) const {
         return due_ ? *due_ - std::min(*due_, now) : remaining_;

@@ -25,6 +25,13 @@ std::uint32_t choice_bits(std::uint32_t seed, std::size_t node, std::uint64_t vi
 }
 } // namespace
 SoundCueProgram SoundCueProgram::compile(const SoundCue& cue) {
+    if (!std::isfinite(cue.repeat_interval_seconds) ||
+        (cue.repeat_interval_seconds != 0 &&
+         (cue.repeat_interval_seconds < sound_cue_repeat_min_seconds ||
+          cue.repeat_interval_seconds > sound_cue_repeat_max_seconds)) ||
+        (cue.repeat_on_start && cue.repeat_interval_seconds == 0))
+        throw std::runtime_error("Sound Cue repeat interval must be zero (off) or 0.25..3600 "
+                                 "seconds; startup requires an interval");
     if (cue.nodes.size() > sound_cue_node_limit ||
         (cue.nodes.empty() ? cue.root != 0 : cue.root >= cue.nodes.size()))
         throw std::runtime_error("Sound Cue requires at most 32 nodes and an existing root");
@@ -34,8 +41,8 @@ SoundCueProgram SoundCueProgram::compile(const SoundCue& cue) {
             !std::isfinite(node.delay_seconds) || node.delay_seconds < 0 ||
             node.delay_seconds > sound_cue_delay_limit_seconds ||
             (node.kind != 0 && node.delay_seconds != 0))
-            throw std::runtime_error(
-                "Sound Cue requires valid kinds/references and Source-only delays of 0..10 seconds");
+            throw std::runtime_error("Sound Cue requires valid kinds/references and Source-only "
+                                     "delays of 0..10 seconds");
         if (node.kind == 0) {
             if (!node.children.empty())
                 throw std::runtime_error("Sound Cue Source nodes cannot have children");
@@ -126,6 +133,9 @@ SoundCue sound_cue_from_json(const nlohmann::json& value) {
     cue.enabled = value.at("enabled").get<bool>();
     cue.seed = integer(value.at("seed"));
     cue.root = integer(value.at("root"));
+    cue.repeat_interval_seconds = value.value("repeat_interval_seconds", 0.);
+    cue.repeat_on_start = value.value("repeat_on_start", false);
+    cue.repeat_pause_with_game = value.value("repeat_pause_with_game", true);
     const auto& nodes = value.at("nodes");
     if (!nodes.is_array() || nodes.size() > sound_cue_node_limit)
         throw std::runtime_error("Sound Cue nodes require an array of at most 32 entries");
@@ -161,6 +171,9 @@ nlohmann::json sound_cue_json(const SoundCue& cue) {
     return {{"enabled", cue.enabled},
             {"seed", cue.seed},
             {"root", cue.root},
+            {"repeat_interval_seconds", cue.repeat_interval_seconds},
+            {"repeat_on_start", cue.repeat_on_start},
+            {"repeat_pause_with_game", cue.repeat_pause_with_game},
             {"nodes", std::move(nodes)}};
 }
 } // namespace forge

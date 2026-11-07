@@ -4,7 +4,8 @@
 #include <forge/audio.hpp>
 
 void capture_sound_cue_editor(const std::filesystem::path& gallery,
-                              const std::filesystem::path& output, bool timed = false) {
+                              const std::filesystem::path& output, bool timed = false,
+                              bool repeating = false) {
     std::filesystem::create_directories(output);
     const auto root = output / "project";
     require(!std::filesystem::exists(root), "Cue capture project already exists");
@@ -12,14 +13,15 @@ void capture_sound_cue_editor(const std::filesystem::path& gallery,
     if (!SDL_Init(SDL_INIT_VIDEO))
         throw std::runtime_error(SDL_GetError());
     {
-        auto capture = std::make_unique<test::ImGuiSoftwareCapture>(700, 1100);
+        auto capture = std::make_unique<test::ImGuiSoftwareCapture>(700, repeating ? 1280 : 1100);
         ui::style(1);
         EngineContext engine;
         Scene scene(engine.world());
         SceneDocument project(scene);
         project.open_project(root);
-        project.open_scene(root / (timed ? "Scenes/193-timed-sound-cues.scene.json"
-                                        : "Scenes/192-event-sound-cues.scene.json"));
+        project.open_scene(root / (repeating ? "Scenes/194-repeating-sound-cues.scene.json"
+                                   : timed   ? "Scenes/193-timed-sound-cues.scene.json"
+                                             : "Scenes/192-event-sound-cues.scene.json"));
         std::string cue;
         const auto effective = scene.effective_document();
         for (const auto& row : effective.at("entities"))
@@ -46,8 +48,14 @@ void capture_sound_cue_editor(const std::filesystem::path& gallery,
         require(audio->wait_for_sources(std::chrono::seconds(5)),
                 "Cue capture audio did not prepare");
         const auto reference = runtime_scene.reference(cue);
-        for (unsigned i = 0; i < 4; ++i)
-            AudioSourceAccess::control(*audio, reference, AudioSourceOperation::OneShot);
+        if (repeating) {
+            audio->paused(false);
+            std::vector<float> pcm((3 * 24576 + 1) * 2);
+            audio->read_offline(pcm);
+        } else {
+            for (unsigned i = 0; i < 4; ++i)
+                AudioSourceAccess::control(*audio, reference, AudioSourceOperation::OneShot);
+        }
         const auto status = AudioSourceAccess::status(*audio, reference);
         require(status.at("accepted_triggers") == 4,
                 "Capture status did not come from actual runtime requests");
@@ -71,7 +79,7 @@ void capture_sound_cue_editor(const std::filesystem::path& gallery,
             ImGui::End();
             target.render();
         };
-        auto frame = [&] { draw(*capture, 1100); };
+        auto frame = [&] { draw(*capture, repeating ? 1280 : 1100); };
         auto click = [&](const std::string& key) {
             frame();
             require(test::ui_targets.contains(key), "Cue capture widget is absent: " + key);
@@ -112,23 +120,45 @@ void capture_sound_cue_editor(const std::filesystem::path& gallery,
                         target.maximum.y <= target.clip_maximum.y,
                     std::string("Cue capture clipped a required control: ") + key);
         }
-        capture->save(output / "audio-sound-cue.png");
+        if (repeating) {
+            require(status.at("repeat_running").get<bool>(),
+                    "Repeated capture has no active producer");
+            for (const auto* key : {"sound-cue:repeat-interval", "sound-cue:repeat-startup",
+                                    "sound-cue:repeat-game-pause"}) {
+                const auto& target = test::ui_targets.at(key);
+                require(target.minimum.y >= target.clip_minimum.y &&
+                            target.maximum.y <= target.clip_maximum.y,
+                        "Repeating capture clipped a setting");
+            }
+        }
+        capture->save(output / (repeating ? "audio-sound-cue-repeat.png" : "audio-sound-cue.png"));
         live_view = true;
         // The capture backend owns the current ImGui context. Retire it before
         // constructing another viewport so each SDL renderer has its own fonts.
         capture.reset();
         {
-            test::ImGuiSoftwareCapture compact(700, 260);
+            const float height = repeating ? 380 : 260;
+            test::ImGuiSoftwareCapture compact(700, int(height));
             ui::style(1);
-            draw(compact, 260);
-            draw(compact, 260);
-            draw(compact, 260);
-            draw(compact, 260);
+            draw(compact, height);
+            draw(compact, height);
+            draw(compact, height);
+            draw(compact, height);
             require(ImGui::GetDrawData()->TotalVtxCount > 200,
                     "Live cue capture produced no UI draw data");
             require(test::ui_targets.at("live-sound-cue:trigger").enabled,
                     "Cue live capture has no enabled trigger");
-            compact.save(output / "audio-sound-cue-live.png");
+            if (repeating)
+                for (const auto* key :
+                     {"live-sound-cue:repeat-start", "live-sound-cue:repeat-pause",
+                      "live-sound-cue:repeat-stop"}) {
+                    const auto& target = test::ui_targets.at(key);
+                    require(target.enabled && target.minimum.y >= target.clip_minimum.y &&
+                                target.maximum.y <= target.clip_maximum.y,
+                            "Repeating capture clipped or disabled a lifecycle control");
+                }
+            compact.save(output / (repeating ? "audio-sound-cue-repeat-live.png"
+                                             : "audio-sound-cue-live.png"));
         }
         require(scene.snapshot() == before && runtime_scene.snapshot() == before,
                 "Capture changed authored component values");

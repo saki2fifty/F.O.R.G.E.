@@ -17,12 +17,14 @@ void sound_cue_prefab_tests(const std::filesystem::path& root) {
     const auto a = create("Sound A", "audio.source", {{"clip", AssetId::generate()}});
     const auto b = create("Sound B", "audio.source", {{"clip", AssetId::generate()}});
     const auto cue = create("Event", "audio.sound_cue");
-    const SoundCue graph{true,
-                         23,
-                         0,
-                         {{2, {}, {{1, 2}, {2, 7}}},
-                          {0, scene.reference(a), {}, .125},
-                          {0, scene.reference(b), {}, .375}}};
+    SoundCue graph{true,
+                   23,
+                   0,
+                   {{2, {}, {{1, 2}, {2, 7}}},
+                    {0, scene.reference(a), {}, .125},
+                    {0, scene.reference(b), {}, .375}}};
+    graph.repeat_interval_seconds = .75;
+    graph.repeat_on_start = true;
     auto authored_graph = sound_cue_json(graph);
     const Json opaque_reference = scene.reference(a);
     authored_graph["nodes"][1]["future"] = {{"source", opaque_reference}};
@@ -39,7 +41,8 @@ void sound_cue_prefab_tests(const std::filesystem::path& root) {
                   actual.nodes[2].source == target.reference(named(target, "Sound B", parent)) &&
                   actual.nodes[0].children == graph.nodes[0].children &&
                   actual.seed == graph.seed && actual.nodes[1].delay_seconds == .125 &&
-                  actual.nodes[2].delay_seconds == .375,
+                  actual.nodes[2].delay_seconds == .375 && actual.repeat_interval_seconds == .75 &&
+                  actual.repeat_on_start && actual.repeat_pause_with_game,
               "Nested Sound Cue references crossed copied/Prefab instance ownership");
         const auto effective = target.effective_document();
         const auto& event_row =

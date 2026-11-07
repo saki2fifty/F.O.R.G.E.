@@ -10685,6 +10685,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "7de36cf2-3ce5-4894-9e01-0b1c1e4b16bd",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/194-repeating-sound-cues.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "7e96df5f-8524-4811-baa2-103f4951b6e4",
       "metadata": {},
       "schema_version": 3,

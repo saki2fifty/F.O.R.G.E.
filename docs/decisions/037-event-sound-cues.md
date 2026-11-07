@@ -32,7 +32,9 @@ Loading, voice-budget and later stale-source failures retain existing one-shot
 semantics. Accepted enqueue does not guarantee audible voice admission.
 
 A cue occupies its own entity without AudioSource. The existing OneShot operation
-accepts that entity; other source operations reject it. Source controls remain
+accepts that entity. Event-only cues reject other source operations;
+[ADR039](039-repeating-sound-cue-events.md) extends configured cues with producer
+lifecycle controls. Source controls remain
 responsible for voices, including voices requested by several cues. The ABI1
 callback table and operation values remain unchanged. Matching installed component
 headers/fingerprint are required for C++ modules.

@@ -147,16 +147,19 @@ void timed_cue(const std::filesystem::path& root, AssetId stream, AssetId reside
     auto a = document(stream, 2, false), b = document(resident, 2, false);
     for (auto* value : {&a, &b}) {
         (*value)["entities"][0]["components"]["forge.audio_source"]["play_on_start"] = false;
-        (*value)["entities"].push_back({{"id", "cue"}, {"name", "Delayed stream"},
-            {"components", {{"forge.sound_cue", sound_cue_json({})}}}});
+        (*value)["entities"].push_back({{"id", "cue"},
+                                        {"name", "Delayed stream"},
+                                        {"components", {{"forge.sound_cue", sound_cue_json({})}}}});
     }
     Running actual(root, a), expected(root, b);
     actual.prepared();
     expected.prepared();
     actual.scene.entity("cue").set(SoundCue{true, 1, 0, {{0, actual.ref(), {}, 4096. / 48000}}});
-    AudioSourceAccess::control(*actual.audio, actual.scene.reference("cue"), AudioSourceOperation::OneShot);
+    AudioSourceAccess::control(*actual.audio, actual.scene.reference("cue"),
+                               AudioSourceOperation::OneShot);
     actual.control(AudioSourceOperation::Pause);
-    require(actual.audio->wait_for_loading(std::chrono::seconds(5)), "Delayed stream did not prepare");
+    require(actual.audio->wait_for_loading(std::chrono::seconds(5)),
+            "Delayed stream did not prepare");
     for (unsigned i = 0; i < 8; ++i) {
         const auto pcm = actual.read();
         require(std::ranges::all_of(pcm, [](float x) { return x == 0; }),
@@ -170,6 +173,51 @@ void timed_cue(const std::filesystem::path& root, AssetId stream, AssetId reside
                 "A delayed stream advanced before its pitch-independent output deadline");
     }
     compare(actual, expected, 80, "Delayed prepared stream versus ordinary resident one-shot");
+}
+void repeating_cue(const std::filesystem::path& root, AssetId stream, AssetId resident) {
+    auto a = document(stream, 2, false), b = document(resident, 2, false);
+    for (auto* value : {&a, &b}) {
+        auto& source = (*value)["entities"][0]["components"]["forge.audio_source"];
+        source["play_on_start"] = false;
+        source["pause_with_game"] = false;
+    }
+    a["entities"].push_back({{"id", "cue"},
+                             {"name", "Repeated stream"},
+                             {"components", {{"forge.sound_cue", sound_cue_json({})}}}});
+    Running actual(root, a), expected(root, b);
+    actual.prepared();
+    expected.prepared();
+    SoundCue graph{true, 1, 0, {{0, actual.ref(), {}, .064}}};
+    graph.repeat_interval_seconds = .256;
+    graph.repeat_pause_with_game = false;
+    actual.scene.entity("cue").set(graph);
+    AudioSourceAccess::control(*actual.audio, actual.scene.reference("cue"),
+                               AudioSourceOperation::Restart);
+    actual.audio->game_paused(true);
+    expected.audio->game_paused(true);
+    std::vector<float> oracle;
+    for (unsigned event = 0; event < 5; ++event) {
+        for (unsigned quantum = 0; quantum < 48; ++quantum) {
+            // Independent 12288-frame event period and 3072-frame onset oracle.
+            if (quantum == 12)
+                expected.control(AudioSourceOperation::OneShot);
+            const auto pcm = expected.read();
+            oracle.insert(oracle.end(), pcm.begin(), pcm.end());
+        }
+    }
+    // One read must prepare every new stream voice, including events created
+    // after the read has begun, without a game tick or caller-side loading poll.
+    std::vector<float> pcm(oracle.size());
+    actual.audio->read_offline(pcm);
+    for (std::size_t i = 0; i < pcm.size(); ++i)
+        require(std::isfinite(pcm[i]) && std::abs(pcm[i] - oracle[i]) < 1e-6f,
+                "Repeated stream differs from ordinary resident deadlines at sample " +
+                    std::to_string(i));
+    require(AudioSourceAccess::status(*actual.audio, actual.scene.reference("cue"))
+                    .at("accepted_triggers") == 5,
+            "Stream preparation lost a periodic event inside one offline read");
+    require(actual.audio->status().at("stream_underruns") == 0,
+            "Offline repeated events starved stream pages");
 }
 void custom_routing(const std::filesystem::path& root, AssetId stream, AssetId resident) {
     const AudioRouting routing{
@@ -402,6 +450,7 @@ int main(int argc, char** argv) {
             const auto streamed = publish(root, name, true);
             const auto resident = publish(root, name + "-resident", false);
             timed_cue(root, streamed.id, resident.id);
+            repeating_cue(root, streamed.id, resident.id);
             custom_routing(root, streamed.id, resident.id);
             playback(root, streamed.id, resident.id);
             transport(root, streamed.id, resident.id);

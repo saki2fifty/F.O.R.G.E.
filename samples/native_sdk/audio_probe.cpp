@@ -24,7 +24,8 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t siz
     w.system<forge::SoundCue>()
         .kind(h->fixed_phase)
         .each([h](forge::SoundCue& cue) {
-            if (cue.seed != 29) {
+            const bool initialize = cue.seed != 29;
+            if (initialize) {
                 cue.seed = 29;
                 for (auto& node : cue.nodes)
                     if (node.kind == 0)
@@ -34,6 +35,16 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t siz
                     if (root.kind != 0 && root.children.size() >= 2)
                         std::swap(root.children.front(), root.children.back());
                 }
+            }
+            if (cue.repeat_interval_seconds != 0) {
+                if (initialize) {
+                    cue.repeat_interval_seconds = .25;
+                    if (!h->audio_source(h->context, "11111111-1111-4111-8111-111111111111",
+                                         "44444444-4444-4444-8444-444444444444",
+                                         FORGE_SDK_AUDIO_RESTART))
+                        h->diagnostic(h->context, 3u, "Audio SDK cue repetition rejected");
+                }
+                return;
             }
             if (!forge::sdk::Client(h).audio_one_shot("11111111-1111-4111-8111-111111111111",
                                                       "44444444-4444-4444-8444-444444444444"))

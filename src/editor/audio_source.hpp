@@ -39,19 +39,63 @@ class AudioSourceEditor {
         const bool available = status.is_object() && status.value("available", false);
         const bool loading = status.is_object() && status.value("pending", false);
         const bool admitted = available || loading;
+        const auto request = [&](AudioSourceOperation operation) {
+            error_ = submit(operation) ? "" : "Play is busy. Try again when controls are ready.";
+        };
         if (status.is_object() && status.value("kind", std::string{}) == "sound_cue") {
-            ImGui::Text("Accepted triggers: %llu", static_cast<unsigned long long>(status.value("accepted_triggers",std::uint64_t{})));
-            ImGui::Text("Maximum one-shots per trigger: %u / 16", status.value("maximum_outputs",0u));
-            ui::help("Each trigger composes existing Audio Source one-shots. Individual sources own playback, pause and stop. Choices reset when the graph or runtime world is replaced.");
+            ImGui::Text("Accepted triggers: %llu", static_cast<unsigned long long>(status.value(
+                                                       "accepted_triggers", std::uint64_t{})));
+            ImGui::Text("Maximum one-shots per trigger: %u / 16",
+                        status.value("maximum_outputs", 0u));
+            ui::help("Each trigger composes existing Audio Source one-shots. Individual sources "
+                     "own playback, pause and stop. Choices reset when the graph or runtime world "
+                     "is replaced.");
             ImGui::BeginDisabled(!ready || pending || !available);
             if (ui::button("Trigger cue", "Queue one event through the existing audio owner.")) {
-                error_ = submit(AudioSourceOperation::OneShot) ? "" : "Play is busy. Try again when controls are ready.";
+                request(AudioSourceOperation::OneShot);
             }
             FORGE_UI_PROBE("live-sound-cue:trigger");
+            if (status.value("repeat_available", false)) {
+                const bool running = status.value("repeat_running", false);
+                const bool paused = status.value("repeat_paused", false);
+                ImGui::TextUnformatted(
+                    !running                                        ? "Repetition stopped"
+                    : paused                                        ? "Repetition paused"
+                    : status.value("repeat_suspended", false)       ? "Repetition held by pause"
+                    : status.value("repeat_waiting_sources", false) ? "Waiting for Sources"
+                                                                    : "Repeating events");
+                ImGui::Text("Next event: %.3f s | Skipped events: %llu",
+                            status.value("repeat_next_seconds", 0.),
+                            static_cast<unsigned long long>(
+                                status.value("repeat_skipped_events", std::uint64_t{})));
+                if (ui::button(running ? "Restart repeating" : "Start repeating",
+                               "Start future events with fresh choices. Already requested Source "
+                               "voices keep playing."))
+                    request(AudioSourceOperation::Restart);
+                FORGE_UI_PROBE("live-sound-cue:repeat-start");
+                ImGui::BeginDisabled(!running);
+                if (ui::button(paused ? "Resume repeating" : "Pause repeating",
+                               "Hold or resume the future event interval. Existing Source voices "
+                               "keep playing."))
+                    request(paused ? AudioSourceOperation::Resume : AudioSourceOperation::Pause);
+                FORGE_UI_PROBE("live-sound-cue:repeat-pause");
+                if (ui::button("Stop repeating", "Stop future events. Use the Audio Sources to "
+                                                 "stop already requested voices."))
+                    request(AudioSourceOperation::Stop);
+                FORGE_UI_PROBE("live-sound-cue:repeat-stop");
+                ImGui::EndDisabled();
+                const auto repeat_error = status.value("repeat_error", std::string{});
+                if (!repeat_error.empty())
+                    ImGui::TextWrapped("Repetition stopped: %s", repeat_error.c_str());
+            }
             ImGui::EndDisabled();
-            if (!error.empty()) ImGui::TextWrapped("Cue rejected: %s",error.c_str());
-            if (!error_.empty()) ImGui::TextWrapped("%s",error_.c_str());
-            ImGui::EndChild(); ImGui::PopStyleColor(2); ImGui::PopID();
+            if (!error.empty())
+                ImGui::TextWrapped("Cue rejected: %s", error.c_str());
+            if (!error_.empty())
+                ImGui::TextWrapped("%s", error_.c_str());
+            ImGui::EndChild();
+            ImGui::PopStyleColor(2);
+            ImGui::PopID();
             return;
         }
         const bool effect_tail =
@@ -64,9 +108,9 @@ class AudioSourceEditor {
         if (available)
             ImGui::Text("%s | %.2f seconds | %s",
                         source_paused                  ? "Source paused"
-                        : !playing && !delayed          ? "Stopped"
+                        : !playing && !delayed         ? "Stopped"
                         : status.value("paused", true) ? "Paused"
-                        : delayed && !playing           ? "Waiting to start"
+                        : delayed && !playing          ? "Waiting to start"
                         : effect_tail                  ? "Effect tail"
                                                        : "Playing",
                         status.value("duration", 0.),
@@ -97,10 +141,7 @@ class AudioSourceEditor {
                                  "gameplay pause silences it."
                                : "Pause or resume this source and its effects without restarting. "
                                  "Playback follows this source's Pause with game setting.")) {
-                if (submit(operation))
-                    error_.clear();
-                else
-                    error_ = "Play is busy. Try again when the controls are ready.";
+                request(operation);
             }
             FORGE_UI_PROBE(key);
         };

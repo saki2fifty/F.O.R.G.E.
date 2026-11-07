@@ -61,13 +61,19 @@ void directional_guides() {
 #include "sound_cue_editor_capture.hpp"
 int main(int argc, char** argv) {
     try {
+        if (argc == 4 && std::string_view(argv[1]) == "--capture-repeating-sound-cue") {
+            capture_sound_cue_editor(std::filesystem::absolute(argv[2]),
+                                     std::filesystem::absolute(argv[3]), true, true);
+            return 0;
+        }
         if (argc == 4 && std::string_view(argv[1]) == "--capture-timed-sound-cue") {
             capture_sound_cue_editor(std::filesystem::absolute(argv[2]),
-                                    std::filesystem::absolute(argv[3]), true);
+                                     std::filesystem::absolute(argv[3]), true);
             return 0;
         }
         if (argc == 4 && std::string_view(argv[1]) == "--capture-sound-cue") {
-            capture_sound_cue_editor(std::filesystem::absolute(argv[2]),std::filesystem::absolute(argv[3]));
+            capture_sound_cue_editor(std::filesystem::absolute(argv[2]),
+                                     std::filesystem::absolute(argv[3]));
             return 0;
         }
         if (argc == 4 && std::string_view(argv[1]) == "--capture-reverb") {
@@ -530,6 +536,9 @@ int main(int argc, char** argv) {
                 click("sound-cue:source:1");
                 click(("entity-picker-row:" + id).c_str());
                 numeric("sound-cue:delay:1", "0.375");
+                click("sound-cue:repeat-settings");
+                numeric("sound-cue:repeat-interval", "0.5");
+                click("sound-cue:repeat-startup");
                 click("sound-cue:kind:0");
                 key(ImGuiKey_DownArrow);
                 key(ImGuiKey_Enter);
@@ -540,7 +549,10 @@ int main(int argc, char** argv) {
                 require(
                     composed.nodes.size() == 2 && composed.nodes[0].kind == 1 &&
                         composed.nodes[0].children == std::vector<SoundCueEdge>{{1, 1}, {1, 1}} &&
-                        composed.nodes[1].source == leaf && composed.nodes[1].delay_seconds == .375,
+                        composed.nodes[1].source == leaf &&
+                        composed.nodes[1].delay_seconds == .375 &&
+                        composed.repeat_interval_seconds == .5 && composed.repeat_on_start &&
+                        composed.repeat_pause_with_game,
                     "Actual cue controls did not publish complete typed node/source/edge values");
                 require(scene.undo() && scene.entity(cue_id).get<SoundCue>().nodes.size() == 1 &&
                             scene.redo() && scene.entity(cue_id).get<SoundCue>() == composed,
@@ -550,6 +562,12 @@ int main(int argc, char** argv) {
                 require(!test::ui_targets.at("sound-cue:apply").enabled &&
                             scene.entity(cue_id).get<SoundCue>() == composed,
                         "Invalid delayed cue escaped its detached validation");
+                click("sound-cue:reset");
+                numeric("sound-cue:repeat-interval", "0.1");
+                frame();
+                require(!test::ui_targets.at("sound-cue:apply").enabled &&
+                            scene.entity(cue_id).get<SoundCue>() == composed,
+                        "Invalid repetition interval escaped detached validation");
                 click("sound-cue:reset");
                 click("sound-cue:add-node");
                 authoring_command(scene, "entity.create", {{"name", "Unrelated change"}});
@@ -594,9 +612,30 @@ int main(int argc, char** argv) {
                 require(live_requests == requests_before + 1 &&
                             live_operation == AudioSourceOperation::OneShot,
                         "Live cue button did not use the existing one-shot dispatch");
+                sound_status["repeat_available"] = true;
+                sound_status["repeat_running"] = false;
+                const auto authored_before_repeat_controls = scene.snapshot();
+                click("live-sound-cue:repeat-start");
+                require(live_operation == AudioSourceOperation::Restart,
+                        "Live repetition start did not use the existing operation");
+                sound_status["repeat_running"] = true;
+                click("live-sound-cue:repeat-pause");
+                require(live_operation == AudioSourceOperation::Pause,
+                        "Live future-event pause did not dispatch");
+                sound_status["repeat_paused"] = true;
+                click("live-sound-cue:repeat-pause");
+                require(live_operation == AudioSourceOperation::Resume,
+                        "Live future-event resume did not dispatch");
+                click("live-sound-cue:repeat-stop");
+                require(live_operation == AudioSourceOperation::Stop &&
+                            scene.snapshot() == authored_before_repeat_controls,
+                        "Live future-event stop changed source or missed its operation");
                 selected = id;
-                sound_status = {{"available", true}, {"playing", false}, {"paused", false},
-                                {"one_shots", 1}, {"delayed_one_shots", 1}};
+                sound_status = {{"available", true},
+                                {"playing", false},
+                                {"paused", false},
+                                {"one_shots", 1},
+                                {"delayed_one_shots", 1}};
                 click("pause");
                 require(live_operation == AudioSourceOperation::Pause,
                         "Waiting delayed one-shot could not be paused from actual live controls");

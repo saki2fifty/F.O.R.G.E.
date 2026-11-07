@@ -2504,3 +2504,26 @@ No cropping, resizing, pixel editing or image generation was used. These are
 isolated production controls, not full Main or physical Windows/audio/GPU/DPI or
 performance acceptance. The compact viewport uses separate sequential ImGui/SDL
 backend ownership. One canonical asset serves each image throughout the manual.
+
+
+## Repeating sound-cue controls
+
+[Repeat settings](../../../manual/images/audio-sound-cue-repeat.png) and
+[Live production](../../../manual/images/audio-sound-cue-repeat-live.png) are
+original 700×1280 and 700×380 production SoundCueEditor/Live sound controls.
+The pinned SDL/ImGui software fixture uses actual Gallery194 values and four
+native offline periodic events. Pointer input expands the relevant nodes;
+required repeat settings and lifecycle buttons are checked for clipping.
+
+The source is b9c1106 plus the repeating-event implementation. The rebuilt final
+capture uses the shipped Scene; it is byte-identical to both personally reviewed
+scratch captures. Graph SHA256:
+`a87a654a7564a67282aee17340dbb75c61d2ae4113416058da7affc2389e45f5`.
+Live SHA256:
+`a71f02ef3cb689f3c37c998e4e497a804afaaefc3324fb32e3ee61063c62b732`.
+Direct source, Scene, executable and archive hashes are recorded in local
+AgentFiles/build/phase292-repeating-sound-cues/capture-provenance.json and its
+source archive. No cropping, retouching, resizing or generated UI was used.
+These isolated controls establish neither full-editor nor Windows, physical
+audio, GPU/DPI, external-client or performance acceptance. Offline manual/package
+checks verify the canonical image bytes through the existing writer.

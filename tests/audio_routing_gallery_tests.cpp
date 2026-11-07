@@ -6,10 +6,10 @@
 #include <cmath>
 #include <forge/audio.hpp>
 #include <forge/authoring.hpp>
-#include <forge/sound_cue.hpp>
 #include <forge/game_settings.hpp>
 #include <forge/project.hpp>
 #include <forge/runtime.hpp>
+#include <forge/sound_cue.hpp>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -182,15 +182,22 @@ void verify(const std::filesystem::path& gallery, const std::filesystem::path& s
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 4 && std::string_view(argv[1]) == "--publish-timed-sound-cues")
+        if (argc == 4 && std::string_view(argv[1]) == "--publish-repeating-sound-cues")
+            publish_sound_cue_gallery(std::filesystem::absolute(argv[2]),
+                                      std::filesystem::absolute(argv[3]),
+                                      repeating_sound_cue_gallery);
+        else if (argc == 4 && std::string_view(argv[1]) == "--repeating-sound-cues")
+            verify_sound_cue_gallery(argv[2], argv[3], repeating_sound_cue_gallery);
+        else if (argc == 4 && std::string_view(argv[1]) == "--publish-timed-sound-cues")
             publish_sound_cue_gallery(std::filesystem::absolute(argv[2]),
                                       std::filesystem::absolute(argv[3]), timed_sound_cue_gallery);
         else if (argc == 4 && std::string_view(argv[1]) == "--timed-sound-cues")
             verify_sound_cue_gallery(argv[2], argv[3], timed_sound_cue_gallery);
         else if (argc == 4 && std::string_view(argv[1]) == "--publish-sound-cues")
-            publish_sound_cue_gallery(std::filesystem::absolute(argv[2]),std::filesystem::absolute(argv[3]));
+            publish_sound_cue_gallery(std::filesystem::absolute(argv[2]),
+                                      std::filesystem::absolute(argv[3]));
         else if (argc == 4 && std::string_view(argv[1]) == "--sound-cues")
-            verify_sound_cue_gallery(argv[2],argv[3]);
+            verify_sound_cue_gallery(argv[2], argv[3]);
         else if (argc == 3 && std::string_view(argv[1]) == "--author-sound-cues")
             author_sound_cue_gallery(std::filesystem::absolute(argv[2]));
         else if (argc == 3 && std::string_view(argv[1]) == "--author")

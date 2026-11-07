@@ -177,8 +177,8 @@ int main(int argc, char** argv) {
                     throw std::runtime_error("UI mode must be on or off");
                 ui_enabled = value == "on";
             } else if (option == "--audio") {
-                if (value != "device" && value != "offline")
-                    throw std::runtime_error("Audio mode must be device or offline");
+                if (value != "device" && value != "offline" && value != "null-test")
+                    throw std::runtime_error("Audio mode must be device, offline or null-test");
                 audio_mode = value;
             } else if (option == "--simulation-hz") {
                 std::size_t consumed = 0;
@@ -202,6 +202,9 @@ int main(int argc, char** argv) {
         startup_phase("arguments-parsed");
         if (recording && (!sdk_play || audio_mode != "offline"))
             throw std::runtime_error("--recording on requires SDK Play and offline audio");
+        const auto audio_output = audio_mode == "offline"     ? forge::AudioOutput::Offline
+                                  : audio_mode == "null-test" ? forge::AudioOutput::NullDeviceTest
+                                                              : forge::AudioOutput::Device;
         if (!project_root.empty() && sdk_profile) {
             sdk_project.emplace(project_root);
             startup_phase("project-settings-ready");
@@ -228,11 +231,7 @@ int main(int argc, char** argv) {
             if (!explicit_hz && sdk_project)
                 config.simulation_hz = sdk_project->simulation_hz();
             if (!audio_mode.empty()) {
-                audio_config =
-                    forge::AudioConfig{project_root,
-                                       audio_mode == "offline" ? forge::AudioOutput::Offline
-                                                               : forge::AudioOutput::Device,
-                                       false};
+                audio_config = forge::AudioConfig{project_root, audio_output, false};
             }
             forge::Json defaults =
                 sdk_project ? sdk_project->document().value("game", forge::Json::object())
@@ -259,10 +258,7 @@ int main(int argc, char** argv) {
         if (!audio_mode.empty()) {
             if (project_root.empty())
                 throw std::runtime_error("Audio requires --project or --sdk-project");
-            audio_config = forge::AudioConfig{project_root,
-                                              audio_mode == "offline" ? forge::AudioOutput::Offline
-                                                                      : forge::AudioOutput::Device,
-                                              false};
+            audio_config = forge::AudioConfig{project_root, audio_output, false};
         }
         if (ui_enabled && project_root.empty())
             throw std::runtime_error("UI requires a project root");

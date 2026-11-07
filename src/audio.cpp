@@ -349,13 +349,21 @@ struct AudioRuntime::Impl {
     };
     std::vector<Command> commands;
     struct CuePlayback {
+        struct Repetition {
+            bool running = false, paused = false, first = true, startup_seen = false;
+            detail::AudioStartDelay wait;
+            std::uint64_t skipped = 0;
+            std::string error;
+        };
         EntityRef ref;
         SoundCue definition;
         SoundCueState state;
         std::vector<EntityRef> last_sources;
         std::vector<double> last_delay_seconds;
+        Repetition repetition;
     };
     std::map<std::uint64_t, CuePlayback> cue_states;
+    std::map<std::uint64_t, std::string> cue_repeat_errors;
     std::uint64_t configuration_checks = 0;
     std::string listener_error;
     AudioMotion listener_motion;
@@ -544,7 +552,8 @@ struct AudioRuntime::Impl {
             const auto source = world.world().entity(target.entity);
             if (!source.has<AudioSource>() || source.has<SoundCue>() ||
                 !conditions.active(source.id()))
-                throw std::runtime_error("Sound Cue requires active Audio Source leaves without nested cues");
+                throw std::runtime_error(
+                    "Sound Cue requires active Audio Source leaves without nested cues");
             const auto& value = source.get<AudioSource>();
             detail::validate_audio_source(source, value);
             (void)routing.gain(value.custom_bus, value.bus, config.channel_volumes);
@@ -554,7 +563,8 @@ struct AudioRuntime::Impl {
                 const auto voice = voices.find(source.id());
                 if (is_paused || value.pause_with_game ||
                     (voice != voices.end() && voice->second->authored.pause_with_game))
-                    throw std::runtime_error("Control-domain Sound Cues require every source to ignore game pause");
+                    throw std::runtime_error(
+                        "Control-domain Sound Cues require every source to ignore game pause");
             }
         }
         return program;
@@ -564,12 +574,16 @@ struct AudioRuntime::Impl {
         const auto id = world.resolve(ref).entity;
         const auto found = cue_states.find(id);
         if (found == cue_states.end() && cue_states.size() >= max_voices)
-            throw std::runtime_error("Sound Cue active selection-state limit is256");
+            throw std::runtime_error("Sound Cue active selection-state limit is 256");
         const bool same = found != cue_states.end() && found->second.ref == ref &&
                           found->second.definition == program.definition();
         auto selected = program.select(same ? found->second.state : SoundCueState{});
-        CuePlayback next{ref, program.definition(), selected.next, std::move(selected.sources),
-                         std::move(selected.delay_seconds)};
+        CuePlayback next{ref,
+                         program.definition(),
+                         selected.next,
+                         std::move(selected.sources),
+                         std::move(selected.delay_seconds),
+                         same ? found->second.repetition : CuePlayback::Repetition{}};
         const auto before = commands.size();
         try {
             for (std::size_t i = 0; i < next.last_sources.size(); ++i) {
@@ -582,14 +596,212 @@ struct AudioRuntime::Impl {
             throw;
         }
     }
+    CuePlayback& cue_state(EntityRef ref, const SoundCue& definition) {
+        const auto id = world.resolve(ref).entity;
+        auto found = cue_states.find(id);
+        if (found != cue_states.end() && found->second.ref == ref &&
+            found->second.definition == definition)
+            return found->second;
+        if (found == cue_states.end() && cue_states.size() >= max_voices)
+            throw std::runtime_error("Sound Cue selection-state limit is 256");
+        return cue_states.insert_or_assign(id, CuePlayback{ref, definition, {}, {}, {}, {}})
+            .first->second;
+    }
+    std::uint64_t cue_repeat_frames(const SoundCue& cue) const {
+        const auto frames =
+            std::llround(cue.repeat_interval_seconds * ma_engine_get_sample_rate(&engine));
+        if (frames <= 0)
+            throw std::runtime_error("Sound Cue repetition needs a positive output-frame interval");
+        return std::uint64_t(frames);
+    }
+    bool cue_repeat_sources_ready(const SoundCueProgram& program) const {
+        for (const auto& node : program.definition().nodes) {
+            if (node.kind != 0)
+                continue;
+            const auto id = world.resolve(node.source).entity;
+            const auto failed = failed_config.find(id);
+            if (failed != failed_config.end() &&
+                failed->second == world.world().entity(id).get<AudioSource>())
+                throw std::runtime_error("Repeating cue Source preparation failed: " +
+                                         failures.at(id));
+            const auto voice = voices.find(id);
+            if (voice == voices.end() || !voice->second->ready ||
+                voice->second->ref != node.source ||
+                voice->second->authored.clip != world.world().entity(id).get<AudioSource>().clip)
+                return false;
+        }
+        return true;
+    }
+    void validate_cue_repeat_domain(const SoundCueProgram& program) const {
+        if (program.definition().repeat_pause_with_game)
+            return;
+        for (const auto& node : program.definition().nodes) {
+            if (node.kind != 0)
+                continue;
+            const auto id = world.resolve(node.source).entity;
+            const auto voice = voices.find(id);
+            if (world.world().entity(id).get<AudioSource>().pause_with_game ||
+                (voice != voices.end() && voice->second->authored.pause_with_game))
+                throw std::runtime_error(
+                    "Independent cue repetition requires every Source to ignore game pause");
+        }
+    }
+    void start_cue_repetition(EntityRef ref, const SoundCueProgram& program) {
+        if (program.definition().repeat_interval_seconds == 0)
+            throw std::runtime_error("Set a Sound Cue repeat interval before starting repetition");
+        validate_cue_repeat_domain(program);
+        const auto id = world.resolve(ref).entity;
+        const auto active =
+            std::count_if(cue_states.begin(), cue_states.end(),
+                          [](const auto& row) { return row.second.repetition.running; });
+        const auto found = cue_states.find(id);
+        if (std::size_t(active) >= sound_cue_repeat_instance_limit &&
+            (found == cue_states.end() || !found->second.repetition.running))
+            throw std::runtime_error("Sound Cue active repetition limit is 32");
+        auto& state = cue_state(ref, program.definition());
+        state.state = {};
+        state.last_sources.clear();
+        state.last_delay_seconds.clear();
+        state.repetition = {};
+        state.repetition.running = state.repetition.startup_seen = true;
+        state.repetition.wait =
+            detail::AudioStartDelay::from_frames(cue_repeat_frames(program.definition()));
+    }
+    void cue_repeat_failure(std::uint64_t id, EntityRef ref, const std::string& error) {
+        auto& previous = cue_repeat_errors[id];
+        if (previous != error) {
+            previous = error;
+            diagnostic("audio.cue_repeat", error, ref);
+        }
+    }
+    void discover_cue_repetitions() {
+        ApplicationStateActivation conditions(world);
+        world.world().each<const SoundCue>([&](flecs::entity entity, const SoundCue& cue) {
+            if (!cue.enabled || !cue.repeat_on_start || !conditions.active(entity.id()))
+                return;
+            const auto ref = world.reference(entity.id());
+            if (!ref)
+                return;
+            const auto found = cue_states.find(entity.id());
+            if (found != cue_states.end() && found->second.repetition.startup_seen)
+                return;
+            try {
+                start_cue_repetition(*ref, cue_program(*ref));
+                cue_repeat_errors.erase(entity.id());
+            } catch (const std::exception& error) {
+                cue_repeat_failure(entity.id(), *ref, error.what());
+            }
+        });
+    }
+    bool service_cue_repetitions() {
+        bool queued = false;
+        const auto now = ma_engine_get_time_in_pcm_frames(&engine);
+        for (auto& [id, state] : cue_states) {
+            auto& repeat = state.repetition;
+            if (!repeat.running)
+                continue;
+            if (is_paused || repeat.paused ||
+                (is_game_paused && state.definition.repeat_pause_with_game)) {
+                if (!repeat.first)
+                    (void)repeat.wait.suspend(now);
+                continue;
+            }
+            if (!repeat.first && !repeat.wait.unarmed() && repeat.wait.remaining(now) != 0)
+                continue;
+            try {
+                const auto program = cue_program(state.ref);
+                if (program.definition() != state.definition)
+                    throw std::runtime_error(
+                        "Cue repetition definition changed; restart its events");
+                validate_cue_repeat_domain(program);
+                if (!cue_repeat_sources_ready(program)) {
+                    if (!repeat.first)
+                        (void)repeat.wait.suspend(now);
+                    continue;
+                }
+                if (!repeat.first && repeat.wait.unarmed()) {
+                    (void)repeat.wait.arm(now);
+                    continue;
+                }
+                const auto period = cue_repeat_frames(state.definition);
+                const auto due = repeat.first ? now : repeat.wait.deadline().value_or(now);
+                const auto missed = (now - due) / period;
+                const auto previous_skipped = repeat.skipped;
+                if (missed > std::numeric_limits<std::uint64_t>::max() - previous_skipped)
+                    throw std::runtime_error("Cue repetition skipped-event counter is exhausted");
+                auto next = detail::AudioStartDelay::from_frames(period);
+                (void)next.arm(due + missed * period);
+                const auto ref = state.ref;
+                queue_cue(ref, false);
+                queued = true;
+                // queue_cue preserves this lifecycle while publishing event selection.
+                auto& accepted = cue_states.at(id).repetition;
+                accepted.first = false;
+                accepted.wait = next;
+                accepted.skipped = previous_skipped + missed;
+                accepted.error.clear();
+                cue_repeat_errors.erase(id);
+                if (missed)
+                    diagnostic("audio.cue_repeat_late",
+                               "Skipped repeating events after an owner-service delay", ref);
+            } catch (const std::exception& error) {
+                auto& failed = cue_states.at(id).repetition;
+                failed.running = failed.paused = false;
+                failed.error = error.what();
+                cue_repeat_failure(id, state.ref, error.what());
+            }
+        }
+        return queued;
+    }
+    bool has_cue_repetitions() const {
+        return std::ranges::any_of(cue_states,
+                                   [](const auto& row) { return row.second.repetition.running; });
+    }
+    std::optional<std::uint64_t> next_cue_repeat_frames() const {
+        std::optional<std::uint64_t> result;
+        const auto now = ma_engine_get_time_in_pcm_frames(&engine);
+        for (const auto& [id, state] : cue_states) {
+            (void)id;
+            const auto& repeat = state.repetition;
+            if (!repeat.running || repeat.paused || repeat.first || is_paused ||
+                (is_game_paused && state.definition.repeat_pause_with_game))
+                continue;
+            const auto frames = repeat.wait.remaining(now);
+            if (frames && (!result || frames < *result))
+                result = frames;
+        }
+        return result;
+    }
     void queue(EntityRef ref, AudioSourceOperation operation, bool unpaused_only = false) {
         check();
         const auto resolved = world.resolve(ref);
         if (resolved.state == WorldContext::ResolveState::Available &&
             world.world().entity(resolved.entity).has<SoundCue>()) {
-            if (operation != AudioSourceOperation::OneShot)
-                throw std::runtime_error("Sound Cues accept only the one_shot trigger operation");
-            queue_cue(ref, unpaused_only);
+            if (operation == AudioSourceOperation::OneShot) {
+                queue_cue(ref, unpaused_only);
+                return;
+            }
+            const auto program = cue_program(ref, unpaused_only);
+            if (program.definition().repeat_interval_seconds == 0)
+                throw std::runtime_error("Event-only Sound Cues accept only one_shot");
+            if (operation == AudioSourceOperation::Restart)
+                start_cue_repetition(ref, program);
+            else if (operation == AudioSourceOperation::Stop ||
+                     operation == AudioSourceOperation::Pause ||
+                     operation == AudioSourceOperation::Resume) {
+                auto& repeat = cue_state(ref, program.definition()).repetition;
+                repeat.startup_seen = true;
+                if (operation == AudioSourceOperation::Stop) {
+                    repeat.running = repeat.paused = false;
+                    repeat.wait = {};
+                } else if (repeat.running) {
+                    repeat.paused = operation == AudioSourceOperation::Pause;
+                    if (repeat.paused && !repeat.first)
+                        (void)repeat.wait.suspend(ma_engine_get_time_in_pcm_frames(&engine));
+                }
+            } else
+                throw std::runtime_error("Unknown cue repetition operation");
+            (void)service_cue_repetitions();
             return;
         }
         queue_source(ref, operation, unpaused_only);
@@ -883,8 +1095,7 @@ struct AudioRuntime::Impl {
         ma_sound_set_doppler_factor(&v.sound, doppler);
     }
     bool delayed_start_suspended(const Voice& voice) const {
-        return is_paused || voice.source_paused ||
-               (is_game_paused && voice.follows_game_pause);
+        return is_paused || voice.source_paused || (is_game_paused && voice.follows_game_pause);
     }
     void hold_delayed_shots() {
         const auto now = ma_engine_get_time_in_pcm_frames(&engine);
@@ -907,8 +1118,8 @@ struct AudioRuntime::Impl {
                     if (shot->start_delay.unarmed()) {
                         if (delayed_start_suspended(*shot))
                             continue;
-                        const auto due = shot->start_delay.arm(
-                            ma_engine_get_time_in_pcm_frames(&engine));
+                        const auto due =
+                            shot->start_delay.arm(ma_engine_get_time_in_pcm_frames(&engine));
                         ma_sound_set_start_time_in_pcm_frames(&shot->sound, due);
                     }
                     // Native start restarts an EOS clip. Resume only its retained
@@ -932,7 +1143,8 @@ struct AudioRuntime::Impl {
         shot->ref = source.ref;
         shot->authored = source.authored;
         shot->one_shot = true;
-        shot->start_delay = detail::AudioStartDelay(delay_seconds, ma_engine_get_sample_rate(&engine));
+        shot->start_delay =
+            detail::AudioStartDelay(delay_seconds, ma_engine_get_sample_rate(&engine));
         shot->clip = source.clip;
         shot->motion = source.motion;
         if (!initialize_voice(*shot))
@@ -1118,6 +1330,11 @@ struct AudioRuntime::Impl {
             return !entity.has<SoundCue>() || !conditions.active(row.first) ||
                    entity.get<SoundCue>() != row.second.definition;
         });
+        std::erase_if(cue_repeat_errors, [&](const auto& row) {
+            const flecs::entity entity = world.world().entity(row.first);
+            return !entity.is_alive() || !entity.has<SoundCue>() ||
+                   entity.get<SoundCue>().repeat_interval_seconds == 0;
+        });
         std::erase_if(spatial_errors, [&](auto id) { return !present.contains(id); });
         std::erase_if(failed_config, [&](const auto& p) { return !present.contains(p.first); });
         std::erase_if(failures, [&](const auto& p) { return !present.contains(p.first); });
@@ -1141,6 +1358,8 @@ struct AudioRuntime::Impl {
                 ++it;
         }
         clips.collect();
+        discover_cue_repetitions();
+        (void)service_cue_repetitions();
         flush_commands(created_voices);
         update_output_pause();
     }
@@ -1319,7 +1538,8 @@ struct AudioRuntime::Impl {
         hold_delayed_shots();
         start_pending_shots();
     }
-    bool wait_sources(std::chrono::milliseconds timeout, bool loading_only);
+    bool wait_sources(std::chrono::milliseconds timeout, bool loading_only,
+                      bool stop_on_source_failure = true);
 };
 AudioRuntime::AudioRuntime(WorldContext& w, AudioConfig c)
     : impl_(std::make_unique<Impl>(w, std::move(c))) {}
@@ -1335,6 +1555,8 @@ void AudioRuntime::paused(bool value) {
     if (value == impl_->is_paused)
         return;
     impl_->is_paused = value;
+    if (impl_->service_cue_repetitions())
+        impl_->flush_commands();
     if (!value)
         impl_->start_pending_shots();
     impl_->update_output_pause();
@@ -1347,6 +1569,8 @@ void AudioRuntime::game_paused(bool value) {
     if (value == impl_->is_game_paused)
         return;
     impl_->is_game_paused = value;
+    if (impl_->service_cue_repetitions())
+        impl_->flush_commands();
     if (!value)
         impl_->start_pending_shots();
     checked(value ? ma_sound_group_stop(&impl_->pausable_group)
@@ -1385,16 +1609,49 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
     const auto found = runtime.impl_->voices.find(resolved.entity);
     const auto entity = runtime.impl_->world.world().entity(resolved.entity);
     if (entity.has<SoundCue>()) {
-        const auto program = runtime.impl_->cue_program(ref);
         const auto found_cue = runtime.impl_->cue_states.find(resolved.entity);
+        const auto program = [&] {
+            try {
+                return runtime.impl_->cue_program(ref);
+            } catch (...) {
+                // A stopped producer retains its actionable source/policy failure.
+                // Other invalid or stale targets keep the ordinary watch rejection.
+                if (found_cue != runtime.impl_->cue_states.end() && found_cue->second.ref == ref &&
+                    found_cue->second.definition == entity.get<SoundCue>() &&
+                    !found_cue->second.repetition.error.empty())
+                    return SoundCueProgram::compile(entity.get<SoundCue>());
+                throw;
+            }
+        }();
         const bool current = found_cue != runtime.impl_->cue_states.end() &&
                              found_cue->second.ref == ref &&
                              found_cue->second.definition == program.definition();
-        return {{"source", ref}, {"kind", "sound_cue"}, {"available", true},
-                {"pending", false}, {"maximum_outputs", program.maximum_outputs()},
+        return {{"source", ref},
+                {"kind", "sound_cue"},
+                {"available", true},
+                {"pending", false},
+                {"maximum_outputs", program.maximum_outputs()},
                 {"accepted_triggers", current ? found_cue->second.state.triggers : 0},
-                {"node_visits", current ? Json(found_cue->second.state.visits) : Json(SoundCueState{}.visits)},
-                {"last_delay_seconds", current ? Json(found_cue->second.last_delay_seconds) : Json::array()},
+                {"node_visits",
+                 current ? Json(found_cue->second.state.visits) : Json(SoundCueState{}.visits)},
+                {"last_delay_seconds",
+                 current ? Json(found_cue->second.last_delay_seconds) : Json::array()},
+                {"repeat_available", program.definition().repeat_interval_seconds != 0},
+                {"repeat_running", current && found_cue->second.repetition.running},
+                {"repeat_paused", current && found_cue->second.repetition.paused},
+                {"repeat_suspended",
+                 runtime.impl_->is_paused || (runtime.impl_->is_game_paused &&
+                                              program.definition().repeat_pause_with_game)},
+                {"repeat_waiting_sources", current && found_cue->second.repetition.running &&
+                                               !runtime.impl_->cue_repeat_sources_ready(program)},
+                {"repeat_skipped_events", current ? found_cue->second.repetition.skipped : 0},
+                {"repeat_next_seconds",
+                 current && !found_cue->second.repetition.first
+                     ? double(found_cue->second.repetition.wait.remaining(
+                           ma_engine_get_time_in_pcm_frames(&runtime.impl_->engine))) /
+                           ma_engine_get_sample_rate(&runtime.impl_->engine)
+                     : 0.},
+                {"repeat_error", current ? found_cue->second.repetition.error : std::string{}},
                 {"last_sources", current ? Json(found_cue->second.last_sources) : Json::array()}};
     }
     const bool known = found != runtime.impl_->voices.end() && found->second->ref == ref &&
@@ -1597,14 +1854,15 @@ bool AudioRuntime::wait_for_loading(std::chrono::milliseconds timeout) {
         throw std::runtime_error("Blocking audio loading requires explicit offline output");
     return impl_->wait_sources(timeout, true);
 }
-bool AudioRuntime::Impl::wait_sources(std::chrono::milliseconds timeout, bool loading_only) {
+bool AudioRuntime::Impl::wait_sources(std::chrono::milliseconds timeout, bool loading_only,
+                                      bool stop_on_source_failure) {
     check();
     if (timeout.count() < 0)
         throw std::runtime_error("Audio preparation timeout must be nonnegative");
     const auto deadline = std::chrono::steady_clock::now() + timeout;
     for (;;) {
         sync(tick, 0, {}, loading_only);
-        if (!failures.empty())
+        if (stop_on_source_failure && !failures.empty())
             return false;
         if (pending_sources.empty())
             return true;
@@ -1626,6 +1884,10 @@ void AudioRuntime::poll_loading() {
     impl_->reap_finished();
     if (!impl_->pending_sources.empty() || impl_->clips.statistics().pending)
         impl_->sync(impl_->tick, 0, {}, true);
+    else if (impl_->service_cue_repetitions()) {
+        impl_->flush_commands();
+        impl_->update_output_pause();
+    }
 }
 void AudioRuntime::refresh_sources() {
     impl_->check();
@@ -1635,11 +1897,15 @@ void AudioRuntime::read_offline(std::span<float> out) {
     impl_->check();
     if (impl_->config.output != AudioOutput::Offline || out.size() % 2)
         throw std::runtime_error("PCM reads require explicit offline stereo output");
-    const bool streams = std::ranges::any_of(impl_->voices, [](const auto& row) {
-        return bool(row.second->stream) ||
-               std::ranges::any_of(row.second->one_shots,
-                                   [](const auto& shot) { return bool(shot->stream); });
-    });
+    const auto has_streams = [&] {
+        return std::ranges::any_of(impl_->voices, [](const auto& row) {
+            return bool(row.second->stream) ||
+                   std::ranges::any_of(row.second->one_shots,
+                                       [](const auto& shot) { return bool(shot->stream); });
+        });
+    };
+    bool streams = has_streams();
+    const bool repeating = impl_->has_cue_repetitions();
     // Only the explicit no-device consumer may wait for pages. Native device
     // callbacks use the asynchronous resource manager without this tooling gate.
     auto prebuffer = [&](const Impl::Voice& voice) {
@@ -1661,6 +1927,19 @@ void AudioRuntime::read_offline(std::span<float> out) {
         }
     };
     for (std::size_t offset = 0; offset < out.size();) {
+        if (repeating) {
+            impl_->reap_finished();
+            if (impl_->service_cue_repetitions())
+                impl_->flush_commands();
+            // Periodic events can create asynchronous stream voices inside this
+            // read. Reuse the loading owner before advancing the offline clock;
+            // unrelated failed sources keep their existing diagnostics.
+            if (!impl_->pending_sources.empty()) {
+                if (!impl_->wait_sources(std::chrono::seconds(5), true, false))
+                    throw std::runtime_error("Offline repeating cue preparation timed out");
+                streams = has_streams();
+            }
+        }
         if (streams)
             for (const auto& [id, voice] : impl_->voices) {
                 (void)id;
@@ -1670,8 +1949,11 @@ void AudioRuntime::read_offline(std::span<float> out) {
             }
         // A page covers this quantum at the supported pitch and bounded native
         // Doppler ratio, including the mixer's input-processing cache.
-        const auto count =
-            streams ? std::min<std::size_t>(512, out.size() - offset) : out.size() - offset;
+        auto count = (streams || repeating) ? std::min<std::size_t>(512, out.size() - offset)
+                                            : out.size() - offset;
+        if (repeating)
+            if (const auto due = impl_->next_cue_repeat_frames(); due && *due < count / 2)
+                count = std::size_t(*due) * 2;
         checked(ma_engine_read_pcm_frames(&impl_->engine, out.data() + offset, count / 2, nullptr),
                 "Offline audio read");
         offset += count;

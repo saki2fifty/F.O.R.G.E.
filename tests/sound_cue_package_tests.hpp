@@ -59,6 +59,37 @@ void sound_cue_package_tests(const std::filesystem::path& scratch, Check check, 
                   "Zero delay unnecessarily changed earlier cue kit requirements");
             graph["nodes"][0]["delay_seconds"] = nullptr;
             reject([&] { (void)package_detail::document_runtime_features(document); });
+            for (const char* field :
+                 {"repeat_interval_seconds", "repeat_on_start", "repeat_pause_with_game"}) {
+                graph = Json::object();
+                graph[field] = std::string_view(field) == "repeat_interval_seconds"
+                                   ? Json(.5)
+                                   : Json(std::string_view(field) == "repeat_on_start");
+                const auto repeated = package_detail::document_runtime_features(document);
+                check(repeated == Json({{"sound_cues", sound_cue_profile_version},
+                                        {"sound_cue_repeat", sound_cue_repeat_profile_version}}),
+                      "Retained partial repetition intent escaped its runtime guard");
+                record.metadata["forge.runtime_document"]["runtime_features"] = repeated;
+                AssetCatalog repeat_catalog(
+                    scratch / (std::string("repeated-cue-") + rows + channel + field));
+                repeat_catalog.add(record);
+                reject([&] {
+                    validate_runtime_compatibility(
+                        repeat_catalog, {{"runtime_sound_cues", sound_cue_profile_version}});
+                });
+                validate_runtime_compatibility(
+                    repeat_catalog,
+                    {{"runtime_sound_cues", sound_cue_profile_version},
+                     {"runtime_sound_cue_repeat", sound_cue_repeat_profile_version}});
+                for (auto invalid : {Json(false), Json(0), Json(1.), Json("1"), Json(2)})
+                    reject([&] {
+                        validate_runtime_compatibility(
+                            repeat_catalog, {{"runtime_sound_cues", sound_cue_profile_version},
+                                             {"runtime_sound_cue_repeat", invalid}});
+                    });
+                graph[field] = nullptr;
+                reject([&] { (void)package_detail::document_runtime_features(document); });
+            }
             document[rows][0][channel]["forge.sound_cue"] = nullptr;
             check(package_detail::document_runtime_features(document).empty(),
                   "Removed Sound Cue unnecessarily required a new runtime profile");

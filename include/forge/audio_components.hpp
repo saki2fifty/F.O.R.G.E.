@@ -43,6 +43,10 @@ struct AudioListener {
 inline constexpr unsigned sound_cue_profile_version = 1;
 inline constexpr unsigned sound_cue_timing_profile_version = 1;
 inline constexpr double sound_cue_delay_limit_seconds = 10;
+inline constexpr unsigned sound_cue_repeat_profile_version = 1;
+inline constexpr double sound_cue_repeat_min_seconds = .25;
+inline constexpr double sound_cue_repeat_max_seconds = 3600;
+inline constexpr std::size_t sound_cue_repeat_instance_limit = 32;
 inline constexpr std::size_t sound_cue_node_limit = 32;
 inline constexpr std::size_t sound_cue_child_limit = 8;
 inline constexpr std::size_t sound_cue_output_limit = 16;
@@ -64,6 +68,8 @@ struct SoundCue {
     bool enabled = true;
     std::uint32_t seed = 1, root = 0;
     std::vector<SoundCueNode> nodes;
+    double repeat_interval_seconds = 0;
+    bool repeat_on_start = false, repeat_pause_with_game = true;
     bool operator==(const SoundCue&) const = default;
 };
 } // namespace forge

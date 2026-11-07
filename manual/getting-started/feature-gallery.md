@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**194-repeating-sound-cues** plays layered/ordered/weighted sound events every
+0.512 output seconds, including during gameplay Pause. Open it and press
+**Play → Game**. Select **Repeating layered events - select for Live sound** to
+control future events. Stop Play to change **Repeating events**, apply and save
+before export with a matching runtime kit. Audio Sources retain control over
+already-requested voices. See [Audio](../editor/audio.md).
+
 **190-multiway-sequence-blends** layers eight locomotion, morph and mapped clip
 phases on a four-second controller. Open its Timeline, select a model track and
 use **Layer overlapping clips** with the start fields. Save the Scene before

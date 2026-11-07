@@ -8,8 +8,8 @@
 #include "ui_surface_limits.hpp"
 #include <forge/animation_components.hpp>
 #include <forge/asset_discovery.hpp>
-#include <forge/audio_routing.hpp>
 #include <forge/audio_components.hpp>
+#include <forge/audio_routing.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/fog_volume.hpp>
 #include <forge/input_message.hpp>
@@ -30,13 +30,32 @@ Json document_runtime_features(const Json& document) {
             if (const auto cue = values->find("forge.sound_cue");
                 cue != values->end() && !cue->is_null()) {
                 result["sound_cues"] = sound_cue_profile_version;
+                if (const auto interval = cue->find("repeat_interval_seconds");
+                    interval != cue->end()) {
+                    if (!interval->is_number())
+                        throw std::runtime_error(
+                            "game.export.document: Invalid cue repetition interval");
+                    if (interval->get<double>() != 0)
+                        result["sound_cue_repeat"] = sound_cue_repeat_profile_version;
+                }
+                for (const char* field : {"repeat_on_start", "repeat_pause_with_game"})
+                    if (const auto flag = cue->find(field); flag != cue->end()) {
+                        if (!flag->is_boolean())
+                            throw std::runtime_error(
+                                "game.export.document: Invalid cue repetition flag");
+                        if (flag->get<bool>() !=
+                            (std::string_view(field) == "repeat_pause_with_game"))
+                            result["sound_cue_repeat"] = sound_cue_repeat_profile_version;
+                    }
                 if (const auto nodes = cue->find("nodes"); nodes != cue->end()) {
                     if (!nodes->is_array())
-                        throw std::runtime_error("game.export.document: Invalid Sound Cue node collection");
+                        throw std::runtime_error(
+                            "game.export.document: Invalid Sound Cue node collection");
                     for (const auto& node : *nodes)
                         if (const auto delay = node.find("delay_seconds"); delay != node.end()) {
                             if (!delay->is_number())
-                                throw std::runtime_error("game.export.document: Invalid Sound Cue delay");
+                                throw std::runtime_error(
+                                    "game.export.document: Invalid Sound Cue delay");
                             if (delay->get<double>() != 0)
                                 result["sound_cue_timing"] = sound_cue_timing_profile_version;
                         }

@@ -459,7 +459,7 @@ branches. Sources must belong to the cue's Scene and be active. Missing referenc
 remain visible for repair. Prefab capture and duplication retain admitted internal
 source links; external links must be contained in the captured subtree.
 
-During Play, cue entities accept **Trigger cue** only. To stop or pause sound,
+During Play, **Trigger cue** requests one event. To stop or pause sound,
 select its Audio Source and use that source's controls. Those controls also affect
 other sounds using the same source. Source voice limits still apply; an accepted
 trigger does not guarantee that every requested effect fits the current budget.
@@ -477,6 +477,43 @@ silent. C++ code uses `audio_one_shot(scene_uuid, cue_entity_uuid)` from the mat
 installed SDK; rebuild project code when its fingerprint changes. Cue selection
 state restarts after a graph change or runtime-world replacement, including
 recovery. It is not saved as an authored Scene value.
+
+### Repeat sound events
+
+To repeat a cue, expand **Repeating events** in its Inspector. Set **Repeat
+interval (seconds; 0 off)** to a value from 0.25 to 3600. Enable **Repeat on start**
+for automatic playback, then click **Apply sound cue** and save the Scene. Zero
+turns repetition off. Each interval requests another event from the same graph;
+it does not wait for the previous sound to finish.
+
+![Sound Cue Inspector showing a 0.512 second repeating interval, automatic startup and independent gameplay-pause policy](../images/audio-sound-cue-repeat.png)
+
+The repeating-cue Gallery example uses a 0.512 second interval with automatic
+startup and independent sound during gameplay Pause.
+
+During Play, select the cue and use **Start repeating**, **Pause repeating**,
+**Resume repeating**, **Restart repeating** or **Stop repeating** in Live sound.
+These controls affect future events. Already-requested sounds keep playing;
+select their Audio Source to pause or stop those voices. Restart begins selection
+again. The panel shows the next interval, preparation, skipped events and errors.
+After repairing a missing source or invalid source policy, Restart the cue.
+
+![Live sound panel showing four actual repeating events, the next interval and future-event controls](../images/audio-sound-cue-repeat-live.png)
+
+Use the tinted Live sound controls to adjust future production during Play.
+
+**Pause repetition with game** holds future events during gameplay Pause. Disable
+it, and disable **Pause with game** on every participating Audio Source, to keep
+independent sound events running while gameplay is paused. Full output suspension
+holds all producers. Pause/Resume preserve the remaining interval. Stop stays in
+effect for the current runtime definition even when **Repeat on start** is enabled.
+
+Repetition supports up to 32 active producers. If the host falls behind, it skips
+missed intervals and requests one current event; it does not replay an accumulated
+burst. Device timing follows host service. Source voice limits still apply.
+Saving stores the repeat settings; temporary controls and active sounds are not
+saved. A new Play session or recovered world starts fresh, using **Repeat on
+start** if enabled. Export requires a runtime kit supporting repeating sound cues.
 
 ## Registered clips
 

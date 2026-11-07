@@ -843,9 +843,17 @@ relax structured protocol validation.
 `watch` selects an Inspector entity for native audio/animation observation.
 `audio_control`/`animation_control` require the exact watched entity; a human
 selection change cannot redirect them. Mix and CPU controls use their native
-owners. Audio watch also admits a SoundCue entity. Its only playback operation is
-`one_shot`, which consumes its next event choice; source entities retain voice
-pause/stop ownership. Existing Scene creation/property commands author the complete
+owners. Audio watch also admits a SoundCue entity. Event-only cues accept
+`one_shot`, which consumes the next event choice. When `repeat_interval_seconds`
+is configured, `play` resets choices and starts future periodic events;
+`pause`/`resume` preserve their remaining interval and `stop` prevents future
+events. Already-requested voices remain with their Audio Sources. Discovery
+exposes the repeat interval/defaults/startup/game-pause values. Observation reports
+producer state, remaining time, preparation, skipped events and retained errors.
+The same Scene/history, scoped Play/watch identity and permission checks apply;
+these controls do not change authored values. Native output-time repetition works
+outside fixed game ticks; stalled host service skips missed periods rather than
+replaying a backlog. See [Audio](audio.md#repeating-sound-cue-events). Existing Scene creation/property commands author the complete
 bounded graph, with nested integer choices and typed source references in discovery.
 Source leaves expose default-zero `delay_seconds` with native bounds0..10. Cue
 observations include `last_delay_seconds`; source observations include

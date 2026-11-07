@@ -1,5 +1,25 @@
 # 2026-11-07
 
+## Repeating sound-cue events
+
+SoundCue adds default-disabled periodic event production on the existing native
+output clock. Configure a 0.25–3600 second interval, automatic startup and gameplay
+pause policy. Existing playback operations start/restart, pause/resume or stop
+future events while Audio Sources retain every already-requested voice. Independent
+cues run outside game ticks. Late owner service skips bounded missed periods and
+reports them. Preparation, source retirement and policy failures retain actionable
+producer diagnostics; repair and Restart begin fresh selection.
+
+Native metadata, Scene/Prefab/history, actual Inspector and Live controls, both
+runtime hosts, matching installed C++ and automation/MCP share the same owners.
+Nondefault intent requires a matching repeating-event runtime-kit capability;
+C ABI1 and operation values remain unchanged. Recovery retains authored settings
+and starts fresh. Original editable Gallery194 demonstrates independent repeated
+layered/ordered/weighted events and timed Source leaves. The illustrated manual
+uses authentic production controls. Arbitrary cyclic node graphs, completion-based
+playlists and shared bus DSP remain separate work. Windows/full-editor, physical
+audio and external-client acceptance remain queued; no numbered delivery implied.
+
 ## Timed sound-cue offsets
 
 SoundCue Source leaves add default-zero offsets from zero to ten seconds, rounded

@@ -1540,7 +1540,10 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         c.template member<bool>("enabled")
             .template member<std::uint32_t>("seed")
             .template member<std::uint32_t>("root")
-            .template member<std::vector<SoundCueNode>>("nodes");
+            .template member<std::vector<SoundCueNode>>("nodes")
+            .template member<double>("repeat_interval_seconds")
+            .template member<bool>("repeat_on_start")
+            .template member<bool>("repeat_pause_with_game");
         ecs_struct_desc_t shape{};
         shape.entity = node.id();
         shape.create_member_entities = true;
@@ -1570,7 +1573,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         w.component<ReflectedMemberDefault>(reflected_member_default_type);
         node.lookup("delay_seconds")
             .set<ReflectedMemberDefault>({0.})
-            .set_doc_brief("Source-only delay in output seconds; zero starts when ready, independent of pitch");
+            .set_doc_brief("Source-only delay in output seconds; zero starts when ready, "
+                           "independent of pitch");
     } else if constexpr (std::is_same_v<T, AudioCue>) {
         (void)authoring_value_adapters(w);
         c.template member<EntityRef>("sequence")
@@ -3254,14 +3258,25 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
     }
     if (name == "forge.sound_cue") {
-        if (field == "seed")
+        if (field == "repeat_interval_seconds") {
+            value["description"] =
+                "Output seconds between events: zero disables repetition, otherwise 0.25..3600";
+            value["minimum"] = 0;
+            value["maximum"] = sound_cue_repeat_max_seconds;
+            value["unit"] = "seconds";
+        } else if (field == "repeat_on_start")
+            value["description"] = "Begin repeating events when this cue first becomes active";
+        else if (field == "repeat_pause_with_game")
+            value["description"] = "Hold the repeating event interval during game pause";
+        else if (field == "seed")
             value["description"] = "Stable seed for reproducible weighted event choices";
         else if (field == "root") {
             value["description"] = "Zero-based root node; empty drafts require zero";
             value["minimum"] = 0;
             value["maximum"] = sound_cue_node_limit - 1;
         } else if (field == "nodes")
-            value["description"] = "Up to32 acyclic Source, Layer, Weighted or Ordered nodes; at most16 emitted sources";
+            value["description"] = "Up to32 acyclic Source, Layer, Weighted or Ordered nodes; at "
+                                   "most16 emitted sources";
     }
     if (name == "forge.audio_cue") {
         if (field == "sequence") {
@@ -3920,6 +3935,9 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
         m.use_offset = true;
         const auto options = registration_options(type, m.name);
         m.unit = field_unit(world, options.at("unit"));
+        if (std::string_view(type.name) == "forge.sound_cue" &&
+            names[i] == "repeat_interval_seconds")
+            m.unit = EcsSeconds;
         const auto render_kind = builtin_enum(world, type.name, names[i]);
         const bool enumeration = render_kind || std::string(type.name) == "forge.primitive" ||
                                  ((std::string_view(type.name) == "forge.physics_body" ||
@@ -4031,8 +4049,13 @@ Json register_builtins(flecs::world& world, unsigned family) {
             continue;
         const auto c = type.register_type(world);
         annotate_type(world, c, type);
-        if (name == "forge.sound_cue")
+        if (name == "forge.sound_cue") {
             c.lookup("nodes").set<ReflectedSequenceLimit>({sound_cue_node_limit});
+            world.component<ReflectedMemberDefault>(reflected_member_default_type);
+            c.lookup("repeat_interval_seconds").set<ReflectedMemberDefault>({0.});
+            c.lookup("repeat_on_start").set<ReflectedMemberDefault>({false});
+            c.lookup("repeat_pause_with_game").set<ReflectedMemberDefault>({true});
+        }
         if (name == "forge.navigation_link")
             for (const auto& [member, value] : type.defaults.items())
                 c.lookup(member.c_str()).add<ReflectedNoAnimation>();
