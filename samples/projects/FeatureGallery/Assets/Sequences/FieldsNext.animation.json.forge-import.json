@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v12",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 9,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "d2445df1d693b63c44b21d77a2270d278b301c9d55d4226384a1ef7b4e0d1c33",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "7c3d936d-ca2a-4b9b-914b-2d8bdbad8ad3",
+    "source": "Assets/Sequences/FieldsNext.animation.json",
+    "source_digest": "d2445df1d693b63c44b21d77a2270d278b301c9d55d4226384a1ef7b4e0d1c33",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

@@ -569,9 +569,12 @@ class AnimationSequenceEditor {
                 FORGE_UI_PROBE("sequence:next_clip");
                 if (value.sequence_next_clip.id)
                     ImGui::TextWrapped(
-                        "Clips need matching transform channels and built-in property tracks, "
-                        "with ordered starts and ends. Values blend; Sprite frames switch halfway "
-                        "through the overlap. Material and component-field tracks are unsupported. "
+                        "Clips need matching channels, properties, Material semantics and "
+                        "reflected "
+                        "field schemas/types, with ordered starts and ends. Binding order may "
+                        "differ. "
+                        "Numeric values blend; Sprite frames and Boolean/integer fields switch "
+                        "halfway through the overlap. "
                         "Refresh to validate and preview.");
                 if (ui::button("Remove from sequence",
                                "Keep the primary clip and standalone settings; "

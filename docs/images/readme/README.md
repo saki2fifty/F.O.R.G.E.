@@ -1568,25 +1568,37 @@ This is software rendering evidence, not physical GPU performance or Windows /
 D3D12/full desktop/graphical EXE acceptance. Capture source/executable/input hashes
 and byte proofs remain in the canonical local capability validation owner.
 
-## Two-clip sequence Timeline
+## Two-clip sequence Timeline and binding example
 
 [Sequence crossfade controls](../../../manual/images/sequence-clip-blending.png)
 is the unretouched 720×1100 production Animation Timeline, rendered by the existing
 SDL/ImGui software fixture at 100% with the project font. Actual pointer input
-selects Gallery183's Light track. Both property-only clips, highlighted overlap,
-typed clip pickers, pending start fields and supported-track hint are visible.
-The same run explicitly samples the light and Sprite at four sequence times,
-checking continuous values, the discrete midpoint and unchanged authored Scene
-content/history. Frame export is unavailable in this isolated Timeline fixture
-because it has no graphical Game host; production Scene/Game rendering and
-source-hidden relocated export are validated separately.
-PNG SHA256: `fe762a913b93ed6f643ea8b9f0cdb4ea48b4dba76052919472ed106c1b436767`.
+selects Gallery184's cube track. Its Material pair, separate reflected HUD track,
+overlap, typed clip pickers, pending timing fields and compatibility hint are visible.
+The same run samples Color4/scalar parameters and keyed UI Values at four times,
+checking exact values and unchanged authored Scene content/history. Frame export
+is unavailable in this isolated fixture because it has no graphical Game host.
+PNG SHA256: `43f92fe88289a386cb4ae8860131bf11f1e7a3536e5d5509eaaf49c9386f8a00`.
 
-Capture uses `forge_animation_sequence_editor_tests --capture-properties <Gallery>
-<private-scratch> <png>` from the local property crossfade extension based on
-77bf1de, with an unassigned build identity. Exact executable, relevant source,
-Scene and image hashes remain with the local capability validation owner. The
-canonical PNG is copied byte for byte from that run. This is not full Main,
+Capture uses `forge_animation_sequence_editor_tests --capture-bindings <Gallery>
+<private-scratch> <png>` from the local binding crossfade extension based on
+2282a3d, with an unassigned build identity. The published-scene capture is byte
+identical to the independently exercised private example.
+
+[Material and HUD crossfade](../../../manual/images/sequence-binding-game.png)
+is the actual 640×360 Game display at sequence time2s. Production GameSession,
+GamePresentation, FrameRenderer and native RmlUi render the warm cube and the HUD's
+0.8 opacity/220px width. Four paused seeks check native layout, unchanged fixed
+tick and separate cube/HUD pixel changes. All four authored/relocated image pairs
+are bit exact with original sources offline; private/published identities also
+produce four identical images. The canonical PNG is copied byte for byte from
+that published-scene capture.
+PNG SHA256: `8835b5226f90e24ed20e3759ca549195cca4fdfc9e99df49daea4f0701c1bb0d`.
+
+Capture uses `forge_ui_surface_gallery_vulkan_probe <Gallery> <font> <scratch>
+--sequence-bindings` on the software Vulkan adapter. Exact executable, relevant
+source/Scene/image hashes and native receipts remain with the local capability
+validation owner. No pixels or controls are retouched. These are not full Main,
 Windows/MSVC/D3D12, physical input/DPI/GPU/audio, performance or graphical EXE
 acceptance.
 

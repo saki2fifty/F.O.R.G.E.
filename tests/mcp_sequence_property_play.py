@@ -2,15 +2,19 @@
 from mcp_test_client import failed
 
 
-def check_sequence_property_play(read, ok, control, mutate, until, discovery):
-    ok('forge_document_open', path='Scenes/183-sequence-property-crossfades.scene.json', discard=True)
+def check_sequence_property_play(read, ok, control, mutate, until, discovery, binding_pairs=False):
+    path = ('Scenes/184-sequence-binding-crossfades.scene.json' if binding_pairs
+            else 'Scenes/183-sequence-property-crossfades.scene.json')
+    ok('forge_document_open', path=path, discard=True)
     source = read('forge_scene_read')
     controller = next(row['id'] for row in source['entities']
                       if 'forge.animation_sequence' in row['components'])
+    primary_component = 'forge.mesh_renderer' if binding_pairs else 'forge.light'
+    secondary_component = 'forge.ui_values' if binding_pairs else 'forge.sprite_renderer'
     light = next(row['id'] for row in source['entities'] if
-                 'forge.transform_animator' in row['components'] and 'forge.light' in row['components'])
+                 'forge.transform_animator' in row['components'] and primary_component in row['components'])
     sprite = next(row['id'] for row in source['entities'] if
-                  'forge.transform_animator' in row['components'] and 'forge.sprite_renderer' in row['components'])
+                  'forge.transform_animator' in row['components'] and secondary_component in row['components'])
     component = next(row for row in discovery()['result']['schema']['components']
                      if row['id'] == 'forge.transform_animator')
     fields = {row['id']: row for row in component['fields']}
@@ -38,9 +42,21 @@ def check_sequence_property_play(read, ok, control, mutate, until, discovery):
     def sample():
         value = read('forge_play_snapshot')
         rows = {row['id']: row['components'] for row in value['entities']}
+        if binding_pairs:
+            return rows[light][primary_component], {v['name']: v['value'] for v in
+                                                    rows[sprite][secondary_component]['values']}
         return rows[light]['forge.light'], rows[sprite]['forge.sprite_renderer']['frame']
 
     def matches(value, weight):
+        if binding_pairs:
+            mesh, values = value
+            parameters = {v['key']: v['parameter']['value'] for v in mesh['material_parameters']}
+            expected = (.1+.8*weight, .2+.1*weight, .9-.85*weight, 1.)
+            return (len(parameters['baseColorFactor']) == 4 and len(values) == 2
+                    and all(abs(x-y) < 1e-5 for x, y in zip(parameters['baseColorFactor'], expected))
+                    and abs(parameters['roughnessFactor'][0]-(.1+.8*weight)) < 1e-5
+                    and abs(values['amount']-(.2+.6*weight)) < 1e-5
+                    and abs(values['width']-(80+140*weight)) < 1e-5)
         lamp, frame = value
         expected = dict(intensity=2+2*weight, color_r=.1+.9*weight,
                         color_g=.2+.15*weight, color_b=1-.95*weight)
@@ -50,6 +66,13 @@ def check_sequence_property_play(read, ok, control, mutate, until, discovery):
         control('forge_play_animation_control', entity=controller, operation='seek',
                 position_seconds=seconds)
         until(sample, lambda value: matches(value, weight))
+        if binding_pairs:
+            def ui_matches(row):
+                documents = (row.get('value') or {}).get('documents', [])
+                return (len(documents) == 1
+                        and abs(documents[0]['model'].get('amount', -1)-(.2+.6*weight)) < 1e-5
+                        and abs(documents[0]['model'].get('width', -1)-(80+140*weight)) < 1e-5)
+            until(lambda: read('forge_play_ui'), ui_matches)
         assert read('forge_play_status')['timing']['tick'] == paused['timing']['tick']
         assert read('forge_scene_read') == saved
     current = read('forge_play_status')

@@ -1,0 +1,13 @@
+<rml><head><style>
+body {width:100%;height:100%;margin:0;font-family:Lato;font-size:14px;color:#edf3fa;pointer-events:none;}
+body,div,h1,p {display:block;}
+#panel {position:absolute;right:3%;top:5%;width:250px;box-sizing:border-box;padding:12px;background-color:#182b3af2;}
+h1 {font-size:18px;margin:0 0 8px;} p {margin:8px 0;}
+.track {width:224px;height:20px;background-color:#101d29;overflow:hidden;}
+#fill {height:20px;background-color:#48b6d5;} #fill.bright {background-color:#e9b75b;}
+</style></head><body><div id="panel"><h1>Material and UI crossfades</h1>
+<p>One sequence blends the cube and these named values.</p>
+<div class="track"><div id="fill" data-style-width="width + 'px'" data-style-opacity="amount" data-class-bright="amount >= 0.6"></div></div>
+<p id="amount">Opacity: {{amount}}</p><p id="width">Width: {{width}} px</p>
+<p>The clips overlap from 1s to 2s. The four-second sequence repeats.</p>
+</div></body></rml>

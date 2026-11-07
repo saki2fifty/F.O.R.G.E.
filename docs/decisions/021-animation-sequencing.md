@@ -214,6 +214,32 @@ the properties are derived from those resources and the restored clock. Older
 transform-only/single-clip meanings are unchanged. Earlier runtimes reject newly
 permitted property pairs at admission rather than restore an incompatible meaning.
 
+## Compatible Material and reflected binding pairs
+
+2026-11-06. Extend the same two-clip owner to equal sets of Material and reflected
+component bindings. Material equality includes slot, key and exact semantic type.
+Reflected equality includes component, root/member/collection path, schema admission
+and value category. Source order may differ: derive bounded ordinal correspondence
+from complete binding equality when either selected clip/configuration changes.
+It is disposable resource-derived state, never persistent identity or authority.
+Transform/property masks still match, and at least one track of any kind is required.
+
+Each clip retains its own local-time/key sampling. Blend numeric Material lanes and
+continuous reflected scalars with the existing span's linear weight. Boolean and
+integer/enum/flags leaves choose the first sample below half and the next at or above
+half, preserving their exact JSON/native signed or unsigned integer representation.
+Neither implicit numeric conversion nor fractional discrete values are permitted.
+
+Both complete clips require existing target/domain/schema admission, including an
+incoming revision not yet contributing at the playhead. Material admission includes
+both selected resource revisions and current draw selection/unanimated intent.
+Project mixed sampled values through the existing detached Material and reflected
+candidate owners before any native write. Fixed and copied presentation use the
+same private samplers. Source/history, last-good failure, timing and recovery retain
+their existing owners. No new public field, source/cook or recovery layout is needed;
+derived correspondence is rebuilt from the exact selected revisions on recovery.
+Skeletal clips and general multi-clip arrangements remain separate.
+
 ## Nested Scene controller placements — accepted bounded design
 
 2026-11-03. This additive profile uses the existing sequence ownership boundaries.

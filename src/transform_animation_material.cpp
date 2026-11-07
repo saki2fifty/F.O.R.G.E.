@@ -42,14 +42,27 @@ void TransformAnimationPlayback::synchronize_materials() {
             if (requested.identity != state.clip.identity() &&
                 !resource_detail::terminal(requested.state))
                 throw AnimationMaterialPending("Waiting for selected animated material clip");
+            const auto next_identity =
+                state.next_clip ? state.next_clip.identity() : ResourceIdentity{};
+            if (state.next_clip) {
+                const auto next_requested = state.next_ticket.inspect();
+                if (next_requested.identity != next_identity &&
+                    !resource_detail::terminal(next_requested.state))
+                    throw AnimationMaterialPending("Waiting for selected incoming material clip");
+            }
             auto identity = asset_detail::prepared_model_draw_key(draw, false);
             if (!state.material || state.material->identity != identity ||
                 state.material->clip != state.clip.identity() ||
+                state.material->next_clip != next_identity ||
                 !detail::same_material_parameter_values(state.material->unanimated, unanimated)) {
                 validate_animation_material_target(state.clip.get(), draw,
                                                    renderer.material_parameters);
-                state.material = MaterialTarget{std::move(draw), std::move(identity),
-                                                state.clip.identity(), std::move(unanimated)};
+                if (state.next_clip)
+                    validate_animation_material_target(state.next_clip.get(), draw,
+                                                       renderer.material_parameters);
+                state.material =
+                    MaterialTarget{std::move(draw), std::move(identity), state.clip.identity(),
+                                   next_identity, std::move(unanimated)};
             }
             state.material_pending = false;
             if (state.material_error && !load_errors_.contains(id))

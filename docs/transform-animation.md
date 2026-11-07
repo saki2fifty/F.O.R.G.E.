@@ -35,9 +35,15 @@ resolved enabled sequence. Both starts must lie inside the controller; the next
 start and end must not precede the primary start and end. Endpoints may extend
 past the controller and be truncated by it.
 
-Both clips must animate identical local-transform channel sets and identical
-built-in property masks, with at least one channel/property. Property-only pairs
-are supported. Component-field and material binding arrays remain unsupported.
+Both clips must animate identical local-transform channel sets, builtin property
+masks and Material/reflected binding sets, with at least one track of any kind.
+Property-, Material- and component-only pairs are supported. Material equality
+includes slot, key and exact semantic type; reflected equality includes component,
+root/member/collection path, schema admission and value category. Binding order
+may differ. Derive bounded ordinal correspondence from the admitted resources
+only when their configuration or selected revisions change; it is not persistent
+identity or an additional authoritative catalog.
+
 Admit both Resources leases before adopting the pair. Through the natural overlap, linearly interpolate position and
 scale and use the clip sampler's shortest-arc quaternion interpolation for rotation.
 In a gap, hold the primary endpoint until the next start, then cut. Hold the first
@@ -53,6 +59,24 @@ the existing target-frame admission when either selected revision/configuration
 or the target frame capacity changes. A single private property sampler feeds
 fixed complete candidates and presentation, including copied sequence preview.
 Unselected component fields and opaque data retain their existing ownership.
+
+Material numeric lanes and continuous reflected scalars blend with `std::lerp`
+at the same next weight. Boolean and signed/unsigned integer, enum and flag leaves
+select the first sample below half and the next at or above half, retaining exact
+JSON/native primitive storage, including 64-bit endpoints. Each clip still owns
+its key interpolation and independent local time. A gap selects the next sample
+at its start without an overlap. Keyed collection selectors retain their existing
+identity; positional selectors keep their existing index meaning.
+
+Both whole clips require existing target/domain/schema admission even when the
+incoming clip is not yet contributing. Material admission caches both resource
+identities, current draw selection and unanimated numeric intent. Fixed and copied
+presentation share private binding samplers and project their mixed samples through
+the existing detached Material/reflected candidates. Complete validation precedes
+native writes. An incompatible pair or replacement preserves last accepted native
+values and reports the existing diagnostic; no field, collection or component is
+created to make a track valid. Recovery rebuilds ordinal correspondence from the
+exact selected revisions rather than serializing a second identity system.
 
 Public playback uses its existing `blend_clip` and `blend_weight` observations
 for the selected next clip and its derived contribution; no callback layout change
@@ -71,8 +95,8 @@ sequence entry-pending state. After admitting the complete resource pair, mismat
 are rejected before restoring poses/clocks. A fresh worker can therefore restore
 without a prior preparation pass. Without a next slot, the current older-profile readers and
 writers retain their behavior. Scene/Prefab and clip source/cook formats do not
-change. More than two clips on one actor and reflected/material/skeletal crossfades are outside this
-profile. [Silent movie export](sequence-movie-export.md) uses the existing preview
+change. More than two clips on one actor and skeletal sequence crossfades remain
+outside this profile. [Silent movie export](sequence-movie-export.md) uses the existing preview
 capture owner; it does not add simulation or encoding to the animation runtime.
 
 ### Nested controller placements

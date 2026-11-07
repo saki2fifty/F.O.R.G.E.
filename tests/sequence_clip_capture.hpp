@@ -1,8 +1,13 @@
 #pragma once
+enum class SequenceCapture { Transforms, Nested, CameraTransition, Properties, Bindings };
 void capture_sequence_pair(const std::filesystem::path& gallery,
                            const std::filesystem::path& scratch,
-                           const std::filesystem::path& output, bool nested = false,
-                           bool camera_transition = false, bool property_pair = false) {
+                           const std::filesystem::path& output,
+                           SequenceCapture profile = SequenceCapture::Transforms) {
+    const bool nested = profile == SequenceCapture::Nested;
+    const bool camera_transition = profile == SequenceCapture::CameraTransition;
+    const bool property_pair = profile == SequenceCapture::Properties;
+    const bool binding_pair = profile == SequenceCapture::Bindings;
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root.parent_path());
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
@@ -16,7 +21,8 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
         Scene scene(engine.world());
         SceneDocument project(scene);
         project.open_project(root);
-        project.open_scene(property_pair ? "Scenes/183-sequence-property-crossfades.scene.json"
+        project.open_scene(binding_pair    ? "Scenes/184-sequence-binding-crossfades.scene.json"
+                           : property_pair ? "Scenes/183-sequence-property-crossfades.scene.json"
                            : camera_transition ? "Scenes/153-camera-transitions.scene.json"
                            : nested            ? "Scenes/146-nested-sequences.scene.json"
                                                : "Scenes/145-sequence-clip-blending.scene.json");
@@ -38,7 +44,8 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
                 actor = row.at("id").get<std::string>();
             if (!nested && !camera_transition &&
                 row.at("components").contains("forge.transform_animator") &&
-                (!property_pair || row.at("components").contains("forge.light")))
+                (!property_pair || row.at("components").contains("forge.light")) &&
+                (!binding_pair || row.at("components").contains("forge.mesh_renderer")))
                 actor = row.at("id").get<std::string>();
         }
         check(bool(controller.entity) && !actor.empty(), "Missing pair capture track");
@@ -65,7 +72,7 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         test::ImGuiInputDriver input(frame);
-        if (property_pair) {
+        if (property_pair || binding_pair) {
             const auto authored = scene.document();
             const auto revision = scene.revision();
             const auto token = editor.begin_frame_export();
@@ -77,12 +84,39 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
                 for (const auto& row : preview.at("entities")) {
                     const auto& components = row.at("components");
                     if (row.at("id") == actor) {
-                        const auto& value = components.at("forge.light");
-                        near(value.at("intensity"), 2 + 2 * weight);
-                        near(value.at("color_r"), .1 + .9 * weight);
+                        if (binding_pair) {
+                            const auto& values =
+                                components.at("forge.mesh_renderer").at("material_parameters");
+                            check(values.size() == 2, "Binding preview lost Material tracks");
+                            for (const auto& value : values) {
+                                const auto& lanes = value.at("parameter").at("value");
+                                if (value.at("key") == "baseColorFactor") {
+                                    near(lanes[0], .1 + .8 * weight);
+                                    near(lanes[1], .2 + .1 * weight);
+                                    near(lanes[2], .9 - .85 * weight);
+                                    near(lanes[3], 1);
+                                } else {
+                                    check(value.at("key") == "roughnessFactor",
+                                          "Unexpected Material track");
+                                    near(lanes[0], .1 + .8 * weight);
+                                }
+                            }
+                        } else {
+                            const auto& value = components.at("forge.light");
+                            near(value.at("intensity"), 2 + 2 * weight);
+                            near(value.at("color_r"), .1 + .9 * weight);
+                        }
                         light = true;
                     }
-                    if (components.contains("forge.sprite_renderer")) {
+                    if (binding_pair && components.contains("forge.ui_values")) {
+                        const auto& values = components.at("forge.ui_values").at("values");
+                        check(values.size() == 2, "Binding preview resized UI Values");
+                        for (const auto& value : values)
+                            near(value.at("value"), value.at("name") == "amount"
+                                                        ? .2 + .6 * weight
+                                                        : 80 + 140 * weight);
+                        sprite = true;
+                    } else if (!binding_pair && components.contains("forge.sprite_renderer")) {
                         near(components.at("forge.sprite_renderer").at("frame"),
                              seconds < 1.5 ? 0 : 3);
                         sprite = true;

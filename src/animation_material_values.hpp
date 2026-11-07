@@ -7,6 +7,10 @@ namespace forge {
 std::vector<MaterialParameterOverride>
 sample_animation_material_parameters(const TransformAnimationClip&, double time_us,
                                      std::span<const MaterialParameterOverride> current);
+std::vector<MaterialParameterOverride>
+project_animation_material_parameters(const TransformAnimationClip&,
+                                      std::span<const AnimationMaterialValues> samples,
+                                      std::span<const MaterialParameterOverride> current);
 // Validate every selected part's exact semantic declaration and whole curve
 // range, including model-owned restrictions and fixed render-pass eligibility.
 void validate_animation_material_target(const TransformAnimationClip&,

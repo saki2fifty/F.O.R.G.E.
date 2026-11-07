@@ -20,6 +20,7 @@ from mcp_sequence_property_sources import check_sequence_property_sources
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
 SEQUENCE_PROPERTY_SOURCES_ONLY = '--sequence-property-sources-only' in sys.argv[5:]
+SEQUENCE_BINDING_SOURCES_ONLY = '--sequence-binding-sources-only' in sys.argv[5:]
 TERRAIN_FOLIAGE_ONLY = "--terrain-foliage-only" in sys.argv[5:]
 PREFAB_ONLY = "--prefab-only" in sys.argv[5:]
 # Instrumented native admission can exceed the unchanged production bridge
@@ -189,6 +190,12 @@ for legacy in (False, True):
         assert len(kinds) == 20 and all(not item['status']['open'] for item in kinds), kinds
         if SEQUENCE_PROPERTY_SOURCES_ONLY:
             check_sequence_property_sources(read, mutate, edit, status, content, root)
+            continue
+        if SEQUENCE_BINDING_SOURCES_ONLY:
+            fixture = Path(__file__).resolve().parents[1] / 'samples/projects/FeatureGallery/Assets/Sequences'
+            templates = [(name, json.loads((fixture/(name + '.animation.json')).read_text()))
+                         for name in ('SurfaceFirst', 'SurfaceNext', 'FieldsFirst', 'FieldsNext')]
+            check_sequence_property_sources(read, mutate, edit, status, content, root, templates)
             continue
         if ANIMATION_GRAPH_ONLY:
             check_animation_graph_workflow(read, mutate, edit, status, content, failed,

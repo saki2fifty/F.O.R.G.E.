@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v12",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 9,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "b9f6cc7ab77bbfe0fe6fc39d9035e7ee97fd5a211c797676e50eb7081f92a37c",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "cb1a0df4-a231-4301-9437-437e86de2dcb",
+    "source": "Assets/Sequences/SurfaceFirst.animation.json",
+    "source_digest": "b9f6cc7ab77bbfe0fe6fc39d9035e7ee97fd5a211c797676e50eb7081f92a37c",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

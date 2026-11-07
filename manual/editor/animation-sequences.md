@@ -42,7 +42,7 @@ overlap blends from the first motion into the next.
 
 To make a two-clip track:
 
-1. Create and publish two Transform Animation clips. Select the same transform channels and built-in property tracks in both. For property-only clips, leave transform channels off in both. Material and component-field tracks are unsupported.
+1. Create and publish two Transform Animation clips with matching tracks. Select the same transform channels, built-in properties, Material parameters and component fields in both. For clips that only animate properties, leave transform channels off in both.
 2. Add the object to an Animation Sequence and choose its **Clip**. Select the object track, then choose **Next clip** using the asset picker.
 3. Enter **Primary clip start** and **Next clip start**, then choose **Apply track timing**. Both edited values use one Scene Undo step. **Reset pending timing** reloads the current Scene values. Apply or reset before switching tracks or clips.
 4. Choose **Refresh clips**. The upper blue strip shows the primary clip, the lower purple strip shows the next, and the highlighted intersection shows the crossfade. Use **Preview sequence**, scrubbing or frame export to inspect the result.
@@ -72,10 +72,6 @@ intensity and color blend from one to two seconds; the arrow switches at one and
 a half seconds. Select **Four second property loop** and open its Timeline to
 preview the tracks. No C++ module is required.
 
-![Timeline with matching Light property clips, their overlap, and both start fields](../images/sequence-clip-blending.png)
-
-The selected Light track's blue and purple clips overlap from one to two seconds.
-
 For a light fade, create two clips that both animate **Light intensity**. Add a
 Light component to the target, assign the clips to its sequence track, and overlap
 their spans using **Next clip start**. Choose **Refresh clips**, then scrub or
@@ -94,6 +90,44 @@ midpoint and the next clip's sampled frame from the midpoint. All frame keys in
 both clips must fit the target Sprite's frame configuration, even when the
 current playhead is elsewhere. A gap holds the first clip's final values until
 the next clip starts, then switches to its first values.
+
+### Crossfade Material and component fields
+
+Open **FeatureGallery / Scenes / 184-sequence-binding-crossfades.scene.json** and
+press **Play → Game**. The cube changes color and roughness while the HUD bar's
+opacity and width change. Both tracks overlap from one to two seconds and repeat
+on a four-second loop. Select **Four second binding loop**, open its Timeline,
+choose **Refresh clips** and select the cube or HUD track to preview it. No C++
+module or custom Shader is needed.
+
+![Timeline showing matching Material clips on the cube and a separate HUD field track](../images/sequence-clip-blending.png)
+
+The selected cube track's blue and purple clips overlap from one to two seconds.
+
+![Game showing the cube's warm Material color and a HUD displaying opacity 0.8 and width 220 px](../images/sequence-binding-game.png)
+
+At two seconds, the incoming clips set the cube's appearance and the HUD values.
+
+For a Material fade, add the same object Material parameters to both clips. Each
+pair must use the same mesh slot, parameter key and semantic type. A color and a
+vector of the same width remain different types. The target needs a Mesh Renderer
+with a compatible selected Material. Numeric lanes blend throughout the overlap;
+shared Material assets retain their own values.
+
+For component fields, add the same inspected fields to both clips. The component
+schema, value type and complete member or collection path must match. A named
+UI Value must already exist on the target. Collection tracks change existing
+leaves; they do not add, remove or resize entries. Keyed rows retain their identity
+when reordered; positional rows follow their index. Track order within the clips
+may differ.
+
+Continuous numeric fields blend. Boolean, integer, enum and flag fields select the
+first clip's value before the overlap midpoint and the next clip's value from the
+midpoint. Integer values retain their exact storage, including 64-bit values.
+Both clips' complete curves must fit the target's declarations and ranges, even
+when the playhead is outside the incoming clip. Fix an incompatible track, publish
+it and choose **Refresh clips** before previewing again. Use **Save & Publish** for
+clip edits and **Save scene** for the arrangement before export.
 
 ## Place a sequence inside another
 
@@ -313,7 +347,8 @@ stay stored for when they are removed from the sequence.
 **Remove from sequence** keeps the primary clip and clears its controller and next
 clip. Each object supports one primary clip and one optional compatible next clip.
 Camera shots support cuts and compatible view/lens transitions. This sequence mode
-does not crossfade rendered images, material/component-field curves or edit bones. Use the
+does not crossfade rendered images or edit bones. Matching Material and component-field
+tracks use the two-clip workflow above. Use the
 preview export options above to save a silent movie. Each controller has at most one
 parent placement; place a copy of a complete linked group to reuse it independently.
 

@@ -424,4 +424,36 @@ void collection_playback(const std::filesystem::path& root) {
     check(removed.clip().component_bindings.size() + 1 == clip.component_bindings.size(),
           "Collection binding removal deleted siblings");
     check(scene.snapshot() == saved, "Collection playback changed authored scene");
+    const auto controller =
+        authoring_command(scene, "entity.create", {{"recipe", "animation.sequence"}})
+            .at("selected")
+            .get<std::string>();
+    AnimationSequence sequence;
+    sequence.duration = 4;
+    scene.entity(controller).set(sequence);
+    animator.sequence = {scene.asset_id(), EntityId::parse(controller)};
+    animator.sequence_next_clip = animator.clip;
+    animator.sequence_next_start_seconds = 1;
+    scene.entity(actor).set(animator);
+    const auto pair_saved = scene.snapshot();
+    Runtime pair(root, pair_saved, catalog, collection_module());
+    pair.ready();
+    const auto target = pair.scene.entity(actor);
+    auto reordered = vectors.read(target, true);
+    std::reverse(reordered["items"].begin(), reordered["items"].end());
+    vectors.apply(target, vectors.prepare_update(target, reordered));
+    AnimationPlaybackAccess::control(*pair.animation, animator.sequence,
+                                     {{"operation", "seek"}, {"position_seconds", 1.5}});
+    near(target.get<CollectionMotion>().rows[0].speed, 82.5);
+    near(target.get<CollectionMotion>().matrix[1][0], 15);
+    const auto values = vectors.read(target, true);
+    const auto& items = values.at("items");
+    check(items.at(0).at("slot") == "right" && items.at(1).at("slot") == "left",
+          "Sequence blend reordered the native keyed collection");
+    near(items.at(1).at("speed"), 90);
+    near(items.at(1).at("weights")[1], 2);
+    near(items.at(0).at("speed"), 60);
+    check(target.get<CollectionMotion>().markers[0] == INT64_MIN &&
+              items.at(1).at("note") == "retained" && scene.snapshot() == pair_saved,
+          "Sequence collection blend changed held, unanimated or authored values");
 }

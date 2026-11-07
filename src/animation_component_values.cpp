@@ -171,7 +171,8 @@ std::vector<AnimationComponentBinding> animation_component_fields(const Json& de
     return result;
 }
 Json sample_animation_component(const Json& declaration, const Json& current,
-                                const TransformAnimationClip& clip, double time, bool whole_clip) {
+                                const TransformAnimationClip& clip, double time, bool whole_clip,
+                                std::span<const Json> samples) {
     if (!animation_component_matches(declaration, current))
         throw std::runtime_error("Animated component requires its matching authored schema");
     const auto& fields = declaration.at("fields");
@@ -180,7 +181,13 @@ Json sample_animation_component(const Json& declaration, const Json& current,
     std::array<Json, 64> sampled;
     if (clip.component_bindings.size() > sampled.size())
         throw std::runtime_error("Animated component binding count exceeds64");
-    clip.sample_component_values(time, std::span(sampled).first(clip.component_bindings.size()));
+    if (samples.empty()) {
+        clip.sample_component_values(time,
+                                     std::span(sampled).first(clip.component_bindings.size()));
+        samples = std::span(sampled).first(clip.component_bindings.size());
+    }
+    if (samples.size() != clip.component_bindings.size())
+        throw std::runtime_error("Animated component sample count differs from its bindings");
     for (std::size_t i = 0; i < clip.component_bindings.size(); ++i) {
         const auto& binding = clip.component_bindings[i];
         if (binding.component != declaration.at("id"))
@@ -203,7 +210,7 @@ Json sample_animation_component(const Json& declaration, const Json& current,
                 for (const auto& key : clip.keys)
                     validate_value(key.component_values.at(i).value);
         }
-        result.at(path) = sampled[i];
+        result.at(path) = samples[i];
         if (field.at("type") == "float32")
             result.at(path) = double(float(result.at(path).get<double>()));
     }
@@ -245,7 +252,8 @@ void merge_animation_properties(Json& components, const Json& patch, const World
 }
 std::vector<AnimationComponentCandidate>
 prepare_animation_components(WorldContext& context, flecs::entity entity,
-                             const TransformAnimationClip& clip, double time, bool whole_clip) {
+                             const TransformAnimationClip& clip, double time, bool whole_clip,
+                             std::span<const Json> samples) {
     std::vector<AnimationComponentCandidate> result;
     if (clip.component_bindings.empty())
         return result;
@@ -256,7 +264,7 @@ prepare_animation_components(WorldContext& context, flecs::entity entity,
         if (!remaining.erase(codec.key()))
             continue;
         auto value = sample_animation_component(codec.editor_schema(), codec.read(entity, true),
-                                                clip, time, whole_clip);
+                                                clip, time, whole_clip, samples);
         auto prepared = codec.prepare_update(entity, value);
         if (!prepared)
             throw std::runtime_error("Animated component schema admission failed");
@@ -276,7 +284,7 @@ prepare_animation_components(WorldContext& context, flecs::entity entity,
         if (declaration == types.end() || !declaration->contains("admission"))
             continue;
         auto value = sample_animation_component(*declaration, builtin.read(entity, true), clip,
-                                                time, whole_clip);
+                                                time, whole_clip, samples);
         detail::validate_components({{builtin.name, value}});
         auto typed = builtin.decode(value);
         std::visit([&](const auto& item) { detail::validate_reflected_value(entity, item); },

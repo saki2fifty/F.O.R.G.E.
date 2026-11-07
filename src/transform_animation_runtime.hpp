@@ -49,7 +49,7 @@ class TransformAnimationPlayback {
     struct MaterialTarget {
         asset_detail::PreparedModelDraw draw;
         asset_detail::PreparedModelDrawKey identity;
-        ResourceIdentity clip;
+        ResourceIdentity clip, next_clip;
         std::vector<MaterialParameterOverride> unanimated;
     };
     struct State {
@@ -62,6 +62,7 @@ class TransformAnimationPlayback {
         ResourceTicket next_ticket;
         ResourceLease<TransformAnimationAsset> next_clip;
         std::optional<detail::SequenceClipSpan> span;
+        std::vector<std::size_t> material_order, component_order;
         double time = 0;
         double previous = 0, advance = 0;
         bool playing = false, discontinuous = true;
@@ -135,6 +136,8 @@ class TransformAnimationPlayback {
     double clip_span_duration(const State&) const;
     LocalTransform sample_pose(const State&, double) const;
     AnimationPropertyValues sample_properties(const State&, double) const;
+    void sample_materials(const State&, double, std::span<AnimationMaterialValues>) const;
+    void sample_components(const State&, double, std::span<nlohmann::json>) const;
     std::map<flecs::entity_t, double> times_at(flecs::entity_t controller, double time) const;
 };
 } // namespace forge

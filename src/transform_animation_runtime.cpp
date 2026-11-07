@@ -19,6 +19,25 @@
 #include <thread>
 namespace forge {
 namespace {
+template <class Binding>
+std::vector<std::size_t> sequence_binding_order(const std::vector<Binding>& first,
+                                                const std::vector<Binding>& next,
+                                                const char* kind) {
+    const auto fail = [&] {
+        throw std::runtime_error(std::string("Sequence crossfade requires matching ") + kind);
+    };
+    if (first.size() != next.size())
+        fail();
+    std::vector<std::size_t> order;
+    order.reserve(first.size());
+    for (const auto& binding : first) {
+        const auto at = std::find(next.begin(), next.end(), binding);
+        if (at == next.end())
+            fail();
+        order.push_back(std::size_t(at - next.begin()));
+    }
+    return order;
+}
 bool held_crossed(const std::vector<TransformAnimationKey>& keys, double from, double to) {
     auto next = std::upper_bound(keys.begin(), keys.end(), from,
                                  [](double t, const auto& k) { return t < k.time; });
@@ -208,15 +227,15 @@ void TransformAnimationPlayback::synchronize() {
                     return;
                 }
                 const auto supported_pair = [](const TransformAnimationClip& value) {
-                    return (value.channels || value.properties) &&
-                           value.material_bindings.empty() && value.component_bindings.empty();
+                    return value.channels || value.properties || !value.material_bindings.empty() ||
+                           !value.component_bindings.empty();
                 };
                 if (!supported_pair(clip.get()) || !supported_pair(next_clip.get()) ||
                     clip->channels != next_clip->channels ||
                     clip->properties != next_clip->properties)
                     throw std::runtime_error(
                         "Sequence crossfade requires matching transform channels and built-in "
-                        "property tracks, without material or reflected component tracks");
+                        "property tracks");
                 span = detail::SequenceClipSpan::make(config.sequence_start_seconds,
                                                       config.sequence_next_start_seconds,
                                                       clip->duration, next_clip->duration);
@@ -224,9 +243,22 @@ void TransformAnimationPlayback::synchronize() {
             const bool next_revision_changed = bool(state.next_clip) != bool(next_clip) ||
                                                (state.next_clip && next_clip &&
                                                 state.next_clip.identity() != next_clip.identity());
-            if (changed || !state.clip ||
-                state.clip.identity().revision != clip.identity().revision)
+            const bool pair_changed = changed || !state.clip || next_revision_changed ||
+                                      state.clip.identity().revision != clip.identity().revision;
+            std::vector<std::size_t> material_order, component_order;
+            if (pair_changed) {
+                if (next_clip) {
+                    material_order = sequence_binding_order(
+                        clip->material_bindings, next_clip->material_bindings,
+                        "Material slots, keys and semantic types");
+                    component_order = sequence_binding_order(
+                        clip->component_bindings, next_clip->component_bindings,
+                        "reflected fields, schemas and value types");
+                }
                 (void)prepare_animation_components(context_, entity, clip.get(), 0, true);
+                if (next_clip)
+                    (void)prepare_animation_components(context_, entity, next_clip.get(), 0, true);
+            }
             if (clip->properties & AnimationPropertyState::sprite_mask) {
                 const auto values =
                     AnimationPropertyState::from(entity, AnimationPropertyState::sprite_mask);
@@ -259,6 +291,10 @@ void TransformAnimationPlayback::synchronize() {
             state.next_clip = std::move(next_clip);
             state.next_ticket = std::move(next_ticket);
             state.span = std::move(span);
+            if (pair_changed) {
+                state.material_order = std::move(material_order);
+                state.component_order = std::move(component_order);
+            }
             state.time = std::min(state.time, clip_span_duration(state));
             if (sequence)
                 state.time = sequence_time(state, sequence_states_.at(sequence).time);
@@ -324,6 +360,46 @@ AnimationPropertyValues TransformAnimationPlayback::sample_properties(const Stat
     }
     return first;
 }
+void TransformAnimationPlayback::sample_materials(const State& state, double time,
+                                                  std::span<AnimationMaterialValues> output) const {
+    state.clip->sample_materials(time, output);
+    if (!state.span || !state.next_clip)
+        return;
+    const double weight = state.span->next_weight(time);
+    if (weight == 0)
+        return;
+    std::array<AnimationMaterialValues, material_parameter_override_limit> incoming;
+    state.next_clip->sample_materials(time - state.span->next_offset_us,
+                                      std::span(incoming).first(output.size()));
+    for (std::size_t i = 0; i < output.size(); ++i)
+        for (unsigned lane = 0;
+             lane < material_parameter_width(state.clip->material_bindings[i].type); ++lane) {
+            const double next = incoming[state.material_order.at(i)][lane];
+            output[i][lane] = weight == 1 ? next : std::lerp(output[i][lane], next, weight);
+        }
+}
+void TransformAnimationPlayback::sample_components(const State& state, double time,
+                                                   std::span<Json> output) const {
+    state.clip->sample_component_values(time, output);
+    if (!state.span || !state.next_clip)
+        return;
+    const double weight = state.span->next_weight(time);
+    if (weight == 0)
+        return;
+    std::array<Json, 64> incoming;
+    state.next_clip->sample_component_values(time - state.span->next_offset_us,
+                                             std::span(incoming).first(output.size()));
+    for (std::size_t i = 0; i < output.size(); ++i) {
+        const auto& next = incoming[state.component_order.at(i)];
+        if (weight == 1)
+            output[i] = next;
+        else if (state.clip->component_bindings[i].value_type ==
+                 AnimationComponentValueType::Scalar)
+            output[i] = std::lerp(output[i].get<double>(), next.get<double>(), weight);
+        else if (weight >= .5)
+            output[i] = next;
+    }
+}
 bool TransformAnimationPlayback::has_next_sequence_clips() const {
     return std::any_of(states_.begin(), states_.end(),
                        [](const auto& value) { return bool(value.second.next_clip); });
@@ -343,9 +419,13 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
     for (const auto& [id, time] : times) {
         const auto& state = states_.at(id);
         auto entity = context_.world().entity(id);
-        if (!state.clip->component_bindings.empty())
-            components.emplace(
-                id, prepare_animation_components(context_, entity, state.clip.get(), time));
+        if (!state.clip->component_bindings.empty()) {
+            std::array<Json, 64> samples;
+            auto values = std::span(samples).first(state.clip->component_bindings.size());
+            sample_components(state, time, values);
+            components.emplace(id, prepare_animation_components(context_, entity, state.clip.get(),
+                                                                time, false, values));
+        }
         if (!state.clip->material_bindings.empty()) {
             if (state.material_error)
                 throw std::runtime_error("Animated material target is invalid");
@@ -354,8 +434,11 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
             if (!entity.has<MeshRenderer>())
                 throw std::runtime_error("Material animation requires a MeshRenderer component");
             auto renderer = entity.get<MeshRenderer>();
-            renderer.material_parameters = sample_animation_material_parameters(
-                state.clip.get(), time, renderer.material_parameters);
+            std::array<AnimationMaterialValues, material_parameter_override_limit> samples;
+            auto values = std::span(samples).first(state.clip->material_bindings.size());
+            sample_materials(state, time, values);
+            renderer.material_parameters = project_animation_material_parameters(
+                state.clip.get(), values, renderer.material_parameters);
             (void)asset_detail::prepare_model_material_parameters(state.material->draw,
                                                                   renderer.material_parameters);
             materials.emplace(id, std::move(renderer));
@@ -623,8 +706,11 @@ Json TransformAnimationPlayback::presentation_properties(flecs::entity_t id, dou
     values.sample(state.clip->properties, sample_properties(state, time));
     auto result = values.patch(state.clip->properties);
     if (!state.clip->component_bindings.empty()) {
+        std::array<Json, 64> samples;
+        auto sampled = std::span(samples).first(state.clip->component_bindings.size());
+        sample_components(state, time, sampled);
         const auto patch = animation_component_patch(prepare_animation_components(
-            context_, context_.world().entity(id), state.clip.get(), time));
+            context_, context_.world().entity(id), state.clip.get(), time, false, sampled));
         for (const auto& [key, value] : patch.items())
             result[key] = value;
     }
@@ -634,8 +720,11 @@ Json TransformAnimationPlayback::presentation_properties(flecs::entity_t id, dou
         const auto entity = context_.world().entity(id);
         if (!entity.has<MeshRenderer>())
             return nullptr;
-        const auto sampled = sample_animation_material_parameters(
-            state.clip.get(), time, entity.get<MeshRenderer>().material_parameters);
+        std::array<AnimationMaterialValues, material_parameter_override_limit> samples;
+        auto values = std::span(samples).first(state.clip->material_bindings.size());
+        sample_materials(state, time, values);
+        const auto sampled = project_animation_material_parameters(
+            state.clip.get(), values, entity.get<MeshRenderer>().material_parameters);
         (void)asset_detail::prepare_model_material_parameters(state.material->draw, sampled);
         result["forge.mesh_renderer"]["material_parameters"] =
             animation_material_parameters_json(sampled);

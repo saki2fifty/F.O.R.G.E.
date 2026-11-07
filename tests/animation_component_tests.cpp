@@ -3,6 +3,7 @@
 #include "authored_schema.hpp"
 #include "transform_animation_authoring.hpp"
 #include "transform_animation_preview.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <forge/authoring.hpp>
@@ -11,6 +12,7 @@
 #include <limits>
 #include <source_location>
 #include <thread>
+#include <tuple>
 using namespace forge;
 using namespace std::chrono_literals;
 namespace {
@@ -918,6 +920,7 @@ void discrete_playback(const std::filesystem::path& root) {
                   .get<std::int64_t>() == low,
           "Discrete-only loop did not snap its presentation endpoint");
 }
+#include "sequence_component_blend_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -929,6 +932,7 @@ int main(int argc, char** argv) {
         collection_playback(root / "collections");
         playback(root);
         discrete_playback(root / "discrete");
+        sequence_component_blends(root / "sequence-pairs");
         std::filesystem::remove_all(root);
         std::cout << "Component clip source, native behavior, copied preview, admission and "
                      "recovery passed\n";

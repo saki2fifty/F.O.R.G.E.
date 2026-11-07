@@ -1,0 +1,93 @@
+{
+  "asset_id": "af71ea82-2cd3-41ba-9c2e-4430b46528f7",
+  "channels": [],
+  "component_bindings": [
+    {
+      "admission": {
+        "digest": "16f53d61544ef811924d620fba3cc5a269c12770b372fbd382bd8b02c260a087",
+        "format": "forge.builtin-component",
+        "module": "forge.ui",
+        "schema_version": 1,
+        "version": 1
+      },
+      "component": "forge.ui_values",
+      "element_path": [
+        {
+          "key": "amount"
+        },
+        "value"
+      ],
+      "field": "values",
+      "value_type": "scalar"
+    },
+    {
+      "admission": {
+        "digest": "16f53d61544ef811924d620fba3cc5a269c12770b372fbd382bd8b02c260a087",
+        "format": "forge.builtin-component",
+        "module": "forge.ui",
+        "schema_version": 1,
+        "version": 1
+      },
+      "component": "forge.ui_values",
+      "element_path": [
+        {
+          "key": "width"
+        },
+        "value"
+      ],
+      "field": "values",
+      "value_type": "scalar"
+    }
+  ],
+  "duration_us": 2000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "component_values": [
+        {
+          "component": "forge.ui_values",
+          "element_path": [
+            {
+              "key": "amount"
+            },
+            "value"
+          ],
+          "field": "values",
+          "value": 0.2
+        },
+        {
+          "component": "forge.ui_values",
+          "element_path": [
+            {
+              "key": "width"
+            },
+            "value"
+          ],
+          "field": "values",
+          "value": 80.0
+        }
+      ],
+      "id": "1a704da5-7051-427d-960f-fa3d1815b5eb",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 0,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "timebase": 1000000,
+  "version": 9
+}

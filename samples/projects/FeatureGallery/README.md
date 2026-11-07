@@ -1,5 +1,22 @@
 # Feature Gallery
 
+## Material and component-field crossfades
+
+Open `Scenes/184-sequence-binding-crossfades.scene.json` and press **Play → Game**.
+One four-second sequence blends the cube's per-object color/roughness and the
+HUD's named **amount**/**width** values. The clips overlap from one to two seconds;
+the incoming values then hold until the loop repeats. Camera, light and an
+original screen HUD are included. No C++ module or custom Shader is required.
+
+Select **Four second binding loop** and open its Timeline. Choose **Refresh clips**,
+then select either track to inspect its primary/next clips and preview the overlap.
+The incoming sources deliberately list their bindings in a different order; stable
+Material semantics and inspected component paths retain their meaning. Edit
+**SurfaceFirst/SurfaceNext.animation.json** or **FieldsFirst/FieldsNext.animation.json**
+under **Assets/Sequences**, use **Save & Publish** and save the Scene. The HUD source
+is **Assets/UI/BindingCrossfade/hud.rml**. Set the scene as Startup Scene and export
+with a matching runtime kit. See the [sequence guide](../../../manual/editor/animation-sequences.md).
+
 ## Property crossfades
 
 Open `Scenes/183-sequence-property-crossfades.scene.json` and press **Play → Game**.

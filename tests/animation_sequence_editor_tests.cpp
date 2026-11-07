@@ -637,7 +637,11 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
 int main(int argc, char** argv) {
     try {
         if (argc == 5 && std::string_view(argv[1]) == "--capture-properties") {
-            capture_sequence_pair(argv[2], argv[3], argv[4], false, false, true);
+            capture_sequence_pair(argv[2], argv[3], argv[4], SequenceCapture::Properties);
+            return 0;
+        }
+        if (argc == 5 && std::string_view(argv[1]) == "--capture-bindings") {
+            capture_sequence_pair(argv[2], argv[3], argv[4], SequenceCapture::Bindings);
             return 0;
         }
         if (argc == 5 && std::string_view(argv[1]) == "--capture-pair") {
@@ -645,11 +649,11 @@ int main(int argc, char** argv) {
             return 0;
         }
         if (argc == 5 && std::string_view(argv[1]) == "--capture-camera-transition") {
-            capture_sequence_pair(argv[2], argv[3], argv[4], false, true);
+            capture_sequence_pair(argv[2], argv[3], argv[4], SequenceCapture::CameraTransition);
             return 0;
         }
         if (argc == 5 && std::string_view(argv[1]) == "--capture-nested") {
-            capture_sequence_pair(argv[2], argv[3], argv[4], true);
+            capture_sequence_pair(argv[2], argv[3], argv[4], SequenceCapture::Nested);
             return 0;
         }
         check(argc == 3, "Need Gallery and sequence UI scratch root");

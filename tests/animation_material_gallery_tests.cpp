@@ -1,12 +1,24 @@
 #include "animation_playback_access.hpp"
+#include "asset_storage.hpp"
+#include "engine_render_resource.hpp"
 #include "runtime_package.hpp"
+#include "transform_animation_authoring.hpp"
+#include "ui_asset_catalog.hpp"
+#include "ui_inspection.hpp"
+#include <algorithm>
+#include <array>
 #include <forge/animation.hpp>
+#include <forge/authoring.hpp>
 #include <forge/game_content.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
 #include <forge/runtime_resources.hpp>
+#include <forge/scene_identity.hpp>
+#include <forge/ui_components.hpp>
+#include <forge/ui_values.hpp>
 #include <fstream>
 #include <iostream>
+#include <string_view>
 #include <thread>
 using namespace forge;
 namespace {
@@ -21,14 +33,14 @@ Json read(const std::filesystem::path& path) {
 }
 void near(double value, double expected) {
     if (std::abs(value - expected) > 1e-5)
-        throw std::runtime_error("Gallery67 independent oracle: " + std::to_string(value) + " vs " +
-                                 std::to_string(expected));
+        throw std::runtime_error("Material Gallery independent oracle: " + std::to_string(value) +
+                                 " vs " + std::to_string(expected));
 }
 double parameter(const MeshRenderer& renderer, const char* key, unsigned lane) {
     const auto at =
         std::find_if(renderer.material_parameters.begin(), renderer.material_parameters.end(),
                      [&](const auto& row) { return row.key == key; });
-    check(at != renderer.material_parameters.end(), "Gallery67 runtime omitted a material value");
+    check(at != renderer.material_parameters.end(), "Material Gallery runtime omitted a parameter");
     return at->parameter.value[lane];
 }
 void exercise(const std::filesystem::path& root, AssetId scene_id) {
@@ -89,9 +101,18 @@ void exercise(const std::filesystem::path& root, AssetId scene_id) {
     check(read(source_path) == saved,
           "Gallery67 runtime/recovery rewrote authored Scene/Prefab intent");
 }
+#include "sequence_binding_gallery_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 5 && std::string_view(argv[1]) == "--author-bindings") {
+            author_binding_sequence(argv[2], binding_ui_inspector(argv[2], argv[3], argv[4]));
+            return 0;
+        }
+        if (argc == 6 && std::string_view(argv[1]) == "--bindings") {
+            binding_sequence_export(argv[2], argv[3], argv[4], argv[5]);
+            return 0;
+        }
         check(argc == 3, "Need Gallery and scratch root");
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto source = root / "source", output = root / "export";

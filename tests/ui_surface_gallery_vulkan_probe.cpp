@@ -1,9 +1,13 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
+#include "animation_playback_access.hpp"
 #include "asset_bytes.hpp"
 #include "gallery_game_capture.hpp"
 #include "game_presentation.hpp"
 #include "runtime_package.hpp"
+#include "view_image.hpp"
 #include <RmlUi/Core.h>
+#include <cmath>
+#include <forge/animation.hpp>
 #include <forge/ui_protocol.hpp>
 #include <iostream>
 
@@ -25,7 +29,7 @@ Rml::Element* control(const char* tag, unsigned index) {
 std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* context,
                            const std::filesystem::path& project, AssetId scene,
                            const std::vector<std::byte>& font, const std::filesystem::path& images,
-                           bool mesh_surface = false) {
+                           bool mesh_surface = false, bool binding_pair = false) {
     std::filesystem::create_directories(images);
     GamePresentation visual(presentation, context, project, font);
     visual.dimensions(640, 360, 1);
@@ -68,9 +72,51 @@ std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* c
             submit();
         }
         test_gallery_capture::ppm(images / (std::string(name) + ".ppm"), pixels, 640, 360);
+        if (binding_pair)
+            save_view_png(
+                images / (std::string(name) + ".png"), 640, 360,
+                {reinterpret_cast<const std::uint8_t*>(pixels.data()), pixels.size() * 4});
         return pixels;
     };
     std::vector<Pixels> result;
+    if (binding_pair) {
+        EntityRef controller;
+        const auto source = game.presentation();
+        for (const auto& row : source.at("entities"))
+            if (row.at("components").contains("forge.animation_sequence"))
+                controller = {scene, row.at("id").get<EntityId>()};
+        check(bool(controller.entity), "Binding Gallery root missing");
+        const auto animation = animation_runtime(game.active().engine.world());
+        for (const double seconds : {0., 1.25, 1.5, 2.}) {
+            AnimationPlaybackAccess::control(
+                *animation, controller, {{"operation", "seek"}, {"position_seconds", seconds}});
+            game.control_frame();
+            result.push_back(capture(("binding-" + std::to_string(seconds)).c_str()));
+            Rml::Element* fill = nullptr;
+            for (int c = 0; c < Rml::GetNumContexts(); ++c)
+                for (int d = 0; d < Rml::GetContext(c)->GetNumDocuments(); ++d)
+                    if (auto* found = Rml::GetContext(c)->GetDocument(d)->GetElementById("fill"))
+                        fill = found;
+            check(fill, "Binding Gallery native HUD missing");
+            const double width = 80 + 140 * std::clamp(seconds - 1, 0., 1.);
+            check(std::abs(fill->GetBox().GetSize(Rml::BoxArea::Border).x - width) < .01,
+                  "Reflected sequence value did not reach native HUD layout");
+            check(game.status().at("clock").at("tick") == initial_tick,
+                  "Paused binding seek advanced the game clock");
+        }
+        const auto changed = [&](unsigned x0, unsigned y0, unsigned x1, unsigned y1) {
+            unsigned count = 0;
+            for (unsigned y = y0; y < y1; ++y)
+                for (unsigned x = x0; x < x1; ++x)
+                    count += result.front()[y * 640 + x] != result.back()[y * 640 + x];
+            return count;
+        };
+        check(changed(180, 100, 360, 260) > 100,
+              "Material crossfade did not reach actual Game pixels");
+        check(changed(380, 15, 630, 300) > 100,
+              "Reflected crossfade did not reach actual HUD pixels");
+        return result;
+    }
     result.push_back(capture("surface-ready"));
     unsigned readable_pixels = 0;
     for (unsigned y = 120; y < 240; ++y)
@@ -151,9 +197,12 @@ std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* c
 int main(int argc, char** argv) {
     try {
         check(argc >= 4 && argc <= 6, "Need Gallery, font, scratch and optional mesh Scene path");
+        const bool binding_pair = argc == 5 && std::string_view(argv[4]) == "--sequence-bindings";
         const std::filesystem::path scene_path =
-            argc >= 5 ? argv[4] : "Scenes/174-interactive-ui-surfaces.scene.json";
-        const bool mesh_surface = argc >= 5;
+            binding_pair ? "Scenes/184-sequence-binding-crossfades.scene.json"
+            : argc >= 5  ? argv[4]
+                         : "Scenes/174-interactive-ui-surfaces.scene.json";
+        const bool mesh_surface = argc >= 5 && !binding_pair;
         const bool missing_geometry = argc == 6;
         check(!missing_geometry || std::string_view(argv[5]) == "--without-geometry-shaders",
               "Unknown geometry feature fixture option");
@@ -192,8 +241,8 @@ int main(int argc, char** argv) {
                          "pending loop\n";
             return 0;
         }
-        const auto original =
-            render(presentation, context, root, scene, font, scratch / "authored", mesh_surface);
+        const auto original = render(presentation, context, root, scene, font, scratch / "authored",
+                                     mesh_surface, binding_pair);
         const auto package = scratch / "Content";
         const std::array roots{scene};
         EngineContext definitions;
@@ -207,26 +256,30 @@ int main(int argc, char** argv) {
                                 inspector);
         const auto packaged = open_runtime_content(package, {"windows", "d3d12"});
         const auto& record = packaged.records().at(scene);
-        check(record.metadata.at("forge.runtime_document").at("runtime_features") ==
-                  Json{{"ui_surface_input", mesh_surface ? 2 : 1}},
-              "Packaged surface Scene lost its runtime kit requirement");
-        check(std::any_of(record.dependency_edges.begin(), record.dependency_edges.end(),
-                          [](const auto& edge) {
-                              return edge.expected_type == RenderTextureAsset::type &&
-                                     edge.role == "document:forge.ui_surface_input.render_texture";
-                          }),
-              "Packaged surface lost its typed output reference");
+        if (!binding_pair) {
+            check(record.metadata.at("forge.runtime_document").at("runtime_features") ==
+                      Json{{"ui_surface_input", mesh_surface ? 2 : 1}},
+                  "Packaged surface Scene lost its runtime kit requirement");
+            check(std::any_of(record.dependency_edges.begin(), record.dependency_edges.end(),
+                              [](const auto& edge) {
+                                  return edge.expected_type == RenderTextureAsset::type &&
+                                         edge.role ==
+                                             "document:forge.ui_surface_input.render_texture";
+                              }),
+                  "Packaged surface lost its typed output reference");
+        }
         const auto moved = scratch / "Relocated game";
         std::filesystem::rename(package, moved);
         std::filesystem::rename(root, scratch / "SourcesOffline");
-        const auto exported =
-            render(presentation, context, moved, scene, font, scratch / "relocated", mesh_surface);
+        const auto exported = render(presentation, context, moved, scene, font,
+                                     scratch / "relocated", mesh_surface, binding_pair);
         check(original == exported, "Source-hidden relocated surface pixels or input differed");
         context->WaitForIdle();
         std::ofstream(scratch / "receipt.json")
             << Json{{"scene", scene},
                     {"exact_image_pairs", original.size()},
-                    {"native_step", true},
+                    {"native_step", !binding_pair},
+                    {"native_sequence_bindings", binding_pair},
                     {"native_text", true},
                     {"geometry_profile", mesh_surface ? 1 : 0},
                     {"native_model_morph_and_joint", mesh_surface},
@@ -234,9 +287,9 @@ int main(int argc, char** argv) {
                               "software Vulkan; no Windows or physical-device acceptance"}}
                    .dump(2)
             << '\n';
-        std::cout << "Interactive surface Gallery native Step/text and three source-hidden "
-                     "relocated Game image pairs passed: "
-                  << scratch << '\n';
+        std::cout
+            << "Native Gallery presentation and source-hidden relocated Game image pairs passed: "
+            << scratch << '\n';
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

@@ -2,6 +2,7 @@
 #include "animation_playback_access.hpp"
 #include "engine_render_resource.hpp"
 #include "transform_animation_authoring.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <forge/animation.hpp>
@@ -9,6 +10,7 @@
 #include <forge/engine_assets.hpp>
 #include <forge/runtime.hpp>
 #include <forge/runtime_resources.hpp>
+#include <forge/ui_values.hpp>
 #include <iostream>
 #include <thread>
 using namespace forge;
@@ -263,6 +265,7 @@ void playback(const std::filesystem::path& root) {
     subscriptions(root);
     stage("Shared subscription saturation and retirement");
 }
+#include "sequence_material_blend_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -270,6 +273,7 @@ int main(int argc, char** argv) {
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         playback(root);
+        sequence_material_blends(root / "sequence-pairs");
         std::filesystem::remove_all(root);
         std::cout << "Actual material clip publication, runtime, presentation, recovery, failure "
                      "atomicity and shared subscriptions passed\n";

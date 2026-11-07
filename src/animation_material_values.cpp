@@ -5,11 +5,21 @@ namespace forge {
 std::vector<MaterialParameterOverride>
 sample_animation_material_parameters(const TransformAnimationClip& clip, double time,
                                      std::span<const MaterialParameterOverride> current) {
-    detail::validate_material_parameter_overrides(current);
     if (clip.material_bindings.size() > material_parameter_override_limit)
         throw std::runtime_error("Too many animated material bindings");
     std::array<AnimationMaterialValues, material_parameter_override_limit> samples;
     clip.sample_materials(time, std::span(samples).first(clip.material_bindings.size()));
+    return project_animation_material_parameters(
+        clip, std::span(samples).first(clip.material_bindings.size()), current);
+}
+std::vector<MaterialParameterOverride>
+project_animation_material_parameters(const TransformAnimationClip& clip,
+                                      std::span<const AnimationMaterialValues> samples,
+                                      std::span<const MaterialParameterOverride> current) {
+    detail::validate_material_parameter_overrides(current);
+    if (samples.size() != clip.material_bindings.size() ||
+        samples.size() > material_parameter_override_limit)
+        throw std::runtime_error("Animated material sample count differs from its bindings");
     std::vector<MaterialParameterOverride> result(current.begin(), current.end());
     for (std::size_t i = 0; i < clip.material_bindings.size(); ++i) {
         const auto& binding = clip.material_bindings[i];

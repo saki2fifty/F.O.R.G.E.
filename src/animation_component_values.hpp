@@ -22,7 +22,8 @@ nlohmann::json::json_pointer animation_component_pointer(const nlohmann::json& d
 nlohmann::json sample_animation_component(const nlohmann::json& declaration,
                                           const nlohmann::json& current,
                                           const TransformAnimationClip&, double time,
-                                          bool whole_clip);
+                                          bool whole_clip,
+                                          std::span<const nlohmann::json> samples = {});
 // Apply copied projections through existing material and reflected-extension owners.
 void merge_animation_properties(nlohmann::json& components, const nlohmann::json& patch,
                                 const WorldContext&);
@@ -35,9 +36,9 @@ struct AnimationComponentCandidate {
     std::string key() const;
     void apply(flecs::entity) const;
 };
-std::vector<AnimationComponentCandidate> prepare_animation_components(WorldContext&, flecs::entity,
-                                                                      const TransformAnimationClip&,
-                                                                      double time,
-                                                                      bool whole_clip = false);
+std::vector<AnimationComponentCandidate>
+prepare_animation_components(WorldContext&, flecs::entity, const TransformAnimationClip&,
+                             double time, bool whole_clip = false,
+                             std::span<const nlohmann::json> samples = {});
 nlohmann::json animation_component_patch(const std::vector<AnimationComponentCandidate>&);
 } // namespace forge

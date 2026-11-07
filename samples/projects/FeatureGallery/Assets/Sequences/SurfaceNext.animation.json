@@ -1,0 +1,62 @@
+{
+  "asset_id": "9a6edfd7-178e-4183-8c74-1a68f85968c4",
+  "channels": [],
+  "duration_us": 2000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "id": "0d7ceafb-cc06-43ed-a8fd-d920125f5192",
+      "interpolation": "linear",
+      "material_values": [
+        {
+          "key": "roughnessFactor",
+          "slot": "surface",
+          "value": [
+            0.9
+          ]
+        },
+        {
+          "key": "baseColorFactor",
+          "slot": "surface",
+          "value": [
+            0.9,
+            0.3,
+            0.05,
+            1.0
+          ]
+        }
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 0,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "material_bindings": [
+    {
+      "key": "roughnessFactor",
+      "slot": "surface",
+      "type": 0
+    },
+    {
+      "key": "baseColorFactor",
+      "slot": "surface",
+      "type": 5
+    }
+  ],
+  "timebase": 1000000,
+  "version": 5
+}

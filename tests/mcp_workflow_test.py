@@ -21,6 +21,7 @@ from mcp_sequence_property_play import check_sequence_property_play
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 SEQUENCE_PROPERTIES_ONLY = sys.argv[7:] == ['--sequence-properties-only']
+SEQUENCE_BINDINGS_ONLY = sys.argv[7:] == ['--sequence-bindings-only']
 ANIMATION_GRAPH_MODULE = len(sys.argv) == 9 and sys.argv[7] == '--animation-graph-module-only'
 ANIMATION_GRAPH_SDK = sys.argv[7:] == ['--animation-graph-sdk-only'] or ANIMATION_GRAPH_MODULE
 ANIMATION_GRAPH_ONLY = sys.argv[7:] == ['--animation-graph-only'] or ANIMATION_GRAPH_SDK
@@ -208,18 +209,27 @@ def editor(mode='full'):
             command.append(str(workers_project_template(root)))
         elif CAMERA_TRANSITION_ONLY:
             command.append(str(selected_project_template(root, ('Scenes/68-sequence-camera-shots.scene.json', 'Assets/Sequences/SlidingDoor.animation.json'), 'Camera transition template')))
-        elif SEQUENCE_PROPERTIES_ONLY:
-            template = selected_project_template(root, (
-                'Scenes/183-sequence-property-crossfades.scene.json',
-                'Assets/Sequences/PropertyLightBlue.animation.json',
-                'Assets/Sequences/PropertyLightWarm.animation.json',
-                'Assets/Sequences/PropertyFrameFirst.animation.json',
-                'Assets/Sequences/PropertyFrameNext.animation.json',
-                'Assets/Sprites/SignalSheet.material.json'), 'Sequence property template')
+        elif SEQUENCE_PROPERTIES_ONLY or SEQUENCE_BINDINGS_ONLY:
+            if SEQUENCE_BINDINGS_ONLY:
+                scene_name = 'Scenes/184-sequence-binding-crossfades.scene.json'
+                selected = (scene_name, 'Assets/Sequences/SurfaceFirst.animation.json',
+                            'Assets/Sequences/SurfaceNext.animation.json',
+                            'Assets/Sequences/FieldsFirst.animation.json',
+                            'Assets/Sequences/FieldsNext.animation.json',
+                            'Assets/UI/BindingCrossfade/hud.rml')
+            else:
+                scene_name = 'Scenes/183-sequence-property-crossfades.scene.json'
+                selected = (
+                    scene_name, 'Assets/Sequences/PropertyLightBlue.animation.json',
+                    'Assets/Sequences/PropertyLightWarm.animation.json',
+                    'Assets/Sequences/PropertyFrameFirst.animation.json',
+                    'Assets/Sequences/PropertyFrameNext.animation.json',
+                    'Assets/Sprites/SignalSheet.material.json')
+            template = selected_project_template(root, selected, 'Sequence pair template')
             settings_path = template/'forge.project.json'
             settings = json.loads(settings_path.read_text())
-            scene = json.loads((template/'Scenes/183-sequence-property-crossfades.scene.json').read_text())
-            settings['startup_scene'] = dict(asset=scene['asset_id'], source='Scenes/183-sequence-property-crossfades.scene.json')
+            scene = json.loads((template/scene_name).read_text())
+            settings['startup_scene'] = dict(asset=scene['asset_id'], source=scene_name)
             settings_path.write_text(json.dumps(settings))
             command.append(str(template))
         elif UI_SEQUENCE_ONLY:
@@ -324,9 +334,9 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
-        if SEQUENCE_PROPERTIES_ONLY:
-            check_sequence_property_play(read, ok, control, mutate, until, discovery)
-            print(('legacy' if legacy else 'current') + ': property pair authoring/Undo, native Play/seek, held frame, scope rejection, restart and source isolation passed')
+        if SEQUENCE_PROPERTIES_ONLY or SEQUENCE_BINDINGS_ONLY:
+            check_sequence_property_play(read, ok, control, mutate, until, discovery, SEQUENCE_BINDINGS_ONLY)
+            print(('legacy' if legacy else 'current') + ': sequence pair authoring/Undo, native Play/seek, scoped values, restart and source isolation passed')
             continue
         if WORKERS_ONLY:
             check_runtime_workers_play(read, ok, control, mutate, until, discovery)

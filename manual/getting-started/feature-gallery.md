@@ -1,5 +1,14 @@
 # Explore the Feature Gallery
 
+**184-sequence-binding-crossfades** uses one sequence to blend a cube's per-object
+Material color/roughness and two named HUD values. Open it and press **Play → Game**.
+Both tracks overlap from one to two seconds; the four-second sequence repeats.
+Select **Four second binding loop**, open Timeline, refresh clips and scrub to
+preview both tracks. Sources are in **Assets/Sequences** and the HUD is in
+**Assets/UI/BindingCrossfade**. Publish clip edits, save the Scene and export with
+a matching runtime kit; no project C++ is required. See
+[Material and component-field crossfades](../editor/animation-sequences.md).
+
 **183-sequence-property-crossfades** blends a light's intensity and color from
 blue to orange between one and two seconds. The arrow switches Sprite frames at
 one and a half seconds. Open the scene and press **Play → Game**, or select
