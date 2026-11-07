@@ -12,6 +12,7 @@
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <random>
 using namespace forge;
 namespace {
@@ -181,7 +182,12 @@ void verify(const std::filesystem::path& gallery, const std::filesystem::path& s
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 4 && std::string_view(argv[1]) == "--publish-sound-cues")
+        if (argc == 4 && std::string_view(argv[1]) == "--publish-timed-sound-cues")
+            publish_sound_cue_gallery(std::filesystem::absolute(argv[2]),
+                                      std::filesystem::absolute(argv[3]), timed_sound_cue_gallery);
+        else if (argc == 4 && std::string_view(argv[1]) == "--timed-sound-cues")
+            verify_sound_cue_gallery(argv[2], argv[3], timed_sound_cue_gallery);
+        else if (argc == 4 && std::string_view(argv[1]) == "--publish-sound-cues")
             publish_sound_cue_gallery(std::filesystem::absolute(argv[2]),std::filesystem::absolute(argv[3]));
         else if (argc == 4 && std::string_view(argv[1]) == "--sound-cues")
             verify_sound_cue_gallery(argv[2],argv[3]);

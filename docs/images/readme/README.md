@@ -2482,21 +2482,25 @@ These captures establish neither Windows/physical playback nor hardware/DPI or
 performance acceptance. Exact source/capture hashes remain in local batch289.
 
 
-## Event sound-cue controls
+## Sound-cue controls and offsets
 
 [Graph editor](../../../manual/images/audio-sound-cue.png) and
 [live cue requests](../../../manual/images/audio-sound-cue-live.png) are original
 700×1100 and700×260 production SoundCueEditor/Live sound controls rendered through
-tests/imgui_software_capture.hpp and the pinned ImGui/SDL software backend. Capture
-source is d5f99df plus the event-cue implementation; directly used source/Scene
-hashes and original PNGs are archived with the local validation evidence. Actual
-Gallery192 data and four offline AudioRuntime triggers supply the visible values.
-Pointer input expands nodes; four-scale production input/history/project-scope
-checks own widget behavior. Source hash9a4b06bd974f8b1f66a751db74c25f706929b4eacf11b8d5e76a9955ee142eac;
-live hashbb11cb749b1337ac9f8d6bcfff963d30186fb5dbb5ae082e548a7513b53d7af7.
+tests/imgui_software_capture.hpp and the pinned ImGui/SDL software backend. Local
+capture source is e169e7e plus the timed-offset implementation. Actual Gallery193
+values show Source Node3 at0.128seconds; four offline AudioRuntime triggers supply
+the live values. Pointer input expands the nodes. Four-scale production input,
+history and project-scope checks own the controls' behavior.
 
-Both final original images were visually reviewed. No cropping, pixel editing or
-image generation was used. These are isolated controls, not full Main or physical
-Windows/audio/GPU acceptance. The compact live viewport has separate sequential
-ImGui/SDL backend ownership; earlier blank output was rejected during visual
-review and is not used by the manual.
+Graph PNG SHA256: `1195eb40a178afc0c1ecd5125da463a1133b9969561802bca24514e183561e94`.
+Live PNG SHA256: `bb11cb749b1337ac9f8d6bcfff963d30186fb5dbb5ae082e548a7513b53d7af7`.
+Direct source/Scene hashes, capture executable and original images are attributed
+in local `AgentFiles/build/phase291-timed-sound-cues/capture-provenance.json` and its
+source archive. The final capture is byte-identical to both personally reviewed
+images. The unchanged live PNG retains the same original bytes.
+
+No cropping, resizing, pixel editing or image generation was used. These are
+isolated production controls, not full Main or physical Windows/audio/GPU/DPI or
+performance acceptance. The compact viewport uses separate sequential ImGui/SDL
+backend ownership. One canonical asset serves each image throughout the manual.

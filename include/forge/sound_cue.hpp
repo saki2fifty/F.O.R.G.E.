@@ -12,6 +12,7 @@ struct SoundCueState {
 struct SoundCueSelection {
     SoundCueState next;
     std::vector<EntityRef> sources;
+    std::vector<double> delay_seconds;
 };
 // Immutable derived program; the Scene/Prefab component remains authoritative.
 class SoundCueProgram {

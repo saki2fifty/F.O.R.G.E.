@@ -60,11 +60,13 @@ class AudioSourceEditor {
                                           status.value("playing_one_shots", 0u) > 0 || effect_tail);
         const bool source_paused = admitted && (status.value("source_paused", false) ||
                                                 status.value("paused_one_shots", 0u) > 0);
+        const bool delayed = admitted && status.value("delayed_one_shots", 0u) > 0;
         if (available)
             ImGui::Text("%s | %.2f seconds | %s",
                         source_paused                  ? "Source paused"
-                        : !playing                     ? "Stopped"
+                        : !playing && !delayed          ? "Stopped"
                         : status.value("paused", true) ? "Paused"
+                        : delayed && !playing           ? "Waiting to start"
                         : effect_tail                  ? "Effect tail"
                                                        : "Playing",
                         status.value("duration", 0.),
@@ -78,6 +80,8 @@ class AudioSourceEditor {
                                    : "Waiting for source status...");
         if (admitted)
             ImGui::Text("Overlapping effects: %u / 16", status.value("one_shots", 0u));
+        if (delayed)
+            ImGui::Text("Delayed one-shots: %u", status.value("delayed_one_shots", 0u));
         ImGui::BeginDisabled(!ready || pending || (!available && !loading));
         auto button = [&](const char* label, [[maybe_unused]] const char* key,
                           AudioSourceOperation operation) {
@@ -111,7 +115,7 @@ class AudioSourceEditor {
         inline_if_fits("Play one-shot");
         button("Play one-shot", "live-audio-source:one-shot", AudioSourceOperation::OneShot);
         inline_if_fits(source_paused ? "Resume sound" : "Pause sound");
-        ImGui::BeginDisabled(!playing && !source_paused);
+        ImGui::BeginDisabled(!playing && !delayed && !source_paused);
         button(source_paused ? "Resume sound" : "Pause sound", "live-audio-source:pause",
                source_paused ? AudioSourceOperation::Resume : AudioSourceOperation::Pause);
         ImGui::EndDisabled();

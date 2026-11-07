@@ -1,5 +1,25 @@
 # 2026-11-07
 
+## Timed sound-cue offsets
+
+SoundCue Source leaves add default-zero offsets from zero to ten seconds, rounded
+to the existing native output clock independently of pitch. Prepared one-shot
+voices retain their remaining delay through applicable game, source and full
+pause. Stop and source/world retirement keep the existing ownership and budgets.
+Filters, echo, reverb and streams remain on their source voices. Old source values
+default missing offsets to zero; nonzero offsets require the additional timing
+kit capability. Matching component headers/fingerprints require a C++ rebuild;
+C ABI1 callback tables and operation values are unchanged.
+
+Inspector drafts, native metadata, portable Prefab/history, Timeline, both runtime
+hosts, installed-only C++ and automation/MCP share those values and controls.
+Waiting voices expose their count and remain pausable/stoppable in Live sound.
+Original editable Gallery193 demonstrates staggered events; source-hidden cooked
+PCM and independent ordinary-source deadlines verify its output. Instructions use
+authentic native controls. Windows/full-editor, physical audio and external-client
+acceptance remain queued; no numbered delivery is implied. Cyclic playlists and
+shared bus DSP remain separate work.
+
 ## Event sound cues
 
 Scene/Prefab-owned SoundCue components compose existing AudioSource one-shots

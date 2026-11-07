@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <forge/sound_cue.hpp>
 #include <functional>
 #include <limits>
@@ -29,9 +30,12 @@ SoundCueProgram SoundCueProgram::compile(const SoundCue& cue) {
         throw std::runtime_error("Sound Cue requires at most 32 nodes and an existing root");
     SoundCueProgram result;
     for (const auto& node : cue.nodes) {
-        if (node.kind > 3 || bool(node.source.scene) != bool(node.source.entity))
+        if (node.kind > 3 || bool(node.source.scene) != bool(node.source.entity) ||
+            !std::isfinite(node.delay_seconds) || node.delay_seconds < 0 ||
+            node.delay_seconds > sound_cue_delay_limit_seconds ||
+            (node.kind != 0 && node.delay_seconds != 0))
             throw std::runtime_error(
-                "Sound Cue has an invalid node kind or partial source identity");
+                "Sound Cue requires valid kinds/references and Source-only delays of 0..10 seconds");
         if (node.kind == 0) {
             if (!node.children.empty())
                 throw std::runtime_error("Sound Cue Source nodes cannot have children");
@@ -78,8 +82,9 @@ SoundCueSelection SoundCueProgram::select(const SoundCueState& state) const {
         throw std::runtime_error("Sound Cue is disabled or has no nodes");
     if (state.triggers == std::numeric_limits<std::uint64_t>::max())
         throw std::runtime_error("Sound Cue trigger counter is exhausted");
-    SoundCueSelection result{state, {}};
+    SoundCueSelection result{state, {}, {}};
     result.sources.reserve(maximum_outputs());
+    result.delay_seconds.reserve(maximum_outputs());
     std::function<void(std::size_t)> emit = [&](std::size_t index) {
         const auto& node = cue_.nodes[index];
         auto& visits = result.next.visits[index];
@@ -90,6 +95,7 @@ SoundCueSelection SoundCueProgram::select(const SoundCueState& state) const {
             if (!node.source.entity)
                 throw std::runtime_error("Sound Cue Source node requires an Audio Source");
             result.sources.push_back(node.source);
+            result.delay_seconds.push_back(node.delay_seconds);
         } else if (node.kind == 1) {
             for (const auto& edge : node.children)
                 emit(edge.target);
@@ -126,6 +132,7 @@ SoundCue sound_cue_from_json(const nlohmann::json& value) {
     for (const auto& entry : nodes) {
         SoundCueNode node;
         node.kind = integer(entry.at("kind"));
+        node.delay_seconds = entry.value("delay_seconds", 0.);
         if (!entry.at("source").is_null())
             node.source = entry.at("source").get<EntityRef>();
         const auto& children = entry.at("children");
@@ -148,6 +155,7 @@ nlohmann::json sound_cue_json(const SoundCue& cue) {
         nodes.push_back(
             {{"kind", node.kind},
              {"source", node.source.entity ? nlohmann::json(node.source) : nlohmann::json()},
+             {"delay_seconds", node.delay_seconds},
              {"children", std::move(edges)}});
     }
     return {{"enabled", cue.enabled},

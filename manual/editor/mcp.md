@@ -179,6 +179,11 @@ or authored values. For a [Sound Cue](audio.md), author its complete graph throu
 the usual Scene property commands, watch that cue entity and request `one_shot`
 with `forge_play_audio_control`. Each request consumes an event choice; retrying
 it requests another event. The cue's Audio Sources retain pause/stop ownership.
+Source nodes accept **delay_seconds** from zero to ten. Omit it for zero delay.
+The cue watch reports the selected offsets; source watches report waiting
+**delayed_one_shots**. Use the source's normal playback controls to pause, resume
+or stop those voices. Delay uses output time after preparation, independently of
+source pitch.
 For Navigation Agent, supported live fields include Enabled,
 Has Destination, Speed, Stopping Distance and world destination coordinates; its
 NavMesh asset is selected while authoring. Pause before changing several goal

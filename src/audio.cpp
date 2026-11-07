@@ -2,6 +2,7 @@
 #include "audio_resource.hpp"
 #include "audio_reverb.hpp"
 #include "audio_source_access.hpp"
+#include "audio_start_delay.hpp"
 #include "audio_stream_source.hpp"
 #include "audio_values.hpp"
 #include "builtins.hpp"
@@ -285,6 +286,7 @@ struct AudioRuntime::Impl {
         ma_sound sound{};
         bool ready = false, buffer_ready = false;
         bool source_paused = false, start_pending = false;
+        detail::AudioStartDelay start_delay;
         bool play_when_ready = false, one_shot = false, stream_loop = false;
         bool stream_starvation_reported = false, stream_error_reported = false;
         std::uint64_t stream_initial_frame = 0;
@@ -343,6 +345,7 @@ struct AudioRuntime::Impl {
         std::uint64_t generation;
         AssetId clip;
         AudioSourceOperation operation;
+        double delay_seconds = 0;
     };
     std::vector<Command> commands;
     struct CuePlayback {
@@ -350,6 +353,7 @@ struct AudioRuntime::Impl {
         SoundCue definition;
         SoundCueState state;
         std::vector<EntityRef> last_sources;
+        std::vector<double> last_delay_seconds;
     };
     std::map<std::uint64_t, CuePlayback> cue_states;
     std::uint64_t configuration_checks = 0;
@@ -564,11 +568,14 @@ struct AudioRuntime::Impl {
         const bool same = found != cue_states.end() && found->second.ref == ref &&
                           found->second.definition == program.definition();
         auto selected = program.select(same ? found->second.state : SoundCueState{});
-        CuePlayback next{ref, program.definition(), selected.next, std::move(selected.sources)};
+        CuePlayback next{ref, program.definition(), selected.next, std::move(selected.sources),
+                         std::move(selected.delay_seconds)};
         const auto before = commands.size();
         try {
-            for (const auto target : next.last_sources)
-                queue_source(target, AudioSourceOperation::OneShot, unpaused_only);
+            for (std::size_t i = 0; i < next.last_sources.size(); ++i) {
+                queue_source(next.last_sources[i], AudioSourceOperation::OneShot, unpaused_only);
+                commands.back().delay_seconds = next.last_delay_seconds[i];
+            }
             cue_states.insert_or_assign(id, std::move(next));
         } catch (...) {
             commands.resize(before);
@@ -778,7 +785,8 @@ struct AudioRuntime::Impl {
                 next = std::make_unique<SourceEffects>();
                 next->initialize(engine, config_value);
                 checked(ma_node_set_state(next->output(), !v.source_paused &&
-                                                                  ma_sound_is_playing(&v.sound) &&
+                                                                  (ma_sound_is_playing(&v.sound) ||
+                                                                   v.start_delay.waiting()) &&
                                                                   !ma_sound_at_end(&v.sound)
                                                               ? ma_node_state_started
                                                               : ma_node_state_stopped),
@@ -874,7 +882,45 @@ struct AudioRuntime::Impl {
                               float(source_velocity[2]));
         ma_sound_set_doppler_factor(&v.sound, doppler);
     }
-    void add_shot(SourceVoice& source, std::uint64_t id) {
+    bool delayed_start_suspended(const Voice& voice) const {
+        return is_paused || voice.source_paused ||
+               (is_game_paused && voice.follows_game_pause);
+    }
+    void hold_delayed_shots() {
+        const auto now = ma_engine_get_time_in_pcm_frames(&engine);
+        for (auto& [id, source] : voices) {
+            (void)id;
+            for (auto& shot : source->one_shots)
+                if (shot->ready && delayed_start_suspended(*shot) &&
+                    shot->start_delay.suspend(now)) {
+                    checked(ma_sound_stop(&shot->sound), "Hold delayed one-shot");
+                    shot->effects_running(false);
+                    shot->start_pending = !shot->source_paused;
+                }
+        }
+    }
+    void start_pending_shots() {
+        for (auto& [id, source] : voices) {
+            (void)id;
+            for (auto& shot : source->one_shots)
+                if (shot->ready && shot->start_pending) {
+                    if (shot->start_delay.unarmed()) {
+                        if (delayed_start_suspended(*shot))
+                            continue;
+                        const auto due = shot->start_delay.arm(
+                            ma_engine_get_time_in_pcm_frames(&engine));
+                        ma_sound_set_start_time_in_pcm_frames(&shot->sound, due);
+                    }
+                    // Native start restarts an EOS clip. Resume only its retained
+                    // effect when the clip has already finished.
+                    if (!ma_sound_at_end(&shot->sound))
+                        checked(ma_sound_start(&shot->sound), "Play one-shot");
+                    shot->effects_running(true);
+                    shot->start_pending = false;
+                }
+        }
+    }
+    void add_shot(SourceVoice& source, std::uint64_t id, double delay_seconds) {
         if (source.one_shots.size() >= max_source_shots ||
             outstanding_voice_count() >= max_voices) {
             diagnostic("audio.one_shot_limit",
@@ -886,6 +932,7 @@ struct AudioRuntime::Impl {
         shot->ref = source.ref;
         shot->authored = source.authored;
         shot->one_shot = true;
+        shot->start_delay = detail::AudioStartDelay(delay_seconds, ma_engine_get_sample_rate(&engine));
         shot->clip = source.clip;
         shot->motion = source.motion;
         if (!initialize_voice(*shot))
@@ -1145,7 +1192,8 @@ struct AudioRuntime::Impl {
                 if (c.operation == AudioSourceOperation::Pause &&
                     (shot->start_pending ||
                      (ma_sound_is_playing(&shot->sound) && !ma_sound_at_end(&shot->sound)) ||
-                     effects_tail(*shot))) {
+                     effects_tail(*shot) || shot->start_delay.waiting())) {
+                    (void)shot->start_delay.suspend(ma_engine_get_time_in_pcm_frames(&engine));
                     checked(ma_sound_stop(&shot->sound), "Pause one-shot");
                     shot->effects_running(false);
                     shot->start_pending = false;
@@ -1179,7 +1227,7 @@ struct AudioRuntime::Impl {
             }
             if (c.operation == AudioSourceOperation::OneShot) {
                 try {
-                    add_shot(voice, r.entity);
+                    add_shot(voice, r.entity, c.delay_seconds);
                 } catch (const std::exception& error) {
                     diagnostic("audio.one_shot", error.what(), c.ref, c.clip);
                 }
@@ -1268,16 +1316,8 @@ struct AudioRuntime::Impl {
                 voice.effects_drained = false;
             }
         }
-        for (auto& [id, source] : voices)
-            for (auto& shot : source->one_shots)
-                if (shot->ready && shot->start_pending) {
-                    // Native start restarts an EOS clip. Resume only its retained
-                    // effect when the clip has already finished.
-                    if (!ma_sound_at_end(&shot->sound))
-                        checked(ma_sound_start(&shot->sound), "Play one-shot");
-                    shot->effects_running(true);
-                    shot->start_pending = false;
-                }
+        hold_delayed_shots();
+        start_pending_shots();
     }
     bool wait_sources(std::chrono::milliseconds timeout, bool loading_only);
 };
@@ -1295,18 +1335,26 @@ void AudioRuntime::paused(bool value) {
     if (value == impl_->is_paused)
         return;
     impl_->is_paused = value;
+    if (!value)
+        impl_->start_pending_shots();
     impl_->update_output_pause();
+    if (value)
+        impl_->hold_delayed_shots();
 }
 void AudioRuntime::play(EntityRef ref) { impl_->queue(ref, AudioSourceOperation::Restart); }
 void AudioRuntime::game_paused(bool value) {
     impl_->check();
     if (value == impl_->is_game_paused)
         return;
+    impl_->is_game_paused = value;
+    if (!value)
+        impl_->start_pending_shots();
     checked(value ? ma_sound_group_stop(&impl_->pausable_group)
                   : ma_sound_group_start(&impl_->pausable_group),
             "Gameplay audio pause/resume");
-    impl_->is_game_paused = value;
     impl_->update_output_pause();
+    if (value)
+        impl_->hold_delayed_shots();
 }
 void AudioRuntime::play_one_shot(EntityRef ref) {
     impl_->queue(ref, AudioSourceOperation::OneShot);
@@ -1346,12 +1394,14 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
                 {"pending", false}, {"maximum_outputs", program.maximum_outputs()},
                 {"accepted_triggers", current ? found_cue->second.state.triggers : 0},
                 {"node_visits", current ? Json(found_cue->second.state.visits) : Json(SoundCueState{}.visits)},
+                {"last_delay_seconds", current ? Json(found_cue->second.last_delay_seconds) : Json::array()},
                 {"last_sources", current ? Json(found_cue->second.last_sources) : Json::array()}};
     }
     const bool known = found != runtime.impl_->voices.end() && found->second->ref == ref &&
                        entity.has<AudioSource>() &&
                        entity.get<AudioSource>().clip == found->second->authored.clip;
-    unsigned playing_shots = 0, paused_shots = 0;
+    unsigned playing_shots = 0, paused_shots = 0, delayed_shots = 0;
+    const auto now = ma_engine_get_time_in_pcm_frames(&runtime.impl_->engine);
     unsigned echo_tails = 0, effects_tails = 0, reverb_tails = 0;
     AudioRuntime::Impl::EffectMemory memory;
     if (known) {
@@ -1363,6 +1413,7 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
             playing_shots +=
                 shot->ready && ma_sound_is_playing(&shot->sound) && !ma_sound_at_end(&shot->sound);
             paused_shots += shot->source_paused;
+            delayed_shots += shot->start_delay.remaining(now) != 0;
             echo_tails += AudioRuntime::Impl::echo_tail(*shot);
             effects_tails += AudioRuntime::Impl::effects_tail(*shot);
             reverb_tails += AudioRuntime::Impl::reverb_tail(*shot);
@@ -1379,6 +1430,7 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
             {"one_shots", known ? found->second->one_shots.size() : 0},
             {"playing_one_shots", playing_shots},
             {"paused_one_shots", paused_shots},
+            {"delayed_one_shots", delayed_shots},
             {"playing", false},
             {"source_paused", found != runtime.impl_->voices.end() && found->second->source_paused},
             {"paused", runtime.impl_->is_paused || (runtime.impl_->is_game_paused &&
@@ -1415,6 +1467,7 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
             {"one_shots", found->second->one_shots.size()},
             {"playing_one_shots", playing_shots},
             {"paused_one_shots", paused_shots},
+            {"delayed_one_shots", delayed_shots},
             {"available", true},
             {"pending", false},
             {"playing", bool(ma_sound_is_playing(&found->second->sound))},

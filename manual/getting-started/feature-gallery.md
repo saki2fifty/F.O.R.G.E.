@@ -964,6 +964,14 @@ record the full six-second sequence through **Run → Record game…**.
 
 ## Choose and layer event sounds
 
+Open **193-timed-sound-cues** to hear selected tones start 0.128, 0.256 or 0.384 seconds
+after the base tone. Press **Play → Game**. Stop and select **Timed layered event -
+select for Trigger cue**, then open **Sound Cue → Edit sound cue**. Expand Source
+Node 3, 5 or 6 and adjust **Delay (seconds, 0–10)**. Apply, save and Play again. Offset
+uses output time after preparation, independently of Pitch. The Audio Sources own
+pause/resume/stop for waiting voices. Set this Scene as startup and export with
+the matching kit. No project C++ is required.
+
 Open **192-event-sound-cues**, press **Play** and open **Game**. Its two-second
 Timeline requests four events, each layering the base tone with a middle tone or
 a weighted high/middle choice. No project C++ is required. Stop and select

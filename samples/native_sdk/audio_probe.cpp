@@ -26,6 +26,9 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t siz
         .each([h](forge::SoundCue& cue) {
             if (cue.seed != 29) {
                 cue.seed = 29;
+                for (auto& node : cue.nodes)
+                    if (node.kind == 0)
+                        node.delay_seconds = .075;
                 if (cue.root < cue.nodes.size()) {
                     auto& root = cue.nodes[cue.root];
                     if (root.kind != 0 && root.children.size() >= 2)

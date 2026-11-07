@@ -1,15 +1,23 @@
 #pragma once
 // Reuses the actual audio Gallery fixture and package owners in the enclosing TU.
-constexpr auto sound_cue_example = "Scenes/192-event-sound-cues.scene.json";
-constexpr auto sound_cue_example_id = "7067a5b8-251b-4b35-93b3-0fdf7871178b";
+struct SoundCueGalleryProfile {
+    const char* scene;
+    const char* id;
+    bool timed;
+};
+constexpr SoundCueGalleryProfile event_sound_cue_gallery{
+    "Scenes/192-event-sound-cues.scene.json", "7067a5b8-251b-4b35-93b3-0fdf7871178b", false};
+constexpr SoundCueGalleryProfile timed_sound_cue_gallery{
+    "Scenes/193-timed-sound-cues.scene.json", "9c91c46a-2d17-4e81-a7d3-18343e332d1d", true};
 
-void author_sound_cue_gallery(const std::filesystem::path& root) {
-    require(!std::filesystem::exists(root / sound_cue_example), "Sound Cue Gallery already exists");
+void author_sound_cue_gallery(const std::filesystem::path& root,
+                              const SoundCueGalleryProfile& profile = event_sound_cue_gallery) {
+    require(!std::filesystem::exists(root / profile.scene), "Sound Cue Gallery already exists");
     ProjectLease lease(root);
     EngineContext engine;
     Scene scene(engine.world());
     auto document = duplicate_scene_asset(read(root / "Scenes/33-audio-mixer.scene.json"),
-                                          AssetId::parse(sound_cue_example_id), scene.schema());
+                                          AssetId::parse(profile.id), scene.schema());
     std::array<std::string, 3> sources;
     for (auto& row : document["entities"]) {
         auto& components = row["components"];
@@ -34,18 +42,24 @@ void author_sound_cue_gallery(const std::filesystem::path& root) {
             .at("selected")
             .get<std::string>();
     };
-    const SoundCue definition{true,
-                              17,
-                              0,
-                              {{1, {}, {{1, 1}, {2, 1}}},
-                               {0, scene.reference(sources[0]), {}},
-                               {3, {}, {{3, 1}, {4, 1}}},
-                               {0, scene.reference(sources[1]), {}},
-                               {2, {}, {{5, 3}, {6, 1}}},
-                               {0, scene.reference(sources[2]), {}},
-                               {0, scene.reference(sources[1]), {}}}};
-    const auto cue = create("Layered event - select for Trigger cue", "audio.sound_cue",
-                            sound_cue_json(definition));
+    SoundCue definition{true,
+                        17,
+                        0,
+                        {{1, {}, {{1, 1}, {2, 1}}},
+                         {0, scene.reference(sources[0]), {}},
+                         {3, {}, {{3, 1}, {4, 1}}},
+                         {0, scene.reference(sources[1]), {}},
+                         {2, {}, {{5, 3}, {6, 1}}},
+                         {0, scene.reference(sources[2]), {}},
+                         {0, scene.reference(sources[1]), {}}}};
+    if (profile.timed) {
+        definition.nodes[3].delay_seconds = .128;
+        definition.nodes[5].delay_seconds = .256;
+        definition.nodes[6].delay_seconds = .384;
+    }
+    const auto cue = create(profile.timed ? "Timed layered event - select for Trigger cue"
+                                          : "Layered event - select for Trigger cue",
+                            "audio.sound_cue", sound_cue_json(definition));
     const auto controller =
         create("Two-second sound events", "animation.sequence", {{"duration", 2}, {"loop", true}});
     for (unsigned i = 0; i < 4; ++i)
@@ -53,28 +67,28 @@ void author_sound_cue_gallery(const std::filesystem::path& root) {
                {{"sequence", scene.reference(controller)},
                 {"source", scene.reference(cue)},
                 {"time_seconds", i * .5}});
-    scene.save(root / sound_cue_example);
+    scene.save(root / profile.scene);
     auto catalog = AssetCatalog::open_project(root);
-    (void)catalog.add_scene(sound_cue_example);
+    (void)catalog.add_scene(profile.scene);
     catalog.save(AssetCatalog::project_index(root));
 }
 
 void verify_sound_cue_gallery(const std::filesystem::path& gallery,
-                              const std::filesystem::path& scratch) {
+                              const std::filesystem::path& scratch,
+                              const SoundCueGalleryProfile& profile = event_sound_cue_gallery) {
     const auto root = std::filesystem::absolute(scratch) / AssetId::generate().str();
     const auto source = root / "source", package = root / "package", moved = root / "relocated";
     std::filesystem::create_directories(root);
     std::filesystem::copy(gallery, source, std::filesystem::copy_options::recursive);
-    if (!std::filesystem::exists(source / sound_cue_example))
-        author_sound_cue_gallery(source);
-    const auto document = read(source / sound_cue_example);
-    require(document.at("asset_id") == sound_cue_example_id,
-            "Sound Cue example changed its Scene identity");
+    if (!std::filesystem::exists(source / profile.scene))
+        author_sound_cue_gallery(source, profile);
+    const auto document = read(source / profile.scene);
+    require(document.at("asset_id") == profile.id, "Sound Cue example changed its Scene identity");
     EngineContext inspector;
     Scene schema_scene(inspector.world());
     const auto catalog = AssetCatalog::open_project(source);
     const auto id = document.at("asset_id").get<AssetId>();
-    require(catalog.records().at(id).source == sound_cue_example,
+    require(catalog.records().at(id).source == profile.scene,
             "Sound Cue Gallery is not registered");
     const std::array roots{id};
     {
@@ -100,7 +114,22 @@ void verify_sound_cue_gallery(const std::filesystem::path& gallery,
         old_kit_rejected = true;
     }
     require(old_kit_rejected, "Actual prepared cue Scene admitted an older runtime kit");
-    validate_runtime_compatibility(selected, {{"runtime_sound_cues", sound_cue_profile_version}});
+    Json kit{{"runtime_sound_cues", sound_cue_profile_version}};
+    const auto& features =
+        prepared_scene.metadata.at("forge.runtime_document").at("runtime_features");
+    require(features.contains("sound_cue_timing") == profile.timed,
+            "Actual prepared Scene has incorrect timed cue requirements");
+    if (profile.timed) {
+        bool rejected = false;
+        try {
+            validate_runtime_compatibility(selected, kit);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        require(rejected, "Timed cues admitted a kit supporting only earlier event cues");
+        kit["runtime_sound_cue_timing"] = sound_cue_timing_profile_version;
+    }
+    validate_runtime_compatibility(selected, kit);
     auto cooked = read(moved / packaged.records().at(id).source);
     for (const auto& entry : std::filesystem::recursive_directory_iterator(moved))
         require(entry.path().extension() != ".wav",
@@ -123,6 +152,11 @@ void verify_sound_cue_gallery(const std::filesystem::path& gallery,
     require(graph.nodes.size() == 7 && graph.nodes[0].kind == 1 && graph.nodes[2].kind == 3 &&
                 graph.nodes[4].kind == 2,
             "Gallery omitted Layer/Ordered/Weighted composition");
+    require(graph.nodes[1].delay_seconds == 0 &&
+                graph.nodes[3].delay_seconds == (profile.timed ? .128 : 0) &&
+                graph.nodes[5].delay_seconds == (profile.timed ? .256 : 0) &&
+                graph.nodes[6].delay_seconds == (profile.timed ? .384 : 0),
+            "Gallery Source offsets differ from the independent sample deadlines");
     const auto routing =
         audio_routing_settings(ProjectSettings(source).document().at("game").at("audio"));
     Game authored(source, manual, routing), oracle(source, manual, routing);
@@ -131,32 +165,48 @@ void verify_sound_cue_gallery(const std::filesystem::path& gallery,
     const auto authored_before = authored.scene.snapshot(),
                exported_before = exported.scene.snapshot();
     double energy = 0;
+    std::uint64_t frame = 0;
+    std::multimap<std::uint64_t, EntityRef> planned;
+    const auto quantum = [&] {
+        while (!planned.empty() && planned.begin()->first <= frame) {
+            AudioSourceAccess::control(*oracle.audio, planned.begin()->second,
+                                       AudioSourceOperation::OneShot);
+            planned.erase(planned.begin());
+        }
+        std::array<float, 512> a{}, b{}, expected{};
+        authored.audio->read_offline(a);
+        exported.audio->read_offline(b);
+        oracle.audio->read_offline(expected);
+        require(a == b && a == expected,
+                "Cue source-hidden PCM differs from independently timed ordinary leaf requests");
+        for (float value : b) {
+            require(std::isfinite(value), "Cue Gallery produced nonfinite PCM");
+            energy += double(value) * value;
+        }
+        frame += 256;
+    };
     for (unsigned event = 0; event < 12; ++event) {
         // Closed-form oracle for this fixed example, without production graph traversal/state.
-        auto selected = graph.nodes[3].source;
+        unsigned selected_index = 3;
         if (event % 2) {
             std::seed_seq seeds{17u, 4u, event / 2, 0u};
             std::mt19937 random(seeds);
             const auto ticket = (std::uint64_t(random()) * 4) >> 32;
-            selected = graph.nodes[ticket < 3 ? 5 : 6].source;
+            selected_index = ticket < 3 ? 5 : 6;
         }
+        const auto selected = graph.nodes[selected_index].source;
+        const auto offset = profile.timed ? (selected_index == 3   ? 6144u
+                                             : selected_index == 5 ? 12288u
+                                                                   : 18432u)
+                                          : 0u;
         for (auto* game : {&authored, &exported})
             AudioSourceAccess::control(*game->audio, game->scene.reference(cue),
                                        AudioSourceOperation::OneShot);
-        for (const auto leaf : {graph.nodes[1].source, selected})
-            AudioSourceAccess::control(*oracle.audio, leaf, AudioSourceOperation::OneShot);
-        for (unsigned quantum = 0; quantum < 32; ++quantum) {
-            std::array<float, 512> a{}, b{}, expected{};
-            authored.audio->read_offline(a);
-            exported.audio->read_offline(b);
-            oracle.audio->read_offline(expected);
-            require(a == b && a == expected,
-                    "Cue source-hidden PCM differs from explicit independent leaf requests");
-            for (float value : b) {
-                require(std::isfinite(value), "Cue Gallery produced nonfinite PCM");
-                energy += double(value) * value;
-            }
-        }
+        // Independent fixed sample deadlines; no production selection or timer helper.
+        planned.emplace(frame, graph.nodes[1].source);
+        planned.emplace(frame + offset, selected);
+        for (unsigned i = 0; i < 32; ++i)
+            quantum();
         const auto status =
             AudioSourceAccess::status(*exported.audio, exported.scene.reference(cue));
         require(status.at("accepted_triggers") == event + 1 &&
@@ -166,32 +216,37 @@ void verify_sound_cue_gallery(const std::filesystem::path& gallery,
                     exported.audio->status().at("clips") == 1,
                 "Cue Gallery introduced another primary voice or duplicated the shared clip");
     }
+    for (unsigned i = 0; profile.timed && i < 72; ++i)
+        quantum();
+    require(planned.empty(), "Cue timing oracle left unheard scheduled onsets");
     require(energy > 1e-5 && authored.scene.snapshot() == authored_before &&
                 exported.scene.snapshot() == exported_before,
             "Cue Gallery was silent or triggering changed saved component data");
     std::cout << "Original Sound Cue Gallery:12 closed-form event pairs, exact independent PCM and "
                  "source-hidden moved cooked content passed\n";
-    const auto proved = std::filesystem::absolute(scratch) / "proved-sound-cue.scene.json";
-    std::filesystem::copy_file(root / "source-hidden" / sound_cue_example, proved,
+    const auto proved =
+        std::filesystem::absolute(scratch) /
+        (profile.timed ? "proved-timed-sound-cue.scene.json" : "proved-sound-cue.scene.json");
+    std::filesystem::copy_file(root / "source-hidden" / profile.scene, proved,
                                std::filesystem::copy_options::overwrite_existing);
     std::cout << "Proved source Scene retained at " << proved << '\n';
     std::filesystem::remove_all(root);
 }
 
 void publish_sound_cue_gallery(const std::filesystem::path& proof,
-                               const std::filesystem::path& root) {
-    require(!std::filesystem::exists(root / sound_cue_example), "Sound Cue Gallery already exists");
+                               const std::filesystem::path& root,
+                               const SoundCueGalleryProfile& profile = event_sound_cue_gallery) {
+    require(!std::filesystem::exists(root / profile.scene), "Sound Cue Gallery already exists");
     const auto document = read(proof);
-    require(document.at("asset_id") == sound_cue_example_id,
-            "Proved Scene has the wrong example identity");
+    require(document.at("asset_id") == profile.id, "Proved Scene has the wrong example identity");
     EngineContext validation;
     Scene scene(validation.world());
     scene.reset(document);
     ProjectLease lease(root);
     auto catalog = AssetCatalog::open_project(root);
-    require(!catalog.records().contains(AssetId::parse(sound_cue_example_id)),
+    require(!catalog.records().contains(AssetId::parse(profile.id)),
             "Sound Cue Scene identity is already registered");
-    std::filesystem::copy_file(proof, root / sound_cue_example);
-    (void)catalog.add_scene(sound_cue_example);
+    std::filesystem::copy_file(proof, root / profile.scene);
+    (void)catalog.add_scene(profile.scene);
     catalog.save(AssetCatalog::project_index(root));
 }

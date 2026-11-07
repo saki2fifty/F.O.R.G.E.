@@ -4,7 +4,7 @@
 #include <forge/audio.hpp>
 
 void capture_sound_cue_editor(const std::filesystem::path& gallery,
-                              const std::filesystem::path& output) {
+                              const std::filesystem::path& output, bool timed = false) {
     std::filesystem::create_directories(output);
     const auto root = output / "project";
     require(!std::filesystem::exists(root), "Cue capture project already exists");
@@ -18,7 +18,8 @@ void capture_sound_cue_editor(const std::filesystem::path& gallery,
         Scene scene(engine.world());
         SceneDocument project(scene);
         project.open_project(root);
-        project.open_scene(root / "Scenes/192-event-sound-cues.scene.json");
+        project.open_scene(root / (timed ? "Scenes/193-timed-sound-cues.scene.json"
+                                        : "Scenes/192-event-sound-cues.scene.json"));
         std::string cue;
         const auto effective = scene.effective_document();
         for (const auto& row : effective.at("entities"))
@@ -95,13 +96,15 @@ void capture_sound_cue_editor(const std::filesystem::path& gallery,
         frame();
         click("sound-cue:edit");
         click("sound-cue:node:0");
-        click("sound-cue:node:1");
+        click(timed ? "sound-cue:node:3" : "sound-cue:node:1");
         click("sound-cue:node:4");
         frame();
         frame();
         capture->save(output / "cue-layout-review.png");
         for (const char* key :
-             {"sound-cue:seed", "sound-cue:root", "sound-cue:source:1", "sound-cue:weight:4:0",
+             {"sound-cue:seed", "sound-cue:root",
+              timed ? "sound-cue:source:3" : "sound-cue:source:1",
+              timed ? "sound-cue:delay:3" : "sound-cue:delay:1", "sound-cue:weight:4:0",
               "sound-cue:weight:4:1", "sound-cue:apply", "sound-cue:reset"}) {
             require(test::ui_targets.contains(key), "Cue capture omitted a required control");
             const auto& target = test::ui_targets.at(key);

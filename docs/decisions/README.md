@@ -44,6 +44,10 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [032](032-navigation-collision-collection.md) | Profile-scoped static collision collection reuses physical geometry and navigation owners |
 | [033](033-prefab-variants.md) | Single-base Prefab variants retain source intent, member identity and existing publication owners |
 | [034](034-animation-retargeting.md) | Explicit target-bound animation baking through existing asset and pose owners |
+| [035](035-animation-graphs.md) | Authored graphs share the animation owner |
+| [036](036-audio-routing.md) | Custom audio routing shares the existing source and mix owners |
+| [037](037-event-sound-cues.md) | Event sound cues compose existing Audio Source one-shots |
+| [038](038-timed-sound-cue-offsets.md) | Timed Source offsets share the native frame clock and voice lifetime |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

@@ -41,6 +41,8 @@ struct AudioListener {
     bool operator==(const AudioListener&) const = default;
 };
 inline constexpr unsigned sound_cue_profile_version = 1;
+inline constexpr unsigned sound_cue_timing_profile_version = 1;
+inline constexpr double sound_cue_delay_limit_seconds = 10;
 inline constexpr std::size_t sound_cue_node_limit = 32;
 inline constexpr std::size_t sound_cue_child_limit = 8;
 inline constexpr std::size_t sound_cue_output_limit = 16;
@@ -53,6 +55,8 @@ struct SoundCueNode {
     std::uint32_t kind = 0;
     EntityRef source{};
     std::vector<SoundCueEdge> children;
+    // Source-only offset on the native output clock, independent of source pitch.
+    double delay_seconds = 0;
     bool operator==(const SoundCueNode&) const = default;
 };
 // Event composition only: AudioSource retains all clip, spatial and voice ownership.

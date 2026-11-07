@@ -55,7 +55,8 @@ def verify(runtime, gallery, module=None):
                       minimum_distance=1,maximum_distance=100)
         graph = dict(enabled=True,seed=1,root=0,nodes=[
             dict(kind=3,source=None,children=[dict(target=1,weight=1),dict(target=2,weight=1)]),
-            dict(kind=0,source=ref(a),children=[]),dict(kind=0,source=ref(b),children=[])])
+            dict(kind=0,source=ref(a),children=[],delay_seconds=.125),
+            dict(kind=0,source=ref(b),children=[],delay_seconds=.375)])
         scene = dict(version=3,asset_id=scene_id,entities=[
             dict(id=a,name='First',components={'forge.audio_source':values}),
             dict(id=b,name='Second',components={'forge.audio_source':values}),
@@ -82,6 +83,7 @@ def verify(runtime, gallery, module=None):
                 assert state['kind']=='sound_cue' and state['accepted_triggers']==0 and state['maximum_outputs']==1,state
                 first = trigger()
                 assert first['audio_source']['accepted_triggers']==1 and first['audio_source']['last_sources']==[ref(a)],first
+                assert first['audio_source']['last_delay_seconds']==[.125],first
                 assert first['scene']==admitted and first['timing']['tick']==initial['timing']['tick']
                 second = trigger()
                 assert second['audio_source']['last_sources']==[ref(b)] and second['audio_source']['accepted_triggers']==2
@@ -102,6 +104,7 @@ def verify(runtime, gallery, module=None):
                 if module:
                     config = next(row for row in stepped['scene']['entities'] if row['id']==cue_id)['components']['forge.sound_cue']
                     assert config['seed']==29 and config['nodes'][0]['children']==list(reversed(graph['nodes'][0]['children'])),config
+                    assert all(node['delay_seconds']==.075 for node in config['nodes'] if node['kind']==0),config
                     assert current['accepted_triggers'] >= 8,current
                     assert not any('cue trigger rejected' in str(d) for d in stepped.get('diagnostics',[]))
                 else:
@@ -126,6 +129,8 @@ def verify(runtime, gallery, module=None):
             triggered = worker.request('audio_source',generation=recovered['world_generation'],source=ref(cue_id),
                 operation='one_shot',audio_source_watch=ref(cue_id))['audio_source']
             assert triggered['accepted_triggers']==1 and triggered['last_sources']==[first_target],triggered
+            first_delay = saved_graph['nodes'][saved_graph['nodes'][0]['children'][0]['target']]['delay_seconds']
+            assert triggered['last_delay_seconds']==[first_delay],triggered
             worker.request('quit')
             assert worker.process.wait(timeout=5)==0
         finally:

@@ -9,6 +9,8 @@ def check_sound_cues_play(read, ok, control, mutate, until, root, discovered_sch
     schema = next(t for t in discovered_schema['components'] if t['id']=='forge.sound_cue')
     nodes = next(f for f in schema['fields'] if f['id']=='nodes')
     assert nodes['maximum_count']==32
+    delay = next(f for f in nodes['element']['fields'] if f['id']=='delay_seconds')
+    assert delay['minimum']==0 and delay['maximum']==10 and delay['default_if_missing']==0 and delay['unit']=='s',delay
     kind = next(f for f in nodes['element']['fields'] if f['id']=='kind')
     assert kind['type']=='uint32' and kind['choices']==[
         dict(label=label,value=value) for value,label in enumerate(('Source','Layer','Weighted','Ordered'))],kind
@@ -25,7 +27,8 @@ def check_sound_cues_play(read, ok, control, mutate, until, root, discovered_sch
     ref = lambda actor:dict(scene=scene_id,entity=actor)
     graph = dict(enabled=True,seed=17,root=0,nodes=[
         dict(kind=3,source=None,children=[dict(target=1,weight=1),dict(target=2,weight=1)]),
-        *[dict(kind=0,source=ref(actor),children=[]) for actor in actors]])
+        *[dict(kind=0,source=ref(actor),children=[],delay_seconds=delay)
+          for actor,delay in zip(actors,(.125,.375))]])
     before = read('forge_scene_read')
     ok('forge_property_set_many',arguments=dict(entity=cue,component='forge.sound_cue',values=graph))
     authored = read('forge_scene_read')
@@ -33,6 +36,10 @@ def check_sound_cues_play(read, ok, control, mutate, until, root, discovered_sch
     assert ok('forge_history_redo')['changed'] and read('forge_scene_read')==authored
     invalid = copy.deepcopy(graph)
     invalid['nodes'][0]['children'][0]['target']=0
+    rejected = mutate('forge_property_set_many',arguments=dict(entity=cue,component='forge.sound_cue',values=invalid))
+    assert not rejected['ok'] and read('forge_scene_read')==authored,rejected
+    invalid = copy.deepcopy(graph)
+    invalid['nodes'][1]['delay_seconds']=11
     rejected = mutate('forge_property_set_many',arguments=dict(entity=cue,component='forge.sound_cue',values=invalid))
     assert not rejected['ok'] and read('forge_scene_read')==authored,rejected
     ok('forge_document_save')
@@ -47,9 +54,27 @@ def check_sound_cues_play(read, ok, control, mutate, until, root, discovered_sch
         control('forge_play_audio_control',entity=cue,operation='one_shot')
         current = until(lambda:read('forge_play_audio'),lambda row:(row.get('source') or {}).get('accepted_triggers')==count)
         assert current['source']['last_sources']==[ref(actors[(count-1)%2])],current
+        assert current['source']['last_delay_seconds']==[(.125,.375)[(count-1)%2]],current
     control('forge_play_audio_control',entity=cue,operation='stop')
     rejected = until(lambda:read('forge_play_audio'),lambda row:bool(row.get('error')))
     assert rejected['source']['accepted_triggers']==3,rejected
+    control('forge_play_watch',entity=actors[0])
+    waiting = until(lambda:read('forge_play_audio'),
+        lambda row:(row.get('source') or {}).get('delayed_one_shots')==2)
+    assert waiting['source']['one_shots']==2,waiting
+    control('forge_play_audio_control',entity=actors[0],operation='pause')
+    until(lambda:read('forge_play_audio'),
+        lambda row:(row.get('source') or {}).get('paused_one_shots')==2)
+    control('forge_play_audio_control',entity=actors[0],operation='resume')
+    until(lambda:read('forge_play_audio'),
+        lambda row:(row.get('source') or {}).get('paused_one_shots')==0)
+    control('forge_play_audio_control',entity=actors[0],operation='stop')
+    stopped = until(lambda:read('forge_play_audio'),
+        lambda row:(row.get('source') or {}).get('one_shots')==0)
+    assert stopped['source']['delayed_one_shots']==0,stopped
+    control('forge_play_watch',entity=cue)
+    until(lambda:read('forge_play_audio'),
+        lambda row:(row.get('source') or {}).get('accepted_triggers')==3)
     # The existing watch identity gate rejects a different entity before dispatch.
     state = read('forge_play_status')
     wrong = mutate('forge_play_audio_control',launch=state['launch'],session=state['session'],generation=state['generation'],

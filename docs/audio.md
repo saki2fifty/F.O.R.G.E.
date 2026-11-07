@@ -619,6 +619,21 @@ cannot be triggered until every declared leaf is complete. Validation inspects
 all nodes, including disabled/unselected branches, for shape, cycles, targets and
 potential Layer fanout. No unbounded or recursive cue-entity references are allowed.
 
+Source-only `delay_seconds` defaults to zero and accepts finite values0..10.
+Branches require zero. Selection returns offsets alongside source references;
+commands retain both in the existing transactional admission. Each prepared
+one-shot schedules against the native engine output-frame clock, rounding to the
+nearest output frame independently of pitch. Preparation/loading can postpone the
+start of the offset. The existing voice owns only remaining-frame/deadline intent,
+not a second clock, scheduler or resource cache.
+
+Full suspension, explicit source pause and applicable game pause preserve an
+unexpired interval. The owner stops and rebases a waiting voice before resuming;
+already-started sounds retain normal cursor/effect semantics. Source pause policy
+changes reuse the existing parent group routing. Stop and source/world replacement
+retire waiting voices through their existing owner. Waiting voices count toward
+the existing one-shot and total budgets. See [ADR038](decisions/038-timed-sound-cue-offsets.md).
+
 Each visited node has a transient64bit visit count. Layer visits children in stored
 order; Ordered uses its previous visit count modulo its child count. Weighted uses
 a local standard MT19937 seeded by `{seed,node_index,visit_low,visit_high}` through
@@ -647,7 +662,7 @@ accepted event is not an atomic guarantee of audible voices.
 Graph changes, source-world retirement or fresh/recovered runtime replacement
 reset selection state. Source cursors, effect memory, one-shots and cue selection
 counters are not recovered. Cue status reports its kind, maximum fanout, accepted
-trigger count, node visits and most recently selected source references; it does
+trigger count, node visits and most recently selected source references/offsets; it does
 not claim ownership of those sources' other voices. Scene values remain unchanged
 by triggers. Nested native vector/reference metadata uses the existing admission,
 copy, Prefab member remapping and history owners. Inspector graph drafts publish
@@ -660,7 +675,16 @@ as an idempotent operation. Runtime document capability `sound_cues:1` requires
 kit `runtime_sound_cues:1`, including retained partial component/property values.
 Scenes without that component do not require this capability.
 
-Later work includes unbounded music streaming, voice stealing, timed/cyclic cue
+Nonzero offsets additionally emit `sound_cue_timing:1`, requiring
+`runtime_sound_cue_timing:1`. Earlier zero-delay content retains its previous kit
+requirements. Retained/partial values participate in feature discovery. Earlier
+nodes default missing offsets to zero through the JSON codec and native member
+evolution annotation. This changes installed component headers/fingerprints and
+requires matching C++ modules; C ABI1 callback tables/op values remain unchanged.
+Source status includes `delayed_one_shots`; Live sound admits Pause/Resume/Stop
+while a voice is waiting, including through the existing scoped MCP controls.
+
+Later work includes unbounded music streaming, voice stealing, cyclic cue
 graphs, shared effect buses, impulse responses, acoustic room simulation, multiple
 listeners, sample-accurate recovery continuity and device selection.
 

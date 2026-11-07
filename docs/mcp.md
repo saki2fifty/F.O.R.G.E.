@@ -847,6 +847,11 @@ owners. Audio watch also admits a SoundCue entity. Its only playback operation i
 `one_shot`, which consumes its next event choice; source entities retain voice
 pause/stop ownership. Existing Scene creation/property commands author the complete
 bounded graph, with nested integer choices and typed source references in discovery.
+Source leaves expose default-zero `delay_seconds` with native bounds0..10. Cue
+observations include `last_delay_seconds`; source observations include
+`delayed_one_shots`. Existing source Pause/Resume/Stop controls apply while voices
+wait. Timing uses output frames after preparation, independently of pitch, and
+preserves applicable pause intervals through the same audio owner.
 `profile_refresh` requests one snapshot without taking over the Profiler
 window's watch. Its value includes `ecs`, the last requested/collected native fixed-pipeline plan, merge markers and cumulative native system CPU totals. Start collection and advance a fixed tick after requesting observations; Pause reads never run gameplay. Stop retains the plan, Clear invalidates its copy without resetting native lifetime counters, and replacement begins empty. The same bounded data feeds the Profiler's ECS systems view; native IDs are world-local diagnostic handles. UI commands go through the actual presenter's declared command
 list, ID queue and acknowledgements, never DOM/script injection.

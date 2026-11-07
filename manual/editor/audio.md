@@ -383,6 +383,11 @@ Pause/Resume also works when only effects are active. The source's **Pause with 
 policy applies to its effects too.
 A full voice budget reports a rejected effect instead of replacing existing sound.
 
+One-shots with a Sound Cue offset show **Waiting to start** and a **Delayed
+one-shots** count. **Pause sound** preserves the remaining delay, **Resume sound**
+continues it, and **Stop sound** removes those waiting voices. New cue or Timeline
+events can still request another sound after Stop.
+
 These are temporary playback commands. They do not edit saved scene values.
 Stopping game Play and starting again restores the saved autoplay settings.
 
@@ -414,17 +419,31 @@ To choose between two effects with relative weights 3 and 1:
 6. Set **Seed**, then click **Apply sound cue**. Apply publishes the complete graph as one Undo step. Save the Scene to write it to disk.
 7. Start Play, select the cue entity, then click **Live sound → Trigger cue**. The panel shows accepted triggers. Repeat to hear its choices.
 
-**Layer** requests every child together. **Ordered choice** requests one child per
+**Layer** requests every child in one trigger. **Ordered choice** requests one child per
 visit, wrapping to the first after the last. It does not wait for a clip to finish
 or schedule a playlist. A graph can combine these branches. Weights apply to
 Weighted choice; use positive integer weights to express relative frequency.
 The same seed and selection state reproduce the same choices. A repeated shared
 node advances on each visit, including multiple visits in one Layer.
 
-![Sound Cue graph editor with a selected source and weighted child nodes using weights three and one](../images/audio-sound-cue.png)
+To stagger the selected sounds, expand a **Source** node and set **Delay (seconds,
+0–10)**. Zero starts that voice when ready; a positive value waits after the voice
+has prepared. Click **Apply sound cue**, then save the Scene. The offset belongs
+to that node: two nodes can select the same Audio Source with different offsets.
+Branch nodes do not have an offset.
 
-Expand a node to edit its source, kind or children. The included example combines
-a Layer, an Ordered choice and this Weighted choice.
+The delay uses output time and stays the same when you change source Pitch.
+Source pause and full suspension preserve the remaining interval. Game Pause
+preserves it when the source follows **Pause with game**; independent sources
+continue. Loading can postpone preparation. Waiting voices consume the normal
+16-per-source and 256-total voice limits. Use the runtime kit packaged with the
+current editor when exporting delayed cues.
+
+![Sound Cue graph editor with a 0.128 second Source offset and weighted child nodes using weights three and one](../images/audio-sound-cue.png)
+
+Expand a node to edit its source, delay, kind or children. The included example combines
+a Layer, an Ordered choice and this Weighted choice. Source Node 3 in
+**193-timed-sound-cues** waits 0.128 seconds after preparation.
 
 Edits stay in a detached draft until Apply. **Reset sound cue draft** reloads the
 current Scene values. If the Scene changes, reset before applying. An unapplied

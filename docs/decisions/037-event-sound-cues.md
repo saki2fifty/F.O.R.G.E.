@@ -55,6 +55,7 @@ same audio service. Source/Play authoring permissions remain unchanged.
 Authored and retained partial component values require runtime feature
 sound_cues:1 and kit runtime_sound_cues:1. Projects without the component retain
 their previous capability requirements. See [Audio](../audio.md) for the precise
-format, deterministic selection and runtime limits. Timed/cyclic cue graphs,
-shared bus DSP and richer acoustics remain separate work. Native Windows, full
+format, deterministic selection and runtime limits. [ADR038](038-timed-sound-cue-offsets.md)
+extends Source leaves with bounded offsets on the existing native frame clock.
+Cyclic cue graphs, shared bus DSP and richer acoustics remain separate work. Native Windows, full
 editor and physical-device acceptance are distinct from local source validation.

@@ -137,11 +137,36 @@ void admission() {
     value["nodes"][0]["children"] = Json::object();
     reject([&] { (void)sound_cue_from_json(value); });
 }
+void timing() {
+    auto cue = example();
+    cue.nodes[1].delay_seconds = .125;
+    cue.nodes[3].delay_seconds = 10;
+    const auto program = SoundCueProgram::compile(cue);
+    const auto selected = program.select({});
+    check(selected.sources == std::vector<EntityRef>{source(1), source(2)} &&
+              selected.delay_seconds == std::vector<double>{.125, 10},
+          "Layer/ordered selection lost Source-leaf timing");
+    check(sound_cue_from_json(sound_cue_json(cue)) == cue,
+          "Delayed cue JSON roundtrip changed timing");
+    auto legacy = sound_cue_json(example());
+    for (auto& node : legacy["nodes"])
+        node.erase("delay_seconds");
+    check(sound_cue_from_json(legacy) == example(), "Earlier node values did not default to zero delay");
+    for (double invalid : {-1., 10.001, std::numeric_limits<double>::infinity(),
+                           std::numeric_limits<double>::quiet_NaN()}) {
+        cue.nodes[1].delay_seconds = invalid;
+        reject([&] { (void)SoundCueProgram::compile(cue); });
+    }
+    cue = example();
+    cue.nodes[0].delay_seconds = .1;
+    reject([&] { (void)SoundCueProgram::compile(cue); });
+}
 } // namespace
 int main() {
     try {
         selection();
         admission();
+        timing();
         std::cout << "Sound Cue selection/admission passed\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

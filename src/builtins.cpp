@@ -1533,7 +1533,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         auto node = w.component<SoundCueNode>("forge.sound_cue_node");
         node.member<std::uint32_t>("kind")
             .member<EntityRef>("source")
-            .member<std::vector<SoundCueEdge>>("children");
+            .member<std::vector<SoundCueEdge>>("children")
+            .member<double>("delay_seconds");
         w.component<std::vector<SoundCueNode>>("forge.sound_cue_nodes")
             .opaque(reflected_vector<SoundCueNode>);
         c.template member<bool>("enabled")
@@ -1547,7 +1548,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         for (const auto& [field, offset] :
              {std::pair{"kind", offsetof(SoundCueNode, kind)},
               std::pair{"source", offsetof(SoundCueNode, source)},
-              std::pair{"children", offsetof(SoundCueNode, children)}}) {
+              std::pair{"children", offsetof(SoundCueNode, children)},
+              std::pair{"delay_seconds", offsetof(SoundCueNode, delay_seconds)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), node.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("Sound Cue node Meta disagrees with its typed layout");
@@ -1555,11 +1557,20 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             shape.members[field_index].name = field;
             if (std::string_view(field) == "kind")
                 shape.members[field_index].type = builtin_enum(w, "forge.sound_cue_node", "kind");
+            if (std::string_view(field) == "delay_seconds") {
+                shape.members[field_index].unit = EcsSeconds;
+                shape.members[field_index].range = {0, sound_cue_delay_limit_seconds};
+                shape.members[field_index].error_range = {0, sound_cue_delay_limit_seconds};
+            }
             shape.members[field_index++].use_offset = true;
         }
         if (!ecs_struct_init(w, &shape))
             throw std::runtime_error("Sound Cue nested member registration failed");
         node.lookup("children").set<ReflectedSequenceLimit>({sound_cue_child_limit});
+        w.component<ReflectedMemberDefault>(reflected_member_default_type);
+        node.lookup("delay_seconds")
+            .set<ReflectedMemberDefault>({0.})
+            .set_doc_brief("Source-only delay in output seconds; zero starts when ready, independent of pitch");
     } else if constexpr (std::is_same_v<T, AudioCue>) {
         (void)authoring_value_adapters(w);
         c.template member<EntityRef>("sequence")

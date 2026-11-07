@@ -213,6 +213,10 @@ int main(int argc, char** argv) {
                         for (const auto& [field, fallback] : defaults.items())
                             if (!value->contains(field))
                                 (*value)[field] = fallback;
+                if (auto cue = components.find("forge.sound_cue"); cue != components.end())
+                    for (auto& node : cue->at("nodes"))
+                        if (!node.contains("delay_seconds"))
+                            node["delay_seconds"] = 0.;
             }
             const auto admitted = scene.document();
             if (!detail::json_value_equal(admitted, expected)) {

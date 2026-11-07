@@ -12564,6 +12564,16 @@
       "type": "transform_animation"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "9c91c46a-2d17-4e81-a7d3-18343e332d1d",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/193-timed-sound-cues.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "43130b86-b8b0-4fb7-b078-0d02ef689644",
         "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",

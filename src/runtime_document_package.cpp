@@ -28,8 +28,20 @@ Json document_runtime_features(const Json& document) {
             if (values == row.end())
                 continue;
             if (const auto cue = values->find("forge.sound_cue");
-                cue != values->end() && !cue->is_null())
+                cue != values->end() && !cue->is_null()) {
                 result["sound_cues"] = sound_cue_profile_version;
+                if (const auto nodes = cue->find("nodes"); nodes != cue->end()) {
+                    if (!nodes->is_array())
+                        throw std::runtime_error("game.export.document: Invalid Sound Cue node collection");
+                    for (const auto& node : *nodes)
+                        if (const auto delay = node.find("delay_seconds"); delay != node.end()) {
+                            if (!delay->is_number())
+                                throw std::runtime_error("game.export.document: Invalid Sound Cue delay");
+                            if (delay->get<double>() != 0)
+                                result["sound_cue_timing"] = sound_cue_timing_profile_version;
+                        }
+                }
+            }
             if (const auto source = values->find("forge.audio_source");
                 source != values->end() && !source->is_null())
                 if (const auto route = source->find("custom_bus"); route != source->end()) {

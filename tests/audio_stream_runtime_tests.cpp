@@ -9,6 +9,7 @@
 #include <cmath>
 #include <forge/audio.hpp>
 #include <forge/runtime.hpp>
+#include <forge/sound_cue.hpp>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -141,6 +142,34 @@ void compare(Running& streamed, Running& resident, unsigned quanta, const std::s
                                    std::to_string(i) + " actual=" + std::to_string(a[i]) +
                                    " expected=" + std::to_string(b[i]));
     }
+}
+void timed_cue(const std::filesystem::path& root, AssetId stream, AssetId resident) {
+    auto a = document(stream, 2, false), b = document(resident, 2, false);
+    for (auto* value : {&a, &b}) {
+        (*value)["entities"][0]["components"]["forge.audio_source"]["play_on_start"] = false;
+        (*value)["entities"].push_back({{"id", "cue"}, {"name", "Delayed stream"},
+            {"components", {{"forge.sound_cue", sound_cue_json({})}}}});
+    }
+    Running actual(root, a), expected(root, b);
+    actual.prepared();
+    expected.prepared();
+    actual.scene.entity("cue").set(SoundCue{true, 1, 0, {{0, actual.ref(), {}, 4096. / 48000}}});
+    AudioSourceAccess::control(*actual.audio, actual.scene.reference("cue"), AudioSourceOperation::OneShot);
+    actual.control(AudioSourceOperation::Pause);
+    require(actual.audio->wait_for_loading(std::chrono::seconds(5)), "Delayed stream did not prepare");
+    for (unsigned i = 0; i < 8; ++i) {
+        const auto pcm = actual.read();
+        require(std::ranges::all_of(pcm, [](float x) { return x == 0; }),
+                "A paused preparing delayed stream played early");
+    }
+    actual.control(AudioSourceOperation::Resume);
+    expected.control(AudioSourceOperation::OneShot);
+    for (unsigned i = 0; i < 16; ++i) {
+        const auto pcm = actual.read();
+        require(std::ranges::all_of(pcm, [](float x) { return x == 0; }),
+                "A delayed stream advanced before its pitch-independent output deadline");
+    }
+    compare(actual, expected, 80, "Delayed prepared stream versus ordinary resident one-shot");
 }
 void custom_routing(const std::filesystem::path& root, AssetId stream, AssetId resident) {
     const AudioRouting routing{
@@ -372,6 +401,7 @@ int main(int argc, char** argv) {
                                        root / "Assets" / (name + "-resident.wav"));
             const auto streamed = publish(root, name, true);
             const auto resident = publish(root, name + "-resident", false);
+            timed_cue(root, streamed.id, resident.id);
             custom_routing(root, streamed.id, resident.id);
             playback(root, streamed.id, resident.id);
             transport(root, streamed.id, resident.id);

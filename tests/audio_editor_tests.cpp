@@ -61,6 +61,11 @@ void directional_guides() {
 #include "sound_cue_editor_capture.hpp"
 int main(int argc, char** argv) {
     try {
+        if (argc == 4 && std::string_view(argv[1]) == "--capture-timed-sound-cue") {
+            capture_sound_cue_editor(std::filesystem::absolute(argv[2]),
+                                    std::filesystem::absolute(argv[3]), true);
+            return 0;
+        }
         if (argc == 4 && std::string_view(argv[1]) == "--capture-sound-cue") {
             capture_sound_cue_editor(std::filesystem::absolute(argv[2]),std::filesystem::absolute(argv[3]));
             return 0;
@@ -524,6 +529,7 @@ int main(int argc, char** argv) {
                         "Cue node append escaped its detached draft");
                 click("sound-cue:source:1");
                 click(("entity-picker-row:" + id).c_str());
+                numeric("sound-cue:delay:1", "0.375");
                 click("sound-cue:kind:0");
                 key(ImGuiKey_DownArrow);
                 key(ImGuiKey_Enter);
@@ -534,11 +540,16 @@ int main(int argc, char** argv) {
                 require(
                     composed.nodes.size() == 2 && composed.nodes[0].kind == 1 &&
                         composed.nodes[0].children == std::vector<SoundCueEdge>{{1, 1}, {1, 1}} &&
-                        composed.nodes[1].source == leaf,
+                        composed.nodes[1].source == leaf && composed.nodes[1].delay_seconds == .375,
                     "Actual cue controls did not publish complete typed node/source/edge values");
                 require(scene.undo() && scene.entity(cue_id).get<SoundCue>().nodes.size() == 1 &&
                             scene.redo() && scene.entity(cue_id).get<SoundCue>() == composed,
                         "Cue Apply did not retain one Scene Undo/Redo transaction");
+                numeric("sound-cue:delay:1", "11");
+                frame();
+                require(!test::ui_targets.at("sound-cue:apply").enabled &&
+                            scene.entity(cue_id).get<SoundCue>() == composed,
+                        "Invalid delayed cue escaped its detached validation");
                 click("sound-cue:reset");
                 click("sound-cue:add-node");
                 authoring_command(scene, "entity.create", {{"name", "Unrelated change"}});
@@ -583,6 +594,19 @@ int main(int argc, char** argv) {
                 require(live_requests == requests_before + 1 &&
                             live_operation == AudioSourceOperation::OneShot,
                         "Live cue button did not use the existing one-shot dispatch");
+                selected = id;
+                sound_status = {{"available", true}, {"playing", false}, {"paused", false},
+                                {"one_shots", 1}, {"delayed_one_shots", 1}};
+                click("pause");
+                require(live_operation == AudioSourceOperation::Pause,
+                        "Waiting delayed one-shot could not be paused from actual live controls");
+                sound_status["paused_one_shots"] = 1;
+                click("pause");
+                require(live_operation == AudioSourceOperation::Resume,
+                        "Paused delayed one-shot could not be resumed from actual live controls");
+                click("stop");
+                require(live_operation == AudioSourceOperation::Stop,
+                        "Waiting delayed one-shot could not be stopped from actual live controls");
                 test::observe_ui = false;
                 ImGui::DestroyContext();
             }

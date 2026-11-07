@@ -12,6 +12,12 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+timed_path = 'Scenes/193-timed-sound-cues.scene.json'
+assert by_source[timed_path]['type'] == 'scene'
+timed_scene = json.loads((project_root/timed_path).read_text(encoding='utf-8'))
+timed_graphs = [row['components']['forge.sound_cue'] for row in timed_scene['entities'] if 'forge.sound_cue' in row['components']]
+assert len(timed_graphs)==1 and len(timed_graphs[0]['nodes'])==7
+assert [node['delay_seconds'] for node in timed_graphs[0]['nodes']]==[0,0,0,.128,0,.256,.384]
 cue_path = 'Scenes/192-event-sound-cues.scene.json'
 assert by_source[cue_path]['type'] == 'scene'
 cue_scene = json.loads((project_root/cue_path).read_text(encoding='utf-8'))
@@ -754,6 +760,9 @@ def same_authored_value(actual, expected, location='$'):
     # differ by a final float32 ULP across platforms; document structure and
     # discrete identities must still match exactly.
     if isinstance(expected, dict):
+        if re.search(r'\.components\.forge\.sound_cue\.nodes\[\d+\]$', location):
+            # Earlier nodes omit the additive offset; explicit/opaque values stay exact.
+            expected = dict(delay_seconds=0.) | expected
         if re.search(r'\.components\.forge\.sprite_renderer\.frame_regions\[\d+\]$', location):
             # Legacy source rectangles omit the additive frame metadata. Keep
             # every explicit value/extension exact while checking native defaults.

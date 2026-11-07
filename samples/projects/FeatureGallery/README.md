@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Timed sound cues
+
+Open `Scenes/193-timed-sound-cues.scene.json` and press **Play → Game**. Each
+Timeline event layers a base tone with a selected tone offset by 0.128, 0.256 or
+0.384 seconds. Select **Timed layered event - select for Trigger cue**, stop Play
+and open **Sound Cue → Edit sound cue**. Expand Source Node 3, 5 or 6 to change
+**Delay (seconds, 0–10)**. Apply, save the Scene and Play again. Pitch changes do
+not scale the offset. Waiting voices use their Audio Source's Pause/Resume/Stop
+controls. Export this Scene as startup using the matching runtime kit. No project
+C++ is required. See the [audio guide](../../../manual/editor/audio.md).
+
 ## Event sound cues
 
 Open `Scenes/192-event-sound-cues.scene.json` and press **Play → Game**. The looping

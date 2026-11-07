@@ -95,6 +95,7 @@ class SoundCueEditor {
                     node["children"] = Json::array();
                 else {
                     node["source"] = nullptr;
+                    node["delay_seconds"] = 0.;
                     for (auto& edge : node["children"])
                         if (selected != 2)
                             edge["weight"] = 1;
@@ -107,6 +108,12 @@ class SoundCueEditor {
                 entity_ref_picker(scene, node["source"], "##AudioSource", false,
                                   scene.world().id<AudioSource>());
                 FORGE_UI_PROBE("sound-cue:source:" + std::to_string(i));
+                ImGui::TextUnformatted("Delay (seconds, 0–10)");
+                ImGui::SetNextItemWidth(-1);
+                double delay = node.at("delay_seconds");
+                if (ImGui::InputDouble("##delay", &delay, 0, 0, "%.6f"))
+                    node["delay_seconds"] = delay;
+                FORGE_UI_PROBE("sound-cue:delay:" + std::to_string(i));
             } else {
                 auto& edges = node.at("children");
                 for (std::size_t j = 0; j < edges.size(); ++j) {
@@ -164,7 +171,7 @@ class SoundCueEditor {
         if (ui::button("Add source node",
                        "Append a Source node, then assign an existing Audio Source.")) {
             reveal_ = nodes.size();
-            nodes.push_back({{"kind", 0}, {"source", nullptr}, {"children", Json::array()}});
+            nodes.push_back(sound_cue_json({true, 1, 0, {{}}}).at("nodes").at(0));
         }
         FORGE_UI_PROBE("sound-cue:add-node");
         ImGui::EndDisabled();
