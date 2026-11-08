@@ -11,4 +11,9 @@ struct TerrainFoliageSlopeRange {
 Json prepare_terrain_foliage(const ProjectLease&, const Scene&, const Json& arguments,
                              const std::string& terrain_entity, double height_offset = 0,
                              TerrainFoliageSlopeRange slopes = {}, bool align_to_slope = false);
+// The same placement/history owner with a published static triangle Mesh surface.
+// Source drafts are ignored; the highest upward-facing published surface wins.
+Json prepare_mesh_foliage(const ProjectLease&, const Scene&, const Json& arguments,
+                          const std::string& surface_entity, double height_offset = 0,
+                          TerrainFoliageSlopeRange slopes = {}, bool align_to_slope = false);
 } // namespace forge

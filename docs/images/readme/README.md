@@ -1581,24 +1581,42 @@ layout and package inclusion are checked separately.
 
 ## Foliage placement
 
-[Placement controls](../../../manual/images/foliage-placement-controls.png) and
-[heightfield controls](../../../manual/images/terrain-foliage-controls.png) are
-unretouched 720×1340 captures of the production FoliagePlacement window, rendered
-with actual ImGui and SDL software output. Real pointer/keyboard input selects
-Gallery147's independent blade template and published layered terrain, enters
-128 candidates and checks the layout without changing Scene intent or Problems.
-Heightfield controls include inclusive Minimum/Maximum slope, checked Align to
-terrain slope and the retained/candidate status. The shown default0..90range keeps all128 origins.
-All controls, status and explanatory text are visible. Capture command:
-`forge_foliage_editor_tests --capture-gallery <Gallery> <private-output>`.
-The production owner is also exercised with real input at 100/150/200 percent
-in full/compact layouts. These GPU-independent component captures do not establish
-full Main, physical Windows input or display/DPI acceptance.
-Plane PNG SHA256: `7c88bd4a1a64880247ff1ba6123ad4c7d4d325a000a29494820d6b630ead1469`.
-Heightfield PNG SHA256: `310d7ef492bf22e53d4c9ab3579990eab5a20abf1342e9ba356afd51852cc8ca`.
-Current capture consumer SHA256: `852c8dede984208f97445a5a9753f2203a201ab38a22f5286af3a1001597e711`.
-Local unassigned source; current control captures replace the earlier captures in
-their canonical assets. Game images below retain their separate unchanged proof.
+[Placement controls](../../../manual/images/foliage-placement-controls.png),
+[heightfield controls](../../../manual/images/terrain-foliage-controls.png) and
+[Mesh controls](../../../manual/images/mesh-foliage-controls.png) are authentic
+production FoliagePlacement captures at 720×1100,720×1420 and720×1480. Real
+pointer/keyboard input selects the template/surface, checks128candidates and
+retains the Scene unchanged. The Mesh capture uses the tilted Gallery200 ramp,
+Static triangle Mesh and Align to Mesh slope. Native fixtures exercise both
+profiles, independent tilted-plane heights/normals and history at100/150/200%
+in full/compact layouts. The compact Combo uses a separate label/full-width field.
+
+Source is local4a33626 plus Mesh surface authoring, via
+`tests/foliage_editor_tests.cpp` and the pinned SDL/ImGui software renderer.
+Commands are the ordinary capture, --capture-gallery and --capture-mesh-gallery
+modes in isolated copies of the saved Gallery. Canonical PNG bytes/dimensions
+are unchanged from their originals. These are component controls, not full Main,
+Windows, physical input/DPI, GPU or performance acceptance.
+
+[Mesh meadow Game](../../../manual/images/mesh-foliage-game.png) preserves every
+RGB pixel of the640×360 production FrameRenderer PPM from
+`tests/mesh_foliage_gallery_vulkan_probe.cpp`, converted losslessly to PNG.
+Mesa lavapipe and the pinned Diligent/DXC stack render256saved blades on tilted/
+mirrored Meshes; left aligns to slope, right retains world up. Independent local
+plane/history and actual static/skinned Model profile checks precede capture.
+Four landscape/portrait snapshots match exactly after source-hidden relocation.
+This is software rendering; Windows/physical acceptance remains separate.
+Local batch298 capture-provenance.json and selected-gallery-proof.json identify
+originals, hashes and the proved published source. Existing Game images below
+retain their separate unchanged proof.
+
+foliage-placement-controls.png SHA256: `e000d65f74f7289e7121665ee8a09681d209a33a271e41bf606f961eefc439e4`.
+
+terrain-foliage-controls.png SHA256: `b3db9c3caa6760cd3ac52c4a78a3fc2ebb6832e4c10f1671aa6df91df527cc67`.
+
+mesh-foliage-controls.png SHA256: `fc533056329a822fe91731f2bc6b4e80171d31bc9e020685a7dc0b5c5bd7c192`.
+
+mesh-foliage-game.png SHA256: `c7cc4b643d2c7e10c92d91c778044bdc9cab6af1cfe21966088aa7628aaf8276`.
 
 [Meadow Game](../../../manual/images/foliage-placement-game.png) is the unretouched
 640×360 production FrameRenderer after 90 fixed ticks in Gallery 144
@@ -2001,17 +2019,17 @@ this silent-preview profile.
 
 ## Foliage clearance controls
 
-`manual/images/foliage-clearance-controls.png` is the canonical authentic production
-ImGui panel capture from `forge_foliage_editor_tests --capture-clearance`, using
-Gallery 156 in an isolated project copy. It shows published heightfield projection,
-alignment, sphere radius/world offset, layers, sensor/exclusion controls and 88 of 128
-retained candidates. SDL software rendering captured the unretouched 720x1850 panel.
-The existing plane/terrain control images were recaptured through
-`--capture-gallery` at 720x1340 after the additional checkbox entered the workflow.
-Actual input fixtures exercise wide/compact panels at 1x/1.5x/2x; these captures do
-not establish full Main/Windows/MSVC/D3D12, hardware input/DPI or physical-GPU
-acceptance. Capture evidence and hashes are local in
-`AgentFiles/build/phase244-foliage-collision-filters/native-ui-captures.json`.
+[Clearance controls](../../../manual/images/foliage-clearance-controls.png) is an
+unretouched720×1930 production panel through forge_foliage_editor_tests
+--capture-clearance, using Gallery156 in an isolated project. It shows heightfield
+projection, slope alignment, world-sphere settings, layers, sensor/exclusion
+controls and88of128retained candidates. Source is local4a33626 plus the shared
+surface choice/caption changes; provenance is batch298/capture-provenance.json.
+Actual wide/compact input fixtures at1/1.5/2scale retain normal Scene history.
+These software component captures do not establish full Main/Windows/MSVC/D3D12,
+hardware input/DPI, physical GPU or external client/player acceptance.
+
+PNG SHA256: `603423a353b79648b6adb0c2d129bbeb346d048b9c5d5876fd351b07b576a2d3`.
 
 ## Imported lightmap graph
 

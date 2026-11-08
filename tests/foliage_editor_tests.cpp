@@ -162,6 +162,50 @@ void exercise(float scale, bool compact, const std::filesystem::path& scratch) {
     check(on_surface == 8 && scene.undo() && scene.document() == before_projection &&
               scene.redo() && scene.document() == projected,
           "Terrain UI did not use one Scene history entry");
+    const auto tilt = rotation_about_axis({1, 0, 0}, 15);
+    authoring_command(scene, "transform.local",
+                      {{"entity", surface},
+                       {"rotation", {{"x", tilt.x}, {"y", tilt.y}, {"z", tilt.z}, {"w", tilt.w}}}});
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    input.click("foliage:surface_kind");
+    const auto press = [&](ImGuiKey key) {
+        io.AddKeyEvent(key, true);
+        frame();
+        io.AddKeyEvent(key, false);
+        frame();
+    };
+    press(ImGuiKey_Home);
+    press(ImGuiKey_DownArrow);
+    press(ImGuiKey_Enter);
+    const auto before_mesh = scene.document();
+    input.click("foliage:check");
+    check(scene.document() == before_mesh && owner.problems.size() == 0,
+          "Actual static Mesh selection did not accept tilted published triangles");
+    input.click("foliage:place");
+    const auto mesh_placed = scene.document();
+    const auto mesh_group = owner.selection.entity();
+    unsigned mesh_count = 0;
+    const double c = std::cos(15 * std::acos(-1.) / 180), s = std::sin(15 * std::acos(-1.) / 180),
+                 denominator = c + .25 * s;
+    const auto mesh_effective = scene.effective_document();
+    for (const auto& row : mesh_effective.at("entities"))
+        if (row.value("parent", "") == mesh_group) {
+            const auto& m = row.at("world_affine");
+            const double x = m[3].get<double>() - ground_origin[0],
+                         z = m[11].get<double>() - ground_origin[2];
+            check(std::abs(m[7].get<double>() -
+                           (ground_origin[1] + (.5 * x + (.25 * c - s) * z) / denominator + .35)) <
+                      2e-6,
+                  "Native Mesh projection differs from the independently tilted plane");
+            check(std::abs(m[1].get<double>() / m[5].get<double>() + .5 / denominator) < 2e-6 &&
+                      std::abs(m[9].get<double>() / m[5].get<double>() -
+                               (s - .25 * c) / denominator) < 2e-6,
+                  "Native Mesh slope alignment did not use the tilted geometric normal");
+            ++mesh_count;
+        }
+    check(mesh_count == 8 && scene.undo() && scene.document() == before_mesh && scene.redo() &&
+              scene.document() == mesh_placed,
+          "Mesh surface controls did not use one ordinary Scene history entry");
     input.click("foliage:projected");
     owner.selection.select_entity(source);
     input.click("foliage:source");
@@ -269,12 +313,13 @@ void exercise(float scale, bool compact, const std::filesystem::path& scratch) {
     test::observe_ui = false;
 }
 void capture(const std::filesystem::path& output, const std::filesystem::path& gallery = {},
-             bool clearance = false) {
+             bool clearance = false, bool mesh_surface = false) {
     std::filesystem::create_directories(output);
     if (!SDL_Init(SDL_INIT_VIDEO))
         throw std::runtime_error(SDL_GetError());
     {
-        const float height = clearance ? 1850 : (gallery.empty() ? 1100 : 1340);
+        const float height =
+            clearance ? 1930 : (gallery.empty() ? 1100 : (mesh_surface ? 1480 : 1420));
         test::ImGuiSoftwareCapture capture(720, unsigned(height));
         ui::style(1);
         EngineContext engine;
@@ -287,14 +332,15 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
             std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
             project = std::make_unique<SceneDocument>(scene);
             project->open_project(root);
-            project->open_scene(clearance ? "Scenes/156-foliage-clearance.scene.json"
-                                          : "Scenes/147-terrain-foliage.scene.json");
+            project->open_scene(mesh_surface ? "Scenes/200-mesh-surface-foliage.scene.json"
+                                : clearance  ? "Scenes/156-foliage-clearance.scene.json"
+                                             : "Scenes/147-terrain-foliage.scene.json");
             const auto source = scene.snapshot();
             for (const auto& row : source.at("entities")) {
                 const auto name = row.at("name").get<std::string>();
                 if (name.starts_with("Blade template"))
                     prototype = row.at("id");
-                if (name.starts_with("Layered terrain"))
+                if (name.starts_with(mesh_surface ? "Mesh surface - tilted" : "Layered terrain"))
                     surface = row.at("id");
             }
             check(!surface.empty() && !prototype.empty(), "Capture Gallery actors are missing");
@@ -326,11 +372,25 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
             owner.selection.select_entity(surface);
             frame();
             input.click("foliage:projected");
+            if (mesh_surface) {
+                auto& io = ImGui::GetIO();
+                io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+                io.ConfigInputTrickleEventQueue = false;
+                input.click("foliage:surface_kind");
+                for (const auto key : {ImGuiKey_Home, ImGuiKey_DownArrow, ImGuiKey_Enter}) {
+                    io.AddKeyEvent(key, true);
+                    frame();
+                    io.AddKeyEvent(key, false);
+                    frame();
+                }
+            }
             input.click("foliage:terrain");
-            input.type("foliage:x", "0");
+            input.type("foliage:x", mesh_surface ? "-7" : "0");
             input.type("foliage:y", "0");
             input.type("foliage:z", "0");
             input.type("foliage:count", "128");
+            if (mesh_surface)
+                input.type("foliage:radius", "4.6");
             input.click("foliage:align_slope");
             input.type("foliage:seed", "91");
             input.type("foliage:spacing", "0.55");
@@ -371,8 +431,9 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
                           "Clearance capture clipped a required control");
                 }
             }
-            capture.save(output / (clearance ? "foliage-clearance-controls.png"
-                                             : "terrain-foliage-controls.png"));
+            capture.save(output / (mesh_surface ? "mesh-foliage-controls.png"
+                                   : clearance  ? "foliage-clearance-controls.png"
+                                                : "terrain-foliage-controls.png"));
         }
         test::observe_ui = false;
     }
@@ -385,6 +446,8 @@ int main(int argc, char** argv) {
             capture(argv[3], argv[2]);
         else if (argc == 4 && std::string_view(argv[1]) == "--capture-clearance")
             capture(argv[3], argv[2], true);
+        else if (argc == 4 && std::string_view(argv[1]) == "--capture-mesh-gallery")
+            capture(argv[3], argv[2], false, true);
         else if (argc == 2)
             capture(argv[1]);
         else if (argc == 3 && std::string_view(argv[1]) == "--test-root")

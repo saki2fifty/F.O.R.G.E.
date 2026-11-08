@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**200-mesh-surface-foliage** contains 256 independent blades on tilted and
+mirrored instances of an editable ramp. Open it and press **Play → Game**. The
+left patch follows geometric slope; the right keeps world-up orientation. Stop
+Play, select **Blade template**, open **Foliage placement**, choose Static triangle
+Mesh and select a ramp to prepare another patch. Save the Scene before export
+with the matching kit. See [Place onto a static Mesh](../editor/foliage.md).
+
 **199-planar-meshes** shows a quad, five-corner polygon and triangle in XY through
 an orthographic Camera. Open it and press **Play → Game**. Their shared Unlit,
 double-sided checker Material needs no Light. Stop Play, open a Mesh under

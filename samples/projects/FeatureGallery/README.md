@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## Static Mesh foliage surfaces
+
+Open `Scenes/200-mesh-surface-foliage.scene.json` and press **Play → Game**.
+Two instances of `Assets/Foliage/PlacementRamp.mesh.json` carry 128 saved blades
+each. The tilted left patch aligns to its geometric slope; the mirrored right
+patch keeps world-up orientation. Edit/publish the ramp source in Content to
+change its geometry; existing blade placements remain independent.
+
+Stop Play and select **Blade template** to prepare another patch through Foliage
+placement, Static triangle Mesh and Use selected Mesh. Save before exporting with
+a matching kit. No project C++ module is needed. See the
+[foliage guide](../../../manual/editor/foliage.md).
+
 ## Flat Mesh shapes
 
 Open `Scenes/199-planar-meshes.scene.json` and press **Play → Game**. A quad,

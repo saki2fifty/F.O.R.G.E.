@@ -218,3 +218,43 @@ Runtime resources and source-hidden
 relocated content are tested separately from physical Windows acceptance.
 Measurements of local CPU authoring and software rendering do not establish
 physical GPU performance, hardware input/DPI acceptance or Windows execution.
+
+## Published static Mesh surface preparation
+
+`prepare_mesh_foliage` and read-only `foliage.surface.prepare` use the existing
+immutable `load_mesh_selection` owner for engine, authored root and Model member
+Meshes. The root loader opens an existing derived cache, matching its Model
+reader and the heightfield read path. A missing cache rejects without creating
+directories; publication and cache writing remain with their existing owners.
+
+The selected geometry profile admits 8 MiB, 16,384 vertices, 12,288 total indices
+and 32 parts, with up to 4,096 LOD0 triangles and 512 candidate origins. Only static
+triangle data is accepted: no skin attributes/palettes, Model skin bindings, morph
+data or enabled surface Wind. Source drafts/raw files are not consulted; selected
+immutable published geometry is authoritative.
+
+`mesh_foliage_surfaces` borrows that data for one bounded query. It transforms
+triangles through the effective authored affine and the existing oriented-area
+normal transform, including mirrors and supported rank-two geometry. World XZ
+origins select the highest upward-facing intersection; equal heights keep first
+part/primitive order. Bounds reject unrelated origins before scale-normalized
+barycentric evaluation. Relative projected triangle area at most 1e-12 is skipped;
+a 1e-12 barycentric boundary tolerance is clamped to the face. No persistent
+geometry representation or acceleration registry is introduced.
+
+Heightfield and Mesh preparations share final height offset, geometric slope,
+normal alignment, complete candidate preview and Scene/revision admission in
+`terrain_foliage_authoring.cpp`. The existing heightfield source-digest/upright
+rules remain specific to that profile. Mesh preparation rechecks its publication
+and returns `surface_mesh`, `surface_revision` and
+`surface_profile: static_mesh_lod0_v1`. Recheck after publication changes before
+applying the ordinary `mesh.scatter` arguments at scene_revision. Scene history,
+asset IDs, saved objects, collision clearance and runtime/export owners remain
+unchanged. Coverage is required even for slope-excluded candidates. Material
+transparency/visibility do not define this geometric boundary. This is authored
+placement, not sampled runtime deformation or a live surface constraint.
+
+The Foliage placement panel chooses Heightfield terrain or Static triangle Mesh
+under Surface geometry. Automation/MCP bind the same preparation functions;
+neither owns another placement implementation. The bounded pairwise query does
+not provide world streaming or a surface-paint brush.

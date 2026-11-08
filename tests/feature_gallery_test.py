@@ -12,6 +12,23 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+mesh_meadow_path = 'Scenes/200-mesh-surface-foliage.scene.json'
+mesh_ramp_path = 'Assets/Foliage/PlacementRamp.mesh.json'
+assert by_source[mesh_meadow_path]['type'] == 'scene' and by_source[mesh_ramp_path]['type'] == 'mesh'
+mesh_meadow = json.loads((project_root / mesh_meadow_path).read_text())
+mesh_ramp = json.loads((project_root / mesh_ramp_path).read_text())
+assert mesh_meadow['asset_id'] == by_source[mesh_meadow_path]['id']
+assert mesh_ramp['asset_id'] == by_source[mesh_ramp_path]['id'] and mesh_ramp['version'] == 1
+assert len(mesh_ramp['vertices']) == 8 and len(mesh_ramp['faces']) == 6
+assert {v['position'][1] - .25*v['position'][0] - .125*v['position'][2]
+        for v in mesh_ramp['vertices']} == {0, -.25}
+for name in ('Slope-aligned Mesh meadow', 'World-up Mesh meadow'):
+    group = next(e for e in mesh_meadow['entities'] if e['name'] == name)
+    children = [e for e in mesh_meadow['entities'] if e.get('parent') == group['id']]
+    assert len(children) == 128 and all('forge.mesh_renderer' in e['components'] for e in children)
+mesh_surfaces = [e for e in mesh_meadow['entities'] if e['name'].startswith('Mesh surface - ')]
+assert len(mesh_surfaces) == 2
+assert all(e['components']['forge.mesh_renderer']['mesh'] == mesh_ramp['asset_id'] for e in mesh_surfaces)
 planar_path = 'Scenes/199-planar-meshes.scene.json'
 assert by_source[planar_path]['id'] == '0390198d-7a9e-4e69-8a2a-912dbbe3d5f7'
 planar_scene = json.loads((project_root / planar_path).read_text(encoding='utf-8'))

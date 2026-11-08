@@ -84,8 +84,9 @@ class FoliagePlacement {
                 owner_ = &scene;
                 scene_ = asset;
                 source_.clear();
-                terrain_.clear();
+                surface_.clear();
                 projected_ = false;
+                surface_kind_ = 0;
                 collision_enabled_ = false;
                 collision_settings_.ignored.clear();
                 status_.clear();
@@ -124,30 +125,44 @@ class FoliagePlacement {
             FORGE_UI_PROBE("foliage:name");
             help("Name of the new group. Each placement is an ordinary child in the Hierarchy.");
             ImGui::BeginDisabled(!project);
-            if (ImGui::Checkbox("Project onto heightfield terrain", &projected_))
+            if (ImGui::Checkbox("Project onto a surface", &projected_))
                 status_.clear();
             FORGE_UI_PROBE("foliage:projected");
             ImGui::EndDisabled();
             if (!project)
-                ImGui::TextDisabled("Open a project to select terrain.");
+                ImGui::TextDisabled("Open a project to select a surface.");
             if (projected_) {
+                ImGui::TextUnformatted("Surface geometry");
+                ImGui::SetNextItemWidth(-1);
+                if (ImGui::Combo("##surface geometry", &surface_kind_,
+                                 "Heightfield terrain\0Static triangle Mesh\0")) {
+                    status_.clear();
+                    error_.clear();
+                }
+                FORGE_UI_PROBE("foliage:surface_kind");
                 ImGui::BeginDisabled(!selected);
-                if (button("Use selected terrain",
-                           "Choose the heightfield Mesh Renderer in Hierarchy. The foliage "
+                if (button(surface_kind_ ? "Use selected Mesh" : "Use selected terrain",
+                           "Choose the surface Mesh Renderer in Hierarchy. The foliage "
                            "template stays selected above.")) {
-                    terrain_ = selected->at("id");
+                    surface_ = selected->at("id");
                     status_.clear();
                     error_.clear();
                 }
                 FORGE_UI_PROBE("foliage:terrain");
                 ImGui::EndDisabled();
-                const auto* surface = find_mesh(view, terrain_);
-                ImGui::TextWrapped("Terrain: %s",
+                const auto* surface = find_mesh(view, surface_);
+                ImGui::TextWrapped("Surface: %s",
                                    surface ? surface->at("name").get<std::string>().c_str()
-                                           : "Choose a published heightfield Mesh Renderer");
-                ImGui::TextWrapped("The terrain must cover every origin and remain upright. "
-                                   "Publish terrain edits before placement. Placed objects do not "
-                                   "follow later terrain edits.");
+                                           : "Choose a published surface Mesh Renderer");
+                ImGui::TextWrapped(
+                    surface_kind_
+                        ? "Use a static published Mesh. The highest upward LOD0 triangle must "
+                          "cover "
+                          "each origin. Skin, morph and wind are unavailable. Publish edits before "
+                          "placement; placed objects stay independent."
+                        : "The terrain must cover every origin and remain upright. Publish terrain "
+                          "edits before placement. Placed objects do not follow later terrain "
+                          "edits.");
                 ImGui::TextUnformatted("Height offset (m)");
                 ImGui::SetNextItemWidth(-1);
                 if (ImGui::InputDouble("##height offset", &height_offset_, 0, 0, "%.3f"))
@@ -166,7 +181,9 @@ class FoliagePlacement {
                 ImGui::TextWrapped("0° is flat, 90° vertical. Keep only candidates within this "
                                    "world-space triangle slope range. Count is a candidate pool; "
                                    "filtering can retain fewer objects.");
-                if (ImGui::Checkbox("Align to terrain slope", &align_to_slope_))
+                if (ImGui::Checkbox(surface_kind_ ? "Align to Mesh slope"
+                                                  : "Align to terrain slope",
+                                    &align_to_slope_))
                     status_.clear();
                 FORGE_UI_PROBE("foliage:align_slope");
                 help("Tilt the placement frame to the geometric normal. Seeded yaw and the "
@@ -186,7 +203,7 @@ class FoliagePlacement {
             field("Center X (m)", "x", settings_.center[0],
                   "World X coordinate of the disk center.");
             field("Center Y (m)", "y", settings_.center[1],
-                  projected_ ? "Group origin Y; each child origin is projected onto the terrain "
+                  projected_ ? "Group origin Y; each child origin is projected onto the surface "
                                "plus Height offset."
                              : "Every new object origin uses this horizontal plane Y.");
             field("Center Z (m)", "z", settings_.center[2],
@@ -227,7 +244,7 @@ class FoliagePlacement {
             if (collision_enabled_) {
                 ImGui::TextWrapped(
                     "Check a world-space sphere against authored 3D colliders. "
-                    "The template and projected terrain are ignored. No simulation runs. "
+                    "The template and projection surface are ignored. No simulation runs. "
                     "This does not test full mesh bounds or collisions between new objects.");
                 field("Clearance radius (m)", "clearance_radius", collision_settings_.radius,
                       "Sphere radius, 0.001 to 100 m. This does not scale with the template.");
@@ -259,7 +276,7 @@ class FoliagePlacement {
                 FORGE_UI_PROBE("foliage:ignore");
                 ImGui::EndDisabled();
                 if (button("Clear ignored objects", "Remove additional exclusions; template and "
-                                                    "projected terrain stay ignored."))
+                                                    "projection surface stay ignored."))
                     collision_settings_.ignored.clear();
                 FORGE_UI_PROBE("foliage:ignore_clear");
                 ImGui::TextWrapped("Additional ignored objects: %zu",
@@ -271,7 +288,7 @@ class FoliagePlacement {
             }
             settings_.count = count_ > 0 ? std::uint32_t(count_) : 0;
             ImGui::BeginDisabled(!source ||
-                                 (projected_ && (!project || !find_mesh(view, terrain_))) ||
+                                 (projected_ && (!project || !find_mesh(view, surface_))) ||
                                  (collision_enabled_ && !project));
             auto perform = [&](bool place) {
                 try {
@@ -280,16 +297,17 @@ class FoliagePlacement {
                     auto revision = scene.revision();
                     auto retained = settings_.count;
                     if (projected_) {
-                        const auto prepared = prepare_terrain_foliage(
-                            *project->writer_guard(), scene, arguments, terrain_, height_offset_,
-                            slopes_, align_to_slope_);
+                        const auto prepared =
+                            (surface_kind_ ? prepare_mesh_foliage : prepare_terrain_foliage)(
+                                *project->writer_guard(), scene, arguments, surface_,
+                                height_offset_, slopes_, align_to_slope_);
                         arguments = prepared.at("arguments");
                         revision = prepared.at("scene_revision");
                         retained = prepared.at("retained_count");
                     }
                     if (collision_enabled_) {
                         auto config = collision_settings_;
-                        config.surface = projected_ ? EntityId::parse(terrain_) : EntityId{};
+                        config.surface = projected_ ? EntityId::parse(surface_) : EntityId{};
                         const auto state = collision_task_.start(project->writer_guard(), scene,
                                                                  arguments, config);
                         pending_operation_ = state.at("operation");
@@ -379,7 +397,8 @@ class FoliagePlacement {
     bool collision_enabled_ = false, pending_place_ = false;
     const Scene* owner_ = nullptr;
     AssetId scene_;
-    std::string source_, terrain_, status_, error_;
+    std::string source_, surface_, status_, error_;
+    int surface_kind_ = 0;
     bool projected_ = false, align_to_slope_ = false;
     double height_offset_ = 0;
     TerrainFoliageSlopeRange slopes_;

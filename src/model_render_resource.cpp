@@ -295,7 +295,8 @@ ResourceCandidate<MeshAsset> load_mesh_selection(const std::filesystem::path& pr
              found != catalog.records().end() && found->second.type == MeshAsset::type &&
              !found->second.subasset) {
         const auto key = selected_mesh_revision(catalog, mesh);
-        DerivedDataCache cache(project, {32 * 1024 * 1024, 64 * 1024 * 1024, 3});
+        auto cache =
+            DerivedDataCache::open_existing(project, {32 * 1024 * 1024, 64 * 1024 * 1024, 3});
         (void)cache.load_selected(key, [&](const CachedArtifact& candidate) {
             data->mesh = admit_root_mesh(candidate, found->second, limits);
         });

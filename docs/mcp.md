@@ -2064,3 +2064,21 @@ lengths are finite within +/-8192px; each view permits at most24 panels, subject
 shared snapshot/layer budgets. Percentages are unsupported. Export uses the
 existing service and requires private filter7. There is no separate agent shadow
 API. See [the manual](../manual/editor/runtime-ui.md#animate-a-panel-shadow).
+
+## Static Mesh foliage surfaces
+
+`forge_foliage_surface_prepare` binds read-only `foliage.surface.prepare`. Supply
+a Scene entity UUID as `surface`, ordinary scatter `arguments` without prepared
+heights/masks/normals, and optional height_offset, inclusive minimum_slope/
+maximum_slope and align_to_slope. Its static_mesh_lod0_v1 profile reads selected
+published geometry; it does not read source drafts, write files or change
+Scene/history. Results include arguments, scene_revision, candidate_count,
+retained_count, aligned_to_slope and surface_mesh/revision/profile.
+
+Apply its arguments with `forge_mesh_scatter` at scene_revision and the normal
+target/mutation sequence. Recheck after publication changes. For collider
+clearance, pass the prepared arguments to `forge_foliage_collision_start`, setting
+its surface to the same entity, then use its ready result with the Scene command.
+Existing terrain preparation remains supported. See
+[foliage placement](foliage-placement.md) for geometry limits, sidedness, affine
+transforms, coverage and unsupported deformation.

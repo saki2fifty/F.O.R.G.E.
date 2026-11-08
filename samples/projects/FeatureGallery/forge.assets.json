@@ -12019,6 +12019,16 @@
       "type": "mesh"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "9170d053-e6f1-4ee4-af6f-1a1e887bd909",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/200-mesh-surface-foliage.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "47ee8b5e-3172-4caf-b1e7-bfdddf364aca"
       ],
@@ -14347,6 +14357,41 @@
       "source": "Scenes/172-audio-streaming.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b5388754-4431-4961-b6ae-fd557d972327",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "e8da9434332d38c2c4c6cebbded35b166d21cab066615a33da2e418865a4e4ab",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "5fc8abea5b11bd6118af58a5eef5c4c02c03a213eadaecb526f6fca66cd94cc4",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "da578ad1885dab2a91fad17eed4f8c679a54401e2ac26e3462f06bea87df5041",
+          "source_digest": "41ced2bb96392cfe00367316f95583d936424dec54dc90d991f18145febcca3d",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 1362,
+          "file": "mesh.bin",
+          "sha256": "fbf83017aebaec0eabc418b930d1c2b37a552e6e302685fb2c9e8b80c58c5a0f",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Foliage/PlacementRamp.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [],

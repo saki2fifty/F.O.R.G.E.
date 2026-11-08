@@ -524,3 +524,17 @@ Use a game Camera facing the XY plane with orthographic projection; enable
 Two-sided on the Material when viewing its back. Save the Scene before export.
 The shapes use the ordinary Mesh source and renderer. Concave outlines, holes
 and curves are unavailable. See [Create a flat 2D Mesh](editable-meshes.md).
+
+## Place foliage on a Mesh surface
+
+Call `forge_foliage_surface_prepare` with the surface object's Scene UUID,
+scatter arguments and optional height offset, slope range and alignment. It reads
+published static LOD0 triangles and returns prepared arguments with a Scene
+revision. Apply them using `forge_mesh_scatter` at that revision, then save the
+Scene. Preparation is available to read-only clients; placement requires write
+permission. Recheck preparation after publishing geometry changes.
+
+Optional collider clearance uses `forge_foliage_collision_start` with these
+prepared arguments and the same surface entity. Apply its ready arguments through
+the existing scatter tool. See [Place onto a static Mesh](foliage.md) for limits,
+coverage, geometry selection and ordinary Undo/export behavior.

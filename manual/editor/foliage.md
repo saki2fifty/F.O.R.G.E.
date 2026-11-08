@@ -46,7 +46,7 @@ Open **Gallery 147 — Terrain foliage** to see 128 blades resting on the layere
 terrain. They are ordinary objects with saved heights, ready for Play and export.
 
 1. [Create or open a heightfield terrain](terrain.md), save and publish it, and place its Mesh in the Scene. Keep it upright: rotation about Y and scaling are supported, with positive Y scale.
-2. Choose the foliage template with **Use selected Mesh Renderer**. Enable **Project onto heightfield terrain**.
+2. Choose the foliage template with **Use selected Mesh Renderer**. Enable **Project onto a surface**, then choose **Surface geometry → Heightfield terrain**.
 3. Select the terrain's Mesh Renderer in Hierarchy, then choose **Use selected terrain**. The template and terrain have separate selections.
 4. Set **Center X (m)**, **Center Z (m)** and **Radius (m)** so every new origin lies over a terrain tile. Set **Height offset (m)** from -1000 to 1000; zero places origins directly on the published surface. **Center Y (m)** controls the group pivot rather than moving the projected origins.
 5. Set **Minimum slope (deg)** and **Maximum slope (deg)**. The default 0–90 keeps every covered candidate. For flatter ground, try 0–20. These angles measure the actual world-space triangle surface, including terrain scaling; they do not measure smoothed lighting normals.
@@ -86,17 +86,53 @@ or adjust the ordinary objects when the ground changes.
 
 Gallery 147 uses the existing blade Mesh and heightfield with saved, independent plant transforms.
 
+## Place onto a static Mesh
+
+1. Stop Play. Publish an editable Mesh or import a static Model, then place its Mesh Renderer in the Scene.
+2. Choose your foliage template with **Use selected Mesh Renderer**. Enable **Project onto a surface**, then choose **Surface geometry → Static triangle Mesh**.
+3. Select the surface object in Hierarchy and choose **Use selected Mesh**. The template and surface have separate selections.
+4. Set the disk center, radius and candidate count. Every horizontal origin must lie over an upward-facing surface triangle. Where surfaces overlap vertically, the highest upward triangle supplies the height.
+5. Set **Height offset (m)** and the slope range. Enable **Align to Mesh slope** to tilt each placement to the geometric triangle normal. Leave it off for world-up yaw and the template's orientation.
+6. Choose **Check layout**, then **Place foliage**. The new group uses one Scene Undo entry. Save the Scene; export uses these ordinary saved Mesh objects with the matching runtime kit.
+
+![Static Mesh surface selection, slope alignment and checked candidate count](../images/mesh-foliage-controls.png)
+
+Choose Static triangle Mesh, select the surface and check the layout before placing.
+
+Projection uses published LOD0 triangles at the surface's authored Scene transform.
+Tilt, signed and nonuniform scale are supported. A flattened surface can work when
+it retains valid upward triangles. Downward, vertical and unstable projected
+triangles do not provide coverage. Image transparency, lighting and Material
+appearance do not trim this geometric boundary.
+
+The selected Mesh is limited to 8 MiB of decoded geometry, 16,384 vertices,
+12,288 indices across its LODs and 32 parts, with at most 4,096 LOD0 triangles.
+Skinned or morph-target Mesh data, enabled surface Wind and point/line parts are
+unavailable. Reduce the Mesh or use heightfield mode for larger terrain.
+Publish edits before preparing another patch. Unpublished source edits do not
+change this mode's selected surface.
+
+![Saved blades aligned to a tilted ramp and upright on a mirrored ramp](../images/mesh-foliage-game.png)
+
+Gallery **200-mesh-surface-foliage** compares slope-aligned and world-up patches
+on two instances of an editable ramp Mesh. Open its source under `Assets/Foliage`.
+
+Later surface movement, geometry edits or animation do not move old placements.
+They remain independent Scene objects. Optional **Reject collisions** composes
+with this projection through the existing controls below. There is no surface
+paint brush or live foliage population.
+
 ## Keep clear of colliders
 
 Open **Gallery 156 — Foliage clearance** for a meadow placed around a large box
 collider. Its saved plants are ordinary objects; no placement task runs during Play.
 
-1. Open a project, choose your template and set the layout. Terrain projection, slope filters and **Align to terrain slope** can stay enabled.
+1. Open a project, choose your template and set the layout. Surface projection, slope filters and slope alignment can stay enabled.
 2. Enable **Reject collisions**. Objects to avoid need enabled 3D Physics Bodies and colliders; a visible Mesh alone does not block placement. Save and publish any Collision asset edits first.
 3. Set **Clearance radius (m)** from 0.001 to 100. A sphere of this world-space radius tests each candidate; it does not scale or rotate with the template.
 4. Set **Clearance offset X (m)**, **Y (m)** and **Z (m)** relative to each candidate origin. Each offset is -1000 to 1000 meters. The default (0, 0.5, 0) checks above the plant's base. Offsets follow world axes, including with slope alignment.
 5. Set **Collision layer mask** to the unsigned combination of the layer bits you want to avoid. The default 4294967295 selects every layer; 0 selects none. Enable **Include sensors** when sensor volumes should also exclude candidates.
-6. The template and selected projection terrain are ignored automatically. To ignore another collider, select its object in Hierarchy and click **Ignore selected object**. Up to 14 additional objects are allowed. Children are separate objects. **Clear ignored objects** removes these additional exclusions.
+6. The template and selected projection surface are ignored automatically. To ignore another collider, select its object in Hierarchy and click **Ignore selected object**. Up to 14 additional objects are allowed. Children are separate objects. **Clear ignored objects** removes these additional exclusions.
 7. Choose **Check layout**. Preparation loads the current published collision data and reports the number of candidates retained. It changes no Scene objects. **Cancel clearance** stops pending preparation.
 8. Choose **Place foliage**. The tool prepares current clearance, then creates the retained subset in one Scene Undo step. Save the Scene.
 
@@ -193,10 +229,10 @@ check or placement clears the tool's Problem entry. The whole Scene remains limi
 to 10,000 entities and the normal command data budget.
 
 Spacing compares new origins in the current group. Mesh bounds can overlap, and
-existing objects require **Reject collisions** and enabled 3D colliders to affect clearance. Terrain projection supports
-the published heightfield profile. Tilted or vertically inverted terrain, arbitrary
-imported surfaces, paint strokes and world streaming are not
-supported. Place on a suitable surface or adjust objects with the normal
+existing objects require **Reject collisions** and enabled 3D colliders to affect
+clearance. Heightfield mode requires upright terrain with positive Y scale;
+static Mesh mode supports the bounded published triangle profile above. Paint
+strokes, live surface links and world streaming are unavailable. Adjust objects with the normal
 Scene tools. Very large coordinates still have the limits of their consuming
 renderer, collision and navigation systems.
 
