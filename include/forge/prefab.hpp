@@ -4,7 +4,7 @@
 #include <vector>
 namespace forge {
 struct PrefabDocument {
-    static constexpr unsigned current_version = 7;
+    static constexpr unsigned current_version = 8;
     static constexpr bool supports_version(unsigned version) {
         return version >= 1 && version <= current_version;
     }
@@ -14,6 +14,8 @@ struct PrefabDocument {
     std::uint64_t revision() const { return source.at("revision").get<std::uint64_t>(); }
     PrefabMemberId root() const { return source.at("root").get<PrefabMemberId>(); }
     std::vector<AssetId> dependencies(const Json& schema = Json::object()) const;
+    // Primary base followed by this variant's ordered additional contributors.
+    std::vector<AssetId> base_assets() const;
     static void validate(const Json& document);
     static bool is_variant(const Json& document);
     // Only arrays whose meaning belongs to the selected source version.
@@ -34,6 +36,7 @@ struct PrefabDocument {
     PrefabDocument with_nested_prefab(PrefabMemberId mount, AssetId asset) const;
     PrefabDocument revert_nested_prefab(PrefabMemberId mount) const;
     PrefabDocument with_nested_references() const;
+    PrefabDocument with_mixins(const std::vector<AssetId>& assets) const;
     PrefabDocument duplicate(const Json& schema = Json::object()) const;
     PrefabDocument reorder_member(PrefabMemberId member, PrefabMemberId before) const;
 };

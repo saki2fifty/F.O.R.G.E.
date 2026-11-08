@@ -1,4 +1,5 @@
 #pragma once
+#include "prefab_source_layers.hpp"
 #include "relationship_graph.hpp"
 #include "spatial_document.hpp"
 #include <forge/asset_ref.hpp>
@@ -11,10 +12,13 @@ inline std::set<std::string> inherited_prefab_member_ids(AssetId base,
                                                          const PrefabSources& sources) {
     std::set<std::string> ids;
     std::set<AssetId> visited;
-    while (base) {
-        if (!visited.insert(base).second || visited.size() > 16)
-            throw std::runtime_error("Invalid prefab identity reservation base chain");
-        const auto& source = sources.at(base);
+    std::vector<AssetId> pending{base};
+    while (!pending.empty()) {
+        const auto asset = pending.back();
+        pending.pop_back();
+        if (!visited.insert(asset).second)
+            continue;
+        const auto& source = sources.at(asset);
         for (const auto* rows : PrefabDocument::authored_member_arrays(source))
             for (const auto& row : source.at(rows)) {
                 ids.insert(row.at("id").get<PrefabMemberId>().str());
@@ -29,9 +33,8 @@ inline std::set<std::string> inherited_prefab_member_ids(AssetId base,
                 for (const auto& member : order.at("members"))
                     ids.insert(member.get<PrefabMemberId>().str());
             }
-        if (!PrefabDocument::is_variant(source))
-            break;
-        base = source.at("base").get<AssetRef<PrefabAsset>>().id;
+        const auto parents = prefab_inheritance_inputs(source);
+        pending.insert(pending.end(), parents.begin(), parents.end());
     }
     return ids;
 }

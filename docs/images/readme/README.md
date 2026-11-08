@@ -1,5 +1,44 @@
 # README screenshots
 
+## Source contribution controls and Game example
+
+The current source-contribution image is an authentic1180×1520 capture of
+PrefabEditor with Gallery208’s `WideBrightMarker` source open, **Source
+contributions** expanded and **Body** selected using actual mouse input.
+Its primary WideMarker base, BrightMarker input, order/removal controls and
+inherited width are visible. The image is a scrollable source-window viewport;
+additional material fields remain below it. Controls and pixels are unretouched.
+
+The640×360 Game image contains the common marker, wider marker, blue material
+contribution and combined width/color marker. The production software Vulkan
+probe checks41,212 interior and177,286 exterior pixels and four exact
+authored/relocated source-hidden Windows-target image pairs. Independent body
+patches measure common red181.54 versus contribution red1.36, retaining blue181.46.
+Only the Game PPM is converted losslessly to PNG; decoded RGB bytes are compared.
+
+The existing variant, suppression and structural source images were refreshed
+because their source windows now show **Source contributions**. Their real
+selected members and task controls were reviewed. Basic/nested source and prior
+Game images retain their unchanged attribution.
+
+Reproduce with `tests/prefab_variant_editor_tests.cpp`
+(`--contributions-capture`, `--gallery-capture`, `--suppression-capture`,
+`--structure-capture`) and `tests/prefab_nested_gallery_vulkan_probe.cpp`
+(`--source-layers`). Capture source is52bf213 plus the source-contribution batch
+on2026-11-08, before its commit. Strict/sanitizer and source-freeze proof are
+separate. SDL software controls and software Vulkan do not establish full-editor,
+Windows or physical GPU/input/DPI acceptance.
+
+| Canonical image | SHA256 |
+| --- | --- |
+| `prefab-source-contributions-source.png` | `58d16ce4d3220c5918294fbc9c8608727db62e877f59783ce6ba7065b219b4de` |
+| `prefab-variant-source.png` | `6df906fd6107cb9947aabc1aea299832bbfcdb6ac028ca323f73b2f641e24704` |
+| `prefab-component-suppression-source.png` | `1d6c6ade815c24a11738be8dbe30ec32779fe761c168f27369c79502043b1d96` |
+| `prefab-member-structure-source.png` | `c56c61d46031a005e28758598d40c1d01d708b4b72456b457e03081901338f61` |
+| `prefab-source-contributions-game.png` | `1c2520cebe7c50fc3dcf3b51151d11a0969993dd0d5c48474425bbd33a886345` |
+
+The source-control captures below record earlier checkpoint provenance.
+
 ## Nested Prefab assemblies and source controls
 
 The current [nested source window](../../../manual/images/prefab-nested-source.png)

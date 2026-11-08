@@ -50,6 +50,8 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [038](038-timed-sound-cue-offsets.md) | Timed Source offsets share the native frame clock and voice lifetime |
 | [043](043-prefab-component-suppression.md) | Explicit variant component suppression retains existing source meanings and ownership |
 | [044](044-prefab-structural-variants.md) | Single-base structural variants share existing source, identity, realization and history owners |
+| [045](045-nested-prefab-composition.md) | Nested ordinary instances retain distinct child identities and scoped references |
+| [046](046-prefab-source-layers.md) | Related variants combine ordered sparse source contributions through the existing Prefab owner |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

@@ -1,0 +1,73 @@
+{
+  "asset_id": "254c884d-808d-401c-ab66-b31fc0fc24c8",
+  "base": "d255167b-4179-46b6-af94-c76a589abf6b",
+  "format": "forge.prefab",
+  "overrides": [
+    {
+      "components": {},
+      "id": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+      "property_overrides": {
+        "forge.mesh_renderer": {
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "components": {},
+      "id": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+      "property_overrides": {
+        "forge.mesh_renderer": {
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "components": {
+        "forge.navigation_behavior": {
+          "anchor": {
+            "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+            "prefab": "254c884d-808d-401c-ab66-b31fc0fc24c8"
+          },
+          "enabled": false,
+          "graph": null,
+          "target": {
+            "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+            "prefab": "254c884d-808d-401c-ab66-b31fc0fc24c8"
+          }
+        }
+      },
+      "id": "61cdd295-eebe-4ff1-9f6e-764d817fb24a"
+    }
+  ],
+  "revision": 2,
+  "root": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+  "version": 4
+}

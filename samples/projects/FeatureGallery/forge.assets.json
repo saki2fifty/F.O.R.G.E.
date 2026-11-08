@@ -19926,6 +19926,84 @@
       "source": "Scenes/207-nested-prefab-assemblies.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [
+        "d255167b-4179-46b6-af94-c76a589abf6b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
+          "type": "prefab"
+        }
+      ],
+      "id": "254c884d-808d-401c-ab66-b31fc0fc24c8",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Assets/Contributions/BrightMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "5c2cd1e1-e220-445a-aba2-a99a0d43fbc6",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Scenes/208-prefab-source-contributions.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [
+        "d2d84a7d-bbec-44ce-84ca-5a3d920b4467",
+        "254c884d-808d-401c-ab66-b31fc0fc24c8"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:mixins.0",
+          "target": "254c884d-808d-401c-ab66-b31fc0fc24c8",
+          "type": "prefab"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "d2d84a7d-bbec-44ce-84ca-5a3d920b4467",
+          "type": "prefab"
+        }
+      ],
+      "id": "90a5d2f2-4497-4ac7-b9c4-4a19d38173ff",
+      "metadata": {},
+      "schema_version": 8,
+      "source": "Assets/Contributions/WideBrightMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [
+        "d255167b-4179-46b6-af94-c76a589abf6b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
+          "type": "prefab"
+        }
+      ],
+      "id": "d2d84a7d-bbec-44ce-84ca-5a3d920b4467",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Assets/Contributions/WideMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
     }
   ],
   "version": 2

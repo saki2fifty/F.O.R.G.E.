@@ -1,5 +1,22 @@
 # Feature Gallery
 
+## Related Prefab source contributions
+
+Open `Scenes/208-prefab-source-contributions.scene.json` and press **Play → Game**.
+The four markers compare a common source, a width variant, a color variant and a
+variant combining both contributions. Width and color remain explicit intent in
+separate sources; the shared ancestor applies once. Each Scene instance has its
+own member identities, and the disabled reference component resolves Body/Crown
+inside that instance.
+
+Stop Play, open **Assets/Contributions/WideBrightMarker.prefab.json**, expand
+**Source contributions**, and inspect its bright input. **Earlier**, **Later** and
+**Remove** edit the ordered additional inputs. Select **Body** to add a local
+override; Revert follows the combined inherited values. Publish and save before
+exporting. Inputs must share a complete-source ancestor/root identity. The Camera
+and Material are included; no project C++ module is required. See the
+[Prefab guide](../../../manual/editor/prefabs.md).
+
 ## Nested Prefab assemblies
 
 Open `Scenes/207-nested-prefab-assemblies.scene.json` and press **Play → Game**.

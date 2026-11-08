@@ -344,6 +344,26 @@ struct PrefabAutomation {
                     return result;
                 }));
         }
+        result.push_back(automation_method(
+            "prefab.source.mixins.set",
+            "Replace a variant's ordered additional source contributors at its exact draft state. "
+            "Explicitly enables source8. Supply zero to15 distinct Prefab assets sharing the "
+            "primary base's complete-source ancestor and root identity. Shared ancestors apply "
+            "once; later contributions and local intent take precedence. Checks reviewed source "
+            "closure, identity, order, cycles and bounds through the native source owner. "
+            "An empty array clears additional inputs without downgrading. Publish saves "
+            "separately; "
+            "Scene Undo does not edit this draft.",
+            "asset.write",
+            automation_object({{"state", automation_digest()},
+                               {"assets", automation_array(automation_uuid(), 15)}},
+                              {"state", "assets"}),
+            true, [&editor, &scene, &project](const Json& request) {
+                check(editor, project, request);
+                editor.set_source_mixins(scene, project,
+                                         request.at("assets").get<std::vector<AssetId>>());
+                return state(editor, project);
+            }));
         for (const auto* action : {"set", "clear", "revert"}) {
             Json properties{{"state", automation_digest()}, {"member", automation_uuid()}};
             Json required{"state", "member"};

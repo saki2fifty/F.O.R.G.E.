@@ -696,6 +696,21 @@ Use that returned reference in an admitted source field through raw patch, then
 Publish with the fresh digest. Missing addresses retain identity instead of
 silently selecting another occurrence. No Scene objects are fabricated by discovery.
 
+`forge_prefab_source_mixins_set` replaces a variant's ordered additional source
+inputs through the same candidate as **Prefab source → Source contributions**.
+It requires `asset.write`, the normal target/lease/Scene revision/sequence checks,
+the exact draft `state`, and `assets` (an ordered array of zero to15 distinct
+Prefab AssetIds). It explicitly enables source8; an empty array clears additional
+inputs without downgrading. All inputs must share the primary base's complete-
+source ancestor and root identity. Shared ancestors apply once, followed by each
+contributor's sparse intent and local intent; inconsistent precedence, cycles,
+peer identity capture and exceeded graph/member budgets reject atomically.
+Supporting-source review includes the before/after closure. Read-only discovery
+omits this mutation. Read/effective/targets, ordinary Revert, source patch and
+separate Publish retain their existing owners, permissions and state checks.
+Scene Undo does not edit this draft; paired instance Apply/Undo/Redo preserves its
+raw source8 input selection while issuing monotonic publication revisions.
+
 `forge_prefab_source_rebase` refreshes published sources and reviews updated bases
 while retaining draft intent; a successful refresh may clear Scene history.
 Source edits require the exact draft digest and preserve identity/publication

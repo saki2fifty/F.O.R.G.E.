@@ -2,6 +2,22 @@
 
 Pushes and pull requests run Linux/Windows core tests, cache-invalidation tests, and formatting. They do not compile the D3D12 editor or publish a ZIP. Superseded push/PR runs on the same ref are cancelled; manual builds are not cancelled by a code push.
 
+Related Prefab source contributions use `prefab_source_layers` for explicit
+source8 admission, monotonic ordering, shared-ancestor sparse values, origin
+collisions,64 contributors, admitted/opaque custom data, scoped references,
+duplication and dependency impact. `authored_migration` covers source8 ordered
+inputs and retained local values. Native `prefab_source_layers_editor` covers
+actual add/order/remove/lock/publication controls at100/150/200% in wide/narrow
+layouts; `mcp_prefab_source_layers_stdio` uses both envelopes and the shared draft,
+review/publication/history owners. `runtime_prefab_source_layers` exercises real
+physics/render consumers, private recovery and source-hidden relocated data;
+`native_sdk_prefab_source_layers` and `native_sdk_prefab_variants_installed` cover
+direct/SDK Play and an installed-only relocated SDK. Gallery208 uses the existing
+composition fixtures with `--source-layers` for independent silhouette coverage
+and exact authored/exported production Game image comparisons. Source8 preserves
+source1–7/Scene1–6/native layouts; unrelated-root composition is unsupported.
+These checks establish neither Windows execution nor physical-device acceptance.
+
 Request a Windows package using **Build and test → Run workflow**, with **windows_package** enabled. From the GitHub CLI:
 
 ```sh

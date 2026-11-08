@@ -1,0 +1,12 @@
+{
+  "asset_id": "90a5d2f2-4497-4ac7-b9c4-4a19d38173ff",
+  "base": "d2d84a7d-bbec-44ce-84ca-5a3d920b4467",
+  "format": "forge.prefab",
+  "mixins": [
+    "254c884d-808d-401c-ab66-b31fc0fc24c8"
+  ],
+  "overrides": [],
+  "revision": 2,
+  "root": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+  "version": 8
+}

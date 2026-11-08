@@ -268,6 +268,10 @@ struct Inspect {
                     reference(dependency, "dependencies", "Prefab dependency", PrefabAsset::type);
             if (variant)
                 reference(doc.at("base"), "base", "Prefab base", PrefabAsset::type);
+            if (variant && doc.at("version").get<unsigned>() >= 8)
+                for (std::size_t i = 0; i < doc.value("mixins", Json::array()).size(); ++i)
+                    reference(doc.at("mixins")[i], "mixins." + std::to_string(i),
+                              "Prefab source contribution", PrefabAsset::type);
             for (const auto& [key, unused] : doc.items()) {
                 (void)unused;
                 if (key != "format" && key != "version" && key != "asset_id" &&
@@ -275,6 +279,7 @@ struct Inspect {
                     key != "revision" && key != "root" && key != "legacy_ids" &&
                     key != "rendering" && !(prefab && key == "dependencies") &&
                     !(variant && (key == "base" || key == "overrides")) &&
+                    !(variant && doc.at("version").get<unsigned>() >= 8 && key == "mixins") &&
                     !(structural_profile && (key == "added_members" || key == "member_order")))
                     unknown(key);
             }

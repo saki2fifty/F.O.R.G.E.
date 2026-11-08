@@ -15,7 +15,8 @@ runtime, gallery, module = (Path(arg).resolve() for arg in sys.argv[1:4])
 suppressed = '--suppression' in sys.argv[4:]
 structural = '--structure' in sys.argv[4:]
 nested = '--nested' in sys.argv[4:]
-variant = '--variant' in sys.argv[4:] or suppressed or structural
+source_layers = '--source-layers' in sys.argv[4:]
+variant = '--variant' in sys.argv[4:] or suppressed or structural or source_layers
 scene_id = 'fab9f548-3f22-4fbc-a5e0-bd0a2cffd9a1'
 prefab_id = '3f95b972-aa2a-4fab-999a-8857a5a35e11'
 scene_path = Path('Scenes/64-runtime-prefab-creation.scene.json')
@@ -57,6 +58,8 @@ def check(state, tick):
             assert all('forge.navigation_surface' not in values[member] for member in members), values
         if variant:
             assert abs(pose['forge.tint']['g'] - .65) < 1e-5, pose
+        if source_layers:
+            assert abs(pose['forge.tint']['r'] - .35) < 1e-5, pose
         assert pose['forge.local_translation'] == dict(x=(-4 if index == 0 else 4 if index == 1 else 0),
                                                        y=1.3, z=(-3 if index == 2 else 0)), pose
         count = tick - (1 if index < 2 else 120)
@@ -135,6 +138,25 @@ with tempfile.TemporaryDirectory(prefix='forge-prefab-sdk-', dir=runtime.parent)
             target=base_id, type='prefab', kind='runtime', role='document:base', revision='')])
         catalog['assets'].append(dict(id=base_id, type='prefab', source='Assets/RuntimeRobotBase.prefab.json',
                                      schema_version=3, dependencies=[], metadata={}))
+        if source_layers:
+            layers = []
+            for name, values in [('Shape', dict(r=.35)), ('Color', dict(g=.65))]:
+                layer = dict(format='forge.prefab', version=4, asset_id=str(uuid.uuid4()),
+                             revision=1, root=base['root'], base=base_id, overrides=[dict(
+                                 id=base['root'], components={}, property_overrides={'forge.tint': values})])
+                layer_path = f'Assets/RuntimeRobot{name}.prefab.json'
+                (root/layer_path).write_text(json.dumps(layer))
+                catalog['assets'].append(dict(id=layer['asset_id'], type='prefab', source=layer_path,
+                    schema_version=4, dependencies=[base_id], dependency_edges=[dict(
+                        target=base_id, type='prefab', kind='runtime', role='document:base', revision='')],
+                    metadata={}))
+                layers.append(layer)
+            selected.update(version=8, base=layers[0]['asset_id'], mixins=[layers[1]['asset_id']], overrides=[])
+            (root/prefab_path).write_text(json.dumps(selected))
+            record.update(schema_version=8, dependencies=[layer['asset_id'] for layer in layers],
+                          dependency_edges=[dict(target=layer['asset_id'], type='prefab', kind='runtime',
+                              role='document:base' if i == 0 else 'document:mixins.0', revision='')
+                              for i, layer in enumerate(layers)])
     (root/'forge.assets.json').write_text(json.dumps(catalog))
     fingerprint = json.loads(subprocess.check_output([runtime, '--sdk-info'], text=True))['fingerprint']
     game = json.loads((gallery/'forge.project.json').read_text())['game']
@@ -150,6 +172,8 @@ with tempfile.TemporaryDirectory(prefix='forge-prefab-sdk-', dir=runtime.parent)
     source['_prefab_sources'] = [json.loads((root/prefab_path).read_bytes())]
     if variant:
         source['_prefab_sources'].append(base)
+    if source_layers:
+        source['_prefab_sources'].extend(layers)
     if nested:
         source['_prefab_sources'].append(child)
     direct = Worker(runtime, root)

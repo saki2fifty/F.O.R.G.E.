@@ -133,8 +133,8 @@ inline void validate_prefab_composition_graph(const PrefabSources& sources) {
             throw std::runtime_error("Prefab source AssetId mismatch");
         unsigned depth = 0;
         const auto edge = [&](AssetId child) { depth = std::max(depth, visit(child) + 1); };
-        if (PrefabDocument::is_variant(document.source))
-            edge(document.source.at("base").get<AssetRef<PrefabAsset>>().id);
+        for (const auto base : document.base_assets())
+            edge(base);
         for (const auto* rows : PrefabDocument::authored_member_arrays(document.source))
             for (const auto& member : document.source.at(rows))
                 if (const auto child = nested_prefab_asset(member, document.source.at("version")))

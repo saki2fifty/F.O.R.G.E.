@@ -25,14 +25,16 @@ AssetRecord prefab_record(const PrefabDocument& document, const std::filesystem:
     AssetRecord record{document.asset(), PrefabAsset::type, path,
                        document.source.at("version").get<unsigned>(),
                        document.dependencies(schema)};
+    const auto inputs = document.base_assets();
     for (const auto id : record.dependencies) {
-        const bool base =
-            PrefabDocument::is_variant(document.source) && document.source.at("base") == Json(id);
-        record.dependency_edges.push_back({id,
-                                           PrefabAsset::type,
-                                           AssetDependencyKind::Runtime,
-                                           base ? "document:base" : "document:dependencies",
-                                           {}});
+        const auto input = std::find(inputs.begin(), inputs.end(), id);
+        const auto provenance =
+            input == inputs.end() ? "document:dependencies"
+            : input == inputs.begin()
+                ? "document:base"
+                : "document:mixins." + std::to_string(input - inputs.begin() - 1);
+        record.dependency_edges.push_back(
+            {id, PrefabAsset::type, AssetDependencyKind::Runtime, provenance, {}});
     }
     return record;
 }

@@ -1,5 +1,23 @@
 # 2026-11-08
 
+## Ordered Prefab source contributions
+
+Explicit source8 variants keep their primary base and select ordered additional
+related sources. The shared resolver applies sparse intent once per ancestor,
+preserving independent field changes and original member identities. Inputs must
+share a complete-source ancestor/root. Inconsistent order, cycles, duplicate
+declarations and peer capture of dormant structural/reference addresses reject.
+Source1–7, Scene1–6 and native reference/callback layouts retain their contracts.
+
+Native Source contributions controls and the exact-state MCP mutation share the
+source draft owner. Contributor changes participate in supporting-source review,
+publication and composed Revert. Duplication, schema migration, paired Apply with
+monotonic Undo/Redo, native runtime creation/recovery, SDK Play and relocated export
+use the established owners. Gallery208 compares common, width-only, color-only and
+combined sources; the illustrated Prefab manual explains authoring and limits.
+Unrelated root namespaces are unsupported. Windows/full-editor/physical and
+external-client acceptance remain separate from local portable/control fixtures.
+
 ## Ordered sound playlist authoring
 
 Select up to eight AudioClips in Content, review their order and playback settings,

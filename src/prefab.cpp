@@ -71,6 +71,18 @@ void validate_variant(const Json& source) {
     const auto base = source.at("base").get<AssetRef<PrefabAsset>>();
     if (!base.id || base.id == asset)
         throw std::runtime_error("Prefab variant requires a different base Prefab asset");
+    if (source.at("version").get<unsigned>() >= 8 && source.contains("mixins")) {
+        const auto& mixins = source.at("mixins");
+        if (!mixins.is_array() || mixins.size() > 15)
+            throw std::runtime_error("Prefab supports at most16 direct inheritance inputs");
+        std::set<AssetId> selected{base.id};
+        for (const auto& value : mixins) {
+            const auto id = value.get<AssetRef<PrefabAsset>>().id;
+            if (!id || id == asset || !selected.insert(id).second)
+                throw std::runtime_error(
+                    "Prefab source contributors must be distinct available assets");
+        }
+    }
     const auto root = source.at("root").get<PrefabMemberId>().str();
     const bool structural = source.at("version").get<unsigned>() >= 6;
     const auto& revision = source.at("revision");
@@ -228,7 +240,7 @@ void PrefabDocument::validate(const Json& doc) {
     if (!doc.is_object() || doc.value("format", "") != "forge.prefab" ||
         !doc.at("version").is_number_integer() || doc.at("version") < 1 ||
         doc.at("version") > current_version)
-        throw std::runtime_error("Expected FORGE prefab schema 1, 2, 3, 4, 5, 6 or 7");
+        throw std::runtime_error("Expected FORGE prefab schema 1, 2, 3, 4, 5, 6, 7 or 8");
     if (is_variant(doc)) {
         validate_variant(doc);
         return;
@@ -239,6 +251,8 @@ void PrefabDocument::validate(const Json& doc) {
     if (doc.at("version").get<unsigned>() >= 6 &&
         (doc.contains("added_members") || doc.contains("member_order")))
         throw std::runtime_error("Prefab structural intent requires a base asset");
+    if (doc.at("version").get<unsigned>() >= 8 && doc.contains("mixins"))
+        throw std::runtime_error("Prefab source contributors require a primary base");
     (void)doc.at("asset_id").get<AssetId>();
     const auto& revision = doc.at("revision");
     if (!revision.is_number_integer() || revision.get<double>() < 1)
@@ -453,8 +467,7 @@ PrefabDocument PrefabDocument::with_member_order(PrefabMemberId parent,
 }
 std::vector<AssetId> PrefabDocument::dependencies(const Json& schema) const {
     auto result = source.value("dependencies", std::vector<AssetId>{});
-    if (is_variant(source)) {
-        const auto base = source.at("base").get<AssetRef<PrefabAsset>>().id;
+    for (const auto base : base_assets()) {
         if (std::find(result.begin(), result.end(), base) == result.end())
             result.push_back(base);
     }
@@ -482,6 +495,24 @@ std::vector<AssetId> PrefabDocument::dependencies(const Json& schema) const {
         }
     return result;
 }
+std::vector<AssetId> PrefabDocument::base_assets() const {
+    return detail::prefab_inheritance_inputs(source);
+}
+PrefabDocument PrefabDocument::with_mixins(const std::vector<AssetId>& assets) const {
+    if (!is_variant(source))
+        throw std::runtime_error(
+            "Create a variant before selecting additional source contributors");
+    if (source.at("version").get<unsigned>() < 8 && source.contains("mixins"))
+        throw std::runtime_error(
+            "Older source contains opaque mixins; preserve or rename it before source8");
+    auto candidate = with_nested_references().source;
+    candidate["version"] = 8;
+    if (assets.empty())
+        candidate.erase("mixins");
+    else
+        candidate["mixins"] = assets;
+    return PrefabDocument(std::move(candidate));
+}
 PrefabDocument PrefabDocument::with_nested_prefab(PrefabMemberId mount, AssetId asset) const {
     auto candidate = with_nested_references().source;
     auto& row = detail::prefab_member_intent(candidate, mount.str());
@@ -493,7 +524,7 @@ PrefabDocument PrefabDocument::with_nested_references() const {
     // Source7 also includes source6 structure/suppression semantics. Reuse its
     // opt-in collision checks before advancing an older variant.
     enable_member_structure(candidate);
-    candidate["version"] = 7;
+    candidate["version"] = std::max(candidate.at("version").get<unsigned>(), 7u);
     return PrefabDocument(std::move(candidate));
 }
 PrefabDocument PrefabDocument::revert_nested_prefab(PrefabMemberId mount) const {
@@ -702,6 +733,62 @@ Json project_prefab_override_value(const Json& definition, const Json& instance,
     detail::project_custom_prefab_intent(values, instance, schema);
     return values;
 }
+Json apply_prefab_variant_members(Json members, const Json& source, AssetId inherited_asset,
+                                  unsigned inherited_version, AssetId destination,
+                                  const PrefabSources& sources, const Json& schema) {
+    auto layer = source;
+    const auto version = layer.at("version").get<unsigned>();
+    auto reserved = version >= 6 ? detail::inherited_prefab_member_ids(
+                                       layer.at("base").get<AssetRef<PrefabAsset>>().id, sources)
+                                 : std::set<std::string>{};
+    const auto retag = [&](Json& values, AssetId owner, unsigned profile, bool reserve) {
+        if (profile < 3)
+            return;
+        detail::transform_prefab_component_references(values, schema, [&](const Json& value) {
+            const auto reference = detail::source_member_reference(value, profile, owner);
+            if (!reference)
+                return value;
+            if (reserve && version >= 6)
+                reserved.insert(reference->instances.empty()
+                                    ? reference->member.str()
+                                    : reference->instances.front().mount.str());
+            auto result = value;
+            result["prefab"] = destination;
+            return result;
+        });
+    };
+    // Retag only schema-admitted fields; unknown payloads and absolute Scene
+    // references preserve their meaning. Each layer keeps its original profile.
+    for (const auto* key : PrefabDocument::authored_member_arrays(layer))
+        for (auto& row : layer[key])
+            for (const auto* channel : {"components", "property_overrides"})
+                if (row.contains(channel))
+                    retag(row[channel], layer.at("asset_id").get<AssetId>(), version, false);
+    const auto intent = detail::index_json_rows(layer.at("overrides"));
+    if (version >= 5)
+        for (const auto& row : layer.at("overrides"))
+            detail::validate_prefab_component_suppression(row,
+                                                          detail::prefab_reference_schema(schema));
+    for (auto& row : members) {
+        retag(row["components"], inherited_asset, inherited_version, true);
+        const auto override = intent.find(row.at("id").get<std::string>());
+        if (override == intent.end())
+            continue;
+        const auto& value = *override->second;
+        auto components = prefab_builtin_override_intent(row, value);
+        detail::merge_custom_prefab_intent(components, value, schema);
+        if (version >= 5)
+            for (const auto& key : value.value("suppressed_components", Json::array()))
+                components.erase(key.get<std::string>());
+        row["components"] = std::move(components);
+        if (value.contains("name"))
+            row["name"] = value.at("name");
+        if (version >= 7 && value.contains("prefab_instance"))
+            row["prefab_instance"] = value.at("prefab_instance");
+    }
+    return version >= 6 ? detail::compose_prefab_member_structure(members, layer, reserved)
+                        : members;
+}
 } // namespace
 Json prefab_override_value(const Json& definition, const Json& instance, const Json& schema) {
     return project_prefab_override_value(definition, instance, schema,
@@ -709,97 +796,76 @@ Json prefab_override_value(const Json& definition, const Json& instance, const J
 }
 PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& schema) {
     detail::validate_prefab_composition_graph(sources);
+    const auto orders = detail::prefab_inheritance_orders(sources);
     PrefabSources resolved;
-    std::map<AssetId, unsigned> depths;
-    std::set<AssetId> visiting;
     std::uint64_t retained = 0;
     std::function<void(AssetId)> resolve = [&](AssetId asset) {
         if (resolved.contains(asset))
             return;
-        if (!visiting.insert(asset).second)
-            throw std::runtime_error("Cyclic prefab variant bases");
-        if (visiting.size() > 17)
-            throw std::runtime_error("Prefab variant derivation exceeds 16 base links");
-        const auto at = sources.find(asset);
-        if (at == sources.end())
-            throw std::runtime_error("Missing prefab variant base: " + asset.str());
-        const PrefabDocument parsed(at->second);
-        if (parsed.asset() != asset)
-            throw std::runtime_error("Prefab source AssetId mismatch");
+        // The combined dependency graph was admitted above, including missing
+        // sources, cycles, identity and depth, before preparing any definitions.
+        const PrefabDocument parsed(sources.at(asset));
         auto definition = parsed.source;
-        unsigned depth = 0;
         if (PrefabDocument::is_variant(definition)) {
+            for (const auto input : parsed.base_assets())
+                resolve(input);
             const auto base = definition.at("base").get<AssetRef<PrefabAsset>>().id;
-            resolve(base);
-            depth = depths.at(base) + 1;
-            if (depth > 16)
-                throw std::runtime_error("Prefab variant derivation exceeds 16 base links");
             const auto& inherited = resolved.at(base);
             if (definition.at("root") != inherited.at("root"))
                 throw std::runtime_error("Prefab variant base root identity changed incompatibly");
-            const auto intent = detail::index_json_rows(definition.at("overrides"));
-            if (definition.at("version").get<unsigned>() >= 5)
-                for (const auto& row : definition.at("overrides"))
-                    detail::validate_prefab_component_suppression(
-                        row, detail::prefab_reference_schema(schema));
-            // Keep the selected source profile; references retain source4 semantics.
-            definition["members"] = inherited.at("members");
-            auto reserved = definition.at("version").get<unsigned>() >= 6
-                                ? detail::inherited_prefab_member_ids(base, sources)
-                                : std::set<std::string>{};
-            for (auto& row : definition["members"]) {
-                if (inherited.at("version").get<unsigned>() >= 3)
-                    detail::transform_prefab_component_references(
-                        row["components"], schema, [&](const Json& value) {
-                            const auto reference_id = detail::source_member_reference(
-                                value, inherited.at("version"), base);
-                            if (!reference_id)
-                                return value;
-                            if (definition.at("version").get<unsigned>() >= 6)
-                                reserved.insert(reference_id->instances.empty()
-                                                    ? reference_id->member.str()
-                                                    : reference_id->instances.front().mount.str());
-                            auto reference = value;
-                            reference["prefab"] = asset;
-                            return reference;
-                        });
-                const auto override = intent.find(row.at("id").get<std::string>());
-                if (override == intent.end())
-                    continue;
-                const auto& value = *override->second;
-                auto components = prefab_builtin_override_intent(row, value);
-                detail::merge_custom_prefab_intent(components, value, schema);
-                if (definition.at("version").get<unsigned>() >= 5)
-                    for (const auto& key : value.value("suppressed_components", Json::array()))
-                        components.erase(key.get<std::string>());
-                row["components"] = std::move(components);
-                if (value.contains("name"))
-                    row["name"] = value.at("name");
-                if (value.contains("prefab_instance"))
-                    row["prefab_instance"] = value.at("prefab_instance");
+            unsigned inherited_version = inherited.at("version");
+            if (definition.at("version").get<unsigned>() >= 8) {
+                const auto& order = orders.at(asset);
+                detail::validate_prefab_source_origins(order, sources, orders, schema);
+                const auto origin = order.back();
+                auto members = resolved.at(origin).at("members");
+                inherited_version = resolved.at(origin).at("version");
+                auto owner = origin;
+                auto evidence = Json::array();
+                for (auto layer = order.rbegin() + 1; layer != order.rend(); ++layer) {
+                    members =
+                        apply_prefab_variant_members(std::move(members), sources.at(*layer), owner,
+                                                     inherited_version, asset, sources, schema);
+                    owner = asset;
+                    inherited_version = std::max(inherited_version,
+                                                 sources.at(*layer).at("version").get<unsigned>());
+                }
+                for (auto layer = order.rbegin(); layer != order.rend() - 1; ++layer) {
+                    const auto& raw = sources.at(*layer);
+                    const auto bytes = raw.dump();
+                    evidence.push_back({{"asset", *layer},
+                                        {"revision", raw.at("revision")},
+                                        {"sha256", asset_detail::content_digest(
+                                                       std::as_bytes(std::span(bytes)))}});
+                }
+                definition["members"] = std::move(members);
+                definition[variant_stamp] = {{"base", base}, {"contributors", std::move(evidence)}};
+                definition.erase("mixins");
+            } else {
+                definition["members"] =
+                    apply_prefab_variant_members(inherited.at("members"), definition, base,
+                                                 inherited_version, asset, sources, schema);
+                // Revision/cache evidence only; no logical identity derives from it.
+                const auto bytes = inherited.dump();
+                definition[variant_stamp] = {
+                    {"base", base},
+                    {"revision", inherited.at("revision")},
+                    {"sha256", asset_detail::content_digest(std::as_bytes(std::span(bytes)))}};
             }
             if (definition.at("version").get<unsigned>() >= 6) {
-                definition["members"] = detail::compose_prefab_member_structure(
-                    definition.at("members"), definition, reserved);
                 definition.erase("added_members");
                 definition.erase("member_order");
             }
-            // Revision/cache evidence only; no logical identity derives from it.
-            const auto bytes = inherited.dump();
-            definition[variant_stamp] = {
-                {"base", base},
-                {"revision", inherited.at("revision")},
-                {"sha256", asset_detail::content_digest(std::as_bytes(std::span(bytes)))}};
             definition.erase("base");
             definition.erase("overrides");
             // Promote only the completed definition. Raw older variant fields
             // above keep their original semantics and remain opaque.
-            if (inherited.at("version").get<unsigned>() >= 7) {
+            if (inherited_version >= 7) {
                 // Older top-level extension spellings remain in the raw source;
                 // they cannot become instructions in an effective source7 copy.
                 definition.erase("added_members");
                 definition.erase("member_order");
-                definition["version"] = 7;
+                definition["version"] = std::max(definition.at("version").get<unsigned>(), 7u);
             }
             definition = PrefabDocument(std::move(definition)).source;
         }
@@ -812,8 +878,6 @@ PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& s
                 throw std::runtime_error("Resolved prefab variant definitions exceed 64 MiB");
         }
         resolved.emplace(asset, std::move(definition));
-        depths.emplace(asset, depth);
-        visiting.erase(asset);
     };
     for (const auto& [asset, source] : sources) {
         (void)source;

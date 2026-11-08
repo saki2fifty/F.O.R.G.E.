@@ -145,7 +145,7 @@ instances can add their own overrides on top of the selected variant.
 5. Click **Publish source**, then instantiate the variant in your scene.
 
 The source window identifies the **Variant base** and shows inherited values.
-**Inherited member** identifies a member supplied by the base; **Owned member**
+**Inherited member** identifies a member supplied by the base or a related source contribution; **Owned member**
 identifies an addition defined in this source.
 **Component inherited** means all its values follow the base. **Properties
 overridden** marks a partial override; its individual fields show **Inherited** or
@@ -197,7 +197,8 @@ reopen it to review that file before publishing. Failed validation keeps the dra
 A variant can use another variant as its base. A path through base relationships
 and nested links can contain up to 16 links; missing required assets and cycles
 reject. If the base removes a member, its variant overrides are retained for that
-same identity to return; names do not retarget them. Multiple bases are unavailable.
+same identity to return; names do not retarget them. Related variants can contribute
+to the same source through the workflow below.
 
 Open **Scenes/142-prefab-variants.scene.json** in the Feature Gallery and press
 **Play**. The base, amber, blue and chained pink variants run the same sliding
@@ -222,6 +223,65 @@ requires no project C++ module.
 ![Three checker markers: the base has a crown, the middle variant omits it, and the derived variant adds it](../images/prefab-component-suppression-game.png)
 
 Compare the retained body and member structure with the missing middle renderer.
+
+## Combine related source contributions
+
+Use source contributions when two variants of the same common Prefab supply
+different reusable changes. For example, one can change a marker's width while
+another changes its color. Create both variants from the common source first.
+Use nested Prefabs for separate objects with independent source hierarchies.
+
+1. Create a variant of the source whose changes should apply first.
+2. Open its **Edit source** window and expand **Source contributions**.
+3. Choose **Add related source...** and select the other variant.
+4. Add more sources if needed. **Earlier** and **Later** change their order; **Remove** removes an additional input while retaining your local overrides.
+5. Inspect the inherited members and values, then click **Publish source**.
+6. Save your Scene before Play or export.
+
+![Variant source showing its primary base and an ordered additional source with Earlier, Later and Remove controls](../images/prefab-source-contributions-source.png)
+
+Expand **Source contributions** to inspect and change the additional inputs.
+
+The primary base applies first, then the listed sources, then this source's own
+overrides. Shared ancestors apply once. A source contributes only the values and
+structure it explicitly authors; inherited defaults do not erase another source's
+field changes. **Revert field**, **Revert name** and **Revert component** remove
+this source's local intent and follow the combined inherited result. A later
+explicit whole component can supply a component suppressed by an earlier input.
+
+Inputs must share the same complete-source ancestor and root member identity.
+Duplicate assets, incompatible ordering, cycles and conflicting member identities
+reject the edit without changing the draft. Use variants created from the common
+source; duplicating an ordinary source creates a different identity family.
+An input can address its own members and inherited members. Put references between
+independent contributors in the combined source, where both are available.
+Removed or unavailable members follow the existing per-source removal and repair
+rules; adding another input does not automatically restore an earlier removal.
+
+There can be up to 15 additional inputs and 64 unique contributors including the
+current source. The existing 16-link path and expanded-member limits also apply.
+Selecting contributions enables Prefab format8; removing every additional input
+keeps that format. If an older extension already uses its reserved field, preserve
+or rename that extension before enabling contributions. Use an editor/runtime
+that supports the saved format.
+
+If a contributor changes externally, use **Rebase draft** to review the current
+saved sources while retaining local intent. Publication checks the reviewed
+sources as well as the file being edited. Restore a missing required input before
+reviewing and publishing the source. Direct publication clears affected
+Scene history; Scene Undo does not edit the source draft.
+
+Open **Scenes/208-prefab-source-contributions.scene.json** in the Feature Gallery
+and press **Play → Game**. From left to right, compare the common marker, the wide
+variant, the bright variant and the variant combining width and color. Stop Play
+and edit **Assets/Contributions/WideBrightMarker.prefab.json**. Expand **Source
+contributions** to inspect its bright input, or select **Body** to add a local
+override. Publish and save before exporting. The Camera and Material are included;
+no project C++ module is required.
+
+![Four markers in Game comparing the common source, wider shape, brighter color and both contributions together](../images/prefab-source-contributions-game.png)
+
+The final marker inherits width and color from separate related sources.
 
 ## Change a variant's member structure
 
@@ -287,7 +347,7 @@ After editing source files outside FORGE, increase the source revision and use *
 
 ## Current boundaries
 
-The source window edits admitted built-in and project components. Unavailable plugin data is preserved without interpreting it. Multiple bases, per-instance interior hierarchy changes and Unpack are unavailable. Apply supports admitted instance overrides as described below. Existing scene-local prefabs remain supported in their original form; opening them does not create asset files or automatically convert them.
+The source window edits admitted built-in and project components. Unavailable plugin data is preserved without interpreting it. Combining unrelated root namespaces, per-instance interior hierarchy changes and Unpack are unavailable. Related source contributions use the common identity family described above. Apply supports admitted instance overrides as described below. Existing scene-local prefabs remain supported in their original form; opening them does not create asset files or automatically convert them.
 
 See also [Transforms](transforms.md), [Undo and redo](undo-redo.md), [Saving and recovery](saving-recovery.md) and [Play mode](play-mode.md).
 

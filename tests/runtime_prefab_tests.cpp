@@ -92,7 +92,8 @@ std::string member(const Scene& scene, EntityId root, PrefabMemberId id) {
             return row.at("prefab_instance").at("members").at(id.str());
     throw std::runtime_error("Missing runtime member");
 }
-void exercise(const Json& snapshot, const Fixture& fixture, bool suppressed = false) {
+void exercise(const Json& snapshot, const Fixture& fixture, bool suppressed = false,
+              bool source_layers = false) {
     World live;
     auto& context = live.engine.world();
     live.scene.restore_snapshot(snapshot);
@@ -148,6 +149,12 @@ void exercise(const Json& snapshot, const Fixture& fixture, bool suppressed = fa
         for (const auto& value : {a, b})
             check(!live.scene.entity(value.reference.entity.str()).has<NavigationSurface>(),
                   "Runtime creation resurrected the suppressed source5 component");
+    if (source_layers)
+        for (const auto& value : {a, b}) {
+            const auto tint = live.scene.entity(value.reference.entity.str()).get<Tint>();
+            check(std::abs(tint.r - .2f) < 1e-6f && std::abs(tint.g - .8f) < 1e-6f,
+                  "Runtime creation lost independent sparse source contributions");
+        }
     check(a.reference.entity == reserved && a.reference != b.reference &&
               live.scene.entity_count() == 4 && !live.scene.can_undo(),
           "Prefab group identity/history is incorrect");
@@ -518,12 +525,13 @@ int main(int argc, char** argv) {
                                           std::string_view(argv[2]) == "--variant" ||
                                           std::string_view(argv[2]) == "--suppression" ||
                                           std::string_view(argv[2]) == "--structure" ||
+                                          std::string_view(argv[2]) == "--source-layers" ||
                                           std::string_view(argv[2]) == "--variant-budget" ||
                                           std::string_view(argv[2]) == "--nested-budget" ||
                                           std::string_view(argv[2]) == "--nested")),
               "Need runtime Prefab scratch directory and optional "
               "--budget/--variant/--suppression/--structure/--variant-budget/--nested-budget/"
-              "--nested");
+              "--nested/--source-layers");
         if (argc == 3 && std::string_view(argv[2]) == "--nested") {
             nested_runtime();
             std::cout
@@ -541,6 +549,7 @@ int main(int argc, char** argv) {
         const bool variant = argc == 3;
         const bool suppressed = variant && std::string_view(argv[2]) == "--suppression";
         const bool structural = variant && std::string_view(argv[2]) == "--structure";
+        const bool source_layers = variant && std::string_view(argv[2]) == "--source-layers";
         if (!variant)
             for (const auto version : {1u, 2u, 3u, 4u})
                 many_member_overrides(version);
@@ -548,6 +557,7 @@ int main(int argc, char** argv) {
         auto source = fixture.source();
         const auto base_id = fixture.prefab;
         const auto inherited_bob = fixture.bob;
+        PrefabSources contributions;
         if (variant) {
             fixture.prefab = AssetId::generate();
             source = {{"format", "forge.prefab"},   {"version", 4},
@@ -572,6 +582,23 @@ int main(int argc, char** argv) {
                       {{"forge.physics_joint",
                         local.at("members")[0].at("components").at("forge.physics_joint")}}}});
             }
+            if (source_layers) {
+                for (unsigned i = 0; i < 2; ++i) {
+                    const auto asset = AssetId::generate();
+                    auto layer = source;
+                    layer["asset_id"] = asset;
+                    layer["overrides"].push_back(
+                        {{"id", fixture.root},
+                         {"components", Json::object()},
+                         {"property_overrides",
+                          {{"forge.tint", i == 0 ? Json{{"r", .2}} : Json{{"g", .8}}}}}});
+                    contributions.emplace(asset, std::move(layer));
+                }
+                // Asset ordering is immaterial to independent fields; explicit
+                // precedence and common-origin admission use the normal owner.
+                source["base"] = contributions.begin()->first;
+                source = PrefabDocument(source).with_mixins({contributions.rbegin()->first}).source;
+            }
         }
         const auto scratch = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         const auto root = scratch / "source";
@@ -582,8 +609,24 @@ int main(int argc, char** argv) {
         atomic_write(root / "rig.prefab.json", source.dump(2));
         AssetCatalog catalog(root);
         const auto scene_record = catalog.add_scene("spawn.scene.json");
-        catalog.add({fixture.prefab, PrefabAsset::type, "rig.prefab.json",
-                     source.at("version").get<unsigned>()});
+        const auto add_source_record = [&](const std::string& path, const Json& document) {
+            const PrefabDocument parsed(document);
+            AssetRecord record{parsed.asset(), PrefabAsset::type, path,
+                               document.at("version").get<unsigned>(), parsed.dependencies()};
+            for (const auto dependency : record.dependencies)
+                record.dependency_edges.push_back({dependency,
+                                                   PrefabAsset::type,
+                                                   AssetDependencyKind::Runtime,
+                                                   "document:inheritance",
+                                                   {}});
+            catalog.add(std::move(record));
+        };
+        add_source_record("rig.prefab.json", source);
+        for (const auto& [asset, layer] : contributions) {
+            const auto path = "contribution-" + asset.str() + ".prefab.json";
+            atomic_write(root / path, layer.dump(2));
+            add_source_record(path, layer);
+        }
         if (variant) {
             Fixture base = fixture;
             base.prefab = base_id;
@@ -608,13 +651,15 @@ int main(int argc, char** argv) {
                                                      {}}},
                                                    catalog.document());
         }
-        exercise(load_game_scene(root, {scene_record.id}), fixture, suppressed);
+        exercise(load_game_scene(root, {scene_record.id}), fixture, suppressed, source_layers);
         auto edited = authored.snapshot();
         edited["note"] = "unsaved scene data";
         const auto prepared = detail::runtime_scene_content(root, edited);
         check(prepared.at("note") == edited.at("note") &&
                   prepared.at("entities") == edited.at("entities") &&
-                  prepared.at("_prefab_sources").size() == (variant ? 2u : 1u),
+                  prepared.at("_prefab_sources").size() == (source_layers ? 4u
+                                                            : variant     ? 2u
+                                                                          : 1u),
               "Play preparation replaced caller scene edits or lost declarations");
         auto supplied = edited;
         auto explicit_source = source;
@@ -634,11 +679,13 @@ int main(int argc, char** argv) {
         std::filesystem::rename(output, relocated);
         std::filesystem::rename(root, scratch / "source-offline");
         const auto shipped = open_runtime_content(relocated, {"windows", "d3d12"});
-        check(shipped.records().size() == (variant ? 3u : 2u) &&
+        check(shipped.records().size() == (source_layers ? 5u
+                                           : variant     ? 3u
+                                                         : 2u) &&
                   shipped.records().contains(fixture.prefab) &&
                   (!variant || shipped.records().contains(base_id)),
               "Runtime-only declared Prefab missing from export");
-        exercise(load_game_scene(relocated, {scene_record.id}), fixture, suppressed);
+        exercise(load_game_scene(relocated, {scene_record.id}), fixture, suppressed, source_layers);
         std::cout << "Runtime Prefab queue, native consumers, recovery and relocated "
                      "Windows-target data passed on Linux\n";
     } catch (const std::exception& error) {

@@ -1,0 +1,253 @@
+{
+  "asset_id": "5c2cd1e1-e220-445a-aba2-a99a0d43fbc6",
+  "entities": [
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": -3.9,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "1e83d040-34da-4238-8bef-b2a16e34fee5",
+      "name": "Common source",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "d255167b-4179-46b6-af94-c76a589abf6b",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "1e83d040-34da-4238-8bef-b2a16e34fee5",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "6568259f-9836-492a-89d2-a7bfd85c3620",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "4db814fe-098b-4315-8fce-43a0f0d1ccf9"
+        },
+        "revision": 1,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "6568259f-9836-492a-89d2-a7bfd85c3620",
+      "name": "Crown",
+      "parent": "1e83d040-34da-4238-8bef-b2a16e34fee5",
+      "prefab_member": {
+        "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+        "root": "1e83d040-34da-4238-8bef-b2a16e34fee5"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "4db814fe-098b-4315-8fce-43a0f0d1ccf9",
+      "name": "Body",
+      "parent": "1e83d040-34da-4238-8bef-b2a16e34fee5",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "1e83d040-34da-4238-8bef-b2a16e34fee5"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": -1.2999999999999998,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "52543b2c-6c05-42d8-8aee-4c3ac5879a9c",
+      "name": "Wide contribution",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "d2d84a7d-bbec-44ce-84ca-5a3d920b4467",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "52543b2c-6c05-42d8-8aee-4c3ac5879a9c",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "317c0c31-1021-4b68-89b4-3cbb21b6c289",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "b8e009c3-1a2d-49c9-ae23-3f678b265842"
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "317c0c31-1021-4b68-89b4-3cbb21b6c289",
+      "name": "Crown",
+      "parent": "52543b2c-6c05-42d8-8aee-4c3ac5879a9c",
+      "prefab_member": {
+        "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+        "root": "52543b2c-6c05-42d8-8aee-4c3ac5879a9c"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "b8e009c3-1a2d-49c9-ae23-3f678b265842",
+      "name": "Body",
+      "parent": "52543b2c-6c05-42d8-8aee-4c3ac5879a9c",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "52543b2c-6c05-42d8-8aee-4c3ac5879a9c"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 1.3000000000000003,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "ae11c2d7-a098-4782-87f5-883375d2a819",
+      "name": "Bright contribution",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "254c884d-808d-401c-ab66-b31fc0fc24c8",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "ae11c2d7-a098-4782-87f5-883375d2a819",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "3013e79b-d369-483c-8ebe-b44cfbbc179b",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "f5d92afc-360c-4df4-ac60-0946c390557c"
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "3013e79b-d369-483c-8ebe-b44cfbbc179b",
+      "name": "Crown",
+      "parent": "ae11c2d7-a098-4782-87f5-883375d2a819",
+      "prefab_member": {
+        "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+        "root": "ae11c2d7-a098-4782-87f5-883375d2a819"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "f5d92afc-360c-4df4-ac60-0946c390557c",
+      "name": "Body",
+      "parent": "ae11c2d7-a098-4782-87f5-883375d2a819",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "ae11c2d7-a098-4782-87f5-883375d2a819"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 3.900000000000001,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "489eabb6-10c3-491d-ab3b-7ad47812eaa2",
+      "name": "Wide + bright contributions",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "90a5d2f2-4497-4ac7-b9c4-4a19d38173ff",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "489eabb6-10c3-491d-ab3b-7ad47812eaa2",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "4635bf0f-dd93-4981-a55a-b9f3fec79b66",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "abac6e07-2d85-4f7d-87c4-9e53c7f57370"
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "4635bf0f-dd93-4981-a55a-b9f3fec79b66",
+      "name": "Crown",
+      "parent": "489eabb6-10c3-491d-ab3b-7ad47812eaa2",
+      "prefab_member": {
+        "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+        "root": "489eabb6-10c3-491d-ab3b-7ad47812eaa2"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "abac6e07-2d85-4f7d-87c4-9e53c7f57370",
+      "name": "Body",
+      "parent": "489eabb6-10c3-491d-ab3b-7ad47812eaa2",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "489eabb6-10c3-491d-ab3b-7ad47812eaa2"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 6.6,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "09c1bdfc-d386-4655-8ac8-f9f2cdfe7784",
+      "name": "Source contribution overview",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 4
+}

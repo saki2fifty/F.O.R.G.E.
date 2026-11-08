@@ -153,6 +153,10 @@ class PrefabEditor {
     void revert_nested_prefab(Scene& scene, SceneDocument& project, PrefabMemberId mount) {
         edit_draft(PrefabDocument(draft_).revert_nested_prefab(mount).source, scene, project);
     }
+    void set_source_mixins(Scene& scene, SceneDocument& project,
+                           const std::vector<AssetId>& assets) {
+        edit_draft(PrefabDocument(draft_).with_mixins(assets).source, scene, project);
+    }
     PrefabMemberId add_child(PrefabMemberId parent, const Json& schema,
                              const std::string& name = "Child") {
         const auto view = source_view(schema);
@@ -659,6 +663,7 @@ class PrefabEditor {
                                    "retaining this draft’s explicit overrides. Successful source "
                                    "refresh clears Scene history."))
                         rebase_draft(scene, project);
+                    draw_source_mixins(scene, project);
                 } else if (!baseline_bases_.empty() &&
                            ui::button("Review supporting sources",
                                       "Refresh published sources while retaining this draft. "
@@ -1004,9 +1009,21 @@ class PrefabEditor {
                     source_edit(
                         [&] { set_member_removed(PrefabMemberId::parse(member_), true, schema); });
                 ImGui::EndDisabled();
-                if (variant())
-                    draw_unavailable_members(view, resolved.at(draft_.at("base").get<AssetId>()),
-                                             schema);
+                if (variant()) {
+                    if (draft_.at("version").get<unsigned>() < 8 || !draft_.contains("mixins") ||
+                        draft_.at("mixins").empty())
+                        draw_unavailable_members(
+                            view, resolved.at(draft_.at("base").get<AssetId>()), schema);
+                    else {
+                        auto inherited = draft_;
+                        inherited["overrides"] = Json::array();
+                        inherited.erase("added_members");
+                        inherited.erase("member_order");
+                        sources[edited] = std::move(inherited);
+                        draw_unavailable_members(
+                            view, resolve_prefab_sources(sources, schema).at(edited), schema);
+                    }
+                }
                 if (ui::button(
                         "Publish source",
                         "Validate and realize the candidate, atomically replace this one prefab "
@@ -1071,6 +1088,82 @@ class PrefabEditor {
     }
 
   private:
+    void draw_source_mixins(Scene& scene, SceneDocument& project) {
+        auto inputs = PrefabDocument(draft_).base_assets();
+        const auto primary = inputs.front();
+        inputs.erase(inputs.begin());
+        const bool expanded = ImGui::TreeNode("Source contributions");
+        FORGE_UI_PROBE("prefab-mixins-section");
+        if (!expanded)
+            return;
+        ui::help(
+            "Apply related sources after the primary base in the listed order, then this "
+            "source's own overrides. Shared ancestors apply once. All inputs must share a "
+            "complete source and root identity; conflicting order or identity rejects the edit.");
+        for (std::size_t i = 0; i < inputs.size(); ++i) {
+            ui::IdScope scope(inputs[i].str().c_str());
+            const auto record = project.prefabs().records().find(inputs[i]);
+            const auto label = record == project.prefabs().records().end()
+                                   ? inputs[i].str()
+                                   : path_text(record->second.source);
+            ImGui::TextWrapped("%zu. %s", i + 1, label.c_str());
+            auto next = inputs;
+            bool changed = false;
+            ImGui::BeginDisabled(i == 0);
+            if (ui::button("Earlier", "Apply this source before the previous contribution.")) {
+                std::swap(next[i], next[i - 1]);
+                changed = true;
+            }
+            FORGE_UI_PROBE("prefab-mixin-earlier:" + inputs[i].str());
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(i + 1 == inputs.size());
+            if (ui::button("Later", "Apply this source after the next contribution.")) {
+                std::swap(next[i], next[i + 1]);
+                changed = true;
+            }
+            FORGE_UI_PROBE("prefab-mixin-later:" + inputs[i].str());
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            if (ui::button("Remove",
+                           "Remove this contributor; retain this draft's local intent.")) {
+                next.erase(next.begin() + std::ptrdiff_t(i));
+                changed = true;
+            }
+            FORGE_UI_PROBE("prefab-mixin-remove:" + inputs[i].str());
+            if (changed) {
+                source_edit([&] { set_source_mixins(scene, project, next); });
+                ImGui::TreePop();
+                return;
+            }
+        }
+        ImGui::BeginDisabled(inputs.size() == 15);
+        if (ImGui::BeginCombo("##Source contribution", "Add related source...")) {
+            std::optional<AssetId> selected;
+            for (const auto& [asset, source] : scene.prefab_sources()) {
+                if (asset == primary || source.at("asset_id") == draft_.at("asset_id") ||
+                    source.at("root") != draft_.at("root") ||
+                    std::find(inputs.begin(), inputs.end(), asset) != inputs.end())
+                    continue;
+                const auto record = project.prefabs().records().find(asset);
+                const auto label = record == project.prefabs().records().end()
+                                       ? asset.str()
+                                       : path_text(record->second.source);
+                ui::IdScope scope(asset.str().c_str());
+                if (ImGui::Selectable(label.c_str()))
+                    selected = asset;
+                FORGE_UI_PROBE("prefab-mixin-choice:" + asset.str());
+            }
+            ImGui::EndCombo();
+            if (selected) {
+                inputs.push_back(*selected);
+                source_edit([&] { set_source_mixins(scene, project, inputs); });
+            }
+        }
+        FORGE_UI_PROBE("prefab-mixin-add");
+        ImGui::EndDisabled();
+        ImGui::TreePop();
+    }
     void draw_nested_prefab(const Json& member, Scene& scene, SceneDocument& project) {
         const auto mount = member.at("id").get<PrefabMemberId>();
         const auto child = detail::nested_prefab_asset(member, 7);

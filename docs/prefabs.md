@@ -142,7 +142,7 @@ stores `base: AssetRef<PrefabAsset>` and `overrides`, with its own AssetId/revis
 and the base root's member identity. It has no `members` array. Complete source4
 definitions store `members` without `base`/`overrides`. A variant reuses inherited
 member IDs in its own AssetId namespace. Source7 adds distinct nested instances.
-Bound4096 override rows,16 combined base/nesting links and64MiB resolved source4–7 values; old source caller budgets and versions1–3 stay unchanged.
+Bound4096 override rows,16 combined inheritance/nesting links and64MiB resolved source4–8 values; old source caller budgets and versions1–3 stay unchanged.
 
 `resolve_prefab_sources` composes detached values through existing whole-component /
 property intent codecs. Known member references retag only their Prefab AssetId;
@@ -214,7 +214,8 @@ retain their contracts. No Scene format, callback table, runtime flag or second
 hierarchy/history owner is introduced. Native and exact-state automation/MCP edits
 share candidate validation with the full admitted Scene schema. Unavailable members
 have attachment repair and source-local removal Restore controls. Source7 adds
-nested structured instances below. Multiple inheritance remains unsupported.
+nested structured instances below. Source8 extends related-source composition
+through the same owner, as described below.
 
 Gallery142 includes independent animated base/variant/chained instances; focused
 tests cover source-hidden relocated Windows-target data on Linux. Windows native
@@ -266,3 +267,57 @@ target discovery share one disposable projection with occurrence IDs in labels.
 Capture, duplication, Apply/history and recovery use the same instance maps.
 Older source/Scene profiles preserve opaque spellings; explicit opt-in rejects
 collisions. Gallery207 demonstrates repeated, cleared and replaced child links.
+
+## Ordered source contributions
+
+[ADR046](decisions/046-prefab-source-layers.md) extends variants with explicit
+source8. A raw variant keeps its primary `base` and may select an ordered `mixins`
+array of additional typed Prefab AssetIds. Every inheritance input must share a
+complete-source ancestor and root member ID. Independent object hierarchies use
+nested instances. This profile does not combine unrelated root namespaces.
+
+The existing resolver admits the combined inheritance/nesting graph, calculates
+a monotonic C3 precedence order and applies its reverse. The primary base's
+contributions precede additional inputs in list order, with local intent last;
+shared ancestors apply once. Inconsistent precedence rejects. Each layer uses
+its original version's whole/property/name/suppression/structure/nested-link
+semantics. The resolver applies raw sparse intent rather than overlaying resolved
+sibling definitions, preserving independent fields. Structural availability is
+evaluated by the existing per-layer owner; a later input does not invent a lost
+definition. A later explicit whole component may supply an earlier suppressed key.
+
+Disposable declaration provenance rejects different sources declaring one member
+ID, including removed additions. Structural addresses and schema-admitted portable
+reference addresses may name declarations owned by that source or its inheritance
+ancestors. A combined source can address all of its admitted inputs. A peer's
+dormant address cannot silently capture another contributor's new declaration.
+For scoped references, only the outer mount is in the current source namespace;
+the nested leaf stays in the child namespace. Unknown/unadmitted payloads are
+opaque. Admitted references retag the outer Prefab AssetId into the destination;
+absolute Scene references, native EntityRef/PrefabMemberRef and SDK layouts retain
+their contracts. There is no persistent provenance registry or additional manager.
+
+Bounds are16 direct inheritance inputs including the primary base,64 unique
+contributors including the current source,16 combined dependency edges along a
+path,4096 expanded active members,127 structural levels,16384 retained map targets,
+8MiB library source files and64MiB resolved source4–8 definitions. Unrelated
+declared dependencies retain their existing limits. Completed source8 definitions
+contain effective `members`, stripping raw `base`, `mixins`, `overrides` and
+structural arrays. Their derived `$forge.variant` evidence includes primary base
+and each ancestor's AssetId, revision and content SHA256; it never creates identity.
+
+`PrefabDocument::with_mixins` creates an immutable candidate. Explicit opt-in rejects
+an older opaque `mixins` spelling and reuses the earlier structural/nested opt-in
+checks. Clearing inputs retains source8. Source1–7 meanings remain unchanged;
+older descendants can inherit source8 while their raw opaque fields stay opaque.
+Scene1–6 and persistent member/tombstone maps are unchanged.
+
+PrefabLibrary reviews the union of supporting dependencies before/after an edit;
+loaded and on-disk contributors must match the reviewed state. Runtime dependency
+evidence records `document:base` and ordered `document:mixins.N` edges. The reference
+impact adapter recognizes these typed inputs only for source8. Duplication,
+migration, source publication, paired Apply/history, private recovery, runtime
+creation, SDK Play and export use the existing owners. Native **Source contributions**
+and `prefab.source.mixins.set` use the same draft operation and validation. Local
+Revert follows the composed inherited view; source editing remains separate from
+Scene Undo. Gallery208 compares common, width-only, color-only and combined sources.

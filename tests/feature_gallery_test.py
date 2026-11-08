@@ -12,6 +12,19 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+contribution_path = 'Scenes/208-prefab-source-contributions.scene.json'
+contribution_scene = json.loads((project_root / contribution_path).read_text())
+assert contribution_scene['asset_id'] == by_source[contribution_path]['id']
+assert sum('prefab_instance' in row for row in contribution_scene['entities']) == 4
+contribution_sources = [json.loads((project_root / ('Assets/Contributions/' + name + '.prefab.json')).read_text())
+                        for name in ('WideMarker', 'BrightMarker', 'WideBrightMarker')]
+wide, bright, combined = contribution_sources
+assert combined['version'] == 8 and combined['base'] == wide['asset_id']
+assert combined['mixins'] == [bright['asset_id']] and combined['overrides'] == []
+assert wide['base'] == bright['base'] and combined['root'] == wide['root'] == bright['root']
+assert all('members' not in value for value in contribution_sources)
+assert any('material_parameters' in row.get('property_overrides', {}).get('forge.mesh_renderer', {})
+           for row in bright['overrides'])
 nested_path = 'Scenes/207-nested-prefab-assemblies.scene.json'
 nested_scene = json.loads((project_root / nested_path).read_text())
 assert nested_scene['version'] == 6 and nested_scene['asset_id'] == by_source[nested_path]['id']

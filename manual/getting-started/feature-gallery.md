@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**208-prefab-source-contributions** compares a common marker, a wider variant,
+a color variant and a variant combining both. Open it and press **Play → Game**.
+Stop Play, edit `Assets/Contributions/WideBrightMarker.prefab.json`, and expand
+**Source contributions** to inspect its additional input. Select **Body** to
+inspect inherited width and object material values or add a local override.
+Publish and save before export. The Camera and Material are included; no project
+C++ module is required. See [Source contributions](../editor/prefabs.md).
+
 **207-nested-prefab-assemblies** compares an assembly with two linked copies, a
 variant clearing one link and a variant replacing one child. Open it and press
 **Play → Game**. Stop Play, edit `Assets/Assemblies/PairedMarkers.prefab.json` and

@@ -275,6 +275,16 @@ int main() {
                       structural_result.at("overrides") == expected_suppressed.at("overrides"),
                   "Source6 migration missed dormant local values or changed their structural "
                   "ownership");
+            auto contributions = structural_variant;
+            contributions["version"] = 8;
+            contributions["mixins"] = Json::array({AssetId::generate()});
+            auto expected_contributions = structural_result;
+            expected_contributions["version"] = 8;
+            expected_contributions["mixins"] = contributions.at("mixins");
+            AuthoredMigrationDocument contribution_draft(contributions, source, target);
+            check(contribution_draft.candidate(structural_values) == expected_contributions,
+                  "Source8 migration changed ordered inputs, declaration identity or sparse "
+                  "ownership");
             check(
                 migrated_variant.at("base") == variant.at("base") &&
                     migrated_variant.at("asset_id") == variant.at("asset_id") &&

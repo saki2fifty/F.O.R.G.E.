@@ -1,7 +1,9 @@
 #include "fixtures/prefab_nested_gallery.hpp"
+#include "fixtures/prefab_source_layers_gallery.hpp"
 #include "fixtures/prefab_structure_gallery.hpp"
 #include "fixtures/prefab_suppression_gallery.hpp"
 #include "imgui_software_capture.hpp"
+#include "prefab_source_layers_editor.hpp"
 #include "prefabs.hpp"
 #include <algorithm>
 #include <forge/navigation_behavior_components.hpp>
@@ -425,7 +427,7 @@ void exercise(const std::filesystem::path& scratch, float scale, bool narrow,
           "Native order Revert retained the source's ordering prefix");
     test::observe_ui = false;
 }
-enum class SourceCapture { Variant, Suppression, Structure, Nested, Basic };
+enum class SourceCapture { Variant, Suppression, Structure, Nested, Basic, Contributions };
 void capture_gallery(const std::filesystem::path& gallery, const std::filesystem::path& scratch,
                      const std::filesystem::path& output,
                      SourceCapture mode = SourceCapture::Variant) {
@@ -433,6 +435,7 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     const bool structural = mode == SourceCapture::Structure;
     const bool nested = mode == SourceCapture::Nested;
     const bool basic = mode == SourceCapture::Basic;
+    const bool contributions = mode == SourceCapture::Contributions;
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root);
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
@@ -442,7 +445,8 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     project.open_project(root);
     AssetId amber;
     for (const auto& [id, record] : project.prefabs().records())
-        if (record.source == (basic         ? test_prefab_nested_gallery::child_path
+        if (record.source == (contributions ? test_prefab_source_layers_gallery::prefab_paths[2]
+                              : basic       ? test_prefab_nested_gallery::child_path
                               : nested      ? test_prefab_nested_gallery::prefab_paths[0]
                               : structural  ? test_prefab_structure_gallery::prefab_paths[0]
                               : suppression ? test_prefab_suppression_gallery::prefab_paths[1]
@@ -453,7 +457,7 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     ui::style(1);
     PrefabEditor editor;
     editor.edit_source(scene, project, amber);
-    test::observe_ui = suppression || structural || nested || basic;
+    test::observe_ui = suppression || structural || nested || basic || contributions;
     const auto frame = [&] {
         test::ui_targets.clear();
         capture.new_frame();
@@ -465,14 +469,26 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     };
     for (unsigned i = 0; i < 6; ++i)
         frame();
-    if (suppression || structural || nested || basic) {
+    if (contributions) {
+        const auto box = test::ui_targets.at("prefab-mixins-section");
+        auto& io = ImGui::GetIO();
+        io.AddMousePosEvent((box.minimum.x + box.maximum.x) / 2,
+                            (box.minimum.y + box.maximum.y) / 2);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
+    }
+    if (suppression || structural || nested || basic || contributions) {
         std::string crown;
         const auto view = editor.source_view(scene.schema());
         for (const auto& row : view.at("members"))
             if (basic ? row.at("id") == view.at("root")
-                      : row.at("name") == (nested       ? "Right linked marker"
-                                           : structural ? "Crossbar"
-                                                        : "Crown"))
+                      : row.at("name") == (contributions ? "Body"
+                                           : nested      ? "Right linked marker"
+                                           : structural  ? "Crossbar"
+                                                         : "Crown"))
                 crown = row.at("id");
         const auto box = test::ui_targets.at("prefab-source-member:" + crown);
         auto& io = ImGui::GetIO();
@@ -484,7 +500,11 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
         io.AddMouseButtonEvent(0, false);
         frame();
         frame();
-        if (nested || basic)
+        if (contributions)
+            check(test::ui_targets.contains("prefab-mixin-add") &&
+                      test::ui_targets.at("prefab-mixin-add").enabled,
+                  "Source contribution capture did not reach the actual input controls");
+        else if (nested || basic)
             check(test::ui_targets.contains("prefab-nested-choice") &&
                       test::ui_targets.at("prefab-nested-choice").enabled,
                   "Gallery source capture did not reach its actual nested asset control");
@@ -506,6 +526,24 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 5 && std::string_view(argv[1]) == "--contributions-capture") {
+            capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                            std::filesystem::absolute(argv[4]), SourceCapture::Contributions);
+            return 0;
+        }
+        if ((argc == 3 || argc == 4) && std::string_view(argv[1]) == "--source-layers-ui") {
+            const auto scratch = std::filesystem::absolute(argv[2]);
+            if (argc == 4)
+                test::exercise_prefab_source_layers(scratch, 1, false,
+                                                    std::filesystem::absolute(argv[3]));
+            else
+                for (float scale : {1.f, 1.5f, 2.f})
+                    for (bool narrow : {false, true})
+                        test::exercise_prefab_source_layers(scratch, scale, narrow);
+            std::cout
+                << "Native source contributions, order, removal, lock and publication passed\n";
+            return 0;
+        }
         if ((argc == 3 || argc == 4) && std::string_view(argv[1]) == "--nested-ui") {
             const auto scratch = std::filesystem::absolute(argv[2]);
             std::filesystem::create_directories(scratch);
