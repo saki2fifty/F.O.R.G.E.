@@ -179,6 +179,9 @@ class MeshSceneRenderer {
     std::optional<Double2> project_ui_surface(const RenderScene&, const PreparedCamera&,
                                               const UiSurfaceHit&) const;
     std::vector<Diagnostic> ui_surface_diagnostics(const RenderScene&) const;
+    std::optional<MeshSurfaceHit> pick_surface(const RenderScene&, const CameraView&, EntityId,
+                                               double x, double y,
+                                               std::uint32_t layers = UINT32_MAX) const;
     std::optional<MeshTextureSurfaceHit>
     pick_texture_surface(const RenderScene&, const CameraView&, EntityId,
                          const MeshTextureSurfaceTarget&, double x, double y,
@@ -250,6 +253,14 @@ class MeshSceneRenderer {
         const Entry* entry;
         UiSurfaceImageMapping mapping;
     };
+    struct RetainedSurfacePick {
+        const Entry* entry;
+        unsigned lod, part;
+        MeshPickTriangle triangle;
+    };
+    std::optional<RetainedSurfacePick> pick_retained_surface(const RenderScene&, const CameraView&,
+                                                             EntityId, double, double,
+                                                             std::uint32_t, MeshPickBudget&) const;
     std::optional<UiSurfaceSelection>
     ui_surface_selection(const RenderScene&, EntityId, std::uint32_t layers, MeshPickBudget&) const;
     std::shared_ptr<MeshDrawBundle> prepare_bundle(const asset_detail::PreparedModelDraw&, bool,

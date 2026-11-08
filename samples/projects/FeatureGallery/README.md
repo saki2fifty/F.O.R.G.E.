@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Foliage surface brush
+
+Open `Scenes/201-foliage-surface-brush.scene.json` and press **Play → Game**.
+Two strokes contain 96 saved plants on tilted and mirrored ramps. Each stroke
+expands into four ordinary dab groups, each with 12 Mesh Renderer children.
+Stop Play, choose the blade template in **Foliage placement**, enable surface
+projection and select a ramp using Static triangle Mesh / Use selected Mesh.
+Enable **Paint in Scene view**, keep the ramp selected and drag LMB in Scene view.
+Release places one stroke; Escape cancels it. Save before export. See the
+[brush workflow and limits](../../../manual/editor/foliage.md#paint-foliage-in-scene-view).
+
 ## Static Mesh foliage surfaces
 
 Open `Scenes/200-mesh-surface-foliage.scene.json` and press **Play → Game**.

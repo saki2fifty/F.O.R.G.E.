@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
         const auto discovery = invoke("discover");
         check(discovery.at("ok"), "Discovery failed");
         const auto& commands = discovery.at("result").at("commands");
-        check(commands.size() == 31 && std::any_of(commands.begin(), commands.end(),
+        check(commands.size() == 32 && std::any_of(commands.begin(), commands.end(),
                                                    [](const Json& command) {
                                                        return command.at("id") ==
                                                               "audio.playlist_create";

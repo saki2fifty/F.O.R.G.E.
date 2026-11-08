@@ -37,6 +37,19 @@ struct MeshPickHit {
     double depth = 0;
     std::optional<MeshPickTriangle> triangle;
 };
+// A transient geometric hit from the same retained draw used for rendering.
+// Material/UV authoring constraints are intentionally owned by their consumers.
+struct MeshSurfaceHit {
+    EntityId entity;
+    AssetId mesh;
+    std::string revision, variant;
+    unsigned lod = 0, part = 0;
+    Double3 position{};
+    bool same_selection(const MeshSurfaceHit& other) const {
+        return entity == other.entity && mesh == other.mesh && revision == other.revision &&
+               variant == other.variant && lod == other.lod;
+    }
+};
 std::optional<MeshPickHit> pick_mesh_part_hit(const MeshPart&, const MeshPartPose&,
                                               const MeshInstancePose&, const CameraView&,
                                               double pixel_x, double pixel_y, MeshPickBudget&,

@@ -12,6 +12,18 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+brush_path = 'Scenes/201-foliage-surface-brush.scene.json'
+brush_scene = json.loads((project_root / brush_path).read_text())
+assert brush_scene['asset_id'] == by_source[brush_path]['id'] == '731bc1bc-8d60-401f-8422-d5a5aa2ac214'
+assert len(brush_scene['entities']) == 111
+for name in ('Tilted surface brush stroke', 'Mirrored surface brush stroke'):
+    stroke = next(row for row in brush_scene['entities'] if row['name'] == name)
+    dabs = [row for row in brush_scene['entities'] if row.get('parent') == stroke['id']]
+    assert len(dabs) == 4
+    for dab in dabs:
+        plants = [row for row in brush_scene['entities'] if row.get('parent') == dab['id']]
+        assert len(plants) == 12 and all('forge.mesh_renderer' in row['components'] for row in plants)
+assert all('forge.foliage' not in component for row in brush_scene['entities'] for component in row['components'])
 mesh_meadow_path = 'Scenes/200-mesh-surface-foliage.scene.json'
 mesh_ramp_path = 'Assets/Foliage/PlacementRamp.mesh.json'
 assert by_source[mesh_meadow_path]['type'] == 'scene' and by_source[mesh_ramp_path]['type'] == 'mesh'

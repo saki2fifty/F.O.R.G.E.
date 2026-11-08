@@ -1,6 +1,7 @@
 """Published source preparation and ordinary Scene placement through MCP."""
 import json
 from mcp_test_client import failed
+from mcp_foliage_stroke_workflow import check_foliage_stroke
 
 
 def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
@@ -67,6 +68,11 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     assert read('forge_scene_read') == before
     assert mutate('forge_history_redo')['result']['changed']
     assert read('forge_scene_read') == after
+    check_foliage_stroke(
+        read, mutate, client, discover, client.request('tools/list')['result']['tools'],
+        surface, arguments, 'heightfield',
+        lambda x, z: ground['y'] + .5 * (x - ground['x']) +
+                     .25 * (z - ground['z']) + .4)
     failed(client.tool('forge_mesh_scatter', **dict(request, sequence=discover()['next_sequence'])),
            'stale_revision')
     for extra in (dict(terrain=prototype), dict(height_offset=True), dict(height_offset=1001), dict(minimum_slope=True), dict(align_to_slope=1),

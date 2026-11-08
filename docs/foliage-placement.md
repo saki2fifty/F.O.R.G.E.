@@ -59,8 +59,8 @@ only. Candidate admission also checks the rounded world position against the dis
 radius. Distance uses a scale-safe norm, including subnormal positive spacing;
 quantized duplicate world positions cannot pass a positive spacing request. The
 cell index uses bounded center-relative coordinates and a conservative neighborhood.
-It does not compare old groups, mesh bounds or colliders. There is no arbitrary
-surface painting, brush stroke or world streaming. Optional [renderer wind](mesh-wind.md)
+It does not compare old groups, mesh bounds or colliders. The bounded surface brush described below creates ordinary scatter groups; there is
+no arbitrary 3D surface painting or world streaming. Optional [renderer wind](mesh-wind.md)
 deforms the saved Mesh objects without running placement during gameplay.
 Optional collider clearance is a separate preparation step below.
 Without optional `world_heights`, the requested center Y is an origin plane and
@@ -257,4 +257,43 @@ placement, not sampled runtime deformation or a live surface constraint.
 The Foliage placement panel chooses Heightfield terrain or Static triangle Mesh
 under Surface geometry. Automation/MCP bind the same preparation functions;
 neither owns another placement implementation. The bounded pairwise query does
-not provide world streaming or a surface-paint brush.
+not provide world streaming. The Scene brush below composes this preparation.
+
+## Bounded surface brush
+
+`mesh.stroke` composes one empty root, 1–16 ordinary `mesh.scatter` dab groups
+and preserve-world reparenting in one detached Scene transaction. Total generated
+candidates must not exceed 512, even when slope masks retain fewer objects.
+Every dab uses the existing scatter schema except entity/name, which come from
+the stroke. All IDs, transforms, renderer copies, budgets and Undo remain with
+the existing Scene authoring owner. A late invalid dab rejects the whole stroke.
+Minimum spacing applies inside each dab only, not across dabs or old objects.
+
+`prepare_foliage_stroke` flattens bounded dab origins and loads one published
+surface selection through the same Mesh/heightfield preparation owner. It
+resolves original-order heights/normals/masks per dab and previews the complete
+`mesh.stroke`. Each dab must retain at least one candidate and every candidate
+needs coverage. Geometry limits, source/selection guards, slopes and offsets are
+identical to single-patch preparation. Returned arguments and Scene revision use
+the ordinary apply owner; preparation changes no Scene or files.
+
+The native **Paint in Scene view** mode captures the selected projection surface,
+Scene revision, project/configuration and view. LMB samples visible retained LOD0
+triangle hits separated by **Dab distance (m)** in world XZ. Fast motion and gaps
+are not interpolated. Each dab uses the base unsigned seed plus its zero-based
+index, wrapping at 32 bits. Green markers preview centers only, not generated
+Mesh bounds. Release prepares and publishes once. Escape, changed context/view,
+changed surface selection or exceeded bounds cancels the entire gesture.
+Foreground visible geometry blocks sampling through it. The shared retained
+geometry picker also supplies texture painting; texture-specific Material/UV
+admission remains with that consumer. Resource identities are compared with the
+published projection selection before applying. Projection uses the highest
+upward LOD0 surface at each generated XZ origin, including when the selected Mesh
+has stacked surfaces; it does not project onto an arbitrary clicked face.
+
+Brush mode needs an open project and surface projection, with collision clearance
+disabled. Collider clearance remains available for the existing single-patch
+workflow. Placed stroke objects save/export without a brush runtime component,
+source link or alternate population owner. Automation exposes read-only
+`foliage.stroke.prepare`; MCP derives `forge_foliage_stroke_prepare` and the
+ordinary `forge_mesh_stroke` command from their existing registries.

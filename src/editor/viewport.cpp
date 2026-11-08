@@ -58,6 +58,17 @@ bool Viewport::frame(const Json& source, const std::string& selected, EditorCame
         source, selected.empty() ? std::vector<std::string>{} : std::vector<std::string>{selected},
         camera, aspect);
 }
+std::optional<MeshSurfaceHit> Viewport::pick_surface(const Json& source, const EditorCamera& camera,
+                                                     unsigned width, unsigned height,
+                                                     EntityId selected, double x, double y) {
+    if (!meshes_)
+        return {};
+    const auto snapshot = extract_render_scene(source);
+    const auto prepared = scene_camera(camera, width, height);
+    if (meshes_->update(snapshot, std::span(&prepared, 1)))
+        frame_.reset();
+    return meshes_->pick_surface(snapshot, prepared.view, selected, x, y);
+}
 bool Viewport::frame_selection(const Json& source, const std::vector<std::string>& selected,
                                EditorCamera& camera, float aspect) {
     const auto selection = framing_entities(source, selected);

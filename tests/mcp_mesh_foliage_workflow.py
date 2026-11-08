@@ -1,6 +1,7 @@
 """Published static geometry prepares ordinary Scene scatter through MCP."""
 import json
 from mcp_test_client import failed
+from mcp_foliage_stroke_workflow import check_foliage_stroke
 
 
 def check_mesh_foliage_workflow(read, mutate, edit, status, content, root, declared, client, discovery):
@@ -68,6 +69,8 @@ def check_mesh_foliage_workflow(read, mutate, edit, status, content, root, decla
     assert mutate('forge_history_redo')['result']['changed'] and read('forge_scene_read') == after
     assert mutate('forge_document_save')['ok']
     assert json.loads((game / 'Scenes/main.scene.json').read_bytes()) == after
+    check_foliage_stroke(read, mutate, client, discovery, declared, surface, arguments,
+                         'static_mesh', lambda x, z: 6.3125 - .1875 * x + .75 * z + .4)
 
     for extra in [dict(surface=prototype, arguments=dict(arguments, center=dict(x=100, y=0, z=100))),
                   dict(arguments=dict(arguments, world_heights=[0] * 12)),
@@ -82,6 +85,14 @@ def check_mesh_foliage_workflow(read, mutate, edit, status, content, root, decla
         assert discovery()['revision'] == state['revision']
 
     # Published selection stays authoritative over unpublished on-disk geometry.
+    # Hold a real unsaved draft so the independent source watcher cannot publish
+    # our deliberately changed disk source or recreate its hidden cook directory.
+    draft = json.loads(json.dumps(source))
+    for vertex in draft['vertices']:
+        vertex['position'][1] += .125
+    held = edit('forge_asset_document_patch', owner,
+                patch=[dict(op='replace', path='', value=draft)])
+    assert held['ok'], held
     path = game / 'Assets/Surface.mesh.json'
     original = path.read_bytes()
     changed = json.loads(original)
@@ -104,3 +115,5 @@ def check_mesh_foliage_workflow(read, mutate, edit, status, content, root, decla
     finally:
         hidden.rename(cache)
     assert (game / 'forge.assets.json').read_bytes() == catalog
+    assert edit('forge_asset_document_patch', owner,
+                patch=[dict(op='replace', path='', value=source)])['ok']

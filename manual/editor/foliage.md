@@ -119,8 +119,44 @@ on two instances of an editable ramp Mesh. Open its source under `Assets/Foliage
 
 Later surface movement, geometry edits or animation do not move old placements.
 They remain independent Scene objects. Optional **Reject collisions** composes
-with this projection through the existing controls below. There is no surface
-paint brush or live foliage population.
+with this projection through the existing controls below. The optional Scene brush below creates independent objects; there is no live
+foliage population.
+
+## Paint foliage in Scene view
+
+Open **Gallery 201 — Foliage surface brush** and press **Play → Game** to see two
+saved strokes on tilted and mirrored ramps. Stop Play before painting another.
+
+1. Open a project and choose a template with **Use selected Mesh Renderer**.
+2. Enable **Project onto a surface**, choose its geometry profile, then select the ground object in Hierarchy and choose **Use selected terrain** or **Use selected Mesh**. Keep that surface selected.
+3. Set **Radius (m)** and **Candidate count** for each dab. Configure slope, alignment, scale and yaw as for one patch. Disable **Reject collisions**.
+4. Enable **Paint in Scene view**. Set **Dab distance (m)**, the minimum horizontal distance between sampled dab centers. Values from 0.01 to 2000 m are allowed. The single-disk center and Check layout / Place foliage controls become disabled. Enabling Reject collisions switches back to single-disk placement.
+5. Drag the left mouse button over the chosen visible surface in Scene view. Green circles mark sampled centers. Release to create the whole stroke, or press Escape to cancel it. One Scene Undo removes the whole stroke.
+6. Save the Scene. Keep the surface selected to paint another stroke. Expand the new stroke group in Hierarchy to edit its dab groups and individual plants.
+
+![Foliage placement with pointer-driven brush mode, disabled single-disk centers and four green sampled-center markers in Scene view](../images/foliage-brush-native.png)
+
+The Scene overlay marks brush mode and sampled centers while you hold LMB.
+
+Each stroke allows at most 16 dabs and 512 total candidates. Exceeding either
+limit cancels the whole stroke. Reduce Candidate count, shorten the stroke or
+increase Dab distance. Fast motion does not fill unsampled gaps. Minimum spacing
+applies within each dab; plants in different dabs can overlap. Markers show
+centers, not the final plant shapes or a world-radius outline.
+
+Move close enough to use visible LOD0 triangles. Foreground objects block sampling
+through them. The entire disk at each dab needs surface coverage; a dab near an
+edge can reject the whole stroke. Projection chooses the highest upward surface
+at each candidate XZ origin, even if a Mesh has overlapping surfaces. Brush mode
+uses the same static geometry and terrain transform limits described above.
+Collision clearance is available with the single-patch controls when Paint in
+Scene view is disabled. Close the panel or change view, selection, Scene, project,
+settings or editing mode to cancel an unfinished stroke. Later surface edits do
+not move existing plants.
+
+![Two saved foliage brush strokes on tilted and mirrored ramps in the Game view](../images/foliage-brush-game.png)
+
+Each plant is an ordinary saved Mesh Renderer object in the exported game.
 
 ## Keep clear of colliders
 
@@ -231,8 +267,9 @@ to 10,000 entities and the normal command data budget.
 Spacing compares new origins in the current group. Mesh bounds can overlap, and
 existing objects require **Reject collisions** and enabled 3D colliders to affect
 clearance. Heightfield mode requires upright terrain with positive Y scale;
-static Mesh mode supports the bounded published triangle profile above. Paint
-strokes, live surface links and world streaming are unavailable. Adjust objects with the normal
+static Mesh mode supports the bounded published triangle profile above. Brush
+strokes use the limits described above; live surface links and world streaming
+are unavailable. Adjust objects with the normal
 Scene tools. Very large coordinates still have the limits of their consuming
 renderer, collision and navigation systems.
 

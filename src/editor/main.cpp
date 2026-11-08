@@ -113,8 +113,8 @@
 #include "shader_imports.hpp"
 #include "shortcuts.hpp"
 #include "simulation_speed_controls.hpp"
-#include "source_import.hpp"
 #include "sound_playlist.hpp"
+#include "source_import.hpp"
 #include "source_workflow_automation.hpp"
 #include "spatial_helpers.hpp"
 #include "sprite_atlas_editor.hpp"
@@ -2370,7 +2370,8 @@ int main(int argc, char** argv) {
             if (game_export.busy() || runtime_dependencies.busy() || play.active() ||
                 sdk_build->busy() || files.busy() || files.changed || cache_tools.busy() ||
                 source_import.busy() || content_files.busy() || scene_asset_drop.busy() ||
-                scene_tools.active() || modal.active() || blockout.active() || sound_playlist.active())
+                scene_tools.active() || modal.active() || blockout.active() ||
+                sound_playlist.active())
                 context.blocked =
                     "Stop Play and finish the current gesture, file, import, or cache operation.";
             context.openable = context.target && asset_editors.find(context.target->type);
@@ -6649,12 +6650,14 @@ int main(int argc, char** argv) {
                         if (game_view)
                             game_input.viewport(image_origin, size);
                         const bool gizmo =
-                            !game_view && orientation.input(view_camera, image_origin, size,
-                                                            focused && !game_input.captured() &&
-                                                                !paint_texture.surface_enabled() &&
-                                                                !modal.active() &&
-                                                                !scene_tools.active() && !popup,
-                                                            &scene_tools.grid_plane);
+                            !game_view &&
+                            orientation.input(view_camera, image_origin, size,
+                                              focused && !game_input.captured() &&
+                                                  !paint_texture.surface_enabled() &&
+                                                  !foliage_placement.brush_enabled() &&
+                                                  !modal.active() && !scene_tools.active() &&
+                                                  !popup,
+                                              &scene_tools.grid_plane);
                         ImGui::SetCursorScreenPos(image_origin);
                         forge::ui::ViewportInput input;
                         const bool was_modal = modal.active();
@@ -6678,7 +6681,8 @@ int main(int argc, char** argv) {
                         scene_asset_drop.target(
                             scene, files, content, view_camera, image_origin, size,
                             can_edit && !modal.active() && !scene_tools.active() && !gizmo &&
-                                !paint_texture.surface_enabled());
+                                !paint_texture.surface_enabled() &&
+                                !foliage_placement.brush_enabled());
                         const auto mouse = ImGui::GetIO().MousePos;
                         const bool over_image =
                             ImGui::IsWindowHovered() && mouse.x >= image_origin.x &&
@@ -6701,10 +6705,23 @@ int main(int argc, char** argv) {
                                         forge::EntityId::parse(selected), target, x, y);
                                 });
                         if (!game_view)
+                            foliage_placement.surface_input(
+                                scene, editor.selection, &files.document, view_camera, image_origin,
+                                size, focused,
+                                can_edit && !modal.active() && !scene_tools.active() && !gizmo &&
+                                    !paint_texture.surface_enabled(),
+                                over_image, input.activated, input.active, [&](double x, double y) {
+                                    return viewport.pick_surface(
+                                        preview, view_camera, unsigned(std::max(1.f, size.x)),
+                                        unsigned(std::max(1.f, size.y)),
+                                        forge::EntityId::parse(selected), x, y);
+                                });
+                        if (!game_view)
                             modal.input(scene, selected, view_camera, image_origin, size,
                                         over_image && !gizmo,
                                         can_edit && !scene_tools.active() &&
-                                            !paint_texture.surface_enabled(),
+                                            !paint_texture.surface_enabled() &&
+                                            !foliage_placement.brush_enabled(),
                                         message, editor.selection.entities());
                         if (!was_modal && modal.active())
                             scene_tools.target_tool({});
@@ -6726,7 +6743,8 @@ int main(int argc, char** argv) {
                             scene_tools.input(
                                 scene, view_camera, selected, image_origin, size, input,
                                 can_edit && !gizmo && !was_modal && !modal.active() &&
-                                    !paint_texture.surface_enabled(),
+                                    !paint_texture.surface_enabled() &&
+                                    !foliage_placement.brush_enabled(),
                                 message,
                                 [&](const forge::Json& snapshot, float x, float y) {
                                     if (auto hit = spatial_helpers.pick(
@@ -6836,6 +6854,8 @@ int main(int argc, char** argv) {
                             {image_origin.x + size.x, image_origin.y + size.y});
                         if (!game_view)
                             paint_texture.surface_overlay(image_origin, size, over_image);
+                        if (!game_view && !paint_texture.surface_enabled())
+                            foliage_placement.surface_overlay(image_origin, size, over_image);
                         if (!game_view)
                             spatial_helpers.draw(view_camera, selected, image_origin, size,
                                                  modal.active() ? ImGui::GetTextLineHeight() + 20
@@ -6850,7 +6870,8 @@ int main(int argc, char** argv) {
                         if (!game_view)
                             scene_tools.draw(rendered, view_camera, selected, image_origin, size,
                                              can_edit && !modal.active() &&
-                                                 !paint_texture.surface_enabled(),
+                                                 !paint_texture.surface_enabled() &&
+                                                 !foliage_placement.brush_enabled(),
                                              editor.selection.entities());
                         const auto animation_debug = forge::prepare_animation_debug(
                             rendered,
@@ -7088,8 +7109,7 @@ int main(int argc, char** argv) {
                 script_editor.pending() || authored_components.busy() || content_files.busy());
             content_files.draw(content_imports);
             sound_playlist.draw(
-                scene, files.document,
-                [&](forge::AssetId id) { return content.record(id); },
+                scene, files.document, [&](forge::AssetId id) { return content.record(id); },
                 edit_locked || files.changed || cache_tools.busy() || source_import.busy() ||
                     content_files.busy() || authored_components.busy(),
                 [&](const std::string& id) {

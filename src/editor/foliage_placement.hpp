@@ -4,6 +4,7 @@
 #include "../terrain_foliage_authoring.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
+#include "foliage_surface_brush.hpp"
 #include "scene_cache.hpp"
 #include "widgets.hpp"
 #include <array>
@@ -12,6 +13,71 @@ namespace forge::ui {
 class FoliagePlacement {
   public:
     bool open = false;
+    const std::string& diagnostic() const { return error_; }
+    bool brush_enabled() const { return open && brush_mode_ && projected_ && !collision_enabled_; }
+    void surface_input(Scene& scene, const EditorSelection& selection, SceneDocument* project,
+                       const EditorCamera& camera, ImVec2 origin, ImVec2 size, bool focused,
+                       bool editable, bool hovered, bool activated, bool active,
+                       const FoliageSurfaceBrush::Pick& pick) {
+        if (!brush_enabled()) {
+            brush_.cancel();
+            return;
+        }
+        try {
+            if (!std::isfinite(dab_distance_) || dab_distance_ < .01 || dab_distance_ > 2000)
+                throw std::runtime_error("Dab distance must be 0.01 to 2000 meters");
+            auto dab = detail::mesh_scatter_arguments(source_, settings_, name_.data());
+            dab.erase("entity");
+            dab.erase("name");
+            const Json config{{"entity", source_},
+                              {"name", name_.data()},
+                              {"dab", std::move(dab)},
+                              {"dab_distance", dab_distance_},
+                              {"surface", surface_},
+                              {"mesh_surface", bool(surface_kind_)},
+                              {"offset", height_offset_},
+                              {"minimum_slope", slopes_.minimum},
+                              {"maximum_slope", slopes_.maximum},
+                              {"align", align_to_slope_},
+                              {"project", project ? path_utf8(project->project()) : ""},
+                              {"project_generation", project ? project->generation() : 0}};
+            const auto result = brush_.input(
+                scene,
+                selection.entity_count() == 1 ? EntityId::parse(selection.entity()) : EntityId{},
+                surface_.empty() ? EntityId{} : EntityId::parse(surface_), config, camera, origin,
+                size, focused, editable && project && !collision_task_.busy(), hovered, activated,
+                active, pick);
+            if (!result)
+                return;
+            const auto prepared = prepare_foliage_stroke(*project->writer_guard(), scene, *result,
+                                                         surface_, bool(surface_kind_),
+                                                         height_offset_, slopes_, align_to_slope_);
+            const auto& hit = *brush_.selection();
+            if (prepared.at(surface_kind_ ? "surface_mesh" : "terrain_mesh").get<AssetId>() !=
+                    hit.mesh ||
+                prepared.at(surface_kind_ ? "surface_revision" : "terrain_revision") !=
+                    hit.revision)
+                throw std::runtime_error("Published surface changed; start a new stroke");
+            apply_authoring(scene,
+                            Json::array({{{"operation", "mesh.stroke"},
+                                          {"arguments", prepared.at("arguments")}}}),
+                            prepared.at("scene_revision").get<std::uint64_t>());
+            status_ = "Stroke placed: " + prepared.at("retained_count").dump() +
+                      " objects. Scene Undo removes the whole stroke. Save the Scene.";
+            error_.clear();
+            brush_.cancel();
+            if (editor_context)
+                editor_context->problems.resolve("scene.foliage");
+        } catch (const std::exception& error) {
+            brush_.cancel();
+            error_ = error.what();
+            status_.clear();
+        }
+    }
+    void surface_overlay(ImVec2 origin, ImVec2 size, bool hovered) const {
+        if (brush_enabled())
+            brush_.overlay(origin, size, hovered);
+    }
     FoliageCollisionPreparation& collision_task() { return collision_task_; }
     void poll(Scene& scene, EditorSelection& selection, bool locked, SceneDocument* project) {
         if ((locked && !pending_operation_.empty()) || !project)
@@ -72,6 +138,9 @@ class FoliagePlacement {
         if (!open && !pending_operation_.empty())
             collision_task_.cancel("Foliage placement panel was closed");
         poll(scene, selection, locked, project);
+        brush_.cancel_if_missing();
+        if (!brush_enabled() || locked || !project)
+            brush_.cancel();
         if (!open)
             return;
         draft_window_size({520 * interface_scale, 760 * interface_scale});
@@ -91,6 +160,8 @@ class FoliagePlacement {
                 collision_settings_.ignored.clear();
                 status_.clear();
                 error_.clear();
+                brush_mode_ = false;
+                brush_.cancel();
             }
             ImGui::TextWrapped(
                 "Place independent copies of one Mesh Renderer in a horizontal "
@@ -200,6 +271,11 @@ class FoliagePlacement {
                 help(tip);
                 ImGui::PopID();
             };
+            if (brush_mode_)
+                ImGui::TextWrapped(
+                    "The Scene pointer chooses brush centers. Turn off Paint in "
+                    "Scene view to use the single-disk center and placement controls.");
+            ImGui::BeginDisabled(brush_mode_);
             field("Center X (m)", "x", settings_.center[0],
                   "World X coordinate of the disk center.");
             field("Center Y (m)", "y", settings_.center[1],
@@ -208,6 +284,7 @@ class FoliagePlacement {
                              : "Every new object origin uses this horizontal plane Y.");
             field("Center Z (m)", "z", settings_.center[2],
                   "World Z coordinate of the disk center.");
+            ImGui::EndDisabled();
             field("Radius (m)", "radius", settings_.radius,
                   "Horizontal disk radius, 0.01 to 1000 m.");
             field("Minimum spacing (m)", "spacing", settings_.spacing,
@@ -237,8 +314,33 @@ class FoliagePlacement {
                   "-360 to 360 degrees about world +Y, before the template's local rotation.");
             field("Maximum yaw (deg)", "yaw_max", settings_.yaw_max,
                   "At least the minimum and at most 360 degrees.");
+            ImGui::BeginDisabled(!projected_ || !project);
+            if (ImGui::Checkbox("Paint in Scene view", &brush_mode_)) {
+                brush_.cancel();
+                if (brush_mode_)
+                    collision_enabled_ = false;
+            }
+            FORGE_UI_PROBE("foliage:brush");
+            ImGui::EndDisabled();
+            if (brush_mode_) {
+                field("Dab distance (m)", "dab_distance", dab_distance_,
+                      "Minimum horizontal distance between sampled dabs, 0.01 to 2000 m. "
+                      "Fast motion does not interpolate missing samples.");
+                ImGui::TextWrapped(
+                    "Select the projection surface in Hierarchy, then drag LMB in Scene view. "
+                    "Release places one stroke; Escape cancels. Green circles preview sampled "
+                    "centers, not Mesh bounds. Up to 16 dabs and 512 total candidates; exceeding "
+                    "either limit cancels the entire stroke. Spacing is per dab only. Every "
+                    "candidate needs coverage. Visible LOD0 triangles are required; origins "
+                    "project to the highest upward surface. Collision clearance uses the "
+                    "single-disk controls below, with Paint in Scene view disabled.");
+            }
             ImGui::BeginDisabled(!project);
-            ImGui::Checkbox("Reject collisions", &collision_enabled_);
+            if (ImGui::Checkbox("Reject collisions", &collision_enabled_)) {
+                brush_.cancel();
+                if (collision_enabled_)
+                    brush_mode_ = false;
+            }
             FORGE_UI_PROBE("foliage:collision");
             ImGui::EndDisabled();
             if (collision_enabled_) {
@@ -287,7 +389,7 @@ class FoliagePlacement {
                             ImGui::TextWrapped("%s", row.at("name").get<std::string>().c_str());
             }
             settings_.count = count_ > 0 ? std::uint32_t(count_) : 0;
-            ImGui::BeginDisabled(!source ||
+            ImGui::BeginDisabled(brush_mode_ || !source ||
                                  (projected_ && (!project || !find_mesh(view, surface_))) ||
                                  (collision_enabled_ && !project));
             auto perform = [&](bool place) {
@@ -393,6 +495,9 @@ class FoliagePlacement {
     AuthoringSnapshot snapshot_;
     FoliageCollisionPreparation collision_task_;
     FoliageCollisionSettings collision_settings_;
+    FoliageSurfaceBrush brush_;
+    bool brush_mode_ = false;
+    double dab_distance_ = 1;
     std::string pending_operation_;
     bool collision_enabled_ = false, pending_place_ = false;
     const Scene* owner_ = nullptr;

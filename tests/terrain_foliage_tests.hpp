@@ -70,6 +70,22 @@ void terrain_foliage(const std::filesystem::path& root) {
     const Double3 v{c[0] - a[0], c[1] - a[1], c[2] - a[2]};
     const Double3 normal{u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2],
                          u[0] * v[1] - u[1] * v[0]};
+    auto stroke_dab = arguments;
+    stroke_dab.erase("entity");
+    stroke_dab.erase("name");
+    const Json stroke{{"entity", prototype},
+                      {"name", "Terrain brush"},
+                      {"dabs", Json::array({stroke_dab, stroke_dab})}};
+    const auto brush_plan = prepare_foliage_stroke(*lease, scene, stroke, surface, false, .4);
+    require(brush_plan.at("candidate_count") == 48 &&
+                brush_plan.at("terrain_revision") == plan.at("terrain_revision") &&
+                brush_plan.at("arguments").at("dabs")[1].at("world_heights") ==
+                    plan.at("arguments").at("world_heights") &&
+                scene.document() == before,
+            "Terrain stroke preparation lost published heights or changed Scene intent");
+    const auto brush_result = authoring_command(scene, "mesh.stroke", brush_plan.at("arguments"));
+    require(brush_result.at("created").size() == 48 && scene.undo() && scene.document() == before,
+            "Terrain brush did not use one complete Scene transaction and Undo");
     const auto result = authoring_command(scene, "mesh.scatter", plan.at("arguments"));
     const auto after = scene.document();
     const auto effective = scene.effective_document();

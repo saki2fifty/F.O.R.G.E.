@@ -142,6 +142,13 @@ for legacy in (False, True):
                 surface=missing, arguments=dict(entity=missing, name='Read-only Mesh preflight',
                     center=dict(x=0, y=0, z=0), radius=1, spacing=0, count=1, seed=1,
                     scale_min=1, scale_max=1, yaw_min=0, yaw_max=0)), 'invalid_surface')
+        stroke_preparation = next(t for t in readonly_tools if t['name'] == 'forge_foliage_stroke_prepare')
+        assert stroke_preparation['annotations']['readOnlyHint'] and 'forge_mesh_stroke' not in names
+        failed(client.tool('forge_foliage_stroke_prepare', target=state['result']['target'],
+            surface=missing, surface_profile='static_mesh',
+            arguments=dict(entity=missing, name='Read-only stroke', dabs=[dict(
+                center=dict(x=0, y=0, z=0), radius=1, spacing=0, count=1, seed=1,
+                scale_min=1, scale_max=1, yaw_min=0, yaw_max=0)])), 'invalid_surface')
         assert client.tool('forge_discover')['revision'] == state['revision']
         assert 'forge_asset_document_types' in names
         assert {'forge_asset_skeleton_joints', 'forge_asset_animation_retarget_catalog',

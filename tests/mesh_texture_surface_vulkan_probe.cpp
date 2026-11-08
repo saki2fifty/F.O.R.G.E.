@@ -5,6 +5,7 @@
 #include "editor/source_document_automation.hpp"
 #include "editor/viewport.hpp"
 #include "fixtures/mesh_texture_paint_gallery.hpp"
+#include "foliage_surface_brush_probe.hpp"
 #include "gallery_game_capture.hpp"
 #include "imgui_input_driver.hpp"
 #include "paint_texture_preview.hpp"
@@ -367,12 +368,21 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     check(!viewport.pick_texture_surface(scene.effective_document(), camera, 680, 540, entity,
                                          target_image, 374, 270),
           "Foreground geometry allowed painting through it");
+    check(!viewport.pick_surface(scene.effective_document(), camera, 680, 540, entity, 374, 270),
+          "Geometric surface picking bypassed foreground retained geometry");
     block.visible = false;
     scene.entity(blocker.str()).set<MeshRenderer>(block);
     settle();
     check(bool(viewport.pick_texture_surface(scene.effective_document(), camera, 680, 540, entity,
                                              target_image, 374, 270)),
           "Hidden geometry blocked the selected paint surface");
+    const auto world_hit =
+        viewport.pick_surface(scene.effective_document(), camera, 680, 540, entity, 374, 270);
+    check(world_hit && world_hit->entity == entity && world_hit->mesh == mesh_id.id &&
+              world_hit->lod == 0 && world_hit->part == 1 &&
+              std::abs(world_hit->position[2] - (.27 - .2 * world_hit->position[0])) < 1e-6 &&
+              std::abs(world_hit->position[1]) < 1e-6,
+          "Retained world hit differs from the independent morphed right-plane equation");
     input.click("paint-texture:save");
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
     while (editor.dirty()) {
@@ -421,8 +431,10 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
 int main(int argc, char** argv) {
     try {
         const bool gallery = argc == 4 && std::string_view(argv[1]) == "--gallery";
-        check(argc == 3 || gallery, "Need worker/output or --gallery Gallery/output");
-        const auto output = std::filesystem::absolute(argv[gallery ? 3 : 2]);
+        const bool foliage = argc == 4 && std::string_view(argv[1]) == "--foliage-brush";
+        check(argc == 3 || gallery || foliage,
+              "Need worker/output, --gallery Gallery/output or --foliage-brush Gallery/output");
+        const auto output = std::filesystem::absolute(argv[gallery || foliage ? 3 : 2]);
         std::filesystem::create_directories(output);
         Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device;
         Diligent::RefCntAutoPtr<Diligent::IDeviceContext> graphics;
@@ -431,13 +443,17 @@ int main(int argc, char** argv) {
         Diligent::GetEngineFactoryVk()->CreateDeviceAndContextsVk(info, &device, &graphics);
         check(device && graphics, "Missing surface painting Vulkan device");
         DiligentPresentation presentation(device);
-        if (gallery)
+        if (foliage)
+            test_foliage_brush::exercise(presentation, graphics, std::filesystem::absolute(argv[2]),
+                                         output);
+        else if (gallery)
             exercise_gallery(presentation, graphics, std::filesystem::absolute(argv[2]), output);
         else
             exercise(presentation, graphics, argv[1], output);
-        std::cout << (gallery ? "Animated painted Mesh source-hidden rendering PASS\n"
-                              : "Native Scene mesh projection, source pixels, Undo/Redo, "
-                                "cancellation and publication PASS\n");
+        std::cout << (foliage   ? "Native foliage brush and source-hidden export PASS\n"
+                      : gallery ? "Animated painted Mesh source-hidden rendering PASS\n"
+                                : "Native Scene mesh projection, source pixels, Undo/Redo, "
+                                  "cancellation and publication PASS\n");
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

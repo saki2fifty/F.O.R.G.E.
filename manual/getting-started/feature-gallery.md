@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**201-foliage-surface-brush** contains two saved brush strokes with 96 plants on
+tilted and mirrored ramps. Open it and press **Play → Game**. Stop Play and expand
+each stroke in Hierarchy to edit its ordinary dab groups and plants. To paint
+another stroke, choose the blade template and a ramp in Foliage placement,
+enable **Paint in Scene view**, keep the ramp selected and drag LMB in Scene view.
+Release places the whole stroke in one Undo step. Save before export. See
+[Paint foliage in Scene view](../editor/foliage.md).
+
 **200-mesh-surface-foliage** contains 256 independent blades on tilted and
 mirrored instances of an editable ramp. Open it and press **Play → Game**. The
 left patch follows geometric slope; the right keeps world-up orientation. Stop

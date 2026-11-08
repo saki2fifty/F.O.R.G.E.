@@ -9386,6 +9386,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "731bc1bc-8d60-401f-8422-d5a5aa2ac214",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/201-foliage-surface-brush.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "736b2f94-fec7-42fd-be91-55eb488dbc48",
       "metadata": {
         "forge.import": {

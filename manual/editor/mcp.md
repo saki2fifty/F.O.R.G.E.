@@ -538,3 +538,21 @@ Optional collider clearance uses `forge_foliage_collision_start` with these
 prepared arguments and the same surface entity. Apply its ready arguments through
 the existing scatter tool. See [Place onto a static Mesh](foliage.md) for limits,
 coverage, geometry selection and ordinary Undo/export behavior.
+
+## Prepare and place a foliage stroke
+
+Call `forge_foliage_stroke_prepare` with **surface**, **surface_profile**
+(`heightfield` or `static_mesh`) and **arguments** containing **entity** (template),
+**name** and **dabs**. Each dab uses the ordinary scatter fields without entity
+or name. Optional height_offset, minimum_slope, maximum_slope and align_to_slope
+match single-patch preparation. Supply 1–16 dabs and no more than 512 total
+candidates. Omit computed world_heights, placement_mask and world_normals.
+
+Preparation reads one published selection, changes no Scene or files and returns
+**arguments**, **scene_revision** and selection/count information. Apply those
+arguments using `forge_mesh_stroke` with the returned revision and normal mutation
+sequence, then save. The whole stroke is one Undo. Every origin needs coverage;
+each dab must retain at least one candidate. Spacing applies within each dab
+only. There is no collision clearance or live surface link in this workflow.
+Recheck after published surface changes. Both tools use the same preparation,
+validation and Scene history owners as the editor.

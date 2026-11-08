@@ -319,6 +319,12 @@ Scene lighting includes independently authored [fast approximate anti-aliasing](
 for Scene/Game display color. Gallery 143 demonstrates the saved workflow and normal
 standalone export; temporal AA and post-filter Game UI remain independent.
 
+The Scene foliage brush paints bounded strokes on published Mesh or heightfield
+surfaces. Pointer markers preview sampled centers; release places ordinary objects
+with one Undo. Gallery201 contains two editable saved strokes, and automation/MCP
+use the same surface preparation and Scene command. See
+[Paint foliage in Scene view](manual/editor/foliage.md#paint-foliage-in-scene-view).
+
 Foliage placement creates bounded seeded groups of independent Mesh Renderer
 objects through **Tools > Foliage placement...** and the same automation/MCP command.
 Spacing, yaw/scale variation, complete layout checks and one-step Scene Undo use the

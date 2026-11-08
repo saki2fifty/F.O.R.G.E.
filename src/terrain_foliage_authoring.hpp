@@ -16,4 +16,10 @@ Json prepare_terrain_foliage(const ProjectLease&, const Scene&, const Json& argu
 Json prepare_mesh_foliage(const ProjectLease&, const Scene&, const Json& arguments,
                           const std::string& surface_entity, double height_offset = 0,
                           TerrainFoliageSlopeRange slopes = {}, bool align_to_slope = false);
+// Prepare all ordinary dabs from one immutable surface selection, then validate
+// the complete atomic mesh.stroke through the existing Scene command owner.
+Json prepare_foliage_stroke(const ProjectLease&, const Scene&, const Json& arguments,
+                            const std::string& surface_entity, bool mesh_surface,
+                            double height_offset = 0, TerrainFoliageSlopeRange slopes = {},
+                            bool align_to_slope = false);
 } // namespace forge

@@ -234,6 +234,40 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
     Json result = {{"operation", op}, {"selected", id}};
     if (op == "mesh.scatter")
         return detail::scatter_mesh(scene, id, a);
+    if (op == "mesh.stroke") {
+        const auto& dabs = a.at("dabs");
+        const auto name = a.at("name").get<std::string>();
+        if (name.find_first_not_of(" \t\r\n") == std::string::npos)
+            throw CommandError("invalid_arguments", "Foliage stroke name must not be blank");
+        std::uint64_t candidates = 0;
+        for (const auto& dab : dabs)
+            candidates += dab.at("count").get<unsigned>();
+        if (candidates > detail::mesh_scatter_limit)
+            throw CommandError("limit_exceeded", "Foliage stroke exceeds 512 total candidates");
+        const auto group =
+            execute(scene, "entity.create",
+                    {{"recipe", "empty"}, {"name", name}, {"position", dabs.at(0).at("center")}})
+                .at("selected");
+        Json created = Json::array(), groups = Json::array();
+        unsigned index = 0;
+        for (const auto& dab : dabs) {
+            auto arguments = dab;
+            arguments["entity"] = id;
+            arguments["name"] = name + " dab " + std::to_string(++index);
+            const auto placed = execute(scene, "mesh.scatter", arguments);
+            const auto child = placed.at("selected");
+            execute(scene, "entity.reparent",
+                    {{"entity", child}, {"parent", group}, {"mode", "preserve_world"}});
+            groups.push_back(child);
+            created.insert(created.end(), placed.at("created").begin(), placed.at("created").end());
+        }
+        return {{"operation", op},
+                {"selected", group},
+                {"groups", std::move(groups)},
+                {"candidate_count", candidates},
+                {"placed_count", created.size()},
+                {"created", std::move(created)}};
+    }
     if (op == "model.material_variant") {
         const auto& variant = a.at("variant");
         detail::validate_reflected_json(
@@ -802,6 +836,24 @@ Json authoring_commands() {
          {"yaw_max", number(-360, 360)}},
         {"entity", "name", "center", "radius", "spacing", "count", "seed", "scale_min", "scale_max",
          "yaw_min", "yaw_max"});
+    auto dab_schema = commands.back().at("input_schema");
+    dab_schema["properties"].erase("entity");
+    dab_schema["properties"].erase("name");
+    auto& dab_required = dab_schema["required"];
+    dab_required.erase(
+        std::remove_if(dab_required.begin(), dab_required.end(),
+                       [](const Json& field) { return field == "entity" || field == "name"; }),
+        dab_required.end());
+    add("mesh.stroke", "Place foliage stroke",
+        "Compose 1 to 16 ordinary scatter dabs under one empty stroke root in one Undo. "
+        "At most512 total generated candidates. Each dab uses the ordinary scatter layout, "
+        "source renderer/orientation/scale, optional prepared heights/normals/mask and "
+        "per-dab spacing; no cross-dab or existing-object clearance is implied. Failed "
+        "dabs reject the whole stroke. Saved objects are independent, with no live brush owner.",
+        {{"entity", text_type()},
+         {"name", text_type()},
+         {"dabs", {{"type", "array"}, {"minItems", 1}, {"maxItems", 16}, {"items", dab_schema}}}},
+        {"entity", "name", "dabs"});
     add("entity.duplicate", "Duplicate subtree",
         "Copy the selected entity and descendants, remapping internal references.", entity_arg,
         {"entity"});

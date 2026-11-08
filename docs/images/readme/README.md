@@ -1591,7 +1591,7 @@ Static triangle Mesh and Align to Mesh slope. Native fixtures exercise both
 profiles, independent tilted-plane heights/normals and history at100/150/200%
 in full/compact layouts. The compact Combo uses a separate label/full-width field.
 
-Source is local4a33626 plus Mesh surface authoring, via
+Source is local44aae97 plus the shared surface-brush controls, via
 `tests/foliage_editor_tests.cpp` and the pinned SDL/ImGui software renderer.
 Commands are the ordinary capture, --capture-gallery and --capture-mesh-gallery
 modes in isolated copies of the saved Gallery. Canonical PNG bytes/dimensions
@@ -1606,15 +1606,16 @@ mirrored Meshes; left aligns to slope, right retains world up. Independent local
 plane/history and actual static/skinned Model profile checks precede capture.
 Four landscape/portrait snapshots match exactly after source-hidden relocation.
 This is software rendering; Windows/physical acceptance remains separate.
-Local batch298 capture-provenance.json and selected-gallery-proof.json identify
-originals, hashes and the proved published source. Existing Game images below
-retain their separate unchanged proof.
+Local batch299 control-captures.json identifies current control captures and their
+exact executable/PNG hashes. The Mesh meadow Game capture and published source
+retain batch298 capture-provenance.json/selected-gallery-proof.json unchanged.
+Existing Game images below retain their separate unchanged proof.
 
-foliage-placement-controls.png SHA256: `e000d65f74f7289e7121665ee8a09681d209a33a271e41bf606f961eefc439e4`.
+foliage-placement-controls.png SHA256: `ca2f76b42575aa39f17aead8abd3ee5c1446a02f4219d392c0e08a7eb17ba20c`.
 
-terrain-foliage-controls.png SHA256: `b3db9c3caa6760cd3ac52c4a78a3fc2ebb6832e4c10f1671aa6df91df527cc67`.
+terrain-foliage-controls.png SHA256: `6f126c56e81ca76034bda8fc53bb408edbb3eab68cb101e49aaae948fbc460b4`.
 
-mesh-foliage-controls.png SHA256: `fc533056329a822fe91731f2bc6b4e80171d31bc9e020685a7dc0b5c5bd7c192`.
+mesh-foliage-controls.png SHA256: `85b3fde27a0a7efa40d54439752b8f9ff35e1e9809bcb4692c11f7dc1c24eb9a`.
 
 mesh-foliage-game.png SHA256: `c7cc4b643d2c7e10c92d91c778044bdc9cab6af1cfe21966088aa7628aaf8276`.
 
@@ -2023,13 +2024,13 @@ this silent-preview profile.
 unretouched720×1930 production panel through forge_foliage_editor_tests
 --capture-clearance, using Gallery156 in an isolated project. It shows heightfield
 projection, slope alignment, world-sphere settings, layers, sensor/exclusion
-controls and88of128retained candidates. Source is local4a33626 plus the shared
-surface choice/caption changes; provenance is batch298/capture-provenance.json.
+controls and88of128retained candidates. Source is local44aae97 plus the shared
+surface-brush controls; provenance is batch299 control-captures.json.
 Actual wide/compact input fixtures at1/1.5/2scale retain normal Scene history.
 These software component captures do not establish full Main/Windows/MSVC/D3D12,
 hardware input/DPI, physical GPU or external client/player acceptance.
 
-PNG SHA256: `603423a353b79648b6adb0c2d129bbeb346d048b9c5d5876fd351b07b576a2d3`.
+PNG SHA256: `04452ab8e0d4a56223ccebb0595edaf0dbcf324d985083c69405e59fc204944d`.
 
 ## Imported lightmap graph
 
@@ -2622,3 +2623,33 @@ framings have their separate runtime checks.
 
 Shared effects PNG SHA256: `c9485544a22c3defda95da67085f2619ff44b3f15d00d3af3495a08e8f6c2f1c`.
 Refreshed project PNG SHA256: `cd18a698edd2e470fdb816e92956abccf2b41f23ac6277cea5c3603c4351eeda`.
+
+## Foliage surface brush
+
+[Native brush controls](../../../manual/images/foliage-brush-native.png) is an
+unretouched 1400×1000 actual ImGui/Diligent Scene capture from
+`tests/foliage_surface_brush_probe.hpp`, exercised by the production Viewport and
+FoliagePlacement through `forge_mesh_texture_surface_vulkan_probe --foliage-brush`.
+Pointer/keyboard input chooses a published ramp, enables Paint in Scene view and
+samples four centers. Disabled single-disk centers distinguish pointer-driven
+placement. Green circles are transient center markers, not Mesh-bound previews.
+Native PNG bytes are copied exactly; no controls, text or pixels were retouched.
+
+[Brush Game](../../../manual/images/foliage-brush-game.png) preserves every RGB
+pixel of the 640×360 production FrameRenderer PPM for Gallery201, converted
+losslessly to PNG. Two strokes contain 96 saved plants under ordinary dab groups.
+The same native workflow verifies one Undo/Redo per stroke, saving, four exact
+landscape/portrait image pairs after source-hidden Windows-target export and a
+repeat run that preserves the shipped Gallery. The repeat native capture matches
+the canonical PNG bytes. Scene UUID: `731bc1bc-8d60-401f-8422-d5a5aa2ac214`.
+
+Captures use Mesa lavapipe and the pinned Diligent/DXC/ImGui stack. These are actual
+native control/Scene and runtime fixtures, with no full Main, Windows, physical
+input/DPI, physical GPU or performance acceptance. Local batch299 owns
+capture-provenance.json, selected-gallery-proof.json, repeat-gallery-proof.json
+and the exact executable/input validation. The four existing single-patch control
+images above were also captured through their production widgets with the brush
+control present; Game images from earlier workflows remain unchanged.
+
+Native PNG SHA256: `3817e4af20c0a4f6bede7e0057bd8b39d543d1505370a68b75c5726ee98535bf`.
+Game PNG SHA256: `d5117309d8f0b2a2e507bcd568ae77131d58b5c7f2b32ad796adfb6425253b2a`.

@@ -74,6 +74,38 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
                     request.value("align_to_slope", false));
             }));
     }
+    Json stroke_schema;
+    for (const auto& command : authoring_commands())
+        if (command.at("id") == "mesh.stroke")
+            stroke_schema = command.at("input_schema");
+    for (const auto* property : {"world_heights", "world_normals", "placement_mask"})
+        stroke_schema["properties"]["dabs"]["items"]["properties"].erase(property);
+    methods.push_back(automation_method(
+        "foliage.stroke.prepare",
+        "Prepare 1 to 16 ordinary foliage dabs, at most 512 total candidates, from one published "
+        "surface selection. Every candidate needs upward height coverage. surface_profile is "
+        "heightfield or static_mesh; static Mesh samples LOD0 with existing static geometry "
+        "limits, heightfield requires upright matching published source. Returns mesh.stroke "
+        "arguments and scene_revision for forge_mesh_stroke, one Undo and ordinary saved "
+        "objects. No Scene/files change, no live surface link or collision checks. Minimum "
+        "spacing applies within each dab only. Recheck after publication changes.",
+        "asset.read",
+        automation_object(
+            {{"surface", automation_uuid()},
+             {"surface_profile", {{"type", "string"}, {"enum", {"heightfield", "static_mesh"}}}},
+             {"arguments", stroke_schema},
+             {"height_offset", {{"type", "number"}, {"minimum", -1000}, {"maximum", 1000}}},
+             {"minimum_slope", {{"type", "number"}, {"minimum", 0}, {"maximum", 90}}},
+             {"maximum_slope", {{"type", "number"}, {"minimum", 0}, {"maximum", 90}}},
+             {"align_to_slope", {{"type", "boolean"}}}},
+            {"surface", "surface_profile", "arguments"}),
+        false, [&scene, &project](const Json& request) {
+            return prepare_foliage_stroke(
+                *project.writer_guard(), scene, request.at("arguments"), request.at("surface"),
+                request.at("surface_profile") == "static_mesh", request.value("height_offset", 0.),
+                {request.value("minimum_slope", 0.), request.value("maximum_slope", 90.)},
+                request.value("align_to_slope", false));
+        }));
     if (!clearance)
         return methods;
     Json complete_scatter;
