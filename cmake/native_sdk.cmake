@@ -45,7 +45,7 @@ endforeach()
 foreach(source
  include/forge/application_states.hpp include/forge/application_state_definition.hpp
  src/input_message_runtime.cpp src/input_message_runtime.hpp
- src/simple_polygon.hpp src/navigation_region.hpp src/navigation_region_value.hpp
+ src/simple_polygon.hpp src/polygon_contours.hpp src/navigation_region.hpp src/navigation_region_value.hpp
  src/physics_collider_2d.hpp src/physics_collider_2d_native.hpp src/physics_collider_2d.cpp
  src/navigation_collision_geometry.hpp src/navigation_collision_source.hpp
  src/navigation_tile_geometry.hpp src/navigation_tile_geometry.cpp

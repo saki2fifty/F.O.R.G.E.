@@ -10,8 +10,10 @@ def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declar
     for name in ('forge_asset_document_template', 'forge_asset_document_create'):
         properties = schemas[name]
         assert properties['mesh_profile']['enum'] == [
-            'cube', 'sculpt_sphere', 'planar_quad', 'planar_polygon', 'planar_outline']
+            'cube', 'sculpt_sphere', 'planar_quad', 'planar_polygon', 'planar_outline', 'planar_holes']
         assert properties['outline']['minItems'] == 3 and properties['outline']['maxItems'] == 16
+        assert properties['holes']['minItems'] == 1 and properties['holes']['maxItems'] == 3
+        assert properties['holes']['items'] == properties['outline']
         assert properties['mesh_size']['minItems'] == properties['mesh_size']['maxItems'] == 2
     before_scene = read('forge_scene_read')
     quad = read('forge_asset_document_template', editor=owner,
@@ -38,6 +40,21 @@ def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declar
                 assert abs(corner['uv'][0] - p[0] / 3) < 1e-10
                 assert abs(corner['uv'][1] - (1 - p[1] / 3)) < 1e-10
         assert area == 5
+    frame = [[-2, -2], [2, -2], [2, 2], [-2, 2]]
+    opening = [[-.5, -.5], [.5, -.5], [.5, .5], [-.5, .5]]
+    for boundary, hole in [(frame, opening), (list(reversed(frame)), list(reversed(opening)))]:
+        preview = read('forge_asset_document_template', editor=owner,
+                       mesh_profile='planar_holes', outline=boundary, holes=[hole])
+        assert [v['position'][:2] for v in preview['vertices']] == boundary + hole
+        assert len(preview['faces']) == 8 and preview['next_id'] == 17
+        positions = {v['id']: v['position'] for v in preview['vertices']}
+        area = 0
+        for face in preview['faces']:
+            a, b, c = [positions[corner['vertex']] for corner in face['corners']]
+            t = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+            assert t > 0
+            area += t / 2
+        assert area == 15
     invalid = [dict(mesh_profile='unknown'), dict(mesh_profile='planar_quad', mesh_size=[0, 1]),
                dict(mesh_profile='planar_polygon'), dict(mesh_profile='planar_polygon', outline=[]),
                dict(mesh_profile='cube', outline=[[0, 0], [1, 0], [0, 1]]),
@@ -47,6 +64,15 @@ def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declar
                dict(mesh_profile='planar_outline', outline=concave + [[0, 0]]),
                dict(mesh_profile='planar_polygon', outline=[
                    [math.cos(4 * math.pi * i / 5), math.sin(4 * math.pi * i / 5)] for i in range(5)])]
+    invalid += [dict(mesh_profile='planar_holes', outline=frame),
+                dict(mesh_profile='planar_holes', holes=[opening]),
+                dict(mesh_profile='planar_holes', outline=frame, holes=[]),
+                dict(mesh_profile='planar_holes', outline=frame, holes=[opening] * 4),
+                dict(mesh_profile='planar_holes', outline=frame, holes=[opening, opening]),
+                dict(mesh_profile='planar_holes', outline=frame,
+                     holes=[[[1.5, 1.5], [3, 1.5], [3, 3], [1.5, 3]]]),
+                dict(mesh_profile='planar_outline', outline=frame, holes=[opening]),
+                dict(mesh_profile='cube', holes=[opening])]
     for options in invalid:
         result = mutate('forge_asset_document_create', editor=owner, path='Assets/Rejected.mesh.json', **options)
         assert not result['ok'] and not (root / 'Game/Assets/Rejected.mesh.json').exists(), result
@@ -74,7 +100,8 @@ def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declar
             ('planar_polygon', dict(outline=[[-1, -1], [1, -1], [1, 1], [-1, 1]])),
             ('planar_quad', dict(mesh_size=[4, 2])),
             ('planar_outline', dict(outline=concave)),
-            ('planar_outline', dict(outline=list(reversed(concave))))]):
+            ('planar_outline', dict(outline=list(reversed(concave)))),
+            ('planar_holes', dict(outline=frame, holes=[opening]))]):
         suffix = '-clockwise' if index == 3 else ''
         path = f'Assets/{profile}{suffix}.mesh.json'
         result = mutate('forge_asset_document_create', editor=owner, path=path,
@@ -84,10 +111,10 @@ def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declar
         assert baseline['asset_id'] != quad['asset_id'] and baseline['version'] == 1
         old = status(owner)
         result = edit('forge_asset_document_patch', owner,
-                      patch=[dict(op='replace', path='/vertices/3/position/1', value=2)])
+                      patch=[dict(op='replace', path='/vertices/3/position/1', value=2.5)])
         assert result['ok'], result
         changed = content(owner)
-        assert changed['vertices'][3]['position'][1] == 2
+        assert changed['vertices'][3]['position'][1] == 2.5
         assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == baseline
         assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == changed
         rejected = mutate('forge_asset_document_patch', editor=owner,

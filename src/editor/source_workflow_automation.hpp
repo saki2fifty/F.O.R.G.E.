@@ -42,7 +42,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
     const Json channel{{"type", "number"}, {"minimum", 0}, {"maximum", 1}};
     const Json mesh_profile{
         {"type", "string"},
-        {"enum", {"cube", "sculpt_sphere", "planar_quad", "planar_polygon", "planar_outline"}}};
+        {"enum", {"cube", "sculpt_sphere", "planar_quad", "planar_polygon", "planar_outline", "planar_holes"}}};
     const auto mesh_size =
         automation_array(Json{{"type", "number"}, {"minimum", 0}, {"maximum", 200000}}, 2, 2);
     const auto mesh_outline = automation_array(
@@ -515,10 +515,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         "Material graphs accept domain mesh (default) or sprite. Navigation behaviors accept "
         "behavior_profile state_graph (default) or tree. Editable Mesh accepts mesh_profile "
         "cube (default), sculpt_sphere, planar_quad with positive mesh_size [width,height], "
-        "planar_polygon with a strictly convex outline, or planar_outline with a simple "
-        "concave-capable outline. Outlines need 3 to 16 XY points; planar_outline creates ordinary "
-        "triangle faces without holes, crossing/touching edges or adjacent collinear corners. "
-        "Flat meshes face +Z and use bounds UVs.",
+        "planar_polygon with a strictly convex outline, planar_outline with a simple "
+        "concave-capable outline, or planar_holes with an outline and 1 to 3 holes. Each loop "
+        "needs 3 to 16 XY points in either winding, without crossing/touching edges or adjacent "
+        "collinear corners. Holes must be strictly interior, disjoint and nonnested. Outline/hole "
+        "profiles create ordinary triangle faces. Flat meshes face +Z and use bounds UVs.",
         "asset.read",
         automation_object(
             {{"editor", editor_schema},
@@ -528,6 +529,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
              {"mesh_profile", mesh_profile},
              {"mesh_size", mesh_size},
              {"outline", mesh_outline},
+             {"holes", automation_array(mesh_outline, 3, 1)},
              {"textures", automation_array(automation_uuid(), 512, 1)},
              {"canvas", canvas}},
             {"editor"}),
@@ -588,6 +590,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["mesh_profile"] = mesh_profile;
             properties["mesh_size"] = mesh_size;
             properties["outline"] = mesh_outline;
+            properties["holes"] = automation_array(mesh_outline, 3, 1);
         }
         methods.push_back(automation_method(
             std::string("asset.document.") + action,
@@ -599,11 +602,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "(default) or sprite. Navigation behaviors accept behavior_profile "
                 "state_graph (default) or tree. Editable Mesh accepts mesh_profile cube, "
                 "sculpt_sphere, planar_quad (positive mesh_size [width,height]), planar_polygon "
-                "(strictly convex outline) or planar_outline (simple concave-capable outline, "
-                "ordinary triangle faces). Outlines need 3 to 16 XY points, without holes, "
-                "crossing/touching edges or adjacent collinear corners. Flat meshes face +Z and "
-                "map UVs "
-                "across their bounds. Mesh options do not apply to other editors or Open.",
+                "(strictly convex outline), planar_outline (simple concave-capable outline), or "
+                "planar_holes (outline and 1 to 3 holes). Each loop needs 3 to 16 XY points in "
+                "either winding without crossing/touching edges or adjacent collinear corners. "
+                "Holes must be strictly interior, disjoint and nonnested. Outline/hole profiles "
+                "create ordinary triangles. Flat meshes face +Z and map UVs across their bounds. "
+                "Mesh options do not apply to other editors or Open.",
             "asset.write", automation_object(std::move(properties), {"editor", "path"}), true,
             [invoke, action](const Json& request) { return invoke(action, request); }));
     }

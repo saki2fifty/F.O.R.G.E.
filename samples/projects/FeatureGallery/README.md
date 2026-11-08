@@ -1,5 +1,15 @@
 # Feature Gallery
 
+## Flat Meshes with openings
+
+Open `Scenes/203-planar-mesh-holes.scene.json` and press **Play → Game**.
+A frame, three-window panel and concave L use ordinary editable triangles around
+interior openings, including mixed input windings. Stop Play to edit their
+sources under `Assets/Planar`; Save & Publish edits and save the Scene before
+export. Create your own with **New editable Mesh → Outline with holes (XY)**,
+using **Loop** to select the outer boundary or a hole. See the
+[Mesh guide](../../../manual/editor/editable-meshes.md).
+
 ## Concave flat Mesh shapes
 
 Open `Scenes/202-concave-planar-meshes.scene.json` and press **Play → Game**.

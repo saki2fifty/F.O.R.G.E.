@@ -12,6 +12,20 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+holes_path = 'Scenes/203-planar-mesh-holes.scene.json'
+holes_scene = json.loads((project_root / holes_path).read_text())
+assert holes_scene['asset_id'] == by_source[holes_path]['id'] == 'a7955c33-f784-4982-a4e7-7d21c85f2c5a'
+assert len(holes_scene['entities']) == 4
+for name, corners in [('Frame', 8), ('WindowPanel', 16), ('CutoutL', 10)]:
+    path = f'Assets/Planar/{name}.mesh.json'
+    mesh = json.loads((project_root / path).read_text())
+    assert mesh['asset_id'] == by_source[path]['id'] and mesh['version'] == 1
+    assert len(mesh['vertices']) == corners and mesh['faces']
+    assert [v['id'] for v in mesh['vertices']] == list(range(1, corners + 1))
+    assert all(v['position'][2] == 0 for v in mesh['vertices'])
+    assert [f['id'] for f in mesh['faces']] == list(range(corners + 1, mesh['next_id']))
+    assert all(len(face['corners']) == 3 for face in mesh['faces'])
+    assert 'holes' not in mesh and 'outline' not in mesh
 concave_path = 'Scenes/202-concave-planar-meshes.scene.json'
 concave_scene = json.loads((project_root / concave_path).read_text())
 assert concave_scene['asset_id'] == by_source[concave_path]['id'] == '0f29bea1-9220-4fa5-b129-e96c805cab41'

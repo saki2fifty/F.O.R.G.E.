@@ -9,15 +9,27 @@ order to positive-Z normals and generate bounding-rectangle UVs with a top-left
 origin. Element IDs and `next_id` use the existing allocator contract. There is
 no persistent shape profile, additional asset type or separate 2D renderer.
 
-`create_planar_outline` accepts a simple3–16corner XY boundary, including concavity,
+`create_planar_outline` accepts a simple 3–16-corner XY boundary, including concavity,
 in either winding. It reuses the shared pure simple-polygon validator/triangulator
 and emits ordinary triangle faces; it never relaxes convex face admission. Signed
 area normalizes the temporary triangulation order while original vertex IDs/order
 are retained. Shared flat-source construction assigns ordinary face IDs/next_id,
 normalizes +Z fronts and maps all corners against the complete boundary bounds.
-Every triangle retains the existing editable geometry limits. There are no holes,
-curves, crossing/touching edges, repeated or adjacent collinear corners. The
+Every triangle retains the existing editable geometry limits. This outline-only
+profile excludes holes, curves, crossing/touching edges, repeated or adjacent
+collinear corners. The
 original boundary/profile is not stored as a persistent recipe or runtime value.
+
+`create_planar_with_holes` accepts one simple outer outline and 1–3 simple interior
+loops, 3–16 corners per loop (64 total maximum), in either winding. All holes must be
+strictly inside the outer contour, disjoint and nonnested. Pure bridge/ear geometry
+in `polygon_contours.hpp` is shared with TileSet contours; TileSet retains its
+unit-cell, capacity, winding and multi-region admission. Mesh admission retains
+editable coordinate/face tolerances. Decomposition introduces no new positions.
+Original outer vertices precede original hole vertices in input order; temporary
+winding normalization never renumbers them. The shared flat-source constructor
+creates ordinary triangle faces, +Z fronts and global bounds UVs. No contour/hole
+recipe, source version, runtime component or separate geometry owner is added.
 
 The common face validator requires all other corners strictly inside each
 oriented edge, alongside existing planarity and area tolerances. Testing only
@@ -27,7 +39,7 @@ not admit concave boundaries, holes or curves. Existing valid convex sources and
 their cooked format remain unchanged.
 
 Content's New editable Mesh modal exposes Flat quad (XY) dimensions and Flat
-polygon (XY) / Triangulated outline (XY) corner rows through those factories. Its transient draft captures
+polygon (XY) / Triangulated outline (XY) / Outline with holes (XY) corner rows through those factories. Its transient draft captures
 the owning project and document generation; locked/stale creation is disabled,
 failed validation retains the draft, and cancellation creates no files. The
 existing source document, history, publication and Mesh Renderer own subsequent
@@ -35,9 +47,12 @@ edits and placement. Unlit Materials and an orthographic Camera complete a flat
 Scene; sidedness is ordinary Material state.
 
 `asset.document.template/create` accepts `mesh_profile`: `cube` (default),
-`sculpt_sphere`, `planar_quad`, `planar_polygon` or `planar_outline`. Quad-only `mesh_size` is
+`sculpt_sphere`, `planar_quad`, `planar_polygon`, `planar_outline` or `planar_holes`. Quad-only `mesh_size` is
 `[width,height]`, default `[1,1]`; polygon/outline creation requires `outline`, containing
-3–16 XY pairs. Other editors and Open reject these creation options. MCP derives
+3–16 XY pairs. `planar_holes` additionally requires `holes`, an array of 1–3 loops
+with the same point limits. Native hole creation uses Loop to select Outer boundary
+or an interior Hole, with Add hole/Remove hole and shared corner controls. Other
+editors and Open reject these creation options. MCP derives
 the same schemas and dispatch through the existing Source workflow registry.
 
 Gallery199 and the production FrameRenderer software-Vulkan probe cover a quad,

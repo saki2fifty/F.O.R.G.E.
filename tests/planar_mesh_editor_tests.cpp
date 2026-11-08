@@ -138,6 +138,39 @@ int main(int argc, char** argv) {
                     "Concave controls did not create ordinary triangle faces without Scene edits");
             editor = std::make_unique<EditableMeshEditor>();
             input.click("editable-mesh:new");
+            shape(5);
+            input.type("editable-mesh:create-path", "Assets/Frame.mesh.json");
+            input.click("editable-mesh:create-loop");
+            key(ImGuiKey_Home);
+            key(ImGuiKey_DownArrow);
+            key(ImGuiKey_Enter);
+            frame();
+            input.type("editable-mesh:create-hole:0:x:0", "-0.5");
+            input.click("editable-mesh:create");
+            require(!editor->document() && editor->has_unapplied_edits() &&
+                        !std::filesystem::exists(root / "Assets/Frame.mesh.json"),
+                    "Touching hole wrote a source or discarded its creation draft");
+            input.type("editable-mesh:create-hole:0:x:0", "-0.25");
+            input.click("editable-mesh:create-hole-add");
+            input.click("editable-mesh:create-hole-add");
+            frame();
+            require(!test::ui_targets.at("editable-mesh:create-hole-add").enabled,
+                    "Native hole draft exceeded three interior loops");
+            input.click("editable-mesh:create-hole-remove");
+            input.click("editable-mesh:create-hole-remove");
+            input.click("editable-mesh:create-hole:0:add");
+            input.click("editable-mesh:create-hole:0:remove:4");
+            frame();
+            if (scale == 1)
+                capture.save(scratch / "mesh-holes-create.png");
+            input.click("editable-mesh:create");
+            require(editor->document() &&
+                        editor->document()->source().document.at("vertices").size() == 8 &&
+                        editor->document()->source().document.at("faces").size() == 8 &&
+                        scene.snapshot() == authored,
+                    "Native hole controls did not create an ordinary editable frame Mesh");
+            editor = std::make_unique<EditableMeshEditor>();
+            input.click("editable-mesh:new");
             shape(3);
             for (unsigned i = 4; i < 16; ++i)
                 input.click("editable-mesh:create-add");
@@ -156,7 +189,7 @@ int main(int argc, char** argv) {
             input.click("editable-mesh:create-cancel");
             require(scene.snapshot() == reopened, "Cancel mutated the reopened Scene");
             test::observe_ui = false;
-            std::cout << "Planar/concave creation controls at scale " << scale << " passed\n"
+            std::cout << "Planar/concave/hole creation controls at scale " << scale << " passed\n"
                       << std::flush;
         }
         std::cout << "Native planar Mesh creation, convex rejection, scrolling, scope and "

@@ -32,6 +32,19 @@ void run(const std::filesystem::path& root) {
     auto defaults = default_game_settings("org.forge.host-test", "Host test");
     defaults["audio"]["routing"] =
         audio_routing_json({{{"rain", "", .5f, "effects", {}}, {"room", "", .75f, "rain", {}}}});
+    {
+        GameSession silent(GameSessionConfig{});
+        silent.mix_volumes(.5f, {.25f, .75f, 1}, audio_bus_volumes(defaults.at("audio")));
+        for (const auto& invalid : std::vector<AudioBusVolumes>{{{"rain", -1}}, {{"effects", .5f}}}) {
+            bool rejected = false;
+            try {
+                silent.mix_volumes(1, {1, 1, 1}, invalid);
+            } catch (const std::runtime_error&) {
+                rejected = true;
+            }
+            check(rejected, "No-audio session skipped custom bus key/volume admission");
+        }
+    }
     auto queue = std::make_shared<GameControlQueue>();
     GameSessionConfig config;
     config.controls = queue;

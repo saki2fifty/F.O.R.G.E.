@@ -1,6 +1,6 @@
 #include "bounded_json.hpp"
 #include "brush_samples.hpp"
-#include "simple_polygon.hpp"
+#include "polygon_contours.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/editable_mesh.hpp>
@@ -263,6 +263,44 @@ EditableMeshSource::create_planar_outline(AssetId asset,
     for (const auto& triangle : geometry_detail::polygon_triangles(points))
         faces.push_back({order[triangle[0]], order[triangle[1]], order[triangle[2]]});
     return planar_source(asset, outline, faces);
+}
+EditableMeshSource EditableMeshSource::create_planar_with_holes(
+    AssetId asset, std::span<const std::array<double, 2>> outline,
+    std::span<const std::vector<std::array<double, 2>>> holes) {
+    require(!holes.empty() && holes.size() <= 3, "Planar Mesh requires 1 to 3 holes");
+    using Loop = geometry_detail::contour_detail::Loop;
+    struct Region {
+        Loop points;
+        std::vector<Loop> holes;
+    } region;
+    Loop vertices;
+    std::map<geometry_detail::PolygonPoint, std::size_t> indices;
+    const auto admit = [&](std::span<const geometry_detail::PolygonPoint> input) {
+        require(input.size() >= 3 && input.size() <= 16,
+                "Planar Mesh loops require 3 to 16 simple boundary corners");
+        Loop normalized(input.begin(), input.end());
+        for (const auto& p : input) {
+            for (const auto coordinate : p)
+                require(std::isfinite(coordinate) && std::abs(coordinate) <= 100000,
+                        "Planar Mesh coordinate is nonfinite or outside editable bounds");
+            require(indices.emplace(p, vertices.size()).second,
+                    "Planar Mesh loops repeat or share a vertex");
+            vertices.push_back(p);
+        }
+        if (geometry_detail::polygon_signed_area_twice(normalized) < 0)
+            std::reverse(normalized.begin() + 1, normalized.end());
+        (void)geometry_detail::validate_polygon(normalized);
+        return normalized;
+    };
+    region.points = admit(outline);
+    for (const auto& hole : holes) {
+        region.holes.push_back(admit(hole));
+        geometry_detail::contour_detail::validate_hole(region, region.holes.size() - 1);
+    }
+    std::vector<std::vector<std::size_t>> faces;
+    for (const auto& triangle : geometry_detail::contour_detail::decompose_region(region))
+        faces.push_back({indices.at(triangle[0]), indices.at(triangle[1]), indices.at(triangle[2])});
+    return planar_source(asset, vertices, faces);
 }
 EditableMeshSource EditableMeshSource::create_cube(AssetId asset_id) {
     EditableMeshSource result{{{"kind", "forge.editable-mesh"},

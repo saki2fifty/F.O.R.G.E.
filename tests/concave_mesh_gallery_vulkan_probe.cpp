@@ -1,53 +1,12 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "fixtures/concave_mesh_gallery.hpp"
-#include "gallery_game_capture.hpp"
+#include "gallery_planar_coverage.hpp"
 #include "runtime_package.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
 
 using namespace forge;
-namespace {
-Json coverage(const test_gallery_capture::Pixels& pixels) {
-    using namespace test_concave_gallery;
-    const auto background = pixels.front();
-    unsigned interior = 0, exterior = 0;
-    // Independent even/odd contour test; never inspect generated triangles.
-    for (unsigned y = 0; y < 360; ++y)
-        for (unsigned x = 0; x < 640; ++x) {
-            const std::array<double, 2> world{(double(x) + .5 - 320) * (7. / 360),
-                                              (180 - double(y) - .5) * (7. / 360)};
-            bool inside = false, near = false;
-            for (unsigned shape = 0; shape < outlines.size(); ++shape) {
-                const auto& contour = outlines[shape];
-                const std::array<double, 2> p{world[0] - places[shape][0],
-                                              world[1] - places[shape][1]};
-                bool contained = false;
-                for (unsigned i = 0; i < contour.size(); ++i) {
-                    const auto& a = contour[i];
-                    const auto& b = contour[(i + 1) % contour.size()];
-                    const double dx = b[0] - a[0], dy = b[1] - a[1];
-                    const double t = std::clamp(
-                        ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy), 0., 1.);
-                    near |= std::hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy) < .04;
-                    if ((a[1] > p[1]) != (b[1] > p[1]) && p[0] < a[0] + (p[1] - a[1]) * dx / dy)
-                        contained = !contained;
-                }
-                inside |= contained;
-            }
-            if (near)
-                continue;
-            check((pixels[y * 640 + x] != background) == inside,
-                  "Concave Game filled a notch or lost independently classified silhouette");
-            if (inside)
-                ++interior;
-            else
-                ++exterior;
-        }
-    check(interior > 20000 && exterior > 150000, "Concave oracle did not cover enough pixels");
-    return {{"interior_pixels", interior}, {"exterior_pixels", exterior}};
-}
-} // namespace
 int main(int argc, char** argv) {
     try {
         using namespace test_concave_gallery;
@@ -69,7 +28,10 @@ int main(int argc, char** argv) {
         DiligentPresentation presentation(device);
         const auto before = test_gallery_capture::render(presentation, graphics, source, id,
                                                          out / "authored", 3, false, {1, 2, 3});
-        const auto oracle = coverage(before[0]);
+        std::vector<test_gallery_capture::PlanarSilhouette> shapes;
+        for (unsigned i = 0; i < outlines.size(); ++i)
+            shapes.push_back({{outlines[i]}, places[i]});
+        const auto oracle = test_gallery_capture::planar_coverage(before[0], shapes, 7);
         const std::array roots{id};
         {
             ProjectLease lease(source);

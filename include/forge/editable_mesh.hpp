@@ -35,6 +35,11 @@ struct EditableMeshSource {
     // accepted; ordinary triangle faces retain the existing editable face model.
     static EditableMeshSource create_planar_outline(AssetId asset,
                                                     std::span<const std::array<double, 2>> outline);
+    // One simple outer loop with 1..3 strictly interior, disjoint holes. Each
+    // loop has 3..16 corners; either winding is accepted. Emits ordinary triangles.
+    static EditableMeshSource create_planar_with_holes(
+        AssetId asset, std::span<const std::array<double, 2>> outline,
+        std::span<const std::vector<std::array<double, 2>>> holes);
     static EditableMeshSource parse(std::span<const std::byte> bytes);
     void validate() const;
     MeshData cook() const;

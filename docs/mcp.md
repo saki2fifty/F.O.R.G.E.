@@ -360,7 +360,10 @@ Editable Mesh template/create tools accept `editor: "editable_mesh"` and
 (default `[1,1]`), or `mesh_profile: "planar_polygon"` with a required strictly
 convex `outline` of 3–16 XY pairs. `planar_outline` admits a simple concave-capable
 3–16-point outline and emits ordinary triangle faces. Crossed/touching edges,
-repeated/adjacent-collinear corners and holes reject before creation. `cube` remains the default; `sculpt_sphere` is
+repeated/adjacent-collinear corners reject before creation. `planar_holes` requires
+an outer `outline` and `holes` containing 1–3 interior loops, each 3–16 XY pairs in
+either winding. Holes must be strictly interior, disjoint and nonnested. This
+profile emits ordinary triangles through the same source owner. `cube` remains the default; `sculpt_sphere` is
 also available. Flat profiles face +Z and map UVs across their bounds. These
 options reject on other editors and Open. Template allocates no files; Create
 uses the existing asset identity/document owner. Patch, Undo/Redo, Save and

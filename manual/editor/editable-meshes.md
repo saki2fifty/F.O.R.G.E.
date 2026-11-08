@@ -44,6 +44,29 @@ Use **Add corner** twice to reach six rows, then choose **Create**.
 
 The outline is divided into ordinary editable triangle faces when created.
 
+### Create openings inside a flat Mesh
+
+Choose **Outline with holes (XY)**. Use **Loop → Outer boundary** to edit the
+outside, then select **Hole 1** to edit the opening. The default outer square
+runs from -0.5 to 0.5 in X/Y; its centered opening runs from -0.25 to 0.25.
+Each loop needs 3 to 16 simple corners in either winding. The outer boundary may
+be concave. Each hole must stay strictly inside it, with no touching, overlapping
+or nested holes. Crossed edges, duplicate points and straight-through corners
+are rejected.
+
+**Add hole** selects a new centered opening. Adjust its corners before Create so
+it does not overlap another hole. You can create up to three holes. **Remove hole** deletes the selected hole; it is unavailable for the outer boundary or the
+last remaining hole. Use Add corner/Remove within the selected loop to change
+its corner count. Invalid geometry keeps the draft and creates no file.
+
+![New editable Mesh dialog with Outline with holes and Hole 1 selected](../images/mesh-holes-create.png)
+
+Select one loop at a time to keep its coordinates visible while editing.
+
+Choose **Create**, then **Save & Publish**. The result contains ordinary editable
+triangle faces around the openings; the loops are not retained as live settings.
+UVs span the complete outer bounds, so a texture is cut away at the holes.
+
 All flat profiles lie in local XY, with their front pointing toward positive Z. UVs
 span the boundary's bounding rectangle, with the top at V=0. A polygon clips the
 image to its outline. **Save & Publish**, then drag the Mesh into your Scene and
@@ -70,11 +93,20 @@ Open the scene and press **Play → Game**, then stop Play to edit a Mesh under
 
 ![Game view with two L-shaped Meshes and a concave arrow, with their notches left open](../images/concave-mesh-game.png)
 
+Gallery **203-planar-mesh-holes** contains a frame, a three-window panel with
+mixed input windings, and a concave L with an interior opening. Open the Scene,
+press **Play → Game**, then stop Play to edit its Meshes in `Assets/Planar`.
+Save & Publish Mesh edits and save the Scene separately before export.
+
+![Game view of a frame, three-window panel and concave L with open interior cutouts](../images/mesh-holes-game.png)
+
+The openings use ordinary Mesh geometry and remain open in the exported game.
+
 After creation, use the existing Model and UV tools below. A flat shape is an
 ordinary Mesh: it can be transformed, triangulated or extruded. Its start shape
 is not a separate persistent setting. A triangulated outline becomes ordinary
-vertices and faces; its original contour is not a live setting. Holes, curves
-and automatic polygon repair are unavailable.
+vertices and faces; its original contour is not a live setting. Hole profiles
+also become ordinary triangles. Curves and automatic polygon repair are unavailable.
 
 ## Shape the Mesh
 

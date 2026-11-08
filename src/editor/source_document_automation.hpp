@@ -22,9 +22,12 @@ struct AssetDocumentAutomation {
         if (request.contains("mesh_size") && profile != "planar_quad")
             throw AuthoringError("invalid_argument", "mesh_size applies to planar_quad only");
         if (request.contains("outline") && profile != "planar_polygon" &&
-            profile != "planar_outline")
-            throw AuthoringError("invalid_argument",
-                                 "outline applies to a planar polygon or outline only");
+            profile != "planar_outline" && profile != "planar_holes")
+            throw AuthoringError(
+                "invalid_argument",
+                "outline applies to planar polygon, outline or holes creation only");
+        if (request.contains("holes") && profile != "planar_holes")
+            throw AuthoringError("invalid_argument", "holes applies to planar_holes only");
         if (profile == "cube")
             return EditableMeshSource::create_cube(id);
         if (profile == "sculpt_sphere")
@@ -33,11 +36,20 @@ struct AssetDocumentAutomation {
             const auto size = request.value("mesh_size", std::array<double, 2>{1, 1});
             return EditableMeshSource::create_planar_quad(id, size[0], size[1]);
         }
-        if (profile == "planar_polygon" || profile == "planar_outline") {
+        if (profile == "planar_polygon" || profile == "planar_outline" ||
+            profile == "planar_holes") {
             if (!request.contains("outline"))
                 throw AuthoringError("outline_required",
                                      "Flat outline creation requires an XY outline");
             const auto points = request.at("outline").get<std::vector<std::array<double, 2>>>();
+            if (profile == "planar_holes") {
+                if (!request.contains("holes"))
+                    throw AuthoringError("holes_required",
+                                         "Flat hole creation requires interior loops");
+                const auto holes =
+                    request.at("holes").get<std::vector<std::vector<std::array<double, 2>>>>();
+                return EditableMeshSource::create_planar_with_holes(id, points, holes);
+            }
             return profile == "planar_outline"
                        ? EditableMeshSource::create_planar_outline(id, points)
                        : EditableMeshSource::create_planar_polygon(id, points);
@@ -205,7 +217,7 @@ struct AssetDocumentAutomation {
                     return status(editor, project);
                 if constexpr (!mesh)
                     if (request.contains("mesh_profile") || request.contains("mesh_size") ||
-                        request.contains("outline"))
+                        request.contains("outline") || request.contains("holes"))
                         throw AuthoringError("invalid_argument",
                                              "Mesh creation options apply to editable_mesh only");
                 if constexpr (!paint_texture)
@@ -270,7 +282,7 @@ struct AssetDocumentAutomation {
                          request.contains("textures") || request.contains("domain") ||
                          request.contains("behavior_profile") || request.contains("canvas") ||
                          request.contains("mesh_profile") || request.contains("mesh_size") ||
-                         request.contains("outline")))
+                         request.contains("outline") || request.contains("holes")))
                         throw AuthoringError(
                             "invalid_argument",
                             "Initial patch/tile_set/textures/domain/profile options apply "

@@ -2686,3 +2686,32 @@ controls or pixels were invented, retouched, cropped or resized.
 
 Native PNG SHA256: `ab13af7e9113bfd24f34bd29aa713de99b891d15c2be298bcc4cd87903aea35f`.
 Game PNG SHA256: `60a39f02f7ccd470bded63c24d70770092525e0a8c29c9da71b2c5721401a889`.
+
+## Flat Mesh interior openings
+
+[Hole creation](../../../manual/images/mesh-holes-create.png) is the authentic
+700×800 SDL software capture from `tests/planar_mesh_editor_tests.cpp`: Outline
+with holes (XY), Loop → Hole1, ordinary corner controls and disabled last-hole
+removal. Actual pointer/keyboard controls, invalid touching-loop retention,
+add/remove limits and project scope pass at1/1.5/2interface scales in independent
+processes. This is a component fixture, not the full editor or physical DPI.
+Previously captured convex/concave creation PNGs remain byte-identical.
+
+[Cutout Game](../../../manual/images/mesh-holes-game.png) preserves every RGB pixel
+of the640×360 production FrameRenderer PPM from
+`tests/mesh_holes_gallery_vulkan_probe.cpp`. The frame, mixed-winding window panel
+and concave L share the existing Unlit checker Material. An independent even/odd
+outer/hole oracle checks42,262interior,176,718exterior and10,908opening pixels away
+from edges; all four landscape/portrait image pairs remain exact after source
+hiding, Windows-target runtime content export and relocation.
+
+Native bytes were copied exactly; Game conversion is lossless with decoded RGB
+equality. Both views were personally inspected, without invented controls,
+retouching, cropping or resizing. Scene UUID:
+`a7955c33-f784-4982-a4e7-7d21c85f2c5a`. Local batch301
+capture-provenance.json/selected-gallery-proof.json retain exact originals and
+validation provenance. No Windows/full editor, physical device/GPU/input/DPI,
+performance, curved-outline or general polygon-repair acceptance is claimed.
+
+Native PNG SHA256: `fea2dae0a5e20e65b1ddf61f5e44695cc0455a13b0179e43373a88367886a230`.
+Game PNG SHA256: `c31ed705eea0a6a476c7b82c37dfe6f4f146a3a66a02adf82361c92eeb686f3b`.

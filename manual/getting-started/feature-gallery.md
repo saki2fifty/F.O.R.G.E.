@@ -1,5 +1,10 @@
 # Explore the Feature Gallery
 
+**203-planar-mesh-holes** shows a frame, a three-window panel with mixed input
+windings, and a concave L with an interior opening. Open it and press **Play → Game**. Stop Play to edit the ordinary Meshes under `Assets/Planar`; Save &
+Publish edits and save the Scene separately before export. See
+[flat Mesh openings](../editor/editable-meshes.md).
+
 **202-concave-planar-meshes** shows two L shapes from opposite input windings and
 a concave arrow. Open it and press **Play → Game**. All three use ordinary
 editable triangle Meshes and the existing Unlit checker Material. Stop Play,
@@ -39,8 +44,7 @@ Prefab is `Assets/Audio/ThreeTonePlaylist.prefab.json`. See [Create a sound
 playlist](../editor/audio.md).
 
 **197-finite-sound-cue-runs** plays four layered/ordered/weighted events, waiting
-for each event's sounds before starting the next. Open it and press **Play →
-Game**. Select **Four layered events - select for Live sound** to watch progress
+for each event's sounds before starting the next. Open it and press **Play → Game**. Select **Four layered events - select for Live sound** to watch progress
 and **Finite run finished**, then use **Replay run**. In Edit, change **Events per
 run (0 unlimited)** or the timing mode; Apply and save before export with a
 matching runtime kit. See [Play a finite run](../editor/audio.md).
@@ -54,8 +58,7 @@ Save Settings and the Scene before exporting with the matching runtime kit.
 See [Shared audio effects](../editor/audio.md).
 
 **195-completion-sound-cues** waits for each event's own voices and tails before
-requesting the next layered/ordered/weighted choice. Open it and press **Play →
-Game**. Select **Completion layered events - select for Live sound** to watch
+requesting the next layered/ordered/weighted choice. Open it and press **Play → Game**. Select **Completion layered events - select for Live sound** to watch
 completed events or control future production. Stop Play to edit **Timing → After
 event finishes** and **Gap after event (seconds)**; Apply and save before export
 with a matching runtime kit. Source controls retain already-requested voices.

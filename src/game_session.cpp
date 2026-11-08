@@ -357,9 +357,12 @@ void GameSession::mix_volumes(float master, const std::array<float, 3>& channels
     for (float value : {master, channels[0], channels[1], channels[2]})
         if (!std::isfinite(value) || value < 0 || value > 1)
             throw std::runtime_error("Audio mix volumes must be finite and between zero and one");
-    // Admit the entire key set before touching either published or preparing world.
-    (void)AudioRoutingProjection::compile(config_.audio ? config_.audio->routing : AudioRouting{},
-                                          buses, true);
+    // A host without an audio provider can still apply validated project settings.
+    // Enforce the provider's complete routing key set only when it is configured.
+    if (config_.audio)
+        (void)AudioRoutingProjection::compile(config_.audio->routing, buses, true);
+    else
+        validate_audio_bus_volumes(buses);
     for (auto* world : {active_.get(), candidate_.get()})
         if (world && world->engine.services().available(Capability::Audio))
             std::static_pointer_cast<AudioRuntime>(world->engine.services().audio())
