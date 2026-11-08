@@ -655,7 +655,7 @@ struct CodeAutomation {
                         if (authored.prefab_target_)
                             prefab.accept_migration(
                                 authored.migration_->before(),
-                                authored.migration_->candidate(authored.returned_));
+                                authored.migration_->candidate(authored.returned_), scene.schema());
                         else
                             authored.migration_->apply(scene, authored.returned_,
                                                        authored.scene_revision_);

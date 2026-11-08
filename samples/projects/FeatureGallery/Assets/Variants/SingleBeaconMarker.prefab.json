@@ -1,0 +1,35 @@
+{
+  "asset_id": "0b699a29-efe1-456b-90e8-e45d46a2f624",
+  "base": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+  "format": "forge.prefab",
+  "member_order": [
+    {
+      "members": [
+        "1e6e794e-bea6-4b92-9247-9c8d9235a1f3",
+        "9ba113dc-053c-44a1-996a-d35eae931630"
+      ],
+      "parent": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb"
+    }
+  ],
+  "overrides": [
+    {
+      "components": {},
+      "id": "fcaa0747-5f5b-45e2-a18c-84e79fde8282",
+      "removed": true
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 0,
+          "y": 1.1,
+          "z": 0
+        }
+      },
+      "id": "1e6e794e-bea6-4b92-9247-9c8d9235a1f3",
+      "parent": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb"
+    }
+  ],
+  "revision": 2,
+  "root": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+  "version": 6
+}

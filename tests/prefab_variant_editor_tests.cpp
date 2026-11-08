@@ -1,6 +1,8 @@
+#include "fixtures/prefab_structure_gallery.hpp"
 #include "fixtures/prefab_suppression_gallery.hpp"
 #include "imgui_software_capture.hpp"
 #include "prefabs.hpp"
+#include <algorithm>
 #include <imgui_internal.h>
 #include <iostream>
 
@@ -24,7 +26,23 @@ void exercise(const std::filesystem::path& scratch, float scale, bool narrow,
             .get<std::string>();
     authoring_command(scene, "component.add",
                       {{"entity", original}, {"component", "forge.mesh_renderer"}});
+    const auto inherited_entity =
+        authoring_command(scene, "entity.create", {{"kind", 0}, {"name", "Inherited child"}})
+            .at("selected")
+            .get<std::string>();
+    authoring_command(scene, "entity.reparent",
+                      {{"entity", inherited_entity}, {"parent", original}});
     auto definition = create_prefab_source(scene, original);
+    auto& members = definition.source["members"];
+    const auto root_at = std::find_if(members.begin(), members.end(), [&](const Json& row) {
+        return row.at("id") == definition.source.at("root");
+    });
+    check(root_at != members.end(), "Captured source has no root member");
+    std::iter_swap(members.begin(), root_at);
+    std::string inherited_child;
+    for (const auto& row : definition.source.at("members"))
+        if (row.at("name") == "Inherited child")
+            inherited_child = row.at("id");
     const auto inherited_green =
         definition.source.at("members")[0].at("components").at("forge.tint").at("g");
     definition.source["members"][0]["components"]["forge.mesh_renderer"].erase(
@@ -54,12 +72,16 @@ void exercise(const std::filesystem::path& scratch, float scale, bool narrow,
     frame();
     frame();
     check(test::ui_targets.contains("button:Add child") &&
-              !test::ui_targets.at("button:Add child").enabled &&
+              test::ui_targets.at("button:Add child").enabled &&
               !test::ui_targets.at("button:Remove member subtree").enabled,
-          "Variant editor enabled unsupported structural edits");
+          "Variant editor did not allow local additions or protect the root");
+    std::string stage = "inherited values";
     auto point = [&](const std::string& id) {
+        // Settle automatic scroll clamping after changing the selected member's
+        // inspector height before sampling the next real input coordinate.
         frame();
-        check(test::ui_targets.contains(id), "Missing variant control: " + id);
+        frame();
+        check(test::ui_targets.contains(id), "Missing variant control during " + stage + ": " + id);
         auto box = test::ui_targets.at(id);
         const auto center = [](const auto& box) {
             return ImVec2{(box.minimum.x + box.maximum.x) / 2, (box.minimum.y + box.maximum.y) / 2};
@@ -190,10 +212,117 @@ void exercise(const std::filesystem::path& scratch, float scale, bool narrow,
         std::filesystem::create_directories(image.parent_path());
         capture.save(image);
     }
+    stage = "owned child creation";
+    click("button:Add child");
+    check(editor.migration_document().contains("added_members") &&
+              editor.migration_document().at("added_members").size() == 1,
+          "First actual Add child input did not create one owned definition");
+    const auto local =
+        editor.migration_document().at("added_members")[0].at("id").get<std::string>();
+    check(editor.migration_document().at("version") == 6,
+          "Actual Add child input did not enable structural composition");
+    editor.set_property("forge.tint", "r", .3);
+    const auto owned_edit = editor.migration_document();
+    check(owned_edit.at("added_members")[0].at("components").at("forge.tint").at("r") == .3 &&
+              std::none_of(owned_edit.at("overrides").begin(), owned_edit.at("overrides").end(),
+                           [&](const Json& row) { return row.at("id") == local; }),
+          "Editing an owned addition manufactured inherited property intent");
+    click("button:Add child");
+    check(editor.migration_document().at("added_members").size() == 2,
+          "Second actual Add child input did not create the selected member's child");
+    const auto child =
+        editor.migration_document().at("added_members")[1].at("id").get<std::string>();
+    const auto root_member = editor.migration_document().at("root").get<std::string>();
+    stage = "local parenting and sibling order";
+    click("prefab-source-parent:" + child);
+    click("prefab-parent-target:" + root_member);
+    check(editor.migration_document().at("added_members")[1].at("parent") == root_member,
+          "Actual parent input did not update the owned child definition");
+    click("prefab-source-member:" + local);
+    click("button:Move member down");
+    check(editor.migration_document().at("member_order")[0].at("members") ==
+              Json::array({inherited_child, child, local}),
+          "Actual sibling move did not author a stable member-ID order prefix");
+    click("prefab-source-parent:" + local);
+    click("prefab-parent-target:" + child);
+    click("prefab-source-member:" + child);
+    stage = "cycle rejection";
+    const auto before_cycle = editor.migration_document();
+    click("prefab-source-parent:" + child);
+    click("prefab-parent-target:" + local);
+    check(editor.migration_document() == before_cycle,
+          "Actual cyclic parent input changed the shared source draft");
+    click("prefab-source-member:" + local);
+    click("prefab-source-spatial:" + local);
+    click("prefab-spatial-mode:world");
+    check(editor.migration_document().at("added_members")[0].at("spatial").at("mode") == "world",
+          "Actual spatial input did not retain world binding");
+    click("button:Remove member subtree");
+    check(editor.migration_document().at("added_members")[0].at("removed") == true &&
+              editor.source_view(scene.schema()).at("members").size() == 3,
+          "Actual removal lost the owned definition or left it effective");
+    stage = "local member restoration";
+    click("prefab-unavailable:" + local);
+    click("prefab-member-restore:" + local);
+    check(!editor.migration_document().at("added_members")[0].contains("removed") &&
+              editor.source_view(scene.schema()).at("members").size() == 4,
+          "Actual Restore input did not recover the same local member");
+    stage = "inherited attachment Revert and restoration";
+    click("prefab-source-member:" + inherited_child);
+    click("prefab-source-parent:" + inherited_child);
+    click("prefab-parent-target:" + local);
+    click("button:Revert parent");
+    click("prefab-source-spatial:" + inherited_child);
+    click("prefab-spatial-mode:world");
+    click("button:Revert spatial binding");
+    const auto reverted_structure = editor.migration_document();
+    check(std::none_of(reverted_structure.at("overrides").begin(),
+                       reverted_structure.at("overrides").end(),
+                       [&](const Json& row) { return row.at("id") == inherited_child; }),
+          "Actual structural Revert retained inherited parent/spatial intent");
+    click("button:Remove member subtree");
+    click("prefab-unavailable:" + inherited_child);
+    click("prefab-member-restore:" + inherited_child);
+    check(editor.source_view(scene.schema()).at("members").size() == 4,
+          "Actual inherited removal/restoration lost a member");
+    const auto missing = PrefabMemberId::generate();
+    stage = "unavailable local parent repair";
+    editor.set_member_parent(PrefabMemberId::parse(local), missing, scene.schema());
+    frame();
+    frame();
+    if (!test::ui_targets.contains("prefab-source-parent:" + local))
+        click("prefab-unavailable:" + local);
+    click("prefab-source-parent:" + local);
+    click("prefab-parent-target:" + root_member);
+    check(editor.source_view(scene.schema()).at("members").size() == 4,
+          "Unavailable local parent could not be repaired through actual input");
+    stage = "unavailable local spatial repair";
+    editor.set_member_spatial(PrefabMemberId::parse(local),
+                              {{"mode", "explicit"}, {"member", missing}}, scene.schema());
+    frame();
+    frame();
+    click("prefab-source-spatial:" + local);
+    click("prefab-spatial-mode:world");
+    check(editor.source_view(scene.schema()).at("members").size() == 4,
+          "Unavailable local spatial target could not be repaired through actual input");
+    stage = "dormant sibling order retention";
+    editor.set_member_order(PrefabMemberId::parse(root_member),
+                            {PrefabMemberId::parse(inherited_child), missing,
+                             PrefabMemberId::parse(child), PrefabMemberId::parse(local)},
+                            scene.schema());
+    click("prefab-source-member:" + local);
+    click("button:Move member up");
+    check(editor.migration_document().at("member_order")[0].at("members") ==
+              Json::array({inherited_child, missing.str(), local, child}),
+          "Native sibling move discarded dormant ordering intent");
+    click("button:Revert sibling order");
+    check(!editor.migration_document().contains("member_order"),
+          "Native order Revert retained the source's ordering prefix");
     test::observe_ui = false;
 }
 void capture_gallery(const std::filesystem::path& gallery, const std::filesystem::path& scratch,
-                     const std::filesystem::path& output, bool suppression = false) {
+                     const std::filesystem::path& output, bool suppression = false,
+                     bool structural = false) {
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root);
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
@@ -203,15 +332,16 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     project.open_project(root);
     AssetId amber;
     for (const auto& [id, record] : project.prefabs().records())
-        if (record.source == (suppression ? test_prefab_suppression_gallery::prefab_paths[1]
-                                          : "Assets/Variants/AmberBeacon.prefab.json"))
+        if (record.source == (structural    ? test_prefab_structure_gallery::prefab_paths[0]
+                              : suppression ? test_prefab_suppression_gallery::prefab_paths[1]
+                                            : "Assets/Variants/AmberBeacon.prefab.json"))
             amber = id;
     check(bool(amber), "Missing Gallery variant capture source");
     test::ImGuiSoftwareCapture capture(1180, 1520);
     ui::style(1);
     PrefabEditor editor;
     editor.edit_source(scene, project, amber);
-    test::observe_ui = suppression;
+    test::observe_ui = suppression || structural;
     const auto frame = [&] {
         test::ui_targets.clear();
         capture.new_frame();
@@ -223,11 +353,11 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     };
     for (unsigned i = 0; i < 6; ++i)
         frame();
-    if (suppression) {
+    if (suppression || structural) {
         std::string crown;
         const auto view = editor.source_view(scene.schema());
         for (const auto& row : view.at("members"))
-            if (row.at("name") == "Crown")
+            if (row.at("name") == (structural ? "Crossbar" : "Crown"))
                 crown = row.at("id");
         const auto box = test::ui_targets.at("prefab-source-member:" + crown);
         auto& io = ImGui::GetIO();
@@ -239,8 +369,13 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
         io.AddMouseButtonEvent(0, false);
         frame();
         frame();
-        check(test::ui_targets.contains("prefab-component-restore:forge.mesh_renderer"),
-              "Gallery source screenshot did not reach its actual Restore control");
+        if (structural)
+            check(test::ui_targets.contains("prefab-source-parent:" + crown) &&
+                      test::ui_targets.contains("prefab-source-spatial:" + crown),
+                  "Gallery source capture did not reach its actual local attachment controls");
+        else
+            check(test::ui_targets.contains("prefab-component-restore:forge.mesh_renderer"),
+                  "Gallery source screenshot did not reach its actual Restore control");
     }
     std::filesystem::create_directories(output.parent_path());
     capture.save(output);
@@ -257,6 +392,11 @@ int main(int argc, char** argv) {
         if (argc == 5 && std::string_view(argv[1]) == "--suppression-capture") {
             capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
                             std::filesystem::absolute(argv[4]), true);
+            return 0;
+        }
+        if (argc == 5 && std::string_view(argv[1]) == "--structure-capture") {
+            capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                            std::filesystem::absolute(argv[4]), false, true);
             return 0;
         }
         check(argc == 2 || argc == 3, "Provide UI scratch and optional capture path");

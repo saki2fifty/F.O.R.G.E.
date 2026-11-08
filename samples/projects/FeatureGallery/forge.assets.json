@@ -19790,6 +19790,56 @@
       "source": "Scenes/75-2d-physics.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [
+        "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+          "type": "prefab"
+        }
+      ],
+      "id": "0b699a29-efe1-456b-90e8-e45d46a2f624",
+      "metadata": {},
+      "schema_version": 6,
+      "source": "Assets/Variants/SingleBeaconMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "23c4d7a7-6e76-4ab5-a3f4-9b0649136e19",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Scenes/206-prefab-member-structure.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [
+        "d255167b-4179-46b6-af94-c76a589abf6b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
+          "type": "prefab"
+        }
+      ],
+      "id": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+      "metadata": {},
+      "schema_version": 6,
+      "source": "Assets/Variants/ForkedMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
     }
   ],
   "version": 2

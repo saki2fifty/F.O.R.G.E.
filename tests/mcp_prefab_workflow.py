@@ -141,8 +141,91 @@ def check_prefab_workflow(read, mutate, failed, root, *, large_read_budget=True)
     assert json.loads(variant_path.read_text())['overrides'][0]['name'] == 'Retained draft'
     assert json.loads(base_path.read_text()) == external
     assert mutate('forge_prefab_source_close', state=read('forge_prefab_source_read')['state'])['ok']
+    check_prefab_structure(read, mutate, failed, asset, root / 'Game')
     if large_read_budget:
         check_prefab_read_budget(read, mutate, entity, root / 'Game')
+
+
+def check_prefab_structure(read, mutate, failed, base, project):
+    def edit(action, **arguments):
+        state = read('forge_prefab_source_read')
+        result = mutate('forge_prefab_source_member_' + action, state=state['state'], **arguments)
+        assert result['ok'], result
+        return result['result']
+
+    # Add an inherited child through the complete-source owner first, then
+    # exercise attachment Revert on that inherited identity in the variant.
+    assert mutate('forge_prefab_source_open', asset=base)['ok']
+    state = read('forge_prefab_source_read')
+    root = state['source']['root']
+    inherited = edit('add', parent=root, name='Inherited attachment child')['member']
+    assert mutate('forge_prefab_source_publish', state=read('forge_prefab_source_read')['state'])['ok']
+    assert mutate('forge_prefab_source_close', state=read('forge_prefab_source_read')['state'])['ok']
+    created = mutate('forge_prefab_variant_create', base=base,
+                     path='Assets/AgentStructure.prefab.json')
+    assert created['ok'], created
+    variant = created['result']['asset']
+    assert mutate('forge_prefab_source_open', asset=variant)['ok']
+    initial = read('forge_prefab_source_read')
+    root = initial['source']['root']
+
+    first = edit('add', parent=root, name='Owned first')['member']
+    failed(mutate('forge_prefab_source_member_add', state=initial['state'], parent=root),
+           'stale_document')
+    second = edit('add', parent=root, name='Owned second')['member']
+    child = edit('add', parent=first, name='Owned child')['member']
+    edit('parent', member=child, parent=root)
+    edit('order', parent=root, members=[second, child, first])
+    effective = read('forge_prefab_source_read', view='effective')['source']
+    assert [row['id'] for row in effective['members'] if row.get('parent') == root] == [second, child, first, inherited]
+    edit('parent', member=inherited, parent=first)
+    edit('spatial', member=inherited, binding=dict(mode='world'))
+    edit('revert_structure', member=inherited, field='parent')
+    edit('revert_structure', member=inherited, field='spatial')
+    edit('spatial', member=first, binding=dict(mode='explicit', member=second))
+    before = read('forge_prefab_source_read')
+    assert not mutate('forge_prefab_source_member_spatial', state=before['state'], member=second,
+                      binding=dict(mode='explicit', member=first))['ok']
+    assert read('forge_prefab_source_read')['state'] == before['state']
+    assert not mutate('forge_prefab_source_member_spatial', state=before['state'], member=second,
+                      binding=dict(mode='explicit'))['ok']
+    assert not mutate('forge_prefab_source_member_remove', state=before['state'], member=root)['ok']
+    failed(mutate('forge_prefab_source_revert', state=before['state'], member=first), 'not_inherited')
+    assert read('forge_prefab_source_read')['state'] == before['state']
+    # A raw patch must use the same collision checks and leave the draft atomic.
+    assert not mutate('forge_prefab_source_patch', state=before['state'], patch=[
+        dict(op='replace', path='/added_members/0/id', value=root)])['ok']
+    assert read('forge_prefab_source_read')['source'] == before['source']
+    edit('spatial', member=first, binding=dict(mode='world'))
+    edit('parent', member=second, parent=first)
+    edit('remove', member=first)
+    assert len(read('forge_prefab_source_read', view='effective')['source']['members']) == 3
+    removed = read('forge_prefab_source_read')['source']
+    assert len(removed['added_members']) == 3 and removed['added_members'][0]['removed']
+    edit('restore', member=first)
+    assert len(read('forge_prefab_source_read', view='effective')['source']['members']) == 5
+    edit('remove', member=second)
+    state = read('forge_prefab_source_read')
+    assert state['source']['version'] == 6 and state['source']['overrides'] == []
+    assert mutate('forge_prefab_source_publish', state=state['state'])['ok']
+    published = json.loads((project / 'Assets/AgentStructure.prefab.json').read_text())
+    assert published['added_members'][1]['removed']
+    assert mutate('forge_prefab_source_close', state=read('forge_prefab_source_read')['state'])['ok']
+    assert mutate('forge_prefab_source_open', asset=variant)['ok']
+    assert read('forge_prefab_source_read')['source'] == published
+    edit('restore', member=second)
+    edit('order', parent=root, members=[])
+    assert 'member_order' not in read('forge_prefab_source_read')['source']
+    assert mutate('forge_prefab_source_close', state=read('forge_prefab_source_read')['state'], discard=True)['ok']
+    copied = mutate('forge_prefab_duplicate', asset=variant, path='Assets/AgentStructureCopy.prefab.json')
+    assert copied['ok'], copied
+    duplicate = json.loads((project / 'Assets/AgentStructureCopy.prefab.json').read_text())
+    remap = {a['id']: b['id'] for a, b in zip(published['added_members'], duplicate['added_members'])}
+    assert duplicate['root'] == root and duplicate['base'] == base
+    assert all(a != b for a, b in remap.items())
+    assert duplicate['added_members'][1]['parent'] == remap[first]
+    assert duplicate['added_members'][1]['removed']
+    assert duplicate['member_order'][0]['members'] == [remap[second], remap[child], remap[first]]
 
 
 def check_prefab_read_budget(read, mutate, entity, project):

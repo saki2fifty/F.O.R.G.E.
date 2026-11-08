@@ -4,7 +4,7 @@
 #include <vector>
 namespace forge {
 struct PrefabDocument {
-    static constexpr unsigned current_version = 5;
+    static constexpr unsigned current_version = 6;
     static constexpr bool supports_version(unsigned version) {
         return version >= 1 && version <= current_version;
     }
@@ -16,10 +16,19 @@ struct PrefabDocument {
     std::vector<AssetId> dependencies() const;
     static void validate(const Json& document);
     static bool is_variant(const Json& document);
+    // Only arrays whose meaning belongs to the selected source version.
+    static std::vector<const char*> authored_member_arrays(const Json& document);
     // Explicit source5 opt-in; old opaque fields are never silently interpreted.
     PrefabDocument with_component_suppression(PrefabMemberId member, const std::string& component,
                                               bool suppressed,
                                               const Json& schema = Json::object()) const;
+    PrefabDocument with_added_member(Json member) const;
+    PrefabDocument with_member_parent(PrefabMemberId member, PrefabMemberId parent) const;
+    PrefabDocument with_member_spatial(PrefabMemberId member, Json binding) const;
+    PrefabDocument revert_member_structure(PrefabMemberId member, const std::string& field) const;
+    PrefabDocument with_member_removed(PrefabMemberId member, bool removed) const;
+    PrefabDocument with_member_order(PrefabMemberId parent,
+                                     const std::vector<PrefabMemberId>& prefix) const;
     PrefabDocument duplicate(const Json& schema = Json::object()) const;
     PrefabDocument reorder_member(PrefabMemberId member, PrefabMemberId before) const;
 };

@@ -1,5 +1,14 @@
 # Explore the Feature Gallery
 
+**206-prefab-member-structure** compares the capped base, a variant with owned
+fork parts, and a chained variant with member removal and changed attachment/order.
+Open the Scene and press **Play → Game**. Stop Play and edit
+`Assets/Variants/ForkedMarker.prefab.json`; select **Crossbar** to inspect its owned
+values and separate parent/spatial attachments. Expand **Crown** under **Unavailable
+members**, choose **Restore member → Publish source**, then save the Scene before
+export. Camera and Material are included; no project C++ module is required. See
+[Prefab member structure](../editor/prefabs.md).
+
 **205-prefab-component-suppression** shows a base marker, a variant with its Crown
 Mesh Renderer suppressed, and a chained variant with an explicit renderer added.
 Open it and press **Play → Game**. Stop Play, open

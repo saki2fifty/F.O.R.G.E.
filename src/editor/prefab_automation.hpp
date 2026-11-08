@@ -190,6 +190,8 @@ struct PrefabAutomation {
                 if (std::none_of(view.at("members").begin(), view.at("members").end(),
                                  [&](const auto& row) { return row.at("id") == member; }))
                     throw AuthoringError("missing_member", "Select a current variant member");
+                if (!editor.inherited_member(member))
+                    throw AuthoringError("not_inherited", "Owned additions do not inherit values");
                 if (request.contains("field") && !request.contains("component"))
                     throw AuthoringError("invalid_argument", "A field requires its component");
                 editor.member_ = member;
@@ -226,6 +228,90 @@ struct PrefabAutomation {
                 }
                 return state(editor, project);
             }));
+        for (const auto* action :
+             {"add", "remove", "restore", "parent", "spatial", "order", "revert_structure"}) {
+            const std::string_view operation = action;
+            Json properties{{"state", automation_digest()}};
+            Json required{"state"};
+            if (operation == "add" || operation == "parent" || operation == "order") {
+                properties["parent"] = automation_uuid();
+                required.push_back("parent");
+            }
+            if (operation != "add" && operation != "order") {
+                properties["member"] = automation_uuid();
+                required.push_back("member");
+            }
+            if (operation == "add")
+                properties["name"] = automation_text(1024, 1);
+            if (operation == "spatial") {
+                properties["binding"] = automation_object(
+                    {{"mode",
+                      {{"type", "string"}, {"enum", {"follow_structure", "world", "explicit"}}}},
+                     {"member", automation_uuid()}},
+                    {"mode"});
+                required.push_back("binding");
+            }
+            if (operation == "order") {
+                properties["members"] = automation_array(automation_uuid(), 4096);
+                required.push_back("members");
+            }
+            if (operation == "revert_structure") {
+                properties["field"] = {{"type", "string"}, {"enum", {"parent", "spatial"}}};
+                required.push_back("field");
+            }
+            const std::string description =
+                operation == "add"
+                    ? "Add an owned child with a fresh identity and registered defaults. "
+                : operation == "remove" ? "Remove a source branch; variants retain removal intent "
+                                          "and owned definitions. "
+                : operation == "restore"
+                    ? "Clear this variant's member removal; upstream absence still applies. "
+                : operation == "parent"  ? "Set a source parent, retaining local channels; missing "
+                                           "parents retain dormant intent. "
+                : operation == "spatial" ? "Set a source spatial binding, retaining local "
+                                           "channels; explicit needs a member. "
+                : operation == "order" ? "Set a parent's ordered member-ID prefix; an empty list "
+                                         "resets variant order intent. "
+                                       : "Revert an inherited member's parent or spatial override "
+                                         "to the current base. ";
+            result.push_back(automation_method(
+                std::string("prefab.source.member.") + action,
+                description +
+                    "Uses the shared source owner at the exact draft digest. Structural "
+                    "variant edits explicitly enable source6 and reject opaque collisions "
+                    "and cycles. Unavailable intent remains repairable. Publish saves "
+                    "separately; Scene Undo does not edit this draft.",
+                "asset.write", automation_object(std::move(properties), std::move(required)), true,
+                [&editor, &scene, &project, action](const Json& request) {
+                    check(editor, project, request);
+                    const std::string_view operation = action;
+                    const auto schema = scene.schema();
+                    PrefabMemberId added;
+                    if (operation == "add")
+                        added = editor.add_child(request.at("parent").get<PrefabMemberId>(), schema,
+                                                 request.value("name", std::string("Child")));
+                    else if (operation == "order")
+                        editor.set_member_order(
+                            request.at("parent").get<PrefabMemberId>(),
+                            request.at("members").get<std::vector<PrefabMemberId>>(), schema);
+                    else {
+                        const auto member = request.at("member").get<PrefabMemberId>();
+                        if (operation == "remove" || operation == "restore")
+                            editor.set_member_removed(member, operation == "remove", schema);
+                        else if (operation == "parent")
+                            editor.set_member_parent(
+                                member, request.at("parent").get<PrefabMemberId>(), schema);
+                        else if (operation == "spatial")
+                            editor.set_member_spatial(member, request.at("binding"), schema);
+                        else
+                            editor.revert_member_structure(member, request.at("field"), schema);
+                    }
+                    auto result = state(editor, project);
+                    if (added)
+                        result["member"] = added;
+                    return result;
+                }));
+        }
         for (const auto* action : {"patch", "publish", "rebase", "close"}) {
             Json properties{{"state", automation_digest()}};
             Json required{"state"};
@@ -251,7 +337,8 @@ struct PrefabAutomation {
                     check(editor, project, request);
                     if (std::string_view(action) == "patch")
                         editor.edit_draft(
-                            AssetDocumentAutomation::patch(editor.draft_, request.at("patch")));
+                            AssetDocumentAutomation::patch(editor.draft_, request.at("patch")),
+                            scene.schema());
                     else if (std::string_view(action) == "publish") {
                         if (!editor.publish(scene, project))
                             throw AuthoringError("publication_failed", editor.error_);

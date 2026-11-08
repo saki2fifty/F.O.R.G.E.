@@ -47,7 +47,7 @@ Transform Revert works on a whole channel: translation, rotation or scale. Rotat
 5. **Add child** creates a member with a new identity. **Remove member subtree** removes a member and its descendants from the source.
 6. Click **Publish source**.
 
-FORGE validates the candidate and prepares replacement instances before replacing the saved asset. Invalid values, hierarchy cycles, stale files and failed file replacement keep the previous usable revision and instance state. The error stays visible and your candidate remains in the source window for correction.
+FORGE validates the candidate and prepares replacement instances before replacing the saved asset. Invalid values, hierarchy cycles, stale files and failed file replacement keep the previous usable revision and instance state. The error stays visible and your draft remains open for correction.
 
 A successful publication updates non-overridden values. Existing overrides remain intact. **Discard edits** restores the window's last published contents. Closing an unsaved source asks Publish, Discard or Cancel.
 
@@ -59,12 +59,12 @@ Prefab authoring is disabled while Play, native builds, file dialogs or transfor
 
 Use the normal **Duplicate subtree** action on an instance root to make another linked instance with fresh object identities and copied override intent.
 
-Select the prefab in Content, enter a new destination filename and click **Duplicate asset**. An ordinary source copy receives new asset and member identities. A variant copy receives a new asset identity and keeps its base and inherited member identities; its own overrides can be edited separately.
+Select the prefab in Content, enter a new destination filename and click **Duplicate asset**. An ordinary source copy receives new asset and member identities. A variant copy receives a new asset identity and keeps its base and inherited member identities. Its owned additions, including removed definitions retained for restoration, receive fresh member identities. Known references between those additions follow the copy; opaque data remains unchanged.
 
 ## Create a variant
 
-A variant follows another prefab's structure and values. Store the common setup in
-the base, then override the names, components or individual properties that differ.
+A variant inherits another prefab's structure and values. Store the common setup in
+the base, then change the names, components, properties or member structure that differ.
 Changes to the base flow through fields that the variant still inherits. Scene
 instances can add their own overrides on top of the selected variant.
 
@@ -75,6 +75,8 @@ instances can add their own overrides on top of the selected variant.
 5. Click **Publish source**, then instantiate the variant in your scene.
 
 The source window identifies the **Variant base** and shows inherited values.
+**Inherited member** identifies a member supplied by the base; **Owned member**
+identifies an addition defined in this source.
 **Component inherited** means all its values follow the base. **Properties
 overridden** marks a partial override; its individual fields show **Inherited** or
 **Overridden**. **Component overridden** means the whole component is owned by the
@@ -90,8 +92,9 @@ Inspect the base relationship and override labels before publishing a variant.
 
 Use **Revert name**, **Revert field** or **Revert component** to follow the base
 again. Translation, rotation and scale use complete channels. A variant can add,
-override or suppress an optional component. Its parent, spatial attachments, member order and member structure
-follow the base, so those structural controls are disabled.
+override or suppress an optional component on an inherited member. An owned
+addition keeps its own complete name and component values: use **Remove component**
+for its optional components. It has no base name, component or property to Revert.
 
 To omit an optional component from a variant:
 
@@ -104,8 +107,9 @@ Suppression persists across base updates and temporary base-component removal.
 Required components, including transform channels and Color, have no Suppress
 control. Scene instances may still add their own explicit optional component.
 **+ Add Component** also lets the variant own a new component instead of inheriting
-it. The first suppression opts the asset into Prefab format5; restoration keeps
-that format, so use an editor that supports it. If older source data already uses
+it. For a source using an older format, the first suppression enables Prefab
+format5; restoration keeps the selected format, so use an editor that supports it.
+If older source data already uses
 the reserved suppression field, the operation reports a conflict and keeps the
 draft unchanged; preserve or rename that extension explicitly before trying again.
 
@@ -123,8 +127,7 @@ reopen it to review that file before publishing. Failed validation keeps the dra
 A variant can use another variant as its base, up to 16 base links. Missing bases
 and cycles reject. If the base removes a member, its variant overrides are retained
 for that same member identity to return; names do not retarget them. Nested prefab
-instances inside a source, structural variant edits and multiple bases are not
-available.
+instances inside a source and multiple bases are unavailable.
 
 Open **Scenes/142-prefab-variants.scene.json** in the Feature Gallery and press
 **Play**. The base, amber, blue and chained pink variants run the same sliding
@@ -150,6 +153,60 @@ requires no project C++ module.
 
 Compare the retained body and member structure with the missing middle renderer.
 
+## Change a variant's member structure
+
+1. Open the variant's **Edit source** window and select an available member.
+2. Click **Add child** to create an owned addition under it. The child receives registered component defaults and starts one unit above its parent.
+3. Select a non-root member. **Parent member** changes its structural parent; **Spatial binding** selects Follow parent, World or Explicit attachment. Explicit attachment also offers **Spatial target**. These edits retain local transform values.
+4. Use **Move member up** or **Move member down** to order siblings.
+5. Use **Remove member subtree** to omit a member and dependent branches from the effective variant. Its owned definition or inherited removal intent remains in this source.
+6. Click **Publish source**, then save the Scene if new instance member mappings were created.
+
+The first structural edit explicitly selects Prefab format6. An older source that
+already uses one of its reserved structural fields reports a conflict and keeps
+the draft unchanged; preserve or rename that extension before trying again. Use
+an editor that supports this format. Invalid cycles reject the edit immediately.
+The source root keeps its identity and Scene-owned attachment.
+
+For inherited members, **Revert parent** and **Revert spatial binding** remove only
+that source's explicit attachment override and follow the current base again.
+**Revert sibling order** clears this source's order prefix for the selected parent.
+Other properties and component overrides remain intact.
+
+Expand a member under **Unavailable members** to inspect its stable identity and
+repair its parent or spatial attachment. **Restore member** clears this source's
+removal flag. Missing or removed parent/spatial targets can keep a branch
+unavailable; repair the attachment or restore the target as well. A member removed
+by the base remains absent until that base restores it. Restoring a local addition
+uses its retained definition and identity. Reparenting a branch away from a removed
+ancestor can keep that branch available.
+
+Publication updates instances and the next Play/export through the usual source
+workflow. Scene Undo does not edit this draft or reverse source publication.
+
+![Owned Crossbar selected in the variant source, showing its Body parent and explicit root spatial attachment](../images/prefab-member-structure-source.png)
+
+Select **Crossbar** to inspect its owned values and separate structural/spatial attachments.
+
+## Try the member-structure example
+
+Open **Scenes/206-prefab-member-structure.scene.json** in the Feature Gallery and
+press **Play → Game**. The left marker uses the base crown. The middle variant
+removes that crown and owns a Crossbar with two beacons. The right chained variant
+removes one beacon, reparents the other beneath Body and changes its offset/order.
+The Crossbar and beacons attach spatially to the root, keeping their sizes
+independent of their structural parents' scale.
+
+Stop Play and edit **Assets/Variants/ForkedMarker.prefab.json**. Select **Crossbar**
+to inspect **Owned member**, **Parent member** and **Spatial binding**. Expand
+**Crown** under **Unavailable members** and choose **Restore member → Publish
+source** to inherit the crown again. Save the Scene after publication and before
+export. The Camera and Material are included; no project C++ module is required.
+
+![Capped base marker, a variant with an owned fork, and a chained variant with one reparented beacon](../images/prefab-member-structure-game.png)
+
+Compare inherited structure, owned additions and the derived attachment changes.
+
 ## Missing assets and removed members
 
 A removed member keeps its previous object identity and overrides as a **[missing]** entry. References do not silently point to a different object. A missing prefab asset likewise keeps the instance's identity, mapping and override data.
@@ -160,7 +217,7 @@ After editing source files outside FORGE, increase the source revision and use *
 
 ## Current boundaries
 
-The source window edits admitted built-in and project components. Unavailable plugin data is preserved without interpreting it. Nested prefabs, per-instance interior hierarchy changes, structural variant edits and Unpack are unavailable. Apply supports admitted instance overrides as described below. Existing scene-local prefabs remain supported in their original form; opening them does not create asset files or automatically convert them.
+The source window edits admitted built-in and project components. Unavailable plugin data is preserved without interpreting it. Nested prefabs, multiple bases, per-instance interior hierarchy changes and Unpack are unavailable. Apply supports admitted instance overrides as described below. Existing scene-local prefabs remain supported in their original form; opening them does not create asset files or automatically convert them.
 
 See also [Transforms](transforms.md), [Undo and redo](undo-redo.md), [Saving and recovery](saving-recovery.md) and [Play mode](play-mode.md).
 
@@ -176,11 +233,11 @@ Prefab source stays open when Content is hidden. An asterisk and **Unsaved draft
 
 Ctrl+S publishes when Prefab source is the active task. Scene Save does not publish it, and scene Undo/Redo does not edit it. Publishing may clear scene history because existing instances reconcile to a new source revision. This direct-source publication is different from the coordinated Apply workflow below.
 
-Source members use **+ Add Component** and the same typed fields as the entity Inspector, including UI Document asset references and integer Layer. Source draft changes validate on Publish.
+Source members use **+ Add Component** and the same typed fields as the entity Inspector, including UI Document asset references and integer Layer. Structural draft edits validate before acceptance; publishing validates the complete candidate and affected instances.
 
 ## Member order
 
-Select a member in the prefab source document and use **Move member up** or **Move member down** to change its order among siblings. Publishing propagates the source order to instances. Identity, overrides and dynamic scene attachments remain independent. Failed publication keeps the previous order. Scene Undo does not reverse prefab-source publication.
+Select a member in the prefab source document and use **Move member up** or **Move member down** to change its order among siblings. Publishing propagates the source order to instances. Identity, overrides and dynamic scene attachments remain independent. Variants store a stable member-ID order prefix; other base siblings keep their relative order. Missing or differently parented IDs remain dormant, and ordinary sibling moves retain those addresses. **Revert sibling order** returns to current-base ordering. Failed edits/publication keep the previous usable order. Scene Undo does not reverse prefab-source publication.
 
 Unavailable component schemas are shown read-only in the source member Inspector.
 Their values remain in the prefab when you publish unrelated changes. A missing

@@ -1,6 +1,7 @@
 #pragma once
 #include "../json_value_equal.hpp"
 #include "../prefab_component_intent.hpp"
+#include "../prefab_member_access.hpp"
 #include "component_choices.hpp"
 #include "document.hpp"
 #include "property_drawer.hpp"
@@ -71,6 +72,9 @@ class PrefabEditor {
     bool dirty() const { return open_ && !detail::json_value_equal(draft_, baseline_); }
     bool is_open() const { return open_; }
     bool variant() const { return PrefabDocument::is_variant(draft_); }
+    bool inherited_member(const std::string& member) const {
+        return variant() && !detail::owned_prefab_member(draft_, member);
+    }
     Json source_view(const Json& schema = Json::object()) const {
         if (!variant())
             return draft_;
@@ -89,13 +93,14 @@ class PrefabEditor {
             throw std::runtime_error("Prefab source belongs to another project");
         return migration_document();
     }
-    void accept_migration(const Json& before, const Json& candidate) {
+    void accept_migration(const Json& before, const Json& candidate,
+                          const Json& schema = Json::object()) {
         if (!open_ || !detail::json_value_equal(before, draft_))
             throw std::runtime_error(
                 "Prefab draft changed during migration; prepare a fresh candidate");
-        edit_draft(candidate);
+        edit_draft(candidate, schema);
     }
-    void edit_draft(const Json& candidate) {
+    void edit_draft(const Json& candidate, const Json& schema = Json::object()) {
         if (!open_)
             throw std::runtime_error("Open a prefab source before editing its draft");
         PrefabDocument::validate(candidate);
@@ -110,7 +115,7 @@ class PrefabEditor {
         auto sources = baseline_bases_;
         const auto asset = candidate.at("asset_id").get<AssetId>();
         sources[asset] = candidate;
-        const auto view = resolve_prefab_sources(sources).at(asset);
+        const auto view = resolve_prefab_sources(sources, schema).at(asset);
         draft_ = candidate;
         if (std::none_of(view.at("members").begin(), view.at("members").end(),
                          [&](const Json& member) { return member.at("id") == member_; })) {
@@ -122,6 +127,49 @@ class PrefabEditor {
                                                             member_);
         }
     }
+    PrefabMemberId add_child(PrefabMemberId parent, const Json& schema,
+                             const std::string& name = "Child") {
+        const auto view = source_view(schema);
+        if (std::none_of(view.at("members").begin(), view.at("members").end(),
+                         [&](const Json& row) { return row.at("id") == Json(parent); }))
+            throw std::runtime_error("Choose an available parent before adding a source child");
+        Json components = Json::object();
+        for (const auto& type : schema.at("components"))
+            if (!type.value("optional", false)) {
+                const auto key = type.at("id").get<std::string>();
+                for (const auto& field : type.at("fields"))
+                    components[key][field.at("id").get<std::string>()] = field.at("default");
+                if (type.value("custom", false))
+                    components[key]["$forge"] = type.at("admission");
+            }
+        components["forge.local_translation"]["y"] = 1;
+        const auto id = PrefabMemberId::generate();
+        edit_draft(PrefabDocument(draft_)
+                       .with_added_member({{"id", id},
+                                           {"name", name},
+                                           {"parent", parent},
+                                           {"components", std::move(components)}})
+                       .source,
+                   schema);
+        return id;
+    }
+    void set_member_parent(PrefabMemberId member, PrefabMemberId parent, const Json& schema) {
+        edit_draft(PrefabDocument(draft_).with_member_parent(member, parent).source, schema);
+    }
+    void set_member_spatial(PrefabMemberId member, const Json& binding, const Json& schema) {
+        edit_draft(PrefabDocument(draft_).with_member_spatial(member, binding).source, schema);
+    }
+    void set_member_removed(PrefabMemberId member, bool removed, const Json& schema) {
+        edit_draft(PrefabDocument(draft_).with_member_removed(member, removed).source, schema);
+    }
+    void set_member_order(PrefabMemberId parent, const std::vector<PrefabMemberId>& prefix,
+                          const Json& schema) {
+        edit_draft(PrefabDocument(draft_).with_member_order(parent, prefix).source, schema);
+    }
+    void revert_member_structure(PrefabMemberId member, const std::string& field,
+                                 const Json& schema) {
+        edit_draft(PrefabDocument(draft_).revert_member_structure(member, field).source, schema);
+    }
     bool close_cancelled = false;
     void request_close() {
         if (dirty())
@@ -132,7 +180,7 @@ class PrefabEditor {
     void request_save() { save_requested_ = true; }
     void rename_member(const std::string& name) { selected_intent()["name"] = name; }
     void set_property(const std::string& component, const std::string& field, const Json& value) {
-        if (!variant() || selected_intent().at("components").contains(component))
+        if (!inherited_member(member_) || selected_intent().at("components").contains(component))
             selected_intent().at("components").at(component)[field] = value;
         else if (component.starts_with("forge.local_")) {
             const auto view = source_view();
@@ -164,7 +212,7 @@ class PrefabEditor {
     }
     void set_component(const std::string& component, const Json& value) {
         auto& row = selected_intent();
-        if (variant() && draft_.at("version") == 5)
+        if (inherited_member(member_) && draft_.at("version").get<unsigned>() >= 5)
             detail::clear_prefab_component_suppression(row, component);
         row["components"][component] = value;
         if (row.contains("property_overrides"))
@@ -172,17 +220,17 @@ class PrefabEditor {
         prune_intent();
     }
     void revert_name() {
-        if (variant()) {
+        if (inherited_member(member_)) {
             selected_intent().erase("name");
             prune_intent();
         }
     }
     void revert_component(const std::string& component) {
         auto& row = selected_intent();
-        if (variant() && draft_.at("version") == 5)
+        if (inherited_member(member_) && draft_.at("version").get<unsigned>() >= 5)
             detail::clear_prefab_component_suppression(row, component);
         row["components"].erase(component);
-        if (variant() && row.contains("property_overrides"))
+        if (inherited_member(member_) && row.contains("property_overrides"))
             row["property_overrides"].erase(component);
         prune_intent();
     }
@@ -199,10 +247,11 @@ class PrefabEditor {
         edit_draft(
             PrefabDocument(draft_)
                 .with_component_suppression(PrefabMemberId::parse(member_), component, true, schema)
-                .source);
+                .source,
+            schema);
     }
     void revert_property(const std::string& component, const std::string& field) {
-        if (!variant())
+        if (!inherited_member(member_))
             throw std::runtime_error("Only variant properties inherit from a base source");
         auto& row = selected_intent();
         if (row.contains("property_overrides") && row["property_overrides"].contains(component)) {
@@ -561,17 +610,21 @@ class PrefabEditor {
             ui::help("Closing an unsaved draft asks to Publish, Discard or Cancel.");
             ImGui::BeginDisabled(locked);
             try {
-                const bool inherited = variant();
-                auto resolved = inherited ? source_view(scene.schema()) : Json();
-                auto& view = inherited ? resolved : draft_;
-                if (inherited) {
+                const auto schema = scene.schema();
+                auto sources = baseline_bases_;
+                sources[edited] = draft_;
+                const auto resolved =
+                    variant() ? resolve_prefab_sources(sources, schema) : PrefabSources{};
+                auto view = variant() ? resolved.at(edited) : draft_;
+                if (variant()) {
                     const auto base = draft_.at("base").get<AssetId>();
                     const auto found = project.prefabs().records().find(base);
                     const auto label = found == project.prefabs().records().end()
                                            ? base.str()
                                            : path_text(found->second.source);
-                    ImGui::TextWrapped("Variant base: %s | Structure follows the base.",
-                                       label.c_str());
+                    ImGui::TextWrapped(
+                        "Variant base: %s | Local structure and values stay in this source.",
+                        label.c_str());
                     if (ui::button("Rebase draft",
                                    "Refresh published sources and review the new base values while "
                                    "retaining this draft’s explicit overrides. Successful source "
@@ -599,7 +652,6 @@ class PrefabEditor {
                 for (const auto& m : view.at("members"))
                     if (m.at("id") == member_)
                         parent = m.value("parent", "");
-                ImGui::BeginDisabled(inherited);
                 if (!parent.empty()) {
                     for (const auto& m : view.at("members"))
                         if (m.value("parent", "") == parent)
@@ -610,25 +662,30 @@ class PrefabEditor {
                     if (ui::button("Move member up",
                                    "Reorder this sibling in the source draft. Publish updates "
                                    "instances; scene Undo does not reverse publication."))
-                        draft_ = PrefabDocument(draft_)
-                                     .reorder_member(PrefabMemberId::parse(member_),
-                                                     PrefabMemberId::parse(siblings.at(index - 1)))
-                                     .source;
+                        move_sibling(siblings, index, index - 1, parent, schema);
                     ImGui::EndDisabled();
                     ImGui::SameLine();
                     ImGui::BeginDisabled(index + 1 >= siblings.size());
                     if (ui::button("Move member down",
                                    "Move the next sibling before this source member."))
-                        draft_ = PrefabDocument(draft_)
-                                     .reorder_member(PrefabMemberId::parse(siblings.at(index + 1)),
-                                                     PrefabMemberId::parse(member_))
-                                     .source;
+                        move_sibling(siblings, index, index + 1, parent, schema);
                     ImGui::EndDisabled();
+                    if (variant() && draft_.at("version") == 6 && draft_.contains("member_order"))
+                        for (const auto& order : draft_.at("member_order"))
+                            if (order.at("parent") == parent &&
+                                ui::button("Revert sibling order",
+                                           "Remove this source's order prefix for this parent.")) {
+                                source_edit([&] {
+                                    set_member_order(PrefabMemberId::parse(parent), {}, schema);
+                                });
+                                break;
+                            }
                 }
-                ImGui::EndDisabled();
                 ImGui::Separator();
                 for (auto& m : view["members"])
                     if (m.at("id") == member_) {
+                        const bool inherited = inherited_member(member_);
+                        ImGui::TextUnformatted(inherited ? "Inherited member" : "Owned member");
                         char name[1024]{};
                         SDL_strlcpy(name, m.at("name").get<std::string>().c_str(), sizeof(name));
                         ui::property_label_row("Member name");
@@ -651,86 +708,7 @@ class PrefabEditor {
                         ui::help(
                             "Rename this member in every instance. Its durable member identity is "
                             "unchanged.");
-                        ImGui::BeginDisabled(inherited);
-                        if (member_ != draft_.at("root").get_ref<const std::string&>()) {
-                            ui::property_label_row("Parent member");
-                            if (ImGui::BeginCombo(
-                                    "##Parent member",
-                                    prefab_member_label(view, m.at("parent")).c_str())) {
-                                for (const auto& target : view.at("members"))
-                                    if (target.at("id") != member_) {
-                                        ImGui::PushID(
-                                            target.at("id").get_ref<const std::string&>().c_str());
-                                        if (ImGui::Selectable(target.at("name")
-                                                                  .get_ref<const std::string&>()
-                                                                  .c_str(),
-                                                              m.at("parent") == target.at("id")))
-                                            m["parent"] = target.at("id");
-                                        ui::help("Change the structural parent, keeping local "
-                                                 "channels. Cycles are rejected at publication.");
-                                        ImGui::PopID();
-                                    }
-                                ImGui::EndCombo();
-                            }
-                            ui::help(
-                                "Source hierarchy uses validated structured parenting. Instances "
-                                "cannot rearrange its interiors.");
-                        }
-                        if (member_ != draft_.at("root").get_ref<const std::string&>()) {
-                            auto binding = m.value("spatial", Json{{"mode", "follow_structure"}});
-                            ui::property_label_row("Spatial binding");
-                            const std::string binding_mode = binding.at("mode");
-                            if (ImGui::BeginCombo("##Member binding", binding_mode == "world"
-                                                                          ? "World"
-                                                                      : binding_mode == "explicit"
-                                                                          ? "Explicit attachment"
-                                                                          : "Follow parent")) {
-                                for (const char* mode : {"follow_structure", "world", "explicit"}) {
-                                    if (ImGui::Selectable(std::string(mode) == "world" ? "World"
-                                                          : std::string(mode) == "explicit"
-                                                              ? "Explicit attachment"
-                                                              : "Follow parent",
-                                                          binding.at("mode") == mode)) {
-                                        binding = {{"mode", mode}};
-                                        if (std::string(mode) == "explicit")
-                                            binding["member"] = draft_.at("root");
-                                        m["spatial"] = binding;
-                                    }
-                                    ui::help(
-                                        "Follow the structural parent, use world coordinates, or "
-                                        "attach to another source member. Local channels are "
-                                        "retained.");
-                                }
-                                ImGui::EndCombo();
-                            }
-                            ui::help("Source member spatial attachment. Instances inherit this "
-                                     "source-owned binding.");
-                            if (binding.at("mode") == "explicit") {
-                                ui::property_label_row("Spatial target");
-                                if (ImGui::BeginCombo(
-                                        "##Spatial target",
-                                        prefab_member_label(view, binding.at("member")).c_str())) {
-                                    for (const auto& target : view.at("members"))
-                                        if (target.at("id") != member_) {
-                                            ImGui::PushID(target.at("id")
-                                                              .get_ref<const std::string&>()
-                                                              .c_str());
-                                            if (ImGui::Selectable(target.at("name")
-                                                                      .get_ref<const std::string&>()
-                                                                      .c_str()))
-                                                m["spatial"]["member"] = target.at("id");
-                                            ui::help("Persistent source member target; cyclic "
-                                                     "attachment is rejected when publishing.");
-                                            ImGui::PopID();
-                                        }
-                                    ImGui::EndCombo();
-                                }
-                                ui::help("Resolve this target separately through each instance's "
-                                         "stable member mapping.");
-                            }
-                        }
-                        ImGui::EndDisabled();
-                        const auto schema = scene.schema();
+                        draw_member_structure(m, view, schema);
                         if (ui::button("+ Add Component",
                                        "Add a registered component to this source member. Publish "
                                        "validates the complete candidate."))
@@ -756,7 +734,7 @@ class PrefabEditor {
                         ui::help(
                             "Registered component defaults for this prefab member. Dynamic bodies "
                             "need spatial World binding.");
-                        if (inherited && draft_.at("version") == 5) {
+                        if (inherited && draft_.at("version").get<unsigned>() >= 5) {
                             const auto* intent = selected_override();
                             const auto suppressed =
                                 intent ? intent->value("suppressed_components", Json::array())
@@ -971,46 +949,25 @@ class PrefabEditor {
                             }
                         }
                     }
-                ImGui::BeginDisabled(inherited);
                 if (ui::button("Add child", "Add a new member under the selected source member. It "
                                             "receives a fresh member identity.")) {
-                    const auto id = PrefabMemberId::generate().str();
-                    Json components = Json::object();
-                    const auto schema = scene.schema();
-                    for (const auto& type : schema.at("components"))
-                        if (!type.value("optional", false))
-                            for (const auto& field : type.at("fields"))
-                                components[type.at("id").get<std::string>()]
-                                          [field.at("id").get<std::string>()] = field.at("default");
-                    components["forge.local_translation"]["y"] = 1;
-                    view["members"].push_back({{"id", id},
-                                               {"name", "Child"},
-                                               {"parent", member_},
-                                               {"components", components}});
-                    member_ = id;
+                    source_edit([&] {
+                        member_ = add_child(PrefabMemberId::parse(member_), schema).str();
+                        if (ui::editor_context)
+                            ui::editor_context->selection.select_member(edited, member_);
+                    });
                 }
                 ImGui::SameLine();
                 ImGui::BeginDisabled(member_ == draft_.at("root").get_ref<const std::string&>());
                 if (ui::button("Remove member subtree",
-                               "Remove this source subtree. Published instances retain removed "
-                               "members' IDs and override data as diagnostics.")) {
-                    std::set<std::string> removed{member_};
-                    bool changed;
-                    do {
-                        changed = false;
-                        for (const auto& m : view["members"])
-                            if (removed.contains(m.value("parent", "")))
-                                changed |= removed.insert(m.at("id")).second;
-                    } while (changed);
-                    auto kept = Json::array();
-                    for (const auto& m : view["members"])
-                        if (!removed.contains(m.at("id")))
-                            kept.push_back(m);
-                    view["members"] = kept;
-                    member_ = draft_.at("root");
-                }
+                               "Remove this effective branch. Variants retain definitions and "
+                               "removal intent for restoration; Publish updates instances."))
+                    source_edit(
+                        [&] { set_member_removed(PrefabMemberId::parse(member_), true, schema); });
                 ImGui::EndDisabled();
-                ImGui::EndDisabled();
+                if (variant())
+                    draw_unavailable_members(view, resolved.at(draft_.at("base").get<AssetId>()),
+                                             schema);
                 if (ui::button(
                         "Publish source",
                         "Validate and realize the candidate, atomically replace this one prefab "
@@ -1075,36 +1032,178 @@ class PrefabEditor {
     }
 
   private:
-    const Json* selected_override() const {
+    template <class Edit> void source_edit(Edit edit) {
+        try {
+            edit();
+            error_.clear();
+        } catch (const std::exception& e) {
+            error_ = e.what();
+        }
+    }
+    void move_sibling(std::vector<std::string> siblings, std::size_t from, std::size_t to,
+                      const std::string& parent, const Json& schema) {
+        std::swap(siblings.at(from), siblings.at(to));
+        std::vector<PrefabMemberId> prefix;
+        std::size_t next = 0;
+        const std::set<std::string> active(siblings.begin(), siblings.end());
+        if (variant() && draft_.at("version") == 6 && draft_.contains("member_order"))
+            for (const auto& order : draft_.at("member_order"))
+                if (order.at("parent") == parent)
+                    for (const auto& id : order.at("members"))
+                        prefix.push_back(PrefabMemberId::parse(
+                            active.contains(id.get<std::string>()) ? siblings.at(next++)
+                                                                   : id.get<std::string>()));
+        while (next < siblings.size())
+            prefix.push_back(PrefabMemberId::parse(siblings.at(next++)));
+        source_edit([&] { set_member_order(PrefabMemberId::parse(parent), prefix, schema); });
+    }
+    void draw_member_structure(const Json& member, const Json& view, const Json& schema) {
+        const auto id = member.at("id").get<PrefabMemberId>();
+        if (member.at("id") == draft_.at("root"))
+            return;
+        const auto identity = id.str();
+        const auto parent = member.value("parent", std::string{});
+        ui::property_label_row("Parent member");
+        if (ImGui::BeginCombo("##Parent member", prefab_member_label(view, parent).c_str())) {
+            for (const auto& target : view.at("members"))
+                if (target.at("id") != Json(id)) {
+                    ui::IdScope target_scope(target.at("id").get_ref<const std::string&>().c_str());
+                    if (ImGui::Selectable(target.at("name").get_ref<const std::string&>().c_str(),
+                                          target.at("id") == parent))
+                        source_edit([&] {
+                            set_member_parent(id, target.at("id").get<PrefabMemberId>(), schema);
+                        });
+                    FORGE_UI_PROBE("prefab-parent-target:" + target.at("id").get<std::string>());
+                }
+            ImGui::EndCombo();
+        }
+        FORGE_UI_PROBE("prefab-source-parent:" + identity);
+        ui::help("Change this member's structural parent, retaining local channels. Cycles reject "
+                 "the edit. A missing parent leaves the branch unavailable until repaired.");
+        auto intent = member_override(identity);
+        if (inherited_member(identity) && draft_.at("version") == 6 && intent &&
+            intent->contains("parent") &&
+            ui::button("Revert parent", "Follow the current base parent again."))
+            source_edit([&] { revert_member_structure(id, "parent", schema); });
+        auto binding = member.value("spatial", Json{{"mode", "follow_structure"}});
+        ui::property_label_row("Spatial binding");
+        const auto label = [](const std::string& mode) {
+            return mode == "world"      ? "World"
+                   : mode == "explicit" ? "Explicit attachment"
+                                        : "Follow parent";
+        };
+        if (ImGui::BeginCombo("##Member binding", label(binding.at("mode")))) {
+            for (const char* mode : {"follow_structure", "world", "explicit"}) {
+                if (ImGui::Selectable(label(mode), binding.at("mode") == mode))
+                    source_edit([&] {
+                        Json next{{"mode", mode}};
+                        if (std::string_view(mode) == "explicit")
+                            next["member"] = draft_.at("root");
+                        set_member_spatial(id, next, schema);
+                    });
+                FORGE_UI_PROBE("prefab-spatial-mode:" + std::string(mode));
+            }
+            ImGui::EndCombo();
+        }
+        FORGE_UI_PROBE("prefab-source-spatial:" + identity);
+        ui::help(
+            "Follow the structural parent, use world coordinates, or attach to a stable source "
+            "member. Local channels are retained; cyclic attachments reject the edit.");
+        if (binding.at("mode") == "explicit") {
+            ui::property_label_row("Spatial target");
+            if (ImGui::BeginCombo("##Spatial target",
+                                  prefab_member_label(view, binding.at("member")).c_str())) {
+                for (const auto& target : view.at("members"))
+                    if (target.at("id") != Json(id)) {
+                        ui::IdScope scope(target.at("id").get_ref<const std::string&>().c_str());
+                        if (ImGui::Selectable(
+                                target.at("name").get_ref<const std::string&>().c_str()))
+                            source_edit([&] {
+                                auto next = binding;
+                                next["member"] = target.at("id");
+                                set_member_spatial(id, next, schema);
+                            });
+                        FORGE_UI_PROBE("prefab-spatial-target:" +
+                                       target.at("id").get<std::string>());
+                    }
+                ImGui::EndCombo();
+            }
+            FORGE_UI_PROBE("prefab-source-spatial-target:" + identity);
+        }
+        intent = member_override(identity);
+        if (inherited_member(identity) && draft_.at("version") == 6 && intent &&
+            intent->contains("spatial") &&
+            ui::button("Revert spatial binding", "Follow the current base spatial binding again."))
+            source_edit([&] { revert_member_structure(id, "spatial", schema); });
+    }
+    void draw_unavailable_members(const Json& view, const Json& base, const Json& schema) {
+        std::map<std::string, Json> candidates;
+        const auto remember = [&](const Json& row) {
+            auto& member = candidates[row.at("id").get<std::string>()];
+            member = {{"id", row.at("id")}, {"name", row.at("name")}};
+            for (const char* field : {"parent", "spatial"})
+                if (row.contains(field))
+                    member[field] = row.at(field);
+        };
+        for (const auto& member : base.at("members"))
+            remember(member);
+        for (const auto* collection : PrefabDocument::authored_member_arrays(draft_))
+            for (const auto& row : draft_.at(collection)) {
+                const auto id = row.at("id").get<std::string>();
+                if (std::string_view(collection) != "overrides")
+                    remember(row);
+                else {
+                    auto& member = candidates[id];
+                    if (member.is_null())
+                        member = {{"id", id}, {"name", "Missing inherited member"}};
+                    for (const char* field : {"name", "parent", "spatial"})
+                        if (row.contains(field) &&
+                            (std::string_view(field) == "name" || draft_.at("version") == 6))
+                            member[field] = row.at(field);
+                }
+            }
+        for (const auto& member : view.at("members"))
+            candidates.erase(member.at("id").get<std::string>());
+        if (candidates.empty())
+            return;
+        ui::heading("Unavailable members",
+                    "Removed members and branches with missing parents or spatial targets.");
+        ImGui::TextWrapped("Restore clears only this source's removal. Repair attachments here; "
+                           "members missing from the base return when that base restores them.");
+        for (const auto& [id, member] : candidates) {
+            ui::IdScope scope(id.c_str());
+            const bool expanded = ImGui::TreeNode("##Unavailable member", "%s",
+                                                  member.at("name").get<std::string>().c_str());
+            FORGE_UI_PROBE("prefab-unavailable:" + id);
+            if (!expanded)
+                continue;
+            ImGui::TextWrapped("Member: %s | %s", id.c_str(),
+                               inherited_member(id) ? "Inherited" : "Owned addition");
+            const auto* intent = detail::owned_prefab_member(draft_, id);
+            if (!intent)
+                intent = member_override(id);
+            const bool removed =
+                draft_.at("version") == 6 && intent && intent->value("removed", false);
+            if (removed) {
+                if (ui::button("Restore member", "Clear this source's retained removal flag."))
+                    source_edit(
+                        [&] { set_member_removed(PrefabMemberId::parse(id), false, schema); });
+                FORGE_UI_PROBE("prefab-member-restore:" + id);
+            }
+            draw_member_structure(member, view, schema);
+            ImGui::TreePop();
+        }
+    }
+    const Json* member_override(const std::string& id) const {
         if (variant())
             for (const auto& row : draft_.at("overrides"))
-                if (row.at("id") == member_)
+                if (row.at("id") == id)
                     return &row;
         return nullptr;
     }
-    Json& selected_intent() {
-        auto& rows = draft_[variant() ? "overrides" : "members"];
-        for (auto& row : rows)
-            if (row.at("id") == member_)
-                return row;
-        if (!variant())
-            throw std::runtime_error("Choose an existing prefab source member");
-        rows.push_back({{"id", member_}, {"components", Json::object()}});
-        return rows.back();
-    }
-    void prune_intent() {
-        if (!variant())
-            return;
-        auto& row = selected_intent();
-        if (row.contains("property_overrides") && row.at("property_overrides").empty())
-            row.erase("property_overrides");
-        auto& rows = draft_["overrides"];
-        rows.erase(std::remove_if(rows.begin(), rows.end(),
-                                  [](const Json& item) {
-                                      return item.size() == 2 && item.at("components").empty();
-                                  }),
-                   rows.end());
-    }
+    const Json* selected_override() const { return member_override(member_); }
+    Json& selected_intent() { return detail::prefab_member_intent(draft_, member_); }
+    void prune_intent() { detail::prune_prefab_member_intent(draft_, member_); }
     void finish_close() {
         open_ = false;
         if (ui::editor_context &&

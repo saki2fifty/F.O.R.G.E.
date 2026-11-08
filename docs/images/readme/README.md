@@ -2786,3 +2786,44 @@ section; that section's original PNG hash is historical. The Game image from tha
 section remains unchanged. The refreshed PNG was copied exactly from the authentic
 software SDL capture and personally reviewed, with no crop, resize or retouch.
 Current PNG SHA256: `d22f7e5143404d2c9da42b4ca222ad43dd95f8f3a447c3fd7736abeca059d9b0`.
+
+
+## Structural Prefab variant captures
+
+Captured on 2026-11-08 from the independently authored source6 extension and
+Gallery206. The unnumbered local Linux build uses C++ input digest
+`b9ac2b67e451ecc44d4c7bf093f31e66d9d9044d063c9658338c386fc457b7a7`.
+The canonical [source window](../../../manual/images/prefab-member-structure-source.png)
+is the exact1180×1520 native output of
+`forge_prefab_variant_editor_tests --structure-capture`. Actual mouse input selects
+Crossbar in ForkedMarker; the fixture checks its parent and spatial controls. It
+shows owned values, independent attachment and the retained unavailable Crown.
+The same native input path separately passed wide/narrow1/1.5/2 layouts, including
+Restore, attachment repair, cycle rejection and dormant ordering.
+
+The canonical [Game image](../../../manual/images/prefab-member-structure-game.png)
+is a lossless640×360 RGB conversion from the production Game/FrameRenderer in
+`prefab_structure_gallery_vulkan_probe`. The independent rectangle oracle checks
+41,556interior and173,478exterior pixels. Four image pairs match after Windows-target
+content export, relocation and source hiding. Scene UUID:
+`23c4d7a7-6e76-4ab5-a3f4-9b0649136e19`. Existing Unlit checker Material reuse has
+no missing-resource fallback diagnostics. Local304 selected-gallery-proof.json,
+gallery-publication.json and capture-provenance.json retain exact proof and hashes.
+
+The Gallery142 variant source and205suppression source captures were also refreshed
+through their existing native capture options to show enabled structure controls
+and inherited-member labels. Their original asset files remain unchanged; old
+hashes above are historical. The positive-source screenshot remains attributable
+to its existing capture of the unchanged ordinary source-property workflow.
+All four current captures were personally reviewed. Native bytes are copied
+exactly; Game decoded RGB equals the passing PPM. No crop, resize, retouch,
+full-editor-main, Windows execution, physical desktop/DPI/graphics or performance
+acceptance is claimed.
+
+PNG SHA256: `76c8bbba0420972f0dfa4e12373c51ae5cf9b6cfda48eb2677c161a2724658ea` (`prefab-member-structure-source.png`).
+
+PNG SHA256: `f04cec5ac0a8cc638b94d3ef4bb83261ee8a9bb347fcb08a39476e7b0584897e` (`prefab-member-structure-game.png`).
+
+PNG SHA256: `1ce15232cce34e03e6a6b5f0b19a3a1c470a9ad6dbaabb11035d9cf616783c87` (`prefab-variant-source.png`).
+
+PNG SHA256: `a5b3a4768b5d80cf646b2f84d41629403105cb516bec42daa83e1abfa7d5729e` (`prefab-component-suppression-source.png`).

@@ -3,6 +3,8 @@
 #include "builtins.hpp"
 #include "json_row_index.hpp"
 #include "prefab_component_intent.hpp"
+#include "prefab_member_access.hpp"
+#include "prefab_member_structure.hpp"
 #include "prefab_references.hpp"
 #include "relationship_graph.hpp"
 #include "spatial_document.hpp"
@@ -12,15 +14,62 @@
 #include <forge/prefab.hpp>
 #include <functional>
 #include <set>
+#include <string_view>
 namespace forge {
 namespace {
 constexpr const char* variant_stamp = "$forge.variant";
+void validate_member_values(const Json& doc, const Json& item, const std::string& id,
+                            const std::string& root) {
+    if (!item.at("name").is_string() || !item.at("components").is_object())
+        throw std::runtime_error("Invalid prefab member name/components");
+    if (item.contains("base") || item.contains("prefab_instance"))
+        throw std::runtime_error(
+            "Nested/legacy prefab definitions are not supported inside prefab assets");
+    if (item.contains("world_affine") || item["components"].contains("forge.world_transform"))
+        throw std::runtime_error("WorldTransform is derived and cannot be authored in a prefab");
+    if (doc.at("version").get<unsigned>() >= 3)
+        detail::validate_components(detail::normalize_prefab_components(doc, item, Json::object()),
+                                    detail::ComponentReferences::Deferred, &item.at("components"));
+    else
+        detail::validate_components(item.at("components"));
+    if (item.at("components").contains("forge.local_rotation")) {
+        const auto q = detail::read_local(item.at("components")).rotation;
+        if (std::abs(double(q.x) * q.x + double(q.y) * q.y + double(q.z) * q.z + double(q.w) * q.w -
+                     1) > 2e-6)
+            throw std::runtime_error("Prefab LocalRotation must be a normalized quaternion");
+    }
+    if (id == root && item.contains("parent"))
+        throw std::runtime_error("Prefab root cannot have a member parent");
+    if (id != root && !item.contains("parent"))
+        throw std::runtime_error("Prefab member must belong to its root");
+}
+void validate_member_structure_intent(const Json& row, const std::string& root) {
+    const auto id = row.at("id").get<PrefabMemberId>().str();
+    if (id == root &&
+        (row.contains("parent") || row.contains("spatial") || row.contains("removed")))
+        throw std::runtime_error("Prefab structure cannot replace or remove its root");
+    if (row.contains("parent"))
+        (void)row.at("parent").get<PrefabMemberId>();
+    if (row.contains("spatial")) {
+        const auto& binding = row.at("spatial");
+        const auto mode = binding.at("mode").get<std::string>();
+        if (!binding.is_object() ||
+            (mode != "follow_structure" && mode != "world" && mode != "explicit"))
+            throw std::runtime_error("Invalid prefab spatial binding intent");
+        if (mode == "explicit")
+            (void)binding.at("member").get<PrefabMemberId>();
+    }
+    if (row.contains("removed") &&
+        (!row.at("removed").is_boolean() || !row.at("removed").get<bool>()))
+        throw std::runtime_error("Remove prefab removal intent to restore a member");
+}
 void validate_variant(const Json& source) {
     const auto asset = source.at("asset_id").get<AssetId>();
     const auto base = source.at("base").get<AssetRef<PrefabAsset>>();
     if (!base.id || base.id == asset)
         throw std::runtime_error("Prefab variant requires a different base Prefab asset");
-    (void)source.at("root").get<PrefabMemberId>();
+    const auto root = source.at("root").get<PrefabMemberId>().str();
+    const bool structural = source.at("version") == 6;
     const auto& revision = source.at("revision");
     if (!revision.is_number_integer() || revision.get<double>() < 1)
         throw std::runtime_error("Prefab revision must be a positive unsigned integer");
@@ -40,19 +89,60 @@ void validate_variant(const Json& source) {
             (row.contains("name") && !row.at("name").is_string()) ||
             (row.contains("property_overrides") && !row.at("property_overrides").is_object()))
             throw std::runtime_error("Invalid prefab variant member intent");
-        for (const auto* key : {"parent", "spatial", "base", "prefab_instance", "prefab_member",
-                                "world_affine", "prefab", "missing_member", "name_override"})
+        for (const auto* key : {"base", "prefab_instance", "prefab_member", "world_affine",
+                                "prefab", "missing_member", "name_override"})
             if (row.contains(key))
                 throw std::runtime_error("Prefab variant structure follows its base");
+        if (!structural && (row.contains("parent") || row.contains("spatial")))
+            throw std::runtime_error("Prefab variant structure follows its base");
+        if (structural)
+            validate_member_structure_intent(row, root);
         if (row.at("components").contains("forge.world_transform"))
             throw std::runtime_error("WorldTransform cannot be authored in a prefab variant");
-        if (source.at("version") == 5) {
+        if (source.at("version").get<unsigned>() >= 5) {
             static const Json schema = detail::builtin_schema();
             detail::validate_prefab_component_suppression(row, schema);
         }
         detail::validate_components(
             detail::normalize_prefab_components(reference_source, row, Json::object()),
             detail::ComponentReferences::Deferred, &row.at("components"));
+    }
+    if (structural) {
+        const auto added = source.value("added_members", Json::array());
+        if (!added.is_array() || added.size() > 4096)
+            throw std::runtime_error("Prefab supports at most4096 local member definitions");
+        std::set<PrefabMemberId> owned;
+        for (const auto& row : added) {
+            const auto id = row.at("id").get<PrefabMemberId>();
+            if (id.str() == root || !owned.insert(id).second || members.contains(id))
+                throw std::runtime_error("Local prefab member identity has competing ownership");
+            validate_member_values(source, row, id.str(), root);
+            validate_member_structure_intent(row, root);
+            for (const auto* key : {"prefab_member", "prefab", "missing_member", "name_override",
+                                    "property_overrides", "suppressed_components"})
+                if (row.contains(key))
+                    throw std::runtime_error("Local prefab member owns a complete definition");
+        }
+        const auto orders = source.value("member_order", Json::array());
+        if (!orders.is_array() || orders.size() > 4096)
+            throw std::runtime_error("Prefab sibling order requires a bounded parent array");
+        std::set<PrefabMemberId> parents;
+        std::size_t used = 0;
+        for (const auto& order : orders) {
+            const auto parent = order.at("parent").get<PrefabMemberId>();
+            const auto& values = order.at("members");
+            if (!parents.insert(parent).second || !values.is_array() || values.size() > 4096 - used)
+                throw std::runtime_error(
+                    "Prefab sibling order exceeds its unique-parent/4096-ID budget");
+            used += values.size();
+            std::set<PrefabMemberId> children;
+            for (const auto& value : values) {
+                const auto child = value.get<PrefabMemberId>();
+                if (child == parent || !children.insert(child).second)
+                    throw std::runtime_error(
+                        "Prefab sibling order requires distinct child identities");
+            }
+        }
     }
     for (const auto& dependency : source.value("dependencies", Json::array()))
         (void)dependency.get<AssetId>();
@@ -63,11 +153,32 @@ const Json& member(const Json& source, const std::string& id) {
             return item;
     throw std::runtime_error("Missing prefab member: " + id);
 }
-void remap_member_fields(Json& item, const std::map<std::string, std::string>& ids) {
+void remap_member_fields(Json& item, const std::map<std::string, std::string>& ids,
+                         bool keep_unmapped = false) {
+    const auto remap = [&](const std::string& id) {
+        return keep_unmapped && !ids.contains(id) ? id : ids.at(id);
+    };
     if (item.contains("parent"))
-        item["parent"] = ids.at(item.at("parent"));
+        item["parent"] = remap(item.at("parent").get<std::string>());
     if (item.contains("spatial") && item["spatial"].value("mode", "") == "explicit")
-        item["spatial"]["member"] = ids.at(item["spatial"].at("member"));
+        item["spatial"]["member"] = remap(item["spatial"].at("member").get<std::string>());
+}
+void enable_member_structure(Json& source) {
+    if (!PrefabDocument::is_variant(source))
+        return;
+    if (source.at("version") == 6)
+        return;
+    if (source.contains("added_members") || source.contains("member_order"))
+        throw std::runtime_error(
+            "Older prefab source contains opaque structural fields; preserve or rename them "
+            "explicitly before enabling source6");
+    for (const auto& row : source.at("overrides"))
+        if (row.contains("removed") || row.contains("parent") || row.contains("spatial") ||
+            (source.at("version") == 4 && row.contains("suppressed_components")))
+            throw std::runtime_error(
+                "Older prefab member contains opaque fields; preserve or rename them explicitly "
+                "before enabling source6");
+    source["version"] = 6;
 }
 } // namespace
 PrefabDocument::PrefabDocument(Json value) : source(std::move(value)) {
@@ -76,15 +187,21 @@ PrefabDocument::PrefabDocument(Json value) : source(std::move(value)) {
         detail::promote_scale_format(source, "members", 2);
 }
 bool PrefabDocument::is_variant(const Json& document) {
-    return document.is_object() && document.contains("version") &&
-           (document.at("version") == 4 || document.at("version") == 5) &&
-           document.contains("base");
+    return document.is_object() && document.contains("version") && document.at("version") >= 4 &&
+           document.at("version") <= current_version && document.contains("base");
+}
+std::vector<const char*> PrefabDocument::authored_member_arrays(const Json& document) {
+    if (!is_variant(document))
+        return {"members"};
+    if (document.at("version") == 6 && document.contains("added_members"))
+        return {"overrides", "added_members"};
+    return {"overrides"};
 }
 void PrefabDocument::validate(const Json& doc) {
     if (!doc.is_object() || doc.value("format", "") != "forge.prefab" ||
         !doc.at("version").is_number_integer() || doc.at("version") < 1 ||
         doc.at("version") > current_version)
-        throw std::runtime_error("Expected FORGE prefab schema 1, 2, 3, 4 or 5");
+        throw std::runtime_error("Expected FORGE prefab schema 1, 2, 3, 4, 5 or 6");
     if (is_variant(doc)) {
         validate_variant(doc);
         return;
@@ -92,6 +209,8 @@ void PrefabDocument::validate(const Json& doc) {
     if (doc.at("version").get<unsigned>() >= 4 &&
         (doc.contains("overrides") || doc.contains("reference_profile")))
         throw std::runtime_error("Prefab variant intent requires a base asset");
+    if (doc.at("version") == 6 && (doc.contains("added_members") || doc.contains("member_order")))
+        throw std::runtime_error("Prefab structural intent requires a base asset");
     (void)doc.at("asset_id").get<AssetId>();
     const auto& revision = doc.at("revision");
     if (!revision.is_number_integer() || revision.get<double>() < 1)
@@ -105,30 +224,7 @@ void PrefabDocument::validate(const Json& doc) {
         const auto id = item.at("id").get<PrefabMemberId>().str();
         if (!ids.insert(id).second)
             throw std::runtime_error("Duplicate prefab member identity");
-        if (!item.at("name").is_string() || !item.at("components").is_object())
-            throw std::runtime_error("Invalid prefab member name/components");
-        if (item.contains("base") || item.contains("prefab_instance"))
-            throw std::runtime_error(
-                "Nested/legacy prefab definitions are not supported inside prefab assets");
-        if (item.contains("world_affine") || item["components"].contains("forge.world_transform"))
-            throw std::runtime_error(
-                "WorldTransform is derived and cannot be authored in a prefab");
-        if (doc.at("version").get<unsigned>() >= 3)
-            detail::validate_components(
-                detail::normalize_prefab_components(doc, item, Json::object()),
-                detail::ComponentReferences::Deferred, &item.at("components"));
-        else
-            detail::validate_components(item.at("components"));
-        if (item.at("components").contains("forge.local_rotation")) {
-            const auto q = detail::read_local(item.at("components")).rotation;
-            if (std::abs(double(q.x) * q.x + double(q.y) * q.y + double(q.z) * q.z +
-                         double(q.w) * q.w - 1) > 2e-6)
-                throw std::runtime_error("Prefab LocalRotation must be a normalized quaternion");
-        }
-        if (id == root && item.contains("parent"))
-            throw std::runtime_error("Prefab root cannot have a member parent");
-        if (id != root && !item.contains("parent"))
-            throw std::runtime_error("Prefab member must belong to its root");
+        validate_member_values(doc, item, id, root);
     }
     if (!ids.contains(root))
         throw std::runtime_error("Prefab root member is missing");
@@ -170,6 +266,9 @@ PrefabDocument PrefabDocument::with_component_suppression(PrefabMemberId member,
                                                           const Json& schema) const {
     if (!is_variant(source))
         throw std::runtime_error("Only prefab variants support component suppression");
+    if (detail::owned_prefab_member(source, member.str()))
+        throw std::runtime_error(
+            "Remove a locally owned component instead of suppressing inheritance");
     auto candidate = source;
     if (suppressed) {
         const auto admitted = schema.contains("components") ? schema : detail::builtin_schema();
@@ -182,7 +281,7 @@ PrefabDocument PrefabDocument::with_component_suppression(PrefabMemberId member,
                         "rename it explicitly before enabling suppression");
             candidate["version"] = 5;
         }
-    } else if (candidate.at("version") != 5)
+    } else if (candidate.at("version").get<unsigned>() < 5)
         return *this;
     auto& rows = candidate["overrides"];
     auto row = std::find_if(rows.begin(), rows.end(),
@@ -209,6 +308,121 @@ PrefabDocument PrefabDocument::with_component_suppression(PrefabMemberId member,
         rows.erase(row);
     return PrefabDocument(std::move(candidate));
 }
+PrefabDocument PrefabDocument::with_added_member(Json member) const {
+    auto candidate = source;
+    if (is_variant(candidate)) {
+        enable_member_structure(candidate);
+        if (!candidate.contains("added_members"))
+            candidate["added_members"] = Json::array();
+        candidate["added_members"].push_back(std::move(member));
+    } else
+        candidate["members"].push_back(std::move(member));
+    return PrefabDocument(std::move(candidate));
+}
+PrefabDocument PrefabDocument::with_member_parent(PrefabMemberId member,
+                                                  PrefabMemberId parent) const {
+    if (member == root())
+        throw std::runtime_error("Prefab root attachment belongs to its Scene instance");
+    auto candidate = source;
+    enable_member_structure(candidate);
+    detail::prefab_member_intent(candidate, member.str())["parent"] = parent;
+    return PrefabDocument(std::move(candidate));
+}
+PrefabDocument PrefabDocument::with_member_spatial(PrefabMemberId member, Json binding) const {
+    if (member == root())
+        throw std::runtime_error("Prefab root attachment belongs to its Scene instance");
+    auto candidate = source;
+    enable_member_structure(candidate);
+    detail::prefab_member_intent(candidate, member.str())["spatial"] = std::move(binding);
+    return PrefabDocument(std::move(candidate));
+}
+PrefabDocument PrefabDocument::with_member_removed(PrefabMemberId member, bool removed) const {
+    if (member == root())
+        throw std::runtime_error("Prefab source root cannot be removed");
+    auto candidate = source;
+    if (!is_variant(candidate)) {
+        if (!removed)
+            throw std::runtime_error("Only variant removal intent supports Restore");
+        if (!detail::owned_prefab_member(candidate, member.str()))
+            throw std::runtime_error("Choose an existing prefab source member");
+        std::map<std::string, std::vector<std::string>> children;
+        for (const auto& row : candidate.at("members"))
+            if (row.contains("parent"))
+                children[row.at("parent").get<std::string>()].push_back(row.at("id"));
+        std::set<std::string> discarded{member.str()};
+        std::vector<std::string> queue{member.str()};
+        for (std::size_t i = 0; i < queue.size(); ++i)
+            if (const auto at = children.find(queue[i]); at != children.end())
+                for (const auto& child : at->second)
+                    if (discarded.insert(child).second)
+                        queue.push_back(child);
+        auto kept = Json::array();
+        for (const auto& row : candidate.at("members"))
+            if (!discarded.contains(row.at("id").get<std::string>()))
+                kept.push_back(row);
+        candidate["members"] = std::move(kept);
+    } else if (!removed && candidate.at("version") != 6)
+        return *this; // Never reinterpret an older opaque removal field.
+    else {
+        enable_member_structure(candidate);
+        auto& row = detail::prefab_member_intent(candidate, member.str());
+        if (removed)
+            row["removed"] = true;
+        else
+            row.erase("removed");
+        detail::prune_prefab_member_intent(candidate, member.str());
+    }
+    return PrefabDocument(std::move(candidate));
+}
+PrefabDocument PrefabDocument::revert_member_structure(PrefabMemberId member,
+                                                       const std::string& field) const {
+    if (field != "parent" && field != "spatial")
+        throw std::runtime_error("Choose parent or spatial structure intent to revert");
+    if (!is_variant(source) || detail::owned_prefab_member(source, member.str()))
+        throw std::runtime_error("Only inherited members have inherited structure intent");
+    if (source.at("version") != 6)
+        return *this;
+    auto candidate = source;
+    for (auto& row : candidate.at("overrides"))
+        if (row.at("id") == Json(member)) {
+            row.erase(field);
+            break;
+        }
+    detail::prune_prefab_member_intent(candidate, member.str());
+    return PrefabDocument(std::move(candidate));
+}
+PrefabDocument PrefabDocument::with_member_order(PrefabMemberId parent,
+                                                 const std::vector<PrefabMemberId>& prefix) const {
+    auto candidate = source;
+    if (!is_variant(candidate)) {
+        Json intent{{"root", root()},
+                    {"overrides", Json::array()},
+                    {"member_order", Json::array({{{"parent", parent}, {"members", prefix}}})}};
+        candidate["members"] =
+            detail::compose_prefab_member_structure(candidate.at("members"), intent, {});
+    } else {
+        if (prefix.empty() && candidate.at("version") != 6)
+            return *this;
+        enable_member_structure(candidate);
+        if (!candidate.contains("member_order"))
+            candidate["member_order"] = Json::array();
+        auto& orders = candidate["member_order"];
+        auto at = std::find_if(orders.begin(), orders.end(),
+                               [&](const Json& row) { return row.at("parent") == Json(parent); });
+        if (at == orders.end()) {
+            if (prefix.empty())
+                return *this;
+            orders.push_back({{"parent", parent}, {"members", prefix}});
+        } else {
+            (*at)["members"] = prefix;
+            if (prefix.empty() && at->size() == 2)
+                orders.erase(at);
+        }
+        if (orders.empty())
+            candidate.erase("member_order");
+    }
+    return PrefabDocument(std::move(candidate));
+}
 std::vector<AssetId> PrefabDocument::dependencies() const {
     auto result = source.value("dependencies", std::vector<AssetId>{});
     if (is_variant(source)) {
@@ -223,17 +437,41 @@ PrefabDocument PrefabDocument::duplicate(const Json& schema) const {
     copy["asset_id"] = AssetId::generate();
     copy["revision"] = std::uint64_t{1};
     if (is_variant(source)) {
-        for (auto& row : copy["overrides"])
-            for (const auto* key : {"components", "property_overrides"})
-                if (row.contains(key))
-                    detail::transform_prefab_component_references(
-                        row[key], schema, [&](const Json& value) {
-                            if (!detail::source_member_reference(value, 4, asset()))
-                                return value;
-                            auto result = value;
-                            result["prefab"] = copy.at("asset_id");
-                            return result;
-                        });
+        std::map<std::string, std::string> local;
+        if (source.at("version") == 6)
+            for (const auto& row : source.value("added_members", Json::array()))
+                local.emplace(row.at("id").get<std::string>(), PrefabMemberId::generate().str());
+        for (const auto* rows : authored_member_arrays(copy))
+            for (auto& row : copy[rows]) {
+                if (std::string_view(rows) == "added_members")
+                    row["id"] = local.at(row.at("id").get<std::string>());
+                if (source.at("version") == 6)
+                    remap_member_fields(row, local, true);
+                for (const auto* key : {"components", "property_overrides"})
+                    if (row.contains(key))
+                        detail::transform_prefab_component_references(
+                            row[key], schema, [&](const Json& value) {
+                                const auto reference = detail::source_member_reference(
+                                    value, source.at("version"), asset());
+                                if (!reference)
+                                    return value;
+                                auto result = value;
+                                result["prefab"] = copy.at("asset_id");
+                                if (const auto at = local.find(reference->member.str());
+                                    at != local.end())
+                                    result["member"] = at->second;
+                                return result;
+                            });
+            }
+        if (source.at("version") == 6 && copy.contains("member_order"))
+            for (auto& order : copy["member_order"]) {
+                const auto parent = order.at("parent").get<std::string>();
+                if (local.contains(parent))
+                    order["parent"] = local.at(parent);
+                for (auto& id : order["members"])
+                    if (const auto at = local.find(id.get<std::string>()); at != local.end())
+                        id = at->second;
+            }
         return PrefabDocument(std::move(copy));
     }
     std::map<std::string, std::string> ids;
@@ -410,19 +648,25 @@ PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& s
             if (definition.at("root") != inherited.at("root"))
                 throw std::runtime_error("Prefab variant base root identity changed incompatibly");
             const auto intent = detail::index_json_rows(definition.at("overrides"));
-            if (definition.at("version") == 5)
+            if (definition.at("version").get<unsigned>() >= 5)
                 for (const auto& row : definition.at("overrides"))
                     detail::validate_prefab_component_suppression(
                         row, detail::prefab_reference_schema(schema));
             // Keep the selected source profile; references retain source4 semantics.
             definition["members"] = inherited.at("members");
+            auto reserved = definition.at("version") == 6
+                                ? detail::inherited_prefab_member_ids(base, sources)
+                                : std::set<std::string>{};
             for (auto& row : definition["members"]) {
                 if (inherited.at("version").get<unsigned>() >= 3)
                     detail::transform_prefab_component_references(
                         row["components"], schema, [&](const Json& value) {
-                            if (!detail::source_member_reference(value, inherited.at("version"),
-                                                                 base))
+                            const auto reference_id = detail::source_member_reference(
+                                value, inherited.at("version"), base);
+                            if (!reference_id)
                                 return value;
+                            if (definition.at("version") == 6)
+                                reserved.insert(reference_id->member.str());
                             auto reference = value;
                             reference["prefab"] = asset;
                             return reference;
@@ -433,12 +677,18 @@ PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& s
                 const auto& value = *override->second;
                 auto components = prefab_builtin_override_intent(row, value);
                 detail::merge_custom_prefab_intent(components, value, schema);
-                if (definition.at("version") == 5)
+                if (definition.at("version").get<unsigned>() >= 5)
                     for (const auto& key : value.value("suppressed_components", Json::array()))
                         components.erase(key.get<std::string>());
                 row["components"] = std::move(components);
                 if (value.contains("name"))
                     row["name"] = value.at("name");
+            }
+            if (definition.at("version") == 6) {
+                definition["members"] = detail::compose_prefab_member_structure(
+                    definition.at("members"), definition, reserved);
+                definition.erase("added_members");
+                definition.erase("member_order");
             }
             // Revision/cache evidence only; no logical identity derives from it.
             const auto bytes = inherited.dump();

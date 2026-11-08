@@ -1,0 +1,194 @@
+{
+  "added_members": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.4,
+          "y": 0.2,
+          "z": 0.4
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.6,
+          "z": 0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "27747b11-36cd-48a9-b774-9784e5cc9a29",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9ba113dc-053c-44a1-996a-d35eae931630",
+      "name": "Crossbar",
+      "parent": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+      "spatial": {
+        "member": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+        "mode": "explicit"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6,
+          "y": 0.8,
+          "z": 0.4
+        },
+        "forge.local_translation": {
+          "x": -0.9,
+          "y": 1.1,
+          "z": 0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "27747b11-36cd-48a9-b774-9784e5cc9a29",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1e6e794e-bea6-4b92-9247-9c8d9235a1f3",
+      "name": "Left beacon",
+      "parent": "9ba113dc-053c-44a1-996a-d35eae931630",
+      "spatial": {
+        "member": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+        "mode": "explicit"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6,
+          "y": 0.8,
+          "z": 0.4
+        },
+        "forge.local_translation": {
+          "x": 0.9,
+          "y": 1.1,
+          "z": 0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "27747b11-36cd-48a9-b774-9784e5cc9a29",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fcaa0747-5f5b-45e2-a18c-84e79fde8282",
+      "name": "Right beacon",
+      "parent": "9ba113dc-053c-44a1-996a-d35eae931630",
+      "spatial": {
+        "member": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+        "mode": "explicit"
+      }
+    }
+  ],
+  "asset_id": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+  "base": "d255167b-4179-46b6-af94-c76a589abf6b",
+  "format": "forge.prefab",
+  "member_order": [
+    {
+      "members": [
+        "1e6e794e-bea6-4b92-9247-9c8d9235a1f3",
+        "fcaa0747-5f5b-45e2-a18c-84e79fde8282"
+      ],
+      "parent": "9ba113dc-053c-44a1-996a-d35eae931630"
+    }
+  ],
+  "overrides": [
+    {
+      "components": {},
+      "id": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+      "removed": true
+    }
+  ],
+  "revision": 2,
+  "root": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+  "version": 6
+}

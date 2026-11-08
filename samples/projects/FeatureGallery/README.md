@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## Prefab member structure
+
+Open `Scenes/206-prefab-member-structure.scene.json` and press **Play → Game**.
+The left marker uses the capped base. The middle variant removes its crown and
+owns a Crossbar with two beacons; the right chained variant removes one beacon,
+reparents the other beneath Body and changes its offset/order. Explicit root
+spatial attachments keep the added parts independent of structural parent scale.
+Stop Play, edit **Assets/Variants/ForkedMarker.prefab.json** and select **Crossbar**
+to inspect its owned values and attachments. Expand **Crown** under **Unavailable
+members**, choose **Restore member → Publish source**, then save the Scene before
+export. Camera and Material are included; no project C++ is required. See the
+[Prefab guide](../../../manual/editor/prefabs.md).
+
 ## Prefab component suppression
 
 Open `Scenes/205-prefab-component-suppression.scene.json` and press **Play → Game**.

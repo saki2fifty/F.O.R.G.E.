@@ -6,7 +6,7 @@ Prefab schema 1 uses `format: forge.prefab`, `version: 1`, `asset_id: AssetId`, 
 
 PrefabMemberId names a definition member, not a scene entity or Flecs handle. `PrefabMemberRef` explicitly pairs prefab AssetId and member ID. `prefab_member_reference` resolves through one chosen instance mapping into an EntityRef. Removed-member mappings still identify the same, now unavailable entity. Known typed codecs remap references during duplication; unknown plugin JSON is never scanned for UUID-looking strings. Spatial bindings and source3 component references use this existing instance mapping.
 
-Scene schema 4 is introduced when structured instances are created. A root stores `prefab_instance: {asset, revision, members: {memberUUID: entityUUID}, status}`. Addressable member rows store `prefab_member: {root: rootEntityUUID, member: memberUUID}`, authored override intent and resolved structural/name metadata. The map survives member removal; retained rows have `missing_member: true`. All authored entity UUIDs, including instance roots and mapped children, are unique within the scene. Duplicate instances allocate new entity IDs; duplicate assets allocate both a new AssetId and new member IDs. Whole-scene duplication remaps every instance member and known intra-scene reference.
+Scene schema 4 is introduced when structured instances are created. A root stores `prefab_instance: {asset, revision, members: {memberUUID: entityUUID}, status}`. Addressable member rows store `prefab_member: {root: rootEntityUUID, member: memberUUID}`, authored override intent and resolved structural/name metadata. The map survives member removal; retained rows have `missing_member: true`. All authored entity UUIDs, including instance roots and mapped children, are unique within the scene. Duplicate instances allocate new entity IDs. Duplicate complete assets allocate a new AssetId and new member IDs; duplicate variants regenerate their owned additions while preserving inherited IDs and the base. Whole-scene duplication remaps every instance member and known intra-scene reference.
 
 Instance root names follow their source until an explicit `name_override` is authored; rename/duplicate can set it and `prefab.revert_name` removes it.
 
@@ -140,9 +140,8 @@ ordinary member-reference format. The additive variant contract is described bel
 stores `base: AssetRef<PrefabAsset>` and `overrides`, with its own AssetId/revision
 and the base root's member identity. It has no `members` array. Complete source4
 definitions store `members` without `base`/`overrides`. A variant reuses inherited
-member IDs in its own AssetId namespace; nested instances and structural variant
-composition are not supported. Bound4096 override rows,16 base links and64MiB
-resolved source4/5 values; old source caller budgets and versions1–3 stay unchanged.
+member IDs in its own AssetId namespace; nested structured instances remain unsupported.
+Bound4096 override rows,16 base links and64MiB resolved source4/5/6 values; old source caller budgets and versions1–3 stay unchanged.
 
 `resolve_prefab_sources` composes detached values through existing whole-component /
 property intent codecs. Known member references retag only their Prefab AssetId;
@@ -172,6 +171,9 @@ edges. Game content, private snapshots, runtime-only spawning and export carry t
 base closure without runtime source scans or catalog writes. Material preflight
 inspects whole and property channels in complete/variant rows before reusing native
 projection. Editor/automation/MCP use the same source operations and permissions.
+Dependency inspection treats `spatial.target` as a Scene attachment only in Scene
+rows. Prefab bindings own `mode`/`member`; their other fields are reported as
+uninspected metadata, including extensions that resemble Scene references.
 
 [ADR043](decisions/043-prefab-component-suppression.md) extends variants with
 source5 `suppressed_components` rows. Suppress removes admitted optional components
@@ -185,6 +187,34 @@ key reject. Complete-component editing and instance Apply clear suppression for
 the admitted key they replace. Required/derived components remain protected.
 The source4 addressed-reference and existing publication/history/runtime owners
 remain unchanged. Source5 Restore does not downgrade the profile.
+[ADR044](decisions/044-prefab-structural-variants.md) extends the single-base owner
+with explicit source6 structural intent. `added_members` owns complete local
+definitions; inherited `overrides` can specify `parent`, `spatial`, `removed:true`.
+A local definition can retain its own removal flag. `member_order` stores unique
+per-parent stable-ID prefixes, with4096 IDs in total. Effective matching children
+follow each prefix; other siblings retain base order. Missing/differently parented
+IDs remain dormant. Native sibling moves retain dormant ordering addresses.
+
+The resolver validates known structural and spatial intent cycles before filtering
+unavailable branches. Explicit removal or missing parent/spatial targets retires
+dependent branches without deleting raw intent. Returning targets, attachment
+repair or Restore resumes the same identities. Root identity/attachment stays fixed.
+Raw-source admission rejects competing ownership and opaque-field collisions on
+opt-in. Inherited declarations, retained IDs, structural addresses and admitted
+active inherited member references reserve identities before the current source's
+value overrides; new local IDs cannot capture them. Unknown payloads are not scanned.
+
+`PrefabDocument::authored_member_arrays` selects the owned component-bearing arrays
+for migration, dependencies, Apply and export. Added member values stay in their
+complete local definitions, including during paired instance Apply/history. Variant
+duplication regenerates declared local IDs, even removed definitions, and remaps
+known local links/order/references; inherited IDs/base stay unchanged. Source1–5
+retain their contracts. No Scene format, callback table, runtime flag or second
+hierarchy/history owner is introduced. Native and exact-state automation/MCP edits
+share candidate validation with the full admitted Scene schema. Unavailable members
+have attachment repair and source-local removal Restore controls. Nested structured
+Prefabs and multiple inheritance remain separate unsupported capabilities.
+
 Gallery142 includes independent animated base/variant/chained instances; focused
 tests cover source-hidden relocated Windows-target data on Linux. Windows native
 execution and physical rendering/input acceptance require separate verification.

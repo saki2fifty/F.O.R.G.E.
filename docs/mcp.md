@@ -660,6 +660,25 @@ with older opaque fields. Use `forge_prefab_source_revert` with `component` to
 restore current-base inheritance; Publish saves the draft. Required/derived and
 unavailable components cannot be newly suppressed through this operation. Unknown
 retained intent remains accessible through raw source read/patch.
+The `forge_prefab_source_member_*` tools edit structural source intent through
+PrefabEditor and PrefabDocument, requiring `asset.write`, the current target/lease,
+Scene revision and exact draft `state`:
+
+- `add`: available `parent`, optional `name`; returns a fresh owned `member` with registered defaults.
+- `remove` / `restore`: stable `member`; variants retain definitions/removal intent. Restore clears only this source's removal.
+- `parent`: `member` and new `parent`, retaining local channels.
+- `spatial`: `member` and `binding` with `mode` (`follow_structure`, `world`, `explicit`); explicit also requires a stable target `member` inside `binding`.
+- `order`: `parent` and ordered `members` prefix (maximum4096); an empty list resets variant order intent.
+- `revert_structure`: inherited `member` and `field` (`parent` or `spatial`), following the current base again.
+
+First structural variant edits explicitly enable source6 and reject older opaque
+field collisions. Root attachment/removal and known cycles reject; failed candidates
+leave draft state intact. Missing attachment targets retain dormant intent, available
+through raw reads/patch and these repair operations. Source value Revert rejects
+owned additions because they have no inherited value. Publish remains separate;
+these edits do not create Scene Undo entries. Raw patch uses the same full-schema
+candidate admission. Read-only discovery omits all seven structural mutation tools.
+
 `forge_prefab_source_rebase` refreshes published sources and reviews updated bases
 while retaining draft intent; a successful refresh may clear Scene history.
 Source edits require the exact draft digest and preserve identity/publication

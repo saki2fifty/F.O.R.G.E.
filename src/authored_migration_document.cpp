@@ -14,33 +14,37 @@ AuthoredMigrationDocument::AuthoredMigrationDocument(Json document, Json source,
             source_.at("schema_version").get<std::uint64_t>())
         throw std::runtime_error(
             "Document migration requires the same type/owner and a newer schema version");
+    std::vector<const char*> collections;
     if (before_.contains("entities") && !before_.contains("members")) {
         Scene::validate_document(before_);
-        rows_ = "entities";
+        scene_ = true;
+        collections = {"entities"};
     } else if (before_.value("format", "") == "forge.prefab" && !before_.contains("entities")) {
         PrefabDocument::validate(before_);
-        rows_ = PrefabDocument::is_variant(before_) ? "overrides" : "members";
+        collections = PrefabDocument::authored_member_arrays(before_);
     } else {
         throw std::runtime_error("Migration requires one authored scene or prefab document");
     }
     const AuthoredCodec source_codec{0, source_, {}};
     std::size_t bytes = 0;
-    for (std::size_t row = 0; row < before_.at(rows_).size(); ++row) {
-        const auto& item = before_.at(rows_)[row];
-        for (const auto* channel : {"components", "property_overrides"}) {
-            if (!item.contains(channel) || !item.at(channel).contains(key_))
-                continue;
-            const auto& value = item.at(channel).at(key_);
-            if (!source_codec.matches(value))
-                continue; // Other versions/opaque payloads need their own explicit review.
-            const bool partial = std::string_view(channel) == "property_overrides";
-            bytes += value.dump().size();
-            if (locations_.size() >= 4096 || bytes > 16 * 1024 * 1024)
-                throw std::runtime_error("One migration candidate is limited to4096 values/16MiB");
-            values_.push_back({{"value", value}, {"property_intent", partial}});
-            locations_.push_back({row, partial});
+    for (const auto* collection : collections)
+        for (std::size_t row = 0; row < before_.at(collection).size(); ++row) {
+            const auto& item = before_.at(collection)[row];
+            for (const auto* channel : {"components", "property_overrides"}) {
+                if (!item.contains(channel) || !item.at(channel).contains(key_))
+                    continue;
+                const auto& value = item.at(channel).at(key_);
+                if (!source_codec.matches(value))
+                    continue; // Other versions/opaque payloads need their own explicit review.
+                const bool partial = std::string_view(channel) == "property_overrides";
+                bytes += value.dump().size();
+                if (locations_.size() >= 4096 || bytes > 16 * 1024 * 1024)
+                    throw std::runtime_error(
+                        "One migration candidate is limited to4096 values/16MiB");
+                values_.push_back({{"value", value}, {"property_intent", partial}});
+                locations_.push_back({collection, row, partial});
+            }
         }
-    }
     if (locations_.empty())
         throw std::runtime_error(
             "This document contains no values matching the selected prior schema");
@@ -68,14 +72,14 @@ Json AuthoredMigrationDocument::candidate(const Json& returned) const {
                          fields.end());
         }
         validate_reflected_json(structure, value);
-        document[rows_][location.row][location.partial ? "property_overrides" : "components"]
-                [key_] = value;
+        document[location.collection][location.row]
+                [location.partial ? "property_overrides" : "components"][key_] = value;
     }
     return document;
 }
 void AuthoredMigrationDocument::apply(Scene& scene, const Json& returned,
                                       std::uint64_t revision) const {
-    if (rows_ != "entities")
+    if (!scene_)
         throw std::runtime_error(
             "Prefab migration must use its own source publication/history boundary");
     if (scene.revision() != revision || !json_value_equal(scene.document(), before_))

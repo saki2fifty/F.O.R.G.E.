@@ -381,8 +381,8 @@ void validate_object_render_values(const std::filesystem::path& root,
     };
     bool needed = contains_values(snapshot.at("entities"));
     for (const auto& prefab : snapshot.value("_prefab_sources", Json::array()))
-        needed |= contains_values(
-            prefab.at(PrefabDocument::is_variant(prefab) ? "overrides" : "members"));
+        for (const auto* rows : PrefabDocument::authored_member_arrays(prefab))
+            needed |= contains_values(prefab.at(rows));
     if (!needed)
         return;
     // Reuse the actual Scene/Prefab projection. This detached validation world

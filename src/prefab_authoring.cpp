@@ -2,6 +2,7 @@
 #include "json_document.hpp"
 #include "json_value_equal.hpp"
 #include "prefab_component_intent.hpp"
+#include "prefab_member_access.hpp"
 #include "prefab_references.hpp"
 #include <forge/assets.hpp>
 #include <forge/authoring.hpp>
@@ -355,15 +356,10 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
         if (entity != root_id &&
             row->value("prefab_member", Json::object()).value("root", "") != root_id)
             throw std::runtime_error("Prefab member mapping changed during Apply review");
-        auto destination = std::find_if(authored.begin(), authored.end(),
-                                        [&](const Json& value) { return value.at("id") == key; });
-        if (destination == authored.end()) {
-            if (!variant)
-                throw std::runtime_error("Prefab definition changed during Apply review");
-            authored.push_back({{"id", key}, {"components", Json::object()}});
-            destination = std::prev(authored.end());
-        }
-        auto& member = *destination;
+        const bool inherited_member = variant && !detail::owned_prefab_member(result.source, key);
+        if (!variant && !detail::owned_prefab_member(result.source, key))
+            throw std::runtime_error("Prefab definition changed during Apply review");
+        auto& member = detail::prefab_member_intent(result.source, key);
         if (row->value("name_override", false)) {
             member["name"] = row->at("name");
             row->erase("name_override");
@@ -384,7 +380,7 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
                                         transferred, schema, transfer_reference)
                                         .empty();
             member["components"][it.key()] = transferred.at(it.key());
-            if (result.source.at("version") == 5)
+            if (inherited_member && result.source.at("version").get<unsigned>() >= 5)
                 detail::clear_prefab_component_suppression(member, it.key());
             if (variant && member.contains("property_overrides"))
                 member["property_overrides"].erase(it.key());
@@ -401,7 +397,7 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
                 continue;
             }
             const auto& value = shown.at(entity).at("components").at(it.key());
-            if (!variant && !member["components"].contains(it.key()))
+            if (!inherited_member && !member["components"].contains(it.key()))
                 member["components"][it.key()] = value;
             for (auto field = it.value().begin(); field != it.value().end();) {
                 const auto known =
@@ -416,8 +412,8 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
                 detail::transform_prefab_reference_field(*known, transferred, transfer_reference,
                                                          reference);
                 portable_references |= reference;
-                if (variant && !member["components"].contains(it.key())) {
-                    if (result.source.at("version") == 5)
+                if (inherited_member && !member["components"].contains(it.key())) {
+                    if (result.source.at("version").get<unsigned>() >= 5)
                         detail::clear_prefab_component_suppression(member, it.key());
                     auto& intent = member["property_overrides"][it.key()];
                     if (it.value().contains("$forge"))

@@ -122,57 +122,69 @@ struct Inspect {
             unknown("untyped JSON document");
             return;
         }
-        const bool scene =
-            doc.contains("version") && doc.contains("entities") && doc.at("entities").is_array();
         const bool prefab = doc.contains("format") && doc.at("format").is_string() &&
                             doc.at("format").get<std::string>() == "forge.prefab";
+        const bool scene = !prefab && doc.contains("version") && doc.contains("entities") &&
+                           doc.at("entities").is_array();
         if (prefab && doc.at("version").get<unsigned>() >= 3) {
             prefab_reference_owner = doc.at("asset_id").get<AssetId>();
             prefab_reference_version = doc.at("version");
         }
         const bool variant = prefab && PrefabDocument::is_variant(doc);
-        const bool suppression_profile = variant && doc.at("version") == 5;
+        const bool suppression_profile = variant && doc.at("version").get<unsigned>() >= 5;
+        const bool structural_profile = variant && doc.at("version") == 6;
         if (suppression_profile)
             PrefabDocument::validate(doc);
-        const auto rows = scene ? "entities" : variant ? "overrides" : prefab ? "members" : nullptr;
-        if (rows) {
-            for (const auto& row : doc.at(rows)) {
-                budget();
-                owner = row.value("name", row.value("id", std::string{}));
-                for (const auto* channel : {"components", "property_overrides"}) {
-                    const auto values = row.value(channel, Json::object());
-                    for (const auto& [component, value] : values.items()) {
-                        const auto found = types.find(component);
-                        const bool custom =
-                            found != types.end() && found->second.value("custom", false);
-                        if (found == types.end() ||
-                            (custom && (!value.is_object() || value.value("$forge", Json()) !=
-                                                                  found->second.at("admission"))))
-                            unknown(component);
-                        else
-                            fields(found->second.at("fields"), value, component, 0, custom);
+        const auto collections = scene    ? std::vector<const char*>{"entities"}
+                                 : prefab ? PrefabDocument::authored_member_arrays(doc)
+                                          : std::vector<const char*>{};
+        if (!collections.empty()) {
+            for (const auto* rows : collections)
+                for (const auto& row : doc.at(rows)) {
+                    budget();
+                    owner = row.value("name", row.value("id", std::string{}));
+                    for (const auto* channel : {"components", "property_overrides"}) {
+                        const auto values = row.value(channel, Json::object());
+                        for (const auto& [component, value] : values.items()) {
+                            const auto found = types.find(component);
+                            const bool custom =
+                                found != types.end() && found->second.value("custom", false);
+                            if (found == types.end() ||
+                                (custom &&
+                                 (!value.is_object() ||
+                                  value.value("$forge", Json()) != found->second.at("admission"))))
+                                unknown(component);
+                            else
+                                fields(found->second.at("fields"), value, component, 0, custom);
+                        }
+                    }
+                    if (row.contains("prefab_instance"))
+                        reference(row.at("prefab_instance").at("asset"), "prefab_instance.asset",
+                                  "Prefab instance", PrefabAsset::type);
+                    if (prefab && row.contains("spatial"))
+                        opaque_fields(row.at("spatial"), {"mode", "member"}, "spatial");
+                    if (scene && row.contains("spatial") && row.at("spatial").contains("target"))
+                        reference(row.at("spatial").at("target").at("scene"), "spatial.target",
+                                  "EntityRef scene", SceneAsset::type);
+                    // Both whole-component and per-property intent carry authored values.
+                    for (const auto& [key, value] : row.items()) {
+                        const bool state_flag =
+                            scene && (doc.at("version") == 4 || doc.at("version") == 5) &&
+                            (key == "name_override" || key == "missing_member") &&
+                            value.is_boolean();
+                        if (key != "id" && key != "name" && key != "components" &&
+                            key != "parent" && key != "base" && key != "prefab" &&
+                            key != "spatial" && key != "prefab_instance" &&
+                            key != "prefab_member" && key != "property_overrides" && !state_flag &&
+                            !(suppression_profile && key == "suppressed_components") &&
+                            !(structural_profile && key == "removed"))
+                            unknown(key);
                     }
                 }
-                if (row.contains("prefab_instance"))
-                    reference(row.at("prefab_instance").at("asset"), "prefab_instance.asset",
-                              "Prefab instance", PrefabAsset::type);
-                if (row.contains("spatial") && row.at("spatial").contains("target"))
-                    reference(row.at("spatial").at("target").at("scene"), "spatial.target",
-                              "EntityRef scene", SceneAsset::type);
-                // Both whole-component and per-property intent carry authored values.
-                for (const auto& [key, value] : row.items()) {
-                    const bool state_flag =
-                        scene && (doc.at("version") == 4 || doc.at("version") == 5) &&
-                        (key == "name_override" || key == "missing_member") && value.is_boolean();
-                    if (key != "id" && key != "name" && key != "components" && key != "parent" &&
-                        key != "base" && key != "prefab" && key != "spatial" &&
-                        key != "prefab_instance" && key != "prefab_member" &&
-                        key != "property_overrides" && !state_flag &&
-                        !(suppression_profile && key == "suppressed_components"))
-                        unknown(key);
-                }
-            }
             owner.clear();
+            if (structural_profile)
+                for (const auto& order : doc.value("member_order", Json::array()))
+                    opaque_fields(order, {"parent", "members"}, "member_order");
             if (scene && doc.contains("rendering")) {
                 const auto rendering = scene_render_settings(doc);
                 if (rendering.environment.texture.id)
@@ -250,10 +262,12 @@ struct Inspect {
                 reference(doc.at("base"), "base", "Prefab base", PrefabAsset::type);
             for (const auto& [key, unused] : doc.items()) {
                 (void)unused;
-                if (key != "format" && key != "version" && key != "asset_id" && key != "entities" &&
-                    key != "members" && key != "revision" && key != "root" && key != "legacy_ids" &&
+                if (key != "format" && key != "version" && key != "asset_id" &&
+                    !(scene && key == "entities") && !(prefab && !variant && key == "members") &&
+                    key != "revision" && key != "root" && key != "legacy_ids" &&
                     key != "rendering" && !(prefab && key == "dependencies") &&
-                    !(variant && (key == "base" || key == "overrides")))
+                    !(variant && (key == "base" || key == "overrides")) &&
+                    !(structural_profile && (key == "added_members" || key == "member_order")))
                     unknown(key);
             }
         } else if (doc.value("format", std::string{}) == "forge.sprite-atlas") {

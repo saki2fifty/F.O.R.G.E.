@@ -50,7 +50,7 @@ SchemaRegistry core_document_schemas() {
                   [](const Json& j) { return migrate_scene(j); }});
     registry.add({"prefab",
                   PrefabDocument::current_version,
-                  {1, 2, 3, 4, 5},
+                  {1, 2, 3, 4, 5, 6},
                   "Explicit versions preserve scale, portable member links and variant intent; "
                   "no implicit conversion of inheritance or reference ownership.",
                   PrefabDocument::validate,

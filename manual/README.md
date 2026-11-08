@@ -28,7 +28,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Transforms](editor/transforms.md)
 - [Inspector](editor/inspector.md)
 - [Content browser](editor/content-browser.md)
-- [Prefabs, variants and component suppression](editor/prefabs.md)
+- [Prefabs, variants, member structure and component suppression](editor/prefabs.md)
 - [Saving and recovery](editor/saving-recovery.md)
 - [Undo and redo](editor/undo-redo.md)
 

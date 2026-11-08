@@ -14,8 +14,10 @@ class AuthoredMigrationDocument {
 
   private:
     Json before_, source_, target_, values_ = Json::array();
-    std::string rows_, key_;
+    std::string key_;
+    bool scene_ = false;
     struct Location {
+        std::string collection;
         std::size_t row;
         bool partial;
     };

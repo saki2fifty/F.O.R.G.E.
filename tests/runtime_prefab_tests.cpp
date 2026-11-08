@@ -374,9 +374,10 @@ int main(int argc, char** argv) {
         check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--budget" ||
                                           std::string_view(argv[2]) == "--variant" ||
                                           std::string_view(argv[2]) == "--suppression" ||
+                                          std::string_view(argv[2]) == "--structure" ||
                                           std::string_view(argv[2]) == "--variant-budget")),
               "Need runtime Prefab scratch directory and optional "
-              "--budget/--variant/--suppression/--variant-budget");
+              "--budget/--variant/--suppression/--structure/--variant-budget");
         if (argc == 3 && (std::string_view(argv[2]) == "--budget" ||
                           std::string_view(argv[2]) == "--variant-budget")) {
             publication_budget(std::string_view(argv[2]) == "--variant-budget");
@@ -385,12 +386,14 @@ int main(int argc, char** argv) {
         }
         const bool variant = argc == 3;
         const bool suppressed = variant && std::string_view(argv[2]) == "--suppression";
+        const bool structural = variant && std::string_view(argv[2]) == "--structure";
         if (!variant)
             for (const auto version : {1u, 2u, 3u, 4u})
                 many_member_overrides(version);
         Fixture fixture;
         auto source = fixture.source();
         const auto base_id = fixture.prefab;
+        const auto inherited_bob = fixture.bob;
         if (variant) {
             fixture.prefab = AssetId::generate();
             source = {{"format", "forge.prefab"},   {"version", 4},
@@ -402,6 +405,19 @@ int main(int argc, char** argv) {
                     PrefabDocument(source)
                         .with_component_suppression(fixture.root, "forge.navigation_surface", true)
                         .source;
+            if (structural) {
+                fixture.bob = PrefabMemberId::generate();
+                const auto local = fixture.source();
+                source = PrefabDocument(source)
+                             .with_member_removed(inherited_bob, true)
+                             .with_added_member(local.at("members")[1])
+                             .source;
+                source["overrides"].push_back(
+                    {{"id", fixture.root},
+                     {"components",
+                      {{"forge.physics_joint",
+                        local.at("members")[0].at("components").at("forge.physics_joint")}}}});
+            }
         }
         const auto scratch = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         const auto root = scratch / "source";
@@ -417,6 +433,7 @@ int main(int argc, char** argv) {
         if (variant) {
             Fixture base = fixture;
             base.prefab = base_id;
+            base.bob = inherited_bob;
             auto base_source = base.source();
             if (suppressed)
                 base_source["members"][0]["components"]["forge.navigation_surface"] = {

@@ -310,7 +310,7 @@ class AuthoredComponents {
                             "Project module settings changed; inspect again before migration");
                     if (prefab_target_)
                         prefab.accept_migration(migration_->before(),
-                                                migration_->candidate(returned_));
+                                                migration_->candidate(returned_), scene.schema());
                     else
                         migration_->apply(scene, returned_, scene_revision_);
                     status_ = prefab_target_

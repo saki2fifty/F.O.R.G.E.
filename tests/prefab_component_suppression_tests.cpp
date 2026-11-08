@@ -172,7 +172,7 @@ void chained_sources() {
     check(PrefabDocument(complete5).source == complete5,
           "Source5 complete definitions changed during validation");
     auto unsupported = f.suppressed();
-    unsupported["version"] = 6;
+    unsupported["version"] = PrefabDocument::current_version + 1;
     rejects([&] { (void)PrefabDocument(unsupported); });
 }
 void native_lifecycle() {

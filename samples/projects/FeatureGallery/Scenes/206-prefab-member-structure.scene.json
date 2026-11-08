@@ -1,0 +1,267 @@
+{
+  "asset_id": "23c4d7a7-6e76-4ab5-a3f4-9b0649136e19",
+  "entities": [
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "3d7e068c-701e-4ae1-9697-bd757fa1e1ae",
+      "name": "Base - inherited crown",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "d255167b-4179-46b6-af94-c76a589abf6b",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "3d7e068c-701e-4ae1-9697-bd757fa1e1ae",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "a0d852b2-ce7c-4e23-8ecf-9dc2b523bd0f",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "b5d7fd7d-2780-4c29-a245-6872a259f64e"
+        },
+        "revision": 1,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "a0d852b2-ce7c-4e23-8ecf-9dc2b523bd0f",
+      "name": "Crown",
+      "parent": "3d7e068c-701e-4ae1-9697-bd757fa1e1ae",
+      "prefab_member": {
+        "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+        "root": "3d7e068c-701e-4ae1-9697-bd757fa1e1ae"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "b5d7fd7d-2780-4c29-a245-6872a259f64e",
+      "name": "Body",
+      "parent": "3d7e068c-701e-4ae1-9697-bd757fa1e1ae",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "3d7e068c-701e-4ae1-9697-bd757fa1e1ae"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "eb744dc1-145b-4957-8709-689bb46cd2f7",
+      "name": "Variant - owned fork",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+        "members": {
+          "1e6e794e-bea6-4b92-9247-9c8d9235a1f3": "13f97436-2bd2-4581-917e-c950b673e22a",
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "eb744dc1-145b-4957-8709-689bb46cd2f7",
+          "9ba113dc-053c-44a1-996a-d35eae931630": "1c169603-f840-4288-9416-90bef619fcd8",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "cb0ce7e8-8e3e-4013-8db7-2731e39c0e7e",
+          "fcaa0747-5f5b-45e2-a18c-84e79fde8282": "68fe4945-f249-4590-81db-3534d429d4c9"
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "13f97436-2bd2-4581-917e-c950b673e22a",
+      "name": "Left beacon",
+      "parent": "1c169603-f840-4288-9416-90bef619fcd8",
+      "prefab_member": {
+        "member": "1e6e794e-bea6-4b92-9247-9c8d9235a1f3",
+        "root": "eb744dc1-145b-4957-8709-689bb46cd2f7"
+      },
+      "spatial": {
+        "mode": "explicit",
+        "target": {
+          "entity": "eb744dc1-145b-4957-8709-689bb46cd2f7",
+          "scene": "23c4d7a7-6e76-4ab5-a3f4-9b0649136e19"
+        }
+      }
+    },
+    {
+      "components": {},
+      "id": "1c169603-f840-4288-9416-90bef619fcd8",
+      "name": "Crossbar",
+      "parent": "cb0ce7e8-8e3e-4013-8db7-2731e39c0e7e",
+      "prefab_member": {
+        "member": "9ba113dc-053c-44a1-996a-d35eae931630",
+        "root": "eb744dc1-145b-4957-8709-689bb46cd2f7"
+      },
+      "spatial": {
+        "mode": "explicit",
+        "target": {
+          "entity": "eb744dc1-145b-4957-8709-689bb46cd2f7",
+          "scene": "23c4d7a7-6e76-4ab5-a3f4-9b0649136e19"
+        }
+      }
+    },
+    {
+      "components": {},
+      "id": "68fe4945-f249-4590-81db-3534d429d4c9",
+      "name": "Right beacon",
+      "parent": "1c169603-f840-4288-9416-90bef619fcd8",
+      "prefab_member": {
+        "member": "fcaa0747-5f5b-45e2-a18c-84e79fde8282",
+        "root": "eb744dc1-145b-4957-8709-689bb46cd2f7"
+      },
+      "spatial": {
+        "mode": "explicit",
+        "target": {
+          "entity": "eb744dc1-145b-4957-8709-689bb46cd2f7",
+          "scene": "23c4d7a7-6e76-4ab5-a3f4-9b0649136e19"
+        }
+      }
+    },
+    {
+      "components": {},
+      "id": "cb0ce7e8-8e3e-4013-8db7-2731e39c0e7e",
+      "name": "Body",
+      "parent": "eb744dc1-145b-4957-8709-689bb46cd2f7",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "eb744dc1-145b-4957-8709-689bb46cd2f7"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "66be7b29-13be-4329-86eb-dfece8734653",
+      "name": "Derived - reparented single beacon",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "0b699a29-efe1-456b-90e8-e45d46a2f624",
+        "members": {
+          "1e6e794e-bea6-4b92-9247-9c8d9235a1f3": "d80a4176-19bc-4f9f-a5be-73a9aefe509e",
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "66be7b29-13be-4329-86eb-dfece8734653",
+          "9ba113dc-053c-44a1-996a-d35eae931630": "dcaf7803-684f-4b1c-b217-a0d6005a9f5b",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "ac7368a6-f760-4e26-a409-59a67cfd0bce"
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "ac7368a6-f760-4e26-a409-59a67cfd0bce",
+      "name": "Body",
+      "parent": "66be7b29-13be-4329-86eb-dfece8734653",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "66be7b29-13be-4329-86eb-dfece8734653"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "d80a4176-19bc-4f9f-a5be-73a9aefe509e",
+      "name": "Left beacon",
+      "parent": "ac7368a6-f760-4e26-a409-59a67cfd0bce",
+      "prefab_member": {
+        "member": "1e6e794e-bea6-4b92-9247-9c8d9235a1f3",
+        "root": "66be7b29-13be-4329-86eb-dfece8734653"
+      },
+      "spatial": {
+        "mode": "explicit",
+        "target": {
+          "entity": "66be7b29-13be-4329-86eb-dfece8734653",
+          "scene": "23c4d7a7-6e76-4ab5-a3f4-9b0649136e19"
+        }
+      }
+    },
+    {
+      "components": {},
+      "id": "dcaf7803-684f-4b1c-b217-a0d6005a9f5b",
+      "name": "Crossbar",
+      "parent": "ac7368a6-f760-4e26-a409-59a67cfd0bce",
+      "prefab_member": {
+        "member": "9ba113dc-053c-44a1-996a-d35eae931630",
+        "root": "66be7b29-13be-4329-86eb-dfece8734653"
+      },
+      "spatial": {
+        "mode": "explicit",
+        "target": {
+          "entity": "66be7b29-13be-4329-86eb-dfece8734653",
+          "scene": "23c4d7a7-6e76-4ab5-a3f4-9b0649136e19"
+        }
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 5.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f2263c0c-16a0-4b06-9957-0ef4bba4cbec",
+      "name": "Member structure overview",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 4
+}

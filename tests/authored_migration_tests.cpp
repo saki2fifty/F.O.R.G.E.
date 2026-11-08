@@ -246,6 +246,35 @@ int main() {
                 Json::array({"forge.navigation_surface"});
             check(suppressed_draft.candidate(converted) == expected_suppressed,
                   "Custom schema migration lost source5 suppression or interpreted it as values");
+            auto structural_variant = suppressed_variant;
+            structural_variant["version"] = 6;
+            const auto local_member = PrefabMemberId::generate();
+            structural_variant["added_members"] =
+                Json::array({{{"id", local_member},
+                              {"parent", prefab.root()},
+                              {"name", "Retained local counter"},
+                              {"removed", true},
+                              {"components", {{"project.counter", before}}}}});
+            AuthoredMigrationDocument structural_draft(structural_variant, source, target);
+            auto structural_values = Json::array();
+            for (const auto& value : structural_draft.values()) {
+                const bool partial = value.at("property_intent");
+                structural_values.push_back(
+                    {{"value", migration.migrate(value.at("value"), partial)},
+                     {"property_intent", partial}});
+            }
+            const auto structural_result = structural_draft.candidate(structural_values);
+            check(structural_values.size() == 3 &&
+                      structural_result.at("added_members")[0].at("id") == Json(local_member) &&
+                      structural_result.at("added_members")[0].at("removed") == true &&
+                      structural_result.at("added_members")[0]
+                              .at("components")
+                              .at("project.counter")
+                              .at("total")
+                              .get<std::uint64_t>() == UINT64_MAX &&
+                      structural_result.at("overrides") == expected_suppressed.at("overrides"),
+                  "Source6 migration missed dormant local values or changed their structural "
+                  "ownership");
             check(
                 migrated_variant.at("base") == variant.at("base") &&
                     migrated_variant.at("asset_id") == variant.at("asset_id") &&

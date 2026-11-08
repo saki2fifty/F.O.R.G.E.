@@ -13,7 +13,8 @@ from physics_velocity_example_test import Worker
 
 runtime, gallery, module = (Path(arg).resolve() for arg in sys.argv[1:4])
 suppressed = '--suppression' in sys.argv[4:]
-variant = '--variant' in sys.argv[4:] or suppressed
+structural = '--structure' in sys.argv[4:]
+variant = '--variant' in sys.argv[4:] or suppressed or structural
 scene_id = 'fab9f548-3f22-4fbc-a5e0-bd0a2cffd9a1'
 prefab_id = '3f95b972-aa2a-4fab-999a-8857a5a35e11'
 scene_path = Path('Scenes/64-runtime-prefab-creation.scene.json')
@@ -35,6 +36,9 @@ def check(state, tick):
         row = roots[name]
         members = set(row['prefab_instance']['members'].values())
         assert len(members) == 2 and not ids.intersection(members), roots
+        if structural:
+            assert local_member in row['prefab_instance']['members'], row
+            assert removed_member not in row['prefab_instance']['members'], row
         ids.update(members)
         pose = values[row['id']]
         if suppressed:
@@ -82,6 +86,14 @@ with tempfile.TemporaryDirectory(prefix='forge-prefab-sdk-', dir=runtime.parent)
                 if member['id'] != base['root']:
                     selected['overrides'].append(dict(id=member['id'], components={},
                         suppressed_components=['forge.navigation_surface']))
+        if structural:
+            selected['version'] = 6
+            local = next(member for member in base['members'] if member['id'] != base['root']).copy()
+            removed_member = local['id']
+            local_member = str(uuid.uuid4())
+            local['id'] = local_member
+            selected['added_members'] = [local]
+            selected['overrides'].append(dict(id=removed_member, components={}, removed=True))
         (root/prefab_path).write_text(json.dumps(selected))
         record = next(row for row in catalog['assets'] if row['id'] == prefab_id)
         record.update(schema_version=selected['version'], dependencies=[base_id], dependency_edges=[dict(

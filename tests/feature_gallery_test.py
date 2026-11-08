@@ -12,6 +12,20 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+structure_path = 'Scenes/206-prefab-member-structure.scene.json'
+structure_scene = json.loads((project_root / structure_path).read_text())
+assert structure_scene['asset_id'] == by_source[structure_path]['id'] == '23c4d7a7-6e76-4ab5-a3f4-9b0649136e19'
+assert sum('prefab_instance' in row for row in structure_scene['entities']) == 3
+fork_path = 'Assets/Variants/ForkedMarker.prefab.json'
+single_path = 'Assets/Variants/SingleBeaconMarker.prefab.json'
+fork = json.loads((project_root / fork_path).read_text())
+single = json.loads((project_root / single_path).read_text())
+assert fork['version'] == single['version'] == 6
+assert fork['asset_id'] == by_source[fork_path]['id'] == single['base']
+assert single['asset_id'] == by_source[single_path]['id']
+assert {row['name'] for row in fork['added_members']} == {'Crossbar', 'Left beacon', 'Right beacon'}
+assert any(row.get('removed') is True for row in fork['overrides'])
+assert any(row.get('removed') is True for row in single['overrides'])
 curved_path = 'Scenes/204-curved-planar-meshes.scene.json'
 curved_scene = json.loads((project_root / curved_path).read_text())
 assert curved_scene['asset_id'] == by_source[curved_path]['id'] == '955fd9fb-e5d5-42d4-981e-9a71b02b4820'
