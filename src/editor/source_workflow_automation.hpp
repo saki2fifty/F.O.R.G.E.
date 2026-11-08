@@ -40,6 +40,13 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
          {"flags", automation_integer(0, UINT32_MAX)}},
         {"layer", "x", "y"});
     const Json channel{{"type", "number"}, {"minimum", 0}, {"maximum", 1}};
+    const Json mesh_profile{{"type", "string"},
+                            {"enum", {"cube", "sculpt_sphere", "planar_quad", "planar_polygon"}}};
+    const auto mesh_size =
+        automation_array(Json{{"type", "number"}, {"minimum", 0}, {"maximum", 200000}}, 2, 2);
+    const auto mesh_outline = automation_array(
+        automation_array(Json{{"type", "number"}, {"minimum", -100000}, {"maximum", 100000}}, 2, 2),
+        16, 3);
     const auto rgba = automation_array(automation_integer(0, 255), 4, 4);
     const auto canvas =
         automation_object({{"width", automation_integer(1, paint_texture_dimension_limit)},
@@ -505,13 +512,19 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         "Inspect a validated initial source shape. Its preview UUID is not reserved; creation "
         "allocates its own identity. Tile Maps require tile_set; Sprite atlases require textures. "
         "Material graphs accept domain mesh (default) or sprite. Navigation behaviors accept "
-        "behavior_profile state_graph (default) or tree.",
+        "behavior_profile state_graph (default) or tree. Editable Mesh accepts mesh_profile "
+        "cube (default), sculpt_sphere, planar_quad with positive mesh_size [width,height], "
+        "or planar_polygon with a strictly convex outline of 3 to 16 XY points. Flat meshes face "
+        "+Z.",
         "asset.read",
         automation_object(
             {{"editor", editor_schema},
              {"tile_set", automation_uuid()},
              {"domain", {{"type", "string"}, {"enum", {"mesh", "sprite"}}}},
              {"behavior_profile", {{"type", "string"}, {"enum", {"state_graph", "tree"}}}},
+             {"mesh_profile", mesh_profile},
+             {"mesh_size", mesh_size},
+             {"outline", mesh_outline},
              {"textures", automation_array(automation_uuid(), 512, 1)},
              {"canvas", canvas}},
             {"editor"}),
@@ -569,6 +582,9 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                                               {"enum", {"state_graph", "tree"}}};
             properties["patch"] = patch;
             properties["canvas"] = canvas;
+            properties["mesh_profile"] = mesh_profile;
+            properties["mesh_size"] = mesh_size;
+            properties["outline"] = mesh_outline;
         }
         methods.push_back(automation_method(
             std::string("asset.document.") + action,
@@ -578,7 +594,10 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "require tile_set; Sprite atlases require textures. It does not "
                 "publish until Save. Material graph creation accepts domain mesh "
                 "(default) or sprite. Navigation behaviors accept behavior_profile "
-                "state_graph (default) or tree.",
+                "state_graph (default) or tree. Editable Mesh accepts mesh_profile cube, "
+                "sculpt_sphere, planar_quad (positive mesh_size [width,height]), or planar_polygon "
+                "(strictly convex outline of 3 to 16 XY points). Flat meshes face +Z and map UVs "
+                "across their bounds. Mesh options do not apply to other editors or Open.",
             "asset.write", automation_object(std::move(properties), {"editor", "path"}), true,
             [invoke, action](const Json& request) { return invoke(action, request); }));
     }

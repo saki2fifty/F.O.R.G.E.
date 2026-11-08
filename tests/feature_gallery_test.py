@@ -12,6 +12,23 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+planar_path = 'Scenes/199-planar-meshes.scene.json'
+assert by_source[planar_path]['id'] == '0390198d-7a9e-4e69-8a2a-912dbbe3d5f7'
+planar_scene = json.loads((project_root / planar_path).read_text(encoding='utf-8'))
+planar_material = json.loads((project_root / 'Assets/Planar/UnlitChecker.material.json').read_text())
+assert planar_material['overrides']['model'] == 'forge.gltf.unlit.v1'
+assert planar_material['overrides']['double_sided']
+planar_meshes = {by_source[f'Assets/Planar/{name}.mesh.json']['id']
+                 for name in ('Quad', 'Polygon', 'Triangle')}
+placed = [row['components']['forge.mesh_renderer'] for row in planar_scene['entities']
+          if 'forge.mesh_renderer' in row['components']]
+assert len(placed) == 3 and {row['mesh'] for row in placed} == planar_meshes
+assert all(row['materials'] == [{'slot': 'default', 'material': planar_material['asset_id']}]
+           for row in placed)
+planar_cameras = [row['components']['forge.camera'] for row in planar_scene['entities']
+                  if 'forge.camera' in row['components']]
+assert len(planar_cameras) == 1 and planar_cameras[0]['projection'] == 1
+assert planar_cameras[0]['orthographic_height'] == 6
 playlist_path = 'Scenes/198-ordered-sound-playlist.scene.json'
 playlist_prefab_path = 'Assets/Audio/ThreeTonePlaylist.prefab.json'
 assert by_source[playlist_path]['type'] == 'scene'

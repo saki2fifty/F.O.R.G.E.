@@ -72,10 +72,14 @@ Polygon polygon(const Json& face, const std::map<std::uint32_t, Vec3>& positions
     for (std::size_t i = 0; i < result.points.size(); ++i) {
         const auto& a = result.points[i];
         const auto& b = result.points[(i + 1) % result.points.size()];
-        const auto& c = result.points[(i + 2) % result.points.size()];
-        require(std::abs(dot(sub(a, result.points[0]), result.normal)) <= 1e-5 &&
-                    dot(cross(sub(b, a), sub(c, b)), result.normal) > 1e-8,
-                "Mesh face must remain planar and strictly convex");
+        require(std::abs(dot(sub(a, result.points[0]), result.normal)) <= 1e-5,
+                "Mesh face must remain planar");
+        // Consistent local turns also admit self-crossing stars. Every other
+        // corner must lie strictly inside each oriented edge of a convex face.
+        for (std::size_t j = 0; j < result.points.size(); ++j)
+            if (j != i && j != (i + 1) % result.points.size())
+                require(dot(cross(sub(b, a), sub(result.points[j], a)), result.normal) > 1e-8,
+                        "Mesh face must remain strictly convex without crossing edges");
     }
     return result;
 }
@@ -175,6 +179,55 @@ Json interpolate_corner(std::span<const Json* const> corners, std::uint32_t iden
 } // namespace
 
 AssetId EditableMeshSource::asset() const { return document.at("asset_id").get<AssetId>(); }
+EditableMeshSource EditableMeshSource::create_planar_quad(AssetId asset, double width,
+                                                          double height) {
+    require(std::isfinite(width) && std::isfinite(height) && width > 0 && height > 0,
+            "Planar Mesh dimensions must be finite and positive");
+    const std::array<std::array<double, 2>, 4> outline{{{-width / 2, -height / 2},
+                                                        {width / 2, -height / 2},
+                                                        {width / 2, height / 2},
+                                                        {-width / 2, height / 2}}};
+    return create_planar_polygon(asset, outline);
+}
+EditableMeshSource
+EditableMeshSource::create_planar_polygon(AssetId asset,
+                                          std::span<const std::array<double, 2>> outline) {
+    require(outline.size() >= 3 && outline.size() <= 16,
+            "Planar Mesh outline requires 3 to 16 strictly convex corners");
+    const auto face_id = std::uint32_t(outline.size() + 1);
+    EditableMeshSource result{
+        {{"kind", "forge.editable-mesh"},
+         {"version", 1},
+         {"asset_id", asset},
+         {"next_id", face_id + 1},
+         {"vertices", Json::array()},
+         {"faces", Json::array({{{"id", face_id}, {"corners", Json::array()}}})}}};
+    auto& corners = result.document["faces"][0]["corners"];
+    std::map<std::uint32_t, Vec3> positions;
+    for (std::size_t i = 0; i < outline.size(); ++i) {
+        const auto key = std::uint32_t(i + 1);
+        const Vec3 position{outline[i][0], outline[i][1], 0};
+        positions.emplace(key, position);
+        result.document["vertices"].push_back({{"id", key}, {"position", position}});
+        corners.push_back(corner(key, {0, 0}));
+    }
+    result.validate();
+    if (polygon(result.document["faces"][0], positions).normal[2] < 0)
+        std::reverse(corners.begin() + 1, corners.end());
+    auto minimum = outline.front(), maximum = minimum;
+    for (const auto& point : outline)
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            minimum[axis] = std::min(minimum[axis], point[axis]);
+            maximum[axis] = std::max(maximum[axis], point[axis]);
+        }
+    for (auto& entry : corners) {
+        const auto& position = positions.at(id(entry.at("vertex")));
+        entry["uv"] = {(position[0] - minimum[0]) / (maximum[0] - minimum[0]),
+                       (maximum[1] - position[1]) / (maximum[1] - minimum[1])};
+    }
+    result.validate();
+    return result;
+}
 EditableMeshSource EditableMeshSource::create_cube(AssetId asset_id) {
     EditableMeshSource result{{{"kind", "forge.editable-mesh"},
                                {"version", 1},

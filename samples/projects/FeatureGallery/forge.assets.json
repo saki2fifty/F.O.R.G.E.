@@ -133,6 +133,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "0390198d-7a9e-4e69-8a2a-912dbbe3d5f7",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/199-planar-meshes.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "03bc559f-b92d-450f-9771-78a5b074322e",
       "metadata": {
         "forge.import": {
@@ -1803,6 +1813,41 @@
       "source": "Scenes/137-navigation-collision-sources.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "142e4ab3-56c5-4642-970b-b7dc194e7738",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b7b470ba127a2c4b7d2f4cb10aa5ceb82b51bd894ddcead4523d3678661adc10",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "06fe0b2ed3c4d931bc390a12f53501662558b6010ba99100dd1149996d17c5b0",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "1535ac9466b0e61c4184ac3b62b89b42d5924f4ab6c8c5af26b994b2a5af94ef",
+          "source_digest": "154004d36f0a5762da4fa0b07fdd506e6767129de2c17346b8197660b178d189",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 617,
+          "file": "mesh.bin",
+          "sha256": "0ecbd81461765f068fb6ea0847a6ab2235643062839692bd8d5010c3bad86c96",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Planar/Triangle.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [
@@ -3748,6 +3793,53 @@
       "source": "Scenes/65-two-dimensional-blend-spaces.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [
+        "619babf9-df8f-4d18-91da-2e8096bd9464"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "c439dedbb4518d530d86f6ebcb52ebd8c97d245d21bca2ad707c624f1f905c48",
+          "role": "material.texture:baseColorTexture",
+          "target": "619babf9-df8f-4d18-91da-2e8096bd9464",
+          "type": "texture"
+        }
+      ],
+      "id": "27747b11-36cd-48a9-b774-9784e5cc9a29",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "f9baf84d34708aaf1241c8ed2fa42262643fe6c976af448f056097eb1e48f3b0",
+          "backend": "d3d12",
+          "dependency_digest": "546cd2856897a2aeee5a141dcea85f03f82af7042566f80803ebda40b715b885",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "8d2ce887ab21d348f8155974da788f7a6e41f03851e600e504b222d22e979051",
+          "key": "0c9160ff457bfc3db17d683b4b5273ed938c8904a2d40e418120e637a2c8028d",
+          "output_format": "forge.material-bundle",
+          "output_version": 3,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "edbe22ce920d05f07247ba961ed36de92f3e61eb2acfe9091252052f85ebf961",
+          "source_digest": "1c7535b134aafcc55f58aed2a6306d1c8012e7dc7636da8bab3126aa85b3d95c",
+          "version": 1
+        },
+        "forge.material": {
+          "render_textures": {},
+          "shader": null,
+          "textures": {
+            "baseColorTexture": "619babf9-df8f-4d18-91da-2e8096bd9464"
+          },
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Planar/UnlitChecker.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [],
@@ -9993,6 +10085,41 @@
       "source": "Assets/Sequences/FieldsNext.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "7cf5083d-0359-46e5-a0bc-b4339dbbee70",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7efe37938a56a04c7ea498d9fd712e924dd397466bd29539bef0c10cc602432b",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "4e5e3bd5ba8640fbaa1fe9cfedc13ac5f4f157a49cabe2e8d0213d172b8eea01",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "7282e880b3c5e0dc30ffa9fa1146154d45b14736ccc4fb17043cd8aff8665c6a",
+          "source_digest": "9a5cc49eff687a242dc7d850dac939da194f6804789a1ab9eb25d78bddd29a93",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 655,
+          "file": "mesh.bin",
+          "sha256": "eded83ea535b91e3bc016964098dc9e3936980090d4991593d1f1ca179328976",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Planar/Quad.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [
@@ -16985,6 +17112,41 @@
         }
       ],
       "type": "ui_document"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e1faa5cd-1bc4-4b47-979e-a6e494682e05",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "57bc36cf10dbd7e7f47281c5421dc16a0c3adcdfe4b4c1bb44b694f411b4ff79",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "d62ec900b74095ea47f5caaded6f1623cce31c41614b73d045da2817c83b58f3",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "92d803fb22ad2b910624d4b1f0f9110090995ca4b5e81859fd4b20cb523aa64f",
+          "source_digest": "4783690fc9f6539f45cda77a9d6aa3a926e6829c4448614e388be7f1e9b553b2",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 695,
+          "file": "mesh.bin",
+          "sha256": "d3b14b8b9eff81a467863d5bb86c1f6ad24246eefb4d088f51c267b99f842d27",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Planar/Polygon.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [],

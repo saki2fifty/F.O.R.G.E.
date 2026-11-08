@@ -1,5 +1,14 @@
 # Feature Gallery
 
+## Flat Mesh shapes
+
+Open `Scenes/199-planar-meshes.scene.json` and press **Play → Game**. A quad,
+five-corner polygon and clockwise-input triangle share an Unlit, two-sided
+checker Material and an orthographic Camera. No Light or project C++ is needed.
+Stop Play and open a Mesh in `Assets/Planar` to change geometry or UVs; choose
+**Save & Publish** and save the Scene before exporting with the matching kit.
+See [flat Mesh authoring](../../../manual/editor/editable-meshes.md).
+
 ## Ordered sound playlist
 
 Open `Scenes/198-ordered-sound-playlist.scene.json` and press **Play → Game**.

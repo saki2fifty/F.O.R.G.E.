@@ -1,5 +1,43 @@
 # Editable Mesh source and cooked projection
 
+## Flat XY creation profiles
+
+`EditableMeshSource::create_planar_quad` creates a centered, positive-width/height
+rectangle. `create_planar_polygon` accepts 3–16 boundary XY points in either
+winding. Both create ordinary version-1 sources, normalize the complete corner
+order to positive-Z normals and generate bounding-rectangle UVs with a top-left
+origin. Element IDs and `next_id` use the existing allocator contract. There is
+no persistent shape profile, additional asset type or separate 2D renderer.
+
+The common face validator requires all other corners strictly inside each
+oriented edge, alongside existing planarity and area tolerances. Testing only
+adjacent turns would admit self-crossing star boundaries. The bounded pairwise
+check enforces strict convexity for creation, parsed sources and cooking; it does
+not admit concave boundaries, holes or curves. Existing valid convex sources and
+their cooked format remain unchanged.
+
+Content's New editable Mesh modal exposes Flat quad (XY) dimensions and Flat
+polygon (XY) corner rows through those factories. Its transient draft captures
+the owning project and document generation; locked/stale creation is disabled,
+failed validation retains the draft, and cancellation creates no files. The
+existing source document, history, publication and Mesh Renderer own subsequent
+edits and placement. Unlit Materials and an orthographic Camera complete a flat
+Scene; sidedness is ordinary Material state.
+
+`asset.document.template/create` accepts `mesh_profile`: `cube` (default),
+`sculpt_sphere`, `planar_quad` or `planar_polygon`. Quad-only `mesh_size` is
+`[width,height]`, default `[1,1]`; polygon-only `outline` is required and contains
+3–16 XY pairs. Other editors and Open reject these creation options. MCP derives
+the same schemas and dispatch through the existing Source workflow registry.
+
+Gallery199 and the production FrameRenderer software-Vulkan probe cover a quad,
+five-corner outline and clockwise-input triangle with an Unlit checker Material.
+An independent XY half-space oracle checks the rendered silhouette; relocated
+runtime packaging with source files hidden must retain all captured pixels.
+These checks and native input fixtures are not Windows or physical GPU acceptance.
+
+## Source ownership and limits
+
 `.mesh.json` is a version-1 `forge.editable-mesh` document with one persistent Mesh `asset_id`, `next_id`, `vertices` with stable IDs, XYZ positions and optional RGBA colors, and `faces` with stable IDs and ordered corners. Each corner names a vertex ID and owns a two-component UV. The source is authored data; it is not loaded by gameplay. Unknown versions reject explicitly; there is no implicit conversion of imported Model subassets.
 
 `AssetSourceDocument` owns candidate-before-commit edits, a revision check, source save and independent Undo/Redo. Its checkpoints are bounded to 64 entries and 8 MiB per history direction; source JSON is capped at 2 MiB,500,000 parser events and depth16. The event budget admits the supported maximum-vertex/corner profile; byte/depth limits remain unchanged. A tool changes one candidate, validates it, then creates one history entry. Element IDs are never reused. The existing source-document identity hooks preserve the `next_id` high water through Undo/Redo, new history branches and save/reopen, and reject edits that lower it or allocate a new element below it. Undo restores geometry but can leave the source dirty because reserved IDs must be saved. Extrusion replaces the selected face with a new cap ID and new side-wall IDs; the editor selects the cap. A rejected edit changes neither source nor history. This small source format avoids a second asset/scene ownership system.

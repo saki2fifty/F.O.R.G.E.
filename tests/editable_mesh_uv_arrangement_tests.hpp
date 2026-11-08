@@ -57,7 +57,7 @@ void uv_arrangement_tests() {
     rejects([&] { invalid.align_uv(corners, 2, MeshUvAlignment::Center); });
     rejects([&] { invalid.align_uv(corners, 0, MeshUvAlignment(255)); });
     rejects([&] { invalid.distribute_uv(corners, 2); });
-    for (const auto selection :
+    for (const auto& selection :
          {std::vector<MeshUvCorner>{}, std::vector<MeshUvCorner>{{7, 0}, {7, 0}},
           std::vector<MeshUvCorner>{{999, 0}}, std::vector<MeshUvCorner>{{7, 4}}}) {
         rejects([&] { invalid.align_uv(selection, 0, MeshUvAlignment::Center); });

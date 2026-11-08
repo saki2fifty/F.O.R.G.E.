@@ -25,6 +25,12 @@ struct EditableMeshSource {
     AssetId asset() const;
     static EditableMeshSource create_cube(AssetId asset);
     static EditableMeshSource create_sculpt_sphere(AssetId asset);
+    // XY geometry faces +Z; UVs cover its bounds with a top-left origin.
+    static EditableMeshSource create_planar_quad(AssetId asset, double width = 1,
+                                                 double height = 1);
+    // Strictly convex 3..16-corner outline. Either winding is accepted.
+    static EditableMeshSource create_planar_polygon(AssetId asset,
+                                                    std::span<const std::array<double, 2>> outline);
     static EditableMeshSource parse(std::span<const std::byte> bytes);
     void validate() const;
     MeshData cook() const;

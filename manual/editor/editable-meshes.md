@@ -8,10 +8,52 @@ The mesh document combines a geometry preview with selection, modeling and brush
 
 ## Create and place a Mesh
 
-1. Stop Play. Open **Content → Create / Register → New editable Mesh...**. Enter a project-relative filename such as `Assets/Crate.mesh.json` choose **Cube** or **Sculpt sphere**, then choose **Create**.
+1. Stop Play. Open **Content → Create / Register → New editable Mesh...**. Enter a project-relative filename such as `Assets/Crate.mesh.json`, choose a **Start shape**, then choose **Create**. Use **Cube** or **Sculpt sphere** for a volume, or one of the flat shapes described below.
 2. The **Editable Mesh** document opens with **Model** and **UV** tabs. Choose **Save & Publish** to make the initial Mesh available in Content.
 3. Drag the published Mesh from Content into the Scene. It creates an entity with **Mesh Renderer**. Save the Scene separately.
 4. Select that entity and use **Inspector → Mesh Renderer → Materials → Surface** to assign a project Material. Create or import a Texture, then assign it to the Material's color texture slot if you want to see the UV placement. See [Materials](materials.md) and [Textures](textures.md).
+
+## Create a flat 2D Mesh
+
+Choose **Flat quad (XY)** and enter positive **Width** and **Height**. The rectangle
+is centered on its local origin. Choose **Flat polygon (XY)** to enter 3 to 16
+boundary corners as X/Y coordinates. Enter them in clockwise or counterclockwise
+order. **Add corner** appends a point at zero; change its coordinates before
+creating the shape. **Remove** deletes that draft corner.
+
+![New editable Mesh dialog with five XY boundary corners](../images/planar-mesh-create.png)
+
+Enter corners around a strictly convex boundary, then choose Create.
+
+The boundary must have no inward corners, straight-through corners, duplicate
+points, crossing edges or holes. Invalid geometry shows an error and keeps the
+draft open without creating a file. **Cancel** leaves the project unchanged.
+Coordinates must be finite and within -100,000 to 100,000. Very small or nearly
+flat faces can also fail the geometry tolerance.
+
+Both shapes lie in local XY, with their front pointing toward positive Z. UVs
+span the boundary's bounding rectangle, with the top at V=0. A polygon clips the
+image to its outline. **Save & Publish**, then drag the Mesh into your Scene and
+assign a Material. Use **Material Editor → Shader model → Unlit** for color
+without a Light, and enable **Surface state → Two-sided** if the camera views the back.
+See [Materials](materials.md).
+
+Use an orthographic game Camera facing the XY plane for a flat view. An ordinary
+FORGE camera at Z=-8 with zero rotation faces positive Z; use a double-sided
+Material for that view. Adjust **Orthographic height** to frame your objects.
+The Scene viewport's editor camera does not replace the game Camera. Save the
+Scene separately, then export with the matching runtime kit. Editable source
+files stay in the project; the exported game uses cooked Meshes and Materials.
+
+![Game view of a textured quad, five-corner polygon and triangle](../images/planar-mesh-game.png)
+
+Gallery **199-planar-meshes** uses an orthographic Camera and the same Unlit
+checker Material for three independently editable flat Meshes.
+
+After creation, use the existing Model and UV tools below. A flat shape is an
+ordinary Mesh: it can be transformed, triangulated or extruded. Its start shape
+is not a separate persistent setting. General concave outlines, holes, curves
+and automatic polygon repair are unavailable.
 
 ## Shape the Mesh
 

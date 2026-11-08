@@ -17,6 +17,7 @@ from mcp_animation_retarget_workflow import check_animation_retarget_workflow
 from mcp_animation_graph_workflow import check_animation_graph_workflow
 from mcp_lightmap_graph_workflow import check_lightmap_graph_workflow
 from mcp_sequence_property_sources import check_sequence_property_sources
+from mcp_planar_mesh_workflow import check_planar_mesh_workflow
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
 SEQUENCE_PROPERTY_SOURCES_ONLY = '--sequence-property-sources-only' in sys.argv[5:]
@@ -39,6 +40,7 @@ ANIMATION_GRAPH_ONLY = "--animation-graph-only" in sys.argv[5:]
 PAINT_TEXTURE_ONLY = "--paint-texture-only" in sys.argv[5:]
 RENDER_TEXTURE_ONLY = "--render-texture-only" in sys.argv[5:]
 APPLICATION_STATES_ONLY = "--application-states-only" in sys.argv[5:]
+PLANAR_MESH_ONLY = "--planar-mesh-only" in sys.argv[5:]
 
 
 @contextmanager
@@ -138,6 +140,10 @@ for legacy in (False, True):
         assert 'forge_prefab_source_read' in names
         assert not {'forge_prefab_variant_create', 'forge_prefab_duplicate', 'forge_prefab_source_rebase', 'forge_prefab_source_revert'} & names
         assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'save', 'paint', 'stroke', 'fill', 'copy_pixels', 'cancel_pixels', 'close', 'tile_collision', 'tile_animation', 'tile_autotile'))
+        if PLANAR_MESH_ONLY:
+            preview = client.tool('forge_asset_document_template', target=state['result']['target'],
+                                  editor='editable_mesh', mesh_profile='planar_quad', mesh_size=[2, 1])
+            assert preview['ok'] and len(preview['result']['vertices']) == 4, preview
 
     with editor() as (root, process, config), Client(config, legacy) as client:
         declared_tools = client.request('tools/list')['result']['tools']
@@ -188,6 +194,10 @@ for legacy in (False, True):
 
         kinds = read('forge_asset_document_types')['editors']
         assert len(kinds) == 20 and all(not item['status']['open'] for item in kinds), kinds
+        if PLANAR_MESH_ONLY:
+            check_planar_mesh_workflow(read, mutate, edit, status, content, root, declared_tools)
+            print(('legacy' if legacy else 'current') + ': planar Mesh schema, templates, atomic creation, history, publication, save/reopen, revisions and scope passed')
+            continue
         if SEQUENCE_PROPERTY_SOURCES_ONLY:
             check_sequence_property_sources(read, mutate, edit, status, content, root)
             continue

@@ -35,7 +35,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 ## Models and appearance
 
 - [Importing and placing models, including FBX](editor/models.md)
-- [Editable Meshes and UVs](editor/editable-meshes.md)
+- [Editable Meshes, flat 2D shapes and UVs](editor/editable-meshes.md)
 - [Shape terrain with height layers](editor/terrain.md)
 - [Place foliage with slope filters, alignment, collision clearance and wind](editor/foliage.md)
 - [Importing textures, exporting stored/block samples, signed PNG16, BC6 HDR and image inspection](editor/textures.md)

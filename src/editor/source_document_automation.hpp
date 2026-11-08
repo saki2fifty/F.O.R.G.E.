@@ -9,6 +9,7 @@
 #include "automation_schema.hpp"
 #include "document.hpp"
 #include "document_workspace.hpp"
+#include <forge/editable_mesh.hpp>
 #include <forge/material_graph.hpp>
 #include <type_traits>
 
@@ -16,6 +17,28 @@ namespace forge {
 // Private adapters borrow the same editor instances registered in DocumentWorkspace.
 // They own neither source values, history, publication queues nor persistent IDs.
 struct AssetDocumentAutomation {
+    static EditableMeshSource mesh_source(AssetId id, const Json& request) {
+        const auto profile = request.value("mesh_profile", std::string("cube"));
+        if (request.contains("mesh_size") && profile != "planar_quad")
+            throw AuthoringError("invalid_argument", "mesh_size applies to planar_quad only");
+        if (request.contains("outline") && profile != "planar_polygon")
+            throw AuthoringError("invalid_argument", "outline applies to planar_polygon only");
+        if (profile == "cube")
+            return EditableMeshSource::create_cube(id);
+        if (profile == "sculpt_sphere")
+            return EditableMeshSource::create_sculpt_sphere(id);
+        if (profile == "planar_quad") {
+            const auto size = request.value("mesh_size", std::array<double, 2>{1, 1});
+            return EditableMeshSource::create_planar_quad(id, size[0], size[1]);
+        }
+        if (profile == "planar_polygon") {
+            if (!request.contains("outline"))
+                throw AuthoringError("outline_required", "Planar polygon requires an XY outline");
+            const auto points = request.at("outline").get<std::vector<std::array<double, 2>>>();
+            return EditableMeshSource::create_planar_polygon(id, points);
+        }
+        throw AuthoringError("invalid_argument", "Unknown editable Mesh profile");
+    }
     static NavigationBehaviorSource behavior_source(AssetId id, const Json& request) {
         const auto profile = request.value("behavior_profile", std::string("state_graph"));
         if (profile == "state_graph")
@@ -168,12 +191,18 @@ struct AssetDocumentAutomation {
         constexpr bool atlas = std::is_same_v<Source, SpriteAtlasRecipe>;
         constexpr bool graph = std::is_same_v<Source, MaterialGraphSource>;
         constexpr bool behavior = std::is_same_v<Source, NavigationBehaviorSource>;
+        constexpr bool mesh = std::is_same_v<Source, EditableMeshSource>;
         return {
             Document::source_suffix,
             [&editor, &project](std::string_view action, const Json& request) -> Json {
                 project.check_ownership();
                 if (action == "status")
                     return status(editor, project);
+                if constexpr (!mesh)
+                    if (request.contains("mesh_profile") || request.contains("mesh_size") ||
+                        request.contains("outline"))
+                        throw AuthoringError("invalid_argument",
+                                             "Mesh creation options apply to editable_mesh only");
                 if constexpr (!paint_texture)
                     if (request.contains("canvas"))
                         throw AuthoringError(
@@ -213,6 +242,8 @@ struct AssetDocumentAutomation {
                         return graph_source(id, request).document;
                     else if constexpr (behavior)
                         return behavior_source(id, request).document;
+                    else if constexpr (mesh)
+                        return mesh_source(id, request).document;
                     else
                         return Document::initial_source(id).document;
                 }
@@ -232,7 +263,9 @@ struct AssetDocumentAutomation {
                     if (action == "open" &&
                         (request.contains("patch") || request.contains("tile_set") ||
                          request.contains("textures") || request.contains("domain") ||
-                         request.contains("behavior_profile") || request.contains("canvas")))
+                         request.contains("behavior_profile") || request.contains("canvas") ||
+                         request.contains("mesh_profile") || request.contains("mesh_size") ||
+                         request.contains("outline")))
                         throw AuthoringError(
                             "invalid_argument",
                             "Initial patch/tile_set/textures/domain/profile options apply "
@@ -282,6 +315,8 @@ struct AssetDocumentAutomation {
                                             return graph_source(id, request);
                                         else if constexpr (behavior)
                                             return behavior_source(id, request);
+                                        else if constexpr (mesh)
+                                            return mesh_source(id, request);
                                         else
                                             return Document::initial_source(id);
                                     }();

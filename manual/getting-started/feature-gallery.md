@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**199-planar-meshes** shows a quad, five-corner polygon and triangle in XY through
+an orthographic Camera. Open it and press **Play → Game**. Their shared Unlit,
+double-sided checker Material needs no Light. Stop Play, open a Mesh under
+`Assets/Planar` in Content, edit its geometry or UVs and choose **Save & Publish**.
+Save the Scene before exporting with the matching runtime kit. See
+[Create a flat 2D Mesh](../editor/editable-meshes.md).
+
 **198-ordered-sound-playlist** plays low, middle and high tones once in order from
 a reusable Prefab. Open it and press **Play → Game**.
 Select **Three-tone playlist - select for Live sound** to watch progress,

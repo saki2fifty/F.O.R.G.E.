@@ -27,6 +27,7 @@ class EditableMeshEditor {
     bool is_open() const { return bool(document_); }
     bool pending() const { return job_ != 0; }
     bool dirty() const { return document_ && (document_->dirty() || needs_publish_ || job_); }
+    bool has_unapplied_edits() const { return create_open_; }
     bool can_undo() const { return document_ && !job_ && document_->can_undo(); }
     bool can_redo() const { return document_ && !job_ && document_->can_redo(); }
     const EditableMeshDocument* document() const { return document_.get(); }
@@ -89,40 +90,138 @@ class EditableMeshEditor {
         }
     }
     void content(SceneDocument& project, bool locked) {
-        ImGui::BeginDisabled(locked || dirty());
-        if (ui::button("New editable Mesh...",
-                       "Create a cube or smooth sphere for modeling, sculpting and UV editing."))
+        ImGui::BeginDisabled(locked || dirty() || project.project().empty());
+        if (ui::button(
+                "New editable Mesh...",
+                "Create a cube, smooth sphere or flat XY Mesh through the same source editor.")) {
+            create_open_ = true;
+            create_project_ = project.project();
+            create_generation_ = project.generation();
+            error_.clear();
             ImGui::OpenPopup("New editable Mesh");
+        }
+        FORGE_UI_PROBE("editable-mesh:new");
         ImGui::EndDisabled();
-        if (ImGui::BeginPopupModal("New editable Mesh", nullptr,
-                                   ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::InputText("Project file", path_, sizeof(path_));
-            const char* shapes[] = {"Cube", "Sculpt sphere"};
-            ImGui::Combo("Start shape", &start_shape_, shapes, 2);
+        if (create_open_) {
+            const auto available = ImGui::GetMainViewport()->WorkSize;
+            ImGui::SetNextWindowSize({std::min(640.f * ui::interface_scale, available.x - 30),
+                                      std::min(600.f * ui::interface_scale, available.y - 30)},
+                                     ImGuiCond_Appearing);
+        }
+        if (ImGui::BeginPopupModal("New editable Mesh", nullptr)) {
+            if (!create_open_) {
+                ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
+                return;
+            }
+            const bool same =
+                create_project_ == project.project() && create_generation_ == project.generation();
+            ImGui::BeginChild(
+                "Mesh creation settings",
+                {0, std::max(80.f, ImGui::GetContentRegionAvail().y - 45.f * ui::interface_scale)});
+            if (ImGui::InputText("Project file", path_, sizeof(path_)))
+                error_.clear();
+            FORGE_UI_PROBE("editable-mesh:create-path");
+            const char* shapes[] = {"Cube", "Sculpt sphere", "Flat quad (XY)", "Flat polygon (XY)"};
+            if (ImGui::Combo("Start shape", &start_shape_, shapes, 4))
+                error_.clear();
+            FORGE_UI_PROBE("editable-mesh:create-shape");
             ui::help("Choose a new .mesh.json file inside your project.");
-            ImGui::BeginDisabled(locked || dirty());
+            if (start_shape_ >= 2)
+                ui::help("Flat geometry faces +Z. UVs span its bounds with a top-left origin. "
+                         "Use an Unlit Material and an orthographic Scene camera for 2D.");
+            if (start_shape_ == 2) {
+                if (ImGui::InputDouble("Width", &quad_size_[0]))
+                    error_.clear();
+                FORGE_UI_PROBE("editable-mesh:create-width");
+                if (ImGui::InputDouble("Height", &quad_size_[1]))
+                    error_.clear();
+                FORGE_UI_PROBE("editable-mesh:create-height");
+            }
+            if (start_shape_ == 3) {
+                ui::help("Enter 3 to 16 boundary corners in clockwise or counterclockwise order. "
+                         "The outline must be strictly convex, without holes or crossing edges.");
+                for (std::size_t i = 0; i < outline_.size(); ++i) {
+                    ui::IdScope row(std::to_string(i).c_str());
+                    ImGui::Text("Corner %zu", i + 1);
+                    const auto& style = ImGui::GetStyle();
+                    const float remove_width =
+                        ImGui::CalcTextSize("Remove").x + style.FramePadding.x * 2;
+                    const float field_width =
+                        std::max(30.f, (ImGui::GetContentRegionAvail().x - remove_width -
+                                        style.ItemSpacing.x * 2 - style.ItemInnerSpacing.x * 2 -
+                                        ImGui::CalcTextSize("X").x - ImGui::CalcTextSize("Y").x) /
+                                           2);
+                    ImGui::SetNextItemWidth(field_width);
+                    if (ImGui::InputDouble("X", &outline_[i][0], 0, 0, "%.3f"))
+                        error_.clear();
+                    FORGE_UI_PROBE("editable-mesh:create-x:" + std::to_string(i));
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(field_width);
+                    if (ImGui::InputDouble("Y", &outline_[i][1], 0, 0, "%.3f"))
+                        error_.clear();
+                    FORGE_UI_PROBE("editable-mesh:create-y:" + std::to_string(i));
+                    ImGui::SameLine();
+                    ImGui::BeginDisabled(outline_.size() <= 3);
+                    const bool remove = ui::button("Remove", "Remove this draft corner only.");
+                    FORGE_UI_PROBE("editable-mesh:create-remove:" + std::to_string(i));
+                    ImGui::EndDisabled();
+                    if (remove) {
+                        outline_.erase(outline_.begin() + std::ptrdiff_t(i));
+                        error_.clear();
+                        break;
+                    }
+                }
+                ImGui::BeginDisabled(outline_.size() >= 16);
+                if (ui::button("Add corner",
+                               "Append a draft corner, then enter its XY coordinates.")) {
+                    outline_.push_back({0, 0});
+                    error_.clear();
+                }
+                FORGE_UI_PROBE("editable-mesh:create-add");
+                ImGui::EndDisabled();
+            }
+            if (!same)
+                ui::field_error("This draft belongs to another project or document generation. "
+                                "Cancel and reopen it.");
+            if (!error_.empty())
+                ui::field_error(error_);
+            ImGui::EndChild();
+            ImGui::BeginDisabled(locked || dirty() || !same);
             if (ui::button(
                     "Create",
                     "Create the selected source; Save & Publish makes it usable in scenes.")) {
                 try {
                     auto created = EditableMeshDocument::create(
                         project.writer_guard(), std::filesystem::u8path(path_), [this](AssetId id) {
-                            return start_shape_ == 1 ? EditableMeshSource::create_sculpt_sphere(id)
-                                                     : EditableMeshSource::create_cube(id);
+                            switch (start_shape_) {
+                            case 1:
+                                return EditableMeshSource::create_sculpt_sphere(id);
+                            case 2:
+                                return EditableMeshSource::create_planar_quad(id, quad_size_[0],
+                                                                              quad_size_[1]);
+                            case 3:
+                                return EditableMeshSource::create_planar_polygon(id, outline_);
+                            default:
+                                return EditableMeshSource::create_cube(id);
+                            }
                         });
                     load(project, created->locator());
+                    create_open_ = false;
                     ImGui::CloseCurrentPopup();
                 } catch (const std::exception& e) {
                     error_ = e.what();
                     ui::report_error("editable_mesh/create", error_);
                 }
             }
+            FORGE_UI_PROBE("editable-mesh:create");
             ImGui::EndDisabled();
-            ui::next_text_button("Cancel");
-            if (ui::button("Cancel", "Close without creating a Mesh source."))
+            ImGui::SameLine();
+            if (ui::button("Cancel", "Close without creating a Mesh source.")) {
+                create_open_ = false;
                 ImGui::CloseCurrentPopup();
-            if (!error_.empty())
-                ui::field_error(error_);
+            }
+            FORGE_UI_PROBE("editable-mesh:create-cancel");
             ImGui::EndPopup();
         }
     }
@@ -289,6 +388,11 @@ class EditableMeshEditor {
     bool needs_publish_ = false, save_ = false, close_ = false;
     char path_[1024] = "Assets/NewMesh.mesh.json";
     int start_shape_ = 0;
+    bool create_open_ = false;
+    std::filesystem::path create_project_;
+    std::uint64_t create_generation_ = 0;
+    std::array<double, 2> quad_size_{1, 1};
+    std::vector<std::array<double, 2>> outline_{{-.5, -.5}, {.5, -.5}, {.5, .5}, {-.5, .5}};
     std::string error_;
     SelectionMode mode_ = SelectionMode::Face;
     std::set<std::uint32_t> faces_;
@@ -426,6 +530,7 @@ class EditableMeshEditor {
         uv_preview_.reset();
     }
     void finish_close() {
+        create_open_ = false;
         faces_.clear();
         cancel_vertex_box();
         model_wire_view_.clear();

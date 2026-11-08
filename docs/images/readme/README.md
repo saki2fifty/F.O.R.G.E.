@@ -1,5 +1,33 @@
 # README screenshots
 
+## Flat Mesh creation and Game view
+
+[Flat Mesh creation](../../../manual/images/planar-mesh-create.png) is an original
+700×800 capture of production EditableMeshEditor controls with five XY corner
+rows. `tests/planar_mesh_editor_tests.cpp` uses actual pointer/keyboard input and
+the pinned SDL/ImGui software backend at 100%, 150% and 200% interface scale.
+The canonical image is the exact 100% fixture PNG, without retouch or resize.
+
+[Flat Mesh Game](../../../manual/images/planar-mesh-game.png) retains every pixel
+of the 640×360 production FrameRenderer capture from
+`tests/planar_mesh_gallery_vulkan_probe.cpp`, converted losslessly from PPM to PNG.
+It shows Gallery199's quad, five-corner polygon and clockwise-input triangle with
+an ordinary Unlit, two-sided Engine Checker Material and orthographic Camera.
+The magenta/black image is the selected Engine Checker texture. An independent
+XY coverage oracle checks interior/exterior pixels, and four captures match
+exactly after runtime export, relocation and source hiding.
+
+Capture source is local `77149c0` plus the flat Mesh authoring changes. Native
+fixture originals are `planar-mesh-editor-tests/planar-mesh-create.png`; Game
+originals are `render-proof/authored/1-640.ppm` in local batch297 evidence.
+Software Vulkan uses Mesa lavapipe and the pinned Diligent/DXC stack. These are
+control/rendering fixtures, not full Main, Windows or physical GPU acceptance.
+The existing manual/package tools copy canonical PNG bytes unchanged.
+
+Creation PNG SHA256: `e5b878a0f4b1372b1c24cdfcb34de64edbce6f954c65c4d0dcbcd31696f67c8f`.
+Game PNG SHA256: `b1818a91406a59d4d5175afb2b9d4198448b5b4dc332d48ce10bce129da874c1`.
+
+
 ## Sound playlist creation
 
 [Create sound playlist](../../../manual/images/audio-playlist-create.png) shows

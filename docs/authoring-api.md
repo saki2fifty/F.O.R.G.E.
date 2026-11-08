@@ -70,9 +70,9 @@ Commands now prepare detached document intent without creating validation worlds
 
 API 1 and its owning-thread/session/revision checks remain. Discovery's scene target `id` now reports the actual scene AssetId; `session` still guards the active connection, independently of durable identity. Clients should use discovery and the returned `selected` IDs, not assume names such as entity-1. Reads return scene-v3 documents. Legacy v1 `scene.replace` is accepted and normalized into the current scene identity with an explicit legacy alias table; retain the v3 result for future use. File migration remains outside the memory-only automation adapter. See [identity and assets](identity-assets.md).
 
-## Phase 3 transform operations
+## Transform operations
 
-Discovery now includes 20 commands. `transform.position`, `transform.rotation` and `transform.scale` author one **local** channel; rotation remains an Euler-degree input adapter. Legacy property names `forge.position`, `forge.rotation`, `forge.scale` are accepted as input adapters, but discovery uses new canonical `forge.local_translation`, `forge.local_rotation` (XYZW), and `forge.local_scale` property IDs. Old IDs are not reassigned to quaternion semantics. Clients must rediscover schema after changing builds. API envelope 1, runtime protocol 2 and scene format 3 are separate versions.
+Use discovery for the current command catalog. `transform.position`, `transform.rotation` and `transform.scale` author one **local** channel; rotation remains an Euler-degree input adapter. Legacy property names `forge.position`, `forge.rotation`, `forge.scale` are accepted as input adapters, but discovery uses new canonical `forge.local_translation`, `forge.local_rotation` (XYZW), and `forge.local_scale` property IDs. Old IDs are not reassigned to quaternion semantics. Clients must rediscover schema after changing builds. API envelope 1, runtime protocol 2 and scene format 3 are separate versions.
 
 - `transform.local`: `entity` plus one or more of `translation` (XYZ), `rotation` (XYZW), `scale` (XYZ). Only supplied channels become owned. Quaternion input is normalized; zero/nonfinite values reject.
 - `transform.world_translation`: `entity`, world `value` XYZ. Owns translation only.

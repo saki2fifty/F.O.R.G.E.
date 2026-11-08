@@ -509,3 +509,18 @@ MCP does not inject raw pointer or ray gestures. The running presenter owns
 native focus, pointer capture, text and keyboard navigation. See
 [the supported surface profile](runtime-ui.md)
 for Material settings, UV flips, geometric blockers and Camera view limits.
+
+## Create flat Mesh shapes
+
+Call `forge_asset_document_template` with `editor: "editable_mesh"` and
+`mesh_profile: "planar_quad"`, optionally setting `mesh_size: [width,height]`, or
+use `mesh_profile: "planar_polygon"` and a strictly convex `outline` of 3–16 XY
+pairs. Create the source with `forge_asset_document_create` and a new project
+`.mesh.json` path. Use the existing source read/patch/Undo/Redo and Save tools.
+Creation options do not apply to Open or other editors.
+
+Publish the Mesh, assign it to a Mesh Renderer, and assign an Unlit Material.
+Use a game Camera facing the XY plane with orthographic projection; enable
+Two-sided on the Material when viewing its back. Save the Scene before export.
+The shapes use the ordinary Mesh source and renderer. Concave outlines, holes
+and curves are unavailable. See [Create a flat 2D Mesh](editable-meshes.md).

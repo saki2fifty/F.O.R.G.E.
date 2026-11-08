@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "c439dedbb4518d530d86f6ebcb52ebd8c97d245d21bca2ad707c624f1f905c48",
+        "role": "material.texture:baseColorTexture",
+        "target": "619babf9-df8f-4d18-91da-2e8096bd9464",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "8d2ce887ab21d348f8155974da788f7a6e41f03851e600e504b222d22e979051",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 3,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "1c7535b134aafcc55f58aed2a6306d1c8012e7dc7636da8bab3126aa85b3d95c",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "27747b11-36cd-48a9-b774-9784e5cc9a29",
+    "source": "Assets/Planar/UnlitChecker.material.json",
+    "source_digest": "1c7535b134aafcc55f58aed2a6306d1c8012e7dc7636da8bab3126aa85b3d95c",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

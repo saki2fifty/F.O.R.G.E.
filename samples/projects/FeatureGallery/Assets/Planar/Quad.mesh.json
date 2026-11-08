@@ -1,0 +1,75 @@
+{
+  "asset_id": "7cf5083d-0359-46e5-a0bc-b4339dbbee70",
+  "faces": [
+    {
+      "corners": [
+        {
+          "uv": [
+            0.0,
+            1.0
+          ],
+          "vertex": 1
+        },
+        {
+          "uv": [
+            1.0,
+            1.0
+          ],
+          "vertex": 2
+        },
+        {
+          "uv": [
+            1.0,
+            0.0
+          ],
+          "vertex": 3
+        },
+        {
+          "uv": [
+            0.0,
+            0.0
+          ],
+          "vertex": 4
+        }
+      ],
+      "id": 5
+    }
+  ],
+  "kind": "forge.editable-mesh",
+  "next_id": 6,
+  "version": 1,
+  "vertices": [
+    {
+      "id": 1,
+      "position": [
+        -1.0,
+        -1.0,
+        0.0
+      ]
+    },
+    {
+      "id": 2,
+      "position": [
+        1.0,
+        -1.0,
+        0.0
+      ]
+    },
+    {
+      "id": 3,
+      "position": [
+        1.0,
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "id": 4,
+      "position": [
+        -1.0,
+        1.0,
+        0.0
+      ]
+    }
+  ]
+}

@@ -355,6 +355,17 @@ metadata after switching projects.
 
 ## Shared source and importer documents
 
+Editable Mesh template/create tools accept `editor: "editable_mesh"` and
+`mesh_profile: "planar_quad"` with optional positive `mesh_size: [width,height]`
+(default `[1,1]`), or `mesh_profile: "planar_polygon"` with a required strictly
+convex `outline` of 3–16 XY pairs. `cube` remains the default; `sculpt_sphere` is
+also available. Flat profiles face +Z and map UVs across their bounds. These
+options reject on other editors and Open. Template allocates no files; Create
+uses the existing asset identity/document owner. Patch, Undo/Redo, Save and
+publication keep their usual scoped revision/permission rules. Assign a published
+Mesh and Unlit Material through ordinary Scene tools and use an orthographic
+Camera. See [Editable Meshes](editable-meshes.md).
+
 `forge_asset_document_types` lists the actual DocumentWorkspace source editors
 and their suffixes. `template` exposes each existing owner's initial source shape;
 `create` allocates the ordinary fresh asset identity, and `open` borrows that
