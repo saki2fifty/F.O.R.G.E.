@@ -1,5 +1,21 @@
 # 2026-11-08
 
+## Gameplay input recording and replay
+
+The Game view records the mapped gameplay snapshots consumed at actual fixed
+ticks and saves bounded takes under each project's Recordings folder. Fresh
+replay checks Scene/settings/build, input map and Hz, supplies the same values,
+and neutralizes input after exhaustion or cancellation. Empty Finish preserves
+capture; capacity, map changes, rebinding and Scene transitions have explicit
+guards. Native controls and MCP share the runtime and contained file owners.
+
+Saved takes can drive the existing offline game/audio movie task, which retains
+the take and its admission/source/tick/digest receipt. Gallery209 reuses the
+original component-message observer for visible per-press movement. The manual
+includes real control captures and saving/replay/movie instructions. UI/text,
+Scene-transition recording and arbitrary state determinism remain outside this
+profile; Windows/full Main, physical and external-client acceptance remain pending.
+
 ## Ordered Prefab source contributions
 
 Explicit source8 variants keep their primary base and select ordered additional

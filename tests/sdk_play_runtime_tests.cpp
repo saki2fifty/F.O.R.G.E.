@@ -2499,10 +2499,12 @@ void property_tune_rejects_wrong_world_or_unadmitted_type() {
 }
 
 #include "game_recording_sdk_tests.hpp"
+#include "input_recording_sdk_tests.hpp"
 
 int run() {
     try {
         game_recording_sdk_tests();
+        input_recording_sdk_tests();
         {
             Fixture f;
             std::string session;

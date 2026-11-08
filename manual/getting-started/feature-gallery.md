@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**209-input-recording** supplies a Space-action sender, camera and light for
+recording a take through **Game → Input recording**. Watch Console / Gameplay
+input, finish/save, stop, then replay the take. Build the included `InputMessages`
+C++ System to move the cube half a unit on each fresh press. The same take can
+drive offline movie recording. See [record and replay gameplay input](../editor/input-recording.md).
+
 **208-prefab-source-contributions** compares a common marker, a wider variant,
 a color variant and a variant combining both. Open it and press **Play → Game**.
 Stop Play, edit `Assets/Contributions/WideBrightMarker.prefab.json`, and expand

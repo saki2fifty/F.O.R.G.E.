@@ -86,6 +86,7 @@ for legacy in (False,True):
 
         if len(sys.argv)>5:
             assert catalog['forge_capture_game_start']['annotations']['openWorldHint']
+            assert catalog['forge_capture_game_start']['inputSchema']['properties']['input_recording']['type']=='string'
             source=read('forge_capture_game_read')
             assert source['ready'] and source['execution_granted'] and source['mode']=='offline_game',source
             assert (source['minimum_fps'],source['maximum_fps'],source['maximum_frames'])==(1,240,4096)
@@ -102,13 +103,13 @@ for legacy in (False,True):
                 values[key]+=1
                 failed(mutate('forge_capture_game_start',**values),'stale_source')
             for invalid in (dict(width=True),dict(width=0),dict(height=4097),dict(frame_count=4097),
-                            dict(jpeg_quality=101),dict(frames_per_second=.5),dict(unknown=True)):
+                            dict(jpeg_quality=101),dict(frames_per_second=.5),dict(unknown=True),dict(input_recording=True)):
                 failed(mutate('forge_capture_game_start',**game_arguments('InvalidGame',**invalid)),
                        'invalid_arguments')
             assert not mutate('forge_capture_game_start',**game_arguments('../EscapeGame'))['ok']
             assert not (root/'Output/StaleGame').exists() and not (root/'Output/InvalidGame').exists()
             assert read('forge_scene_read')==game_authored
-            request=arguments(**game_arguments('GameMovie'))
+            request=arguments(**game_arguments('GameMovie',input_recording='Recordings/fixture.json'))
             accepted=client.tool('forge_capture_game_start',**request)
             assert accepted['ok'],accepted
             assert client.tool('forge_capture_game_start',**request)==accepted
@@ -118,6 +119,8 @@ for legacy in (False,True):
             folder=root/'Output/GameMovie'
             receipt=json.loads((folder/'recording.json').read_text())
             assert receipt['state']=='complete' and receipt['audio_frames']==4805,receipt
+            assert receipt['input_recording']['admitted'] and receipt['input_recording']['ticks']==6,receipt
+            assert json.loads((folder/'input-recording.json').read_text())==json.loads((root/'Game/Recordings/fixture.json').read_text())
             assert [frame['simulation_tick'] for frame in receipt['frames']]==[0,2,4],receipt
             assert (folder/'game.avi').read_bytes()[:4]==b'RIFF'
             assert (folder/'audio.s16le').stat().st_size==4805*4

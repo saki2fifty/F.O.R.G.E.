@@ -395,6 +395,7 @@ Json RuntimeSimulation::input_status() const {
     auto status = input_monitor_.status(input_.map());
     status["rebind_listening"] = input_.rebinding();
     status["messages"] = messages_->status();
+    status["recording"] = input_.input_recording_status();
     return status;
 }
 void RuntimeSimulation::tick(float dt) {

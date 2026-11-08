@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-11-08](20261108/README.md) — Ordered sound playlist creation, atomic Scene history, shared automation/MCP, portable Prefab/Gallery198, inherited audio discovery and illustrated controls. Local source; Windows verification and delivery pending.
+- [2026-11-08](20261108/README.md) — Fixed gameplay input recording/replay and input-driven movies/Gallery209; related Prefab source contributions/Gallery208; ordered sound playlist authoring/Gallery198; shared native/MCP workflows and illustrated manuals. Local source; Windows verification and delivery pending.
 
 - [2026-11-07](20261107/README.md) — Completion-aware sound-cue events/Gallery195; repeating sound-cue events/Gallery194; timed sound-cue offsets/Gallery193 and event sound cues/Gallery192; custom audio buses/sends and Gallery191; project-wide C++ source search/navigation; eight-way sequence overlaps/Gallery190, repeated controller placements/Gallery189 and nested playback rates/Gallery186; shared skeletal tracks/Gallery185 and Material/reflected crossfades/Gallery184; native controls, automation/MCP and illustrated manuals. Local source; Windows verification and delivery pending.
 

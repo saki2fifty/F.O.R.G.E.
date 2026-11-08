@@ -2,6 +2,21 @@
 
 Pushes and pull requests run Linux/Windows core tests, cache-invalidation tests, and formatting. They do not compile the D3D12 editor or publish a ZIP. Superseded push/PR runs on the same ref are cancelled; manual builds are not cancelled by a code push.
 
+Fixed gameplay input recording uses `input_recording` for byte/tick/kind bounds,
+empty Finish, replay/cancel/exhaustion progress and rebinding guards.
+`input_recording_process` covers correlated normal-host admission and changed
+source rejection. `input_recording_gallery` and `input_recording_gallery_sdk`
+exercise the shipped Scene and original native message receiver.
+`input_recording_sdk_process` records running input and replays through a fresh
+relocated SDK project, requiring both runtime children to quit with exit0.
+`input_recording_editor` clicks real record/save/replay controls in both hosts at
+three widths and checks cached-document project affinity.
+`mcp_input_recording_stdio` exercises both protocol envelopes, grants, stale
+scope, duplicate JSON, replacement and redirected-path rejection. Saved takes
+also pass through `sdk_play_runtime`, `game_recording_editor`, `mcp_image_stdio`
+and the production recording/capture owners. Software graphics/control fixtures
+remain separate from complete Windows Main and physical acceptance.
+
 Related Prefab source contributions use `prefab_source_layers` for explicit
 source8 admission, monotonic ordering, shared-ancestor sparse values, origin
 collisions,64 contributors, admitted/opaque custom data, scoped references,

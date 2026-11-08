@@ -12,6 +12,15 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+recording_path = 'Scenes/209-input-recording.scene.json'
+recording_scene = json.loads((project_root / recording_path).read_text())
+assert recording_scene['asset_id'] == by_source[recording_path]['id'] == 'af5e2d74-0d4c-42e5-821a-aa493c00cc29'
+recording_emitters = [row for row in recording_scene['entities'] if 'forge.input_message' in row['components']]
+assert len(recording_scene['entities']) == 4 and len(recording_emitters) == 1
+assert recording_emitters[0]['components']['forge.input_message']['action'] == '8c68fc99-bdb7-4bf4-9b91-dae060349ff0'
+assert recording_emitters[0]['components']['forge.input_message']['trigger'] == 0
+assert any('forge.camera' in row['components'] for row in recording_scene['entities'])
+assert any('forge.light' in row['components'] for row in recording_scene['entities'])
 contribution_path = 'Scenes/208-prefab-source-contributions.scene.json'
 contribution_scene = json.loads((project_root / contribution_path).read_text())
 assert contribution_scene['asset_id'] == by_source[contribution_path]['id']

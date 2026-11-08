@@ -5,6 +5,7 @@
 #include "batch_authoring.hpp"
 #include "batch_inspector.hpp"
 #include "game_recording_task.hpp"
+#include "input_recording_controls.hpp"
 #ifdef FORGE_UI_FIXTURE
 #include "authored_capture_fixture.hpp"
 #include "editor_capture_layout.hpp"
@@ -552,6 +553,7 @@ int main(int argc, char** argv) {
         forge::ui::AutomationWorkspace automation;
         forge::PlaySession play;
         forge::GameInput game_input(window.get());
+        forge::ui::InputRecordingControls input_recording_controls;
 #ifdef FORGE_UI_FIXTURE
         forge::test::fixture_breadcrumb("after-scene-engine-input");
         // Deferred existing-owner observer bind. The fixture
@@ -2471,7 +2473,8 @@ int main(int argc, char** argv) {
         documents.bind_importer(
             "shader_import", forge::ImportDocumentAutomation::bind(shader_imports, files.document));
         const auto start_project_play = [&](bool interactive, bool recording = false,
-                                            const std::filesystem::path& recording_user_data = {}) {
+                                            const std::filesystem::path& recording_user_data = {},
+                                            bool initially_paused = false) {
             files.document.check_ownership();
             if (!recording && view_image.busy() && view_image.work_kind() == "game_recording")
                 throw forge::AuthoringError("capture_busy",
@@ -2538,7 +2541,7 @@ int main(int argc, char** argv) {
                 play.set_user_data_override(recording_user_data);
             audio_preview.stop();
             play.start(forge::path_utf8(executable), scene.snapshot(), false, forge::Json(),
-                       recording);
+                       recording, initially_paused);
             workspace.game = true;
             focus_game = true;
         };
@@ -2645,6 +2648,7 @@ int main(int argc, char** argv) {
                            std::make_move_iterator(code.end()));
             forge::PlayAutomationProviders play_providers;
             play_providers.start = [&] { start_project_play(false); };
+            play_providers.start_paused = [&] { start_project_play(false, false, {}, true); };
             play_providers.control = control_project_play;
             play_providers.control_unavailable = [&] {
                 return files.busy() || files.changed || sdk_build->busy() || game_export.busy() ||
@@ -6338,6 +6342,10 @@ int main(int argc, char** argv) {
                             play.submit_application_state(request->domain, request->state,
                                                           request->revision);
                     }
+                    if (game_view)
+                        input_recording_controls.draw(play, files.document, [&] {
+                            start_project_play(false, false, {}, true);
+                        });
                     if (game_view) {
                         ImGui::BeginDisabled(view_image.busy() || files.busy() ||
                                              content_files.busy());

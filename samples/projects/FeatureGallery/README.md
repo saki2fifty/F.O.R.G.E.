@@ -1,5 +1,30 @@
 # Feature Gallery
 
+## Fixed gameplay input recording
+
+Open `Scenes/209-input-recording.scene.json`. Expand **Game → Input recording**,
+choose `Recordings/space-take.json` and click **Record input**. Capture gameplay
+input, tap and hold Space, then choose **Finish and save input** before Stop.
+Console / Gameplay input shows the **Send component message** action's held state,
+press/release counts and message dispatch. Stop and choose **Replay input** to
+supply the same fixed-tick actions in a fresh run. Physical gameplay input is
+ignored during replay; values become neutral after the take ends.
+
+For a moving-cube example, install the bundled `CodeExamples/InputMessages.cpp`
+as the `InputMessages` C++ System described in the
+[Input Message guide](../../../manual/editor/input-messages.md), then build the
+matching SDK module before making the take. Each fresh Space press moves the
+cube half a unit right. The same receiver serves Scene150 and Scene209. Without
+that receiver, use the Console counts; the cube stays still.
+
+The Scene, camera and light are ordinary editable/exportable content. Export the
+matching module for its movement behavior. Input takes and the editor's recording
+controls are separate from the exported player. A saved take can also drive
+**Run → Record game… → Input recording (optional)**. Replay requires matching
+source/settings/build, map and simulation rate; it does not restore arbitrary
+C++ state or guarantee identical results from randomness or external data. See
+[recording and replay](../../../manual/editor/input-recording.md).
+
 ## Related Prefab source contributions
 
 Open `Scenes/208-prefab-source-contributions.scene.json` and press **Play → Game**.

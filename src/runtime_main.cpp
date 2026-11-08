@@ -5,6 +5,7 @@
 #include "authored_inspection.hpp"
 #include "cpu_profile_control.hpp"
 #include "flecs_system_trace.hpp"
+#include "input_recording_protocol.hpp"
 #include "json_document.hpp"
 #include "runtime_entity_creation.hpp"
 #include "runtime_execution_values.hpp"
@@ -446,11 +447,26 @@ int main(int argc, char** argv) {
                         runtime->simulation.input().submit(
                             request.at("input_events").get<std::vector<forge::InputEvent>>());
                     }
-                    if (command == "profiling") {
+                    if (command == "input_recording") {
+                        const auto document = forge::input_recording_command(
+                            request, runtime->simulation.input(), clock.status(),
+                            forge::input_recording_source(runtime->scene.snapshot(), project_root),
+                            ui_generation);
+                        if (!document.is_null()) {
+                            response["input_recording_document"] = document;
+                            response["ok"] = true;
+                            io.send(response.dump() + "\n");
+                            continue;
+                        }
+                    } else if (command == "profiling") {
                         profiling_enabled = forge::control_cpu_profile(
                             request, runtime->engine.services(), ui_generation);
                         profiling_systems = runtime->engine.services().profiling_systems_enabled();
                     } else if (command == "replace") {
+                        if (runtime->simulation.input().input_recording_status().at("mode") !=
+                            "idle")
+                            throw std::runtime_error(
+                                "Restart Play to replace an input-recording world");
                         if (!clock.paused())
                             throw std::runtime_error("Pause before replacing runtime content");
                         trace_replacement = !replacement_seen && startup_log.is_open();

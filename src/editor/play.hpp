@@ -207,6 +207,46 @@ class PlaySession {
     Json physics_debug_selection;
     const Json& physics_status() const { return physics_status_; }
     const Json& input_status() const { return input_status_; }
+    const Json& input_recording_document() const { return input_recording_document_; }
+    bool input_recording_project(const std::filesystem::path& project) const {
+        return !project.empty() && audio_project_ == path_utf8(project);
+    }
+    const Json& input_recording_status() const {
+        if (input_status_.is_object()) {
+            const auto found = input_status_.find("recording");
+            if (found != input_status_.end() && found->is_object())
+                return *found;
+        }
+        static const Json empty = Json::object();
+        return empty;
+    }
+    const std::string& input_recording_error() const { return input_recording_error_; }
+    bool input_recording_pending() const {
+        return (!live_command_.is_null() &&
+                live_command_.value("command", "") == "input_recording") ||
+               (waiting_ && sent_command_ == "input_recording");
+    }
+    bool submit_input_recording(const std::string& operation, const Json& document = Json()) {
+        if (!control_ready() || (offline_recording_ && operation != "replay") ||
+            !live_command_.is_null() || input_recording_pending() || !world_generation() ||
+            (operation != "begin" && operation != "replay" && operation != "finish" &&
+             operation != "read"))
+            return false;
+        if ((operation == "begin" || operation == "replay") &&
+            (!paused() || timing_.value("tick", std::uint64_t{}) != 0))
+            return false;
+        if (operation == "replay")
+            validate_input_recording(document);
+        live_command_ = {{"command", "input_recording"},
+                         {"generation", world_generation()},
+                         {"operation", operation}};
+        if (operation == "replay")
+            live_command_["document"] = document;
+        input_recording_error_.clear();
+        if (operation == "begin" || operation == "replay")
+            input_recording_document_ = nullptr;
+        return true;
+    }
     const Json& ui_snapshot() const { return ui_snapshot_; }
     const Json& ui_ack() const { return ui_ack_; }
     const Json& application_states() const { return application_states_; }
@@ -878,7 +918,8 @@ class PlaySession {
         sdk_pending_cancel_loading_ticket_ = 0;
     }
     void start(const std::string& executable, const Json& scene, bool probe = false,
-               const Json& recovery = Json(), bool recording = false) {
+               const Json& recovery = Json(), bool recording = false,
+               bool initially_paused = false) {
         if (recording && (!sdk_game_ || probe || !recovery.is_null()))
             throw std::runtime_error("Offline game recording requires fresh SDK Play");
         if (exact_sdk_ && !recovery.is_null())
@@ -889,7 +930,7 @@ class PlaySession {
         executable_ = executable;
         probe_ = probe;
         offline_recording_ = recording;
-        desired_paused_ = probe || recording;
+        desired_paused_ = probe || recording || initially_paused;
         notice_.clear();
         launch(initial, recovery);
     }
@@ -953,6 +994,17 @@ class PlaySession {
                     if (tile_reply_)
                         tile_reply_->receive(response.at("tile_projection"));
                     tile_reply_ = nullptr;
+                } else if (sent_command_ == "input_recording" &&
+                           (!response.value("ok", false) ||
+                            response.contains("input_recording_document"))) {
+                    if (!response.value("ok", false))
+                        input_recording_error_ = response.value("error", "Input recording failed");
+                    else {
+                        validate_input_recording(response.at("input_recording_document"));
+                        input_recording_document_ = response.at("input_recording_document");
+                    }
+                    send({{"command", "snapshot"}});
+                    return;
                 } else {
                     // Branch BEFORE normal-snapshot parsing: a `candidate`
                     // response carries ONLY {protocol, session, id, ok,
@@ -1639,6 +1691,8 @@ class PlaySession {
         request_id_ = 0;
         input_events_.clear();
         input_status_ = Json::object();
+        input_recording_document_ = nullptr;
+        input_recording_error_.clear();
         physics_status_ = Json::object();
         std::vector<const char*> args{executable_.c_str()};
         if (sdk_game_) {
@@ -1851,6 +1905,8 @@ class PlaySession {
     double simulation_hz_ = 60;
     Json physics_status_ = Json::object();
     Json input_map_ = InputMap{}.source(), input_status_ = Json::object();
+    Json input_recording_document_;
+    std::string input_recording_error_;
     Json ui_snapshot_, ui_ack_, ui_command_;
     Json application_states_;
     std::string application_state_error_;

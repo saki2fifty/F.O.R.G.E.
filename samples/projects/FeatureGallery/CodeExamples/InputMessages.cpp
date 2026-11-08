@@ -17,7 +17,8 @@ void forge_register_system_InputMessages(const ForgeSdkWorldV1* host) {
             ForgeSdkEntityRefV1 source{};
             const forge::sdk::Client client(host);
             if (client.entity_reference(it.entity(row), source) != 1 ||
-                std::strcmp(source.scene_uuid, "8d2fcdf4-9786-482f-b8b2-058d4168f1d3"))
+                (std::strcmp(source.scene_uuid, "8d2fcdf4-9786-482f-b8b2-058d4168f1d3") &&
+                 std::strcmp(source.scene_uuid, "af5e2d74-0d4c-42e5-821a-aa493c00cc29")))
                 return;
             auto next = *payload;
             next.x = next.x >= 3.5 ? -3. : next.x + .5;

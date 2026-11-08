@@ -1,6 +1,8 @@
 #include "automation.hpp"
 #include "capture_automation.hpp"
 #include "game_recording_task.hpp"
+#include "input_recording_files.hpp"
+#include "input_recording_protocol.hpp"
 #include "mcp_test_marker.hpp"
 #include "published_texture_fixture.hpp"
 #include "texture_image_input.hpp"
@@ -106,6 +108,14 @@ int main(int argc, char** argv) {
                                                                 forge::AssetId::generate().str(),
                                                             "MCP recording fixture");
             files.document.save_settings(settings);
+            forge::RuntimeInput input;
+            input.begin_input_recording(
+                forge::input_recording_source(scene.snapshot(), files.document.project()), 60);
+            for (unsigned tick = 1; tick <= 6; ++tick)
+                input.latch(tick);
+            input.finish_input_recording();
+            forge::write_input_recording(files.document.project(), "Recordings/fixture.json",
+                                         input.input_recording_document(), false);
         }
         const std::unique_ptr<ImGuiContext, decltype(&ImGui::DestroyContext)> context(
             ImGui::CreateContext(), ImGui::DestroyContext);

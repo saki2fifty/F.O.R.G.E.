@@ -7,6 +7,15 @@ one `GameSession`, fixed `RuntimeClock`, runtime world, lifecycle, physics and
 `AudioRuntime`. Recording progress contains media indices and sample counts,
 never a second world, simulation scheduler or mixer.
 
+Optional `GameRecordingRequest.input_recording` selects a contained saved
+`Recordings/<name>.json` take. The task validates/copies it before launch, queues
+the shared fixed-input replay at paused tick zero, then starts the existing
+offline media clock after acknowledgement. Physical input remains excluded.
+The owner retains `input-recording.json` and its source/tick/digest receipt; the
+bounded take is additional to the PNG/PCM movie budgets. Actions become neutral
+after exhaustion. This preserves input samples, not arbitrary game-state
+determinism. See [input recording](input-recording.md).
+
 See the [user workflow](../manual/editor/game-recording.md). Silent Timeline
 movies retain their [separate source semantics](sequence-movie-export.md).
 
@@ -103,7 +112,7 @@ not establish Windows/full Main, D3D12, physical GPU/input/DPI or player accepta
 
 | Canonical manual image | SHA-256 |
 | --- | --- |
-| `game-recording-options.png` | `4a1ba8533d2d2950e596ec65fdad9d0db99ffc37a7e4e2727732fc3667bc6518` |
+| `game-recording-options.png` | `0e0f57c69b4f3492e17f3499a639c4bd1324c01239763cc78d42b85156b1b7d5` |
 | `game-recording-frame.png` | `9f66928482c8f1d02961c0303a592d964c9bdbbf3237a93a77bec55d91b747df` |
 
 Independent GPU references at ticks 0/30/60 match saved PNGs exactly. An existing

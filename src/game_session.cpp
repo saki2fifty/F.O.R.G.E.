@@ -37,6 +37,8 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
                                    const Json& module_state) {
     owner();
     Mutation guard(changing_);
+    if (active_ && active_->simulation.input().input_recording_status().at("mode") != "idle")
+        throw std::runtime_error("Restart Play before changing an input-recording Scene");
     if (generation_ == std::numeric_limits<std::uint64_t>::max())
         throw std::runtime_error("game.session: Transition generation exhausted");
     // Starting a new request retires the previous unpublished request. The active
@@ -168,6 +170,8 @@ void GameSession::activate(std::uint64_t ticket, RuntimeClock::Time now, bool ru
     owner();
     if (!candidate_ || ticket != pending_)
         throw std::runtime_error("game.session: Stale or missing prepared scene");
+    if (active_ && active_->simulation.input().input_recording_status().at("mode") != "idle")
+        throw std::runtime_error("Restart Play before activating an input-recording Scene");
     Mutation guard(changing_);
     if (!poll_candidate().ready)
         throw std::runtime_error("game.session: Required scene resources are not ready");

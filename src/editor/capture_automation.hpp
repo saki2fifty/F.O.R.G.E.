@@ -510,7 +510,8 @@ struct CaptureAutomation {
                      {"frame_count", automation_integer(1, FORGE_SEQUENCE_FRAME_MAX_COUNT)},
                      {"width", automation_integer(1, 4096)},
                      {"height", automation_integer(1, 4096)},
-                     {"jpeg_quality", automation_integer(1, 100)}},
+                     {"jpeg_quality", automation_integer(1, 100)},
+                     {"input_recording", automation_text(2047, 1)}},
                     {"path", "scene", "source_revision", "document_generation", "frames_per_second",
                      "frame_count", "width", "height"}),
                 true, [&owner, &scene, &files, providers, root, &message](const Json& request) {
@@ -527,6 +528,7 @@ struct CaptureAutomation {
                     settings.destination = destination(root, request);
                     settings.fps = request.at("frames_per_second").get<double>();
                     settings.frames = request.at("frame_count").get<int>();
+                    settings.input_recording = request.value("input_recording", "");
                     settings.output.width = request.at("width").get<int>();
                     settings.output.height = request.at("height").get<int>();
                     settings.output.jpeg_quality =

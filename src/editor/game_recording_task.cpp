@@ -1,6 +1,8 @@
 #include "game_recording_task.hpp"
+#include "../input_recording_files.hpp"
 #include "event_time.hpp"
 #include <imgui.h>
+#include <misc/cpp/imgui_stdlib.h>
 
 namespace forge::ui {
 GameRecordingTask::~GameRecordingTask() {
@@ -86,6 +88,9 @@ void GameRecordingTask::start() {
     generation_ = document_.generation();
     require_source();
     rate_ = request_.rate();
+    if (!request_.input_recording.empty())
+        replay_input_ =
+            read_input_recording(project_, std::filesystem::u8path(request_.input_recording));
     started_at_ = event_time_local();
     folder_ = std::filesystem::absolute(request_.destination).lexically_normal();
     asset_storage::ordinary(folder_);
@@ -308,6 +313,15 @@ Json GameRecordingTask::receipt() const {
                {"channels", 2},
                {"component_bits", 16},
                {"frames", std::move(frames)}};
+    if (!replay_input_.is_null()) {
+        const auto text = replay_input_.dump();
+        value["input_recording"] = {
+            {"admitted", replay_admitted_},
+            {"file", "input-recording.json"},
+            {"source", replay_input_.at("source")},
+            {"ticks", replay_input_.at("frames").size()},
+            {"digest", asset_detail::content_digest(std::as_bytes(std::span(text)))}};
+    }
     if (movie_) {
         value["movie"] = movie_document();
         value["movie"]["file"] = "game.avi";
@@ -329,10 +343,14 @@ void GameRecordingTask::retire() {
 void GameRecordingTask::write_receipt() {
     const auto destination = folder_ / "recording.json";
     auto text = receipt().dump(2);
-    file_ = std::async(std::launch::async, [destination, text = std::move(text)] {
-        asset_storage::replace(destination, text);
-        return std::size_t(0);
-    });
+    auto input = replay_input_.is_null() ? std::string{} : replay_input_.dump();
+    file_ = std::async(
+        std::launch::async, [destination, text = std::move(text), input = std::move(input)] {
+            if (!input.empty())
+                asset_storage::replace(destination.parent_path() / "input-recording.json", input);
+            asset_storage::replace(destination, text);
+            return std::size_t(0);
+        });
     file_job_ = FileJob::Receipt;
     phase_ = Phase::Retire;
     status_ = "Saving game recording receipt";
@@ -392,6 +410,12 @@ void GameRecordingTask::draw() {
         ImGui::SliderInt("##game-recording-quality", &request_.output.jpeg_quality,
                          FORGE_JPEG_QUALITY_MIN, FORGE_JPEG_QUALITY_MAX);
         FORGE_UI_PROBE("game-recording:quality");
+        ImGui::TextUnformatted("Input recording (optional)");
+        ImGui::SetNextItemWidth(-1);
+        ImGui::InputText("##game-recording-input", &request_.input_recording);
+        FORGE_UI_PROBE("game-recording:input");
+        ImGui::TextWrapped(
+            "Use Recordings/<name>.json from this project to replay saved fixed gameplay actions.");
         bool valid = false;
         try {
             (void)request_.rate();

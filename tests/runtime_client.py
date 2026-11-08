@@ -9,7 +9,7 @@ from pathlib import Path
 
 class Runtime:
     """Bounded requests to a disposable runtime; never load native code here."""
-    def __init__(self, executable: Path, arguments=(), *, env=None, cwd=None):
+    def __init__(self, executable: Path, arguments=(), *, env=None, cwd=None, hello_fields=None):
         self.process = subprocess.Popen([str(executable), *map(str, arguments)], stdin=subprocess.PIPE,
                                         stdout=subprocess.PIPE, text=True, bufsize=1, env=env, cwd=cwd)
         self.lines: queue.Queue[str | None] = queue.Queue(maxsize=2)
@@ -17,7 +17,7 @@ class Runtime:
         self.request_id = 0
         self.reader = threading.Thread(target=self._read, daemon=True)
         self.reader.start()
-        self.request("hello")
+        self.request("hello", **(hello_fields or {}))
 
     def _read(self):
         try:

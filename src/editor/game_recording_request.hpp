@@ -6,6 +6,7 @@
 
 namespace forge::ui {
 struct GameRecordingRequest {
+    std::string input_recording;
     std::filesystem::path destination;
     double fps = 30;
     int frames = 180;

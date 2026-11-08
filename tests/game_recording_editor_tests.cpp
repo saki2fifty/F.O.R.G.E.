@@ -1,5 +1,7 @@
 #include "capture_automation.hpp"
 #include "game_recording_task.hpp"
+#include "input_recording_files.hpp"
+#include "input_recording_protocol.hpp"
 #include <forge/game_settings.hpp>
 #include <iostream>
 
@@ -56,6 +58,15 @@ void exercise(const std::filesystem::path& runtime, const std::filesystem::path&
     request.frames = 3;
     request.output.width = 7;
     request.output.height = 5;
+    RuntimeInput recorded_input;
+    recorded_input.begin_input_recording(
+        input_recording_source(scene.snapshot(), files.document.project()), 60);
+    for (unsigned tick = 1; tick <= 6; ++tick)
+        recorded_input.latch(tick);
+    recorded_input.finish_input_recording();
+    write_input_recording(files.document.project(), "Recordings/movie-input.json",
+                          recorded_input.input_recording_document(), false);
+    request.input_recording = "Recordings/movie-input.json";
     auto task =
         std::make_unique<ui::GameRecordingTask>(scene, files.document, play, worker, request, host);
     auto* recording = task.get();
@@ -84,6 +95,12 @@ void exercise(const std::filesystem::path& runtime, const std::filesystem::path&
           "Recording retained Play or mutated authored Scene/history");
     const auto document =
         Json::parse(asset_storage::read(request.destination / "recording.json").value());
+    check(document.at("input_recording").at("admitted") == true &&
+              document.at("input_recording").at("ticks") == 6 &&
+              Json::parse(
+                  asset_storage::read(request.destination / "input-recording.json").value()) ==
+                  recorded_input.input_recording_document(),
+          "Input-driven movie did not retain the admitted take and receipt identity");
     check(document.at("completed_frames") == 3 && document.at("captured_png_frames") == 3 &&
               document.at("audio_frames") == 4805 && document.at("movie").at("audio") == true &&
               document.at("frames")[0].at("simulation_tick") == 0 &&

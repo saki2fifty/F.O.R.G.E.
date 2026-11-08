@@ -170,6 +170,10 @@ struct InputSnapshot {
     std::uint64_t tick = 0;
     std::map<ActionId, ActionState> actions;
 };
+inline constexpr std::size_t input_recording_tick_limit = 4096;
+inline constexpr std::size_t input_recording_byte_limit = 8 * 1024 * 1024;
+// Fixed gameplay snapshots only. Validates the complete copied document before use.
+void validate_input_recording(const nlohmann::json&);
 // Single runtime-owner thread. A batch validates completely before altering state.
 // Readers borrow the const snapshot only during its fixed tick.
 class RuntimeInput {
@@ -182,6 +186,12 @@ class RuntimeInput {
     const InputSnapshot& latch_controls(std::uint64_t frame);
     const InputSnapshot& snapshot() const { return current_; }
     const InputMap& map() const { return map_; }
+    void begin_input_recording(const std::string& source, double simulation_hz);
+    void replay_input_recording(const nlohmann::json&, const std::string& source,
+                                double simulation_hz);
+    void finish_input_recording();
+    nlohmann::json input_recording_status() const;
+    const nlohmann::json& input_recording_document() const { return recording_; }
     // Replace the active stack atomically. Higher priority wins; equal priority
     // uses declaration order. A change neutralizes pending input.
     void activate_contexts(const std::vector<std::string>& names);
@@ -202,6 +212,7 @@ class RuntimeInput {
     void rebuild_routes();
     bool control_action(const InputAction&) const;
     const InputSnapshot& latch_domain(std::uint64_t sequence, bool control);
+    void record_snapshot();
     InputMap map_;
     std::map<std::string, double> controls_;
     std::map<ActionId, ActionState> pending_;
@@ -214,6 +225,9 @@ class RuntimeInput {
     std::uint32_t rebind_gamepad_slot_ = 0;
     std::set<std::string> rebind_held_;
     std::optional<InputEvent> rebind_result_;
+    nlohmann::json recording_;
+    std::string recording_mode_ = "idle", recording_notice_;
+    std::size_t recording_bytes_ = 0, replay_cursor_ = 0;
 };
 // A bounded built-in fixed-pipeline consumer, independent of game action names.
 class InputMonitor {

@@ -166,7 +166,7 @@ int main(int argc, char** argv) {
                 [](forge::AssetId) {}, blocked));
             append(forge::ScriptAutomation::methods(scripts, files, permissions, blocked));
             forge::PlayAutomationProviders controls;
-            controls.start = [&] {
+            const auto start_play = [&](bool paused) {
                 if (!blocked().empty() || settings.dirty() || !imports.ready_for_play()) {
                     forge::Json detail{{"owner", blocked()},
                                        {"settings_dirty", settings.dirty()},
@@ -187,8 +187,11 @@ int main(int argc, char** argv) {
                                files.document.settings().physics().gravity,
                                files.document.project(), sdk_play, sdk_play);
                 play.set_headless_audio(true, mode == "clocked_audio");
-                play.start(forge::path_utf8(runtime), scene.snapshot());
+                play.start(forge::path_utf8(runtime), scene.snapshot(), false, forge::Json(), false,
+                           paused);
             };
+            controls.start = [start_play] { start_play(false); };
+            controls.start_paused = [start_play] { start_play(true); };
             controls.control_unavailable = [&] {
                 return forge::test::marker_present(root / "gesture") ? "User gesture" : "";
             };

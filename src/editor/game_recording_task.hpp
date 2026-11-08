@@ -42,6 +42,9 @@ class GameRecordingTask final : public ViewImageWork {
     SceneDocument& document_;
     PlaySession& play_;
     GameRecordingRequest request_;
+    Json replay_input_;
+    bool replay_submitted_ = false;
+    bool replay_admitted_ = false;
     GameRecordingHost host_;
     std::filesystem::path worker_, project_, folder_, previous_user_data_;
     AssetId scene_id_, sample_id_ = AssetId::generate();
@@ -200,6 +203,22 @@ class GameRecordingTask final : public ViewImageWork {
                 if (play_.control_ready()) {
                     session_ = play_.session();
                     world_generation_ = play_.world_generation();
+                    if (!replay_input_.is_null()) {
+                        if (!replay_submitted_) {
+                            if (!play_.submit_input_recording("replay", replay_input_))
+                                throw std::runtime_error(
+                                    "Offline input replay could not be queued");
+                            replay_submitted_ = true;
+                            return;
+                        }
+                        if (play_.input_recording_pending())
+                            return;
+                        if (!play_.input_recording_error().empty() ||
+                            play_.input_recording_status().value("mode", "") != "replaying")
+                            throw std::runtime_error("Offline input replay was rejected: " +
+                                                     play_.input_recording_error());
+                        replay_admitted_ = true;
+                    }
                     if (!play_.paused() || play_.timing().at("tick") != 0 ||
                         !play_.begin_recording(request_.fps, unsigned(request_.frames)))
                         throw std::runtime_error("Recording could not begin from fresh tick zero");

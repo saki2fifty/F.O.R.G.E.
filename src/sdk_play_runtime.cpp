@@ -6,6 +6,7 @@
 #include "cpu_profile_control.hpp"
 #include "game_recording.hpp"
 #include "game_recording_protocol.hpp"
+#include "input_recording_protocol.hpp"
 #include "json_document.hpp"
 #include "play_scene_admission.hpp"
 #include "runtime_io.hpp"
@@ -1180,7 +1181,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
     if (s.config.recording) {
         if (command != "snapshot" && command != "ping" && command != "candidate" &&
             command != "schema" && command != "replace" && command != "quit" &&
-            command != "record_begin" && command != "record_frame")
+            command != "record_begin" && command != "record_frame" && command != "input_recording")
             return s.build_error(id, "This fresh offline run accepts recording controls only");
         if (request.contains("input_events"))
             return s.build_error(id, "Interactive input is unavailable during offline recording");
@@ -1253,6 +1254,28 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             // flushes the pipe and exits orderly.
             s.quit_latched = true;
             s.quit = true;
+            return s.snapshot_response(id);
+        }
+        if (command == "input_recording") {
+            if (!s.active_generation || !s.game)
+                return s.build_error(id, "Input recording requires an active world");
+            auto& world = s.game->active();
+            if (s.config.recording && request.value("operation", "") != "replay")
+                return s.build_error(id, "Offline movies accept a saved input replay only");
+            if ((request.value("operation", "") == "begin" ||
+                 request.value("operation", "") == "replay") &&
+                (s.initial_ticket || s.game->status().at("prepared_ticket") != 0))
+                return s.build_error(id, "Settle the pending Scene before input recording");
+            const auto document = input_recording_command(
+                request, world.simulation.input(), s.game->status().at("clock"),
+                input_recording_source(world.scene.snapshot(), s.config.project),
+                s.active_generation);
+            if (!document.is_null())
+                return {{"protocol", 2},
+                        {"session", s.session},
+                        {"id", id},
+                        {"ok", true},
+                        {"input_recording_document", document}};
             return s.snapshot_response(id);
         }
         if (command == "record_begin" || command == "record_frame") {
@@ -1491,6 +1514,9 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             return s.enforce_response_size(std::move(response));
         }
         if (command == "replace") {
+            if (s.active_generation &&
+                s.game->active().simulation.input().input_recording_status().at("mode") != "idle")
+                return s.build_error(id, "Restart Play to replace an input-recording world");
             if (!request.contains("scene") || !request.at("scene").is_object())
                 return s.build_error(id, "replace requires a JSON scene object");
             if (request.contains("recovery") && !request.at("recovery").is_null())

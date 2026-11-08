@@ -1,5 +1,21 @@
 # README screenshots
 
+## Gameplay input recording controls
+
+`manual/images/input-recording-controls.png` is an authentic 700×700 ImGui/SDL
+software capture of the production widget after a real record/read/save. The
+file, tick count, Save controls and completed state are visible. Both Play hosts,
+three widths and project-affinity behavior are checked. The current
+`game-recording-options.png` adds the optional saved-input field through the
+production Diligent recording dialog; its six-layout software Vulkan probe also
+renders real game frames. Existing game movie imagery is unchanged.
+
+See [input recording](../../input-recording.md) and
+[game recording](../../game-recording.md) for hashes and capture sources. These
+are scoped local-control/software-rendering captures; complete Main, Windows,
+physical GPU/input/DPI and external-client acceptance remain separate. No pixels
+or controls are retouched.
+
 ## Source contribution controls and Game example
 
 The current source-contribution image is an authentic1180×1520 capture of

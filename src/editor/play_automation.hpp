@@ -1,6 +1,7 @@
 #pragma once
 #include "../asset_bytes.hpp"
 #include "../cpu_profile_trace.hpp"
+#include "../input_recording_files.hpp"
 #include "animation_playback.hpp"
 #include "audio_source.hpp"
 #include "automation_permissions.hpp"
@@ -15,6 +16,7 @@ struct PlayAutomationProviders {
     // Shared editor policies include asset readiness, source freshness, physical
     // input release and presentation cleanup. No second launch/input owner.
     std::function<void()> start;
+    std::function<void()> start_paused;
     std::function<void(const std::string&)> control;
     std::function<std::string()> control_unavailable;
     std::function<void(const std::string&)> select_entity;
@@ -41,6 +43,10 @@ struct PlayAutomation {
                 {"paused", play.paused()},
                 {"timing", play.timing()},
                 {"status", play.status()},
+                {"input_recording", play.input_recording_status()},
+                {"input_recording_pending", play.input_recording_pending()},
+                {"input_recording_ready", !play.input_recording_document().is_null()},
+                {"input_recording_error", play.input_recording_error()},
                 {"sdk", play.sdk_play()},
                 {"loading", play.sdk_loading()},
                 {"tune_pending", play.property_tune_pending()},
@@ -345,15 +351,84 @@ struct PlayAutomation {
             "Start through the editor's existing source/asset/settings readiness "
             "policy. Native project code runs with this account's OS access. "
             "Save/build stale C++ first; this never silently builds or discards drafts.",
-            "play.execute", automation_object(), true, [&files, &play, providers](const Json&) {
+            "play.execute", automation_object({{"paused", {{"type", "boolean"}}}}), true,
+            [&files, &play, providers](const Json& request) {
                 files.document.check_ownership();
                 if (play.active())
                     throw AuthoringError("play_busy", "Stop the current runtime first");
-                providers.start();
+                if (request.value("paused", false)) {
+                    if (!providers.start_paused)
+                        throw AuthoringError("not_supported", "Paused launch is unavailable");
+                    providers.start_paused();
+                } else
+                    providers.start();
                 if (!play.active())
                     throw AuthoringError("not_ready", "The editor did not start a runtime");
                 return state(play);
             }));
+        auto recording_properties = properties();
+        recording_properties.update(
+            {{"operation", {{"type", "string"}, {"enum", {"begin", "finish", "read", "replay"}}}},
+             {"path", automation_text(2047, 1)}});
+        auto recording_required = required();
+        recording_required.push_back("operation");
+        methods.push_back(automation_method(
+            "play.input_recording.control",
+            "Record/replay fixed gameplay ActionId snapshots through the current runtime. "
+            "Begin/replay require a fresh paused tick-zero launch; replay loads a project-relative "
+            ".json path and requires matching Scene/settings/build, input map and Hz. Finish stops "
+            "capture or cancels replay; Read retrieves a finished recording for Save. Observe "
+            "play.status for acknowledgement/errors. This has no Scene Undo and does not record "
+            "UI/text, Scene transitions or arbitrary native state.",
+            "play.execute", automation_object(recording_properties, recording_required), true,
+            [&files, &play, providers](const Json& request) {
+                current(play, files, providers, request);
+                const auto operation = request.at("operation").get<std::string>();
+                if ((operation == "replay") != request.contains("path"))
+                    throw AuthoringError("invalid_arguments",
+                                         "Only replay requires a recording path");
+                const auto document =
+                    operation == "replay"
+                        ? read_input_recording(
+                              files.document.project(),
+                              automation_relative_path(request.at("path").get<std::string>()))
+                        : Json();
+                if (!play.submit_input_recording(operation, document))
+                    throw AuthoringError("play_busy",
+                                         "Wait for fresh paused Play or the pending input control");
+                return state(play);
+            },
+            true));
+        if (permissions.assets) {
+            auto save_properties = properties();
+            save_properties.update(
+                {{"path", automation_text(2047, 1)}, {"replace", {{"type", "boolean"}}}});
+            auto save_required = required();
+            save_required.push_back("path");
+            methods.push_back(automation_method(
+                "play.input_recording.save",
+                "Save the acknowledged input recording as Recordings/<name>.json in the project. "
+                "Saving creates that folder. Existing files require explicit replacement. Requires "
+                "asset "
+                "write and execution grants; no Scene history change. Finish and Read before Save.",
+                "assets.write", automation_object(save_properties, save_required), true,
+                [&files, &play, providers](const Json& request) {
+                    current(play, files, providers, request);
+                    if (!play.input_recording_project(files.document.project()))
+                        throw AuthoringError("stale_play",
+                                             "The recording belongs to another project");
+                    if (play.input_recording_pending() || play.input_recording_document().is_null())
+                        throw AuthoringError("not_ready",
+                                             "Read the finished recording before saving");
+                    const auto path =
+                        automation_relative_path(request.at("path").get<std::string>());
+                    write_input_recording(files.document.project(), path,
+                                          play.input_recording_document(),
+                                          request.value("replace", false));
+                    return Json{{"path", path_utf8(path)}, {"saved", true}};
+                },
+                true));
+        }
         for (const auto* action : {"stop", "pause", "resume", "step"})
             methods.push_back(automation_method(
                 std::string("play.") + action,

@@ -863,6 +863,18 @@ The execution grant exposes `forge_play_start`, `pause`, `resume`, `step` and
 policies. Start requires ready assets/current admitted C++ and never silently
 builds or discards drafts. Pause/Step retain the existing physical-release checks.
 
+Start accepts `paused: true` to admit input recording before tick one.
+`forge_play_input_recording_control` uses the same launch/session/generation to
+begin, finish, read or replay fixed gameplay snapshots. Replay loads a saved
+`Recordings/<name>.json` path and checks the fresh runtime's source, input map and
+Hz. Observe `input_recording`, `input_recording_pending`, `input_recording_ready`
+and `input_recording_error` through status. Finish then Read before
+`forge_play_input_recording_save`; Save also requires the asset-write grant and
+explicit `replace: true` for existing files. The contained file owner creates
+the Recordings folder and never changes Scene history. UI/text, Scene transitions
+and arbitrary game-state determinism are outside this profile. See
+[input recording](input-recording.md).
+
 `forge_play_status` returns an owner-generated `launch` UUID, wire `session` and
 world `generation`. Controls must echo all three; an old starting process cannot
 accidentally control a new process before its wire hello. Queued controls are

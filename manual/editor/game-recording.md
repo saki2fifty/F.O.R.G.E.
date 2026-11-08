@@ -26,7 +26,7 @@ Choose the output and image settings before starting the fresh run.
 1. Open **Run → Record game…**.
 2. Choose an existing **Parent folder** and enter a **New recording folder** name. Use a new folder for every recording.
 3. Set **Frames per second**, **Frame count**, **Width (pixels)** and **Height (pixels)**. For a six-second movie at 30 FPS, use 180 frames.
-4. Set **JPEG quality**. Higher values usually retain more image detail and produce a larger movie. The default is 90.
+4. Set **JPEG quality**. Higher values usually retain more image detail and produce a larger movie. The default is 90. To use a [saved gameplay input take](input-recording.md), set **Input recording (optional)** to `Recordings/<name>.json`. Leave it empty for a run without recorded input.
 5. Choose **Start recording**. Keep the Game view available while FORGE renders the frames. Recording can take longer or less time than the movie's duration.
 6. Wait for **Game movie, PNG frames and PCM saved**, then open **game.avi** in a player that supports Motion JPEG and PCM audio.
 
@@ -45,6 +45,11 @@ The new folder contains:
 - **recording.json** — frame times, simulation ticks, source identity, dates, completion state and any error.
 - **UserData/** — data written by this fresh game run.
 
+When you select an input recording, the folder also contains
+**input-recording.json**. The receipt records its source identity, tick count and
+digest. A selected take must match the fresh runtime's Scene/settings/build,
+input map and simulation rate. After its last tick, gameplay input becomes neutral.
+
 Choose **Cancel** to retire the recording. Completed PNGs, audio and the receipt
 remain available. A file already being written must finish. A complete movie
 already published remains available; an incomplete movie is not published.
@@ -62,6 +67,8 @@ This is an offline recording of a fresh run. Interactive input, Pause and scene
 changes during recording are unavailable. During capture, a scene change, runtime fault or
 authored scene edit stops the recording. Native audio events are sampled in
 bounded mixing intervals; they do not have sample-accurate scheduling.
+A saved input take can drive gameplay during capture, but does not guarantee
+identical game state when native code, random values or external state differ.
 
 If frames do not arrive, check the enabled camera, rendered Game view and asset
 diagnostics. Save and rebuild changed Project Code before retrying. If encoding

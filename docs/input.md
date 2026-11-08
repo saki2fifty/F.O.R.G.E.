@@ -14,7 +14,7 @@ RuntimeInput validates each batch completely before changing state. Continuous p
 
 Digital held persists; pressed/released flags accumulate until the next actual tick and are cleared after consumption. Quick taps retain both flags; multiple same-type transitions within a tick interval coalesce. Catch-up ticks see held with no repeated edge. Relative mouse/wheel contributions are consumed once; continuous axes persist. Analog1D is clamped to[-1,1]; analog2D continuous length is clamped to1. Relative contributions are added afterward. Deadzones rescale gamepad axes. No caller/render delta determines input tick duration.
 
-Pause does not latch input. Step consumes the pending snapshot once; Resume consumes it at the first fixed tick. Focus/capture/disconnect reset discards pending presses/deltas and neutralizes held controls; releases can be delivered once. This is not historical time-stamped reconstruction: inputs received between ticks are assigned to the next runtime latch. Future replay can record the explicit tick+ActionId snapshots; determinism/network transport are not claimed.
+Pause does not latch input. Step consumes the pending snapshot once; Resume consumes it at the first fixed tick. Focus/capture/disconnect reset discards pending presses/deltas and neutralizes held controls; releases can be delivered once. This is not historical time-stamped reconstruction: inputs received between ticks are assigned to the next runtime latch. [Input recording](input-recording.md) saves the consumed fixed-tick gameplay snapshots and replays them through this latch in a matching fresh launch. Arbitrary game-state determinism and network transport are not claimed.
 
 ## Process and capture boundaries
 
