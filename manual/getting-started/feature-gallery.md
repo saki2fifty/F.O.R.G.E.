@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**205-prefab-component-suppression** shows a base marker, a variant with its Crown
+Mesh Renderer suppressed, and a chained variant with an explicit renderer added.
+Open it and press **Play → Game**. Stop Play, open
+`Assets/Variants/UncappedMarker.prefab.json`, select **Crown**, then choose
+**Restore component → Publish source** to resume inheritance. Save the Scene before
+export. No project C++ module is required. See [Prefabs and variants](../editor/prefabs.md).
+
 **204-curved-planar-meshes** contains an ellipse, circle ring and cubic rounded
 triangle made from ordinary editable triangle geometry. Open the Scene and press
 **Play → Game**. Stop Play to edit the sources under `Assets/Planar`, Save & Publish

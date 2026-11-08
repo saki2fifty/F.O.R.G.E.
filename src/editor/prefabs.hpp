@@ -1,5 +1,6 @@
 #pragma once
 #include "../json_value_equal.hpp"
+#include "../prefab_component_intent.hpp"
 #include "component_choices.hpp"
 #include "document.hpp"
 #include "property_drawer.hpp"
@@ -69,7 +70,7 @@ class PrefabEditor {
     std::function<bool(const Json& components, Json& layer)> tile_map_layer;
     bool dirty() const { return open_ && !detail::json_value_equal(draft_, baseline_); }
     bool is_open() const { return open_; }
-    bool variant() const { return draft_.at("version") == 4 && draft_.contains("base"); }
+    bool variant() const { return PrefabDocument::is_variant(draft_); }
     Json source_view(const Json& schema = Json::object()) const {
         if (!variant())
             return draft_;
@@ -102,7 +103,7 @@ class PrefabEditor {
             throw std::runtime_error("Prefab source exceeds 8 MiB");
         if (candidate.at("asset_id") != draft_.at("asset_id") ||
             candidate.at("revision") != draft_.at("revision") ||
-            ((candidate.at("version") == 4 || draft_.at("version") == 4) &&
+            ((PrefabDocument::is_variant(candidate) || PrefabDocument::is_variant(draft_)) &&
              candidate.value("base", Json()) != draft_.value("base", Json())))
             throw std::runtime_error(
                 "Edits cannot change prefab source/base identity or publication revision");
@@ -163,6 +164,8 @@ class PrefabEditor {
     }
     void set_component(const std::string& component, const Json& value) {
         auto& row = selected_intent();
+        if (variant() && draft_.at("version") == 5)
+            detail::clear_prefab_component_suppression(row, component);
         row["components"][component] = value;
         if (row.contains("property_overrides"))
             row["property_overrides"].erase(component);
@@ -176,10 +179,27 @@ class PrefabEditor {
     }
     void revert_component(const std::string& component) {
         auto& row = selected_intent();
+        if (variant() && draft_.at("version") == 5)
+            detail::clear_prefab_component_suppression(row, component);
         row["components"].erase(component);
         if (variant() && row.contains("property_overrides"))
             row["property_overrides"].erase(component);
         prune_intent();
+    }
+    void suppress_component(const std::string& component, const Json& schema) {
+        const auto view = source_view(schema);
+        const auto row = std::find_if(view.at("members").begin(), view.at("members").end(),
+                                      [&](const Json& value) { return value.at("id") == member_; });
+        if (row == view.at("members").end() || !row->at("components").contains(component))
+            throw std::runtime_error("Select a current variant component to suppress");
+        for (const auto& type : schema.at("components"))
+            if (type.at("id") == component && type.value("custom", false) &&
+                row->at("components").at(component).value("$forge", Json()) != type.at("admission"))
+                throw std::runtime_error("Migrate unavailable component values before suppression");
+        edit_draft(
+            PrefabDocument(draft_)
+                .with_component_suppression(PrefabMemberId::parse(member_), component, true, schema)
+                .source);
     }
     void revert_property(const std::string& component, const std::string& field) {
         if (!variant())
@@ -736,6 +756,22 @@ class PrefabEditor {
                         ui::help(
                             "Registered component defaults for this prefab member. Dynamic bodies "
                             "need spatial World binding.");
+                        if (inherited && draft_.at("version") == 5) {
+                            const auto* intent = selected_override();
+                            const auto suppressed =
+                                intent ? intent->value("suppressed_components", Json::array())
+                                       : Json::array();
+                            for (const auto& value : suppressed) {
+                                const auto key = value.get<std::string>();
+                                ui::IdScope suppressed_scope(key.c_str());
+                                ImGui::TextWrapped("Suppressed: %s", prefab_component_label(key));
+                                if (ui::button("Restore component",
+                                               "Remove suppression and inherit the current base "
+                                               "component. Save publishes this draft."))
+                                    revert_component(key);
+                                FORGE_UI_PROBE("prefab-component-restore:" + key);
+                            }
+                        }
                         for (const auto& component : schema.at("components")) {
                             const std::string key = component.at("id");
                             if (!m["components"].contains(key))
@@ -798,6 +834,17 @@ class PrefabEditor {
                                     revert_component(key);
                                     continue;
                                 }
+                            }
+                            if (inherited && component.value("optional", false)) {
+                                if (ui::button("Suppress component",
+                                               "Keep this component absent from the variant, "
+                                               "including after base updates. Replaces local "
+                                               "component/property overrides; Restore inherits "
+                                               "again. First use explicitly enables source5.")) {
+                                    suppress_component(key, schema);
+                                    continue;
+                                }
+                                FORGE_UI_PROBE("prefab-component-suppress:" + key);
                             }
                             if (key == "forge.local_rotation") {
                                 const auto& q = m["components"][key];

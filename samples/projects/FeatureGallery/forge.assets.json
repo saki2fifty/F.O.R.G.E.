@@ -278,6 +278,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "05bf985f-488d-4a4f-9473-105124cfd09a",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Scenes/205-prefab-component-suppression.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "05d415bb-4950-40d9-b991-9fbfffc92827",
       "metadata": {},
       "schema_version": 3,
@@ -9402,6 +9412,26 @@
       "type": "material"
     },
     {
+      "dependencies": [
+        "f76c66fa-aba8-4f3a-9356-fc38af3874df"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "f76c66fa-aba8-4f3a-9356-fc38af3874df",
+          "type": "prefab"
+        }
+      ],
+      "id": "703ae978-d3b9-4362-b447-9541ef6cc68f",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Assets/Variants/RecappedMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "7067a5b8-251b-4b35-93b3-0fdf7871178b",
@@ -16408,6 +16438,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "d255167b-4179-46b6-af94-c76a589abf6b",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Variants/CappedMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "d26ec4ff-f4cb-47c6-bf5d-b99f6de97cb0",
       "metadata": {
         "forge.import": {
@@ -19090,6 +19130,26 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "d255167b-4179-46b6-af94-c76a589abf6b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
+          "type": "prefab"
+        }
+      ],
+      "id": "f76c66fa-aba8-4f3a-9356-fc38af3874df",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Assets/Variants/UncappedMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
     },
     {
       "dependencies": [

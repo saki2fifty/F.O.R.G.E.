@@ -100,11 +100,12 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
             sys.exit(0)
         if sys.argv[4] == '--prefab-only':
             assert not (moved/'sdk/include/forge/prefab.hpp').exists()
-            subprocess.run([sys.executable, str(Path(__file__).with_name('prefab_spawn_process_test.py')),
-                            str(moved/'bin'/('forge_runtime'+exe)),
-                            str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),
-                            str(module), '--variant'], env=env, cwd=moved, check=True, timeout=120)
-            print('Installed-only Prefab variant creation, relocated SDK and both runtime hosts passed')
+            for profile in ('--variant', '--suppression'):
+                subprocess.run([sys.executable, str(Path(__file__).with_name('prefab_spawn_process_test.py')),
+                                str(moved/'bin'/('forge_runtime'+exe)),
+                                str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),
+                                str(module), profile], env=env, cwd=moved, check=True, timeout=120)
+            print('Installed-only Prefab variants/suppression, relocated SDK and both runtime hosts passed')
             sys.exit(0)
         if sys.argv[4] == '--camera-output-only':
             source = Path(__file__).resolve().parents[1]

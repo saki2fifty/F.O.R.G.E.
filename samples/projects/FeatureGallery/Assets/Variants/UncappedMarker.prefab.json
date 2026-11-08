@@ -1,0 +1,17 @@
+{
+  "asset_id": "f76c66fa-aba8-4f3a-9356-fc38af3874df",
+  "base": "d255167b-4179-46b6-af94-c76a589abf6b",
+  "format": "forge.prefab",
+  "overrides": [
+    {
+      "components": {},
+      "id": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+      "suppressed_components": [
+        "forge.mesh_renderer"
+      ]
+    }
+  ],
+  "revision": 2,
+  "root": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+  "version": 5
+}

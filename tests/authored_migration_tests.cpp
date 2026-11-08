@@ -235,6 +235,17 @@ int main() {
                                      {"property_intent", partial}});
             }
             const auto migrated_variant = variant_draft.candidate(converted);
+            auto suppressed_variant = variant;
+            suppressed_variant["version"] = 5;
+            suppressed_variant["overrides"][1]["suppressed_components"] =
+                Json::array({"forge.navigation_surface"});
+            AuthoredMigrationDocument suppressed_draft(suppressed_variant, source, target);
+            auto expected_suppressed = migrated_variant;
+            expected_suppressed["version"] = 5;
+            expected_suppressed["overrides"][1]["suppressed_components"] =
+                Json::array({"forge.navigation_surface"});
+            check(suppressed_draft.candidate(converted) == expected_suppressed,
+                  "Custom schema migration lost source5 suppression or interpreted it as values");
             check(
                 migrated_variant.at("base") == variant.at("base") &&
                     migrated_variant.at("asset_id") == variant.at("asset_id") &&

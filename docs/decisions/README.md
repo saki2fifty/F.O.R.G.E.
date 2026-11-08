@@ -48,6 +48,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [036](036-audio-routing.md) | Custom audio routing shares the existing source and mix owners |
 | [037](037-event-sound-cues.md) | Event sound cues compose existing Audio Source one-shots |
 | [038](038-timed-sound-cue-offsets.md) | Timed Source offsets share the native frame clock and voice lifetime |
+| [043](043-prefab-component-suppression.md) | Explicit variant component suppression retains existing source meanings and ownership |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

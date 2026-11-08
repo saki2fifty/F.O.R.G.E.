@@ -19,7 +19,7 @@ AuthoredMigrationDocument::AuthoredMigrationDocument(Json document, Json source,
         rows_ = "entities";
     } else if (before_.value("format", "") == "forge.prefab" && !before_.contains("entities")) {
         PrefabDocument::validate(before_);
-        rows_ = before_.contains("base") && before_.at("version") == 4 ? "overrides" : "members";
+        rows_ = PrefabDocument::is_variant(before_) ? "overrides" : "members";
     } else {
         throw std::runtime_error("Migration requires one authored scene or prefab document");
     }

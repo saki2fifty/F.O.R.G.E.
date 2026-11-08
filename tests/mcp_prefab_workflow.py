@@ -7,6 +7,8 @@ def check_prefab_workflow(read, mutate, failed, root, *, large_read_budget=True)
     created = mutate('forge_entity_create', arguments=dict(kind=0, name='Prefab original'))
     assert created['ok'], created
     entity = created['result']['results'][0]['selected']
+    assert mutate('forge_component_add', arguments=dict(
+        entity=entity, component='forge.navigation_surface'))['ok']
     captured = mutate('forge_prefab_create', entity=entity, path='Assets/Agent.prefab.json')
     assert captured['ok'], captured
     asset = captured['result']['asset']
@@ -61,6 +63,30 @@ def check_prefab_workflow(read, mutate, failed, root, *, large_read_budget=True)
     assert read('forge_prefab_source_read')['source'] == state['source']
     member = state['source']['root']
     assert copied_source['root'] == member
+    suppressed = mutate('forge_prefab_source_suppress', state=state['state'], member=member,
+                        component='forge.navigation_surface')
+    assert suppressed['ok'], suppressed
+    failed(mutate('forge_prefab_source_suppress', state=state['state'], member=member,
+                  component='forge.navigation_surface'), 'stale_document')
+    state = read('forge_prefab_source_read')
+    assert state['source']['version'] == 5
+    assert state['source']['overrides'][0]['suppressed_components'] == ['forge.navigation_surface']
+    assert 'forge.navigation_surface' not in read('forge_prefab_source_read', view='effective')['source']['members'][0]['components']
+    assert not mutate('forge_prefab_source_suppress', state=state['state'], member=member,
+                      component='forge.tint')['ok']
+    assert read('forge_prefab_source_read')['state'] == state['state']
+    assert mutate('forge_prefab_source_publish', state=state['state'])['ok']
+    assert mutate('forge_prefab_source_close', state=read('forge_prefab_source_read')['state'])['ok']
+    assert mutate('forge_prefab_source_open', asset=variant)['ok']
+    state = read('forge_prefab_source_read')
+    assert state['source']['overrides'][0]['suppressed_components'] == ['forge.navigation_surface']
+    assert 'forge.navigation_surface' not in read('forge_prefab_source_read', view='effective')['source']['members'][0]['components']
+    assert base_path.read_bytes() == base_bytes
+    assert mutate('forge_prefab_source_revert', state=state['state'], member=member,
+                  component='forge.navigation_surface')['ok']
+    state = read('forge_prefab_source_read')
+    assert state['source']['version'] == 5 and state['source']['overrides'] == []
+    assert 'forge.navigation_surface' in read('forge_prefab_source_read', view='effective')['source']['members'][0]['components']
     override = dict(id=member, name='Applied name', components={},
                     property_overrides={'forge.tint': dict(r=0.2, g=0.8)})
     assert mutate('forge_prefab_source_patch', state=state['state'],

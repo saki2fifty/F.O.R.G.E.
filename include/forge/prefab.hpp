@@ -4,6 +4,10 @@
 #include <vector>
 namespace forge {
 struct PrefabDocument {
+    static constexpr unsigned current_version = 5;
+    static constexpr bool supports_version(unsigned version) {
+        return version >= 1 && version <= current_version;
+    }
     Json source;
     explicit PrefabDocument(Json document);
     AssetId asset() const { return source.at("asset_id").get<AssetId>(); }
@@ -11,6 +15,11 @@ struct PrefabDocument {
     PrefabMemberId root() const { return source.at("root").get<PrefabMemberId>(); }
     std::vector<AssetId> dependencies() const;
     static void validate(const Json& document);
+    static bool is_variant(const Json& document);
+    // Explicit source5 opt-in; old opaque fields are never silently interpreted.
+    PrefabDocument with_component_suppression(PrefabMemberId member, const std::string& component,
+                                              bool suppressed,
+                                              const Json& schema = Json::object()) const;
     PrefabDocument duplicate(const Json& schema = Json::object()) const;
     PrefabDocument reorder_member(PrefabMemberId member, PrefabMemberId before) const;
 };

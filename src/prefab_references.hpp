@@ -163,7 +163,7 @@ prefab_native_materializations(const Json& scene, const Sources& sources, const 
         if (source == sources.end())
             continue;
         const Json& selected = prefab_definition_source(source->second);
-        if (selected.at("version") == 4 && selected.contains("base"))
+        if (PrefabDocument::is_variant(selected))
             throw std::runtime_error("Resolve prefab variants before native materialization");
         const bool portable = selected.at("version").get<unsigned>() >= 3;
         const auto masks = row.find("property_overrides");

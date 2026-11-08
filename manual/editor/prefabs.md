@@ -89,10 +89,30 @@ The same context menu offers Revert for an owned field or component.
 Inspect the base relationship and override labels before publishing a variant.
 
 Use **Revert name**, **Revert field** or **Revert component** to follow the base
-again. Translation, rotation and scale use complete channels. A variant can add a
-component or override an inherited component; it cannot suppress an inherited
-component. Its parent, spatial attachments, member order and member structure
+again. Translation, rotation and scale use complete channels. A variant can add,
+override or suppress an optional component. Its parent, spatial attachments, member order and member structure
 follow the base, so those structural controls are disabled.
+
+To omit an optional component from a variant:
+
+1. Open the variant with **Edit source** and select its member.
+2. Find the component and click **Suppress component**. This replaces its local component/property overrides and hides it from the effective variant.
+3. Click **Publish source** to update instances and the next Play/export.
+4. To inherit it again, find **Suppressed: …**, click **Restore component**, then **Publish source**. Restoration uses the current base's values.
+
+Suppression persists across base updates and temporary base-component removal.
+Required components, including transform channels and Color, have no Suppress
+control. Scene instances may still add their own explicit optional component.
+**+ Add Component** also lets the variant own a new component instead of inheriting
+it. The first suppression opts the asset into Prefab format5; restoration keeps
+that format, so use an editor that supports it. If older source data already uses
+the reserved suppression field, the operation reports a conflict and keeps the
+draft unchanged; preserve or rename that extension explicitly before trying again.
+
+![Crown selected in a published variant source, with the suppressed renderer and Restore component control](../images/prefab-component-suppression-source.png)
+
+Select the member that owns the suppression. **Restore component** resumes its
+base inheritance; **Publish source** saves the change.
 
 If the base changes while a draft is open, publication rejects the stale review.
 Choose **Rebase draft** to refresh published sources and review the new inherited
@@ -116,6 +136,19 @@ project C++ module is required for this example.
 ![Five animated base and variant beacons with independent placements](../images/prefab-variants-game.png)
 
 Compare the shared motion with each variant’s color and sequence speed.
+
+For component absence, open **Scenes/205-prefab-component-suppression.scene.json**
+and press **Play → Game**. The left marker has an inherited crown, the middle
+variant suppresses its Mesh Renderer, and the right chained variant adds an
+explicit Mesh Renderer of its own. Stop Play and edit
+**Assets/Variants/UncappedMarker.prefab.json**, select **Crown**, then choose
+**Restore component → Publish source** to restore the middle crown. Save the Scene
+before exporting. This example uses the existing Unlit checker Material and
+requires no project C++ module.
+
+![Three checker markers: the base has a crown, the middle variant omits it, and the derived variant adds it](../images/prefab-component-suppression-game.png)
+
+Compare the retained body and member structure with the missing middle renderer.
 
 ## Missing assets and removed members
 

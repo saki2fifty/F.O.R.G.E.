@@ -1,0 +1,205 @@
+{
+  "asset_id": "05bf985f-488d-4a4f-9473-105124cfd09a",
+  "entities": [
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "4a1b1611-771b-47eb-941b-19fc9130d6cb",
+      "name": "Base - inherited crown",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "d255167b-4179-46b6-af94-c76a589abf6b",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "4a1b1611-771b-47eb-941b-19fc9130d6cb",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "0072e642-ee9b-4274-a773-6d91c7e15178",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "ecefa041-ea88-4865-9e94-6c2c4e5d3a1e"
+        },
+        "revision": 1,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "0072e642-ee9b-4274-a773-6d91c7e15178",
+      "name": "Crown",
+      "parent": "4a1b1611-771b-47eb-941b-19fc9130d6cb",
+      "prefab_member": {
+        "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+        "root": "4a1b1611-771b-47eb-941b-19fc9130d6cb"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "ecefa041-ea88-4865-9e94-6c2c4e5d3a1e",
+      "name": "Body",
+      "parent": "4a1b1611-771b-47eb-941b-19fc9130d6cb",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "4a1b1611-771b-47eb-941b-19fc9130d6cb"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "d834c6c1-e37f-450b-9688-8bacf0f34235",
+      "name": "Variant - crown suppressed",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "f76c66fa-aba8-4f3a-9356-fc38af3874df",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "d834c6c1-e37f-450b-9688-8bacf0f34235",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "7d3e877d-eefb-4169-82fc-966188f6582f",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "38b2d402-0e91-4a9d-be0d-abe1bec90fa2"
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "7d3e877d-eefb-4169-82fc-966188f6582f",
+      "name": "Crown",
+      "parent": "d834c6c1-e37f-450b-9688-8bacf0f34235",
+      "prefab_member": {
+        "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+        "root": "d834c6c1-e37f-450b-9688-8bacf0f34235"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "38b2d402-0e91-4a9d-be0d-abe1bec90fa2",
+      "name": "Body",
+      "parent": "d834c6c1-e37f-450b-9688-8bacf0f34235",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "d834c6c1-e37f-450b-9688-8bacf0f34235"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "546cfcd6-78d2-4b7e-b5df-fd94e434a622",
+      "name": "Derived variant - crown added",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "703ae978-d3b9-4362-b447-9541ef6cc68f",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "546cfcd6-78d2-4b7e-b5df-fd94e434a622",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "3db5f2f0-fbcf-406f-a9b1-465681b4215f",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "0a4d9f10-4077-491a-92ba-6c61ef94d4fd"
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "3db5f2f0-fbcf-406f-a9b1-465681b4215f",
+      "name": "Crown",
+      "parent": "546cfcd6-78d2-4b7e-b5df-fd94e434a622",
+      "prefab_member": {
+        "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+        "root": "546cfcd6-78d2-4b7e-b5df-fd94e434a622"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "0a4d9f10-4077-491a-92ba-6c61ef94d4fd",
+      "name": "Body",
+      "parent": "546cfcd6-78d2-4b7e-b5df-fd94e434a622",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "546cfcd6-78d2-4b7e-b5df-fd94e434a622"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 5.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3fdb90d1-51a8-45ff-ad30-3c6e16e07f57",
+      "name": "Composition overview",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 4
+}

@@ -1,0 +1,41 @@
+{
+  "asset_id": "703ae978-d3b9-4362-b447-9541ef6cc68f",
+  "base": "f76c66fa-aba8-4f3a-9356-fc38af3874df",
+  "format": "forge.prefab",
+  "overrides": [
+    {
+      "components": {
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "27747b11-36cd-48a9-b774-9784e5cc9a29",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "94672d2b-b750-4769-9d5b-d242f4cbf818"
+    }
+  ],
+  "revision": 2,
+  "root": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+  "version": 4
+}

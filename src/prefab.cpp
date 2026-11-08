@@ -2,6 +2,7 @@
 #include "authored_component.hpp"
 #include "builtins.hpp"
 #include "json_row_index.hpp"
+#include "prefab_component_intent.hpp"
 #include "prefab_references.hpp"
 #include "relationship_graph.hpp"
 #include "spatial_document.hpp"
@@ -45,6 +46,10 @@ void validate_variant(const Json& source) {
                 throw std::runtime_error("Prefab variant structure follows its base");
         if (row.at("components").contains("forge.world_transform"))
             throw std::runtime_error("WorldTransform cannot be authored in a prefab variant");
+        if (source.at("version") == 5) {
+            static const Json schema = detail::builtin_schema();
+            detail::validate_prefab_component_suppression(row, schema);
+        }
         detail::validate_components(
             detail::normalize_prefab_components(reference_source, row, Json::object()),
             detail::ComponentReferences::Deferred, &row.at("components"));
@@ -67,20 +72,25 @@ void remap_member_fields(Json& item, const std::map<std::string, std::string>& i
 } // namespace
 PrefabDocument::PrefabDocument(Json value) : source(std::move(value)) {
     validate(source);
-    if (source.at("version") != 4 || !source.contains("base"))
+    if (!is_variant(source))
         detail::promote_scale_format(source, "members", 2);
+}
+bool PrefabDocument::is_variant(const Json& document) {
+    return document.is_object() && document.contains("version") &&
+           (document.at("version") == 4 || document.at("version") == 5) &&
+           document.contains("base");
 }
 void PrefabDocument::validate(const Json& doc) {
     if (!doc.is_object() || doc.value("format", "") != "forge.prefab" ||
-        !doc.at("version").is_number_integer() ||
-        (doc.at("version") != 1 && doc.at("version") != 2 && doc.at("version") != 3 &&
-         doc.at("version") != 4))
-        throw std::runtime_error("Expected FORGE prefab schema 1, 2, 3 or 4");
-    if (doc.at("version") == 4 && doc.contains("base")) {
+        !doc.at("version").is_number_integer() || doc.at("version") < 1 ||
+        doc.at("version") > current_version)
+        throw std::runtime_error("Expected FORGE prefab schema 1, 2, 3, 4 or 5");
+    if (is_variant(doc)) {
         validate_variant(doc);
         return;
     }
-    if (doc.at("version") == 4 && (doc.contains("overrides") || doc.contains("reference_profile")))
+    if (doc.at("version").get<unsigned>() >= 4 &&
+        (doc.contains("overrides") || doc.contains("reference_profile")))
         throw std::runtime_error("Prefab variant intent requires a base asset");
     (void)doc.at("asset_id").get<AssetId>();
     const auto& revision = doc.at("revision");
@@ -154,9 +164,54 @@ void PrefabDocument::validate(const Json& doc) {
     for (const auto& id : doc.value("dependencies", Json::array()))
         (void)id.get<AssetId>();
 }
+PrefabDocument PrefabDocument::with_component_suppression(PrefabMemberId member,
+                                                          const std::string& component,
+                                                          bool suppressed,
+                                                          const Json& schema) const {
+    if (!is_variant(source))
+        throw std::runtime_error("Only prefab variants support component suppression");
+    auto candidate = source;
+    if (suppressed) {
+        const auto admitted = schema.contains("components") ? schema : detail::builtin_schema();
+        detail::require_optional_prefab_component(component, admitted, true);
+        if (candidate.at("version") == 4) {
+            for (const auto& row : candidate.at("overrides"))
+                if (row.contains("suppressed_components"))
+                    throw std::runtime_error(
+                        "Source4 contains an opaque suppressed_components field; preserve or "
+                        "rename it explicitly before enabling suppression");
+            candidate["version"] = 5;
+        }
+    } else if (candidate.at("version") != 5)
+        return *this;
+    auto& rows = candidate["overrides"];
+    auto row = std::find_if(rows.begin(), rows.end(),
+                            [&](const Json& value) { return value.at("id") == Json(member); });
+    if (row == rows.end()) {
+        if (!suppressed)
+            return *this;
+        rows.push_back({{"id", member}, {"components", Json::object()}});
+        row = std::prev(rows.end());
+    }
+    detail::clear_prefab_component_suppression(*row, component);
+    if (suppressed) {
+        (*row)["components"].erase(component);
+        if (row->contains("property_overrides")) {
+            (*row)["property_overrides"].erase(component);
+            if (row->at("property_overrides").empty())
+                row->erase("property_overrides");
+        }
+        if (!row->contains("suppressed_components"))
+            (*row)["suppressed_components"] = Json::array();
+        (*row)["suppressed_components"].push_back(component);
+    }
+    if (row->size() == 2 && row->at("components").empty())
+        rows.erase(row);
+    return PrefabDocument(std::move(candidate));
+}
 std::vector<AssetId> PrefabDocument::dependencies() const {
     auto result = source.value("dependencies", std::vector<AssetId>{});
-    if (source.at("version") == 4 && source.contains("base")) {
+    if (is_variant(source)) {
         const auto base = source.at("base").get<AssetRef<PrefabAsset>>().id;
         if (std::find(result.begin(), result.end(), base) == result.end())
             result.push_back(base);
@@ -167,7 +222,7 @@ PrefabDocument PrefabDocument::duplicate(const Json& schema) const {
     auto copy = source;
     copy["asset_id"] = AssetId::generate();
     copy["revision"] = std::uint64_t{1};
-    if (source.at("version") == 4 && source.contains("base")) {
+    if (is_variant(source)) {
         for (auto& row : copy["overrides"])
             for (const auto* key : {"components", "property_overrides"})
                 if (row.contains(key))
@@ -207,7 +262,7 @@ PrefabDocument PrefabDocument::duplicate(const Json& schema) const {
     return PrefabDocument(std::move(copy));
 }
 PrefabDocument PrefabDocument::reorder_member(PrefabMemberId id, PrefabMemberId before) const {
-    if (source.at("version") == 4 && source.contains("base"))
+    if (is_variant(source))
         throw std::runtime_error("Prefab variant structure follows its base; reorder that source");
     if (id == before)
         return *this;
@@ -228,7 +283,7 @@ PrefabDocument PrefabDocument::reorder_member(PrefabMemberId id, PrefabMemberId 
 }
 CompiledPrefab::CompiledPrefab(WorldContext& context, PrefabDocument source)
     : document(std::move(source)), context_(context) {
-    if (document.source.at("version") == 4 && document.source.contains("base"))
+    if (PrefabDocument::is_variant(document.source))
         throw std::runtime_error("Resolve prefab variants before compiling native templates");
     auto& world = context.world();
     const auto member_rows = detail::index_json_rows(document.source.at("members"));
@@ -345,7 +400,7 @@ PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& s
             throw std::runtime_error("Prefab source AssetId mismatch");
         auto definition = parsed.source;
         unsigned depth = 0;
-        if (definition.at("version") == 4 && definition.contains("base")) {
+        if (PrefabDocument::is_variant(definition)) {
             const auto base = definition.at("base").get<AssetRef<PrefabAsset>>().id;
             resolve(base);
             depth = depths.at(base) + 1;
@@ -355,7 +410,11 @@ PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& s
             if (definition.at("root") != inherited.at("root"))
                 throw std::runtime_error("Prefab variant base root identity changed incompatibly");
             const auto intent = detail::index_json_rows(definition.at("overrides"));
-            definition["version"] = 4;
+            if (definition.at("version") == 5)
+                for (const auto& row : definition.at("overrides"))
+                    detail::validate_prefab_component_suppression(
+                        row, detail::prefab_reference_schema(schema));
+            // Keep the selected source profile; references retain source4 semantics.
             definition["members"] = inherited.at("members");
             for (auto& row : definition["members"]) {
                 if (inherited.at("version").get<unsigned>() >= 3)
@@ -374,6 +433,9 @@ PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& s
                 const auto& value = *override->second;
                 auto components = prefab_builtin_override_intent(row, value);
                 detail::merge_custom_prefab_intent(components, value, schema);
+                if (definition.at("version") == 5)
+                    for (const auto& key : value.value("suppressed_components", Json::array()))
+                        components.erase(key.get<std::string>());
                 row["components"] = std::move(components);
                 if (value.contains("name"))
                     row["name"] = value.at("name");
@@ -391,10 +453,10 @@ PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& s
         for (const auto& row : definition.at("members"))
             detail::validate_custom_values(
                 schema, detail::normalize_prefab_components(definition, row, schema));
-        if (definition.at("version") == 4) {
+        if (definition.at("version").get<unsigned>() >= 4) {
             retained += definition.dump().size();
             if (retained > 64 * 1024 * 1024)
-                throw std::runtime_error("Resolved source4 prefab definitions exceed 64 MiB");
+                throw std::runtime_error("Resolved prefab variant definitions exceed 64 MiB");
         }
         resolved.emplace(asset, std::move(definition));
         depths.emplace(asset, depth);

@@ -651,7 +651,15 @@ the same across read views and changes after Rebase reviews different bases.
 The effective view is the composed source definition; omitted supported built-in
 fields use their discovered schema defaults, without adding authored intent.
 `forge_prefab_source_revert` removes a selected
-member's name intent, component intent, or one field (component required).
+member's name intent, component intent including suppression, or one field
+(component required). `forge_prefab_source_suppress` takes the exact draft `state`,
+stable `member` and canonical `component`. It suppresses an admitted optional
+component using the same owner as the native source window, replacing that key's
+whole/property intent. First use explicitly enables source5 and rejects collisions
+with older opaque fields. Use `forge_prefab_source_revert` with `component` to
+restore current-base inheritance; Publish saves the draft. Required/derived and
+unavailable components cannot be newly suppressed through this operation. Unknown
+retained intent remains accessible through raw source read/patch.
 `forge_prefab_source_rebase` refreshes published sources and reviews updated bases
 while retaining draft intent; a successful refresh may clear Scene history.
 Source edits require the exact draft digest and preserve identity/publication

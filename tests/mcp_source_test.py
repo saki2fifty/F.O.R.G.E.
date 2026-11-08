@@ -155,7 +155,7 @@ for legacy in (False, True):
         assert {'forge_asset_skeleton_joints', 'forge_asset_animation_retarget_catalog',
                 'forge_asset_animation_graph_catalog'} <= names
         assert 'forge_prefab_source_read' in names
-        assert not {'forge_prefab_variant_create', 'forge_prefab_duplicate', 'forge_prefab_source_rebase', 'forge_prefab_source_revert'} & names
+        assert not {'forge_prefab_variant_create', 'forge_prefab_duplicate', 'forge_prefab_source_rebase', 'forge_prefab_source_revert', 'forge_prefab_source_suppress'} & names
         assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'save', 'paint', 'stroke', 'fill', 'copy_pixels', 'cancel_pixels', 'close', 'tile_collision', 'tile_animation', 'tile_autotile'))
         if PLANAR_MESH_ONLY:
             preview = client.tool('forge_asset_document_template', target=state['result']['target'],

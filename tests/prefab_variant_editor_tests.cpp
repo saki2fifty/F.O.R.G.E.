@@ -1,3 +1,4 @@
+#include "fixtures/prefab_suppression_gallery.hpp"
 #include "imgui_software_capture.hpp"
 #include "prefabs.hpp"
 #include <imgui_internal.h>
@@ -160,6 +161,24 @@ void exercise(const std::filesystem::path& scratch, float scale, bool narrow,
         "Equal complete-component ownership could not be selected explicitly");
     click("prefab-component-revert:forge.tint");
     check(!editor.dirty(), "Complete-component Revert retained variant ownership");
+    check(!test::ui_targets.contains("prefab-component-suppress:forge.tint"),
+          "Protected component offered a suppression control");
+    click("prefab-component-suppress:forge.mesh_renderer");
+    check(editor.migration_document().at("version") == 5 && !editor.source_view(scene.schema())
+                                                                 .at("members")[0]
+                                                                 .at("components")
+                                                                 .contains("forge.mesh_renderer"),
+          "Actual Suppress input did not remove the inherited component");
+    frame();
+    check(test::ui_targets.contains("prefab-component-restore:forge.mesh_renderer"),
+          "Suppression hid the only restoration control");
+    click("prefab-component-restore:forge.mesh_renderer");
+    check(editor.migration_document().at("overrides").empty() &&
+              editor.source_view(scene.schema())
+                  .at("members")[0]
+                  .at("components")
+                  .contains("forge.mesh_renderer"),
+          "Actual Restore input did not recover inheritance");
     editor.rename_member("Amber beacon variant");
     editor.set_property("forge.tint", "r", 1);
     editor.set_property("forge.tint", "g", .65);
@@ -174,7 +193,7 @@ void exercise(const std::filesystem::path& scratch, float scale, bool narrow,
     test::observe_ui = false;
 }
 void capture_gallery(const std::filesystem::path& gallery, const std::filesystem::path& scratch,
-                     const std::filesystem::path& output) {
+                     const std::filesystem::path& output, bool suppression = false) {
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root);
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
@@ -184,23 +203,48 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     project.open_project(root);
     AssetId amber;
     for (const auto& [id, record] : project.prefabs().records())
-        if (record.source == "Assets/Variants/AmberBeacon.prefab.json")
+        if (record.source == (suppression ? test_prefab_suppression_gallery::prefab_paths[1]
+                                          : "Assets/Variants/AmberBeacon.prefab.json"))
             amber = id;
     check(bool(amber), "Missing Gallery variant capture source");
     test::ImGuiSoftwareCapture capture(1180, 1520);
     ui::style(1);
     PrefabEditor editor;
     editor.edit_source(scene, project, amber);
-    for (unsigned frame = 0; frame < 6; ++frame) {
+    test::observe_ui = suppression;
+    const auto frame = [&] {
+        test::ui_targets.clear();
         capture.new_frame();
         if (auto* window = ImGui::FindWindowByName("###Prefab source"))
             ImGui::SetWindowSize(window, {1160, 1500});
         ImGui::SetNextWindowPos({10, 10});
         editor.draw(scene, project, false);
         capture.render();
+    };
+    for (unsigned i = 0; i < 6; ++i)
+        frame();
+    if (suppression) {
+        std::string crown;
+        const auto view = editor.source_view(scene.schema());
+        for (const auto& row : view.at("members"))
+            if (row.at("name") == "Crown")
+                crown = row.at("id");
+        const auto box = test::ui_targets.at("prefab-source-member:" + crown);
+        auto& io = ImGui::GetIO();
+        io.AddMousePosEvent((box.minimum.x + box.maximum.x) / 2,
+                            (box.minimum.y + box.maximum.y) / 2);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
+        frame();
+        check(test::ui_targets.contains("prefab-component-restore:forge.mesh_renderer"),
+              "Gallery source screenshot did not reach its actual Restore control");
     }
     std::filesystem::create_directories(output.parent_path());
     capture.save(output);
+    test::observe_ui = false;
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -208,6 +252,11 @@ int main(int argc, char** argv) {
         if (argc == 5 && std::string_view(argv[1]) == "--gallery-capture") {
             capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
                             std::filesystem::absolute(argv[4]));
+            return 0;
+        }
+        if (argc == 5 && std::string_view(argv[1]) == "--suppression-capture") {
+            capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                            std::filesystem::absolute(argv[4]), true);
             return 0;
         }
         check(argc == 2 || argc == 3, "Provide UI scratch and optional capture path");

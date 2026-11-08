@@ -5,6 +5,17 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source supports optional component suppression in explicit Prefab format5
+variants. Restore resumes current-base inheritance; whole-component edits and
+instance Apply can own a component again. Older source formats and opaque fields
+retain their meanings. The existing source/template, native UI, automation/MCP,
+paired history, runtime creation, content/export and installed SDK host paths share
+the extension. Gallery205 demonstrates inherited, suppressed and explicitly
+re-added renderers. Local checks cover actual native controls in six layouts,
+source-hidden relocated exports, both MCP framings and seven selected sanitizer
+workflows. Full Main, Windows/D3D12 and physical-device acceptance remain pending.
+See [Prefab architecture](prefabs.md) and [the user guide](../manual/editor/prefabs.md).
+
 Local source includes bounded Scene-owned event sound cues through existing
 AudioSource voices and the one-shot queue. Source, Layer, Weighted and per-trigger
 Ordered nodes share native/Prefab/history/Inspector/live/Timeline/SDK and automation/

@@ -130,7 +130,10 @@ struct Inspect {
             prefab_reference_owner = doc.at("asset_id").get<AssetId>();
             prefab_reference_version = doc.at("version");
         }
-        const bool variant = prefab && doc.at("version") == 4 && doc.contains("base");
+        const bool variant = prefab && PrefabDocument::is_variant(doc);
+        const bool suppression_profile = variant && doc.at("version") == 5;
+        if (suppression_profile)
+            PrefabDocument::validate(doc);
         const auto rows = scene ? "entities" : variant ? "overrides" : prefab ? "members" : nullptr;
         if (rows) {
             for (const auto& row : doc.at(rows)) {
@@ -164,7 +167,8 @@ struct Inspect {
                     if (key != "id" && key != "name" && key != "components" && key != "parent" &&
                         key != "base" && key != "prefab" && key != "spatial" &&
                         key != "prefab_instance" && key != "prefab_member" &&
-                        key != "property_overrides" && !state_flag)
+                        key != "property_overrides" && !state_flag &&
+                        !(suppression_profile && key == "suppressed_components"))
                         unknown(key);
                 }
             }

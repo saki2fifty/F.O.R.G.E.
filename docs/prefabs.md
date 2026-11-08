@@ -142,7 +142,7 @@ and the base root's member identity. It has no `members` array. Complete source4
 definitions store `members` without `base`/`overrides`. A variant reuses inherited
 member IDs in its own AssetId namespace; nested instances and structural variant
 composition are not supported. Bound4096 override rows,16 base links and64MiB
-resolved source4 values; old source caller budgets and versions1–3 stay unchanged.
+resolved source4/5 values; old source caller budgets and versions1–3 stay unchanged.
 
 `resolve_prefab_sources` composes detached values through existing whole-component /
 property intent codecs. Known member references retag only their Prefab AssetId;
@@ -172,6 +172,19 @@ edges. Game content, private snapshots, runtime-only spawning and export carry t
 base closure without runtime source scans or catalog writes. Material preflight
 inspects whole and property channels in complete/variant rows before reusing native
 projection. Editor/automation/MCP use the same source operations and permissions.
+
+[ADR043](decisions/043-prefab-component-suppression.md) extends variants with
+source5 `suppressed_components` rows. Suppress removes admitted optional components
+from the resolved definition; Restore/Revert resumes current-base inheritance.
+The shared candidate operation replaces whole/property overrides of that key and
+explicitly upgrades4 to5 after rejecting opaque-field collisions in every row.
+Older formats keep that spelling opaque. Unknown keys and removed-member intent
+are preserved; schema admission rechecks removal policy. Up to256 unique keys of
+at most256 bytes fit each row. Whole/property intent and suppression for the same
+key reject. Complete-component editing and instance Apply clear suppression for
+the admitted key they replace. Required/derived components remain protected.
+The source4 addressed-reference and existing publication/history/runtime owners
+remain unchanged. Source5 Restore does not downgrade the profile.
 Gallery142 includes independent animated base/variant/chained instances; focused
 tests cover source-hidden relocated Windows-target data on Linux. Windows native
 execution and physical rendering/input acceptance require separate verification.

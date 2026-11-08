@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Prefab component suppression
+
+Open `Scenes/205-prefab-component-suppression.scene.json` and press **Play → Game**.
+The left marker inherits its crown renderer, the middle variant suppresses it,
+and the right chained variant adds its own renderer. All three retain the same
+Body/Crown member structure and reuse the existing Unlit checker Material.
+Stop Play, open **Assets/Variants/UncappedMarker.prefab.json** with **Edit source**,
+select **Crown**, then choose **Restore component → Publish source** to inherit
+the current base renderer. Save the Scene before export. No C++ module is required.
+See the [Prefab guide](../../../manual/editor/prefabs.md).
+
 ## Curved flat Mesh construction
 
 Open `Scenes/204-curved-planar-meshes.scene.json` and press **Play → Game**.

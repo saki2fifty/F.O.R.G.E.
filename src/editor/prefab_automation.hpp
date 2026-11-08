@@ -201,6 +201,31 @@ struct PrefabAutomation {
                     editor.revert_component(request.at("component"));
                 return state(editor, project);
             }));
+        result.push_back(automation_method(
+            "prefab.source.suppress",
+            "Suppress an admitted optional component on a current variant member. Replaces its "
+            "whole/property overrides and explicitly enables source5, rejecting opaque-field "
+            "collisions. The draft retains absence across base changes. source.revert with a "
+            "component restores inheritance; source.publish saves the draft.",
+            "asset.write",
+            automation_object({{"state", automation_digest()},
+                               {"member", automation_uuid()},
+                               {"component", automation_text(256, 1)}},
+                              {"state", "member", "component"}),
+            true, [&editor, &scene, &project](const Json& request) {
+                check(editor, project, request);
+                if (!editor.variant())
+                    throw AuthoringError("not_variant", "Only variants support suppression");
+                const auto selected = editor.member_;
+                editor.member_ = request.at("member").get<std::string>();
+                try {
+                    editor.suppress_component(request.at("component"), scene.schema());
+                } catch (...) {
+                    editor.member_ = selected;
+                    throw;
+                }
+                return state(editor, project);
+            }));
         for (const auto* action : {"patch", "publish", "rebase", "close"}) {
             Json properties{{"state", automation_digest()}};
             Json required{"state"};

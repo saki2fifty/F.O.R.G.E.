@@ -1,6 +1,7 @@
 #include "builtins.hpp"
 #include "json_document.hpp"
 #include "json_value_equal.hpp"
+#include "prefab_component_intent.hpp"
 #include "prefab_references.hpp"
 #include <forge/assets.hpp>
 #include <forge/authoring.hpp>
@@ -22,7 +23,7 @@ AssetRecord prefab_record(const PrefabDocument& document, const std::filesystem:
                        document.source.at("version").get<unsigned>(), document.dependencies()};
     for (const auto id : record.dependencies) {
         const bool base =
-            document.source.at("version") == 4 && document.source.value("base", Json()) == Json(id);
+            PrefabDocument::is_variant(document.source) && document.source.at("base") == Json(id);
         record.dependency_edges.push_back({id,
                                            PrefabAsset::type,
                                            AssetDependencyKind::Runtime,
@@ -195,7 +196,7 @@ Json PrefabLibrary::source(AssetId asset) const {
 PrefabSources PrefabLibrary::base_sources(const Scene& scene, const Json& document) const {
     PrefabSources result;
     const Json* selected = &document;
-    while (selected->at("version") == 4 && selected->contains("base")) {
+    while (PrefabDocument::is_variant(*selected)) {
         const auto base = selected->at("base").get<AssetRef<PrefabAsset>>().id;
         if (result.size() >= 16 || result.contains(base))
             throw std::runtime_error("Invalid prefab base chain; refresh sources");
@@ -263,7 +264,7 @@ void PrefabLibrary::publish(Scene& scene, const Json& expected, Json candidate,
     if (candidate.at("asset_id").get<AssetId>() != old.asset() ||
         candidate.at("root") != expected.at("root"))
         throw std::runtime_error("Editing cannot replace a prefab's AssetId/root identity");
-    if ((candidate.at("version") == 4 || expected.at("version") == 4) &&
+    if ((PrefabDocument::is_variant(candidate) || PrefabDocument::is_variant(expected)) &&
         candidate.value("base", Json()) != expected.value("base", Json()))
         throw std::runtime_error("Editing cannot replace a prefab's base identity");
     if (old.revision() == UINT64_MAX)
@@ -327,8 +328,8 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
         types[type.at("id")] = type;
     const auto root_id = root->at("id").get<std::string>();
     const auto mapping = root->at("prefab_instance").at("members");
-    const bool variant = result.source.at("version") == 4 && result.source.contains("base");
-    const bool addressed_references = result.source.at("version") == 4;
+    const bool variant = PrefabDocument::is_variant(result.source);
+    const bool addressed_references = result.source.at("version").get<unsigned>() >= 4;
     const auto* definition = scene.prefab_definition(asset);
     if (!definition)
         throw std::runtime_error("Refresh prefab sources before reviewing Apply");
@@ -383,6 +384,8 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
                                         transferred, schema, transfer_reference)
                                         .empty();
             member["components"][it.key()] = transferred.at(it.key());
+            if (result.source.at("version") == 5)
+                detail::clear_prefab_component_suppression(member, it.key());
             if (variant && member.contains("property_overrides"))
                 member["property_overrides"].erase(it.key());
             it = components.erase(it);
@@ -414,6 +417,8 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
                                                          reference);
                 portable_references |= reference;
                 if (variant && !member["components"].contains(it.key())) {
+                    if (result.source.at("version") == 5)
+                        detail::clear_prefab_component_suppression(member, it.key());
                     auto& intent = member["property_overrides"][it.key()];
                     if (it.value().contains("$forge"))
                         intent["$forge"] = it.value().at("$forge");
@@ -485,7 +490,8 @@ void PrefabLibrary::publish_apply(Scene& scene, const PrefabApplyCandidate& chan
         throw std::runtime_error("Invalid Apply revision/identity");
     if (source(old.asset()) != change.expected)
         throw std::runtime_error("Prefab changed after Apply review; source was not overwritten");
-    if ((change.source.at("version") == 4 || change.expected.at("version") == 4) &&
+    if ((PrefabDocument::is_variant(change.source) ||
+         PrefabDocument::is_variant(change.expected)) &&
         change.source.value("base", Json()) != change.expected.value("base", Json()))
         throw std::runtime_error("Apply cannot replace a prefab's base identity");
     check_base_sources(base_sources(scene, change.expected), change.expected_bases);

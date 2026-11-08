@@ -1,0 +1,147 @@
+{
+  "asset_id": "d255167b-4179-46b6-af94-c76a589abf6b",
+  "format": "forge.prefab",
+  "members": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 0.6000000238418579,
+          "z": 0.4000000059604645
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.6000000238418579,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "27747b11-36cd-48a9-b774-9784e5cc9a29",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+      "name": "Crown",
+      "parent": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.399999976158142,
+          "y": 1.399999976158142,
+          "z": 0.4000000059604645
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.699999988079071,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "27747b11-36cd-48a9-b774-9784e5cc9a29",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+      "name": "Body",
+      "parent": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+      "name": "Capped marker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "revision": 1,
+  "root": "61cdd295-eebe-4ff1-9f6e-764d817fb24a",
+  "version": 1
+}

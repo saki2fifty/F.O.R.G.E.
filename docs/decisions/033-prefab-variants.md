@@ -17,6 +17,8 @@ Override rows reuse existing whole-component, property-mask and explicit name
 intent. Equal-value overrides remain explicit. Revert removes that intent. Whole
 local transform channels retain their current rules. This profile does not add
 inherited-component suppression or structural member add/remove/reparent operations.
+The explicit source5 extension in [ADR043](043-prefab-component-suppression.md)
+adds optional component suppression without changing this source4 contract.
 Missing-member overrides remain authored and become effective when that identity
 returns; they are never attached to a replacement by name or position.
 

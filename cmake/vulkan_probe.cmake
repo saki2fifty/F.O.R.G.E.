@@ -435,6 +435,11 @@ if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
  target_link_libraries(forge_curved_mesh_gallery_vulkan_probe PRIVATE forge_editable_mesh_authoring forge_material_authoring forge_simulation forge_runtime_package forge_authoring forge_presentation_diligent Diligent-GraphicsEngineVk-static)
  add_test(NAME curved_mesh_gallery_vulkan COMMAND forge_curved_mesh_gallery_vulkan_probe "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/curved-mesh-gallery-vulkan")
  set_tests_properties(curved_mesh_gallery_vulkan PROPERTIES TIMEOUT 180)
+ add_executable(forge_prefab_suppression_gallery_vulkan_probe tests/prefab_suppression_gallery_vulkan_probe.cpp)
+ target_include_directories(forge_prefab_suppression_gallery_vulkan_probe PRIVATE src "${diligent_SOURCE_DIR}/DiligentCore")
+ target_link_libraries(forge_prefab_suppression_gallery_vulkan_probe PRIVATE forge_simulation forge_runtime_package forge_authoring forge_presentation_diligent Diligent-GraphicsEngineVk-static)
+ add_test(NAME prefab_suppression_gallery_vulkan COMMAND forge_prefab_suppression_gallery_vulkan_probe "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/prefab-suppression-gallery-vulkan")
+ set_tests_properties(prefab_suppression_gallery_vulkan PROPERTIES TIMEOUT 180)
  add_executable(forge_mesh_texture_surface_vulkan_probe tests/mesh_texture_surface_vulkan_probe.cpp src/editor/viewport.cpp
   "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiImplDiligent.cpp"
   "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiDiligentRenderer.cpp")

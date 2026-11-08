@@ -1527,7 +1527,7 @@ remains the documentation gate's responsibility.
 
 ## Single-base Prefab variants
 
-`manual/images/prefab-variant-source.png` is the complete1180×1520 capture of the
+The original capture for `manual/images/prefab-variant-source.png` was the complete1180×1520 capture of the
 production PrefabEditor for Gallery142's published AmberBeacon source. It shows
 the reviewed base, name intent, inherited transform channels and partial Animation
 Sequence override at Playback Speed1.5. The normal source window is rendered via
@@ -1544,7 +1544,7 @@ complete `authored/90-640.ppm` RGB pixels were losslessly encoded as PNG with no
 resizing, crop, annotation, compositing or retouch. PNG SHA256:
 `4565ca2848cff3c8c5ec81e35ccb3c96aa187c12464902b8bd0d2cd3d6d61743`.
 
-Both canonical images use local `forge/prefab-variants` work based onada326d with
+The original source capture and unchanged Game capture use local `forge/prefab-variants` work based onada326d with
 unassigned build identity. Scene source SHA256:
 `55e7e74570c81d4293b5cc5627dfb04bf079d3affbd1dec1b74bf08183a10652`. Local receipts bind source, executables, pixel proof and
 rendering environment. Both images were personally reviewed. These are control /
@@ -2744,3 +2744,45 @@ full-editor, Windows, physical device/input/DPI/GPU or performance acceptance.
 PNG SHA256: `07c5e64475e183593210579ac88f8093cde83daf91ab50ed78cf181e136912e0` (ellipse-mesh-create.png).
 PNG SHA256: `1315738d6b57610354deb4b2f24cfa9f723687500ad3045dafd384337178c2d0` (curved-mesh-create.png).
 PNG SHA256: `11299049383a22edebd2af220ac90ee81909080e504ff0a65ea115572909ecef` (curved-mesh-game.png).
+
+
+## Prefab component suppression captures
+
+Captured on 2026-11-08 from the independently implemented Prefab source5 extension
+and Gallery205 in an unnumbered local Linux validation build. The canonical
+[Source window](../../../manual/images/prefab-component-suppression-source.png)
+shows a published `UncappedMarker` source after actual mouse selection of its
+Crown member. `forge_prefab_variant_editor_tests --suppression-capture` borrows the
+real PrefabEditor, verifies its Restore control, and captures native controls
+through the existing software SDL fixture. The 1180×1520 image is unchanged from
+that capture, with no crop, resize or retouch. Separate native input checks cover
+wide/narrow layouts at 1/1.5/2 UI scales.
+
+The canonical [Game view](../../../manual/images/prefab-component-suppression-game.png)
+is a lossless 640×360 RGB conversion from `prefab_suppression_gallery_vulkan_probe`.
+That fixture authors the original Gallery scene through existing source/library
+owners, uses the production Game/FrameRenderer on software Vulkan, compares an
+independent five-rectangle silhouette, and matches four image pairs after export,
+relocation and hiding original sources. It checks 37,848 interior and 181,708 exterior
+pixels. The magenta checker is the existing Unlit checker Material; this capture
+has no missing-resource fallback diagnostics. The decoded PNG RGB equals the
+passing Game PPM exactly. Both canonical images were personally visually reviewed.
+
+These are authentic task captures and local software validation, with no claim of
+full editor-main, Windows/D3D12, physical graphics or performance acceptance.
+Existing source/variant images remain attributable to their original captures;
+the new images explain the added suppression workflow.
+
+Native PNG SHA256: `8a9018e19c11af09c3e65d9ceb5f39ac7a29659f837c51ef732a8af732b10b82`.
+Game PNG SHA256: `e554b73015cefe20cee9408d37346a51bfc242da786457ac6c6fce8db1a2782a`.
+
+
+The canonical `prefab-variant-source.png` was also recaptured on 2026-11-08 with
+`forge_prefab_variant_editor_tests --gallery-capture` on an unchanged published
+Gallery142 AmberBeacon source. This complete 1180×1520 native window includes the
+current Suppress control alongside its partial Animation Sequence override.
+It replaces the older source image recorded in the Single-base Prefab variants
+section; that section's original PNG hash is historical. The Game image from that
+section remains unchanged. The refreshed PNG was copied exactly from the authentic
+software SDL capture and personally reviewed, with no crop, resize or retouch.
+Current PNG SHA256: `d22f7e5143404d2c9da42b4ca222ad43dd95f8f3a447c3fd7736abeca059d9b0`.

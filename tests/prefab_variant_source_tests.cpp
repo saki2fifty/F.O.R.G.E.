@@ -433,6 +433,28 @@ void library_and_content(const std::filesystem::path& scratch) {
               std::any_of(references.references.begin(), references.references.end(),
                           [&](const auto& hit) { return hit.target == scene.asset_id(); }),
           "Reference inspection missed the base/absolute reference or exposed an internal link");
+    const auto suppressed =
+        PrefabDocument(reflected)
+            .with_component_suppression(f.child, "forge.navigation_surface", true)
+            .source;
+    const std::array source5_documents{AssetReferenceDocument{"Variant.prefab.json", suppressed}};
+    const auto source5_references = collect_asset_references(scene.schema(), source5_documents);
+    check(source5_references.uninspected.empty() && source5_references.references.size() == 2,
+          "Source5 component names were treated as opaque payloads or asset references");
+    auto older = suppressed;
+    older["version"] = 4;
+    const std::array older_documents{AssetReferenceDocument{"Variant.prefab.json", older}};
+    check(!collect_asset_references(scene.schema(), older_documents).uninspected.empty(),
+          "Source4 unknown extension was silently admitted by reference inspection");
+    const auto source5_copy = PrefabDocument(suppressed).duplicate(scene.schema());
+    check(source5_copy.source.at("overrides")[0]
+                      .at("property_overrides")
+                      .at("forge.navigation_behavior")
+                      .at("anchor")
+                      .at("prefab") == Json(source5_copy.asset()) &&
+              source5_copy.source.at("overrides")[1].at("suppressed_components") ==
+                  suppressed.at("overrides")[1].at("suppressed_components"),
+          "Source5 duplication lost suppression or retained another source's member link");
     auto oversized = library.source(f.variant);
     oversized["retained_extension"] = std::string(PrefabLibrary::max_source_bytes, 'x');
     const auto before_large = scene.snapshot();
