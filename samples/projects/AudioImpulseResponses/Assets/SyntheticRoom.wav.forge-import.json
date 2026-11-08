@@ -1,0 +1,41 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.audio.wav",
+    "importer_revision": "2ff1d07f040cf8c85d3d919c1c5640b066a2261462bf5c048013b8f6f6feef6c",
+    "key_version": 1,
+    "output_format": "forge.audio-clip",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "force_mono": false,
+      "normalize_peak": false,
+      "playback_storage": "resident",
+      "trim_silence": false,
+      "trim_threshold_db": -60.0
+    },
+    "settings_version": 1,
+    "source": "b14fbeaf3fa0ae504bca2335612b7917708ac5b1ed034ff5b0ebc23ade6e4d5a",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.audio.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "4868435a-d1ef-422c-a891-f5043b52246d",
+    "source": "Assets/SyntheticRoom.wav",
+    "source_digest": "b14fbeaf3fa0ae504bca2335612b7917708ac5b1ed034ff5b0ebc23ade6e4d5a",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.audio.wav",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

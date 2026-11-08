@@ -1106,3 +1106,11 @@ select **AVI movie (Motion JPEG)** under **Additional output**. Choose a short f
 range and a new output folder, then start export. Open `animation.avi` in a compatible
 player. The PNG frames and receipt remain in the same folder. This example is silent
 and reuses existing Gallery motion and materials. See [sequence movie export](../editor/animation-sequences.md).
+
+## Project-level audio example
+
+Open **AudioImpulseResponses** as a separate project to compare a repeated pulse
+with an imported stereo response. Its Room bus settings belong to that project;
+opening it preserves the Gallery's own bus configuration. Follow
+[the audio guide](../editor/audio.md) for
+controls, response limits, saving and export.

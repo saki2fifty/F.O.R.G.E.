@@ -1,3 +1,4 @@
+#include "audio_convolution.hpp"
 #include "audio_preview_access.hpp"
 #include "audio_resource.hpp"
 #include "audio_reverb.hpp"
@@ -123,13 +124,25 @@ struct AudioRuntime::Impl {
     std::shared_ptr<asset_detail::AudioStreamSlots> stream_slots;
     std::map<AssetId, ResourceTicket> requests;
     std::map<std::uint64_t, AssetId> pending_sources;
+    template <class Node>
+    static void process_effect(ma_node* node, const float** inputs, ma_uint32* input_frames,
+                               float** outputs, ma_uint32* output_frames) noexcept {
+        auto& self = *static_cast<Node*>(static_cast<ma_node_base*>(node));
+        const auto frames = *output_frames;
+        // Continuous nodes receive padded input counts even for null silence.
+        const auto taken = std::min(*input_frames, frames);
+        self.signal.process(inputs ? inputs[0] : nullptr, outputs[0], taken);
+        self.signal.process(nullptr, outputs[0] + std::size_t(taken) * self.channels,
+                            frames - taken);
+        *input_frames = taken;
+    }
     struct ReverbNode : ma_node_base {
         unsigned channels;
         detail::AudioReverb signal;
         ReverbNode(ma_engine& engine, float decay, float damping, float wet)
             : ma_node_base{}, channels(ma_engine_get_channels(&engine)),
               signal(ma_engine_get_sample_rate(&engine), channels, decay, damping, wet) {
-            static const ma_node_vtable table{process, nullptr, 1, 1,
+            static const ma_node_vtable table{process_effect<ReverbNode>, nullptr, 1, 1,
                                               MA_NODE_FLAG_CONTINUOUS_PROCESSING |
                                                   MA_NODE_FLAG_ALLOW_NULL_INPUT};
             auto config = ma_node_config_init();
@@ -143,18 +156,27 @@ struct AudioRuntime::Impl {
         ReverbNode(const ReverbNode&) = delete;
         ReverbNode& operator=(const ReverbNode&) = delete;
         ~ReverbNode() { ma_node_uninit(static_cast<ma_node_base*>(this), nullptr); }
-        static void process(ma_node* node, const float** inputs, ma_uint32* input_frames,
-                            float** outputs, ma_uint32* output_frames) noexcept {
-            auto& self = *static_cast<ReverbNode*>(static_cast<ma_node_base*>(node));
-            const auto frames = *output_frames;
-            // Continuous nodes receive a padded input frame count even for
-            // null silence. Consume that count so native input caches advance.
-            const auto taken = std::min(*input_frames, frames);
-            self.signal.process(inputs ? inputs[0] : nullptr, outputs[0], taken);
-            self.signal.process(nullptr, outputs[0] + std::size_t(taken) * self.channels,
-                                frames - taken);
-            *input_frames = taken;
+    };
+    struct ImpulseNode : ma_node_base {
+        unsigned channels;
+        detail::AudioConvolution signal;
+        ImpulseNode(ma_engine& engine, std::shared_ptr<const detail::AudioConvolutionKernel> kernel,
+                    float wet)
+            : ma_node_base{}, channels(ma_engine_get_channels(&engine)),
+              signal(std::move(kernel), wet) {
+            if (channels != 2)
+                throw std::runtime_error("Impulse response requires stereo bus output");
+            static const ma_node_vtable table{process_effect<ImpulseNode>, nullptr, 1, 1,
+                                              MA_NODE_FLAG_CONTINUOUS_PROCESSING |
+                                                  MA_NODE_FLAG_ALLOW_NULL_INPUT};
+            auto config = ma_node_config_init();
+            config.vtable = &table;
+            config.pInputChannels = &channels;
+            config.pOutputChannels = &channels;
+            checked(ma_node_init(ma_engine_get_node_graph(&engine), &config, nullptr, this),
+                    "Audio bus impulse response");
         }
+        ~ImpulseNode() { ma_node_uninit(this, nullptr); }
     };
     struct EffectMemory {
         std::uint64_t echo = 0, reverb = 0;
@@ -314,9 +336,11 @@ struct AudioRuntime::Impl {
     struct BusNode {
         std::unique_ptr<BusInput> input;
         std::unique_ptr<EffectsChain> effects;
+        std::unique_ptr<ImpulseNode> impulse;
         ma_splitter_node output{};
         bool output_ready = false;
-        void initialize(ma_engine& engine, const AudioBusDefinition& bus) {
+        void initialize(ma_engine& engine, const AudioBusDefinition& bus,
+                        std::shared_ptr<const detail::AudioConvolutionKernel> kernel) {
             auto config = ma_splitter_node_config_init(ma_engine_get_channels(&engine));
             config.outputBusCount = ma_uint32(1 + bus.sends.size());
             checked(
@@ -324,26 +348,38 @@ struct AudioRuntime::Impl {
                 "Audio bus outputs");
             output_ready = true;
             input = std::make_unique<BusInput>(engine);
-            if (bus.effects.active()) {
+            ma_node* tail = input.get();
+            auto linear = bus.effects;
+            linear.impulse_response.reset();
+            if (linear.active()) {
                 effects = std::make_unique<EffectsChain>();
-                effects->initialize(engine, bus.effects);
-                checked(ma_node_attach_output_bus(input.get(), 0, effects->input(), 0),
+                effects->initialize(engine, linear);
+                checked(ma_node_attach_output_bus(tail, 0, effects->input(), 0),
                         "Audio bus effect input");
-                checked(ma_node_attach_output_bus(effects->output(), 0, &output, 0),
-                        "Audio bus effect output");
-            } else
-                checked(ma_node_attach_output_bus(input.get(), 0, &output, 0),
-                        "Audio bus passthrough");
+                tail = effects->output();
+            }
+            if (kernel) {
+                impulse = std::make_unique<ImpulseNode>(engine, std::move(kernel),
+                                                        bus.effects.impulse_response->wet);
+                checked(ma_node_attach_output_bus(tail, 0, impulse.get(), 0),
+                        "Audio bus impulse input");
+                tail = impulse.get();
+            }
+            checked(ma_node_attach_output_bus(tail, 0, &output, 0), "Audio bus processed output");
         }
         ~BusNode() {
             // Uninit detaches all adjacent nodes and waits for native readers.
             input.reset();
             effects.reset();
+            impulse.reset();
             if (output_ready)
                 ma_splitter_node_uninit(&output, nullptr);
         }
     };
     bool native_bus_processing = false;
+    bool bus_graph_ready = false;
+    std::string bus_graph_error;
+    std::map<AssetId, std::shared_ptr<const detail::AudioConvolutionKernel>> impulse_kernels;
     std::map<std::string, std::array<std::unique_ptr<BusNode>, 2>, std::less<>> bus_nodes;
     std::array<std::array<ma_sound_group, 3>, 2> terminals{};
     std::array<std::array<bool, 3>, 2> terminal_ready{};
@@ -356,7 +392,7 @@ struct AudioRuntime::Impl {
         return source.pause_with_game ? &pausable_group : &group;
     }
     void apply_bus_mix(const std::array<float, 3>& channels, const AudioBusVolumes& volumes) {
-        if (!native_bus_processing)
+        if (!native_bus_processing || !bus_graph_ready)
             return;
         for (unsigned domain = 0; domain < 2; ++domain) {
             for (unsigned category = 0; category < 3; ++category)
@@ -375,8 +411,10 @@ struct AudioRuntime::Impl {
     void initialize_bus_graph() {
         native_bus_processing = std::ranges::any_of(
             config.routing.buses, [](const auto& bus) { return bus.effects.active(); });
-        if (!native_bus_processing)
+        if (!native_bus_processing) {
+            bus_graph_ready = true;
             return;
+        }
         for (unsigned domain = 0; domain < 2; ++domain) {
             for (unsigned category = 0; category < 3; ++category) {
                 // Terminal faders never change pitch. Native pitching would add
@@ -392,7 +430,10 @@ struct AudioRuntime::Impl {
             for (const auto& bus : config.routing.buses) {
                 auto& node = bus_nodes[bus.key][domain];
                 node = std::make_unique<BusNode>();
-                node->initialize(engine, bus);
+                const auto& impulse = bus.effects.impulse_response;
+                node->initialize(engine, bus,
+                                 impulse && impulse->wet > 0 ? impulse_kernels.at(impulse->clip.id)
+                                                             : nullptr);
             }
             const auto target = [&](const std::string& key) -> ma_node* {
                 if (key == "master")
@@ -413,7 +454,61 @@ struct AudioRuntime::Impl {
                             "Audio bus send route");
             }
         }
+        bus_graph_ready = true;
         apply_bus_mix(config.channel_volumes, routing.volumes());
+    }
+    bool prepare_bus_graph() {
+        if (bus_graph_ready)
+            return true;
+        bool pending = false;
+        for (const auto& bus : config.routing.buses) {
+            const auto& response = bus.effects.impulse_response;
+            if (!response || response->wet == 0 || impulse_kernels.contains(response->clip.id))
+                continue;
+            try {
+                const auto resolved = catalog.resolve(response->clip);
+                if (resolved.state != AssetState::Available)
+                    throw std::runtime_error(resolved.diagnostic);
+                const auto clip = load(response->clip);
+                if (!clip) {
+                    pending = true;
+                    continue;
+                }
+                const auto* resident = clip->resident();
+                if (!resident || resident->rate != 48000)
+                    throw std::runtime_error(
+                        "Bus impulse response requires a resident 48000 Hz AudioClip");
+                auto kernel = std::make_shared<detail::AudioConvolutionKernel>(resident->pcm,
+                                                                               resident->channels);
+                std::size_t bytes = kernel->bytes();
+                for (const auto& [id, existing] : impulse_kernels) {
+                    (void)id;
+                    bytes += existing->bytes();
+                }
+                for (const auto& route : config.routing.buses)
+                    if (const auto& effect = route.effects.impulse_response;
+                        effect && effect->wet > 0) {
+                        if (effect->clip == response->clip)
+                            bytes +=
+                                2 * detail::AudioConvolution::storage_bytes(kernel->partitions());
+                        else if (const auto found = impulse_kernels.find(effect->clip.id);
+                                 found != impulse_kernels.end())
+                            bytes += 2 * detail::AudioConvolution::storage_bytes(
+                                             found->second->partitions());
+                    }
+                if (bytes > 32 * 1024 * 1024)
+                    throw std::runtime_error(
+                        "Audio bus impulse processing exceeds its 32 MiB DSP budget");
+                impulse_kernels.emplace(response->clip.id, std::move(kernel));
+            } catch (const std::exception& error) {
+                throw std::runtime_error("Audio bus " + bus.key + " impulse " +
+                                         response->clip.id.str() + ": " + error.what());
+            }
+        }
+        if (pending)
+            return false;
+        initialize_bus_graph();
+        return true;
     }
     struct Voice {
         AudioSource authored;
@@ -594,7 +689,7 @@ struct AudioRuntime::Impl {
                     "Pausable audio group");
             pausable_group_ready = true;
             checked(ma_sound_group_start(&pausable_group), "Start pausable audio group");
-            initialize_bus_graph();
+            (void)prepare_bus_graph();
             if (!ec.noDevice)
                 checked(ma_engine_start(&engine), "Audio device start");
         } catch (...) {
@@ -625,6 +720,7 @@ struct AudioRuntime::Impl {
         requests.clear();
         clips.close();
         bus_nodes.clear();
+        impulse_kernels.clear();
         for (unsigned domain = 0; domain < 2; ++domain)
             for (unsigned category = 0; category < 3; ++category)
                 if (terminal_ready[domain][category]) {
@@ -1137,8 +1233,8 @@ struct AudioRuntime::Impl {
             !is_paused && is_game_paused && std::ranges::any_of(voices, [](const auto& entry) {
                 return !entry.second->authored.pause_with_game;
             });
-        const bool should_play =
-            !is_paused && (!is_game_paused || independent || native_bus_processing);
+        const bool should_play = bus_graph_ready && !is_paused &&
+                                 (!is_game_paused || independent || native_bus_processing);
         if (bool(ma_sound_group_is_playing(&group)) != should_play)
             checked(should_play ? ma_sound_group_start(&group) : ma_sound_group_stop(&group),
                     "Audio output pause/resume");
@@ -1445,6 +1541,20 @@ struct AudioRuntime::Impl {
         reap_finished();
         clips.pump();
         pending_sources.clear();
+        if (!bus_graph_error.empty())
+            return;
+        try {
+            if (!prepare_bus_graph()) {
+                update_output_pause();
+                return;
+            }
+        } catch (const std::exception& error) {
+            bus_graph_ready = false;
+            bus_graph_error = error.what();
+            diagnostic("audio.bus_impulse", bus_graph_error);
+            update_output_pause();
+            return;
+        }
         std::set<std::uint64_t> created_voices;
         if (!std::isfinite(fixed_delta) || fixed_delta < 0)
             throw std::runtime_error("Audio motion requires a finite nonnegative fixed delta");
@@ -2133,14 +2243,25 @@ Json AudioRuntime::status() const {
             stream_memory(*shot);
     }
     Impl::EffectMemory bus_memory;
+    std::uint64_t bus_impulse_bytes = 0;
+    for (const auto& [id, kernel] : impl_->impulse_kernels) {
+        (void)id;
+        bus_impulse_bytes += kernel->bytes();
+    }
     unsigned bus_chains = 0;
     for (const auto& [key, domains] : impl_->bus_nodes) {
         (void)key;
-        for (const auto& node : domains)
+        for (const auto& node : domains) {
+            if (!node)
+                continue;
             if (node->effects) {
                 bus_memory += node->effects->memory();
-                ++bus_chains;
             }
+            if (node->impulse)
+                bus_impulse_bytes += node->impulse->signal.bytes();
+            if (node->effects || node->impulse)
+                ++bus_chains;
+        }
     }
     memory += bus_memory;
     const auto resources = impl_->clips.statistics();
@@ -2174,6 +2295,9 @@ Json AudioRuntime::status() const {
         {"bus_effect_chains", bus_chains},
         {"bus_echo_buffer_bytes", bus_memory.echo},
         {"bus_reverb_buffer_bytes", bus_memory.reverb},
+        {"bus_impulse_buffer_bytes", bus_impulse_bytes},
+        {"pending_bus_effects", !impl_->bus_graph_ready && impl_->bus_graph_error.empty()},
+        {"bus_effect_error", impl_->bus_graph_error},
         {"pending_sources", impl_->pending_sources.size()},
         {"pending_clips", resources.pending},
         {"failed_sources", impl_->failures.size()},
@@ -2202,9 +2326,9 @@ bool AudioRuntime::Impl::wait_sources(std::chrono::milliseconds timeout, bool lo
     const auto deadline = std::chrono::steady_clock::now() + timeout;
     for (;;) {
         sync(tick, 0, {}, loading_only);
-        if (stop_on_source_failure && !failures.empty())
+        if (!bus_graph_error.empty() || (stop_on_source_failure && !failures.empty()))
             return false;
-        if (pending_sources.empty())
+        if (bus_graph_ready && pending_sources.empty())
             return true;
         if (std::chrono::steady_clock::now() >= deadline)
             return false;
@@ -2222,7 +2346,8 @@ bool AudioRuntime::Impl::wait_sources(std::chrono::milliseconds timeout, bool lo
 void AudioRuntime::poll_loading() {
     impl_->check();
     impl_->reap_finished();
-    if (!impl_->pending_sources.empty() || impl_->clips.statistics().pending)
+    if ((!impl_->bus_graph_ready && impl_->bus_graph_error.empty()) ||
+        !impl_->pending_sources.empty() || impl_->clips.statistics().pending)
         impl_->sync(impl_->tick, 0, {}, true);
     else if (impl_->service_cue_repetitions()) {
         impl_->flush_commands();
@@ -2235,6 +2360,10 @@ void AudioRuntime::refresh_sources() {
 }
 void AudioRuntime::read_offline(std::span<float> out) {
     impl_->check();
+    if (!impl_->bus_graph_ready)
+        throw std::runtime_error(impl_->bus_graph_error.empty()
+                                     ? "Wait for audio bus impulse preparation before offline read"
+                                     : impl_->bus_graph_error);
     if (impl_->config.output != AudioOutput::Offline || out.size() % 2)
         throw std::runtime_error("PCM reads require explicit offline stereo output");
     const auto has_streams = [&] {

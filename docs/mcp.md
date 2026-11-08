@@ -1699,8 +1699,20 @@ because older strict readers reject the field. Save settings in Edit mode, then 
 topology cannot be changed by a live fader request; the usual settings permission,
 stale-baseline and document boundaries remain in force.
 
+Shared effects also accept `impulse_response:{clip:"<AudioClip UUID>",wet:0.75}`.
+Wet defaults to1; zero preserves the reference and current-kit requirement while
+bypassing loading/DSP. Use the ordinary import prepare/review/commit/settings
+operations to create a resident48000Hz mono/stereo response up to96000frames.
+The per-channel absolute coefficient sum must not exceed64; retained DSP is limited
+to32MiB per runtime. Existing project-settings edit/save operations author the
+assignment. A malformed value leaves the draft/digest unchanged. Live fader tools
+do not edit responses. Export includes these typed project references even without
+a Scene component reference; runtime preparation reports missing/unsupported data.
+See [impulse responses](audio.md#imported-bus-impulse-responses).
+
 `forge_play_audio` includes `bus_processing`, `bus_effect_chains`,
-`bus_echo_buffer_bytes` and `bus_reverb_buffer_bytes` in the copied audio value.
+`bus_echo_buffer_bytes`, `bus_reverb_buffer_bytes`, `bus_impulse_buffer_bytes`,
+`pending_bus_effects` and `bus_effect_error` in the copied audio value.
 Global effect memory includes the source and shared bus chains. Bus effects mix
 within the source's game-pause domain. Source controls change future input;
 shared history and cue completion keep their respective existing owners.

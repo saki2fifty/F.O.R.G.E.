@@ -1,5 +1,22 @@
 # 2026-11-08
 
+## Imported shared-bus impulse responses
+
+Custom buses can process a resident48000Hz mono/stereo AudioClip through an
+independently authored bounded convolution stage. Native Settings provides the
+Content picker, wet mix and removal; existing settings automation/MCP authors the
+same configuration. The original audio pool/mixer/clock and separate pause-domain
+histories remain authoritative. Typed project references participate in asset
+impact and export even without a Scene component reference.
+
+Responses are limited to two seconds, per-channel absolute coefficient sum64 and
+32MiB retained processing per runtime. Bad/missing/streamed data fails preparation;
+matching kits advertise the additive impulse capability. An original configured
+AudioImpulseResponses example includes sources, selected cooked data and its own
+project profile. The illustrated audio guide documents saving, limits and export.
+Windows/full-editor, physical listening and external-client acceptance remain
+separate from automated Linux CPU/control-fixture evidence.
+
 ## Gameplay input recording and replay
 
 The Game view records the mapped gameplay snapshots consumed at actual fixed

@@ -95,6 +95,13 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
         const auto routing = audio_routing_settings(audio);
         if (!routing.buses.empty())
             require_audio_routing();
+        if (!audio_bus_impulse_assets(routing).empty()) {
+            const auto support = engine.find("runtime_audio_bus_impulse");
+            require(
+                support != engine.end() && support->is_number_integer() &&
+                    *support == audio_bus_impulse_profile_version,
+                "Audio bus impulse responses require the runtime kit packaged with this editor");
+        }
         // Earlier strict readers reject the field itself, including empty/default blocks.
         if (audio.contains("routing") &&
             std::ranges::any_of(audio.at("routing").at("buses"),

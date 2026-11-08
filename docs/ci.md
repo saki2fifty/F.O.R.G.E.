@@ -2148,3 +2148,36 @@ color wrappers, alpha/discard/diagnostics and auxiliary targets; ordinary empty
 volume surface checks remain separate. Generated source does not establish a
 Vulkan loader for Windows-cooked Shader archives. Real Windows FXC/cooked surface,
 full-editor/physical GPU and graphical exported-game acceptance remain separate.
+
+
+## Shared bus impulse-response checks
+
+`audio_convolution` compares the original private partitioned processor with an
+independent time-domain sum across partition boundaries, dense mono/stereo inputs,
+wet mixes, callback/in-place splits, maximum tails and silence/reactivation.
+`audio_impulse_runtime` checks actual native PCM, shared/fanout/nested routes,
+pause/mute, Source Stop with retained finite tails, typed asset impact, invalid
+rate/length/gain, a valid cooked stream rejection and aggregate32MiB admission.
+`audio_impulse_process` covers normal and SDK hosts, complete live faders and
+source tuning, exact private recovery and changed-response rejection; accepted
+native processes use graceful Quit and exit0. Installed SDK routing also includes
+the impulse profile with only installed public headers/libraries.
+
+`audio_impulse_export` copies the configured sibling sample, checks wet/bypass
+and stereo output, rejects an old kit without replacing a last-good distribution,
+then hides the source and relocates full exported content. All three records,
+including the project-only response, are retained and48000frames of stereo CPU
+PCM match exactly. Its Windows/D3D12 kit is a synthetic inventory fixture; its
+executable bytes are never run. This proves content closure on Linux CPU, not
+Windows executable or graphical acceptance. Package-writer fixtures assert cooked
+`.fpcm` bytes and inventory hashes for sibling projects.
+
+`audio_mix_editor` drives the production Content selector, wet slider and removal
+at1180/700/400 widths, validates incomplete drafts/default mix and checks visible
+glyph/horizontal bounds. Canonical impulse and shared-effect captures are copied
+without pixel changes from SDL software control fixtures; see
+[Audio](audio.md#imported-bus-impulse-responses). Actual MCP Settings and routing
+Play checks cover both protocol envelopes, stale settings, source Undo/Redo,
+read-only grants, faders, rejection and authored-state isolation. Full Main,
+Windows/MSVC/D3D12, physical listening/device deadlines/DPI and external-client
+review remain separate gates.

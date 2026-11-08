@@ -20,6 +20,23 @@ void audio_routing_package_tests(const std::filesystem::path& scratch, Check che
     auto effect_kit = matching;
     effect_kit["runtime_audio_bus_effects"] = audio_bus_effects_profile_version;
     validate_runtime_compatibility(catalog, effect_kit, &processed);
+    const auto impulse_clip = AssetId::parse("ac7f2d31-de35-4ce8-bef4-e514f21449d7");
+    auto impulse_project = processed;
+    impulse_project["game"]["audio"]["routing"]["buses"][0]["effects"]["impulse_response"] = {
+        {"clip", impulse_clip}, {"wet", 0}};
+    reject([&] { validate_runtime_compatibility(catalog, effect_kit, &impulse_project); });
+    auto impulse_kit = effect_kit;
+    impulse_kit["runtime_audio_bus_impulse"] = audio_bus_impulse_profile_version;
+    validate_runtime_compatibility(catalog, impulse_kit, &impulse_project);
+    for (const Json& invalid : {Json(), Json(false), Json(-1), Json(0), Json(1.), Json("1"),
+                                Json(2), Json(std::uint64_t{1} << 32)}) {
+        impulse_kit["runtime_audio_bus_impulse"] = invalid;
+        reject([&] { validate_runtime_compatibility(catalog, impulse_kit, &impulse_project); });
+    }
+    const auto references =
+        audio_bus_impulse_assets(audio_routing_settings(impulse_project.at("game").at("audio")));
+    check(references == std::vector<AssetRef<AudioClipAsset>>{{impulse_clip}},
+          "Bypassed impulse lost its retained typed asset dependency");
     for (const Json& invalid :
          {Json(), Json(false), Json(-1), Json(0), Json(1.), Json("1"), Json(2)}) {
         effect_kit["runtime_audio_bus_effects"] = invalid;

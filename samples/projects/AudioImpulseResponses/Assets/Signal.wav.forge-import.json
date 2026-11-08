@@ -1,0 +1,41 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.audio.wav",
+    "importer_revision": "2ff1d07f040cf8c85d3d919c1c5640b066a2261462bf5c048013b8f6f6feef6c",
+    "key_version": 1,
+    "output_format": "forge.audio-clip",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "force_mono": false,
+      "normalize_peak": false,
+      "playback_storage": "resident",
+      "trim_silence": false,
+      "trim_threshold_db": -60.0
+    },
+    "settings_version": 1,
+    "source": "45a9d43df634117831e491c3f7969dc72da881239e2dd6d7ec431365d03dc252",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.audio.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "b3a047ed-f918-4d14-b327-7426320030ec",
+    "source": "Assets/Signal.wav",
+    "source_digest": "45a9d43df634117831e491c3f7969dc72da881239e2dd6d7ec431365d03dc252",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.audio.wav",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

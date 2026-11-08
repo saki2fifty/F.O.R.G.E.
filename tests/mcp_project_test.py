@@ -166,6 +166,30 @@ for legacy in (False, True):
         assert discovery()['result']['target'] != old_target
         assert read('forge_scene_read')['entities'][0]['name'] == 'Untitled cube'
         assert mutate('forge_document_recovery_discard', untitled=True, review=recovery['review'])['ok']
+        # The same Settings owner admits retained impulse references and rejects bad candidates.
+        descriptions = {row['name']: row['description']
+                        for row in client.request('tools/list')['result']['tools']}
+        assert 'impulse_response' in descriptions['forge_project_settings_edit']
+        assert settings_edit('forge_project_settings_game_defaults')['ok']
+        scene_before_settings = read('forge_scene_read')
+        impulse = dict(clip='fae8f088-7d74-4fe3-a785-9ec929b0636f', wet=.6)
+        routing = dict(version=1, buses=[dict(key='room', volume=1, output='master', sends=[],
+                                            effects=dict(impulse_response=impulse))])
+        changed = settings_edit('forge_project_settings_edit',
+                                patch=[dict(op='add', path='/game/audio/routing', value=routing)])
+        assert changed['ok'], changed
+        retained = settings()
+        for bad_wet in (None, False, -.01, 1.01, '0.5'):
+            rejected = settings_edit('forge_project_settings_edit',
+                                     patch=[dict(op='replace',
+                                                 path='/game/audio/routing/buses/0/effects/impulse_response/wet',
+                                                 value=bad_wet)])
+            assert not rejected['ok'] and settings()['state'] == retained['state'], rejected
+        assert settings_edit('forge_project_settings_save')['ok']
+        written = json.loads((root / 'Projects/AgentGame/forge.project.json').read_text())
+        assert written['game']['audio']['routing']['buses'][0]['effects']['impulse_response'] == impulse
+        assert read('forge_scene_read') == scene_before_settings
+        assert settings_edit('forge_project_settings_close')['ok']
         # Manual out-of-scope UI switching revokes the connection, even with workspace authority.
         (root / 'ui_outside').touch()
         assert process.wait(timeout=5) == 0

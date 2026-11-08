@@ -1684,22 +1684,24 @@ int main(int argc, char** argv) {
                        {},
                        {},
                        [&] { return std::exchange(prefab_editor.close_cancelled, false); }});
-        documents.add(
-            {"settings",
-             "Project Settings",
-             "Project Settings###Project Settings",
-             false,
-             [&] { return project_settings.is_open(); },
-             [&] { return project_settings.dirty(); },
-             [&] { project_settings.draw(files.document, scene, document_locked, message); },
-             [&] { project_settings.request_save(); },
-             {},
-             {},
-             [&] { project_settings.request_close(); },
-             {},
-             {},
-             {},
-             [&] { return std::exchange(project_settings.close_cancelled, false); }});
+        documents.add({"settings",
+                       "Project Settings",
+                       "Project Settings###Project Settings",
+                       false,
+                       [&] { return project_settings.is_open(); },
+                       [&] { return project_settings.dirty(); },
+                       [&] {
+                           project_settings.draw(files.document, scene, document_locked, message,
+                                                 content.catalog().get());
+                       },
+                       [&] { project_settings.request_save(); },
+                       {},
+                       {},
+                       [&] { project_settings.request_close(); },
+                       {},
+                       {},
+                       {},
+                       [&] { return std::exchange(project_settings.close_cancelled, false); }});
         documents.add(
             {"cpp_sources",
              "C++ Sources",

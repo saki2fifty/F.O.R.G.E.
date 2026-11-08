@@ -53,6 +53,8 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [045](045-nested-prefab-composition.md) | Nested ordinary instances retain distinct child identities and scoped references |
 | [046](046-prefab-source-layers.md) | Related variants combine ordered sparse source contributions through the existing Prefab owner |
 
+| [047](047-audio-impulse-responses.md) | Imported bus responses share project, AudioClip, runtime and export ownership |
+
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS
 contracts remain unchanged. Implementation triggers are stated in each record.

@@ -341,7 +341,8 @@ Project topology and retained nonempty source selections require runtime-kit
 selection retains legacy kit admission. See [ADR036](decisions/036-audio-routing.md)
 for the ownership and private recovery boundary. Optional shared effects use the
 native profile described below; scalar projection alone does not process effects.
-Convolution, acoustic simulation and a second audio clock are not provided.
+Impulse responses extend shared processing below. Acoustic simulation and a second
+audio clock are not provided.
 
 ## Shared linear bus effects
 
@@ -392,8 +393,58 @@ memory includes source and bus ownership; `bus_echo_buffer_bytes`,
 `bus_reverb_buffer_bytes`, `bus_effect_chains` and `bus_processing` distinguish
 shared processing. Counts exclude native/filter overhead and decoded/stream data.
 These bounds do not establish physical device deadline or performance acceptance.
-See [ADR041](decisions/041-audio-bus-effects.md). Nonlinear processors, convolution,
-cyclic audio routing and richer acoustics remain unavailable.
+See [ADR041](decisions/041-audio-bus-effects.md). Nonlinear processors, cyclic audio
+routing and richer acoustics remain unavailable.
+
+## Imported bus impulse responses
+
+An optional `effects.impulse_response` retains `{clip:<AudioClip UUID>,wet:0..1}`;
+`wet` defaults to1. Absent values preserve legacy serialization and admission.
+Wet0 bypasses processing/loading but retains the typed reference and kit requirement.
+Unknown/malformed fields, null identity and nonfinite/out-of-range mix reject.
+Native Settings and automation/MCP share this project-value owner and publication
+boundary. The picker borrows the current project's Content catalog. Unresolved
+references remain typed settings intent; asset/runtime/export owners resolve them.
+
+Active responses require resident48000Hz mono/stereo finite PCM,1..96000frames,
+with each channel's sum of absolute coefficients<=64. No implicit resampling,
+normalization or channel-crossfeed occurs. Existing AudioClip ResourcePool loads
+and leases data. Required-audio preparation waits for the complete graph before
+voices/output; failure identifies the bus and asset and never silently falls back
+to dry audio. Audio status includes `pending_bus_effects`, `bus_effect_error` and
+`bus_impulse_buffer_bytes`. The last counts retained immutable kernels and mutable
+convolution state, excluding decoded PCM and ordinary bus/native overhead.
+
+The independently authored private processor uses a256-sample direct head and
+512-point partitioned FFT tail, retaining257positive-frequency bins. Conjugates
+are reconstructed before inverse transforms. The head avoids an added partition
+of latency; file onset remains meaningful. Immutable kernels share by asset inside
+one AudioRuntime; each bus keeps separate stereo histories in its two pause domains.
+Kernel/history/scratch allocations and a32MiB retained-DSP preflight precede native
+callbacks. Callbacks allocate nothing; exact finite-tail accounting skips an idle
+domain and restarts it cleanly when new input arrives. This is a bounded linear
+stereo profile, not four-channel true-stereo or physical room simulation.
+
+The chain is HPF→LPF→echo→reverb→impulse→bus fader/sends, retaining ADR041's source,
+clock, pause, shared-tail and cue-completion semantics. Native controls change
+faders during Play; response edits require Save Settings and restart. Recovery
+retains exact configuration and starts fresh history. Export's explicit typed root
+adapter retains response AudioClips independently of Scene references. Matching
+kits advertise `runtime_audio_bus_impulse:1`, including zero-wet intent. Existing
+AudioSource/component layouts, C ABI1 operations and dependency pins are unchanged.
+Installed public SDK consumers use the same runtime owner; project-owned settings
+are not a new native component or callback table. See
+[ADR047](decisions/047-audio-impulse-responses.md).
+
+The sibling `samples/projects/AudioImpulseResponses` project supplies original
+pulse/response sources, selected cooked revisions and its own bus profile.
+FeatureGallery's project settings remain independent. Source-hidden relocated
+full-export PCM proves content closure; synthetic kit inventory checks do not
+prove Windows executable/audio-device acceptance. Native production controls are
+captured by `audio_mix_editor` with SDL software rendering at1180/700/400; canonical
+`audio-bus-impulse-controls.png` is the unmodified700px capture. The refreshed
+`audio-bus-effects.png` is also an unmodified production-widget capture. These are
+control fixtures, not full-editor, Windows/DPI or physical listening acceptance.
 
 ## Per-source reverberation
 
@@ -737,7 +788,7 @@ Source status includes `delayed_one_shots`; Live sound admits Pause/Resume/Stop
 while a voice is waiting, including through the existing scoped MCP controls.
 
 Later work includes unbounded music streaming, voice stealing, cyclic cue
-graphs, nonlinear bus processors, impulse responses, acoustic room simulation, multiple
+graphs, nonlinear bus processors, acoustic room simulation, multiple
 listeners, sample-accurate recovery continuity and device selection.
 
 

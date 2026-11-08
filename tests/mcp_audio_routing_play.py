@@ -14,7 +14,11 @@ def check_audio_routing_play(read, ok, control, mutate, until, edit_settings, ro
         output='rain', sends=[])])
     graph['buses'][0]['effects'] = dict(echo_enabled=True, echo_seconds=.02, echo_feedback=.5)
     graph['buses'][1]['effects'] = dict(reverb_enabled=True, reverb_decay=.4, reverb_wet=.3)
+    catalog = json.loads((root / 'Game/forge.assets.json').read_text())['assets']
+    impulse = next(row['id'] for row in catalog if row['source'] == 'Assets/SyntheticRoom.wav')
+    graph['buses'][1]['effects']['impulse_response'] = dict(clip=impulse, wet=.75)
     assert 'optional effects' in advertised['forge_project_settings_edit']['description']
+    assert 'impulse_response' in advertised['forge_project_settings_edit']['description']
     settings = read('forge_project_settings_read')
     edit_settings('forge_project_settings_edit', patch=[dict(op='add', path='/game/audio/routing', value=graph)])
     failed(mutate('forge_project_settings_save', state=settings['state']), 'stale_settings')
@@ -31,8 +35,7 @@ def check_audio_routing_play(read, ok, control, mutate, until, edit_settings, ro
     assert not result['ok'] and read('forge_project_settings_read')['state'] == saved_settings['state'], result
     actor = ok('forge_entity_create', arguments=dict(recipe='primitive.0', name='Routed source'))['results'][0]['selected']
     ok('forge_component_add', arguments=dict(entity=actor, component='forge.audio_source'))
-    catalog = json.loads((root / 'Game/forge.assets.json').read_text())['assets']
-    clip = next(row['id'] for row in catalog if row['source'] == 'Assets/FalloffTone.wav')
+    clip = next(row['id'] for row in catalog if row['source'] == 'Assets/Signal.wav')
     ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.audio_source',
         values=dict(clip=clip, spatialized=False, loop=True, play_on_start=True, custom_bus='room')))
     before = read('forge_scene_read')
@@ -53,6 +56,8 @@ def check_audio_routing_play(read, ok, control, mutate, until, edit_settings, ro
     assert audio['value']['bus_volumes'] == dict(rain=.5, room=.75)
     assert audio['value']['bus_processing'] and audio['value']['bus_effect_chains'] == 4
     assert audio['value']['bus_echo_buffer_bytes'] > 0 and audio['value']['bus_reverb_buffer_bytes'] > 0
+    assert audio['value']['bus_impulse_buffer_bytes'] > 0
+    assert not audio['value']['pending_bus_effects'] and not audio['value']['bus_effect_error']
     assert audio['source']['custom_bus'] == 'room'
     tick = read('forge_play_status')['timing']['tick']
     mix = dict(master_volume=.5, channel_volumes=[.25, .5, .75], bus_volumes=dict(rain=.125, room=.25))

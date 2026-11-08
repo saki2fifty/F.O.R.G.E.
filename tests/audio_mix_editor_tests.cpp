@@ -1,7 +1,9 @@
+#include "audio_pcm_fixture.hpp"
 #include "editor/audio_mix.hpp"
 #include "editor/audio_routing.hpp"
 #include "editor/editor_state.hpp"
 #include "imgui_software_capture.hpp"
+#include <fstream>
 #include <imgui_internal.h>
 #include <iostream>
 using namespace forge;
@@ -48,7 +50,7 @@ void capture_controls(const std::filesystem::path& captures, float scale, bool c
         capture.save(captures / name);
     }
 }
-void capture_bus_effects(const std::filesystem::path& captures) {
+void capture_bus_effects(const std::filesystem::path& captures, const AssetCatalog& catalog) {
     test::ImGuiSoftwareCapture capture(700, 1050);
     ui::style(1);
     auto& io = ImGui::GetIO();
@@ -74,7 +76,7 @@ void capture_bus_effects(const std::filesystem::path& captures) {
             ImGui::GetStateStorage()->SetInt(effects_tree, 1);
         ImGui::SetNextItemOpen(true, ImGuiCond_Always);
         test::ui_targets.clear();
-        AudioRoutingEditor::draw(audio);
+        AudioRoutingEditor::draw(audio, &catalog);
         effects_tree = test::ui_targets.at("audio-routing:fx:0").id;
         ImGui::End();
         capture.render();
@@ -83,6 +85,92 @@ void capture_bus_effects(const std::filesystem::path& captures) {
     require(reset.maximum.y <= reset.clip_maximum.y && audio == before,
             "Actual shared effects capture clipped controls or changed the settings draft");
     capture.save(captures / "audio-bus-effects.png");
+}
+void capture_impulse_controls(const std::filesystem::path& captures) {
+    const auto root = captures / "ImpulseProject";
+    std::filesystem::create_directories(root / "Assets");
+    const auto bytes = test::float_wav({{.5f, 0, .25f}, 3, 1, 48000});
+    {
+        std::ofstream file(root / "Assets/Response.wav", std::ios::binary);
+        file.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
+    }
+    const auto record = AssetCatalog::register_audio_clip(root, "Assets/Response.wav");
+    const auto catalog = AssetCatalog::open_project(root);
+    for (int width : {1180, 700, 400}) {
+        test::ImGuiSoftwareCapture capture(width, 1200);
+        ui::style(1);
+        auto& io = ImGui::GetIO();
+        io.ConfigInputTrickleEventQueue = false;
+        Json audio{{"routing", audio_routing_json({{{"room", "Shared room", 1, "master", {}}}})}};
+        const auto before = audio;
+        ImGuiID effects_tree = 0;
+        test::observe_ui = true;
+        const auto frame = [&] {
+            capture.new_frame();
+            ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+            ImGui::SetNextWindowSize({float(width), 1200}, ImGuiCond_Always);
+            ImGui::Begin("Project Settings");
+            if (effects_tree)
+                ImGui::GetStateStorage()->SetInt(effects_tree, 1);
+            ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+            test::ui_targets.clear();
+            AudioRoutingEditor::draw(audio, &catalog);
+            effects_tree = test::ui_targets.at("audio-routing:fx:0").id;
+            ImGui::End();
+            capture.render();
+        };
+        const auto click = [&](const std::string& key) {
+            frame();
+            const auto target = test::ui_targets.at(key);
+            // Selectables deliberately extend their hit boxes into item spacing.
+            const bool row = key.starts_with("picker-option:");
+            const float margin_y = row ? ImGui::GetStyle().ItemSpacing.y * .5f : 0;
+            const float margin_x = row ? ImGui::GetStyle().ItemSpacing.x * .5f : 0;
+            if (!target.enabled || target.minimum.y + margin_y < target.clip_minimum.y ||
+                target.maximum.y - margin_y > target.clip_maximum.y ||
+                target.minimum.x + margin_x < target.clip_minimum.x ||
+                target.maximum.x - margin_x > target.clip_maximum.x) {
+                capture.save(captures / ("impulse-failed-" + std::to_string(width) + ".png"));
+                throw std::runtime_error("Impulse control " + key +
+                                         " width=" + std::to_string(width) +
+                                         " enabled=" + std::to_string(target.enabled) +
+                                         " y=" + std::to_string(target.minimum.y) + ".." +
+                                         std::to_string(target.maximum.y) +
+                                         " clip=" + std::to_string(target.clip_minimum.y) + ".." +
+                                         std::to_string(target.clip_maximum.y));
+            }
+            io.AddMousePosEvent((target.minimum.x + target.maximum.x) * .5f,
+                                (target.minimum.y + target.maximum.y) * .5f);
+            io.AddMouseButtonEvent(0, true);
+            frame();
+            io.AddMouseButtonEvent(0, false);
+            frame();
+            io.AddMousePosEvent(-100, -100);
+            frame();
+        };
+        frame();
+        frame();
+        click("audio-routing:impulse-add:0");
+        require(audio["routing"]["buses"][0]["effects"]["impulse_response"]["clip"].is_null(),
+                "New response draft invented an asset assignment");
+        click("asset-picker:audio_clip:Impulse AudioClip");
+        click("picker-option:" + record.id.str());
+        auto value = audio_routing_settings(audio);
+        require(value.buses[0].effects.impulse_response->clip.id == record.id &&
+                    value.buses[0].effects.impulse_response->wet == 1,
+                "Native response picker lost stable asset identity or initial mix");
+        // The admitted file format also allows omission of the default wet value.
+        audio["routing"]["buses"][0]["effects"]["impulse_response"].erase("wet");
+        frame();
+        click("audio-routing:impulse-wet:0");
+        value = audio_routing_settings(audio);
+        require(value.buses[0].effects.impulse_response->wet > 0 &&
+                    value.buses[0].effects.impulse_response->wet < 1,
+                "Native response mix did not edit the settings draft");
+        capture.save(captures / ("audio-bus-impulse-" + std::to_string(width) + ".png"));
+        click("audio-routing:impulse-remove:0");
+        require(audio == before, "Response removal left new intent in the original settings");
+    }
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -270,7 +358,9 @@ int main(int argc, char** argv) {
             for (float scale : {.65f, 1.f, 1.5f, 2.f})
                 capture_controls(captures, scale, false);
             capture_controls(captures, 1, true);
-            capture_bus_effects(captures);
+            capture_impulse_controls(captures);
+            const auto capture_catalog = AssetCatalog::open_project(captures / "ImpulseProject");
+            capture_bus_effects(captures, capture_catalog);
         } else
             require(argc == 1, "Need optional captures directory");
         std::cout << "Live audio mix actual scaled input, draft/admission/apply/reload/session "

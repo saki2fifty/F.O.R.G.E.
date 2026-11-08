@@ -16,6 +16,7 @@
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
 #include <forge/application_state_source.hpp>
+#include <forge/audio_routing.hpp>
 #include <forge/material_source.hpp>
 #include <forge/navigation_behavior.hpp>
 #include <forge/particle_effect_source.hpp>
@@ -615,6 +616,19 @@ struct Inspect {
                           SceneAsset::type);
             else if (!startup.is_null())
                 unknown("legacy startup locator");
+            if (doc.contains("game") && doc.at("game").contains("audio")) {
+                const auto& audio = doc.at("game").at("audio");
+                if (audio.contains("routing")) {
+                    const auto routing = audio_routing_from_json(audio.at("routing"));
+                    for (std::size_t i = 0; i < routing.buses.size(); ++i)
+                        if (const auto& impulse = routing.buses[i].effects.impulse_response;
+                            impulse)
+                            reference(impulse->clip.id,
+                                      "game.audio.routing.buses[" + std::to_string(i) +
+                                          "].effects.impulse_response.clip",
+                                      "Audio bus impulse response", AudioClipAsset::type);
+                }
+            }
         } else
             unknown("no reference adapter for this document");
     }

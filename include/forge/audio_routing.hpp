@@ -2,8 +2,10 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <forge/audio_components.hpp>
 #include <map>
 #include <nlohmann/json_fwd.hpp>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -11,6 +13,7 @@
 namespace forge {
 inline constexpr unsigned audio_routing_profile_version = 1;
 inline constexpr unsigned audio_bus_effects_profile_version = 1;
+inline constexpr unsigned audio_bus_impulse_profile_version = 1;
 inline constexpr std::size_t audio_custom_bus_limit = 16;
 inline constexpr std::size_t audio_bus_send_limit = 3;
 inline constexpr std::size_t audio_bus_key_limit = 64;
@@ -23,7 +26,12 @@ struct AudioBusSend {
     float gain = 1;
     bool operator==(const AudioBusSend&) const = default;
 };
-// Linear processors, in high-pass -> low-pass -> echo -> reverb order.
+struct AudioBusImpulse {
+    AssetRef<AudioClipAsset> clip;
+    float wet = 1;
+    bool operator==(const AudioBusImpulse&) const = default;
+};
+// Linear processors, in high-pass -> low-pass -> echo -> reverb -> impulse order.
 // Disabled parameters are retained; defaults serialize without an effects block.
 struct AudioBusEffects {
     bool low_pass_enabled = false, high_pass_enabled = false;
@@ -32,9 +40,11 @@ struct AudioBusEffects {
     float echo_seconds = .25f, echo_feedback = .35f;
     bool reverb_enabled = false;
     float reverb_decay = 1.5f, reverb_damping = .5f, reverb_wet = .25f;
+    std::optional<AudioBusImpulse> impulse_response;
     bool active() const {
         return low_pass_enabled || high_pass_enabled || (echo_enabled && echo_feedback > 0) ||
-               (reverb_enabled && reverb_wet > 0);
+               (reverb_enabled && reverb_wet > 0) ||
+               (impulse_response && impulse_response->wet > 0);
     }
     bool operator==(const AudioBusEffects&) const = default;
 };
@@ -71,6 +81,8 @@ class AudioRoutingProjection {
 };
 void validate_audio_routing(const AudioRouting&);
 void validate_audio_bus_effects(const AudioBusEffects&);
+// Retained references include wet-zero effects; keys/labels are not asset identity.
+std::vector<AssetRef<AudioClipAsset>> audio_bus_impulse_assets(const AudioRouting&);
 AudioBusEffects audio_bus_effects_from_json(const nlohmann::json&);
 nlohmann::json audio_bus_effects_json(const AudioBusEffects&);
 void validate_audio_bus_volumes(const AudioBusVolumes&);

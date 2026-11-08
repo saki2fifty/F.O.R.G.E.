@@ -74,7 +74,8 @@ class ProjectSettingsEditor {
         ui::help("Shared simulation frequency, startup scene and input actions. Personal layout "
                  "and UI scale remain user preferences.");
     }
-    void draw(SceneDocument& document, Scene& scene, bool locked, std::string& status) {
+    void draw(SceneDocument& document, Scene& scene, bool locked, std::string& status,
+              const AssetCatalog* catalog = nullptr) {
         if (!open_) {
             loaded_ = false;
             return;
@@ -203,7 +204,9 @@ class ProjectSettingsEditor {
                                    "Zero mutes while playback time continues. Player settings can "
                                    "override this default.");
                 }
-                AudioRoutingEditor::draw(game["audio"]);
+                AudioRoutingEditor::draw(
+                    game["audio"],
+                    catalog && catalog->project_root() == document.project() ? catalog : nullptr);
                 double sensitivity = game["input"]["mouse_sensitivity"];
                 if (ImGui::InputDouble("Mouse sensitivity", &sensitivity, .1, 1, "%.2f"))
                     game["input"]["mouse_sensitivity"] = sensitivity;

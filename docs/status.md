@@ -5,6 +5,16 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds imported mono/stereo impulse processing on custom audio buses.
+Project Settings, Content selection, automation/MCP, existing AudioClip resources,
+shared native bus histories and full export use the same owners. The original
+AudioImpulseResponses sibling example includes sources and selected cooked data.
+The profile is resident48000Hz, up to96000frames and32MiB retained processing per
+runtime. Matching runtime-kit capability is required even for zero-wet intent.
+Linux CPU/source-hidden export and production control-fixture checks do not imply
+Windows/full-editor, physical listening or external-client acceptance. See
+[Audio](audio.md#imported-bus-impulse-responses) and [the guide](../manual/editor/audio.md).
+
 Local source supports optional component suppression in explicit Prefab format5
 variants. Restore resumes current-base inheritance; whole-component edits and
 instance Apply can own a component again. Older source formats and opaque fields
@@ -27,7 +37,8 @@ checks cover independent PCM, moved source-hidden content, both runtime hosts,
 portable references, installed-only C++ and MCP framings. Runtime sound_cues:1
 requires the matching kit; nonzero offsets additionally require sound_cue_timing:1.
 Selection resets on graph/world replacement; unrestricted/cyclic cue graphs and
-shared bus DSP remain outside this profile. Windows/full
+physical acoustic simulation remain outside this profile. Shared linear bus effects
+and imported impulse responses are described in Audio. Windows/full
 editor and physical-device acceptance remain queued. See [Audio](audio.md).
 
 Local source adds explicit child sequence loops through the existing root clock.

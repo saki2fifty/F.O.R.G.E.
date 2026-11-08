@@ -35,7 +35,15 @@ def rejected(work):
     raise AssertionError('Invalid audio routing request was accepted')
 
 
-def verify_profile(runtime, gallery, module, bus_effects):
+def quit_cleanly(worker):
+    try:
+        worker.request('quit')
+        assert worker.process.wait(timeout=10) == 0, worker.process.returncode
+    finally:
+        worker.close()
+
+
+def verify_profile(runtime, gallery, module, bus_effects, impulse=False):
     runtime, gallery = Path(runtime).resolve(), Path(gallery).resolve()
     with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
         root = Path(folder)
@@ -48,6 +56,19 @@ def verify_profile(runtime, gallery, module, bus_effects):
                                                echo_feedback=.5)
             graph['buses'][1]['effects'] = dict(low_pass_enabled=True, low_pass_hz=1200,
                                                reverb_enabled=True, reverb_decay=.4)
+        impulse_id = str(uuid.uuid4()) if impulse else None
+        if impulse:
+            graph['buses'][1].setdefault('effects', {})['impulse_response'] = dict(
+                clip=impulse_id, wet=.75)
+            with wave.open(str(root / 'impulse.wav'), 'wb') as output:
+                output.setnchannels(2)
+                output.setsampwidth(2)
+                output.setframerate(48000)
+                samples = [0] * (1025 * 2)
+                samples[0], samples[1] = 16384, 24576
+                samples[512], samples[513] = -8192, 3072
+                samples[2048], samples[2049] = 4096, -4096
+                output.writeframes(struct.pack('<' + 'h' * len(samples), *samples))
         game['audio']['routing'] = graph
         game['application_id'] = 'org.forge.audio-routing-test'
         project = dict(version=2, name='Audio routing', simulation_hz=60,
@@ -69,8 +90,12 @@ def verify_profile(runtime, gallery, module, bus_effects):
         clip, scene_id, actor = (str(uuid.uuid4()) for _ in range(3))
         if module is not None:
             scene_id, actor = '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222'
-        (root / 'forge.assets.json').write_text(json.dumps(dict(version=1, assets=[dict(
-            id=clip, type='audio_clip', source='tone.wav', schema_version=1, dependencies=[])])))
+        records = [dict(id=clip, type='audio_clip', source='tone.wav', schema_version=1,
+                        dependencies=[])]
+        if impulse:
+            records.append(dict(id=impulse_id, type='audio_clip', source='impulse.wav',
+                                schema_version=1, dependencies=[]))
+        (root / 'forge.assets.json').write_text(json.dumps(dict(version=1, assets=records)))
         scene = dict(version=3, asset_id=scene_id, entities=[dict(id=actor, name='Rain', components={
             'forge.audio_source': dict(clip=clip, loop=True, play_on_start=True, spatialized=False,
                                        gain=1, pitch=1, minimum_distance=1, maximum_distance=100,
@@ -90,6 +115,10 @@ def verify_profile(runtime, gallery, module, bus_effects):
                 if bus_effects:
                     assert initial['audio']['bus_echo_buffer_bytes'] > 0
                     assert initial['audio']['bus_reverb_buffer_bytes'] > 0
+                if impulse:
+                    assert initial['audio']['bus_impulse_buffer_bytes'] > 0
+                    assert not initial['audio']['pending_bus_effects']
+                    assert not initial['audio']['bus_effect_error']
                 generation = initial['activation']['generation'] if sdk else initial['world_generation']
                 tick, admitted = initial['timing']['tick'], initial['scene']
                 values = dict(master_volume=.25, channel_volumes=[.5, .75, 0],
@@ -130,7 +159,7 @@ def verify_profile(runtime, gallery, module, bus_effects):
                     assert source['custom_bus'] == 'rain' and source['gain'] == .5 and source['bus'] == 2, source
                     assert stepped['audio_source']['custom_bus'] == 'rain' and stepped['audio_source']['available']
             finally:
-                worker.close()
+                quit_cleanly(worker)
 
         worker = Runtime(runtime, ['--sdk-project', root, '--sdk-play', 'off', '--audio', 'offline',
                                    '--user-data', root / 'Users'])
@@ -143,6 +172,9 @@ def verify_profile(runtime, gallery, module, bus_effects):
             modes = ['missing_faders', 'unknown_key', 'changed_graph', 'legacy_version']
             if bus_effects:
                 modes.append('changed_effect')
+            if impulse:
+                modes.append('changed_impulse')
+                assert recovered['audio']['bus_impulse_buffer_bytes'] > 0
             for mode in modes:
                 invalid = copy.deepcopy(checkpoint)
                 if mode == 'missing_faders':
@@ -153,6 +185,8 @@ def verify_profile(runtime, gallery, module, bus_effects):
                     invalid['audio']['routing']['buses'][0]['output'] = 'master'
                 elif mode == 'changed_effect':
                     invalid['audio']['routing']['buses'][0]['effects']['echo_feedback'] = .25
+                elif mode == 'changed_impulse':
+                    invalid['audio']['routing']['buses'][1]['effects']['impulse_response']['wet'] = .5
                 else:
                     invalid['version'] = 2
                 invalid = signed_checkpoint(invalid)
@@ -163,7 +197,7 @@ def verify_profile(runtime, gallery, module, bus_effects):
                 for field in ('master_volume', 'channel_volumes', 'bus_volumes', 'voices'):
                     assert current['audio'][field] == recovered['audio'][field]
         finally:
-            worker.close()
+            quit_cleanly(worker)
         assert all(hashlib.sha256(path.read_bytes()).hexdigest() == digest for path, digest in original.items())
     print('Both audio routing hosts, live key admission, source tuning and private recovery passed; bus effects=' + str(bus_effects))
 
@@ -171,7 +205,15 @@ def verify_profile(runtime, gallery, module, bus_effects):
 def verify(runtime, gallery, module=None):
     for effects in (False, True):
         verify_profile(runtime, gallery, module, effects)
+    verify_profile(runtime, gallery, module, True, True)
 
 
 if __name__ == '__main__':
-    verify(*sys.argv[1:])
+    arguments = sys.argv[1:]
+    if '--impulse-only' in arguments:
+        arguments.remove('--impulse-only')
+        assert 2 <= len(arguments) <= 3
+        verify_profile(arguments[0], arguments[1], arguments[2] if len(arguments) == 3 else None,
+                       True, True)
+    else:
+        verify(*arguments)

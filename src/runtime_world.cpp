@@ -222,9 +222,16 @@ bool RuntimeWorld::prepare_audio_sources() {
     auto services = engine.services();
     if (services.available(Capability::Audio)) {
         auto audio = std::static_pointer_cast<AudioRuntime>(services.audio());
-        if (!audio || audio->status().at("failed_sources").get<std::size_t>())
+        if (!audio)
             throw std::runtime_error("Scene preparation: required audio sources failed");
-        if (audio->status().at("pending_sources").get<std::size_t>())
+        const auto status = audio->status();
+        if (!status.value("bus_effect_error", std::string{}).empty())
+            throw std::runtime_error("Scene preparation: " +
+                                     status.at("bus_effect_error").get<std::string>());
+        if (status.at("failed_sources").get<std::size_t>())
+            throw std::runtime_error("Scene preparation: required audio sources failed");
+        if (status.at("pending_sources").get<std::size_t>() ||
+            status.value("pending_bus_effects", false))
             return false;
     } else {
         // The Flecs iteration locks its table; throwing from inside the

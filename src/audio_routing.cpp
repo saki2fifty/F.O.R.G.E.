@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <numeric>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <utility>
 
@@ -72,11 +73,35 @@ void effect_number(double value, const EffectParameter& parameter) {
 void validate_audio_bus_effects(const AudioBusEffects& value) {
     for (const auto& parameter : effect_parameters)
         effect_number(value.*parameter.member, parameter);
+    if (value.impulse_response) {
+        require(bool(value.impulse_response->clip.id), "impulse response requires an AudioClip");
+        const auto wet = value.impulse_response->wet;
+        require(std::isfinite(wet) && wet >= 0 && wet <= 1,
+                "impulse response wet mix must be between zero and one");
+    }
+}
+std::vector<AssetRef<AudioClipAsset>> audio_bus_impulse_assets(const AudioRouting& routing) {
+    std::set<AssetRef<AudioClipAsset>> unique;
+    for (const auto& bus : routing.buses)
+        if (bus.effects.impulse_response)
+            unique.insert(bus.effects.impulse_response->clip);
+    return {unique.begin(), unique.end()};
 }
 AudioBusEffects audio_bus_effects_from_json(const nlohmann::json& value) {
     require(value.is_object(), "bus effects must be an object");
     AudioBusEffects result;
     for (const auto& [key, item] : value.items()) {
+        if (key == "impulse_response") {
+            fields(item, {"clip", "wet"});
+            AudioBusImpulse impulse;
+            require(item.contains("clip") && item.at("clip").is_string(),
+                    "Select an AudioClip for the impulse response");
+            impulse.clip = item.at("clip").get<AssetRef<AudioClipAsset>>();
+            if (item.contains("wet"))
+                impulse.wet = read_volume(item.at("wet"));
+            result.impulse_response = impulse;
+            continue;
+        }
         const auto flag = std::ranges::find_if(
             effect_flags, [&](const auto& entry) { return key == entry.first; });
         if (flag != effect_flags.end()) {
@@ -102,6 +127,9 @@ nlohmann::json audio_bus_effects_json(const AudioBusEffects& value) {
         result[name] = value.*member;
     for (const auto& parameter : effect_parameters)
         result[parameter.name] = value.*parameter.member;
+    if (value.impulse_response)
+        result["impulse_response"] = {{"clip", value.impulse_response->clip},
+                                      {"wet", value.impulse_response->wet}};
     return result;
 }
 bool valid_audio_bus_key(std::string_view key) noexcept {

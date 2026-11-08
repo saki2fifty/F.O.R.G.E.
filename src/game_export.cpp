@@ -6,6 +6,7 @@
 #include "gameplay_source_identity.hpp"
 #include "publish_directory.hpp"
 #include "standalone_manifest.hpp"
+#include <forge/game_settings.hpp>
 #include <forge/project.hpp>
 #include <fstream>
 namespace forge {
@@ -261,7 +262,10 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
         require(reference_schema.is_object(), "Invalid native reference schema");
     }
     const auto startup = settings.at("startup_scene").at("asset").get<AssetId>();
-    const std::array roots{startup};
+    std::vector<AssetId> roots{startup};
+    for (const auto ref :
+         audio_bus_impulse_assets(audio_routing_settings(settings.at("game").at("audio"))))
+        roots.push_back(ref.id);
     progress("Prepare required content metadata", 1);
     prepare_runtime_content_catalog(lease, roots, inspect, reference_schema, stop);
     const auto catalog_before = AssetCatalog::open_project(source.root()).document();

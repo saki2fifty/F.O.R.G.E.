@@ -262,8 +262,54 @@ The bus layout and effects stay fixed during Play. **Live audio mix** shows thei
 chain count and delay memory; use its existing faders to adjust the current session.
 Saving project settings makes defaults available to the next Play/export. Recovery
 rebuilds fresh effect history from saved configuration and restored faders.
-Shared effects do not provide convolution, nonlinear processors, arbitrary cyclic
-routing or physical acoustic room simulation.
+Shared effects also support an imported impulse response, described below. Nonlinear
+processors, cyclic routing and physical acoustic room simulation are unavailable.
+
+### Process a bus with an impulse response
+
+An impulse response is a short audio file used as a filter. Every source routed
+through the bus shares that response. A mono file processes both channels with
+the same response; a stereo file processes Left and Right independently.
+
+1. Import a mono or stereo response through **Content → Import files...**. In its **Audio clip** document, choose **Playback storage → resident**. The source must already be **48000 Hz**; confirm **Sample rate** in the clip details, then **Import / Reimport**. Keep the response at most two seconds long.
+2. Stop Play and open **Tools → Project Settings → Game defaults → Custom audio buses**. Create a bus if needed, then expand its **Shared effects**.
+3. Click **Add impulse response**, then choose the imported clip in **Impulse AudioClip**. A new assignment must have a clip before settings can be saved.
+4. Set **Impulse wet mix** between `0` and `1`. Zero plays the bypassed input; one plays only the filtered result. Start with `0.5` and a low source Gain.
+5. Click **Save Settings**. In the source Inspector, select that bus under **Custom Bus**, save the Scene and start Play.
+6. To change the response or wet mix permanently, stop Play, edit and save settings, then start Play again. **Remove impulse response** removes the assignment. **Reset effects** clears all shared processing for that bus.
+
+![Project Settings showing an imported impulse AudioClip and Impulse wet mix within Shared effects](../images/audio-bus-impulse-controls.png)
+
+Choose the response from project Content, then save settings before restarting Play.
+
+The impulse follows High-pass → Low-pass → Echo → Reverb, before the bus volume
+and sends. Shared pause and tail behavior applies: stopping one source preserves
+earlier shared tails, while stopping Play releases the runtime. Live faders change
+volume; they do not change the response. Settings recovery starts fresh history.
+
+The processed clip must contain resident, finite, mono or stereo PCM at 48000 Hz,
+with at most 96000 frames. A response's sum of absolute sample values must not
+exceed `64` in either channel. FORGE does not normalize responses automatically.
+Trim or lower an unsuitable response in your audio authoring tool and reimport.
+Keeping its original onset preserves the response's own timing. This supports
+independent stereo channels, without cross-channel room simulation.
+
+Each runtime allows **32 MiB** of retained impulse-processing data, including
+shared responses and separate histories for game-paused and independent sound.
+**Live audio mix** shows impulse processing memory separately from the resident
+PCM clip cache. Several long responses can exceed
+the processing budget. Shorten responses or use fewer distinct processed buses
+if preparation fails. A missing clip, streamed response, incompatible data or
+exceeded budget reports an error before required game audio starts.
+
+Open the **AudioImpulseResponses** example project to hear an original short pulse
+through a synthetic stereo response. Its camera, light, startup Scene and project
+bus settings are included; no Project Code is required. Compare saved wet mixes
+of `0` and `0.75`, restarting Play after each change. Save settings and the Scene,
+then export with the matching editor runtime kit. The response is included even
+though no Scene component directly references it; a retained zero-wet assignment
+also requires a current kit. Windows listening and export verification are listed
+in the example's README.
 
 ### Adjust the current game while it plays
 
@@ -346,8 +392,8 @@ do not provide a smoothed, sample-accurate automation envelope.
 Open **85 — Audio filters** in the Feature Gallery. Only **Dry tone** starts
 automatically. Stop it under **Live sound**, then use **Play / Restart** on either
 filtered speaker to compare the same recording. Saved filter settings also apply
-in an exported game. These are source filters. Shared bus effects, effect send/return processing and automatic
-acoustic occlusion are unavailable. See the reverb controls below for diffuse tails.
+in an exported game. These are source filters. For shared processing and sends, use custom buses above.
+Automatic acoustic occlusion is unavailable. See the reverb controls below for diffuse tails.
 
 ## Add an echo
 
@@ -400,8 +446,8 @@ Decay is a nominal effect setting rather than a physical room measurement. A
 reverb tail is retired after twice the decay plus 0.5 seconds from its observed
 clip end; pausing freezes that time. Echo followed by reverb adds their retained
 tail spans. Tails occupy the normal voice limits until retirement. This is a
-per-source effect; shared effect buses, effect send/return processing, impulse-response
-files and acoustic room simulation are unavailable.
+per-source effect. Custom buses above provide shared processing, sends and imported
+impulse responses. Acoustic room simulation is unavailable.
 
 ## Start or stop a source during Play
 

@@ -1,0 +1,113 @@
+{
+  "ecs_workers": 1,
+  "game": {
+    "application_id": "org.forge.audio-impulse-responses",
+    "audio": {
+      "dialogue_volume": 1.0,
+      "effects_volume": 1.0,
+      "master_volume": 1.0,
+      "music_volume": 1.0,
+      "routing": {
+        "buses": [
+          {
+            "effects": {
+              "echo_enabled": false,
+              "echo_feedback": 0.3499999940395355,
+              "echo_seconds": 0.25,
+              "high_pass_enabled": false,
+              "high_pass_hz": 20.0,
+              "impulse_response": {
+                "clip": "4868435a-d1ef-422c-a891-f5043b52246d",
+                "wet": 0.75
+              },
+              "low_pass_enabled": false,
+              "low_pass_hz": 20000.0,
+              "reverb_damping": 0.5,
+              "reverb_decay": 1.5,
+              "reverb_enabled": false,
+              "reverb_wet": 0.25
+            },
+            "key": "room",
+            "label": "Synthetic room",
+            "output": "effects",
+            "sends": [],
+            "volume": 0.800000011920929
+          }
+        ],
+        "version": 1
+      }
+    },
+    "display": {
+      "display": 0,
+      "height": 720,
+      "mode": "windowed",
+      "vsync": false,
+      "width": 1280
+    },
+    "input": {
+      "gamepad_sensitivity": 1.0,
+      "invert_gamepad_y": false,
+      "invert_mouse_y": false,
+      "mouse_sensitivity": 1.0,
+      "stick_deadzone": 0.15,
+      "trigger_deadzone": 0.05
+    },
+    "profile": "development",
+    "save_schema": 1,
+    "title": "FORGE Audio Impulse Responses",
+    "version": 1
+  },
+  "input": {
+    "actions": [],
+    "version": 1
+  },
+  "name": "FORGE Audio Impulse Responses",
+  "physics": {
+    "gravity": [
+      0,
+      -9.81,
+      0
+    ],
+    "layers": [
+      "Default",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "version": 1
+  },
+  "simulation_hz": 60,
+  "startup_scene": {
+    "asset": "24f30853-5bad-448a-893a-ea9d9ec1e34e",
+    "source": "Scenes/impulse-responses.scene.json"
+  },
+  "version": 2
+}

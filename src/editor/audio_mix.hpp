@@ -58,6 +58,13 @@ class AudioMixEditor {
             ui::help("Bus effects are project settings. Source controls affect their future input; "
                      "shared tails retain their own bus and game-pause domain. Bus faders follow "
                      "effects. Downstream tails may continue when an upstream bus is muted.");
+            const auto impulse_bytes = status.value("bus_impulse_buffer_bytes", std::uint64_t{});
+            if (impulse_bytes) {
+                ImGui::TextWrapped("Impulse responses: %.2f / 32 MiB processing memory",
+                                   impulse_bytes / (1024. * 1024.));
+                ui::help("Includes shared response kernels and separate pause-domain histories. "
+                         "Resident AudioClip PCM is counted in the clip cache above.");
+            }
         }
         if (status.value("stream_backing_files", 0u)) {
             ImGui::TextWrapped("Streams: %u / 8 reserved (%u preparing, %u retiring)",

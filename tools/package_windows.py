@@ -138,7 +138,7 @@ def _package(build, dependencies, output, gallery_root):
     example_files = {p.relative_to(example_root).as_posix(): p
                      for p in example_root.rglob('*')
                      if p.is_file() and 'FeatureGallery' != p.relative_to(example_root).parts[0]
-                     and p.suffix in ('.json', '.wav', '.gltf', '.glb', '.png', '.md', '.txt', '.bin', '.values', '.clip', '.ozz', '.fmesh', '.fmat', '.cpp', '.hpp', '.cmake')}
+                     and p.suffix in ('.json', '.wav', '.gltf', '.glb', '.png', '.md', '.txt', '.bin', '.values', '.clip', '.ozz', '.fmesh', '.fmat', '.fpcm', '.cpp', '.hpp', '.cmake')}
     example_files.update({'FeatureGallery/'+p.relative_to(gallery_root).as_posix(): p
                           for p in gallery_files(gallery_root)})
     # Source Markdown links follow the repository layout; the distributed manual

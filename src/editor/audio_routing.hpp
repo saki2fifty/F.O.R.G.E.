@@ -1,7 +1,9 @@
 #pragma once
 #include "editor_state.hpp"
+#include "property_drawer.hpp"
 #include "ui_probe.hpp"
 #include "widgets.hpp"
+#include <algorithm>
 #include <cmath>
 #include <forge/game_settings.hpp>
 #include <misc/cpp/imgui_stdlib.h>
@@ -11,7 +13,7 @@ namespace forge {
 // Edits only the existing Project Settings draft. The shared value owner admits it on Save.
 struct AudioRoutingEditor {
     using Json = nlohmann::json;
-    static void draw(Json& audio) {
+    static void draw(Json& audio, const AssetCatalog* catalog = nullptr) {
         const bool expanded = ImGui::TreeNode("Custom audio buses");
         FORGE_UI_PROBE("audio-routing:tree");
         if (!expanded)
@@ -39,6 +41,7 @@ struct AudioRoutingEditor {
                                       title.empty() ? "Bus" : title.c_str(), key.c_str());
                 if (!open)
                     continue;
+                push_field_width("Initial volume");
                 if (ImGui::InputText("Key", &key)) {
                     // An imported/default settings override follows this row's numeric default;
                     // source/edge identities remain explicit and are never silently rewritten.
@@ -68,7 +71,7 @@ struct AudioRoutingEditor {
                         audio["bus_volumes"].erase(key);
                 }
                 FORGE_UI_PROBE("audio-routing:volume:" + std::to_string(i));
-                effects(bus, i);
+                effects(bus, i, catalog);
                 target("Output", bus["output"], buses);
                 FORGE_UI_PROBE("audio-routing:output:" + std::to_string(i));
                 ui::help(
@@ -116,10 +119,12 @@ struct AudioRoutingEditor {
                     if (audio.contains("bus_volumes"))
                         audio["bus_volumes"].erase(key);
                     buses.erase(i);
+                    ImGui::PopItemWidth();
                     ImGui::TreePop();
                     break;
                 }
                 FORGE_UI_PROBE("audio-routing:remove:" + std::to_string(i));
+                ImGui::PopItemWidth();
                 ImGui::TreePop();
             }
             ImGui::BeginDisabled(buses.size() >= audio_custom_bus_limit);
@@ -149,14 +154,25 @@ struct AudioRoutingEditor {
     }
 
   private:
-    static void effects(Json& bus, [[maybe_unused]] std::size_t index) {
+    static void push_field_width(const char* longest_label) {
+        ImGui::PushItemWidth(
+            std::max(4 * ImGui::GetFontSize(), ImGui::GetContentRegionAvail().x -
+                                                   ImGui::CalcTextSize(longest_label).x -
+                                                   ImGui::GetStyle().ItemInnerSpacing.x));
+    }
+    static void effects(Json& bus, [[maybe_unused]] std::size_t index,
+                        const AssetCatalog* catalog) {
         const bool open = ImGui::TreeNode("Shared effects");
         FORGE_UI_PROBE("audio-routing:fx:" + std::to_string(index));
         if (!open)
             return;
+        push_field_width("High-pass cutoff (Hz)");
         try {
-            auto value = bus.contains("effects") ? audio_bus_effects_from_json(bus.at("effects"))
-                                                 : AudioBusEffects{};
+            auto ordinary = bus.value("effects", Json::object());
+            const bool has_impulse = ordinary.contains("impulse_response");
+            const auto retained_impulse = ordinary.value("impulse_response", Json());
+            ordinary.erase("impulse_response");
+            auto value = audio_bus_effects_from_json(ordinary);
             bool changed = false;
             const auto toggle = [&](const char* label, [[maybe_unused]] const char* key,
                                     bool& flag) {
@@ -187,20 +203,57 @@ struct AudioRoutingEditor {
             parameter("Reverb wet mix", "reverb-wet", value.reverb_wet, 0, 1);
             ui::help("Inactive parameters are saved too. Feedback can amplify peaks; reduce "
                      "source or bus volume as needed. Save Settings applies this complete draft.");
+            if (changed) {
+                validate_audio_bus_effects(value);
+                if (value == AudioBusEffects{} && !has_impulse)
+                    bus.erase("effects");
+                else {
+                    bus["effects"] = audio_bus_effects_json(value);
+                    if (has_impulse)
+                        bus["effects"]["impulse_response"] = retained_impulse;
+                }
+            }
+            impulse_response(bus, index, catalog);
             if (ui::button("Reset effects", "Restore bypassed defaults for this bus."))
                 bus.erase("effects");
-            else if (changed) {
-                validate_audio_bus_effects(value);
-                if (value == AudioBusEffects{})
-                    bus.erase("effects");
-                else
-                    bus["effects"] = audio_bus_effects_json(value);
-            }
             FORGE_UI_PROBE("audio-routing:fx-reset:" + std::to_string(index));
         } catch (const std::exception& error) {
             ui::field_error(error.what());
         }
+        ImGui::PopItemWidth();
         ImGui::TreePop();
+    }
+    static void impulse_response(Json& bus, [[maybe_unused]] std::size_t index,
+                                 const AssetCatalog* catalog) {
+        if (!bus.contains("effects") || !bus.at("effects").contains("impulse_response")) {
+            ImGui::BeginDisabled(!catalog);
+            if (ui::button("Add impulse response", "Choose an imported response for this bus."))
+                bus["effects"]["impulse_response"] = {{"clip", nullptr}, {"wet", 1.f}};
+            FORGE_UI_PROBE("audio-routing:impulse-add:" + std::to_string(index));
+            ImGui::EndDisabled();
+            return;
+        }
+        auto& impulse = bus["effects"]["impulse_response"];
+        if (catalog)
+            asset_ref_picker(*catalog, impulse["clip"], AudioClipAsset::type, "Impulse AudioClip",
+                             false);
+        else
+            ImGui::TextDisabled("Project Content must be ready to select the response.");
+        FORGE_UI_PROBE("audio-routing:impulse-clip:" + std::to_string(index));
+        float wet = impulse.value("wet", 1.f);
+        if (ImGui::SliderFloat("Impulse wet mix", &wet, 0, 1, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+            impulse["wet"] = wet;
+        FORGE_UI_PROBE("audio-routing:impulse-wet:" + std::to_string(index));
+        ui::help(
+            "Use a resident 48000 Hz mono or stereo AudioClip, up to two seconds. The response "
+            "follows the other shared effects. Zero wet mix bypasses it; Save Settings and "
+            "restart Play to apply changes.");
+        if (ui::button("Remove impulse response", "Remove this bus's response assignment.")) {
+            bus["effects"].erase("impulse_response");
+            if (audio_bus_effects_from_json(bus["effects"]) == AudioBusEffects{})
+                bus.erase("effects");
+        }
+        FORGE_UI_PROBE("audio-routing:impulse-remove:" + std::to_string(index));
     }
     static void target(const char* label, Json& value, const Json& buses) {
         const auto current = value.get<std::string>();

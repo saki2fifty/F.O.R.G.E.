@@ -235,6 +235,25 @@ void settings() {
 } // namespace
 int main() {
     try {
+        const auto clip = AssetId::parse("c8468b46-6d9c-4967-9ce6-4ec54e54f238");
+        auto effects =
+            audio_bus_effects_from_json({{"impulse_response", {{"clip", clip}, {"wet", .4}}}});
+        check(effects.active() && effects.impulse_response->clip.id == clip &&
+                  audio_bus_effects_from_json(audio_bus_effects_json(effects)) == effects,
+              "Impulse response configuration lost its asset, mix or roundtrip");
+        effects.impulse_response->wet = 0;
+        check(!effects.active() && audio_bus_effects_json(effects).contains("impulse_response"),
+              "Bypassed impulse lost retained authoring intent");
+        check(!audio_bus_effects_json(AudioBusEffects{}).contains("impulse_response"),
+              "Default effects acquired a new compatibility requirement");
+        for (const auto& invalid : std::vector<Json>{nullptr,
+                                                     Json::object(),
+                                                     {{"clip", nullptr}},
+                                                     {{"clip", clip}, {"wet", -1}},
+                                                     {{"clip", clip}, {"wet", true}},
+                                                     {{"clip", clip}, {"wet", 1.01}},
+                                                     {{"clip", clip}, {"extra", 0}}})
+            reject([&] { (void)audio_bus_effects_from_json({{"impulse_response", invalid}}); });
         examples();
         generated();
         settings();

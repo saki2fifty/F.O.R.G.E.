@@ -1,0 +1,95 @@
+{
+  "assets": [
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "24f30853-5bad-448a-893a-ea9d9ec1e34e",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/impulse-responses.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "4868435a-d1ef-422c-a891-f5043b52246d",
+      "metadata": {
+        "forge.audio": {
+          "channels": 2,
+          "duration": 0.5,
+          "encoding": "pcm-f32-le",
+          "format": "forge.audio-clip",
+          "frames": 24000,
+          "sample_rate": 48000,
+          "source_digest": "b14fbeaf3fa0ae504bca2335612b7917708ac5b1ed034ff5b0ebc23ade6e4d5a",
+          "source_format": "wav",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "288e8a3f54901a729b6abf4c7c41ae5b2ceb26f55dccbb40344254ac9739461d",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.audio.wav",
+          "importer_revision": "2ff1d07f040cf8c85d3d919c1c5640b066a2261462bf5c048013b8f6f6feef6c",
+          "key": "76a556d4f838e3be9283bdb54e94e931baa906a73060f006082094feca95d2e4",
+          "output_format": "forge.audio-clip",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "ebb7135533b4d9a1820cdb4443b13e4f18c3281d55a1315dfe6e234ac857200d",
+          "settings_version": 1,
+          "sidecar_digest": "4c2c058c02d259def99bdeee8118dd8635e62499f7c97a577848fc34dbf18cd2",
+          "source_digest": "b14fbeaf3fa0ae504bca2335612b7917708ac5b1ed034ff5b0ebc23ade6e4d5a",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/SyntheticRoom.wav",
+      "source_dependencies": [],
+      "type": "audio_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b3a047ed-f918-4d14-b327-7426320030ec",
+      "metadata": {
+        "forge.audio": {
+          "channels": 1,
+          "duration": 1.0,
+          "encoding": "pcm-f32-le",
+          "format": "forge.audio-clip",
+          "frames": 48000,
+          "sample_rate": 48000,
+          "source_digest": "45a9d43df634117831e491c3f7969dc72da881239e2dd6d7ec431365d03dc252",
+          "source_format": "wav",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "6ef997aeba94bcaef334928cfe413560e4ea9552c9fcc2371c3c76295e3d5731",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.audio.wav",
+          "importer_revision": "2ff1d07f040cf8c85d3d919c1c5640b066a2261462bf5c048013b8f6f6feef6c",
+          "key": "056454412a1b4fa3255db322cb43d0f72d54e474fde2ff78301104e5bd250197",
+          "output_format": "forge.audio-clip",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "ebb7135533b4d9a1820cdb4443b13e4f18c3281d55a1315dfe6e234ac857200d",
+          "settings_version": 1,
+          "sidecar_digest": "eeacd08f487cce22104248a44a0ab1533b796849e8bb7083da47da589907182c",
+          "source_digest": "45a9d43df634117831e491c3f7969dc72da881239e2dd6d7ec431365d03dc252",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Signal.wav",
+      "source_dependencies": [],
+      "type": "audio_clip"
+    }
+  ],
+  "version": 2
+}

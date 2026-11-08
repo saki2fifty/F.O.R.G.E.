@@ -4,6 +4,7 @@
 #include "audio_importer.hpp"
 #include "audio_loading_test.hpp"
 #include "audio_preview.hpp"
+#include "audio_publication_fixture.hpp"
 #include "audio_source_access.hpp"
 #include <algorithm>
 #include <cmath>
@@ -48,33 +49,6 @@ void write_tone(const std::filesystem::path& path, unsigned channels) {
             integer(std::uint16_t(std::int16_t(sample * 32767)), 2);
         }
     require(bool(out), "Cannot write streaming tone");
-}
-AssetRecord publish(const std::filesystem::path& root, std::string name, bool stream) {
-    auto original = AssetCatalog::register_audio_clip(root, "Assets/" + name + ".wav");
-    auto importer = audio_importer({});
-    AssetImportRequest request{
-        original.id, root, original.source, {"windows", "d3d12", "desktop"}, {"forge.audio.wav"}};
-    if (stream)
-        request.settings = audio_settings().edit(request.settings, "playback_storage", "stream");
-    const auto plan = importer->discover(request, {});
-    auto files = execute_audio_recipe(
-        {{{"recipe", "forge.audio.wav"},
-          {"revision", audio_recipe_revision()},
-          {"source_digest", plan.input.source_digest},
-          {"settings", request.settings}},
-         {{"source.wav", read_bytes(root / request.source, max_audio_source_bytes)}}});
-    ProjectLease lease(root);
-    AssetPublisher publisher(lease);
-    AssetPublicationCandidate candidate;
-    candidate.ticket = publisher.capture(request.asset, request.source);
-    candidate.input = plan.input;
-    candidate.sidecar.settings = request.settings;
-    candidate.sidecar.build_inputs = plan.input.document();
-    candidate.files = std::move(files);
-    prepare_audio_publication(candidate, plan);
-    return publisher.publish(std::move(candidate), *importer, [](const auto&, const auto&) {})
-        .catalog.records()
-        .at(original.id);
 }
 Json document(AssetId clip, float pitch = 1, bool loop = true, unsigned count = 1) {
     auto rows = Json::array();
@@ -536,8 +510,8 @@ int main(int argc, char** argv) {
             write_tone(root / "Assets" / (name + ".wav"), channels);
             std::filesystem::copy_file(root / "Assets" / (name + ".wav"),
                                        root / "Assets" / (name + "-resident.wav"));
-            const auto streamed = publish(root, name, true);
-            const auto resident = publish(root, name + "-resident", false);
+            const auto streamed = test::publish_audio_fixture(root, name, true);
+            const auto resident = test::publish_audio_fixture(root, name + "-resident", false);
             timed_cue(root, streamed.id, resident.id);
             repeating_cue(root, streamed.id, resident.id);
             completion_cue(root, streamed.id, resident.id);

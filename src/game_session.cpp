@@ -76,7 +76,9 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         if (physics_ready && next->engine.services().available(Capability::Audio)) {
             const auto status =
                 std::static_pointer_cast<AudioRuntime>(next->engine.services().audio())->status();
-            audio_ready = status.at("pending_sources") == 0 && status.at("failed_sources") == 0;
+            audio_ready = status.at("pending_sources") == 0 && status.at("failed_sources") == 0 &&
+                          !status.value("pending_bus_effects", false) &&
+                          status.value("bus_effect_error", std::string{}).empty();
         }
         candidate_ = std::move(next);
         candidate_initialized_ = physics_ready;

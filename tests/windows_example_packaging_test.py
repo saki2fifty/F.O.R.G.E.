@@ -72,7 +72,12 @@ class GalleryPackageTest(unittest.TestCase):
             self.write(self.source/'manual'/relative, ('# '+Path(relative).stem+'\n').encode())
         self.write(self.source/'samples/animation/two-joints.gltf', b'{}\n')
         self.write(self.source/'samples/projects/Other/main.scene.json', b'{}\n')
+        self.write(self.source/'samples/projects/Other/.forge/cache/audio/audio.fpcm',
+                   b'Cooked resident audio fixture\x00\x01')
         self.write(self.source/'samples/projects/Other/build/local.obj', b'Not example content')
+        self.impulse_example = SOURCE/'samples/projects/AudioImpulseResponses'
+        shutil.copytree(self.impulse_example,
+                        self.source/'samples/projects/AudioImpulseResponses')
 
     @staticmethod
     def write(path, data):
@@ -119,6 +124,16 @@ class GalleryPackageTest(unittest.TestCase):
             self.assertNotIn('Examples/FeatureGallery/.forge/cache/derived/cache.lock', manifest)
             self.assertFalse(any(preparer.name in name for name in archive.namelist()))
             self.assertIn('Examples/Other/main.scene.json', manifest)
+            audio = 'Examples/Other/.forge/cache/audio/audio.fpcm'
+            expected = b'Cooked resident audio fixture\x00\x01'
+            self.assertEqual(archive.read(audio), expected)
+            self.assertEqual(manifest[audio], hashlib.sha256(expected).hexdigest())
+            self.assertNotIn('Examples/Other/build/local.obj', manifest)
+            for source in self.impulse_example.rglob('*'):
+                if source.is_file():
+                    name = 'Examples/AudioImpulseResponses/'+source.relative_to(self.impulse_example).as_posix()
+                    self.assertEqual(archive.read(name), source.read_bytes())
+                    self.assertEqual(manifest[name], hashlib.sha256(source.read_bytes()).hexdigest())
 
     def test_native_preparation_failure_retains_previous_archive(self):
         self.package()

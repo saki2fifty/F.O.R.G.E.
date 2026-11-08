@@ -187,6 +187,11 @@ def map_profile_project_template(root):
 
 
 def audio_profile_project_template(root):
+    if AUDIO_ROUTING_ONLY:
+        output = root / 'Audio template'
+        shutil.copytree(Path(__file__).resolve().parents[1] /
+                        'samples/projects/AudioImpulseResponses', output)
+        return output
     source = 'Assets/AudioStreaming/PagePulse.wav' if AUDIO_STREAMING_ONLY else 'Assets/FalloffTone.wav'
     return selected_project_template(root, (source,), 'Audio template')
 
