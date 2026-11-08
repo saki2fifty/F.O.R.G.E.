@@ -869,6 +869,15 @@ these controls do not change authored values. Native output-time repetition work
 outside fixed game ticks; stalled host service skips missed periods rather than
 replaying a backlog. See [Audio](audio.md#repeating-sound-cue-events). Existing Scene creation/property commands author the complete
 bounded graph, with nested integer choices and typed source references in discovery.
+`forge_audio_playlist_create` composes 1–8 ordered registered clip references into
+an ordinary completion-timed cue and child Sources in one Scene/history transaction.
+Its `arguments` contain `clips:[{clip:"<AudioClip UUID>",name:"Opening"}]` and optional
+`name`, `gap_seconds`, `loop`, `play_on_start` and `pause_with_game`. Discovery
+derives this tool and schema directly from `audio.playlist_create`; read-only
+connections do not advertise or permit it. Echo the current target, revision and
+mutation sequence. The result's `results[0]` contains `selected` and `sources`.
+Edit the published graph/Source properties with existing tools, then save the
+Scene. The command grants no new filesystem or runtime control authority.
 Source leaves expose default-zero `delay_seconds` with native bounds0..10. Cue
 observations include `last_delay_seconds`; source observations include
 `delayed_one_shots`. Existing source Pause/Resume/Stop controls apply while voices

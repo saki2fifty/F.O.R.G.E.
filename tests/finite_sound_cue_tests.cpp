@@ -103,6 +103,33 @@ void completion_controls(const std::filesystem::path& root, AssetId clip) {
               f.audio->status().at("one_shots") == 1,
           "Cue Stop reported natural completion or took ownership of its Source voice");
 }
+void inherited_audio(const std::filesystem::path& root, AssetId clip) {
+    Fixture f(root);
+    prepare(f, clip, 1, 1);
+    const auto listener = authoring_command(f.scene, "entity.create",
+                                            {{"recipe", "audio.listener"},
+                                             {"position", {{"x", 0}, {"y", 0}, {"z", 0}}}})
+                              .at("selected")
+                              .get<std::string>();
+    auto& world = f.engine.world().world();
+    auto sound = f.scene.entity("speaker").get<AudioSource>();
+    sound.spatialized = true;
+    const auto sound_base = world.prefab().set<AudioSource>(sound);
+    const auto listener_base = world.prefab().set<AudioListener>({true});
+    auto cue = f.scene.entity("cue").get<SoundCue>();
+    cue.repeat_on_start = true;
+    const auto cue_base = world.prefab().set<SoundCue>(cue);
+    f.scene.entity("speaker").remove<AudioSource>().add(flecs::IsA, sound_base);
+    f.scene.entity(listener).remove<AudioListener>().add(flecs::IsA, listener_base);
+    f.scene.entity("cue").remove<SoundCue>().add(flecs::IsA, cue_base);
+    f.audio->synchronize(0);
+    check(f.audio->wait_for_sources(std::chrono::seconds(5)), "Inherited audio failed preparation");
+    check(f.energy() > 1e-5 && status(f).at("accepted_triggers") == 1 &&
+              !f.scene.entity("speaker").owns<AudioSource>() &&
+              !f.scene.entity(listener).owns<AudioListener>() &&
+              !f.scene.entity("cue").owns<SoundCue>(),
+          "Inherited Source/listener/cue discovery was silent or materialized authored values");
+}
 void restart_isolation(const std::filesystem::path& root, AssetId clip) {
     Fixture f(root);
     prepare(f, clip, 0, 2, true);
@@ -174,6 +201,7 @@ int main(int argc, char** argv) {
         const auto clip = AssetCatalog::register_audio_clip(root, "Assets/tone.wav");
         interval_pcm(root, clip.id);
         completion_controls(root, clip.id);
+        inherited_audio(root, clip.id);
         restart_isolation(root, clip.id);
         finishing_controls(root, clip.id);
         std::cout << "Finite cue values, ordinary PCM, overlapping completion, controls and "

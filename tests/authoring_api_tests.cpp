@@ -8,6 +8,7 @@
 #include "relationship_tests.hpp"
 #include "render_scene_tests.hpp"
 #include "render_view_tests.hpp"
+#include "sound_playlist_authoring_tests.hpp"
 #include <forge/authoring.hpp>
 #include <forge/flecs_script.hpp>
 #include <forge/geometry.hpp>
@@ -22,6 +23,11 @@ void check(bool value, const char* why) {
 }
 int main(int argc, char** argv) {
     try {
+        if (argc == 2 && std::string_view(argv[1]) == "--playlist-only") {
+            test_sound_playlist_authoring();
+            std::cout << "Playlist composition, preview, history, references and rollback passed\n";
+            return 0;
+        }
         if (argc == 3 && std::string(argv[1]) == "--script-publication") {
             std::ifstream file(argv[2]);
             const auto rejected = Json::parse(file);
@@ -47,6 +53,7 @@ int main(int argc, char** argv) {
         test_node_policy();
         test_relationship_depth();
         test_entity_recipes();
+        test_sound_playlist_authoring();
         test_primitive_compatibility();
         test_ordered_hierarchy();
         test_property_batch();
@@ -64,7 +71,13 @@ int main(int argc, char** argv) {
         };
         const auto discovery = invoke("discover");
         check(discovery.at("ok"), "Discovery failed");
-        check(discovery["result"]["commands"].size() == 30, "Command catalog incomplete");
+        const auto& commands = discovery.at("result").at("commands");
+        check(commands.size() == 31 && std::any_of(commands.begin(), commands.end(),
+                                                   [](const Json& command) {
+                                                       return command.at("id") ==
+                                                              "audio.playlist_create";
+                                                   }),
+              "Command catalog omitted playlist creation or another supported operation");
         const auto schema = discovery["result"]["schema"];
         check(schema["components"][0]["fields"][0]["property_id"] == "forge.local_translation.x",
               "Stable property identity missing");

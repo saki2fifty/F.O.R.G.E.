@@ -84,6 +84,26 @@ Discovery now includes 20 commands. `transform.position`, `transform.rotation` a
 
 `scene.read` returns authored v3 state. `entity.query` includes transient `world_affine`, `spatial_resolved` and local legacy display adapters; these rows are presentation data, not valid authored snapshots. See [transform contracts](transforms.md) for membership-scoped targets, rejection tolerances and invalidation.
 
+## Ordered sound playlist composition
+
+`audio.playlist_create` takes `clips`, an ordered array of 1–8 objects containing
+an AudioClip `clip` UUID and optional entity `name`. Optional root `name`,
+`gap_seconds` (0–3600), `loop` (false), `play_on_start` (true) and
+`pause_with_game` (true) configure the initial intent. It composes the existing
+`audio.source` and `audio.sound_cue` recipes in the private Scene draft, then
+reparents each Source beneath the cue through the existing hierarchy owner.
+Publication is one Scene transaction with the normal revision guard, rollback
+and Undo/Redo. Results contain `selected` (cue entity) and ordered `sources` IDs.
+
+The cue uses a flat Ordered root, completion timing, the supplied gap and an
+event limit equal to the clip count, or zero when looping. Sources are
+nonspatial, nonlooping and do not start separately; their game-pause policy
+matches the cue. Typed clip references and availability diagnostics use the
+normal Source recipe. No new asset, persisted playlist list or runtime scheduler
+is introduced. Subsequent edits use the existing cue and Source property
+operations. Save the Scene or capture its subtree with the existing portable
+Prefab owner. See [Audio](audio.md).
+
 ## Structured prefabs
 
 `prefab.instantiate` takes an `asset` UUID available in the bound scene's validated prefab sources. `property.revert` takes `entity`, `component`, and `field`; color/primitive scalar masks are supported. Transform channels use `component.revert`. All are scene-owned operations with revision checks and Undo/Redo. UI-independent C++ `PrefabLibrary` owns source create/duplicate/publish; remote scene capabilities do not imply filesystem publication authority. No Apply capability is exposed. See [Prefabs](prefabs.md).

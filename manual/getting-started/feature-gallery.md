@@ -1,5 +1,14 @@
 # Explore the Feature Gallery
 
+**198-ordered-sound-playlist** plays low, middle and high tones once in order from
+a reusable Prefab. Open it and press **Play → Game**.
+Select **Three-tone playlist - select for Live sound** to watch progress,
+then use **Replay run**. Stop Play,
+expand the cue's **Ordered choice** root and move its children to change the order.
+Apply and save before export. Its child Sources set the three pitches; the
+Prefab is `Assets/Audio/ThreeTonePlaylist.prefab.json`. See [Create a sound
+playlist](../editor/audio.md).
+
 **197-finite-sound-cue-runs** plays four layered/ordered/weighted events, waiting
 for each event's sounds before starting the next. Open it and press **Play →
 Game**. Select **Four layered events - select for Live sound** to watch progress

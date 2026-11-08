@@ -1,6 +1,7 @@
 #include "audio_source.hpp"
 #include "component_inspector.hpp"
 #include "project_settings.hpp"
+#include "sound_playlist.hpp"
 #include "spatial_helpers.hpp"
 #include <forge/audio_components.hpp>
 #include <forge/authoring.hpp>
@@ -59,8 +60,13 @@ void directional_guides() {
 } // namespace
 #include "audio_reverb_editor_capture.hpp"
 #include "sound_cue_editor_capture.hpp"
+#include "sound_playlist_editor_tests.hpp"
 int main(int argc, char** argv) {
     try {
+        if (argc == 3 && std::string_view(argv[1]) == "--playlist-controls") {
+            test_sound_playlist_controls(std::filesystem::absolute(argv[2]));
+            return 0;
+        }
         if (argc == 4 && std::string_view(argv[1]) == "--capture-finite-sound-cue") {
             capture_sound_cue_editor(std::filesystem::absolute(argv[2]),
                                      std::filesystem::absolute(argv[3]), true, true, true, true);

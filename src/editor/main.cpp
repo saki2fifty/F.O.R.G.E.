@@ -114,6 +114,7 @@
 #include "shortcuts.hpp"
 #include "simulation_speed_controls.hpp"
 #include "source_import.hpp"
+#include "sound_playlist.hpp"
 #include "source_workflow_automation.hpp"
 #include "spatial_helpers.hpp"
 #include "sprite_atlas_editor.hpp"
@@ -460,6 +461,7 @@ int main(int argc, char** argv) {
         forge::ComponentInspector component_inspector;
         forge::RuntimeTuningReview runtime_tuning_review;
         forge::ContentBrowser content;
+        forge::SoundPlaylistEditor sound_playlist;
         forge::ui::PhysicsOverlay physics_overlay;
         forge::ui::RuntimeDependenciesEditor runtime_dependencies;
         forge::ui::GameExportTask game_export;
@@ -2368,7 +2370,7 @@ int main(int argc, char** argv) {
             if (game_export.busy() || runtime_dependencies.busy() || play.active() ||
                 sdk_build->busy() || files.busy() || files.changed || cache_tools.busy() ||
                 source_import.busy() || content_files.busy() || scene_asset_drop.busy() ||
-                scene_tools.active() || modal.active() || blockout.active())
+                scene_tools.active() || modal.active() || blockout.active() || sound_playlist.active())
                 context.blocked =
                     "Stop Play and finish the current gesture, file, import, or cache operation.";
             context.openable = context.target && asset_editors.find(context.target->type);
@@ -2377,8 +2379,11 @@ int main(int argc, char** argv) {
                 (context.target->type == "model" || context.target->type == "mesh" ||
                  context.target->type == "tile_map" || context.target->type == "prefab");
             context.reimportable = !context.selected.empty() && selection_complete;
+            context.playlistable = selection_complete && !context.selected.empty() &&
+                                   context.selected.size() <= forge::sound_cue_child_limit;
             for (auto id : context.selected) {
                 const auto* asset = content.record(id);
+                context.playlistable &= asset && asset->type == "audio_clip";
                 if (asset && asset->subasset)
                     asset = content.record(asset->subasset->owner);
                 context.reimportable &= asset && asset->metadata.contains("forge.import");
@@ -2399,6 +2404,10 @@ int main(int argc, char** argv) {
                                        {target[0], target[1], target[2]});
             };
             handlers.cache = [&] { cache_tools.open(); };
+            handlers.playlist = [&](const auto& ids) {
+                sound_playlist.open(scene, files.document, ids,
+                                    [&](forge::AssetId id) { return content.record(id); });
+            };
             auto result = forge::ui::asset_actions(std::move(context), handlers);
             for (auto& action : result.entries) {
                 if (action.id == "asset.delete" &&
@@ -7078,6 +7087,15 @@ int main(int argc, char** argv) {
                 animation_tools.pending() || navigation_tools.pending() ||
                 script_editor.pending() || authored_components.busy() || content_files.busy());
             content_files.draw(content_imports);
+            sound_playlist.draw(
+                scene, files.document,
+                [&](forge::AssetId id) { return content.record(id); },
+                edit_locked || files.changed || cache_tools.busy() || source_import.busy() ||
+                    content_files.busy() || authored_components.busy(),
+                [&](const std::string& id) {
+                    editor.selection.select_entity(id);
+                    message = "Sound playlist created. Save Scene to keep it.";
+                });
             source_import.draw(play.active() || sdk_build->busy() || content_files.busy() ||
                                authored_components.busy() || scene_asset_drop.busy());
             script_editor.draw_source_viewer(files.document);

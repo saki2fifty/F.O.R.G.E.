@@ -7,7 +7,7 @@ Content is the project browser. It lists registered scenes, prefabs, models, mat
 Choose list or thumbnail view to browse project content.
 
 In a short panel or at high interface zoom, **Actions** contains Create / Register,
-Import files, Refresh and Source updates. Search, Filters, View and Folders stay
+Import files, Refresh, Source updates and Sound playlist. Search, Filters, View and Folders stay
 visible beside it so the results retain useful space.
 
 ## Find and edit C++ project files
@@ -46,6 +46,11 @@ Use the folder tree or **Folders** menu to choose a location. Inside **Folders**
 - Dragging sends the individual asset under the pointer. It preserves an entity Inspector for assigning that asset; it does not assign an entire multi-selection.
 
 Right-click offers **Copy AssetId** for registered assets and **Copy source path** for assets, import sources and C++ files. Generated model members show their imported display names, with the owning path in their tooltip and Inspector.
+
+Select 1–8 registered AudioClips, then choose **Sound playlist...** in the toolbar
+or **Actions**. Review their order and playback settings, then create a cue and
+child Sources in the current Scene as one Undo step. Save the Scene to keep it.
+See [Audio](audio.md) for playback, reordering and reusable Prefabs.
 
 ### Thumbnail behavior
 

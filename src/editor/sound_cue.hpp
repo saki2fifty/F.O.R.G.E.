@@ -166,6 +166,33 @@ class SoundCueEditor {
                                ("sound-cue:weight:" + std::to_string(i) + ":" + std::to_string(j))
                                    .c_str(),
                                edge["weight"]);
+                    if (node.at("kind") == 3) {
+                        const auto target = edge.at("target").get<std::uint32_t>();
+                        if (target < nodes.size() && nodes[target].at("kind") == 0)
+                            ImGui::TextWrapped(
+                                "Choice %zu: %s", j + 1,
+                                entity_ref_label(scene, nodes[target].at("source")).c_str());
+                        int direction = 0;
+                        ImGui::BeginDisabled(j == 0);
+                        if (ui::button("Move up",
+                                       "Select this branch earlier in the Ordered choice."))
+                            direction = -1;
+                        FORGE_UI_PROBE("sound-cue:up:" + std::to_string(i) + ":" +
+                                       std::to_string(j));
+                        ImGui::EndDisabled();
+                        ImGui::SameLine();
+                        ImGui::BeginDisabled(j + 1 == edges.size());
+                        if (ui::button("Move down",
+                                       "Select this branch later in the Ordered choice."))
+                            direction = 1;
+                        FORGE_UI_PROBE("sound-cue:down:" + std::to_string(i) + ":" +
+                                       std::to_string(j));
+                        ImGui::EndDisabled();
+                        if (direction) {
+                            std::swap(edges[j], edges[std::size_t(std::ptrdiff_t(j) + direction)]);
+                            break;
+                        }
+                    }
                     if (ui::button("Remove child", "Remove this edge from the detached draft.")) {
                         edges.erase(edges.begin() + std::ptrdiff_t(j));
                         break;

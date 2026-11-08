@@ -100,6 +100,9 @@ struct AudioMotion {
 } // namespace
 struct AudioRuntime::Impl {
     WorldContext& world;
+    std::optional<flecs::query<const AudioSource>> source_query;
+    std::optional<flecs::query<const AudioListener>> listener_query;
+    std::optional<flecs::query<const SoundCue>> cue_query;
     AudioConfig config;
     AudioRoutingProjection routing;
     Json routing_document;
@@ -609,6 +612,11 @@ struct AudioRuntime::Impl {
         if (stopped)
             return;
         stopped = true;
+        // Module state can outlive the native world. Release its query handles
+        // at the existing shutdown boundary, while their world is still live.
+        source_query.reset();
+        listener_query.reset();
+        cue_query.reset();
         if (engine_ready && config.output != AudioOutput::Offline)
             (void)ma_engine_stop(&engine);
         voices.clear();
@@ -892,7 +900,12 @@ struct AudioRuntime::Impl {
 
     void discover_cue_repetitions() {
         ApplicationStateActivation conditions(world);
-        world.world().each<const SoundCue>([&](flecs::entity entity, const SoundCue& cue) {
+        if (!cue_query)
+            cue_query.emplace(world.world()
+                                  .query_builder<const SoundCue>()
+                                  .cache_kind(flecs::QueryCacheNone)
+                                  .build());
+        cue_query->each([&](flecs::entity entity, const SoundCue& cue) {
             if (!cue.enabled || !cue.repeat_on_start || !conditions.active(entity.id()))
                 return;
             const auto ref = world.reference(entity.id());
@@ -1471,11 +1484,24 @@ struct AudioRuntime::Impl {
         ApplicationStateActivation conditions(world);
         world.evaluate_world_transforms();
         std::vector<flecs::entity> sources, listeners;
-        world.world().each<AudioSource>([&](flecs::entity e, AudioSource&) {
+        // The ID-table fast path sees owned components only. These read-only
+        // queries also match instance values inherited through IsA. Keep them
+        // uncached, consistent with the inherited-query teardown policy.
+        if (!source_query)
+            source_query.emplace(world.world()
+                                     .query_builder<const AudioSource>()
+                                     .cache_kind(flecs::QueryCacheNone)
+                                     .build());
+        if (!listener_query)
+            listener_query.emplace(world.world()
+                                       .query_builder<const AudioListener>()
+                                       .cache_kind(flecs::QueryCacheNone)
+                                       .build());
+        source_query->each([&](flecs::entity e, const AudioSource&) {
             if (world.reference(e.id()))
                 sources.push_back(e);
         });
-        world.world().each<AudioListener>([&](flecs::entity e, AudioListener& l) {
+        listener_query->each([&](flecs::entity e, const AudioListener& l) {
             if (l.enabled && world.reference(e.id()))
                 listeners.push_back(e);
         });

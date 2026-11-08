@@ -1383,6 +1383,8 @@ if(BUILD_TESTING)
  add_test(NAME completion_sound_cue_gallery COMMAND forge_audio_routing_gallery_tests --completion-sound-cues "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/completion-sound-cue-gallery-tests")
  set_tests_properties(completion_sound_cue_gallery PROPERTIES TIMEOUT 90)
  add_test(NAME finite_sound_cue_gallery COMMAND forge_audio_routing_gallery_tests --finite-sound-cues "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/finite-sound-cue-gallery-tests")
+ add_test(NAME sound_playlist_gallery COMMAND forge_audio_routing_gallery_tests --sound-playlist "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/sound-playlist-gallery-tests")
+ set_tests_properties(sound_playlist_gallery PROPERTIES TIMEOUT 90)
  set_tests_properties(finite_sound_cue_gallery PROPERTIES TIMEOUT 90)
  add_executable(forge_audio_preview_tests tests/audio_preview_tests.cpp)
  target_link_libraries(forge_audio_preview_tests PRIVATE forge_audio_preview)
@@ -2113,6 +2115,7 @@ if(BUILD_TESTING)
  add_executable(forge_authoring_tests tests/authoring_api_tests.cpp)
  target_link_libraries(forge_authoring_tests PRIVATE forge_authoring)
  add_test(NAME authoring_api COMMAND forge_authoring_tests)
+ add_test(NAME audio_playlist_authoring COMMAND forge_authoring_tests --playlist-only)
  # Opt-in timing harness: correctness is checked, but timings have no CTest threshold.
  add_executable(forge_authoring_batch_benchmark EXCLUDE_FROM_ALL tests/authoring_batch_benchmark.cpp)
  target_link_libraries(forge_authoring_batch_benchmark PRIVATE forge_authoring)
@@ -2503,6 +2506,11 @@ include(cmake/native_sdk_install.cmake)
 
 include(cmake/mcp_tests.cmake)
 include(cmake/physics_ui_tests.cmake)
+
+if(BUILD_TESTING AND TARGET forge_audio_editor_tests)
+ add_test(NAME sound_playlist_editor COMMAND forge_audio_editor_tests --playlist-controls "${CMAKE_BINARY_DIR}/sound-playlist-editor-tests")
+ set_tests_properties(sound_playlist_editor PROPERTIES TIMEOUT 120)
+endif()
 
 # Source-owner checks also run with the headless editor adapters.
 if(BUILD_TESTING AND TARGET imgui)

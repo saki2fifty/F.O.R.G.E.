@@ -6,7 +6,9 @@
 #include <cmath>
 #include <forge/audio.hpp>
 #include <forge/authoring.hpp>
+#include <forge/game_content.hpp>
 #include <forge/game_settings.hpp>
+#include <forge/prefab_authoring.hpp>
 #include <forge/project.hpp>
 #include <forge/runtime.hpp>
 #include <forge/sound_cue.hpp>
@@ -183,10 +185,16 @@ void verify(const std::filesystem::path& gallery, const std::filesystem::path& s
 }
 #include "audio_bus_effects_gallery_tests.hpp"
 #include "sound_cue_gallery_tests.hpp"
+#include "sound_playlist_gallery_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 4 && std::string_view(argv[1]) == "--publish-bus-effects")
+        if (argc == 4 && std::string_view(argv[1]) == "--sound-playlist")
+            verify_sound_playlist_gallery(argv[2], argv[3]);
+        else if (argc == 4 && std::string_view(argv[1]) == "--publish-sound-playlist")
+            publish_sound_playlist_gallery(std::filesystem::absolute(argv[2]),
+                                           std::filesystem::absolute(argv[3]));
+        else if (argc == 4 && std::string_view(argv[1]) == "--publish-bus-effects")
             author_bus_effects_gallery(std::filesystem::absolute(argv[3]),
                                        std::filesystem::absolute(argv[2]));
         else if (argc == 4 && std::string_view(argv[1]) == "--bus-effects")

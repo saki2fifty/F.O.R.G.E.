@@ -12,6 +12,26 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+playlist_path = 'Scenes/198-ordered-sound-playlist.scene.json'
+playlist_prefab_path = 'Assets/Audio/ThreeTonePlaylist.prefab.json'
+assert by_source[playlist_path]['type'] == 'scene'
+assert by_source[playlist_prefab_path]['type'] == 'prefab'
+playlist_scene = json.loads((project_root / playlist_path).read_text(encoding='utf-8'))
+playlist_prefab = json.loads((project_root / playlist_prefab_path).read_text(encoding='utf-8'))
+assert any(row.get('prefab_instance', {}).get('asset') == playlist_prefab['asset_id']
+           for row in playlist_scene['entities'])
+playlist_members = {row['id']: row for row in playlist_prefab['members']}
+playlist_graph = playlist_members[playlist_prefab['root']]['components']['forge.sound_cue']
+assert playlist_graph['nodes'][0]['kind'] == 3 and playlist_graph['repeat_event_limit'] == 3
+assert playlist_graph['repeat_mode'] == 1 and playlist_graph['repeat_on_start']
+assert [row['target'] for row in playlist_graph['nodes'][0]['children']] == [1, 2, 3]
+playlist_sounds = []
+for node in playlist_graph['nodes'][1:]:
+    assert node['source']['prefab'] == playlist_prefab['asset_id']
+    sound = playlist_members[node['source']['member']]['components']['forge.audio_source']
+    assert not sound['play_on_start'] and not sound['loop'] and not sound['spatialized']
+    playlist_sounds.append(sound)
+assert [sound['pitch'] for sound in playlist_sounds] == [.75, 1, 1.5]
 finite_path = 'Scenes/197-finite-sound-cue-runs.scene.json'
 assert by_source[finite_path]['type'] == 'scene'
 finite_scene = json.loads((project_root/finite_path).read_text(encoding='utf-8'))

@@ -465,6 +465,13 @@ class ContentBrowser {
                 ui::next_text_button("Source updates");
                 import_status();
             }
+            if (action_set) {
+                ui::next_text_button("Sound playlist...");
+                ImGui::BeginDisabled(locked);
+                action_set(nullptr).button("asset.playlist", "Sound playlist...");
+                FORGE_UI_PROBE("content:sound-playlist");
+                ImGui::EndDisabled();
+            }
             if (ImGui::BeginPopup("Asset operations")) {
                 code_create_menu(locked);
                 ImGui::BeginDisabled(locked);
@@ -495,7 +502,7 @@ class ContentBrowser {
             }
         };
         if (compact) {
-            if (ui::button("Actions", "Create/Register, Import files, Refresh and Source updates. "
+            if (ui::button("Actions", "Create/Register, Import files, Refresh, Source updates and Sound playlist. "
                                       "Short Content panels reserve room for asset results."))
                 ImGui::OpenPopup("content-actions");
             if (ImGui::BeginPopup("content-actions")) {
@@ -525,6 +532,7 @@ class ContentBrowser {
         view_.selection_actions = action_set ? std::function<void(bool)>([&](bool locked) {
             ImGui::BeginDisabled(locked);
             action_set(nullptr).item("asset.reimport", "Reimport selected");
+            action_set(nullptr).item("asset.playlist", "Create sound playlist...");
             ImGui::EndDisabled();
         })
                                              : std::function<void(bool)>{};

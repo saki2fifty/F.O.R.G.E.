@@ -20,6 +20,7 @@ from mcp_sequence_property_play import check_sequence_property_play
 from mcp_skeletal_sequence_play import check_skeletal_sequence_play
 from mcp_audio_routing_play import check_audio_routing_play
 from mcp_sound_cues_play import check_sound_cues_play
+from mcp_sound_playlist import check_sound_playlist
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 SEQUENCE_PROPERTIES_ONLY = sys.argv[7:] == ['--sequence-properties-only']
@@ -52,7 +53,8 @@ AUDIO_STREAMING_ONLY = sys.argv[7:] == ['--audio-streaming-only']
 AUDIO_ROUTING_ONLY = sys.argv[7:] == ['--audio-routing-only']
 FINITE_SOUND_CUES_ONLY = sys.argv[7:] == ['--finite-sound-cues-only']
 SOUND_CUES_ONLY = FINITE_SOUND_CUES_ONLY or sys.argv[7:] == ['--sound-cues-only']
-AUDIO_PAUSE_ONLY = SOUND_CUES_ONLY or AUDIO_ROUTING_ONLY or AUDIO_STREAMING_ONLY or sys.argv[7:] == ['--audio-pause-only']
+SOUND_PLAYLIST_ONLY = sys.argv[7:] == ['--sound-playlist-only']
+AUDIO_PAUSE_ONLY = SOUND_PLAYLIST_ONLY or SOUND_CUES_ONLY or AUDIO_ROUTING_ONLY or AUDIO_STREAMING_ONLY or sys.argv[7:] == ['--audio-pause-only']
 GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
 MESSAGES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--input-messages-only'
 UI_SEQUENCE_ONLY = sys.argv[7:] == ['--ui-sequence-only']
@@ -1193,6 +1195,16 @@ for legacy in (False, True):
                 assert 'forge_play_profile_control' not in visible
                 assert 'forge_play_profile_refresh' not in visible
             print(('legacy' if legacy else 'current') + ': native ECS plan through actual MCP/Play; stale generation, Stop/Clear and authored isolation verified')
+            continue
+        if SOUND_PLAYLIST_ONLY:
+            check_sound_playlist(read, ok, mutate, root, advertised, client, arguments)
+            with editor('read') as (_, restricted), Client(restricted, legacy) as reader:
+                visible = {tool['name'] for tool in reader.request('tools/list')['result']['tools']}
+                assert 'forge_audio_playlist_create' not in visible
+                denied = reader.request('tools/call', dict(name='forge_audio_playlist_create',
+                                                          arguments=dict(arguments=dict(clips=[]))))
+                assert 'error' in denied or denied['result']['isError'], denied
+            print(('legacy' if legacy else 'current') + ': playlist discovery, atomic creation/history, validation, revisions, save and read-only grants passed')
             continue
         if SOUND_CUES_ONLY:
             check_sound_cues_play(read,ok,control,mutate,until,root,discovery()['result']['schema'],advertised,

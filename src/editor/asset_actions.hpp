@@ -9,12 +9,14 @@ struct AssetActionContext {
     std::vector<AssetId> selected;
     std::string blocked, file_blocked;
     bool openable = false, reimportable = false, placeable = false;
+    bool playlistable = false;
 };
 struct AssetActionHandlers {
     std::function<void()> import_files, cache;
     std::function<void(const AssetRecord&)> open, place, collision;
     std::function<void(const std::vector<AssetId>&)> reimport;
     std::function<void(const AssetRecord&, AssetFileAction)> files;
+    std::function<void(const std::vector<AssetId>&)> playlist;
 };
 inline EditorActions asset_actions(AssetActionContext context,
                                    const AssetActionHandlers& handlers) {
@@ -49,6 +51,15 @@ inline EditorActions asset_actions(AssetActionContext context,
         "Queue the selected source owners for validation. Failed imports keep the last usable "
         "revision. Scene Undo does not undo publication.",
         [ids = context.selected, fn = handlers.reimport] {
+            if (fn)
+                fn(ids);
+        });
+    add("asset.playlist", "Assets / Create sound playlist...",
+        context.playlistable && bool(handlers.playlist),
+        context.playlistable ? "" : "Select 1 to 8 registered AudioClip assets in Content.",
+        "Review clip order, then create a Sound Cue and child Sources in the current Scene. "
+        "One scene Undo step; save the Scene or capture its root as a Prefab to reuse it.",
+        [ids = context.selected, fn = handlers.playlist] {
             if (fn)
                 fn(ids);
         });

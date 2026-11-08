@@ -1,5 +1,24 @@
 # README screenshots
 
+## Sound playlist creation
+
+[Create sound playlist](../../../manual/images/audio-playlist-create.png) shows
+an actual700×800 production dialog rendered with SDL/ImGui's software backend.
+Native pointer and keyboard events reordered two registered clips, named the
+list, entered a0.250second gap and disabled automatic startup. Controls and pixels
+are unretouched. The fixture also checks100/150/200% layouts, eight-entry scrolling,
+removal/loop/pause, stale revisions, document retirement, missing clips, Cancel,
+creation/graph Apply and atomic Undo/Redo.
+PNG SHA256: `d60943b7929596e7e0046b85a3180e9f0be56bf4187fe8f6e385473bc0db3652`.
+
+Personally reviewed local source based on876529b; exact source, executable and
+capture hashes are in
+`AgentFiles/build/phase296-ordered-sound-playlist-authoring/capture-proof.json`.
+This subsystem capture is distinct from full editor/Windows, physical input/DPI,
+physical sound, exported graphical EXE and performance acceptance. The canonical
+PNG is copied byte-for-byte from the native fixture.
+
+
 ## C++ project search
 
 [Find in Project](../../../manual/images/cpp-project-search.png) shows the actual

@@ -284,11 +284,22 @@ inline void test_asset_action_routes() {
     };
     handlers.files = [&](const auto&, auto) { calls.push_back("files"); };
     handlers.cache = [&] { calls.push_back("cache"); };
+    handlers.playlist = [&](const auto& ids) {
+        require(ids == context.selected, "Playlist action changed the selected clip identities");
+        calls.push_back("playlist");
+    };
     auto actions = ui::asset_actions(context, handlers);
     for (const auto* id : {"asset.import", "asset.open", "asset.reimport", "asset.place",
                            "asset.move", "asset.duplicate", "asset.delete", "asset.cache"})
         require(actions.invoke(id), "Available asset action failed");
     require(calls.size() == 8, "Asset action routes lost an invocation");
+    require(!actions.invoke("asset.playlist"), "Non-audio selection allowed playlist creation");
+    context.playlistable = true;
+    actions = ui::asset_actions(context, handlers);
+    require(actions.invoke("asset.playlist") && calls.back() == "playlist",
+            "Playlist action did not route through the shared registry");
+    context.playlistable = false;
+    actions = ui::asset_actions(context, handlers);
     // Exercise the real palette input route with the production asset registry.
     ImGui::CreateContext();
     ui::style(1);

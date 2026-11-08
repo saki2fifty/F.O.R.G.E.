@@ -1,5 +1,20 @@
 # Feature Gallery
 
+## Ordered sound playlist
+
+Open `Scenes/198-ordered-sound-playlist.scene.json` and press **Play → Game**.
+A reusable Prefab plays the existing original tone at low, middle and high
+pitches, once in that order. Select **Three-tone playlist - select for Live sound**
+to watch its run and use **Replay run**. Stop Play, expand the cue's **Ordered
+choice** root, move its children and **Apply sound cue** to change the order.
+Save the Scene before exporting with a matching runtime kit.
+
+`Assets/Audio/ThreeTonePlaylist.prefab.json` contains the cue and its three child
+Sources. Place another instance to reuse it, or select registered clips in
+Content and choose **Sound playlist...** to create a new list. Sources own pitch,
+volume and effects; each sound finishes before the next starts. No project C++
+module is required. See the [audio guide](../../../manual/editor/audio.md).
+
 ## Finite sound cue runs
 
 Open `Scenes/197-finite-sound-cue-runs.scene.json` and press **Play → Game**.

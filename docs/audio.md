@@ -1052,3 +1052,38 @@ cue/timing/repetition/completion profiles. Missing or zero limits retain earlier
 requirements. Rebuild C++ with matching component headers/fingerprint; C ABI1
 tables and operations are unchanged. See [ADR042](decisions/042-finite-sound-cue-runs.md).
 Finite component runs do not introduce a standalone playlist document format.
+
+## Ordered playlist authoring
+
+Content's **Sound playlist...** action accepts 1–8 selected registered AudioClips.
+The transient creation dialog copies their identities, supports reorder/removal,
+and captures project/document/Scene identity and revision. Missing or changed
+clip types, a changed target, Play/busy state or a stale revision block creation.
+Refreshing a stale revision retains the draft list; switching targets requires
+canceling and reopening. Cancel does not publish intent.
+
+Creation invokes `audio.playlist_create`, the same compound operation discovered
+by automation and MCP. It delegates Sources and cue values to the existing
+entity recipes and hierarchy operations, publishing one Undo step. The result
+is an ordinary flat Ordered SoundCue in completion mode, with child Sources,
+no separate Source autoplay and a finite count matching the list unless looping.
+There is no additional runtime component, SDK layout or asset format.
+
+After creation the cue graph and Sources are authoritative. Ordered graph child
+**Move up**/**Move down** controls exchange complete edges in the detached draft,
+preserving edge metadata. **Apply sound cue** publishes through the normal Scene
+transaction. Changing the edge count later does not implicitly change the finite
+run limit; authors adjust that existing field deliberately. Scene persistence,
+subtree duplication, portable Prefab capture/instantiation and export retain the
+same typed references and resource closure. See [authoring API](authoring-api.md).
+
+Audio synchronization and cue startup use persistent, uncached read-only native
+queries for AudioSource, AudioListener and SoundCue. They match inherited instance
+values without materializing component overrides or accepting template entities
+as persistent Sources. Active-object and reference validation retain their existing
+owners. Query creation is lazy so component registration order remains unchanged;
+uncached traversal follows the existing [inherited-query teardown policy](flecs-known-issues.md).
+The existing module shutdown boundary resets these query handles while the World
+is live; module state may remain retained after native World cleanup. The query
+correction requires updated runtime implementation, without changing component
+headers, the SDK fingerprint or serialized formats.

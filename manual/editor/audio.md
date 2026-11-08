@@ -448,6 +448,39 @@ C++ code can call the matching SDK's `audio_source` callback with
 `audio_one_shot(scene_uuid, entity_uuid)`. Use persistent scene/entity UUIDs and call during a fixed
 game tick. Rebuild project code when the installed SDK fingerprint changes.
 
+## Create a sound playlist
+
+Import and register your audio clips, then stop Play and open the target Scene.
+
+1. In **Content**, select 1 to 8 AudioClip assets. Use **Ctrl-click** to select several clips.
+2. Click **Sound playlist...** in Content's toolbar. In a short panel, open **Actions** first.
+3. Enter a **Name**. Use **Move up**, **Move down** and **Remove** to arrange the draft list.
+4. Set **Gap (seconds)** from 0 to 3600. Each sound finishes, including its source effects, before this gap and the next sound.
+5. Enable **Loop playlist** to repeat the order. Leave it off to play the list once. **Play on start** starts the cue automatically; **Pause with game** pauses its run and sounds with gameplay.
+6. Click **Create in Scene**. FORGE selects the new cue in Hierarchy; its Audio Sources are children. One Undo removes the complete creation. Save the Scene to keep it.
+7. Start Play to listen. With automatic startup disabled, select the cue and use **Live sound → Start repeating** to start its run. After it finishes, **Replay run** plays it again.
+
+![Create sound playlist dialog with two reordered clips, a quarter-second gap and gameplay pause enabled](../images/audio-playlist-create.png)
+
+Review clip order and startup settings before creating the cue in the Scene.
+
+The list is a creation draft. After creation, select its cue and use **Inspector →
+Sound Cue → Edit sound cue**. Expand the **Ordered choice** root and use **Move up**
+or **Move down** beside its children, then **Apply sound cue** and save. Edit each
+child Audio Source to change its clip, pitch, volume, bus or effects. Keep those
+Sources' own **Play On Start** off when the cue controls playback.
+
+If you add or remove children after creation, set **Events per run (0 unlimited)** to the number
+of sounds for one pass, or zero for an unlimited run. Moving children alone keeps
+the count. Capture the cue root as a [Prefab](prefabs.md) to reuse the complete
+subtree, or duplicate it in Hierarchy. Save before [exporting](runtime-content.md).
+
+Creation is unavailable during Play or conflicting operations. If the Scene
+changes while the dialog is open, review it and click **Use current Scene state**
+before creating. A project/Scene switch requires canceling and reopening the
+dialog. Missing clips must be restored or removed; **Cancel** leaves the Scene
+unchanged. Streaming clips follow the same preparation and completion rules.
+
 ## Compose event sounds
 
 A **Sound Cue** chooses or layers existing Audio Sources when an event requests a

@@ -1,0 +1,270 @@
+{
+  "asset_id": "abfc1e8a-5226-412b-9029-1e568b4adf1a",
+  "entities": [
+    {
+      "components": {
+        "forge.audio_listener": {
+          "enabled": true
+        },
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c7f17dbb-1ab2-4473-9441-efdaaea0dd97",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "06246fa5-e25e-45d3-bd10-2ed371f0881c",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.30000001192092896,
+          "z": 14.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "54030ebf-1bff-4062-8ede-eab94be9708b",
+      "name": "Floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.550000011920929,
+          "r": 0.15000000596046448
+        }
+      },
+      "id": "eb1150c0-30b4-49ec-8b9f-c3c5cf52bf91",
+      "name": "Music emitter",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.11999999731779099,
+          "g": 0.7200000286102295,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "498bca1e-997a-4718-b6ac-6bbe36299e3e",
+      "name": "Effects emitter",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.2800000011920929,
+          "g": 0.2199999988079071,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "3b7eab2b-4172-4d96-97c0-430cfb66c52e",
+      "name": "Dialogue emitter",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {},
+      "id": "7dda586f-2f2e-4e49-bfac-bf9a759426fa",
+      "name": "Three-tone playlist - select for Live sound",
+      "prefab_instance": {
+        "asset": "d91609de-c195-4f94-ad0a-96f598e9d19a",
+        "members": {
+          "280a4c9e-e6eb-48c1-9061-e330e95233a9": "fd391d61-2c3e-4e59-83ba-a82c01746778",
+          "334b0b52-7144-4002-b397-d62203d7c702": "86282d6c-0925-431e-9f03-76c6ef572bc9",
+          "5f73f3a6-0767-4073-9840-dc3e6a418b70": "af6a93ed-1acb-426d-a120-eb9ad6f9a694",
+          "63cc4b94-f052-4e61-8ca2-d9202f9dc949": "7dda586f-2f2e-4e49-bfac-bf9a759426fa"
+        },
+        "revision": 1,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "86282d6c-0925-431e-9f03-76c6ef572bc9",
+      "name": "Middle tone",
+      "parent": "7dda586f-2f2e-4e49-bfac-bf9a759426fa",
+      "prefab_member": {
+        "member": "334b0b52-7144-4002-b397-d62203d7c702",
+        "root": "7dda586f-2f2e-4e49-bfac-bf9a759426fa"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "af6a93ed-1acb-426d-a120-eb9ad6f9a694",
+      "name": "Low tone",
+      "parent": "7dda586f-2f2e-4e49-bfac-bf9a759426fa",
+      "prefab_member": {
+        "member": "5f73f3a6-0767-4073-9840-dc3e6a418b70",
+        "root": "7dda586f-2f2e-4e49-bfac-bf9a759426fa"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "fd391d61-2c3e-4e59-83ba-a82c01746778",
+      "name": "High tone",
+      "parent": "7dda586f-2f2e-4e49-bfac-bf9a759426fa",
+      "prefab_member": {
+        "member": "280a4c9e-e6eb-48c1-9061-e330e95233a9",
+        "root": "7dda586f-2f2e-4e49-bfac-bf9a759426fa"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 4
+}

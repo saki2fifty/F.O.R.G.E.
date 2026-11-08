@@ -1,0 +1,275 @@
+{
+  "asset_id": "d91609de-c195-4f94-ad0a-96f598e9d19a",
+  "format": "forge.prefab",
+  "members": [
+    {
+      "components": {
+        "forge.audio_source": {
+          "attenuation": 0,
+          "bus": 0,
+          "clip": "327101c1-e496-4293-b830-4c25b978607a",
+          "cone_enabled": false,
+          "custom_bus": "",
+          "doppler": 0.0,
+          "echo_enabled": false,
+          "echo_feedback": 0.3499999940395355,
+          "echo_seconds": 0.25,
+          "gain": 0.25,
+          "high_pass_enabled": false,
+          "high_pass_hz": 20.0,
+          "inner_angle": 60.0,
+          "loop": false,
+          "low_pass_enabled": false,
+          "low_pass_hz": 20000.0,
+          "maximum_distance": 100.0,
+          "minimum_distance": 1.0,
+          "outer_angle": 120.0,
+          "outer_gain": 0.25,
+          "pause_with_game": true,
+          "pitch": 1.0,
+          "play_on_start": false,
+          "reverb_damping": 0.5,
+          "reverb_decay": 1.5,
+          "reverb_enabled": false,
+          "reverb_wet": 0.25,
+          "rolloff": 1.0,
+          "spatialized": false
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "334b0b52-7144-4002-b397-d62203d7c702",
+      "name": "Middle tone",
+      "parent": "63cc4b94-f052-4e61-8ca2-d9202f9dc949",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.audio_source": {
+          "attenuation": 0,
+          "bus": 0,
+          "clip": "327101c1-e496-4293-b830-4c25b978607a",
+          "cone_enabled": false,
+          "custom_bus": "",
+          "doppler": 0.0,
+          "echo_enabled": false,
+          "echo_feedback": 0.3499999940395355,
+          "echo_seconds": 0.25,
+          "gain": 0.25,
+          "high_pass_enabled": false,
+          "high_pass_hz": 20.0,
+          "inner_angle": 60.0,
+          "loop": false,
+          "low_pass_enabled": false,
+          "low_pass_hz": 20000.0,
+          "maximum_distance": 100.0,
+          "minimum_distance": 1.0,
+          "outer_angle": 120.0,
+          "outer_gain": 0.25,
+          "pause_with_game": true,
+          "pitch": 0.75,
+          "play_on_start": false,
+          "reverb_damping": 0.5,
+          "reverb_decay": 1.5,
+          "reverb_enabled": false,
+          "reverb_wet": 0.25,
+          "rolloff": 1.0,
+          "spatialized": false
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5f73f3a6-0767-4073-9840-dc3e6a418b70",
+      "name": "Low tone",
+      "parent": "63cc4b94-f052-4e61-8ca2-d9202f9dc949",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.audio_source": {
+          "attenuation": 0,
+          "bus": 0,
+          "clip": "327101c1-e496-4293-b830-4c25b978607a",
+          "cone_enabled": false,
+          "custom_bus": "",
+          "doppler": 0.0,
+          "echo_enabled": false,
+          "echo_feedback": 0.3499999940395355,
+          "echo_seconds": 0.25,
+          "gain": 0.25,
+          "high_pass_enabled": false,
+          "high_pass_hz": 20.0,
+          "inner_angle": 60.0,
+          "loop": false,
+          "low_pass_enabled": false,
+          "low_pass_hz": 20000.0,
+          "maximum_distance": 100.0,
+          "minimum_distance": 1.0,
+          "outer_angle": 120.0,
+          "outer_gain": 0.25,
+          "pause_with_game": true,
+          "pitch": 1.5,
+          "play_on_start": false,
+          "reverb_damping": 0.5,
+          "reverb_decay": 1.5,
+          "reverb_enabled": false,
+          "reverb_wet": 0.25,
+          "rolloff": 1.0,
+          "spatialized": false
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "280a4c9e-e6eb-48c1-9061-e330e95233a9",
+      "name": "High tone",
+      "parent": "63cc4b94-f052-4e61-8ca2-d9202f9dc949",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sound_cue": {
+          "enabled": true,
+          "nodes": [
+            {
+              "children": [
+                {
+                  "target": 1,
+                  "weight": 1
+                },
+                {
+                  "target": 2,
+                  "weight": 1
+                },
+                {
+                  "target": 3,
+                  "weight": 1
+                }
+              ],
+              "delay_seconds": 0.0,
+              "kind": 3,
+              "source": null
+            },
+            {
+              "children": [],
+              "delay_seconds": 0.0,
+              "kind": 0,
+              "source": {
+                "member": "5f73f3a6-0767-4073-9840-dc3e6a418b70",
+                "prefab": "d91609de-c195-4f94-ad0a-96f598e9d19a"
+              }
+            },
+            {
+              "children": [],
+              "delay_seconds": 0.0,
+              "kind": 0,
+              "source": {
+                "member": "334b0b52-7144-4002-b397-d62203d7c702",
+                "prefab": "d91609de-c195-4f94-ad0a-96f598e9d19a"
+              }
+            },
+            {
+              "children": [],
+              "delay_seconds": 0.0,
+              "kind": 0,
+              "source": {
+                "member": "280a4c9e-e6eb-48c1-9061-e330e95233a9",
+                "prefab": "d91609de-c195-4f94-ad0a-96f598e9d19a"
+              }
+            }
+          ],
+          "repeat_event_limit": 3,
+          "repeat_interval_seconds": 0.0,
+          "repeat_mode": 1,
+          "repeat_on_start": true,
+          "repeat_pause_with_game": true,
+          "root": 0,
+          "seed": 1
+        }
+      },
+      "id": "63cc4b94-f052-4e61-8ca2-d9202f9dc949",
+      "name": "Three-tone playlist - select for Live sound",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "revision": 1,
+  "root": "63cc4b94-f052-4e61-8ca2-d9202f9dc949",
+  "version": 3
+}

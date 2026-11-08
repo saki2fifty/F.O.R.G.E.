@@ -12,6 +12,7 @@
 #include <forge/entity_recipes.hpp>
 #include <forge/geometry.hpp>
 #include <forge/scene_render_settings.hpp>
+#include <forge/sound_cue.hpp>
 #include <limits>
 #include <set>
 namespace forge {
@@ -241,6 +242,42 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         result["affected"] =
             detail::edit_model_material_variant(doc, scene.effective_document(), id, variant);
         scene.edit(doc);
+    } else if (op == "audio.playlist_create") {
+        SoundCue cue;
+        cue.nodes.push_back({3, {}, {}});
+        cue.repeat_mode = 1;
+        cue.repeat_interval_seconds = a.value("gap_seconds", 0.);
+        cue.repeat_on_start = a.value("play_on_start", true);
+        cue.repeat_pause_with_game = a.value("pause_with_game", true);
+        const auto& clips = a.at("clips");
+        cue.repeat_event_limit = a.value("loop", false) ? 0u : std::uint32_t(clips.size());
+        Json sources = Json::array();
+        for (const auto& clip : clips) {
+            const auto created = execute(
+                scene, "entity.create",
+                {{"recipe", "audio.source"},
+                 {"name", clip.value("name", "Track " + std::to_string(sources.size() + 1))},
+                 {"position", {{"x", 0}, {"y", 0}, {"z", 0}}},
+                 {"component_values",
+                  {{"clip", clip.at("clip")},
+                   {"play_on_start", false},
+                   {"loop", false},
+                   {"spatialized", false},
+                   {"pause_with_game", cue.repeat_pause_with_game}}}});
+            const auto source = created.at("selected").get<std::string>();
+            cue.nodes[0].children.push_back({std::uint32_t(cue.nodes.size()), 1});
+            cue.nodes.push_back(
+                {0, {scene.document().at("asset_id").get<AssetId>(), EntityId::parse(source)}, {}});
+            sources.push_back(source);
+        }
+        const auto created = execute(scene, "entity.create",
+                                     {{"recipe", "audio.sound_cue"},
+                                      {"name", a.value("name", std::string("Sound playlist"))},
+                                      {"component_values", sound_cue_json(cue)}});
+        result["selected"] = created.at("selected");
+        result["sources"] = sources;
+        for (const auto& source : sources)
+            scene.reparent_entity(source, result.at("selected"), ReparentMode::KeepLocal);
     } else if (op == "scene.rendering.set") {
         auto doc = scene.document();
         auto& rendering = doc["rendering"];
@@ -697,6 +734,22 @@ Json authoring_commands() {
          {"component_values", Json::object()},
          {"position", xyz()}},
         Json::array());
+    add("audio.playlist_create", "Create sound playlist",
+        "Create an Ordered Sound Cue with 1 to 8 ordinary Audio Sources beneath it in one Undo "
+        "step. Clips use the existing AudioClip references and resource diagnostics. Plays once "
+        "by default; loop repeats the order. Sources are nonspatial and do not start separately. "
+        "Save the Scene or capture the root as a portable Prefab.",
+        {{"clips",
+          {{"type", "array"},
+           {"minItems", 1},
+           {"maxItems", sound_cue_child_limit},
+           {"items", object({{"clip", text_type()}, {"name", text_type()}}, {"clip"})}}},
+         {"name", text_type()},
+         {"gap_seconds", number(0, sound_cue_repeat_max_seconds)},
+         {"loop", {{"type", "boolean"}, {"default", false}}},
+         {"play_on_start", {{"type", "boolean"}, {"default", true}}},
+         {"pause_with_game", {{"type", "boolean"}, {"default", true}}}},
+        {"clips"});
     auto named = entity_arg;
     named["name"] = text_type();
     add("entity.rename", "Rename entity", "Rename without changing stable identity.", named,

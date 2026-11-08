@@ -13602,6 +13602,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "abfc1e8a-5226-412b-9029-1e568b4adf1a",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Scenes/198-ordered-sound-playlist.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "ac0f7797-6699-455b-9431-bc07eb513c2f",
       "metadata": {
         "forge.import": {
@@ -16439,6 +16449,16 @@
       "source": "Assets/Bloom/CoolGlow.material.json",
       "source_dependencies": [],
       "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d91609de-c195-4f94-ad0a-96f598e9d19a",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Assets/Audio/ThreeTonePlaylist.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
     },
     {
       "dependencies": [],
