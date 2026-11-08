@@ -44,6 +44,50 @@ Use **Add corner** twice to reach six rows, then choose **Create**.
 
 The outline is divided into ordinary editable triangle faces when created.
 
+### Create circles, ellipses and rings
+
+Choose **Flat ellipse / ring (XY)**. Set positive **Radius X** and **Radius Y**;
+equal radii make a circle. Each radius is half the shape's full size on that axis.
+Set **Segments** from 8 to 64 to control the straight-sided approximation.
+
+Leave **Opening scale** at zero for a filled shape. A value between zero and one
+creates a centered opening with both radii multiplied by that value. For a ring,
+Segments must be at most 32. Together the loops contain at most 64 vertices.
+For example, radii `(2,1)`, Segments `32` and Opening scale `0.5` make an oval
+ring with outer size `4×2` and inner size `2×1`.
+
+![New editable Mesh dialog with ellipse radii, segment count and proportional opening controls](../images/ellipse-mesh-create.png)
+
+Increase Segments for a smoother edge. An unsupported count, invalid radius or
+very small/thin geometry shows an error and keeps the construction draft.
+
+### Create a cubic outline
+
+Choose **Curved outline (XY)**. The initial four-knot outline is round. Choose a
+**Knot**, then edit its **Anchor**, **Incoming offset** and **Outgoing offset** as
+X/Y pairs. Offsets are relative to the anchor: moving the anchor also moves its
+handles. The outgoing handle bends toward the next knot; the incoming handle
+controls the approach from the previous knot. The last knot connects to the first.
+
+Use **Add knot** and **Remove knot** to keep 3 to 16 distinct anchors in boundary
+order. Zero offsets make a straight segment. Set a positive **Curve tolerance**
+in the Mesh's own units. Smaller values produce a closer approximation and may
+need more vertices. The whole outline is limited to 64 sampled vertices and a
+bounded subdivision depth. If the requested quality cannot fit, increase the
+tolerance or simplify the outline, then choose Create again. The draft stays open
+and no file is written on rejection.
+
+![New editable Mesh dialog with a selected cubic knot, anchor and relative handle offsets](../images/curved-mesh-create.png)
+
+The generated polygon must have a simple, noncrossing boundary and valid Mesh
+faces. Boundary validation applies to the sampled polygon; continuous-curve
+intersection analysis is outside this construction profile.
+
+Choose **Create**, then **Save & Publish**. Curved shapes become ordinary editable
+triangle faces. The construction radii, knots and tolerance are not retained as
+live settings. Use the Model/UV tools to edit the result, or create another source
+when you need different construction controls. UVs span the generated bounds.
+
 ### Create openings inside a flat Mesh
 
 Choose **Outline with holes (XY)**. Use **Loop → Outer boundary** to edit the
@@ -102,11 +146,20 @@ Save & Publish Mesh edits and save the Scene separately before export.
 
 The openings use ordinary Mesh geometry and remain open in the exported game.
 
+Gallery **204-curved-planar-meshes** contains an ellipse, circle ring and cubic
+rounded triangle. Open the Scene and press **Play → Game**. Stop Play to edit its
+Mesh sources under `Assets/Planar`; Save & Publish edits and save the Scene before
+export.
+
+![Game view of a sampled ellipse, circle ring and cubic rounded triangle](../images/curved-mesh-game.png)
+
+The exported game uses the same cooked triangle geometry.
+
 After creation, use the existing Model and UV tools below. A flat shape is an
 ordinary Mesh: it can be transformed, triangulated or extruded. Its start shape
 is not a separate persistent setting. A triangulated outline becomes ordinary
-vertices and faces; its original contour is not a live setting. Hole profiles
-also become ordinary triangles. Curves and automatic polygon repair are unavailable.
+vertices and faces; its original contour is not a live setting. Hole and curved construction
+profiles also become ordinary triangles. Automatic polygon repair is unavailable.
 
 ## Shape the Mesh
 

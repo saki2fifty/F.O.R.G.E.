@@ -4,13 +4,13 @@ import math
 import time
 
 
-def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declared):
+def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declared, *, curved_only=False):
     owner = 'editable_mesh'
     schemas = {tool['name']: tool['inputSchema']['properties'] for tool in declared}
     for name in ('forge_asset_document_template', 'forge_asset_document_create'):
         properties = schemas[name]
         assert properties['mesh_profile']['enum'] == [
-            'cube', 'sculpt_sphere', 'planar_quad', 'planar_polygon', 'planar_outline', 'planar_holes']
+            'cube', 'sculpt_sphere', 'planar_quad', 'planar_polygon', 'planar_outline', 'planar_holes', 'planar_ellipse', 'planar_curve']
         assert properties['outline']['minItems'] == 3 and properties['outline']['maxItems'] == 16
         assert properties['holes']['minItems'] == 1 and properties['holes']['maxItems'] == 3
         assert properties['holes']['items'] == properties['outline']
@@ -55,6 +55,24 @@ def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declar
             assert t > 0
             area += t / 2
         assert area == 15
+    k = 4 * (math.sqrt(2) - 1) / 3
+    knots = [dict(point=[1, 0], incoming=[0, -k], outgoing=[0, k]),
+             dict(point=[0, 1], incoming=[k, 0], outgoing=[-k, 0]),
+             dict(point=[-1, 0], incoming=[0, k], outgoing=[0, -k]),
+             dict(point=[0, -1], incoming=[-k, 0], outgoing=[k, 0])]
+    if curved_only:
+        for profile, options, vertices in [
+                ('planar_ellipse', dict(ellipse_radii=[2, 1], ellipse_segments=24), 24),
+                ('planar_ellipse', dict(ellipse_radii=[2, 1], ellipse_segments=24,
+                                        ellipse_opening_scale=.5), 48),
+                ('planar_curve', dict(curve_knots=knots, curve_tolerance=.01), None)]:
+            preview = read('forge_asset_document_template', editor=owner,
+                           mesh_profile=profile, **options)
+            assert preview['version'] == 1 and all(len(f['corners']) == 3 for f in preview['faces'])
+            assert 3 <= len(preview['vertices']) <= 64
+            if vertices is not None:
+                assert len(preview['vertices']) == vertices
+            assert 'curve_knots' not in preview and 'ellipse_radii' not in preview
     invalid = [dict(mesh_profile='unknown'), dict(mesh_profile='planar_quad', mesh_size=[0, 1]),
                dict(mesh_profile='planar_polygon'), dict(mesh_profile='planar_polygon', outline=[]),
                dict(mesh_profile='cube', outline=[[0, 0], [1, 0], [0, 1]]),
@@ -73,6 +91,18 @@ def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declar
                      holes=[[[1.5, 1.5], [3, 1.5], [3, 3], [1.5, 3]]]),
                 dict(mesh_profile='planar_outline', outline=frame, holes=[opening]),
                 dict(mesh_profile='cube', holes=[opening])]
+    if curved_only:
+        invalid = [dict(mesh_profile='planar_ellipse', ellipse_radii=[0, 1]),
+                   dict(mesh_profile='planar_ellipse', ellipse_radii=[-1, 1]),
+                   dict(mesh_profile='planar_ellipse', ellipse_segments=7),
+                   dict(mesh_profile='planar_ellipse', ellipse_segments=64, ellipse_opening_scale=.5),
+                   dict(mesh_profile='planar_ellipse', ellipse_opening_scale=1),
+                   dict(mesh_profile='planar_curve'),
+                   dict(mesh_profile='planar_curve', curve_knots=knots, curve_tolerance=0),
+                   dict(mesh_profile='planar_curve', curve_knots=knots, curve_tolerance=1e-8),
+                   dict(mesh_profile='planar_curve', curve_knots=knots[:2]),
+                   dict(mesh_profile='cube', curve_knots=knots),
+                   dict(mesh_profile='planar_curve', curve_knots=knots, ellipse_segments=32)]
     for options in invalid:
         result = mutate('forge_asset_document_create', editor=owner, path='Assets/Rejected.mesh.json', **options)
         assert not result['ok'] and not (root / 'Game/Assets/Rejected.mesh.json').exists(), result
@@ -96,14 +126,19 @@ def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declar
         record = next(row for row in records if row['id'] == current['asset'])
         assert record['type'] == 'mesh' and record['metadata']['forge.import']
 
-    for index, (profile, options) in enumerate([
+    cases = [
             ('planar_polygon', dict(outline=[[-1, -1], [1, -1], [1, 1], [-1, 1]])),
             ('planar_quad', dict(mesh_size=[4, 2])),
             ('planar_outline', dict(outline=concave)),
             ('planar_outline', dict(outline=list(reversed(concave)))),
-            ('planar_holes', dict(outline=frame, holes=[opening]))]):
+            ('planar_holes', dict(outline=frame, holes=[opening]))]
+    if curved_only:
+        cases = [('planar_ellipse', dict(ellipse_radii=[2, 1], ellipse_segments=24)),
+                 ('planar_ellipse', dict(ellipse_radii=[2, 1], ellipse_segments=24, ellipse_opening_scale=.5)),
+                 ('planar_curve', dict(curve_knots=knots, curve_tolerance=.01))]
+    for index, (profile, options) in enumerate(cases):
         suffix = '-clockwise' if index == 3 else ''
-        path = f'Assets/{profile}{suffix}.mesh.json'
+        path = f'Assets/{profile}{suffix}-{index}.mesh.json'
         result = mutate('forge_asset_document_create', editor=owner, path=path,
                         mesh_profile=profile, **options)
         assert result['ok'], result
@@ -111,10 +146,11 @@ def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declar
         assert baseline['asset_id'] != quad['asset_id'] and baseline['version'] == 1
         old = status(owner)
         result = edit('forge_asset_document_patch', owner,
-                      patch=[dict(op='replace', path='/vertices/3/position/1', value=2.5)])
+                      patch=[dict(op='replace', path=f'/vertices/{i}/position/2', value=1)
+                             for i in range(len(baseline['vertices']))])
         assert result['ok'], result
         changed = content(owner)
-        assert changed['vertices'][3]['position'][1] == 2.5
+        assert all(v['position'][2] == 1 for v in changed['vertices'])
         assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == baseline
         assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == changed
         rejected = mutate('forge_asset_document_patch', editor=owner,

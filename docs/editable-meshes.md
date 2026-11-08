@@ -31,6 +31,27 @@ winding normalization never renumbers them. The shared flat-source constructor
 creates ordinary triangle faces, +Z fronts and global bounds UVs. No contour/hole
 recipe, source version, runtime component or separate geometry owner is added.
 
+`create_planar_ellipse(asset, radii, segments=32, opening_scale=0)` samples a
+centered ellipse with positive radii and 8–64 segments. Equal radii make a circle.
+An opening scale strictly between 0 and 1 makes a proportional ring, limited to 32
+segments/64 total vertices. Rings have known cyclic sector connectivity: two +Z
+triangles per sector share the existing flat-source construction/UV/ID owner.
+They do not require arbitrary-contour bridge decomposition.
+
+`create_planar_curve` takes 3–16 `MeshCurveKnot` values: anchor point plus relative
+incoming/outgoing control offsets. Each closed cubic segment uses its starting
+outgoing control and ending incoming control. Positive local-space chord tolerance
+(default .01) drives midpoint subdivision. A chord capsule containing both interior
+controls bounds the cubic convex combinations by that distance. Admission caps
+subdivision depth 16 and generated vertices 64 (excluding the transient closing
+copy); unmet quality rejects. Only duplicate/redundant samples on the same line
+are removed. The sampled contour uses the existing simple-polygon validator and
+triangulator with its 64-point capacity; the old explicit outline wrapper keeps 16.
+Tolerance admission uses source-space double precision; cooking retains the
+existing float32 MeshData position precision.
+Continuous curve-intersection guarantees and retained curve recipes are outside
+this construction profile. Ordinary face tolerances remain authoritative.
+
 The common face validator requires all other corners strictly inside each
 oriented edge, alongside existing planarity and area tolerances. Testing only
 adjacent turns would admit self-crossing star boundaries. The bounded pairwise
@@ -39,7 +60,8 @@ not admit concave boundaries, holes or curves. Existing valid convex sources and
 their cooked format remain unchanged.
 
 Content's New editable Mesh modal exposes Flat quad (XY) dimensions and Flat
-polygon (XY) / Triangulated outline (XY) / Outline with holes (XY) corner rows through those factories. Its transient draft captures
+polygon (XY), Triangulated outline (XY), Outline with holes (XY), Flat ellipse /
+ring (XY) and Curved outline (XY) controls through those factories. Its transient draft captures
 the owning project and document generation; locked/stale creation is disabled,
 failed validation retains the draft, and cancellation creates no files. The
 existing source document, history, publication and Mesh Renderer own subsequent
@@ -47,13 +69,22 @@ edits and placement. Unlit Materials and an orthographic Camera complete a flat
 Scene; sidedness is ordinary Material state.
 
 `asset.document.template/create` accepts `mesh_profile`: `cube` (default),
-`sculpt_sphere`, `planar_quad`, `planar_polygon`, `planar_outline` or `planar_holes`. Quad-only `mesh_size` is
+`sculpt_sphere`, `planar_quad`, `planar_polygon`, `planar_outline`, `planar_holes`, `planar_ellipse` or `planar_curve`. Quad-only `mesh_size` is
 `[width,height]`, default `[1,1]`; polygon/outline creation requires `outline`, containing
 3–16 XY pairs. `planar_holes` additionally requires `holes`, an array of 1–3 loops
 with the same point limits. Native hole creation uses Loop to select Outer boundary
 or an interior Hole, with Add hole/Remove hole and shared corner controls. Other
 editors and Open reject these creation options. MCP derives
 the same schemas and dispatch through the existing Source workflow registry.
+
+Ellipse creation accepts `ellipse_radii`, `ellipse_segments` and
+`ellipse_opening_scale`. Cubic creation requires `curve_knots` with `point` and
+optional zero-default `incoming`/`outgoing` offsets, plus optional
+`curve_tolerance`. The shared creation-option guard rejects these options on
+other editors and Open. Generated source stores only ordinary Mesh geometry;
+construction input is transient. Gallery204's ideal ellipse/ring and independent
+dense Bernstein silhouette oracles cover actual software Game and relocated
+source-hidden export alongside legacy factory source intent.
 
 Gallery199 and the production FrameRenderer software-Vulkan probe cover a quad,
 five-corner outline and clockwise-input triangle with an Unlit checker Material.
@@ -65,7 +96,7 @@ These checks and native input fixtures are not Windows or physical GPU acceptanc
 
 `.mesh.json` is a version-1 `forge.editable-mesh` document with one persistent Mesh `asset_id`, `next_id`, `vertices` with stable IDs, XYZ positions and optional RGBA colors, and `faces` with stable IDs and ordered corners. Each corner names a vertex ID and owns a two-component UV. The source is authored data; it is not loaded by gameplay. Unknown versions reject explicitly; there is no implicit conversion of imported Model subassets.
 
-`AssetSourceDocument` owns candidate-before-commit edits, a revision check, source save and independent Undo/Redo. Its checkpoints are bounded to 64 entries and 8 MiB per history direction; source JSON is capped at 2 MiB,500,000 parser events and depth16. The event budget admits the supported maximum-vertex/corner profile; byte/depth limits remain unchanged. A tool changes one candidate, validates it, then creates one history entry. Element IDs are never reused. The existing source-document identity hooks preserve the `next_id` high water through Undo/Redo, new history branches and save/reopen, and reject edits that lower it or allocate a new element below it. Undo restores geometry but can leave the source dirty because reserved IDs must be saved. Extrusion replaces the selected face with a new cap ID and new side-wall IDs; the editor selects the cap. A rejected edit changes neither source nor history. This small source format avoids a second asset/scene ownership system.
+`AssetSourceDocument` owns candidate-before-commit edits, a revision check, source save and independent Undo/Redo. Its checkpoints are bounded to 64 entries and 8 MiB per history direction; source JSON is capped at 2 MiB,500,000 parser events and depth 16. The event budget admits the supported maximum-vertex/corner profile; byte/depth limits remain unchanged. A tool changes one candidate, validates it, then creates one history entry. Element IDs are never reused. The existing source-document identity hooks preserve the `next_id` high water through Undo/Redo, new history branches and save/reopen, and reject edits that lower it or allocate a new element below it. Undo restores geometry but can leave the source dirty because reserved IDs must be saved. Extrusion replaces the selected face with a new cap ID and new side-wall IDs; the editor selects the cap. A rejected edit changes neither source nor history. This small source format avoids a second asset/scene ownership system.
 
 Validation admits at most 4,096 vertices, 4,096 faces and 16,384 face corners; each face has 3–16 strictly convex, planar corners. Vertices referenced by a face must exist and be unique within it; shared edges may have at most two uses with opposite winding. Coordinates must be finite and within the source bounds. These checks are the supported first modeling slice, not a general polygon repair or automatic unwrap system.
 

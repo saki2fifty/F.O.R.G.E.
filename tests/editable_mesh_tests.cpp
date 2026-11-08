@@ -23,6 +23,7 @@ template <class F> void rejects(F fn) {
 #include "editable_mesh_facing_tests.hpp"
 #include "editable_mesh_planar_tests.hpp"
 #include "editable_mesh_holes_tests.hpp"
+#include "editable_mesh_curved_tests.hpp"
 #include "editable_mesh_refinement_tests.hpp"
 #include "editable_mesh_shading_tests.hpp"
 #include "editable_mesh_topology_cleanup_tests.hpp"
@@ -36,6 +37,7 @@ int main() {
         planar_mesh_tests();
         planar_outline_tests();
         planar_holes_tests();
+        curved_planar_mesh_tests();
         refinement_tests();
         mesh_inset_tests();
         const auto identity = AssetId::generate();

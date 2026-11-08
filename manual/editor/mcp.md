@@ -525,10 +525,34 @@ and nonnested. Create the source with `forge_asset_document_create` and a new pr
 `.mesh.json` path. Use the existing source read/patch/Undo/Redo and Save tools.
 Creation options do not apply to Open or other editors.
 
+For circles, ellipses and rings, use `mesh_profile: "planar_ellipse"` with positive
+`ellipse_radii: [rx,ry]` (default `[1,1]`), `ellipse_segments` from 8 to 64 (default 32),
+and `ellipse_opening_scale` from zero to below one (default zero). Positive opening
+scale creates a proportional ring and permits at most 32 segments.
+
+For a closed cubic outline, use `mesh_profile: "planar_curve"` and `curve_knots`
+containing 3–16 objects with `point: [x,y]` and optional `incoming`/`outgoing` XY
+offsets from that anchor. Omitted offsets are zero. Positive `curve_tolerance`
+(default 0.01) controls approximation in local units. A 64-vertex/depth budget or
+invalid sampled boundary rejects without creating a file. For example:
+
+```json
+{"editor":"editable_mesh","mesh_profile":"planar_curve","curve_tolerance":0.01,
+ "curve_knots":[
+  {"point":[1,0],"incoming":[0,-0.5523],"outgoing":[0,0.5523]},
+  {"point":[0,1],"incoming":[0.5523,0],"outgoing":[-0.5523,0]},
+  {"point":[-1,0],"incoming":[0,0.5523],"outgoing":[0,-0.5523]},
+  {"point":[0,-1],"incoming":[-0.5523,0],"outgoing":[0.5523,0]}]}
+```
+
+Use that object with the template tool to inspect a preview. Add a new `.mesh.json`
+`path` for Create, then use the same read/patch/history/save tools. The generated
+source contains triangle geometry; curve controls are not live source settings.
+
 Publish the Mesh, assign it to a Mesh Renderer, and assign an Unlit Material.
 Use a game Camera facing the XY plane with orthographic projection; enable
 Two-sided on the Material when viewing its back. Save the Scene before export.
-The shapes use the ordinary Mesh source and renderer. Curves are unavailable. See [Create a flat 2D Mesh](editable-meshes.md).
+The shapes use the ordinary Mesh source and renderer. See [Create a flat 2D Mesh](editable-meshes.md).
 
 ## Place foliage on a Mesh surface
 

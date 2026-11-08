@@ -40,14 +40,25 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
          {"flags", automation_integer(0, UINT32_MAX)}},
         {"layer", "x", "y"});
     const Json channel{{"type", "number"}, {"minimum", 0}, {"maximum", 1}};
-    const Json mesh_profile{
-        {"type", "string"},
-        {"enum", {"cube", "sculpt_sphere", "planar_quad", "planar_polygon", "planar_outline", "planar_holes"}}};
+    const Json mesh_profile{{"type", "string"},
+                            {"enum",
+                             {"cube", "sculpt_sphere", "planar_quad", "planar_polygon",
+                              "planar_outline", "planar_holes", "planar_ellipse", "planar_curve"}}};
     const auto mesh_size =
         automation_array(Json{{"type", "number"}, {"minimum", 0}, {"maximum", 200000}}, 2, 2);
     const auto mesh_outline = automation_array(
         automation_array(Json{{"type", "number"}, {"minimum", -100000}, {"maximum", 100000}}, 2, 2),
         16, 3);
+    const auto mesh_point =
+        automation_array(Json{{"type", "number"}, {"minimum", -100000}, {"maximum", 100000}}, 2, 2);
+    const auto mesh_radii = automation_array(
+        Json{{"type", "number"}, {"exclusiveMinimum", 0}, {"maximum", 100000}}, 2, 2);
+    const auto mesh_curve = automation_array(
+        automation_object(
+            {{"point", mesh_point}, {"incoming", mesh_point}, {"outgoing", mesh_point}}, {"point"}),
+        16, 3);
+    const Json ellipse_opening{{"type", "number"}, {"minimum", 0}, {"exclusiveMaximum", 1}};
+    const Json curve_tolerance{{"type", "number"}, {"exclusiveMinimum", 0}, {"maximum", 100000}};
     const auto rgba = automation_array(automation_integer(0, 255), 4, 4);
     const auto canvas =
         automation_object({{"width", automation_integer(1, paint_texture_dimension_limit)},
@@ -519,7 +530,13 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         "concave-capable outline, or planar_holes with an outline and 1 to 3 holes. Each loop "
         "needs 3 to 16 XY points in either winding, without crossing/touching edges or adjacent "
         "collinear corners. Holes must be strictly interior, disjoint and nonnested. Outline/hole "
-        "profiles create ordinary triangle faces. Flat meshes face +Z and use bounds UVs.",
+        "profiles create ordinary triangle faces. planar_ellipse takes positive ellipse_radii "
+        "[rx,ry] (default [1,1]), ellipse_segments 8..64 (default 32), and ellipse_opening_scale 0..<1 "
+        "(default 0); rings allow at most 32 segments/64 vertices. planar_curve requires 3..16 "
+        "curve_knots with point and optional incoming/outgoing XY offsets (default zero), plus "
+        "positive curve_tolerance (default .01). Unmet tolerance/64-vertex/depth budgets reject. "
+        "Curves become ordinary sampled triangles, not persistent control points. "
+        "Flat meshes face +Z and use bounds UVs.",
         "asset.read",
         automation_object(
             {{"editor", editor_schema},
@@ -530,6 +547,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
              {"mesh_size", mesh_size},
              {"outline", mesh_outline},
              {"holes", automation_array(mesh_outline, 3, 1)},
+             {"ellipse_radii", mesh_radii},
+             {"ellipse_segments", automation_integer(8, 64)},
+             {"ellipse_opening_scale", ellipse_opening},
+             {"curve_knots", mesh_curve},
+             {"curve_tolerance", curve_tolerance},
              {"textures", automation_array(automation_uuid(), 512, 1)},
              {"canvas", canvas}},
             {"editor"}),
@@ -591,6 +613,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["mesh_size"] = mesh_size;
             properties["outline"] = mesh_outline;
             properties["holes"] = automation_array(mesh_outline, 3, 1);
+            properties["ellipse_radii"] = mesh_radii;
+            properties["ellipse_segments"] = automation_integer(8, 64);
+            properties["ellipse_opening_scale"] = ellipse_opening;
+            properties["curve_knots"] = mesh_curve;
+            properties["curve_tolerance"] = curve_tolerance;
         }
         methods.push_back(automation_method(
             std::string("asset.document.") + action,
@@ -607,6 +634,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "either winding without crossing/touching edges or adjacent collinear corners. "
                 "Holes must be strictly interior, disjoint and nonnested. Outline/hole profiles "
                 "create ordinary triangles. Flat meshes face +Z and map UVs across their bounds. "
+                "planar_ellipse accepts positive ellipse_radii [rx,ry] (default [1,1]), "
+                "ellipse_segments 8..64 (default 32), ellipse_opening_scale 0..<1 (default 0); rings "
+                "allow at most 32 segments/64 vertices. planar_curve requires 3..16 curve_knots with "
+                "point and optional incoming/outgoing XY offsets (default zero), plus positive "
+                "curve_tolerance (default .01). Unmet tolerance/64-vertex/depth budgets reject. "
+                "Construction controls are not retained in the ordinary Mesh source. "
                 "Mesh options do not apply to other editors or Open.",
             "asset.write", automation_object(std::move(properties), {"editor", "path"}), true,
             [invoke, action](const Json& request) { return invoke(action, request); }));

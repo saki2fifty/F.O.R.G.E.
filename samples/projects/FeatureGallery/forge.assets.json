@@ -12545,6 +12545,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "955fd9fb-e5d5-42d4-981e-9a71b02b4820",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/204-curved-planar-meshes.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "956ed8f0-f6c1-44c6-87c3-2197e817093f",
       "metadata": {
         "forge.import": {
@@ -16462,6 +16472,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "d3ecb732-9950-46d4-96c2-6225dd252022",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "13dbd1546a35194a85d85b1c2cd6698f5192871238ec4992d4eddd027872b5a0",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "e8dd312943e363f36847e10456215f5d796ea4b1c1ce445768439233eeea2465",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "639a3e7328c73e93794ed89680c0f6f134d9237ee9d87673976b954814145646",
+          "source_digest": "12cd8a9fe87b8b28360108c1c7073c7341dd06f8ec5c82673c4e99f374498c8e",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 7056,
+          "file": "mesh.bin",
+          "sha256": "19f8e4914256c241f9c175012ff4a62ad491055c477befdbd39ae0eecc4bbc42",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Planar/CircleRing.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "d486b605-2e2a-439b-93fe-633bde7e420b",
       "metadata": {
         "forge.import": {
@@ -16875,6 +16920,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "d9456e2d-74b1-4c57-9235-af35b9085027",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "ee7ad1573c0fe399d53a21d25d3c6e5432859f3085ef6953b9132285b9a37f5a",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "95d84a9d4561d0ffd1615756a24099198d28dd2cab3fc74677586299f3426a12",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "85e5bbe6fbf97cd6ead9fad6084343448e7ebdb491d2d7d440a88a53c786a6e4",
+          "source_digest": "5c17a84bde95c0f308e530783f0afc8f08d943aae80dec16c821428823bb5540",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 3413,
+          "file": "mesh.bin",
+          "sha256": "86b675bf9590be8b137465b3c404e4d749c8c21c57cb548e33c56be238b531e5",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Planar/CubicOutline.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "da50e938-f21b-4a87-b116-860bbbb7fdf3",
       "metadata": {
         "forge.import": {
@@ -17247,6 +17327,41 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "dfc47eca-8676-4d92-923f-056135a9ea25",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "ed0294e7cfa70645bc829506ae1b4f8c5503f67eddb41548503f59c7d85426a7",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "f8d432c5e142ffc30a30393f314121e18c82ef313e7c58bf9ed7a8dcfcba20b6",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "0450b36d8b90fdb8e236bae3d6d68a03270295792b4a1907c527b0ca7aade194",
+          "source_digest": "45bb21671dbd10b4bef65ce3ef19d3ced15c78c84de6f176148e68ea14954436",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 3616,
+          "file": "mesh.bin",
+          "sha256": "e32972f851d119c61ec2a7bc6da09329c59aff37a9687eddd220d5e3d99136ba",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Planar/Ellipse.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [],

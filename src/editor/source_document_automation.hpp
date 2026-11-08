@@ -17,6 +17,14 @@ namespace forge {
 // Private adapters borrow the same editor instances registered in DocumentWorkspace.
 // They own neither source values, history, publication queues nor persistent IDs.
 struct AssetDocumentAutomation {
+    static bool mesh_creation_options(const Json& request) {
+        for (const auto* name :
+             {"mesh_profile", "mesh_size", "outline", "holes", "ellipse_radii", "ellipse_segments",
+              "ellipse_opening_scale", "curve_knots", "curve_tolerance"})
+            if (request.contains(name))
+                return true;
+        return false;
+    }
     static EditableMeshSource mesh_source(AssetId id, const Json& request) {
         const auto profile = request.value("mesh_profile", std::string("cube"));
         if (request.contains("mesh_size") && profile != "planar_quad")
@@ -28,6 +36,30 @@ struct AssetDocumentAutomation {
                 "outline applies to planar polygon, outline or holes creation only");
         if (request.contains("holes") && profile != "planar_holes")
             throw AuthoringError("invalid_argument", "holes applies to planar_holes only");
+        for (const auto* field : {"ellipse_radii", "ellipse_segments", "ellipse_opening_scale"})
+            if (request.contains(field) && profile != "planar_ellipse")
+                throw AuthoringError("invalid_argument",
+                                     "Ellipse options apply to planar_ellipse only");
+        for (const auto* field : {"curve_knots", "curve_tolerance"})
+            if (request.contains(field) && profile != "planar_curve")
+                throw AuthoringError("invalid_argument",
+                                     "Curve options apply to planar_curve only");
+        if (profile == "planar_ellipse")
+            return EditableMeshSource::create_planar_ellipse(
+                id, request.value("ellipse_radii", std::array<double, 2>{1, 1}),
+                request.value("ellipse_segments", 32u), request.value("ellipse_opening_scale", 0.));
+        if (profile == "planar_curve") {
+            if (!request.contains("curve_knots"))
+                throw AuthoringError("curve_knots_required",
+                                     "Curved outline requires closed XY knots");
+            std::vector<MeshCurveKnot> knots;
+            for (const auto& entry : request.at("curve_knots"))
+                knots.push_back({entry.at("point").get<std::array<double, 2>>(),
+                                 entry.value("incoming", std::array<double, 2>{}),
+                                 entry.value("outgoing", std::array<double, 2>{})});
+            return EditableMeshSource::create_planar_curve(id, knots,
+                                                           request.value("curve_tolerance", .01));
+        }
         if (profile == "cube")
             return EditableMeshSource::create_cube(id);
         if (profile == "sculpt_sphere")
@@ -216,8 +248,7 @@ struct AssetDocumentAutomation {
                 if (action == "status")
                     return status(editor, project);
                 if constexpr (!mesh)
-                    if (request.contains("mesh_profile") || request.contains("mesh_size") ||
-                        request.contains("outline") || request.contains("holes"))
+                    if (mesh_creation_options(request))
                         throw AuthoringError("invalid_argument",
                                              "Mesh creation options apply to editable_mesh only");
                 if constexpr (!paint_texture)
@@ -281,8 +312,7 @@ struct AssetDocumentAutomation {
                         (request.contains("patch") || request.contains("tile_set") ||
                          request.contains("textures") || request.contains("domain") ||
                          request.contains("behavior_profile") || request.contains("canvas") ||
-                         request.contains("mesh_profile") || request.contains("mesh_size") ||
-                         request.contains("outline") || request.contains("holes")))
+                         mesh_creation_options(request)))
                         throw AuthoringError(
                             "invalid_argument",
                             "Initial patch/tile_set/textures/domain/profile options apply "

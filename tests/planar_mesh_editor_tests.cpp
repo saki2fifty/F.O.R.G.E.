@@ -171,6 +171,68 @@ int main(int argc, char** argv) {
                     "Native hole controls did not create an ordinary editable frame Mesh");
             editor = std::make_unique<EditableMeshEditor>();
             input.click("editable-mesh:new");
+            shape(6);
+            input.type("editable-mesh:create-path", "Assets/EllipseRing.mesh.json");
+            input.type("editable-mesh:create-radius-x", "2");
+            input.type("editable-mesh:create-radius-y", "1");
+            input.type("editable-mesh:create-opening", "0.5");
+            input.type("editable-mesh:create-segments", "64");
+            input.click("editable-mesh:create");
+            require(!editor->document() && editor->has_unapplied_edits() &&
+                        !std::filesystem::exists(root / "Assets/EllipseRing.mesh.json"),
+                    "Oversized ring wrote a source or discarded its construction draft");
+            input.type("editable-mesh:create-segments", "32");
+            frame();
+            if (scale == 1)
+                capture.save(scratch / "ellipse-mesh-create.png");
+            input.click("editable-mesh:create");
+            require(editor->document() &&
+                        editor->document()->source().document ==
+                            EditableMeshSource::create_planar_ellipse(
+                                editor->document()->source().asset(), {2, 1}, 32, .5)
+                                .document &&
+                        scene.snapshot() == authored,
+                    "Native ring controls did not use the shared source factory");
+            editor = std::make_unique<EditableMeshEditor>();
+            input.click("editable-mesh:new");
+            shape(7);
+            input.type("editable-mesh:create-path", "Assets/Curved.mesh.json");
+            input.type("editable-mesh:create-curve-tolerance", "0.00000001");
+            input.click("editable-mesh:create");
+            require(!editor->document() && editor->has_unapplied_edits() &&
+                        !std::filesystem::exists(root / "Assets/Curved.mesh.json"),
+                    "Unmet cubic tolerance wrote a source or discarded the draft");
+            input.type("editable-mesh:create-curve-tolerance", "0.01");
+            input.click("editable-mesh:create-knot-add");
+            input.click("editable-mesh:create-knot-remove");
+            input.click("editable-mesh:create-knot-remove");
+            frame();
+            require(!test::ui_targets.at("editable-mesh:create-knot-remove").enabled,
+                    "Native curve permitted fewer than three knots");
+            input.click("editable-mesh:create-knot");
+            key(ImGuiKey_Home);
+            key(ImGuiKey_Enter);
+            frame();
+            input.type("editable-mesh:create-knot:0:x", "1.2");
+            input.type("editable-mesh:create-knot:1:y", "-0.6");
+            input.type("editable-mesh:create-knot:2:y", "0.6");
+            frame();
+            if (scale == 1)
+                capture.save(scratch / "curved-mesh-create.png");
+            input.click("editable-mesh:create");
+            const double k = .5522847498307936;
+            const std::vector<MeshCurveKnot> expected{{{1.2, 0}, {0, -.6}, {0, .6}},
+                                                      {{0, 1}, {k, 0}, {-k, 0}},
+                                                      {{-1, 0}, {0, k}, {0, -k}}};
+            require(editor->document() &&
+                        editor->document()->source().document ==
+                            EditableMeshSource::create_planar_curve(
+                                editor->document()->source().asset(), expected, .01)
+                                .document &&
+                        scene.snapshot() == authored,
+                    "Native cubic fields/selection did not use the shared source factory");
+            editor = std::make_unique<EditableMeshEditor>();
+            input.click("editable-mesh:new");
             shape(3);
             for (unsigned i = 4; i < 16; ++i)
                 input.click("editable-mesh:create-add");
@@ -189,7 +251,8 @@ int main(int argc, char** argv) {
             input.click("editable-mesh:create-cancel");
             require(scene.snapshot() == reopened, "Cancel mutated the reopened Scene");
             test::observe_ui = false;
-            std::cout << "Planar/concave/hole creation controls at scale " << scale << " passed\n"
+            std::cout << "Planar/concave/hole/curve creation controls at scale " << scale
+                      << " passed\n"
                       << std::flush;
         }
         std::cout << "Native planar Mesh creation, convex rejection, scrolling, scope and "

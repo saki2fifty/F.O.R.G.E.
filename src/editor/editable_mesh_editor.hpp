@@ -16,6 +16,7 @@
 #include <optional>
 #include <set>
 #include <utility>
+#include <utility>
 #include <vector>
 
 namespace forge {
@@ -122,9 +123,15 @@ class EditableMeshEditor {
             if (ImGui::InputText("Project file", path_, sizeof(path_)))
                 error_.clear();
             FORGE_UI_PROBE("editable-mesh:create-path");
-            const char* shapes[] = {"Cube", "Sculpt sphere", "Flat quad (XY)", "Flat polygon (XY)",
-                                    "Triangulated outline (XY)", "Outline with holes (XY)"};
-            if (ImGui::Combo("Start shape", &start_shape_, shapes, 6))
+            const char* shapes[] = {"Cube",
+                                    "Sculpt sphere",
+                                    "Flat quad (XY)",
+                                    "Flat polygon (XY)",
+                                    "Triangulated outline (XY)",
+                                    "Outline with holes (XY)",
+                                    "Flat ellipse / ring (XY)",
+                                    "Curved outline (XY)"};
+            if (ImGui::Combo("Start shape", &start_shape_, shapes, 8))
                 error_.clear();
             FORGE_UI_PROBE("editable-mesh:create-shape");
             ui::help("Choose a new .mesh.json file inside your project.");
@@ -139,19 +146,20 @@ class EditableMeshEditor {
                     error_.clear();
                 FORGE_UI_PROBE("editable-mesh:create-height");
             }
-            if (start_shape_ >= 3) {
+            if (start_shape_ >= 3 && start_shape_ <= 5) {
                 if (start_shape_ == 5) {
                     ui::help("One outer boundary and 1 to 3 holes, with 3 to 16 corners per loop. "
                              "Either winding is accepted. Holes must stay strictly inside, "
                              "disjoint and nonnested. No crossing/touching edges, repeated or "
                              "adjacent collinear corners.");
                     creation_loop_ = std::clamp(creation_loop_, 0, int(holes_.size()));
-                    const auto label = creation_loop_ == 0 ? std::string("Outer boundary")
-                                                           : "Hole " + std::to_string(creation_loop_);
+                    const auto label = creation_loop_ == 0
+                                           ? std::string("Outer boundary")
+                                           : "Hole " + std::to_string(creation_loop_);
                     if (ImGui::BeginCombo("Loop", label.c_str())) {
                         for (int i = 0; i <= int(holes_.size()); ++i) {
                             const auto item = i == 0 ? std::string("Outer boundary")
-                                                    : "Hole " + std::to_string(i);
+                                                     : "Hole " + std::to_string(i);
                             if (ImGui::Selectable(item.c_str(), creation_loop_ == i))
                                 creation_loop_ = i;
                             if (creation_loop_ == i)
@@ -161,7 +169,8 @@ class EditableMeshEditor {
                     }
                     FORGE_UI_PROBE("editable-mesh:create-loop");
                     ImGui::BeginDisabled(holes_.size() >= 3);
-                    if (ui::button("Add hole", "Add a centered hole, then adjust its coordinates.")) {
+                    if (ui::button("Add hole",
+                                   "Add a centered hole, then adjust its coordinates.")) {
                         holes_.push_back({{-.25, -.25}, {.25, -.25}, {.25, .25}, {-.25, .25}});
                         creation_loop_ = int(holes_.size());
                         error_.clear();
@@ -189,9 +198,80 @@ class EditableMeshEditor {
                             ? "Enter 3 to 16 simple boundary corners in either winding. Concave "
                               "outlines become ordinary triangle faces. No holes, crossing or "
                               "touching edges, repeated or adjacent collinear corners."
-                            : "Enter 3 to 16 boundary corners in clockwise or counterclockwise order. "
-                              "The outline must be strictly convex, without holes or crossing edges.");
+                            : "Enter 3 to 16 boundary corners in clockwise or counterclockwise "
+                              "order. "
+                              "The outline must be strictly convex, without holes or crossing "
+                              "edges.");
                     draw_creation_loop(outline_, "editable-mesh:create-");
+                }
+            }
+            if (start_shape_ == 6) {
+                ui::help("Equal radii make a circle. Opening scale zero fills the ellipse; a "
+                         "value between zero and one makes a proportional ring. Use 8 to 64 "
+                         "segments, or at most 32 for a ring, within 64 source vertices.");
+                if (ImGui::InputDouble("Radius X", &ellipse_radii_[0]))
+                    error_.clear();
+                FORGE_UI_PROBE("editable-mesh:create-radius-x");
+                if (ImGui::InputDouble("Radius Y", &ellipse_radii_[1]))
+                    error_.clear();
+                FORGE_UI_PROBE("editable-mesh:create-radius-y");
+                if (ImGui::InputInt("Segments", &ellipse_segments_))
+                    error_.clear();
+                FORGE_UI_PROBE("editable-mesh:create-segments");
+                if (ImGui::InputDouble("Opening scale", &ellipse_opening_))
+                    error_.clear();
+                FORGE_UI_PROBE("editable-mesh:create-opening");
+            }
+            if (start_shape_ == 7) {
+                ui::help("Closed cubic outline with 3 to 16 knots. Handles are offsets from "
+                         "their anchor. A positive local-space tolerance controls subdivision; "
+                         "unmet quality, depth or 64-vertex budgets reject creation. The sampled "
+                         "boundary must be simple. Construction controls are not retained.");
+                if (ImGui::InputDouble("Curve tolerance", &curve_tolerance_))
+                    error_.clear();
+                FORGE_UI_PROBE("editable-mesh:create-curve-tolerance");
+                creation_knot_ = std::clamp(creation_knot_, 0, int(curve_knots_.size()) - 1);
+                const auto selected = "Knot " + std::to_string(creation_knot_ + 1);
+                if (ImGui::BeginCombo("Knot", selected.c_str())) {
+                    for (int i = 0; i < int(curve_knots_.size()); ++i) {
+                        const auto item = "Knot " + std::to_string(i + 1);
+                        if (ImGui::Selectable(item.c_str(), creation_knot_ == i))
+                            creation_knot_ = i;
+                        if (creation_knot_ == i)
+                            ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+                FORGE_UI_PROBE("editable-mesh:create-knot");
+                ImGui::BeginDisabled(curve_knots_.size() >= 16);
+                if (ui::button("Add knot",
+                               "Add an anchor at zero, then position it and its handles.")) {
+                    curve_knots_.push_back({});
+                    creation_knot_ = int(curve_knots_.size()) - 1;
+                    error_.clear();
+                }
+                FORGE_UI_PROBE("editable-mesh:create-knot-add");
+                ImGui::EndDisabled();
+                ImGui::SameLine();
+                ImGui::BeginDisabled(curve_knots_.size() <= 3);
+                if (ui::button("Remove knot", "Remove the selected construction knot.")) {
+                    curve_knots_.erase(curve_knots_.begin() + creation_knot_);
+                    creation_knot_ = std::min(creation_knot_, int(curve_knots_.size()) - 1);
+                    error_.clear();
+                }
+                FORGE_UI_PROBE("editable-mesh:create-knot-remove");
+                ImGui::EndDisabled();
+                auto& knot = curve_knots_[std::size_t(creation_knot_)];
+                const std::array<std::pair<const char*, std::array<double, 2>*>, 3> fields{
+                    {{"Anchor", &knot.point},
+                     {"Incoming offset", &knot.incoming},
+                     {"Outgoing offset", &knot.outgoing}}};
+                for (unsigned i = 0; i < fields.size(); ++i) {
+                    ui::IdScope field(fields[i].first);
+                    ImGui::TextUnformatted(fields[i].first);
+                    draw_creation_coordinates(
+                        *fields[i].second, "editable-mesh:create-knot:" + std::to_string(i) + ":",
+                        0);
                 }
             }
             if (!same)
@@ -218,7 +298,15 @@ class EditableMeshEditor {
                             case 4:
                                 return EditableMeshSource::create_planar_outline(id, outline_);
                             case 5:
-                                return EditableMeshSource::create_planar_with_holes(id, outline_, holes_);
+                                return EditableMeshSource::create_planar_with_holes(id, outline_,
+                                                                                    holes_);
+                            case 6:
+                                return EditableMeshSource::create_planar_ellipse(
+                                    id, ellipse_radii_, std::uint32_t(ellipse_segments_),
+                                    ellipse_opening_);
+                            case 7:
+                                return EditableMeshSource::create_planar_curve(id, curve_knots_,
+                                                                               curve_tolerance_);
                             default:
                                 return EditableMeshSource::create_cube(id);
                             }
@@ -396,6 +484,26 @@ class EditableMeshEditor {
     }
 
   private:
+    void draw_creation_coordinates(std::array<double, 2>& value,
+                                   [[maybe_unused]] const std::string& prefix, float reserved_width,
+                                   [[maybe_unused]] const std::string& row = {}) {
+        const auto& style = ImGui::GetStyle();
+        const float field_width =
+            std::max(30.f, (ImGui::GetContentRegionAvail().x - reserved_width -
+                            style.ItemSpacing.x * (reserved_width > 0 ? 2 : 1) -
+                            style.ItemInnerSpacing.x * 2 - ImGui::CalcTextSize("X").x -
+                            ImGui::CalcTextSize("Y").x) /
+                               2);
+        ImGui::SetNextItemWidth(field_width);
+        if (ImGui::InputDouble("X", &value[0], 0, 0, "%.3f"))
+            error_.clear();
+        FORGE_UI_PROBE(prefix + "x" + (row.empty() ? std::string() : ":" + row));
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(field_width);
+        if (ImGui::InputDouble("Y", &value[1], 0, 0, "%.3f"))
+            error_.clear();
+        FORGE_UI_PROBE(prefix + "y" + (row.empty() ? std::string() : ":" + row));
+    }
     void draw_creation_loop(std::vector<std::array<double, 2>>& loop,
                             [[maybe_unused]] const std::string& prefix) {
         for (std::size_t i = 0; i < loop.size(); ++i) {
@@ -403,20 +511,7 @@ class EditableMeshEditor {
             ImGui::Text("Corner %zu", i + 1);
             const auto& style = ImGui::GetStyle();
             const float remove_width = ImGui::CalcTextSize("Remove").x + style.FramePadding.x * 2;
-            const float field_width =
-                std::max(30.f, (ImGui::GetContentRegionAvail().x - remove_width -
-                                style.ItemSpacing.x * 2 - style.ItemInnerSpacing.x * 2 -
-                                ImGui::CalcTextSize("X").x - ImGui::CalcTextSize("Y").x) /
-                                   2);
-            ImGui::SetNextItemWidth(field_width);
-            if (ImGui::InputDouble("X", &loop[i][0], 0, 0, "%.3f"))
-                error_.clear();
-            FORGE_UI_PROBE(prefix + "x:" + std::to_string(i));
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(field_width);
-            if (ImGui::InputDouble("Y", &loop[i][1], 0, 0, "%.3f"))
-                error_.clear();
-            FORGE_UI_PROBE(prefix + "y:" + std::to_string(i));
+            draw_creation_coordinates(loop[i], prefix, remove_width, std::to_string(i));
             ImGui::SameLine();
             ImGui::BeginDisabled(loop.size() <= 3);
             const bool remove = ui::button("Remove", "Remove this draft corner only.");
@@ -452,6 +547,15 @@ class EditableMeshEditor {
     std::vector<std::array<double, 2>> outline_{{-.5, -.5}, {.5, -.5}, {.5, .5}, {-.5, .5}};
     std::vector<std::vector<std::array<double, 2>>> holes_{
         {{-.25, -.25}, {.25, -.25}, {.25, .25}, {-.25, .25}}};
+    std::array<double, 2> ellipse_radii_{1, 1};
+    int ellipse_segments_ = 32, creation_knot_ = 0;
+    double ellipse_opening_ = 0, curve_tolerance_ = .01;
+    static constexpr double curve_handle_ = .5522847498307936;
+    std::vector<MeshCurveKnot> curve_knots_{
+        {{1, 0}, {0, -curve_handle_}, {0, curve_handle_}},
+        {{0, 1}, {curve_handle_, 0}, {-curve_handle_, 0}},
+        {{-1, 0}, {0, curve_handle_}, {0, -curve_handle_}},
+        {{0, -1}, {-curve_handle_, 0}, {curve_handle_, 0}}};
     std::string error_;
     SelectionMode mode_ = SelectionMode::Face;
     std::set<std::uint32_t> faces_;

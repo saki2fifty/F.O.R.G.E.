@@ -42,6 +42,7 @@ PAINT_TEXTURE_ONLY = "--paint-texture-only" in sys.argv[5:]
 RENDER_TEXTURE_ONLY = "--render-texture-only" in sys.argv[5:]
 APPLICATION_STATES_ONLY = "--application-states-only" in sys.argv[5:]
 PLANAR_MESH_ONLY = "--planar-mesh-only" in sys.argv[5:]
+CURVED_MESH_ONLY = "--curved-mesh-only" in sys.argv[5:]
 MESH_FOLIAGE_ONLY = "--mesh-foliage-only" in sys.argv[5:]
 
 
@@ -214,8 +215,9 @@ for legacy in (False, True):
             check_mesh_foliage_workflow(read, mutate, edit, status, content, root, declared_tools, client, discovery)
             print(('legacy' if legacy else 'current') + ': Mesh foliage projection, source selection, slope, history, save and read-only preflight passed')
             continue
-        if PLANAR_MESH_ONLY:
-            check_planar_mesh_workflow(read, mutate, edit, status, content, root, declared_tools)
+        if PLANAR_MESH_ONLY or CURVED_MESH_ONLY:
+            check_planar_mesh_workflow(read, mutate, edit, status, content, root, declared_tools,
+                                       curved_only=CURVED_MESH_ONLY)
             print(('legacy' if legacy else 'current') + ': planar Mesh schema, templates, atomic creation, history, publication, save/reopen, revisions and scope passed')
             continue
         if SEQUENCE_PROPERTY_SOURCES_ONLY:

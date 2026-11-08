@@ -12,6 +12,20 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+curved_path = 'Scenes/204-curved-planar-meshes.scene.json'
+curved_scene = json.loads((project_root / curved_path).read_text())
+assert curved_scene['asset_id'] == by_source[curved_path]['id'] == '955fd9fb-e5d5-42d4-981e-9a71b02b4820'
+assert len(curved_scene['entities']) == 4
+for name in ['Ellipse', 'CircleRing', 'CubicOutline']:
+    path = f'Assets/Planar/{name}.mesh.json'
+    mesh = json.loads((project_root / path).read_text())
+    assert mesh['asset_id'] == by_source[path]['id'] and mesh['version'] == 1
+    assert 3 <= len(mesh['vertices']) <= 64
+    assert [v['id'] for v in mesh['vertices']] == list(range(1, len(mesh['vertices']) + 1))
+    assert all(v['position'][2] == 0 for v in mesh['vertices'])
+    assert all(len(face['corners']) == 3 for face in mesh['faces'])
+    assert mesh['next_id'] == len(mesh['vertices']) + len(mesh['faces']) + 1
+    assert not {'ellipse_radii', 'curve_knots', 'curve_tolerance'} & mesh.keys()
 holes_path = 'Scenes/203-planar-mesh-holes.scene.json'
 holes_scene = json.loads((project_root / holes_path).read_text())
 assert holes_scene['asset_id'] == by_source[holes_path]['id'] == 'a7955c33-f784-4982-a4e7-7d21c85f2c5a'

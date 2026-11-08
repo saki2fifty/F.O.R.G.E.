@@ -1,0 +1,223 @@
+{
+  "asset_id": "955fd9fb-e5d5-42d4-981e-9a71b02b4820",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 7.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "021dc4e9-8751-4134-8535-7477705ffb51",
+      "name": "Orthographic curved shapes camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.25,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "27747b11-36cd-48a9-b774-9784e5cc9a29",
+              "slot": "default"
+            }
+          ],
+          "mesh": "dfc47eca-8676-4d92-923f-056135a9ea25",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "0e696adc-48de-434f-aba2-69761f4b1047",
+      "name": "Sampled ellipse",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "27747b11-36cd-48a9-b774-9784e5cc9a29",
+              "slot": "default"
+            }
+          ],
+          "mesh": "d3ecb732-9950-46d4-96c2-6225dd252022",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b7c21ef0-d71d-4f4e-bd4b-764ee57ed542",
+      "name": "Circle ring",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "27747b11-36cd-48a9-b774-9784e5cc9a29",
+              "slot": "default"
+            }
+          ],
+          "mesh": "d9456e2d-74b1-4c57-9235-af35b9085027",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "0e6cef87-ed49-4859-acfb-072355ac0199",
+      "name": "Cubic rounded triangle",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

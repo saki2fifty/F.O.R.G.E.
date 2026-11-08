@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**204-curved-planar-meshes** contains an ellipse, circle ring and cubic rounded
+triangle made from ordinary editable triangle geometry. Open the Scene and press
+**Play → Game**. Stop Play to edit the sources under `Assets/Planar`, Save & Publish
+edits and save the Scene before export. See
+[curved flat Mesh construction](../editor/editable-meshes.md).
+
 **203-planar-mesh-holes** shows a frame, a three-window panel with mixed input
 windings, and a concave L with an interior opening. Open it and press **Play → Game**. Stop Play to edit the ordinary Meshes under `Assets/Planar`; Save &
 Publish edits and save the Scene separately before export. See

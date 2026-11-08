@@ -19,6 +19,12 @@ struct MeshUvCorner {
     std::size_t corner = 0;
     auto operator<=>(const MeshUvCorner&) const = default;
 };
+// Transient construction controls. Handles are XY offsets from the anchor.
+struct MeshCurveKnot {
+    std::array<double, 2> point{};
+    std::array<double, 2> incoming{};
+    std::array<double, 2> outgoing{};
+};
 enum class MeshUvAlignment : std::uint8_t { Minimum, Center, Maximum };
 struct EditableMeshSource {
     nlohmann::json document;
@@ -40,6 +46,16 @@ struct EditableMeshSource {
     static EditableMeshSource create_planar_with_holes(
         AssetId asset, std::span<const std::array<double, 2>> outline,
         std::span<const std::vector<std::array<double, 2>>> holes);
+    // Sample a centered ellipse, circle or proportional ring into ordinary faces.
+    // 8..64 segments; rings permit at most32, within64 total source vertices.
+    static EditableMeshSource create_planar_ellipse(AssetId asset, std::array<double, 2> radii,
+                                                   std::uint32_t segments = 32,
+                                                   double opening_scale = 0);
+    // Closed cubic outline,3..16 knots. Adaptive subdivision admits at most64
+    // sampled vertices at the requested positive local-space chord tolerance.
+    static EditableMeshSource create_planar_curve(AssetId asset,
+                                                 std::span<const MeshCurveKnot> knots,
+                                                 double tolerance = .01);
     static EditableMeshSource parse(std::span<const std::byte> bytes);
     void validate() const;
     MeshData cook() const;

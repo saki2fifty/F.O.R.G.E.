@@ -2,6 +2,7 @@
 #include "gallery_game_capture.hpp"
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <span>
 #include <stdexcept>
 
@@ -9,6 +10,8 @@ namespace forge::test_gallery_capture {
 struct PlanarSilhouette {
     std::vector<std::vector<std::array<double, 2>>> loops;
     std::array<double, 2> position{};
+    // Independent ideal ellipse radii and proportional opening, when present.
+    std::optional<std::array<double, 3>> ellipse{};
 };
 inline Json planar_coverage(const test_gallery_capture::Pixels& pixels,
                             std::span<const PlanarSilhouette> shapes, double height) {
@@ -24,6 +27,17 @@ inline Json planar_coverage(const test_gallery_capture::Pixels& pixels,
             for (const auto& shape : shapes) {
                 const std::array<double, 2> p{world[0] - shape.position[0],
                                               world[1] - shape.position[1]};
+                if (shape.ellipse) {
+                    const auto [rx, ry, opening] = *shape.ellipse;
+                    const auto radius = std::hypot(p[0] / rx, p[1] / ry);
+                    const auto minimum_radius = std::min(rx, ry);
+                    near |= minimum_radius * std::abs(radius - 1) < .04;
+                    if (opening > 0)
+                        near |= minimum_radius * std::abs(radius - opening) < .04;
+                    inside |= radius < 1 && (opening == 0 || radius > opening);
+                    in_opening |= opening > 0 && radius < opening;
+                    continue;
+                }
                 bool filled = false, outer = false;
                 for (unsigned loop = 0; loop < shape.loops.size(); ++loop) {
                     const auto& contour = shape.loops[loop];

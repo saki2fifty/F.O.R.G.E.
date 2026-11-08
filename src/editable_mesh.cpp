@@ -221,6 +221,74 @@ EditableMeshSource planar_source(AssetId asset, std::span<const std::array<doubl
     result.validate();
     return result;
 }
+EditableMeshSource planar_outline_source(AssetId asset,
+                                         std::span<const std::array<double, 2>> outline,
+                                         std::size_t limit) {
+    if (outline.size() < 3 || outline.size() > limit)
+        throw std::runtime_error("Planar Mesh outline requires 3 to " + std::to_string(limit) +
+                                 " simple boundary corners");
+    for (const auto& point : outline)
+        for (const auto coordinate : point)
+            require(std::isfinite(coordinate) && std::abs(coordinate) <= 100000,
+                    "Planar Mesh coordinate is nonfinite or outside editable bounds");
+    std::vector<geometry_detail::PolygonPoint> points(outline.begin(), outline.end());
+    std::vector<std::size_t> order(points.size());
+    std::iota(order.begin(), order.end(), 0);
+    if (geometry_detail::polygon_signed_area_twice(points) < 0) {
+        std::reverse(points.begin() + 1, points.end());
+        std::reverse(order.begin() + 1, order.end());
+    }
+    std::vector<std::vector<std::size_t>> faces;
+    for (const auto& triangle : geometry_detail::polygon_triangles(points))
+        faces.push_back({order[triangle[0]], order[triangle[1]], order[triangle[2]]});
+    return planar_source(asset, outline, faces);
+}
+using PlanarPoint = geometry_detail::PolygonPoint;
+using PlanarLoop = std::vector<PlanarPoint>;
+PlanarPoint planar_add(PlanarPoint a, PlanarPoint b) { return {a[0] + b[0], a[1] + b[1]}; }
+PlanarPoint planar_midpoint(PlanarPoint a, PlanarPoint b) {
+    return {std::midpoint(a[0], b[0]), std::midpoint(a[1], b[1])};
+}
+double planar_chord_distance(PlanarPoint p, PlanarPoint a, PlanarPoint b) {
+    const auto x = b[0] - a[0], y = b[1] - a[1], squared = x * x + y * y;
+    const auto t =
+        squared > 0 ? std::clamp(((p[0] - a[0]) * x + (p[1] - a[1]) * y) / squared, 0., 1.) : 0;
+    return std::hypot(p[0] - a[0] - t * x, p[1] - a[1] - t * y);
+}
+void sample_planar_cubic(PlanarLoop& points, PlanarPoint a, PlanarPoint b, PlanarPoint c,
+                         PlanarPoint d, double tolerance, unsigned depth = 0) {
+    // A line-segment capsule is convex: containing the four controls bounds
+    // their cubic convex combinations by the same local-space chord distance.
+    if (std::max(planar_chord_distance(b, a, d), planar_chord_distance(c, a, d)) <= tolerance) {
+        // The closing copy of the first vertex is removed after all segments.
+        require(points.size() < geometry_detail::simple_polygon_vertex_limit + 1,
+                "Curve tolerance requires more than 64 sampled vertices");
+        points.push_back(d);
+        return;
+    }
+    require(depth < 16, "Curve tolerance exceeds the bounded subdivision depth");
+    const auto ab = planar_midpoint(a, b), bc = planar_midpoint(b, c), cd = planar_midpoint(c, d);
+    const auto abc = planar_midpoint(ab, bc), bcd = planar_midpoint(bc, cd);
+    const auto center = planar_midpoint(abc, bcd);
+    sample_planar_cubic(points, a, ab, abc, center, tolerance, depth + 1);
+    sample_planar_cubic(points, center, bcd, cd, d, tolerance, depth + 1);
+}
+void simplify_planar_samples(PlanarLoop& points) {
+    // Remove only redundant samples on the same segment, not crossings/loops.
+    for (bool removed = true; removed && points.size() > 2;) {
+        removed = false;
+        for (std::size_t i = 0; i < points.size(); ++i) {
+            const auto& a = points[(i + points.size() - 1) % points.size()];
+            const auto& b = points[i];
+            const auto& c = points[(i + 1) % points.size()];
+            if (geometry_detail::polygon_on_segment(a, c, b)) {
+                points.erase(points.begin() + std::ptrdiff_t(i));
+                removed = true;
+                break;
+            }
+        }
+    }
+}
 } // namespace
 
 AssetId EditableMeshSource::asset() const { return document.at("asset_id").get<AssetId>(); }
@@ -246,23 +314,7 @@ EditableMeshSource::create_planar_polygon(AssetId asset,
 EditableMeshSource
 EditableMeshSource::create_planar_outline(AssetId asset,
                                           std::span<const std::array<double, 2>> outline) {
-    require(outline.size() >= 3 && outline.size() <= 16,
-            "Planar Mesh outline requires 3 to 16 simple boundary corners");
-    for (const auto& point : outline)
-        for (const auto coordinate : point)
-            require(std::isfinite(coordinate) && std::abs(coordinate) <= 100000,
-                    "Planar Mesh coordinate is nonfinite or outside editable bounds");
-    std::vector<geometry_detail::PolygonPoint> points(outline.begin(), outline.end());
-    std::vector<std::size_t> order(points.size());
-    std::iota(order.begin(), order.end(), 0);
-    if (geometry_detail::polygon_signed_area_twice(points) < 0) {
-        std::reverse(points.begin() + 1, points.end());
-        std::reverse(order.begin() + 1, order.end());
-    }
-    std::vector<std::vector<std::size_t>> faces;
-    for (const auto& triangle : geometry_detail::polygon_triangles(points))
-        faces.push_back({order[triangle[0]], order[triangle[1]], order[triangle[2]]});
-    return planar_source(asset, outline, faces);
+    return planar_outline_source(asset, outline, 16);
 }
 EditableMeshSource EditableMeshSource::create_planar_with_holes(
     AssetId asset, std::span<const std::array<double, 2>> outline,
@@ -301,6 +353,66 @@ EditableMeshSource EditableMeshSource::create_planar_with_holes(
     for (const auto& triangle : geometry_detail::contour_detail::decompose_region(region))
         faces.push_back({indices.at(triangle[0]), indices.at(triangle[1]), indices.at(triangle[2])});
     return planar_source(asset, vertices, faces);
+}
+EditableMeshSource EditableMeshSource::create_planar_ellipse(AssetId asset,
+                                                             std::array<double, 2> radii,
+                                                             std::uint32_t segments,
+                                                             double opening_scale) {
+    for (const auto radius : radii)
+        require(std::isfinite(radius) && radius > 0 && radius <= 100000,
+                "Ellipse radii must be finite and positive within editable bounds");
+    require(std::isfinite(opening_scale) && opening_scale >= 0 && opening_scale < 1,
+            "Opening scale must be finite from zero to below one");
+    require(segments >= 8 && segments <= 64, "Ellipse requires 8 to 64 segments");
+    require(opening_scale == 0 || segments <= 32, "A ring permits at most 32 segments per loop");
+    PlanarLoop outline;
+    for (std::uint32_t i = 0; i < segments; ++i) {
+        const auto angle = 2 * std::numbers::pi * i / segments;
+        outline.push_back({radii[0] * std::cos(angle), radii[1] * std::sin(angle)});
+    }
+    if (opening_scale == 0)
+        return planar_outline_source(asset, outline, 64);
+    // Known cyclic sector topology avoids virtual bridges between nearly
+    // collinear proportional loops. Every sector contributes two front triangles.
+    for (std::uint32_t i = 0; i < segments; ++i)
+        outline.push_back({outline[i][0] * opening_scale, outline[i][1] * opening_scale});
+    std::vector<std::vector<std::size_t>> faces;
+    faces.reserve(segments * 2);
+    for (std::size_t i = 0; i < segments; ++i) {
+        const auto next = (i + 1) % segments;
+        faces.push_back({i, next, segments + next});
+        faces.push_back({i, segments + next, segments + i});
+    }
+    return planar_source(asset, outline, faces);
+}
+EditableMeshSource EditableMeshSource::create_planar_curve(AssetId asset,
+                                                           std::span<const MeshCurveKnot> knots,
+                                                           double tolerance) {
+    require(knots.size() >= 3 && knots.size() <= 16, "Closed curve requires 3 to 16 knots");
+    require(std::isfinite(tolerance) && tolerance > 0 && tolerance <= 100000,
+            "Curve tolerance must be finite and positive within editable bounds");
+    for (std::size_t i = 0; i < knots.size(); ++i) {
+        const auto& knot = knots[i];
+        for (const auto& point :
+             {knot.point, knot.incoming, knot.outgoing, planar_add(knot.point, knot.incoming),
+              planar_add(knot.point, knot.outgoing)})
+            for (const auto value : point)
+                require(std::isfinite(value) && std::abs(value) <= 100000,
+                        "Curve anchor, offset or control is outside editable bounds");
+        for (std::size_t j = 0; j < i; ++j)
+            require(knot.point != knots[j].point, "Curve repeats an anchor");
+    }
+    PlanarLoop samples{knots.front().point};
+    for (std::size_t i = 0; i < knots.size(); ++i) {
+        const auto& a = knots[i];
+        const auto& b = knots[(i + 1) % knots.size()];
+        sample_planar_cubic(samples, a.point, planar_add(a.point, a.outgoing),
+                            planar_add(b.point, b.incoming), b.point, tolerance);
+    }
+    require(samples.back() == samples.front(), "Curve failed to close");
+    samples.pop_back();
+    simplify_planar_samples(samples);
+    return planar_outline_source(asset, samples, 64);
 }
 EditableMeshSource EditableMeshSource::create_cube(AssetId asset_id) {
     EditableMeshSource result{{{"kind", "forge.editable-mesh"},

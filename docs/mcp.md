@@ -146,7 +146,7 @@ applying a previously read result. Saved objects remain independent of the task.
 workflow. Supply a `terrain` Scene entity ID, the ordinary scatter `arguments`
 without `world_heights`, `placement_mask` or `world_normals`, and optional `height_offset`
 (-1000–1000), `minimum_slope`/`maximum_slope` (finite inclusive0..90degrees,
-minimum<=maximum, default0/90). Slope uses the actual transformed geometric
+minimum<=maximum, default 0/90). Slope uses the actual transformed geometric
 triangle normal, not smoothed shading. Filtering returns an original-order mask,
 `candidate_count` and `retained_count`; no candidates retained is an error.
 It never resamples to fill count. Optional Boolean `align_to_slope` defaults false;
@@ -371,6 +371,16 @@ publication keep their usual scoped revision/permission rules. Assign a publishe
 Mesh and Unlit Material through ordinary Scene tools and use an orthographic
 Camera. See [Editable Meshes](editable-meshes.md).
 
+`planar_ellipse` accepts positive `ellipse_radii` (default [1,1]),
+`ellipse_segments` 8..64(default 32) and `ellipse_opening_scale` 0..<1(default 0).
+Rings use at most 32 segments/64vertices. `planar_curve` requires 3..16 `curve_knots`
+objects with `point` and optional zero-default `incoming`/`outgoing` XY offsets,
+plus positive `curve_tolerance` (default .01). Factory admission rejects unmet
+quality/depth/64-vertex budgets and invalid sampled contours. Both profiles emit
+ordinary triangles through the same source/history/publication owner. Creation
+options reject on other editors and Open; control values are not persisted as a
+second geometry recipe.
+
 `forge_asset_document_types` lists the actual DocumentWorkspace source editors
 and their suffixes. `template` exposes each existing owner's initial source shape;
 `create` allocates the ordinary fresh asset identity, and `open` borrows that
@@ -403,7 +413,7 @@ component schema. Add it to the Mesh entity, set `render_texture` to the same
 image and configure `enabled`. Geometry0 selects the undeformed Engine / Quad;
 Geometry1 selects retained mesh triangles, including supported skin/morph poses
 and static-mesh wind. `geometry` is the shared reflected choice field, with
-`Quad`0/`Mesh`1 and a missing-field default0. Discovery describes UV/material
+`Quad`0/`Mesh`1 and a missing-field default 0. Discovery describes UV/material
 limits, unique reverse projection and capture invalidation; the current runtime
 kit supports both profiles. Use `forge_component_add`, `forge_property_set`
 and the ordinary Scene save/history operations. Its Material must meet the
@@ -871,7 +881,7 @@ uses a0..3600second gap and observes only its current event's Source-owned voice
 including tails; unrelated manual/other-cue voices do not block it. Observation
 adds waiting/completed/pending/current-event voice counts. Source Stop can finish
 an event while the producer continues; cue Stop prevents future events.
-Discovery also exposes `repeat_event_limit`: unsigned0..65535, default0(unlimited).
+Discovery also exposes `repeat_event_limit`: unsigned0..65535, default 0(unlimited).
 Existing property commands author finite runs in either timing mode. Observation
 reports issued scheduled events, finishing/finished state and this run's pending
 requests/voices. Natural completion waits for all current-run Source voices/tails,
@@ -1825,7 +1835,7 @@ routing. `probe` is required. New-map capture requires `destination` (a NEW fold
 below Assets with an existing parent). Alternatively `update_assigned:true` targets
 the probe's existing independent imported capture DDS source; omit `destination`
 in that mode. Optional fields are `size` (16–1024, default256),
-`near_plane` (positive, default0.1), `far_plane` (greater than near, default 100),
+`near_plane` (positive, default 0.1), `far_plane` (greater than near, default 100),
 `layers` (uint32, default all bits) and `assign` (default true). No external output
 folder is needed. This uses the same image-task owner as PNG/sequence capture and
 cannot overlap those operations.
@@ -2005,7 +2015,7 @@ an engine, root or imported-model Mesh. Pass `mesh`, optional `revision`, `lod`,
 `part`, `offset` and `limit`. Results include the selected revision, part/LOD counts,
 triangle count and paged `primitive`, vertex indices, positions and float2 `uv0`
 arrays. Missing/unsupported UV0 returns an empty UV array. A supplied stale revision
-rejects; no Scene/world state changes. Geometry decoding is bounded to32MiB. These
+rejects; no Scene/world state changes. Geometry decoding is bounded to 32MiB. These
 are undeformed publication coordinates, without Scene visibility or transforms.
 
 `forge_asset_document_mesh_stroke` prepares a texture stroke from explicit Mesh
@@ -2014,7 +2024,7 @@ triangle samples. It requires the open paint document's session/revision, `mesh`
 `brush`. Read revisions through `forge_asset_read` (engine `revision` or
 `metadata.forge.import.key`); page triangles before choosing samples. Optional
 `lod` defaults to0 and `slot` to`baseColorTexture`. Each sample has `primitive`,
-`barycentric:[a,b,c]` summing to1, optional `part` (default0) and `break_before`.
+`barycentric:[a,b,c]` summing to1, optional `part` (default 0) and `break_before`.
 It maps the selected published Material slot to the open canvas, sharing the
 native Scene tool's Material/UV mapper, disconnected paths, asynchronous brush
 and source/history/publication owners. Native pointer input uses actual visible

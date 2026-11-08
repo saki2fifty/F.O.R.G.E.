@@ -1,5 +1,14 @@
 # Feature Gallery
 
+## Curved flat Mesh construction
+
+Open `Scenes/204-curved-planar-meshes.scene.json` and press **Play → Game**.
+An ellipse, circle ring and cubic rounded triangle share the existing Unlit
+checker Material. Stop Play to edit sources under `Assets/Planar`; Save & Publish
+edits and save the Scene before export. Construct new shapes through **New editable Mesh → Flat ellipse / ring (XY)** or **Curved outline (XY)**. The result contains
+ordinary editable triangles; initial curve controls are not retained as settings.
+See the [Mesh guide](../../../manual/editor/editable-meshes.md).
+
 ## Flat Meshes with openings
 
 Open `Scenes/203-planar-mesh-holes.scene.json` and press **Play → Game**.

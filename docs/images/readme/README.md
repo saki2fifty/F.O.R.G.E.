@@ -2715,3 +2715,32 @@ performance, curved-outline or general polygon-repair acceptance is claimed.
 
 Native PNG SHA256: `fea2dae0a5e20e65b1ddf61f5e44695cc0455a13b0179e43373a88367886a230`.
 Game PNG SHA256: `c31ed705eea0a6a476c7b82c37dfe6f4f146a3a66a02adf82361c92eeb686f3b`.
+
+## Curved flat Mesh construction
+
+[Ellipse/ring controls](../../../manual/images/ellipse-mesh-create.png) and
+[cubic controls](../../../manual/images/curved-mesh-create.png) are authentic
+700×800 SDL native-component captures from `tests/planar_mesh_editor_tests.cpp`.
+The fixture edits radii/segments/opening, quality rejection, knot selection,
+anchor/relative handles and creation through production controls. Normal controls
+pass at1/1.5/2scales. After the independent ring topology correction, current1scale
+creation and both-framing MCP pass; unchanged larger-scale controls retain their
+attributable earlier proof. All three prior flat-creation canonical PNGs remain
+byte-identical after coordinate-layout extraction.
+
+[Curved Game](../../../manual/images/curved-mesh-game.png) preserves all RGB pixels
+of the640×360 production FrameRenderer PPM from
+`tests/curved_mesh_gallery_vulkan_probe.cpp`. Independent ideal ellipse/ring and
+dense Bernstein curve silhouettes check28,873interior,194,590exterior and7,240
+opening pixels away from edges. Four landscape/portrait captures match after
+Windows-target cooked-content export, source hiding and relocation. Scene UUID:
+`955fd9fb-e5d5-42d4-981e-9a71b02b4820`. Local batch302 capture-provenance.json and
+selected-gallery-proof.json retain exact originals, hashes and gate context.
+
+All three captures were personally inspected. Native bytes were copied exactly;
+Game conversion is lossless with decoded RGB equality. No retouch/crop/resize,
+full-editor, Windows, physical device/input/DPI/GPU or performance acceptance.
+
+PNG SHA256: `07c5e64475e183593210579ac88f8093cde83daf91ab50ed78cf181e136912e0` (ellipse-mesh-create.png).
+PNG SHA256: `1315738d6b57610354deb4b2f24cfa9f723687500ad3045dafd384337178c2d0` (curved-mesh-create.png).
+PNG SHA256: `11299049383a22edebd2af220ac90ee81909080e504ff0a65ea115572909ecef` (curved-mesh-game.png).
