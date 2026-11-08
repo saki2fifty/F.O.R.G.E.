@@ -358,7 +358,9 @@ metadata after switching projects.
 Editable Mesh template/create tools accept `editor: "editable_mesh"` and
 `mesh_profile: "planar_quad"` with optional positive `mesh_size: [width,height]`
 (default `[1,1]`), or `mesh_profile: "planar_polygon"` with a required strictly
-convex `outline` of 3–16 XY pairs. `cube` remains the default; `sculpt_sphere` is
+convex `outline` of 3–16 XY pairs. `planar_outline` admits a simple concave-capable
+3–16-point outline and emits ordinary triangle faces. Crossed/touching edges,
+repeated/adjacent-collinear corners and holes reject before creation. `cube` remains the default; `sculpt_sphere` is
 also available. Flat profiles face +Z and map UVs across their bounds. These
 options reject on other editors and Open. Template allocates no files; Create
 uses the existing asset identity/document owner. Patch, Undo/Redo, Save and

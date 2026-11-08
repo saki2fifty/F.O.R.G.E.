@@ -319,6 +319,12 @@ Scene lighting includes independently authored [fast approximate anti-aliasing](
 for Scene/Game display color. Gallery 143 demonstrates the saved workflow and normal
 standalone export; temporal AA and post-filter Game UI remain independent.
 
+Flat Mesh creation includes simple concave outlines through **Triangulated outline (XY)**.
+Up to16 boundary corners become ordinary editable triangles with +Z fronts and
+bounds UVs, using the same Source/native/MCP owners. Gallery202 demonstrates L shapes
+from opposite windings and a concave arrow with source-hidden export proof. See
+[flat Mesh creation](manual/editor/editable-meshes.md).
+
 The Scene foliage brush paints bounded strokes on published Mesh or heightfield
 surfaces. Pointer markers preview sampled centers; release places ordinary objects
 with one Undo. Gallery201 contains two editable saved strokes, and automation/MCP

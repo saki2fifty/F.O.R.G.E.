@@ -9,6 +9,16 @@ order to positive-Z normals and generate bounding-rectangle UVs with a top-left
 origin. Element IDs and `next_id` use the existing allocator contract. There is
 no persistent shape profile, additional asset type or separate 2D renderer.
 
+`create_planar_outline` accepts a simple3–16corner XY boundary, including concavity,
+in either winding. It reuses the shared pure simple-polygon validator/triangulator
+and emits ordinary triangle faces; it never relaxes convex face admission. Signed
+area normalizes the temporary triangulation order while original vertex IDs/order
+are retained. Shared flat-source construction assigns ordinary face IDs/next_id,
+normalizes +Z fronts and maps all corners against the complete boundary bounds.
+Every triangle retains the existing editable geometry limits. There are no holes,
+curves, crossing/touching edges, repeated or adjacent collinear corners. The
+original boundary/profile is not stored as a persistent recipe or runtime value.
+
 The common face validator requires all other corners strictly inside each
 oriented edge, alongside existing planarity and area tolerances. Testing only
 adjacent turns would admit self-crossing star boundaries. The bounded pairwise
@@ -17,7 +27,7 @@ not admit concave boundaries, holes or curves. Existing valid convex sources and
 their cooked format remain unchanged.
 
 Content's New editable Mesh modal exposes Flat quad (XY) dimensions and Flat
-polygon (XY) corner rows through those factories. Its transient draft captures
+polygon (XY) / Triangulated outline (XY) corner rows through those factories. Its transient draft captures
 the owning project and document generation; locked/stale creation is disabled,
 failed validation retains the draft, and cancellation creates no files. The
 existing source document, history, publication and Mesh Renderer own subsequent
@@ -25,8 +35,8 @@ edits and placement. Unlit Materials and an orthographic Camera complete a flat
 Scene; sidedness is ordinary Material state.
 
 `asset.document.template/create` accepts `mesh_profile`: `cube` (default),
-`sculpt_sphere`, `planar_quad` or `planar_polygon`. Quad-only `mesh_size` is
-`[width,height]`, default `[1,1]`; polygon-only `outline` is required and contains
+`sculpt_sphere`, `planar_quad`, `planar_polygon` or `planar_outline`. Quad-only `mesh_size` is
+`[width,height]`, default `[1,1]`; polygon/outline creation requires `outline`, containing
 3–16 XY pairs. Other editors and Open reject these creation options. MCP derives
 the same schemas and dispatch through the existing Source workflow registry.
 
@@ -414,3 +424,19 @@ full sanitizer coverage for cache and selection. Same optimized widget fixture
 shows roughly11.4ms warmed idle CPU at4096vertices/3969faces, compared with15.8–17.1ms
 before caching. This is fixture CPU evidence, not a native GPU or physical FPS
 measurement. Native delivery and physical review remain separate acceptance gates.
+
+## Concave source and runtime checks
+
+Gallery202 adds three ordinary triangle Mesh sources (two L windings and an arrow)
+with the existing Unlit checker Material. An independent contour oracle checks
+actual production Game silhouettes and notches; four landscape/portrait images
+remain exact after source-hidden relocated export. The shared source constructor
+also reproduces all three original Gallery199 source documents exactly.
+
+The native creation fixture has independent1/1.5/2scale CTest cases:
+`planar_mesh_editor`, `planar_mesh_editor_150` and `planar_mesh_editor_200`.
+Each executes creation/rejection, source draft, scrolling/capacity and project
+scope assertions in a distinct project. They can run concurrently with -j3;
+canonical component captures are emitted only by1scale. `--single-scale` retains
+that path for selected memory instrumentation. These are software control cases,
+not Windows/physical DPI or complete editor-host acceptance.

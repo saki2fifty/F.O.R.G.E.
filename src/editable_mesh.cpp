@@ -1,11 +1,13 @@
 #include "bounded_json.hpp"
 #include "brush_samples.hpp"
+#include "simple_polygon.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/editable_mesh.hpp>
 #include <limits>
 #include <map>
 #include <numbers>
+#include <numeric>
 #include <set>
 #include <stdexcept>
 
@@ -176,6 +178,49 @@ Json interpolate_corner(std::span<const Json* const> corners, std::uint32_t iden
     result["uv"] = uv;
     return result;
 }
+EditableMeshSource planar_source(AssetId asset, std::span<const std::array<double, 2>> outline,
+                                 const std::vector<std::vector<std::size_t>>& faces) {
+    auto face_id = std::uint32_t(outline.size() + 1);
+    EditableMeshSource result{{{"kind", "forge.editable-mesh"},
+                               {"version", 1},
+                               {"asset_id", asset},
+                               {"next_id", std::uint32_t(outline.size() + faces.size() + 1)},
+                               {"vertices", Json::array()},
+                               {"faces", Json::array()}}};
+    std::map<std::uint32_t, Vec3> positions;
+    for (std::size_t i = 0; i < outline.size(); ++i) {
+        const auto key = std::uint32_t(i + 1);
+        const Vec3 position{outline[i][0], outline[i][1], 0};
+        positions.emplace(key, position);
+        result.document["vertices"].push_back({{"id", key}, {"position", position}});
+    }
+    for (const auto& indices : faces) {
+        Json corners = Json::array();
+        for (const auto index : indices)
+            corners.push_back(corner(std::uint32_t(index + 1), {0, 0}));
+        result.document["faces"].push_back({{"id", face_id++}, {"corners", std::move(corners)}});
+    }
+    result.validate();
+    for (auto& face : result.document["faces"]) {
+        auto& corners = face["corners"];
+        if (polygon(face, positions).normal[2] < 0)
+            std::reverse(corners.begin() + 1, corners.end());
+    }
+    auto minimum = outline.front(), maximum = minimum;
+    for (const auto& point : outline)
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            minimum[axis] = std::min(minimum[axis], point[axis]);
+            maximum[axis] = std::max(maximum[axis], point[axis]);
+        }
+    for (auto& face : result.document["faces"])
+        for (auto& entry : face["corners"]) {
+            const auto& position = positions.at(id(entry.at("vertex")));
+            entry["uv"] = {(position[0] - minimum[0]) / (maximum[0] - minimum[0]),
+                           (maximum[1] - position[1]) / (maximum[1] - minimum[1])};
+        }
+    result.validate();
+    return result;
+}
 } // namespace
 
 AssetId EditableMeshSource::asset() const { return document.at("asset_id").get<AssetId>(); }
@@ -194,39 +239,30 @@ EditableMeshSource::create_planar_polygon(AssetId asset,
                                           std::span<const std::array<double, 2>> outline) {
     require(outline.size() >= 3 && outline.size() <= 16,
             "Planar Mesh outline requires 3 to 16 strictly convex corners");
-    const auto face_id = std::uint32_t(outline.size() + 1);
-    EditableMeshSource result{
-        {{"kind", "forge.editable-mesh"},
-         {"version", 1},
-         {"asset_id", asset},
-         {"next_id", face_id + 1},
-         {"vertices", Json::array()},
-         {"faces", Json::array({{{"id", face_id}, {"corners", Json::array()}}})}}};
-    auto& corners = result.document["faces"][0]["corners"];
-    std::map<std::uint32_t, Vec3> positions;
-    for (std::size_t i = 0; i < outline.size(); ++i) {
-        const auto key = std::uint32_t(i + 1);
-        const Vec3 position{outline[i][0], outline[i][1], 0};
-        positions.emplace(key, position);
-        result.document["vertices"].push_back({{"id", key}, {"position", position}});
-        corners.push_back(corner(key, {0, 0}));
-    }
-    result.validate();
-    if (polygon(result.document["faces"][0], positions).normal[2] < 0)
-        std::reverse(corners.begin() + 1, corners.end());
-    auto minimum = outline.front(), maximum = minimum;
+    std::vector<std::size_t> boundary(outline.size());
+    std::iota(boundary.begin(), boundary.end(), 0);
+    return planar_source(asset, outline, {std::move(boundary)});
+}
+EditableMeshSource
+EditableMeshSource::create_planar_outline(AssetId asset,
+                                          std::span<const std::array<double, 2>> outline) {
+    require(outline.size() >= 3 && outline.size() <= 16,
+            "Planar Mesh outline requires 3 to 16 simple boundary corners");
     for (const auto& point : outline)
-        for (unsigned axis = 0; axis < 2; ++axis) {
-            minimum[axis] = std::min(minimum[axis], point[axis]);
-            maximum[axis] = std::max(maximum[axis], point[axis]);
-        }
-    for (auto& entry : corners) {
-        const auto& position = positions.at(id(entry.at("vertex")));
-        entry["uv"] = {(position[0] - minimum[0]) / (maximum[0] - minimum[0]),
-                       (maximum[1] - position[1]) / (maximum[1] - minimum[1])};
+        for (const auto coordinate : point)
+            require(std::isfinite(coordinate) && std::abs(coordinate) <= 100000,
+                    "Planar Mesh coordinate is nonfinite or outside editable bounds");
+    std::vector<geometry_detail::PolygonPoint> points(outline.begin(), outline.end());
+    std::vector<std::size_t> order(points.size());
+    std::iota(order.begin(), order.end(), 0);
+    if (geometry_detail::polygon_signed_area_twice(points) < 0) {
+        std::reverse(points.begin() + 1, points.end());
+        std::reverse(order.begin() + 1, order.end());
     }
-    result.validate();
-    return result;
+    std::vector<std::vector<std::size_t>> faces;
+    for (const auto& triangle : geometry_detail::polygon_triangles(points))
+        faces.push_back({order[triangle[0]], order[triangle[1]], order[triangle[2]]});
+    return planar_source(asset, outline, faces);
 }
 EditableMeshSource EditableMeshSource::create_cube(AssetId asset_id) {
     EditableMeshSource result{{{"kind", "forge.editable-mesh"},

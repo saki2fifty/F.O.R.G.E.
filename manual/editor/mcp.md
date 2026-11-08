@@ -515,15 +515,18 @@ for Material settings, UV flips, geometric blockers and Camera view limits.
 Call `forge_asset_document_template` with `editor: "editable_mesh"` and
 `mesh_profile: "planar_quad"`, optionally setting `mesh_size: [width,height]`, or
 use `mesh_profile: "planar_polygon"` and a strictly convex `outline` of 3–16 XY
-pairs. Create the source with `forge_asset_document_create` and a new project
+pairs. For a simple concave boundary, use `mesh_profile: "planar_outline"` with
+the same 3–16-point outline. It creates ordinary triangle faces with global
+bounds UVs and +Z fronts. Crossed/touching edges, repeated/adjacent-collinear
+corners and holes are rejected. Create the source with `forge_asset_document_create` and a new project
 `.mesh.json` path. Use the existing source read/patch/Undo/Redo and Save tools.
 Creation options do not apply to Open or other editors.
 
 Publish the Mesh, assign it to a Mesh Renderer, and assign an Unlit Material.
 Use a game Camera facing the XY plane with orthographic projection; enable
 Two-sided on the Material when viewing its back. Save the Scene before export.
-The shapes use the ordinary Mesh source and renderer. Concave outlines, holes
-and curves are unavailable. See [Create a flat 2D Mesh](editable-meshes.md).
+The shapes use the ordinary Mesh source and renderer. Holes and curves are
+unavailable. See [Create a flat 2D Mesh](editable-meshes.md).
 
 ## Place foliage on a Mesh surface
 

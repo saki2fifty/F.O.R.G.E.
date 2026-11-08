@@ -21,8 +21,10 @@ struct AssetDocumentAutomation {
         const auto profile = request.value("mesh_profile", std::string("cube"));
         if (request.contains("mesh_size") && profile != "planar_quad")
             throw AuthoringError("invalid_argument", "mesh_size applies to planar_quad only");
-        if (request.contains("outline") && profile != "planar_polygon")
-            throw AuthoringError("invalid_argument", "outline applies to planar_polygon only");
+        if (request.contains("outline") && profile != "planar_polygon" &&
+            profile != "planar_outline")
+            throw AuthoringError("invalid_argument",
+                                 "outline applies to a planar polygon or outline only");
         if (profile == "cube")
             return EditableMeshSource::create_cube(id);
         if (profile == "sculpt_sphere")
@@ -31,11 +33,14 @@ struct AssetDocumentAutomation {
             const auto size = request.value("mesh_size", std::array<double, 2>{1, 1});
             return EditableMeshSource::create_planar_quad(id, size[0], size[1]);
         }
-        if (profile == "planar_polygon") {
+        if (profile == "planar_polygon" || profile == "planar_outline") {
             if (!request.contains("outline"))
-                throw AuthoringError("outline_required", "Planar polygon requires an XY outline");
+                throw AuthoringError("outline_required",
+                                     "Flat outline creation requires an XY outline");
             const auto points = request.at("outline").get<std::vector<std::array<double, 2>>>();
-            return EditableMeshSource::create_planar_polygon(id, points);
+            return profile == "planar_outline"
+                       ? EditableMeshSource::create_planar_outline(id, points)
+                       : EditableMeshSource::create_planar_polygon(id, points);
         }
         throw AuthoringError("invalid_argument", "Unknown editable Mesh profile");
     }

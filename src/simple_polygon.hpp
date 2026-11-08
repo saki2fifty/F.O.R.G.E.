@@ -31,6 +31,14 @@ inline bool polygon_segments_touch(const PolygonPoint& a, const PolygonPoint& b,
 }
 // Pure simple-contour geometry shared by bounded authoring consumers. Callers
 // retain their coordinate and capacity policy; no ownership or transform state.
+inline double polygon_signed_area_twice(std::span<const PolygonPoint> points) {
+    // An origin-relative fan avoids subtracting large almost-equal shoelace
+    // terms when a small source contour is offset far from zero.
+    double area = 0;
+    for (std::size_t i = 1; i + 1 < points.size(); ++i)
+        area += polygon_turn(points[0], points[i], points[i + 1]);
+    return area;
+}
 inline double validate_polygon(std::span<const PolygonPoint> points) {
     const auto require = [](bool value, const char* why) {
         if (!value)
@@ -58,11 +66,7 @@ inline double validate_polygon(std::span<const PolygonPoint> points) {
             const auto& d = points[next_j];
             require(!polygon_segments_touch(a, b, c, d), "polygon edges intersect or touch");
         }
-    // An origin-relative fan sum avoids subtracting large almost-equal shoelace
-    // terms when a small source contour is offset near the cell's corner.
-    double area = 0;
-    for (std::size_t i = 1; i + 1 < points.size(); ++i)
-        area += polygon_turn(points[0], points[i], points[i + 1]);
+    const auto area = polygon_signed_area_twice(points);
     require(area > 0, "polygon must have positive counterclockwise area");
     return area;
 }

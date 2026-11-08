@@ -33,6 +33,7 @@ template <class F> void rejects(F fn) {
 int main() {
     try {
         planar_mesh_tests();
+        planar_outline_tests();
         refinement_tests();
         mesh_inset_tests();
         const auto identity = AssetId::generate();

@@ -10,7 +10,7 @@ def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declar
     for name in ('forge_asset_document_template', 'forge_asset_document_create'):
         properties = schemas[name]
         assert properties['mesh_profile']['enum'] == [
-            'cube', 'sculpt_sphere', 'planar_quad', 'planar_polygon']
+            'cube', 'sculpt_sphere', 'planar_quad', 'planar_polygon', 'planar_outline']
         assert properties['outline']['minItems'] == 3 and properties['outline']['maxItems'] == 16
         assert properties['mesh_size']['minItems'] == properties['mesh_size']['maxItems'] == 2
     before_scene = read('forge_scene_read')
@@ -19,9 +19,32 @@ def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declar
     assert [v['position'] for v in quad['vertices']] == [[-2, -1, 0], [2, -1, 0], [2, 1, 0], [-2, 1, 0]]
     assert not status(owner)['open']
     assert not list((root / 'Game/Assets').glob('*.mesh.json'))
+    concave = [[0, 0], [3, 0], [3, 1], [1, 1], [1, 3], [0, 3]]
+    for points in [concave, list(reversed(concave))]:
+        preview = read('forge_asset_document_template', editor=owner,
+                       mesh_profile='planar_outline', outline=points)
+        assert [v['position'][:2] for v in preview['vertices']] == points
+        assert len(preview['faces']) == 4 and preview['next_id'] == 11
+        assert all(len(face['corners']) == 3 for face in preview['faces'])
+        vertices = {v['id']: v['position'] for v in preview['vertices']}
+        area = 0.
+        for face in preview['faces']:
+            a, b, c = [vertices[corner['vertex']] for corner in face['corners']]
+            twice = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+            assert twice > 0
+            area += twice / 2
+            for corner in face['corners']:
+                p = vertices[corner['vertex']]
+                assert abs(corner['uv'][0] - p[0] / 3) < 1e-10
+                assert abs(corner['uv'][1] - (1 - p[1] / 3)) < 1e-10
+        assert area == 5
     invalid = [dict(mesh_profile='unknown'), dict(mesh_profile='planar_quad', mesh_size=[0, 1]),
                dict(mesh_profile='planar_polygon'), dict(mesh_profile='planar_polygon', outline=[]),
                dict(mesh_profile='cube', outline=[[0, 0], [1, 0], [0, 1]]),
+               dict(mesh_profile='planar_outline'),
+               dict(mesh_profile='planar_outline', outline=[[0, 0], [2, 2], [0, 2], [2, 0]]),
+               dict(mesh_profile='planar_outline', outline=[[0, 0], [2, 0], [2, 2], [1, 0], [0, 2]]),
+               dict(mesh_profile='planar_outline', outline=concave + [[0, 0]]),
                dict(mesh_profile='planar_polygon', outline=[
                    [math.cos(4 * math.pi * i / 5), math.sin(4 * math.pi * i / 5)] for i in range(5)])]
     for options in invalid:
@@ -47,9 +70,13 @@ def check_planar_mesh_workflow(read, mutate, edit, status, content, root, declar
         record = next(row for row in records if row['id'] == current['asset'])
         assert record['type'] == 'mesh' and record['metadata']['forge.import']
 
-    for profile, options in [('planar_polygon', dict(outline=[[-1, -1], [1, -1], [1, 1], [-1, 1]])),
-                             ('planar_quad', dict(mesh_size=[4, 2]))]:
-        path = f'Assets/{profile}.mesh.json'
+    for index, (profile, options) in enumerate([
+            ('planar_polygon', dict(outline=[[-1, -1], [1, -1], [1, 1], [-1, 1]])),
+            ('planar_quad', dict(mesh_size=[4, 2])),
+            ('planar_outline', dict(outline=concave)),
+            ('planar_outline', dict(outline=list(reversed(concave))))]):
+        suffix = '-clockwise' if index == 3 else ''
+        path = f'Assets/{profile}{suffix}.mesh.json'
         result = mutate('forge_asset_document_create', editor=owner, path=path,
                         mesh_profile=profile, **options)
         assert result['ok'], result

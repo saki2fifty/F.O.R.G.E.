@@ -12,7 +12,16 @@ void require(bool value, const std::string& message) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        require(argc == 2, "Need planar Mesh UI scratch directory");
+        const bool single_scale = argc == 3 && std::string_view(argv[2]) == "--single-scale";
+        const bool selected_scale = argc == 4 && std::string_view(argv[2]) == "--scale";
+        float only_scale = 1;
+        if (selected_scale) {
+            const auto value = std::string_view(argv[3]);
+            require(value == "1" || value == "1.5" || value == "2", "Choose UI scale 1, 1.5 or 2");
+            only_scale = value == "2" ? 2 : value == "1.5" ? 1.5f : 1;
+        }
+        require(argc == 2 || single_scale || selected_scale,
+                "Need planar Mesh UI scratch and optional --single-scale or --scale 1/1.5/2");
         const auto scratch = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(scratch);
         require(SDL_Init(SDL_INIT_VIDEO), SDL_GetError());
@@ -20,6 +29,8 @@ int main(int argc, char** argv) {
             ~Quit() { SDL_Quit(); }
         } quit;
         for (float scale : {1.f, 1.5f, 2.f}) {
+            if ((single_scale || selected_scale) && scale != only_scale)
+                continue;
             const auto root = scratch / AssetId::generate().str();
             SceneDocument::create_project(root, "Planar Mesh controls");
             std::filesystem::create_directories(root / "Assets");
@@ -103,6 +114,30 @@ int main(int argc, char** argv) {
                     "Polygon controls did not create five ordinary Mesh vertices");
             editor = std::make_unique<EditableMeshEditor>();
             input.click("editable-mesh:new");
+            shape(4);
+            input.type("editable-mesh:create-path", "Assets/Concave.mesh.json");
+            input.click("editable-mesh:create-add");
+            input.click("editable-mesh:create-add");
+            const std::array<std::array<const char*, 2>, 6> boundary{{{{"0", "0"}},
+                                                                      {{"3", "0"}},
+                                                                      {{"3", "1"}},
+                                                                      {{"1", "1"}},
+                                                                      {{"1", "3"}},
+                                                                      {{"0", "3"}}}};
+            for (unsigned i = 0; i < boundary.size(); ++i) {
+                input.type(("editable-mesh:create-x:" + std::to_string(i)).c_str(), boundary[i][0]);
+                input.type(("editable-mesh:create-y:" + std::to_string(i)).c_str(), boundary[i][1]);
+            }
+            if (scale == 1)
+                capture.save(scratch / "concave-mesh-create.png");
+            input.click("editable-mesh:create");
+            require(editor->document() &&
+                        editor->document()->source().document.at("vertices").size() == 6 &&
+                        editor->document()->source().document.at("faces").size() == 4 &&
+                        scene.snapshot() == authored,
+                    "Concave controls did not create ordinary triangle faces without Scene edits");
+            editor = std::make_unique<EditableMeshEditor>();
+            input.click("editable-mesh:new");
             shape(3);
             for (unsigned i = 4; i < 16; ++i)
                 input.click("editable-mesh:create-add");
@@ -121,6 +156,8 @@ int main(int argc, char** argv) {
             input.click("editable-mesh:create-cancel");
             require(scene.snapshot() == reopened, "Cancel mutated the reopened Scene");
             test::observe_ui = false;
+            std::cout << "Planar/concave creation controls at scale " << scale << " passed\n"
+                      << std::flush;
         }
         std::cout << "Native planar Mesh creation, convex rejection, scrolling, scope and "
                      "cancellation passed\n";

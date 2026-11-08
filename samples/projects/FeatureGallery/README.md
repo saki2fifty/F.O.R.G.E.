@@ -1,5 +1,15 @@
 # Feature Gallery
 
+## Concave flat Mesh shapes
+
+Open `Scenes/202-concave-planar-meshes.scene.json` and press **Play → Game**.
+Two L shapes from opposite windings and a concave arrow use ordinary editable
+triangle Meshes with the existing Unlit checker Material and an orthographic
+Camera. No Light or project C++ is needed. Stop Play and open the new sources
+under `Assets/Planar` in Content. Choose Save & Publish after source edits, then
+save the Scene before export. Create your own with **Triangulated outline (XY)**
+in New editable Mesh. See [flat Mesh creation](../../../manual/editor/editable-meshes.md).
+
 ## Foliage surface brush
 
 Open `Scenes/201-foliage-surface-brush.scene.json` and press **Play → Game**.

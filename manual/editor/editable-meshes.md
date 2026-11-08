@@ -25,13 +25,26 @@ creating the shape. **Remove** deletes that draft corner.
 
 Enter corners around a strictly convex boundary, then choose Create.
 
-The boundary must have no inward corners, straight-through corners, duplicate
+For Flat polygon, the boundary must have no inward corners, straight-through corners, duplicate
 points, crossing edges or holes. Invalid geometry shows an error and keeps the
 draft open without creating a file. **Cancel** leaves the project unchanged.
 Coordinates must be finite and within -100,000 to 100,000. Very small or nearly
 flat faces can also fail the geometry tolerance.
 
-Both shapes lie in local XY, with their front pointing toward positive Z. UVs
+Choose **Triangulated outline (XY)** for a simple boundary with inward corners.
+Enter 3 to 16 corners around the boundary in either direction. It creates ordinary
+triangle faces and preserves the original boundary vertices. No holes, crossing
+or touching edges, repeated points or adjacent straight-through corners are
+allowed. Invalid input keeps the creation draft open without writing a file.
+
+For an L shape, enter `(0,0), (3,0), (3,1), (1,1), (1,3), (0,3)` in that order.
+Use **Add corner** twice to reach six rows, then choose **Create**.
+
+![New editable Mesh dialog with Triangulated outline selected and six corners forming an L shape](../images/concave-mesh-create.png)
+
+The outline is divided into ordinary editable triangle faces when created.
+
+All flat profiles lie in local XY, with their front pointing toward positive Z. UVs
 span the boundary's bounding rectangle, with the top at V=0. A polygon clips the
 image to its outline. **Save & Publish**, then drag the Mesh into your Scene and
 assign a Material. Use **Material Editor → Shader model → Unlit** for color
@@ -50,9 +63,17 @@ files stay in the project; the exported game uses cooked Meshes and Materials.
 Gallery **199-planar-meshes** uses an orthographic Camera and the same Unlit
 checker Material for three independently editable flat Meshes.
 
+Gallery **202-concave-planar-meshes** shows two L shapes created from opposite
+input windings and a concave arrow. They share the same Unlit checker Material.
+Open the scene and press **Play → Game**, then stop Play to edit a Mesh under
+`Assets/Planar` in Content. Save & Publish source edits and save the Scene before export.
+
+![Game view with two L-shaped Meshes and a concave arrow, with their notches left open](../images/concave-mesh-game.png)
+
 After creation, use the existing Model and UV tools below. A flat shape is an
 ordinary Mesh: it can be transformed, triangulated or extruded. Its start shape
-is not a separate persistent setting. General concave outlines, holes, curves
+is not a separate persistent setting. A triangulated outline becomes ordinary
+vertices and faces; its original contour is not a live setting. Holes, curves
 and automatic polygon repair are unavailable.
 
 ## Shape the Mesh

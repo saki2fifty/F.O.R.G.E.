@@ -40,8 +40,9 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
          {"flags", automation_integer(0, UINT32_MAX)}},
         {"layer", "x", "y"});
     const Json channel{{"type", "number"}, {"minimum", 0}, {"maximum", 1}};
-    const Json mesh_profile{{"type", "string"},
-                            {"enum", {"cube", "sculpt_sphere", "planar_quad", "planar_polygon"}}};
+    const Json mesh_profile{
+        {"type", "string"},
+        {"enum", {"cube", "sculpt_sphere", "planar_quad", "planar_polygon", "planar_outline"}}};
     const auto mesh_size =
         automation_array(Json{{"type", "number"}, {"minimum", 0}, {"maximum", 200000}}, 2, 2);
     const auto mesh_outline = automation_array(
@@ -514,8 +515,10 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         "Material graphs accept domain mesh (default) or sprite. Navigation behaviors accept "
         "behavior_profile state_graph (default) or tree. Editable Mesh accepts mesh_profile "
         "cube (default), sculpt_sphere, planar_quad with positive mesh_size [width,height], "
-        "or planar_polygon with a strictly convex outline of 3 to 16 XY points. Flat meshes face "
-        "+Z.",
+        "planar_polygon with a strictly convex outline, or planar_outline with a simple "
+        "concave-capable outline. Outlines need 3 to 16 XY points; planar_outline creates ordinary "
+        "triangle faces without holes, crossing/touching edges or adjacent collinear corners. "
+        "Flat meshes face +Z and use bounds UVs.",
         "asset.read",
         automation_object(
             {{"editor", editor_schema},
@@ -595,8 +598,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "publish until Save. Material graph creation accepts domain mesh "
                 "(default) or sprite. Navigation behaviors accept behavior_profile "
                 "state_graph (default) or tree. Editable Mesh accepts mesh_profile cube, "
-                "sculpt_sphere, planar_quad (positive mesh_size [width,height]), or planar_polygon "
-                "(strictly convex outline of 3 to 16 XY points). Flat meshes face +Z and map UVs "
+                "sculpt_sphere, planar_quad (positive mesh_size [width,height]), planar_polygon "
+                "(strictly convex outline) or planar_outline (simple concave-capable outline, "
+                "ordinary triangle faces). Outlines need 3 to 16 XY points, without holes, "
+                "crossing/touching edges or adjacent collinear corners. Flat meshes face +Z and "
+                "map UVs "
                 "across their bounds. Mesh options do not apply to other editors or Open.",
             "asset.write", automation_object(std::move(properties), {"editor", "path"}), true,
             [invoke, action](const Json& request) { return invoke(action, request); }));

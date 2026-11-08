@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**202-concave-planar-meshes** shows two L shapes from opposite input windings and
+a concave arrow. Open it and press **Play → Game**. All three use ordinary
+editable triangle Meshes and the existing Unlit checker Material. Stop Play,
+open a source under `Assets/Planar` in Content, edit it and choose **Save & Publish**.
+Save the Scene before exporting with a matching runtime kit. See
+[Create a flat 2D Mesh](../editor/editable-meshes.md).
+
 **201-foliage-surface-brush** contains two saved brush strokes with 96 plants on
 tilted and mirrored ramps. Open it and press **Play → Game**. Stop Play and expand
 each stroke in Hierarchy to edit its ordinary dab groups and plants. To paint

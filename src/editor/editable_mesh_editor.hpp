@@ -122,8 +122,9 @@ class EditableMeshEditor {
             if (ImGui::InputText("Project file", path_, sizeof(path_)))
                 error_.clear();
             FORGE_UI_PROBE("editable-mesh:create-path");
-            const char* shapes[] = {"Cube", "Sculpt sphere", "Flat quad (XY)", "Flat polygon (XY)"};
-            if (ImGui::Combo("Start shape", &start_shape_, shapes, 4))
+            const char* shapes[] = {"Cube", "Sculpt sphere", "Flat quad (XY)", "Flat polygon (XY)",
+                                    "Triangulated outline (XY)"};
+            if (ImGui::Combo("Start shape", &start_shape_, shapes, 5))
                 error_.clear();
             FORGE_UI_PROBE("editable-mesh:create-shape");
             ui::help("Choose a new .mesh.json file inside your project.");
@@ -138,9 +139,14 @@ class EditableMeshEditor {
                     error_.clear();
                 FORGE_UI_PROBE("editable-mesh:create-height");
             }
-            if (start_shape_ == 3) {
-                ui::help("Enter 3 to 16 boundary corners in clockwise or counterclockwise order. "
-                         "The outline must be strictly convex, without holes or crossing edges.");
+            if (start_shape_ >= 3) {
+                ui::help(
+                    start_shape_ == 4
+                        ? "Enter 3 to 16 simple boundary corners in either winding. Concave "
+                          "outlines become ordinary triangle faces. No holes, crossing or "
+                          "touching edges, repeated or adjacent collinear corners."
+                        : "Enter 3 to 16 boundary corners in clockwise or counterclockwise order. "
+                          "The outline must be strictly convex, without holes or crossing edges.");
                 for (std::size_t i = 0; i < outline_.size(); ++i) {
                     ui::IdScope row(std::to_string(i).c_str());
                     ImGui::Text("Corner %zu", i + 1);
@@ -202,6 +208,8 @@ class EditableMeshEditor {
                                                                               quad_size_[1]);
                             case 3:
                                 return EditableMeshSource::create_planar_polygon(id, outline_);
+                            case 4:
+                                return EditableMeshSource::create_planar_outline(id, outline_);
                             default:
                                 return EditableMeshSource::create_cube(id);
                             }

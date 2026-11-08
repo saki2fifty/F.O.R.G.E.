@@ -12,6 +12,16 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+concave_path = 'Scenes/202-concave-planar-meshes.scene.json'
+concave_scene = json.loads((project_root / concave_path).read_text())
+assert concave_scene['asset_id'] == by_source[concave_path]['id'] == '0f29bea1-9220-4fa5-b129-e96c805cab41'
+for name, corners in [('LShape', 6), ('ClockwiseL', 6), ('Arrow', 7)]:
+    path = f'Assets/Planar/{name}.mesh.json'
+    mesh = json.loads((project_root / path).read_text())
+    assert mesh['asset_id'] == by_source[path]['id'] and mesh['version'] == 1
+    assert len(mesh['vertices']) == corners and len(mesh['faces']) == corners - 2
+    assert mesh['next_id'] == corners * 2 - 1
+    assert all(len(face['corners']) == 3 for face in mesh['faces'])
 brush_path = 'Scenes/201-foliage-surface-brush.scene.json'
 brush_scene = json.loads((project_root / brush_path).read_text())
 assert brush_scene['asset_id'] == by_source[brush_path]['id'] == '731bc1bc-8d60-401f-8422-d5a5aa2ac214'

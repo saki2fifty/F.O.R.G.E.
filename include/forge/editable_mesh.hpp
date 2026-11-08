@@ -31,6 +31,10 @@ struct EditableMeshSource {
     // Strictly convex 3..16-corner outline. Either winding is accepted.
     static EditableMeshSource create_planar_polygon(AssetId asset,
                                                     std::span<const std::array<double, 2>> outline);
+    // Simple 3..16-corner XY outline, including concavity. Either winding is
+    // accepted; ordinary triangle faces retain the existing editable face model.
+    static EditableMeshSource create_planar_outline(AssetId asset,
+                                                    std::span<const std::array<double, 2>> outline);
     static EditableMeshSource parse(std::span<const std::byte> bytes);
     void validate() const;
     MeshData cook() const;

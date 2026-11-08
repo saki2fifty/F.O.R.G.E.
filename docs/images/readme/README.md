@@ -2653,3 +2653,36 @@ control present; Game images from earlier workflows remain unchanged.
 
 Native PNG SHA256: `3817e4af20c0a4f6bede7e0057bd8b39d543d1505370a68b75c5726ee98535bf`.
 Game PNG SHA256: `d5117309d8f0b2a2e507bcd568ae77131d58b5c7f2b32ad796adfb6425253b2a`.
+
+## Concave flat Mesh creation
+
+[Concave creation controls](../../../manual/images/concave-mesh-create.png) is an
+unretouched700×800 production New editable Mesh capture through
+`tests/planar_mesh_editor_tests.cpp` and the pinned ImGui/SDL software renderer.
+Actual pointer/keyboard input selects Triangulated outline (XY), adds two rows,
+enters six L-shaped boundary points and creates four ordinary faces without
+changing the Scene. Independent normal cases exercise the same assertions at
+1/1.5/2scale, with separate projects/processes for parallel execution. The selected
+sanitizer case executes the changed workflow at1scale; it does not claim physical
+DPI or all-scale sanitizer rendering. The existing convex creation PNG remains
+byte-identical and retains its original provenance.
+
+[Concave Game](../../../manual/images/concave-mesh-game.png) preserves every RGB
+pixel of the640×360 production FrameRenderer PPM from
+`tests/concave_mesh_gallery_vulkan_probe.cpp`. Gallery202 contains two L shapes
+from opposite windings and a concave arrow, sharing Gallery199's original Unlit
+checker Material. An independent even/odd contour oracle verifies30890interior
+and192847exteriorpixels away from edges, including empty notches. Fourlandscape/
+portrait captures match exactly after source-hidden Windows-target export and
+relocation. Old quad/convex/CW factories reproduce shipped199source intent exactly.
+
+Native PNG bytes were copied exactly; Game conversion is lossless with decoded
+RGB equality. Both were personally inspected. Source SceneUUID:
+`0f29bea1-9220-4fa5-b129-e96c805cab41`. Local batch300 capture-provenance.json,
+selected-gallery-proof.json and gallery-publication.json retain originals/hashes.
+This is component/native and software-Vulkan runtime evidence, with no fullMain,
+Windows, physical input/DPI/GPU, performance or arbitrary-polygon claim. No image
+controls or pixels were invented, retouched, cropped or resized.
+
+Native PNG SHA256: `ab13af7e9113bfd24f34bd29aa713de99b891d15c2be298bcc4cd87903aea35f`.
+Game PNG SHA256: `60a39f02f7ccd470bded63c24d70770092525e0a8c29c9da71b2c5721401a889`.
