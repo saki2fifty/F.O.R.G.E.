@@ -22,6 +22,7 @@ from mcp_audio_routing_play import check_audio_routing_play
 from mcp_sound_cues_play import check_sound_cues_play
 from mcp_sound_playlist import check_sound_playlist
 from mcp_input_recording_play import check_input_recording_play
+from mcp_ui_source_authoring import check_ui_source_authoring
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 SEQUENCE_PROPERTIES_ONLY = sys.argv[7:] == ['--sequence-properties-only']
@@ -51,6 +52,7 @@ GESTURES_ONLY = sys.argv[7:] == ['--gestures-only']
 TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 INPUT_RECORDING_ONLY = sys.argv[7:] == ['--input-recording-only']
+UI_SOURCE_ONLY = sys.argv[7:] == ['--ui-source-only']
 AUDIO_STREAMING_ONLY = sys.argv[7:] == ['--audio-streaming-only']
 AUDIO_ROUTING_ONLY = sys.argv[7:] == ['--audio-routing-only']
 FINITE_SOUND_CUES_ONLY = sys.argv[7:] == ['--finite-sound-cues-only']
@@ -379,6 +381,16 @@ for legacy in (False, True):
                 assert 'forge_play_input_recording_save' not in readable
             print(('legacy' if legacy else 'current') + ': fresh input capture, save/reopen, replay, '
                   'scope/path/overwrite/grant guards and authored isolation passed')
+            continue
+        if UI_SOURCE_ONLY:
+            check_ui_source_authoring(read, ok, mutate, root, advertised)
+            with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
+                visible = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
+                assert 'forge_ui_source_read' in visible and 'forge_ui_source_open' not in visible
+                assert 'forge_ui_source_replace' not in visible and 'forge_ui_source_save' not in visible
+                denied = readonly.request('tools/call', dict(name='forge_ui_source_open', arguments=dict(path='Assets/Hud.rml')))
+                assert 'error' in denied or denied['result']['isError'], denied
+            print(('legacy' if legacy else 'current') + ': native UI source, structural edits/history, scope/grants/staleness, save/conflict/reload and Scene isolation passed')
             continue
         if SKELETAL_SEQUENCE_ONLY:
             check_skeletal_sequence_play(read, ok, control, mutate, until, discovery)

@@ -749,9 +749,17 @@ body { font-family: Game; }
 
 ## Edit and reload
 
-Edit the RML or RCSS file using your text editor, save it, then click **Reload UI** in the Game controls during Play. FORGE prepares the replacement first. If it fails, the previous usable HUD remains visible and an error explains the failure.
+Stop Play and open a registered RML or RCSS asset from Content using **Edit UI
+source**. Edit **Source**, or use **Elements** for widget attributes, leaf text and
+structure. Choose **Save source**, then start Play again. See
+[Edit a game's UI source](ui-source.md).
 
-Reloading clears hover/focus and local text-field contents. It does not restart gameplay. UI asset creation and file editing are outside scene Undo/Redo; use your text editor or version control for those files.
+You can also edit the file in another text editor, save it, then click **Reload
+UI** in the Game controls during Play. FORGE prepares the replacement first. If
+it fails, the previous usable HUD remains visible and an error explains the failure.
+Reloading clears hover/focus and local text-field contents without restarting
+gameplay. UI Source has its own Undo/Redo; source saving and registration are
+outside scene history. External file edits do not enter native source history.
 
 ## Multiple documents and prefabs
 

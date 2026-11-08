@@ -75,6 +75,8 @@ int main(int argc, char** argv) {
         ui::DocumentWorkspace workspace;
         workspace.add({"sprite_atlas", "Sprite atlas", "Sprite atlas###SpriteAtlas", true});
         workspace.bind_source("sprite_atlas", AssetDocumentAutomation::bind(editor, project));
+        workspace.add({"ui_source", "UI Source", "UI Source###UI Source", true});
+        workspace.bind_source("ui_source", {{}, {}});
         ui::AutomationPermissions permissions;
         const auto read_methods = source_document_automation_methods(workspace, permissions);
         require(std::none_of(read_methods.begin(), read_methods.end(),
@@ -82,6 +84,17 @@ int main(int argc, char** argv) {
                 "Read-only automation exposed atlas mutations");
         permissions.assets = true;
         const auto methods = source_document_automation_methods(workspace, permissions);
+        const auto catalog_method = std::find_if(methods.begin(), methods.end(), [](const auto& m) {
+            return m.name == "asset.document.types";
+        });
+        require(catalog_method != methods.end() &&
+                    catalog_method->invoke(Json::object()).at("editors").size() == 1,
+                "File hooks without a typed source API leaked into document discovery");
+        const auto template_method =
+            std::find_if(methods.begin(), methods.end(),
+                         [](const auto& m) { return m.name == "asset.document.template"; });
+        require(template_method != methods.end(), "Typed source template method missing");
+        rejects([&] { template_method->invoke({{"editor", "ui_source"}}); });
         const auto invoke = [&](std::string_view name, Json args) {
             args["editor"] = "sprite_atlas";
             const auto found = std::find_if(methods.begin(), methods.end(),

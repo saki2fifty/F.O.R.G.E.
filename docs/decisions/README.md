@@ -54,6 +54,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [046](046-prefab-source-layers.md) | Related variants combine ordered sparse source contributions through the existing Prefab owner |
 
 | [047](047-audio-impulse-responses.md) | Imported bus responses share project, AudioClip, runtime and export ownership |
+| [048](048-ui-source-authoring.md) | Native UI source and element edits share one draft, history and file owner |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

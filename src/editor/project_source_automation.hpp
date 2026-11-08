@@ -2,6 +2,7 @@
 #include "../asset_bytes.hpp"
 #include "../asset_storage.hpp"
 #include "../bounded_json.hpp"
+#include "../project_text_source.hpp"
 #include "../ui_asset_catalog.hpp"
 #include "automation_permissions.hpp"
 #include "automation_schema.hpp"
@@ -13,50 +14,15 @@ namespace forge {
 // same leased, baseline-checked source storage as external editing; registration
 // and publication stay explicit in their existing owners. Scene/prefab/typed
 // source JSON, metadata, C++ and engine files cannot enter this path.
-struct ProjectSourceAutomation {
-    static constexpr std::size_t limit = 1024 * 1024;
-    static bool allowed_root(const std::filesystem::path& path) {
-        const auto first = path.begin()->string();
-        return first == "Assets" || first == "Sources" || first == "UI" || first == "Shaders";
-    }
-    static bool source_extension(const std::filesystem::path& path) {
-        const auto extension = path.extension();
-        return extension == ".rml" || extension == ".rcss" || extension == ".hlsl" ||
-               extension == ".hlsli" || path_utf8(path).ends_with(".shader.json");
-    }
+struct ProjectSourceAutomation : ProjectTextSource {
     static std::filesystem::path path(EditorFiles& files, const Json& request) {
         files.document.check_ownership();
         auto path = automation_relative_path(request.at("path").get<std::string>());
-        if (!allowed_root(path) || !source_extension(path))
-            throw AuthoringError(
-                "unsupported_source",
-                "Choose project UI/shader source under Assets, Sources, UI or Shaders");
-        const ProjectPaths project(files.document.project());
-        // Check the logical path before canonical resolution can erase an alias
-        // into Scene/Native/metadata. Containment alone is not source ownership.
-        asset_storage::ordinary(project.root() / path);
-        return project.resolve(path);
-    }
-    static std::string digest(const std::string& text) {
-        return asset_detail::content_digest(std::as_bytes(std::span(text.data(), text.size())));
-    }
-    static std::optional<std::string> read(const std::filesystem::path& path) {
-        const auto text = asset_storage::read(path, limit);
-        if (text) {
-            if (text->find('\0') != std::string::npos)
-                throw AuthoringError("invalid_source", "Source must be UTF-8 text without NUL");
-            (void)Json(*text).dump();
-        }
-        return text;
+        return ProjectTextSource::path(files.document.project(), path);
     }
     static void validate(const std::filesystem::path& path, const std::string& text,
                          const std::optional<std::string>& before) {
-        if (text.size() > limit || text.find('\0') != std::string::npos)
-            throw AuthoringError("invalid_source",
-                                 "Source must be UTF-8 text without NUL, at most1MiB");
-        (void)Json(text).dump();
-        if (path.extension() == ".rml" || path.extension() == ".rcss")
-            validate_ui_text(text, path.extension() == ".rml");
+        ProjectTextSource::validate(path, text);
         if (path_utf8(path).ends_with(".shader.json")) {
             if (!before)
                 throw AuthoringError("create_required",
@@ -71,9 +37,10 @@ struct ProjectSourceAutomation {
             (void)shader_program_source(candidate);
         }
     }
-    static std::vector<LiveAuthoringMethod> methods(EditorFiles& files,
-                                                    const ui::AutomationPermissions& permissions,
-                                                    std::function<std::string()> unavailable) {
+    static std::vector<LiveAuthoringMethod>
+    methods(EditorFiles& files, const ui::AutomationPermissions& permissions,
+            std::function<std::string()> unavailable,
+            std::function<bool(const std::filesystem::path&)> source_owned = {}) {
         std::vector<LiveAuthoringMethod> result;
         result.push_back(automation_method(
             "source.text.list",
@@ -174,18 +141,20 @@ struct ProjectSourceAutomation {
                                {"state", automation_text(64, 1)},
                                {"text", automation_text(limit)}},
                               {"path", "state", "text"}),
-            true, [&files, ready](const Json& request) {
+            true, [&files, ready, source_owned](const Json& request) {
                 ready();
                 const auto file = path(files, request);
+                if (source_owned &&
+                    source_owned(automation_relative_path(request.at("path").get<std::string>())))
+                    throw AuthoringError("source_owned", "Use the open UI source document, or "
+                                                         "close it before writing the disk file");
                 const auto before = read(file);
                 if (request.at("state") != (before ? digest(*before) : "missing"))
                     throw AuthoringError("source_conflict",
                                          "Source changed; read it before writing");
                 const auto text = request.at("text").get<std::string>();
                 validate(file, text, before);
-                if (!std::filesystem::is_directory(file.parent_path()))
-                    throw AuthoringError("invalid_path", "Choose an existing source directory");
-                asset_storage::replace(file, text);
+                ProjectTextSource::write_validated(file, before, text);
                 return Json{{"path", request.at("path")}, {"state", digest(text)}};
             }));
         result.push_back(automation_method(

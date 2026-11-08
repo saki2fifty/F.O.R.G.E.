@@ -8,6 +8,7 @@ namespace forge::ui {
 struct SourceDocumentAccess {
     std::string suffix;
     // Borrowed callbacks; the registered editor remains the sole draft/history owner.
+    // Empty invoke supplies publication/file hooks without a typed JSON source API.
     std::function<Json(std::string_view, const Json&)> invoke;
     std::function<bool(AssetId)> publication_blocked = {};
     std::function<void(AssetId)> source_published = {};

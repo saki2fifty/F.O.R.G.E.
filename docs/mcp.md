@@ -1094,6 +1094,41 @@ so a contained alias cannot cross source ownership. Shader declaration changes
 preserve their identity; `source_shader_create` mints a new identity and validates
 stages. Compilation stays in the existing shader importer/worker. UI register and
 example tools use the existing UI catalog admission; live reload stays separate.
+A raw write to a file currently owned by UI Source rejects with `source_owned`,
+including a clean open file. Use its native document operations or close it first.
+
+### Native UI source documents
+
+`forge_ui_source_read/open/replace/attribute/text/insert/remove/move/save/undo/redo/reload/close`
+borrow the actual UiSourceEditor. Read returns copied text, path, transient
+session, revision, content `state` digest, disk baseline, dirty/history status and
+derived element ranges. RCSS has no outline; incomplete RML reports
+`outline_error` and retains its draft. Elements contain transient indices,
+parent indices (null at root), byte-exclusive source/content/attribute spans,
+self-closing state and `widget_editable` structural eligibility. These indices
+are not persisted widget IDs and must be refreshed after each edit.
+
+Read needs `assets.read`; mutations need `assets.write` and the usual transport
+target/revision/sequence. After open, every mutation echoes the returned `path`,
+`session`, `revision` and `state`; a mismatch returns `stale_ui_source`. A different
+unsaved open document rejects. Busy/Play/close dialogs retain the native guard;
+reads are scoped to the currently leased project.
+
+Attribute takes `element`, lowercase `name` and string-or-null `value`; null
+removes only that attribute. Text takes a leaf `element` and `text`. Insert takes
+`parent`, `tag`, optional `text` and optional direct-child `before`. Move takes
+`element` and `direction` -1 or 1; remove takes `element`. Whole candidates use
+the existing UI validator. Unrelated source bytes, comments and styles survive;
+document structure/resource declarations use raw replace. Text/attribute values
+escape markup characters through RmlUi while model bindings retain source meaning.
+
+Replace may retain incomplete source. Save validates final stored bytes and
+rechecks the disk baseline, returning `source_conflict` without overwriting a
+changed file. Reload and close require `discard:true` for an unsaved draft;
+reload starts a fresh session/history. Undo/redo use the widget's only history.
+Save retains uniform CRLF and does not register, reload UI or mutate Scene history.
+Use existing UI registration/resource-refresh tools and Play reload separately.
+See [native source authoring](../manual/editor/ui-source.md) and ADR048.
 
 `forge_script_*` borrows FlecsScriptEditor for registration/open/read/replace/save,
 isolated diagnostic preview/result/cancel and close. Source-session digests and

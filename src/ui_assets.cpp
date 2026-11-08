@@ -3,6 +3,7 @@
 #include "ui_filter_profile.hpp"
 #include "ui_gradient_profile.hpp"
 #include "ui_localization_admission.hpp"
+#include "ui_markup.hpp"
 #include "ui_shadow_motion.hpp"
 #include <algorithm>
 #include <cctype>
@@ -46,7 +47,8 @@ struct TextProfile {
     unsigned filters = 0;
     unsigned gradients = 0;
 };
-TextProfile validate_text_profile(std::string_view text, bool markup) {
+TextProfile validate_text_profile(std::string_view text, bool markup,
+                                  std::vector<UiMarkupElement>* elements = nullptr) {
     require(text.size() <= 256 * 1024, "RML/RCSS exceeds 256 KiB");
     require(text.find('\0') == std::string_view::npos, "RML/RCSS contains NUL");
     (void)nlohmann::json(std::string(text)).dump();
@@ -54,6 +56,7 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
         require(lower(std::string(text)).find("@import") == text.npos,
                 "RCSS imports are deferred; link each stylesheet from RML");
     std::vector<std::string> stack;
+    std::vector<std::size_t> element_stack;
     std::size_t nodes = 0;
     unsigned braces = 0, parens = 0;
     std::string property, token;
@@ -73,6 +76,7 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
             continue;
         }
         if (markup && text[i] == '<') {
+            const auto tag_begin = i;
             ++i;
             bool closing = i < text.size() && text[i] == '/';
             if (closing)
@@ -104,6 +108,15 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                     require(c != '<', "Malformed RML attribute");
             }
             require(end < text.size() && !quote && end - i <= 8192, "Malformed/oversized RML tag");
+            if (elements && !closing) {
+                UiMarkupElement element;
+                element.tag = tag;
+                element.parent =
+                    element_stack.empty() ? UiMarkupElement::no_parent : element_stack.back();
+                element.source = element.opening = {tag_begin, end + 1};
+                element.content = element.closing = {end + 1, end + 1};
+                elements->push_back(std::move(element));
+            }
             // Inline styles use the same bounded RCSS admission as linked styles.
             if (!closing) {
                 auto attributes = text.substr(i, end - i);
@@ -121,6 +134,11 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                         continue;
                     }
                     auto name = lower(std::string(attributes.substr(begin, a - begin)));
+                    UiMarkupAttribute attribute;
+                    if (elements) {
+                        attribute.name = name;
+                        attribute.source = {i + begin, i + a};
+                    }
                     if (name.starts_with("data-style-") &&
                         std::find(ui_shadow_detail::properties.begin(),
                                   ui_shadow_detail::properties.end(),
@@ -149,23 +167,41 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                     }
                     while (a < attributes.size() && space(attributes[a]))
                         ++a;
-                    if (a == attributes.size() || attributes[a] != '=')
+                    if (a == attributes.size() || attributes[a] != '=') {
+                        if (elements)
+                            elements->back().attributes.push_back(std::move(attribute));
                         continue;
+                    }
                     ++a;
                     while (a < attributes.size() && space(attributes[a]))
                         ++a;
                     if (a == attributes.size())
                         break;
                     char q = attributes[a];
+                    attribute.has_value = true;
                     if (q != '\'' && q != '"') {
+                        const auto value_begin = a;
                         while (a < attributes.size() && !space(attributes[a]))
                             ++a;
+                        if (elements) {
+                            const auto value_end =
+                                a == attributes.size() && attributes.back() == '/' ? a - 1 : a;
+                            attribute.source.end = i + value_end;
+                            attribute.value = {i + value_begin, i + value_end};
+                            elements->back().attributes.push_back(std::move(attribute));
+                        }
                         require(name != "style", "Quote inline UI styles");
                         continue;
                     }
                     begin = ++a;
                     while (a < attributes.size() && attributes[a] != q)
                         ++a;
+                    if (elements) {
+                        attribute.quote = q;
+                        attribute.source.end = i + std::min(a + 1, attributes.size());
+                        attribute.value = {i + begin, i + a};
+                        elements->back().attributes.push_back(std::move(attribute));
+                    }
                     if (name == "style") {
                         const auto style = attributes.substr(begin, a - begin);
                         // Native attribute parsing expands character references.
@@ -186,11 +222,23 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                 for (auto k = i; k < end; ++k)
                     require(space(text[k]), "Closing RML tag has attributes");
                 require(!stack.empty() && stack.back() == tag, "Unbalanced RML tags");
+                if (elements) {
+                    auto& element = elements->at(element_stack.back());
+                    element.content.end = tag_begin;
+                    element.closing = {tag_begin, end + 1};
+                    element.source.end = end + 1;
+                    element_stack.pop_back();
+                }
                 stack.pop_back();
             } else {
                 const bool single = (end > i && text[end - 1] == '/') || tag == "link" ||
                                     tag == "meta" || tag == "img" || tag == "input" ||
                                     tag == "br" || tag == "hr";
+                if (elements) {
+                    elements->back().self_closing = single;
+                    if (!single)
+                        element_stack.push_back(elements->size() - 1);
+                }
                 if (!single) {
                     stack.push_back(tag);
                     require(stack.size() <= 32, "RML nesting exceeds 32");
@@ -312,6 +360,11 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
 } // namespace
 void validate_ui_text(std::string_view text, bool markup) {
     (void)validate_text_profile(text, markup);
+}
+std::vector<UiMarkupElement> inspect_ui_markup(std::string_view text) {
+    std::vector<UiMarkupElement> result;
+    (void)validate_text_profile(text, true, &result);
+    return result;
 }
 void validate_ui_font(std::span<const std::byte> b) {
     require(b.size() >= 12 && b.size() <= 4 * 1024 * 1024, "Invalid UI font size");

@@ -1,5 +1,24 @@
 # 2026-11-08
 
+## Native UI source and element authoring
+
+Registered RML/RCSS assets open in the central UI Source document. Source and a
+derived Elements outline share one widget draft and Undo history. Structured
+attribute, leaf-text, child, removal and sibling-order operations preserve
+unrelated source and validate complete candidates. Save retains uniform CRLF,
+checks the disk baseline and remains separate from catalog refresh and UI reload.
+Project/Play/export/close guards include dirty UI drafts. Existing raw automation
+cannot overwrite an open native-owned source;13 MCP tools borrow the same owner
+with project/session/revision/content guards.
+
+Gallery210 contains original editable UI sources and a Camera. The source guide
+documents native controls, binding semantics, conflicts, registration and export.
+The authoring helper is optional with presentation tooling; headless catalogs and
+runtime retain their existing dependency boundary. No asset/Scene/protocol/SDK
+layout changes. This is bounded source/element editing; unrestricted canvas
+design, text shaping and accessibility are separate capabilities. Windows/full
+editor and physical acceptance remain separate from local automated evidence.
+
 ## Imported shared-bus impulse responses
 
 Custom buses can process a resident48000Hz mono/stereo AudioClip through an

@@ -21,6 +21,26 @@ The standalone `forge_game` executable composes gameplay, Diligent and the same 
 
 ## Authored state and assets
 
+Native RML/RCSS authoring uses `UiSourceEditor` in DocumentWorkspace. One source
+widget owns its draft/history; the Elements view derives byte ranges through the
+existing `validate_text_profile` parser's optional collector. Detached structured
+edits validate the whole result and preserve unrelated source bytes. Runtime
+admission calls do not allocate an authoring outline. RCSS remains source-only.
+Save shares `ProjectTextSource` containment, UTF-8 validation, baseline checks and
+atomic replacement with raw automation, preserving uniform CRLF. It does not
+publish catalog metadata or reload presentation. Raw automation cannot overwrite
+an open native-owned source. MCP borrows the same editor; no agent-only authoring
+or runtime DOM writer exists. See [ADR048](decisions/048-ui-source-authoring.md).
+
+Text/attribute editing calls the pinned `Rml::StringUtilities::EncodeRml` API.
+Markup escapes do not suppress `{{model}}` bindings or attribute expressions;
+those retain ordinary RML source meaning. Leaf text containing child markup or
+comments and document/resource structural changes use Source instead. Native
+fields hold at most8192bytes; larger leaf text stays available in Source and
+disables compact text replacement. Existing admission caps the entire opening
+tag at8192bytes, keeping valid attributes within the field capacity. The runtime source
+profile remains256KiB/8192tags/32levels. No UI protocol or kit requirement changes.
+
 `UiDocument` contains a typed `AssetRef<UiDocumentAsset>`, `enabled`, `visible`, `layer` (0–255), and optional typed `render_texture` output reference. One entity displays one document. Only these fields are authored. The builtin participates in reflected editing, structured prefab inheritance, explicit equal-value property overrides, Revert, scene Undo/Redo and save/reopen. No DOM, focus, GPU handle, hover, copied model or text layout is serialized.
 
 The catalog records a schema-1 `ui_document` asset with an AssetId and project-relative `.rml` locator. Renaming a catalog locator preserves references. Supporting RCSS, PNG/JPEG/TGA and font files remain contained source resources. Phase7 optionally registers them as logical Content assets for identity, inspection and dependency/referrer workflows; the presenter continues to use admitted file copies. Registration and the generated HUD example are UI-independent operations in `forge_ui_assets`. These asset writes are outside scene Undo. RML and supporting raw resources have no UI cooker or HTTP loader. Typed localization tables use the source/import/cook owner described below. Component edits retain ordinary Scene/Prefab history rules; resource registration remains separate from Scene Undo.

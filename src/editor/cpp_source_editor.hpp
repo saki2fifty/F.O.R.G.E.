@@ -3,6 +3,7 @@
 #include "cpp_source_search.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
+#include "source_text_widget.hpp"
 #include "widgets.hpp"
 #include <SDL3/SDL.h>
 #include <TextEditor.h>
@@ -84,16 +85,7 @@ class CppSourceEditor {
     };
     std::function<void(const std::string&)> request_reveal;
     bool is_open() const { return open_; }
-    bool owns_keyboard() const {
-        if (!open_ || !ImGui::GetCurrentContext())
-            return false;
-        const auto* owner = ImGui::FindWindowByName("###C++ Sources");
-        for (const auto* window = ImGui::GetCurrentContext()->NavWindow; window;
-             window = window->ParentWindow)
-            if (window == owner)
-                return true;
-        return false;
-    }
+    bool owns_keyboard() const { return open_ && source_widget_owns_keyboard("###C++ Sources"); }
     std::string active_source() const { return active_ ? active_->locator : std::string{}; }
     bool dirty_source(const std::string& locator) const {
         for (const auto& tab : tabs_)
@@ -161,38 +153,7 @@ class CppSourceEditor {
             throw std::runtime_error("C++ editing requires the owning editor UI context");
         if (active_->editor.GetText() == text)
             return;
-        // GetText includes the widget's implicit final newline. Do not paste
-        // that newline as an additional empty line. A missing final newline is
-        // normalized by the same widget used for interactive edits.
-        std::string contents = text;
-        if (!contents.empty() && contents.back() == '\n')
-            contents.pop_back();
-        // Reuse the widget's ordinary single Paste/Delete Undo record. Substitute
-        // only its synchronous clipboard reader; never read/write the OS clipboard.
-        auto& platform = ImGui::GetPlatformIO();
-        struct ClipboardText {
-            const char* text;
-        } source{contents.c_str()};
-        struct RestoreClipboard {
-            ImGuiPlatformIO& platform;
-            decltype(platform.Platform_GetClipboardTextFn) get;
-            void* data;
-            ~RestoreClipboard() {
-                platform.Platform_GetClipboardTextFn = get;
-                platform.Platform_ClipboardUserData = data;
-            }
-        } restore{platform, platform.Platform_GetClipboardTextFn,
-                  platform.Platform_ClipboardUserData};
-        platform.Platform_ClipboardUserData = &source;
-        platform.Platform_GetClipboardTextFn = [](ImGuiContext* context) {
-            return static_cast<const ClipboardText*>(context->PlatformIO.Platform_ClipboardUserData)
-                ->text;
-        };
-        active_->editor.SelectAll();
-        if (contents.empty())
-            active_->editor.Delete();
-        else
-            active_->editor.Paste();
+        replace_source_widget_text(active_->editor, text);
         active_->changed();
     }
     bool dirty() const {

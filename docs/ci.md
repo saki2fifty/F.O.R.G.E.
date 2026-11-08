@@ -43,6 +43,27 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+Native UI source authoring uses `ui_markup` for source ranges, preserved bytes,
+escaping/bindings and rejected structural candidates; `ui_source_file` checks
+contained raw-file admission, conflicts and atomic storage. `ui_source_editor`
+drives the production Source/Elements controls at1180/700/400pixels, including
+attribute/text/child/order/removal, history, CRLF, invalid drafts, conflicts,
+read-only state, close/cancel/discard, moves/deletion and long-text protection.
+The C++ history fixture checks the shared widget replacement helper.
+`sprite_atlas_source_editor` also verifies hook-only document entries are excluded
+from typed-source discovery and dispatch. `mcp_ui_source_stdio` exercises13 actual
+native-owner tools through both MCP envelopes, grants, stale guards, source-owned
+raw-write rejection, history, conflicts, RCSS and dirty-source Play rejection.
+
+`ui_source_gallery` runs Gallery210 through native RmlUi bindings, actual pointer
+commands, linked styles and last-good reload. It retires contexts while RmlUi is
+still initialized, then checks renderer resource release. It packages a three-record
+closure, relocates it, hides the source project and runs the same consumer again.
+This is native CPU presentation/content proof, without a GPU or an exported
+Windows executable run. Optional source authoring links Core only in the UI
+presentation profile; runtime-only configurations retain no presentation dependency.
+Full Main/MSVC/D3D12, physical input/DPI and external-client acceptance are separate.
+
 Fast approximate anti-aliasing uses focused Scene-setting/source/history/reference
 checks, six actual-input layouts, both MCP framings, actual Game/Scene View/cache /
 Undo, temporal combination, unchanged linear HDR and native post-display UI pixels.

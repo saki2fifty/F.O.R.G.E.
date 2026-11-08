@@ -1,0 +1,107 @@
+"""Native UI source ownership through the actual MCP workflow host."""
+from mcp_test_client import failed
+
+
+def check_ui_source_authoring(read, ok, mutate, root, advertised):
+    required = {'forge_ui_source_' + operation for operation in
+                ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
+                 'save', 'undo', 'redo', 'reload', 'close')}
+    assert required <= advertised.keys()
+    assert not read('forge_ui_source_read')['open']
+    if not (root / 'Game/Assets').exists():
+        ok('forge_source_folder_create', path='Assets')
+    path = 'Assets/Hud.rml'
+    source = '<!-- preserve -->\r\n<rml><body><p id="caption">First</p></body></rml>\r\n'
+    ok('forge_source_text_write', path=path, state='missing', text=source)
+    before_scene = read('forge_scene_read')
+    state = ok('forge_ui_source_open', path=path)
+    assert state['open'] and not state['dirty'] and len(state['elements']) == 3
+    original = state['text']
+
+    def guard(value=None):
+        value = value or read('forge_ui_source_read')
+        return {key: value[key] for key in ('path', 'session', 'revision', 'state')}
+
+    def edit(operation, **extra):
+        return ok('forge_ui_source_' + operation, **guard(), **extra)
+
+    def index(tag):
+        return next(node['index'] for node in read('forge_ui_source_read')['elements']
+                    if node['tag'] == tag)
+
+    saved = read('forge_source_text_read', path=path)
+    failed(mutate('forge_source_text_write', path=path, state=saved['state'], text=source), 'source_owned')
+    opened = state
+    state = edit('attribute', element=index('p'), name='class', value='bright & literal')
+    assert 'class="bright &amp; literal"' in state['text'] and state['dirty']
+    assert not mutate('forge_play_start')['ok']
+    assert not read('forge_play_status')['active']
+    failed(mutate('forge_ui_source_close', **guard(opened), discard=True), 'stale_ui_source')
+    assert edit('undo')['text'] == original
+    assert 'class="bright &amp; literal"' in edit('redo')['text']
+    state = edit('attribute', element=index('p'), name='class', value=None)
+    assert 'class=' not in state['text']
+    state = edit('text', element=index('p'), text='New & <literal>')
+    assert 'New &amp; &lt;literal&gt;' in state['text']
+    state = edit('insert', parent=index('body'), tag='button', text='Play & resume', before=index('p'))
+    assert [node['tag'] for node in state['elements']] == ['rml', 'body', 'button', 'p']
+    state = edit('move', element=index('button'), direction=1)
+    assert [node['tag'] for node in state['elements']] == ['rml', 'body', 'p', 'button']
+    state = edit('move', element=index('button'), direction=-1)
+    assert [node['tag'] for node in state['elements']] == ['rml', 'body', 'button', 'p']
+    state = edit('remove', element=index('button'))
+    assert len(state['elements']) == 3 and '<!-- preserve -->' in state['text']
+    assert (root / 'Game' / path).read_bytes() == source.encode()
+    for operation, extra in (
+        ('attribute', dict(element=index('p'), name='bad name', value='x')),
+        ('attribute', dict(element=index('p'), name='style', value='font-size:999999px;')),
+        ('text', dict(element=index('body'), text='erase children')),
+        ('remove', dict(element=index('body'))),
+        ('move', dict(element=index('p'), direction=-1)),
+        ('insert', dict(parent=index('body'), tag='script', text='code')),
+    ):
+        before = read('forge_ui_source_read')
+        assert not mutate('forge_ui_source_' + operation, **guard(before), **extra)['ok']
+        assert read('forge_ui_source_read') == before
+    for key, bad in (('session', '00000000-0000-4000-8000-000000000001'),
+                     ('revision', 900000), ('state', '0' * 64), ('path', 'Assets/Other.rml')):
+        before = read('forge_ui_source_read')
+        stale = guard(before) | {key: bad}
+        failed(mutate('forge_ui_source_replace', **stale, text=original), 'stale_ui_source')
+        assert read('forge_ui_source_read') == before
+    for invalid in ('../outside.rml', 'forge.project.json', 'Native/gameplay.cpp'):
+        assert not mutate('forge_ui_source_open', path=invalid)['ok']
+    failed(mutate('forge_ui_source_close', **guard()), 'unsaved_source')
+    state = edit('replace', text='<rml><body>')
+    assert state['outline_error'] and not state['elements']
+    assert not mutate('forge_ui_source_save', **guard(state))['ok']
+    assert read('forge_ui_source_read') == state
+    assert (root / 'Game' / path).read_bytes() == source.encode()
+    edit('undo')
+    state = edit('save')
+    assert not state['dirty'] and (root / 'Game' / path).read_bytes().endswith(b'\r\n')
+    ui = ok('forge_source_ui_register', path=path)
+    assert ui['type'] == 'ui_document'
+    state = edit('text', element=index('p'), text='Unsaved')
+    external = '<rml><body><p>External</p></body></rml>'
+    (root / 'Game' / path).write_text(external, encoding='utf-8')
+    failed(mutate('forge_ui_source_save', **guard(state)), 'source_conflict')
+    assert (root / 'Game' / path).read_text() == external
+    failed(mutate('forge_ui_source_reload', **guard()), 'unsaved_source')
+    reloaded = edit('reload', discard=True)
+    assert reloaded['session'] != state['session'] and not reloaded['dirty']
+    assert 'External' in reloaded['text']
+    state = edit('close')
+    assert not state['open']
+    # Existing disk-style authoring remains available after the native owner closes.
+    disk = read('forge_source_text_read', path=path)
+    ok('forge_source_text_write', path=path, state=disk['state'], text=source)
+    style = 'Assets/Hud.rcss'
+    ok('forge_source_text_write', path=style, state='missing', text='body { color: red; }')
+    state = ok('forge_ui_source_open', path=style)
+    assert not state['elements'] and not state['outline_error']
+    state = edit('replace', text='body { color: blue; }')
+    edit('save')
+    edit('close')
+    assert 'blue' in (root / 'Game' / style).read_text()
+    assert read('forge_scene_read') == before_scene

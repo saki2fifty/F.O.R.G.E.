@@ -7,7 +7,7 @@ Use **Undo** in the toolbar or Ctrl+Z. Use **Redo**, Ctrl+Shift+Z, or Ctrl+Y to 
 
 ## Choose the document
 
-Focus Scene to use scene history. When a supported asset document or C++ source
+Focus Scene to use scene history. When a supported asset document, UI source or C++ source
 owns focus, Undo and Redo use that document's history instead. An unavailable
 history action stays disabled; it does not undo a different document. Prefab
 source and Project Settings have no independent Undo/Redo. Text fields retain

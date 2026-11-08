@@ -25,6 +25,10 @@ list stays visible. Correct the reported folder or file problem, then choose
 
 ## Find and inspect an asset
 
+Registered RML documents and RCSS stylesheets open through **Edit UI source**.
+Use the central **UI Source** document to edit text, or its **Elements** tab for
+document widgets. Save and registration remain separate. See [UI source](ui-source.md).
+
 1. Open **Window → Content**.
 2. Search by words in the name, path, extension, type or status. Open **Filters**, then use **All types** and **All states** to narrow results. Matching is case-insensitive.
 3. Click an asset to inspect its type, source and availability in Inspector. This replaces entity selection; it does not change an entity's properties.

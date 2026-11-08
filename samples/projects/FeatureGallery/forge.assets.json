@@ -944,6 +944,26 @@
       "type": "model_node"
     },
     {
+      "dependencies": [
+        "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+          "type": "prefab"
+        }
+      ],
+      "id": "0b699a29-efe1-456b-90e8-e45d46a2f624",
+      "metadata": {},
+      "schema_version": 6,
+      "source": "Assets/Variants/SingleBeaconMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "0b7420da-58f3-4e0c-8ccb-cd602c8b6b3b",
@@ -3476,6 +3496,16 @@
       "type": "mesh"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "23c4d7a7-6e76-4ab5-a3f4-9b0649136e19",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Scenes/206-prefab-member-structure.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "a4c29e00-c3d6-4534-83c2-87146bcc5fbb",
         "736c4225-b1fe-4bb8-9d59-86bb015b5bc8"
@@ -3587,6 +3617,26 @@
         }
       ],
       "type": "ui_document"
+    },
+    {
+      "dependencies": [
+        "d255167b-4179-46b6-af94-c76a589abf6b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
+          "type": "prefab"
+        }
+      ],
+      "id": "254c884d-808d-401c-ab66-b31fc0fc24c8",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Assets/Contributions/BrightMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
     },
     {
       "dependencies": [
@@ -6472,6 +6522,26 @@
       "type": "scene"
     },
     {
+      "dependencies": [
+        "d255167b-4179-46b6-af94-c76a589abf6b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:dependencies",
+          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
+          "type": "prefab"
+        }
+      ],
+      "id": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
+      "metadata": {},
+      "schema_version": 7,
+      "source": "Assets/Assemblies/PairedMarkers.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "492d8aa7-cdf0-467d-89cc-b1eb3729d79c",
@@ -7311,6 +7381,42 @@
       "type": "animation_clip"
     },
     {
+      "dependencies": [
+        "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
+        "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+        "d255167b-4179-46b6-af94-c76a589abf6b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
+          "type": "prefab"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:dependencies",
+          "target": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+          "type": "prefab"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:dependencies",
+          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
+          "type": "prefab"
+        }
+      ],
+      "id": "550d6894-6721-4818-88ce-3ec3976143d7",
+      "metadata": {},
+      "schema_version": 7,
+      "source": "Assets/Assemblies/MixedLinkedMarkers.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "5515a646-7b78-4ff4-adfe-2796db4384c3",
@@ -7845,6 +7951,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "5c2cd1e1-e220-445a-aba2-a99a0d43fbc6",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Scenes/208-prefab-source-contributions.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -9440,6 +9556,43 @@
       "source": "Scenes/192-event-sound-cues.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [
+        "ff74020a-15f4-43db-8c30-43d404c00e59"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "ff74020a-15f4-43db-8c30-43d404c00e59",
+          "type": "ui_stylesheet"
+        }
+      ],
+      "id": "70cab0ae-39f5-49e0-84da-5dfe79ded9fa",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 766,
+          "digest": "8a09e546a739ee3e875cbf1d14602ceba4f3a6163c359b98a66cfb89828a071a",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/SourceAuthoring/hud.rml",
+      "source_dependencies": [
+        {
+          "revision": "ef876dc3894a099b9e9b6ef15784a0cd2c712dfdd483fd7a46a5910694c62b91",
+          "role": "ui.observed",
+          "source": "Assets/UI/SourceAuthoring/hud.rcss"
+        },
+        {
+          "revision": "8a09e546a739ee3e875cbf1d14602ceba4f3a6163c359b98a66cfb89828a071a",
+          "role": "ui.source",
+          "source": "Assets/UI/SourceAuthoring/hud.rml"
+        }
+      ],
+      "type": "ui_document"
     },
     {
       "dependencies": [
@@ -11211,6 +11364,26 @@
     },
     {
       "dependencies": [
+        "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
+          "type": "prefab"
+        }
+      ],
+      "id": "81d90e45-bfe6-4a87-a425-df65c4d2f366",
+      "metadata": {},
+      "schema_version": 7,
+      "source": "Assets/Assemblies/SingleLinkedMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [
         "5f588fca-5561-4a17-acbe-87605c287b71"
       ],
       "dependency_edges": [
@@ -12183,6 +12356,54 @@
       "type": "transform_animation"
     },
     {
+      "dependencies": [
+        "d255167b-4179-46b6-af94-c76a589abf6b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
+          "type": "prefab"
+        }
+      ],
+      "id": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+      "metadata": {},
+      "schema_version": 6,
+      "source": "Assets/Variants/ForkedMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [
+        "d2d84a7d-bbec-44ce-84ca-5a3d920b4467",
+        "254c884d-808d-401c-ab66-b31fc0fc24c8"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:mixins.0",
+          "target": "254c884d-808d-401c-ab66-b31fc0fc24c8",
+          "type": "prefab"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "d2d84a7d-bbec-44ce-84ca-5a3d920b4467",
+          "type": "prefab"
+        }
+      ],
+      "id": "90a5d2f2-4497-4ac7-b9c4-4a19d38173ff",
+      "metadata": {},
+      "schema_version": 8,
+      "source": "Assets/Contributions/WideBrightMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "9105eaa8-0920-4e64-bf3d-9bd2bf8f7392",
@@ -12815,6 +13036,16 @@
       "source": "Assets/TextureBlocks/SignedChannel.dds",
       "source_dependencies": [],
       "type": "texture"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "999d13cf-083e-4b8f-827b-65c2483401e9",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/210-ui-source-authoring.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -14076,6 +14307,16 @@
         "removed": false
       },
       "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "af5e2d74-0d4c-42e5-821a-aa493c00cc29",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/209-input-recording.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -16510,6 +16751,26 @@
       "type": "mesh"
     },
     {
+      "dependencies": [
+        "d255167b-4179-46b6-af94-c76a589abf6b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
+          "type": "prefab"
+        }
+      ],
+      "id": "d2d84a7d-bbec-44ce-84ca-5a3d920b4467",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Assets/Contributions/WideMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "d3ecb732-9950-46d4-96c2-6225dd252022",
@@ -18876,6 +19137,16 @@
       "type": "mesh"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "f48fc291-7f91-488a-b99c-f332916b1d18",
+      "metadata": {},
+      "schema_version": 6,
+      "source": "Scenes/207-nested-prefab-assemblies.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "32685545-b5d2-4e86-a1ad-00e8198accd0"
       ],
@@ -19792,228 +20063,26 @@
       "type": "scene"
     },
     {
-      "dependencies": [
-        "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270"
-      ],
-      "dependency_edges": [
-        {
-          "kind": "runtime",
-          "revision": "",
-          "role": "document:base",
-          "target": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
-          "type": "prefab"
-        }
-      ],
-      "id": "0b699a29-efe1-456b-90e8-e45d46a2f624",
-      "metadata": {},
-      "schema_version": 6,
-      "source": "Assets/Variants/SingleBeaconMarker.prefab.json",
-      "source_dependencies": [],
-      "type": "prefab"
-    },
-    {
       "dependencies": [],
       "dependency_edges": [],
-      "id": "23c4d7a7-6e76-4ab5-a3f4-9b0649136e19",
-      "metadata": {},
-      "schema_version": 4,
-      "source": "Scenes/206-prefab-member-structure.scene.json",
-      "source_dependencies": [],
-      "type": "scene"
-    },
-    {
-      "dependencies": [
-        "d255167b-4179-46b6-af94-c76a589abf6b"
-      ],
-      "dependency_edges": [
+      "id": "ff74020a-15f4-43db-8c30-43d404c00e59",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 842,
+          "digest": "ef876dc3894a099b9e9b6ef15784a0cd2c712dfdd483fd7a46a5910694c62b91",
+          "format": "rcss"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/SourceAuthoring/hud.rcss",
+      "source_dependencies": [
         {
-          "kind": "runtime",
-          "revision": "",
-          "role": "document:base",
-          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
-          "type": "prefab"
+          "revision": "ef876dc3894a099b9e9b6ef15784a0cd2c712dfdd483fd7a46a5910694c62b91",
+          "role": "ui.source",
+          "source": "Assets/UI/SourceAuthoring/hud.rcss"
         }
       ],
-      "id": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
-      "metadata": {},
-      "schema_version": 6,
-      "source": "Assets/Variants/ForkedMarker.prefab.json",
-      "source_dependencies": [],
-      "type": "prefab"
-    },
-    {
-      "dependencies": [
-        "d255167b-4179-46b6-af94-c76a589abf6b"
-      ],
-      "dependency_edges": [
-        {
-          "kind": "runtime",
-          "revision": "",
-          "role": "document:dependencies",
-          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
-          "type": "prefab"
-        }
-      ],
-      "id": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
-      "metadata": {},
-      "schema_version": 7,
-      "source": "Assets/Assemblies/PairedMarkers.prefab.json",
-      "source_dependencies": [],
-      "type": "prefab"
-    },
-    {
-      "dependencies": [
-        "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
-        "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
-        "d255167b-4179-46b6-af94-c76a589abf6b"
-      ],
-      "dependency_edges": [
-        {
-          "kind": "runtime",
-          "revision": "",
-          "role": "document:base",
-          "target": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
-          "type": "prefab"
-        },
-        {
-          "kind": "runtime",
-          "revision": "",
-          "role": "document:dependencies",
-          "target": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
-          "type": "prefab"
-        },
-        {
-          "kind": "runtime",
-          "revision": "",
-          "role": "document:dependencies",
-          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
-          "type": "prefab"
-        }
-      ],
-      "id": "550d6894-6721-4818-88ce-3ec3976143d7",
-      "metadata": {},
-      "schema_version": 7,
-      "source": "Assets/Assemblies/MixedLinkedMarkers.prefab.json",
-      "source_dependencies": [],
-      "type": "prefab"
-    },
-    {
-      "dependencies": [
-        "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab"
-      ],
-      "dependency_edges": [
-        {
-          "kind": "runtime",
-          "revision": "",
-          "role": "document:base",
-          "target": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
-          "type": "prefab"
-        }
-      ],
-      "id": "81d90e45-bfe6-4a87-a425-df65c4d2f366",
-      "metadata": {},
-      "schema_version": 7,
-      "source": "Assets/Assemblies/SingleLinkedMarker.prefab.json",
-      "source_dependencies": [],
-      "type": "prefab"
-    },
-    {
-      "dependencies": [],
-      "dependency_edges": [],
-      "id": "f48fc291-7f91-488a-b99c-f332916b1d18",
-      "metadata": {},
-      "schema_version": 6,
-      "source": "Scenes/207-nested-prefab-assemblies.scene.json",
-      "source_dependencies": [],
-      "type": "scene"
-    },
-    {
-      "dependencies": [
-        "d255167b-4179-46b6-af94-c76a589abf6b"
-      ],
-      "dependency_edges": [
-        {
-          "kind": "runtime",
-          "revision": "",
-          "role": "document:base",
-          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
-          "type": "prefab"
-        }
-      ],
-      "id": "254c884d-808d-401c-ab66-b31fc0fc24c8",
-      "metadata": {},
-      "schema_version": 4,
-      "source": "Assets/Contributions/BrightMarker.prefab.json",
-      "source_dependencies": [],
-      "type": "prefab"
-    },
-    {
-      "dependencies": [],
-      "dependency_edges": [],
-      "id": "5c2cd1e1-e220-445a-aba2-a99a0d43fbc6",
-      "metadata": {},
-      "schema_version": 4,
-      "source": "Scenes/208-prefab-source-contributions.scene.json",
-      "source_dependencies": [],
-      "type": "scene"
-    },
-    {
-      "dependencies": [
-        "d2d84a7d-bbec-44ce-84ca-5a3d920b4467",
-        "254c884d-808d-401c-ab66-b31fc0fc24c8"
-      ],
-      "dependency_edges": [
-        {
-          "kind": "runtime",
-          "revision": "",
-          "role": "document:mixins.0",
-          "target": "254c884d-808d-401c-ab66-b31fc0fc24c8",
-          "type": "prefab"
-        },
-        {
-          "kind": "runtime",
-          "revision": "",
-          "role": "document:base",
-          "target": "d2d84a7d-bbec-44ce-84ca-5a3d920b4467",
-          "type": "prefab"
-        }
-      ],
-      "id": "90a5d2f2-4497-4ac7-b9c4-4a19d38173ff",
-      "metadata": {},
-      "schema_version": 8,
-      "source": "Assets/Contributions/WideBrightMarker.prefab.json",
-      "source_dependencies": [],
-      "type": "prefab"
-    },
-    {
-      "dependencies": [
-        "d255167b-4179-46b6-af94-c76a589abf6b"
-      ],
-      "dependency_edges": [
-        {
-          "kind": "runtime",
-          "revision": "",
-          "role": "document:base",
-          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
-          "type": "prefab"
-        }
-      ],
-      "id": "d2d84a7d-bbec-44ce-84ca-5a3d920b4467",
-      "metadata": {},
-      "schema_version": 4,
-      "source": "Assets/Contributions/WideMarker.prefab.json",
-      "source_dependencies": [],
-      "type": "prefab"
-    },
-    {
-      "dependencies": [],
-      "dependency_edges": [],
-      "id": "af5e2d74-0d4c-42e5-821a-aa493c00cc29",
-      "metadata": {},
-      "schema_version": 3,
-      "source": "Scenes/209-input-recording.scene.json",
-      "source_dependencies": [],
-      "type": "scene"
+      "type": "ui_stylesheet"
     }
   ],
   "version": 2

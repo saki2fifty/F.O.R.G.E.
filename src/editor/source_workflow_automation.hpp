@@ -15,12 +15,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                                    const ui::AutomationPermissions& permissions) {
     Json editors = Json::array();
     for (const auto& entry : workspace.entries())
-        if (entry.source)
+        if (entry.source && entry.source->invoke)
             editors.push_back(entry.id);
     const Json editor_schema{{"type", "string"}, {"enum", editors}};
     auto invoke = [&workspace](std::string_view action, const Json& request) {
         const auto* entry = workspace.find(request.at("editor").get<std::string>());
-        if (!entry || !entry->source)
+        if (!entry || !entry->source || !entry->source->invoke)
             throw AuthoringError("unknown_editor",
                                  "Choose an editor advertised by asset.document.types");
         return entry->source->invoke(action, request);
@@ -512,7 +512,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         "asset.read", automation_object(), false, [&workspace](const Json&) {
             Json result = Json::array();
             for (const auto& entry : workspace.entries())
-                if (entry.source)
+                if (entry.source && entry.source->invoke)
                     result.push_back({{"editor", entry.id},
                                       {"title", entry.title},
                                       {"suffix", entry.source->suffix},
@@ -531,7 +531,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         "needs 3 to 16 XY points in either winding, without crossing/touching edges or adjacent "
         "collinear corners. Holes must be strictly interior, disjoint and nonnested. Outline/hole "
         "profiles create ordinary triangle faces. planar_ellipse takes positive ellipse_radii "
-        "[rx,ry] (default [1,1]), ellipse_segments 8..64 (default 32), and ellipse_opening_scale 0..<1 "
+        "[rx,ry] (default [1,1]), ellipse_segments 8..64 (default 32), and ellipse_opening_scale "
+        "0..<1 "
         "(default 0); rings allow at most 32 segments/64 vertices. planar_curve requires 3..16 "
         "curve_knots with point and optional incoming/outgoing XY offsets (default zero), plus "
         "positive curve_tolerance (default .01). Unmet tolerance/64-vertex/depth budgets reject. "
@@ -635,8 +636,10 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "Holes must be strictly interior, disjoint and nonnested. Outline/hole profiles "
                 "create ordinary triangles. Flat meshes face +Z and map UVs across their bounds. "
                 "planar_ellipse accepts positive ellipse_radii [rx,ry] (default [1,1]), "
-                "ellipse_segments 8..64 (default 32), ellipse_opening_scale 0..<1 (default 0); rings "
-                "allow at most 32 segments/64 vertices. planar_curve requires 3..16 curve_knots with "
+                "ellipse_segments 8..64 (default 32), ellipse_opening_scale 0..<1 (default 0); "
+                "rings "
+                "allow at most 32 segments/64 vertices. planar_curve requires 3..16 curve_knots "
+                "with "
                 "point and optional incoming/outgoing XY offsets (default zero), plus positive "
                 "curve_tolerance (default .01). Unmet tolerance/64-vertex/depth budgets reject. "
                 "Construction controls are not retained in the ordinary Mesh source. "

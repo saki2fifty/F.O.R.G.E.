@@ -16,6 +16,7 @@
 #include "texture_authoring.hpp"
 #include "tile_asset_reimport_routes.hpp"
 #include "ui_localization_authoring.hpp"
+#include "ui_source_automation.hpp"
 #include "ui_test_renderer.hpp"
 #include <chrono>
 #include <fstream>
@@ -125,6 +126,12 @@ int main(int argc, char** argv) {
         forge::GameInput input;
         forge::RuntimeTuningReview tuning;
         forge::ProjectSettingsEditor settings;
+        forge::ui::UiSourceEditor ui_source;
+        files.automation_unavailable = [&](bool switching) -> std::string {
+            return switching && (ui_source.dirty() || ui_source.close_pending())
+                       ? "Save or discard the native UI source draft before switching projects"
+                       : "";
+        };
         forge::NavigationTools navigation(engine.world(), nav_worker);
         forge::ContentBrowser content;
         content.refresh(files);
@@ -156,7 +163,11 @@ int main(int argc, char** argv) {
                 methods.insert(methods.end(), std::make_move_iterator(values.begin()),
                                std::make_move_iterator(values.end()));
             };
-            append(forge::ProjectSourceAutomation::methods(files, permissions, blocked));
+            append(forge::ProjectSourceAutomation::methods(
+                files, permissions, blocked, [&](const std::filesystem::path& path) {
+                    return ui_source.owns(files.document.project(), path);
+                }));
+            append(forge::UiSourceAutomation::methods(files, ui_source, permissions, blocked));
             append(forge::asset_automation_methods(scene, files, imports, source, placement,
                                                    content_files, permissions));
             append(forge::NavigationAutomation::methods(navigation, scene, files, permissions,
@@ -167,9 +178,11 @@ int main(int argc, char** argv) {
             append(forge::ScriptAutomation::methods(scripts, files, permissions, blocked));
             forge::PlayAutomationProviders controls;
             const auto start_play = [&](bool paused) {
-                if (!blocked().empty() || settings.dirty() || !imports.ready_for_play()) {
+                if (!blocked().empty() || settings.dirty() || ui_source.dirty() ||
+                    ui_source.close_pending() || !imports.ready_for_play()) {
                     forge::Json detail{{"owner", blocked()},
                                        {"settings_dirty", settings.dirty()},
+                                       {"ui_source_dirty", ui_source.dirty()},
                                        {"imports_ready", imports.ready_for_play()},
                                        {"jobs", imports.jobs()}};
                     if (const auto sources = imports.sources()) {
@@ -246,9 +259,11 @@ int main(int argc, char** argv) {
             };
             exporting.unavailable = [&]() -> std::string {
                 const auto reason = blocked();
-                return !reason.empty()                              ? reason
-                       : files.document.dirty() || settings.dirty() ? "Save all drafts"
-                                                                    : "";
+                return !reason.empty() ? reason
+                       : files.document.dirty() || settings.dirty() || ui_source.dirty() ||
+                               ui_source.close_pending()
+                           ? "Save all drafts"
+                           : "";
             };
             append(forge::ExportAutomation::methods(files, export_task, exporting, permissions));
             return methods;

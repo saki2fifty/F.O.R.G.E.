@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**210-ui-source-authoring** contains a panel with bound text, Pause, Resume,
+Step and a text field. Press Play and open Game, then Stop and edit
+`Assets/UI/SourceAuthoring/hud.rml` from Content with **Edit UI source**.
+Use **Elements** for text and attributes or **Source** for RML. Edit `hud.rcss`
+for layout and colors. Save and restart Play before exporting. The Camera is
+included; no Light or project C++ module is required. See [UI source](../editor/ui-source.md).
+
 **209-input-recording** supplies a Space-action sender, camera and light for
 recording a take through **Game → Input recording**. Watch Console / Gameplay
 input, finish/save, stop, then replay the take. Build the included `InputMessages`

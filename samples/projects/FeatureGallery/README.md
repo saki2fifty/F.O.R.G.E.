@@ -1,5 +1,21 @@
 # Feature Gallery
 
+## Native UI source authoring
+
+Open `Scenes/210-ui-source-authoring.scene.json` and press Play. In Game, capture
+input and try Pause, Resume, Step and the text field. Stop Play, find
+`Assets/UI/SourceAuthoring/hud.rml` in Content and choose **Edit UI source**.
+Select a paragraph in **Elements** to change text or attributes, add a child to
+the panel, or reorder widgets. **Source** edits RML; `hud.rcss` controls layout
+and colors. Save and restart Play to test. Text escapes markup while bindings
+such as `{{tick}}` retain their runtime meaning.
+
+The Scene includes its Camera and uses the bundled Lato font; no Light or C++
+module is required. Save the Scene and set it as startup before exporting through
+the normal workflow. Sources and supporting styles use the existing resource
+closure. Source history and the editor are separate from the exported game.
+See [UI source](../../../manual/editor/ui-source.md).
+
 ## Fixed gameplay input recording
 
 Open `Scenes/209-input-recording.scene.json`. Expand **Game → Input recording**,

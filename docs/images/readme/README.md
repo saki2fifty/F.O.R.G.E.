@@ -1,5 +1,25 @@
 # README screenshots
 
+## Native UI source authoring
+
+`manual/images/ui-source-elements.png` and `ui-source-text.png` are unretouched
+700×950 captures of the production UiSourceEditor, TextEditor and borrowed
+DocumentWorkspace adapter. Real mouse/text controls select a paragraph, replace
+its text, Undo/Redo and Save. The Elements image shows the selected source node
+and its attribute/text/child/order/removal controls. Source shows the same draft
+with escaped markup. These are task-window fixtures, not a complete editor-shell
+capture or a rendered game HUD. No controls or pixels are fabricated or retouched.
+
+The local source authoring checkpoint following1400e61 builds these controls with
+GCC12 and SDL software rendering. `ui_source_editor` runs1180/700/400pixel layouts,
+including actual structural operations, read-only/close/file lifecycle and large
+leaf protection. Original captures are in `ui-source-captures` in its test output;
+the scoped source-authoring validation receipt records their retained originals
+and exact SHA256 bytes. Reproduce with `forge_ui_source_editor_tests <output>`.
+The canonical700pixel and narrow400pixel images were inspected for readable
+labels and controls. Windows/Main/MSVC/D3D12, physical input and display-density
+acceptance remain separate. See [UI source](../../../manual/editor/ui-source.md).
+
 ## Gameplay input recording controls
 
 `manual/images/input-recording-controls.png` is an authentic 700×700 ImGui/SDL

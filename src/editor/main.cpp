@@ -131,6 +131,8 @@
 #include "tile_set_preview.hpp"
 #include "transform_gesture.hpp"
 #include "ui_localization_editor.hpp"
+#include "ui_source_automation.hpp"
+#include "ui_source_editor.hpp"
 #include "view_image.hpp"
 #include "view_state.hpp"
 #include "viewport.hpp"
@@ -641,6 +643,7 @@ int main(int argc, char** argv) {
             message = startup_layout.warning;
         auto sdk_build = std::make_unique<forge::SdkBuild>(files.document.project());
         forge::ui::CppSourceEditor cpp_sources;
+        forge::ui::UiSourceEditor ui_source;
         cpp_sources.project_changed(files.document.project());
         scene_tools.destination_view =
             [&](const forge::Json& source,
@@ -1741,6 +1744,29 @@ int main(int argc, char** argv) {
                        {},
                        {},
                        [&] { return std::exchange(script_editor.close_cancelled, false); }});
+        documents.add(ui_source.workspace_document(
+            files.document, editor, [&] { return asset_document_locked || play.active(); }));
+        documents.bind_source(
+            "ui_source",
+            {{},
+             {},
+             [&](forge::AssetId id) {
+                 const auto catalog = content.catalog();
+                 return catalog && catalog->records().contains(id) &&
+                        ui_source.owns(files.document.project(),
+                                       catalog->records().at(id).source) &&
+                        (ui_source.dirty() || ui_source.close_pending());
+             },
+             {},
+             [&](forge::AssetId id, const std::optional<std::filesystem::path>& destination) {
+                 const auto catalog = content.catalog();
+                 if (catalog && catalog->records().contains(id))
+                     ui_source.source_file_changed(catalog->records().at(id).source, destination);
+             }});
+        for (const char* type : {"ui_document", "ui_stylesheet"})
+            asset_editors.add({type, "Edit UI source", [&](const forge::AssetRecord& asset) {
+                                   ui_source.open(files.document, forge::path_utf8(asset.source));
+                               }});
         asset_editors.add(
             {"flecs_script", "Edit Flecs Script",
              [&](const forge::AssetRecord& asset) { script_editor.open(files.document, asset); }});
@@ -2714,8 +2740,14 @@ int main(int argc, char** argv) {
                            ? "Stop Play and settle pending project/source work"
                            : "";
             };
-            auto raw_sources =
-                forge::ProjectSourceAutomation::methods(files, permissions, source_unavailable);
+            auto ui_sources = forge::UiSourceAutomation::methods(files, ui_source, permissions,
+                                                                 source_unavailable);
+            methods.insert(methods.end(), std::make_move_iterator(ui_sources.begin()),
+                           std::make_move_iterator(ui_sources.end()));
+            auto raw_sources = forge::ProjectSourceAutomation::methods(
+                files, permissions, source_unavailable, [&](const std::filesystem::path& path) {
+                    return ui_source.owns(files.document.project(), path);
+                });
             methods.insert(methods.end(), std::make_move_iterator(raw_sources.begin()),
                            std::make_move_iterator(raw_sources.end()));
             auto navigation = forge::NavigationAutomation::methods(navigation_tools, scene, files,
@@ -5637,9 +5669,9 @@ int main(int argc, char** argv) {
             editor_shortcuts.draw(actions, save_preferences,
                                   !play.active() && !edit_locked && !game_input.captured());
             const auto dispatched_shortcut = editor_shortcuts.dispatch(
-                actions, !cpp_sources.owns_keyboard() && !game_input.captured() && !files.busy() &&
-                             !content_files.busy() && !modal.active() && !scene_tools.active() &&
-                             !blockout.active());
+                actions, !cpp_sources.owns_keyboard() && !ui_source.owns_keyboard() &&
+                             !game_input.captured() && !files.busy() && !content_files.busy() &&
+                             !modal.active() && !scene_tools.active() && !blockout.active());
             const auto* save_action = actions.find("save");
             cpp_sources.save_shortcut = [&editor_shortcuts, &game_input,
                                          keys = editor_shortcuts.unique_keys(actions, "save"),
@@ -5648,6 +5680,7 @@ int main(int argc, char** argv) {
                 return available && !editor_shortcuts.capturing() && !game_input.captured() &&
                        std::any_of(keys.begin(), keys.end(), forge::ui::EditorShortcuts::pressed);
             };
+            ui_source.save_shortcut = cpp_sources.save_shortcut;
             if (!editor_shortcuts.capturing() && !ImGui::GetIO().WantTextInput &&
                 !ImGui::IsAnyItemActive() &&
                 !ImGui::IsPopupOpen(nullptr,

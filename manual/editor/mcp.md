@@ -1,5 +1,12 @@
 # Connect an AI agent through MCP
 
+For RML/RCSS editing, `forge_ui_source_open/read` opens the same **UI Source**
+document used by a person. Its text, attribute, child, move and remove tools share
+native source Undo/Redo. Read the current source guards before each change, save
+it, then use the existing UI registration and Play tools. Stop Play before source
+edits. Closing or reloading an unsaved draft requires explicit discard. See
+[UI source](ui-source.md) for the workflow and limits.
+
 FORGE lets a trusted AI agent develop a game through your open editor's existing
 authoring tools. Scene changes share normal Undo; source documents, files, builds,
 Play and export keep their own normal ownership and results.
