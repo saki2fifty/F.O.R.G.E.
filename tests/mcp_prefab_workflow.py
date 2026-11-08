@@ -142,6 +142,7 @@ def check_prefab_workflow(read, mutate, failed, root, *, large_read_budget=True)
     assert json.loads(base_path.read_text()) == external
     assert mutate('forge_prefab_source_close', state=read('forge_prefab_source_read')['state'])['ok']
     check_prefab_structure(read, mutate, failed, asset, root / 'Game')
+    check_prefab_nested(read, mutate, failed, root, entity=entity)
     if large_read_budget:
         check_prefab_read_budget(read, mutate, entity, root / 'Game')
 
@@ -226,6 +227,121 @@ def check_prefab_structure(read, mutate, failed, base, project):
     assert duplicate['added_members'][1]['parent'] == remap[first]
     assert duplicate['added_members'][1]['removed']
     assert duplicate['member_order'][0]['members'] == [remap[second], remap[child], remap[first]]
+
+
+def check_prefab_nested(read, mutate, failed, root, *, entity=None):
+    import uuid
+    if entity is None:
+        created = mutate('forge_entity_create', arguments=dict(kind=0, name='Nested original'))
+        assert created['ok'], created
+        entity = created['result']['results'][0]['selected']
+    def capture(path):
+        result = mutate('forge_prefab_create', entity=entity, path=path)
+        assert result['ok'], result
+        return result['result']['asset']
+    def edit(action, **arguments):
+        state = read('forge_prefab_source_read')
+        result = mutate('forge_prefab_source_nested_' + action, state=state['state'], **arguments)
+        assert result['ok'], result
+        return result['result']
+    def publish_close():
+        assert mutate('forge_prefab_source_publish', state=read('forge_prefab_source_read')['state'])['ok']
+        assert mutate('forge_prefab_source_close', state=read('forge_prefab_source_read')['state'])['ok']
+    def nested(document, instance, mount, asset):
+        owner = next(row for row in document['entities'] if row['id'] == instance)
+        return owner['prefab_instance']['nested'][mount][asset]
+
+    child = capture('Assets/NestedChild.prefab.json')
+    outer = capture('Assets/NestedAssembly.prefab.json')
+    assert mutate('forge_prefab_source_open', asset=outer)['ok']
+    before = read('forge_prefab_source_read')
+    mount = before['source']['root']
+    changed = edit('set', member=mount, asset=child)
+    assert changed['source']['version'] == 7
+    assert {row['asset'] for row in changed['reviewed_bases']} == {child}
+    choices = read('forge_prefab_source_targets')
+    assert choices['state'] == changed['state'] and choices['total'] >= 2
+    scoped = next(row['reference'] for row in choices['targets']
+                  if isinstance(row['reference']['member'], dict))
+    assert scoped['prefab'] == outer and scoped['member']['instance'] == mount
+    assert scoped['member']['asset'] == child
+    assert read('forge_prefab_source_targets', offset=9999)['targets'] == []
+    index = next(i for i, row in enumerate(changed['source']['members']) if row['id'] == mount)
+    patched = mutate('forge_prefab_source_patch', state=changed['state'], patch=[dict(
+        op='add', path=f'/members/{index}/components/forge.navigation_behavior',
+        value=dict(graph=None, target=scoped, anchor=None, enabled=True))])
+    assert patched['ok'], patched
+    failed(mutate('forge_prefab_source_nested_clear', state=before['state'], member=mount), 'stale_document')
+    for invalid in (outer, str(uuid.uuid4())):
+        state = read('forge_prefab_source_read')
+        assert not mutate('forge_prefab_source_nested_set', state=state['state'], member=mount, asset=invalid)['ok']
+        assert read('forge_prefab_source_read')['state'] == state['state']
+    publish_close()
+    first = mutate('forge_prefab_instantiate', arguments=dict(asset=outer))
+    assert first['ok'], first
+    instance = first['result']['results'][0]['selected']
+    document = read('forge_scene_read')
+    assert document['version'] == 6
+    occurrence = nested(document, instance, mount, child)
+    assert mutate('forge_entity_rename', arguments=dict(entity=occurrence, name='Nested override'))['ok']
+    assert mutate('forge_prefab_source_open', asset=outer)['ok']
+    edit('clear', member=mount)
+    publish_close()
+    document = read('forge_scene_read')
+    assert nested(document, instance, mount, child) == occurrence
+    assert next(row for row in document['entities'] if row['id'] == occurrence)['missing_member']
+    assert mutate('forge_prefab_source_open', asset=outer)['ok']
+    edit('set', member=mount, asset=child)
+    publish_close()
+    document = read('forge_scene_read')
+    restored = next(row for row in document['entities'] if row['id'] == occurrence)
+    assert restored['name'] == 'Nested override' and not restored.get('missing_member', False)
+    assert restored['prefab_nested'] == dict(root=instance, mount=mount)
+    binding = mutate('forge_transform_binding', arguments=dict(
+        entity=occurrence, spatial=dict(mode='world')))
+    assert binding['ok'], binding
+    assert next(row for row in read('forge_scene_read')['entities']
+                if row['id'] == occurrence)['spatial']['mode'] == 'world'
+
+    variant_result = mutate('forge_prefab_variant_create', base=outer,
+                            path='Assets/NestedVariant.prefab.json')
+    assert variant_result['ok'], variant_result
+    variant = variant_result['result']['asset']
+    assert mutate('forge_prefab_source_open', asset=variant)['ok']
+    effective = read('forge_prefab_source_read', view='effective')['source']
+    assert effective['version'] == 7
+    assert next(row for row in effective['members'] if row['id'] == mount)['prefab_instance']['asset'] == child
+    edit('clear', member=mount)
+    assert next(row for row in read('forge_prefab_source_read', view='effective')['source']['members']
+                if row['id'] == mount)['prefab_instance'] is None
+    reverted = edit('revert', member=mount)
+    assert reverted['source']['version'] == 7 and reverted['source']['overrides'] == []
+    publish_close()
+
+    # Complete sources review changed children without discarding their own draft.
+    assert mutate('forge_prefab_source_open', asset=outer)['ok']
+    state = read('forge_prefab_source_read')
+    source_index = next(i for i, row in enumerate(state['source']['members']) if row['id'] == mount)
+    assert mutate('forge_prefab_source_patch', state=state['state'], patch=[dict(
+        op='replace', path=f'/members/{source_index}/name', value='Retained assembly draft')])['ok']
+    retained = read('forge_prefab_source_read')
+    child_path = root / 'Game/Assets/NestedChild.prefab.json'
+    external = json.loads(child_path.read_text())
+    external['revision'] += 1
+    child_path.write_text(json.dumps(external))
+    failed(mutate('forge_prefab_source_publish', state=retained['state']), 'publication_failed')
+    assert mutate('forge_prefab_source_rebase', state=retained['state'])['ok']
+    reviewed = read('forge_prefab_source_read')
+    assert reviewed['source'] == retained['source'] and reviewed['state'] != retained['state']
+    publish_close()
+    saved = mutate('forge_document_save')
+    assert saved['ok'], saved
+    status = read('forge_project_read')
+    persisted = json.loads((root / 'Game' / status['scene_path']).read_text())
+    assert persisted == read('forge_scene_read') and persisted['version'] == 6
+    reopened = mutate('forge_document_open', path=status['scene_path'])
+    assert reopened['ok'], reopened
+    assert read('forge_scene_read') == persisted
 
 
 def check_prefab_read_budget(read, mutate, entity, project):

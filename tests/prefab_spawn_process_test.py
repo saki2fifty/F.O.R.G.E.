@@ -14,6 +14,7 @@ from physics_velocity_example_test import Worker
 runtime, gallery, module = (Path(arg).resolve() for arg in sys.argv[1:4])
 suppressed = '--suppression' in sys.argv[4:]
 structural = '--structure' in sys.argv[4:]
+nested = '--nested' in sys.argv[4:]
 variant = '--variant' in sys.argv[4:] or suppressed or structural
 scene_id = 'fab9f548-3f22-4fbc-a5e0-bd0a2cffd9a1'
 prefab_id = '3f95b972-aa2a-4fab-999a-8857a5a35e11'
@@ -25,7 +26,9 @@ dt = struct.unpack('f', struct.pack('f', 1/60))[0]
 def check(state, tick):
     assert not any(d['severity'].lower() in ('error', 'fatal')
                    for d in state['diagnostics']), state['diagnostics']
-    roots = {r['name']: r for r in state['scene']['entities'] if 'prefab_instance' in r}
+    roots = {r['name']: r for r in state['scene']['entities']
+             if r.get('prefab_instance', {}).get('asset') == prefab_id}
+    rows = {r['id']: r for r in state['scene']['entities']}
     expected = 0 if tick < 2 else 2 if tick < 121 else 3
     assert len(roots) == expected, (tick, list(roots))
     ids = set()
@@ -35,11 +38,20 @@ def check(state, tick):
             continue
         row = roots[name]
         members = set(row['prefab_instance']['members'].values())
-        assert len(members) == 2 and not ids.intersection(members), roots
+        assert len(members) == (3 if nested else 2) and not ids.intersection(members), roots
         if structural:
             assert local_member in row['prefab_instance']['members'], row
             assert removed_member not in row['prefab_instance']['members'], row
         ids.update(members)
+        if nested:
+            for mount in nested_mounts:
+                child_root = row['prefab_instance']['nested'][mount][nested_asset]
+                linked = rows[child_root]
+                linked_members = set(linked['prefab_instance']['members'].values())
+                assert len(linked_members) == 2 and not ids.intersection(linked_members), linked
+                assert linked['parent'] == row['prefab_instance']['members'][mount], linked
+                assert linked['prefab_nested'] == dict(root=row['id'], mount=mount), linked
+                ids.update(linked_members)
         pose = values[row['id']]
         if suppressed:
             assert all('forge.navigation_surface' not in values[member] for member in members), values
@@ -64,6 +76,29 @@ with tempfile.TemporaryDirectory(prefix='forge-prefab-sdk-', dir=runtime.parent)
     catalog = json.loads((gallery/'forge.assets.json').read_text())
     catalog['assets'] = [r for r in catalog['assets'] if r['id'] in (scene_id, prefab_id)]
     assert len(catalog['assets']) == 2
+    if nested:
+        child = json.loads((root/prefab_path).read_bytes())
+        assert all(set(member['components']) <= {'forge.local_translation', 'forge.local_rotation',
+                   'forge.local_scale', 'forge.mesh_renderer', 'forge.tint'} for member in child['members'])
+        nested_asset = str(uuid.uuid4())
+        child['asset_id'] = nested_asset
+        child_path = 'Assets/RuntimeRobotChild.prefab.json'
+        (root/child_path).write_text(json.dumps(child))
+        outer_root = str(uuid.uuid4())
+        nested_mounts = [str(uuid.uuid4()), str(uuid.uuid4())]
+        identity = {'forge.local_translation': dict(x=0, y=0, z=0),
+                    'forge.local_rotation': dict(x=0, y=0, z=0, w=1),
+                    'forge.local_scale': dict(x=1, y=1, z=1)}
+        selected = dict(format='forge.prefab', version=7, asset_id=prefab_id, revision=1,
+                        root=outer_root, members=[dict(id=outer_root, name='Assembly', components=identity)] +
+                        [dict(id=mount, parent=outer_root, name='Repeated robot', components=identity,
+                              prefab_instance=dict(asset=nested_asset)) for mount in nested_mounts])
+        (root/prefab_path).write_text(json.dumps(selected))
+        record = next(row for row in catalog['assets'] if row['id'] == prefab_id)
+        record.update(schema_version=7, dependencies=[nested_asset], dependency_edges=[dict(
+            target=nested_asset, type='prefab', kind='runtime', role='document:nested', revision='')])
+        catalog['assets'].append(dict(id=nested_asset, type='prefab', source=child_path,
+                                     schema_version=child['version'], dependencies=[], metadata={}))
     if variant:
         base = json.loads((root/prefab_path).read_bytes())
         # This original fixture has only transform/render values, with no
@@ -115,6 +150,8 @@ with tempfile.TemporaryDirectory(prefix='forge-prefab-sdk-', dir=runtime.parent)
     source['_prefab_sources'] = [json.loads((root/prefab_path).read_bytes())]
     if variant:
         source['_prefab_sources'].append(base)
+    if nested:
+        source['_prefab_sources'].append(child)
     direct = Worker(runtime, root)
     try:
         state = direct.request('replace', scene=source)

@@ -1,5 +1,6 @@
 #pragma once
 #include "../asset_bytes.hpp"
+#include "../prefab_member_choices.hpp"
 #include "prefabs.hpp"
 #include "source_document_automation.hpp"
 
@@ -103,6 +104,37 @@ struct PrefabAutomation {
                 result["pointer"] = pointer;
                 return result;
             }));
+        result.push_back(automation_method(
+            "prefab.source.targets",
+            "Page available source member reference choices, including scoped nested occurrences, "
+            "from the same admitted definitions as the native picker. References are portable "
+            "source addresses; native values remain EntityRef. No draft or Scene edits.",
+            "asset.read",
+            automation_object(
+                {{"offset", automation_integer()}, {"limit", automation_integer(1, 128)}}),
+            false, [&editor, &scene, &project](const Json& request) {
+                const auto current = state(editor, project);
+                if (!current.at("open").get<bool>())
+                    return Json{{"open", false}};
+                auto definitions = editor.baseline_bases_;
+                const auto asset = editor.draft_.at("asset_id").get<AssetId>();
+                definitions[asset] = editor.draft_;
+                definitions = resolve_prefab_sources(definitions, scene.schema());
+                const auto choices =
+                    detail::prefab_member_choices(definitions.at(asset), definitions);
+                const auto offset = request.value("offset", std::size_t{});
+                const auto limit = request.value("limit", std::size_t(128));
+                auto rows = Json::array();
+                for (auto i = std::min(offset, choices.size());
+                     i < choices.size() && rows.size() < limit; ++i)
+                    rows.push_back(
+                        {{"reference", choices[i].reference}, {"label", choices[i].label}});
+                return Json{{"open", true},
+                            {"state", current.at("state")},
+                            {"total", choices.size()},
+                            {"offset", offset},
+                            {"targets", std::move(rows)}};
+            }));
         if (!permissions.assets)
             return result;
         result.push_back(automation_method(
@@ -122,7 +154,7 @@ struct PrefabAutomation {
         result.push_back(automation_method(
             "prefab.variant.create",
             "Create a single-base Prefab variant at a new project path. "
-            "Structure follows the base; only explicit variant overrides are saved.",
+            "Inherits current base values and retains explicit value/structure intent.",
             "asset.write",
             automation_object({{"base", automation_uuid()}, {"path", automation_text(1024, 1)}},
                               {"base", "path"}),
@@ -312,6 +344,34 @@ struct PrefabAutomation {
                     return result;
                 }));
         }
+        for (const auto* action : {"set", "clear", "revert"}) {
+            Json properties{{"state", automation_digest()}, {"member", automation_uuid()}};
+            Json required{"state", "member"};
+            if (std::string_view(action) == "set") {
+                properties["asset"] = automation_uuid();
+                required.push_back("asset");
+            }
+            result.push_back(automation_method(
+                std::string("prefab.source.nested.") + action,
+                "Edit a member's nested Prefab link through the shared source owner at its exact "
+                "draft digest. Set selects an available Prefab asset; clear saves an explicit "
+                "empty link; revert restores an inherited link. Set/clear explicitly enable "
+                "source7. Checks reviewed supporting sources, cycles and expanded bounds. "
+                "Publish saves separately; Scene Undo does not edit this draft.",
+                "asset.write", automation_object(std::move(properties), std::move(required)), true,
+                [&editor, &scene, &project, action](const Json& request) {
+                    check(editor, project, request);
+                    const auto member = request.at("member").get<PrefabMemberId>();
+                    if (std::string_view(action) == "revert")
+                        editor.revert_nested_prefab(scene, project, member);
+                    else
+                        editor.set_nested_prefab(scene, project, member,
+                                                 std::string_view(action) == "set"
+                                                     ? request.at("asset").get<AssetId>()
+                                                     : AssetId{});
+                    return state(editor, project);
+                }));
+        }
         for (const auto* action : {"patch", "publish", "rebase", "close"}) {
             Json properties{{"state", automation_digest()}};
             Json required{"state"};
@@ -338,7 +398,7 @@ struct PrefabAutomation {
                     if (std::string_view(action) == "patch")
                         editor.edit_draft(
                             AssetDocumentAutomation::patch(editor.draft_, request.at("patch")),
-                            scene.schema());
+                            scene, project);
                     else if (std::string_view(action) == "publish") {
                         if (!editor.publish(scene, project))
                             throw AuthoringError("publication_failed", editor.error_);

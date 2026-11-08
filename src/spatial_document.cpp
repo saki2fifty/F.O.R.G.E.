@@ -272,7 +272,18 @@ void rebind(Json& doc, const Json& effective, const std::string& id, const Json&
     }
     e["spatial"] = spatial;
     // Validate new graph before compensation; missing explicit target never becomes a root.
-    auto projected = project_spatial(effective_locals(candidate));
+    // Reproject admitted effective values, including inherited Prefab channels.
+    // Only the binding/parent changed; derived values stay out of authored intent.
+    auto projected = effective;
+    auto& projected_row = row(projected, id);
+    projected_row["spatial"] = spatial;
+    if (structural) {
+        if (structural->empty())
+            projected_row.erase("parent");
+        else
+            projected_row["parent"] = *structural;
+    }
+    projected = project_spatial(std::move(projected));
     if (mode == ReparentMode::PreserveWorld &&
         old.at("components").contains("forge.local_translation"))
         write_world(candidate, projected, id, matrix(old), TransformChannel::All, true);

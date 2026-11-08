@@ -1,0 +1,537 @@
+{
+  "asset_id": "f48fc291-7f91-488a-b99c-f332916b1d18",
+  "entities": [
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": -3.3,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "fa2abb14-bcbb-4ab7-b542-5e1bf09ced6b",
+      "name": "Assembly - repeated child asset",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
+        "members": {
+          "3f1f9c7a-9a0d-40b6-b6c3-17104f749d7d": "fa2abb14-bcbb-4ab7-b542-5e1bf09ced6b",
+          "78771183-f07e-4af5-a13e-6fee3a321b55": "e569cb42-c7cd-4276-aabb-fe1157db8fe7",
+          "bcf707ac-6b13-4f4d-87dc-6b82c9a55519": "d3228f7a-68bb-41d2-88e1-7ff83345837b"
+        },
+        "nested": {
+          "78771183-f07e-4af5-a13e-6fee3a321b55": {
+            "d255167b-4179-46b6-af94-c76a589abf6b": "b345f2f2-c7f6-4031-88ba-332c9ca28ff4"
+          },
+          "bcf707ac-6b13-4f4d-87dc-6b82c9a55519": {
+            "d255167b-4179-46b6-af94-c76a589abf6b": "b670676f-c4ed-4820-b3c6-cfb0e6891382"
+          }
+        },
+        "revision": 1,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "de137a33-e237-446f-9481-c7c19e8a556a",
+      "name": "Crown",
+      "parent": "b345f2f2-c7f6-4031-88ba-332c9ca28ff4",
+      "prefab_member": {
+        "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+        "root": "b345f2f2-c7f6-4031-88ba-332c9ca28ff4"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "b345f2f2-c7f6-4031-88ba-332c9ca28ff4",
+      "name": "Capped marker",
+      "parent": "e569cb42-c7cd-4276-aabb-fe1157db8fe7",
+      "prefab_instance": {
+        "asset": "d255167b-4179-46b6-af94-c76a589abf6b",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "b345f2f2-c7f6-4031-88ba-332c9ca28ff4",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "de137a33-e237-446f-9481-c7c19e8a556a",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "9ff8b38e-bc8c-45f6-b008-b6ebbc923b82"
+        },
+        "revision": 1,
+        "status": "current"
+      },
+      "prefab_nested": {
+        "mount": "78771183-f07e-4af5-a13e-6fee3a321b55",
+        "root": "fa2abb14-bcbb-4ab7-b542-5e1bf09ced6b"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "b670676f-c4ed-4820-b3c6-cfb0e6891382",
+      "name": "Capped marker",
+      "parent": "d3228f7a-68bb-41d2-88e1-7ff83345837b",
+      "prefab_instance": {
+        "asset": "d255167b-4179-46b6-af94-c76a589abf6b",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "b670676f-c4ed-4820-b3c6-cfb0e6891382",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "fcc847de-e007-4599-82ac-590753caa9f8",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "b7c3ebca-a4f2-4ab0-8af8-4a8af3e37dee"
+        },
+        "revision": 1,
+        "status": "current"
+      },
+      "prefab_nested": {
+        "mount": "bcf707ac-6b13-4f4d-87dc-6b82c9a55519",
+        "root": "fa2abb14-bcbb-4ab7-b542-5e1bf09ced6b"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "fcc847de-e007-4599-82ac-590753caa9f8",
+      "name": "Crown",
+      "parent": "b670676f-c4ed-4820-b3c6-cfb0e6891382",
+      "prefab_member": {
+        "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+        "root": "b670676f-c4ed-4820-b3c6-cfb0e6891382"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "e569cb42-c7cd-4276-aabb-fe1157db8fe7",
+      "name": "Left linked marker",
+      "parent": "fa2abb14-bcbb-4ab7-b542-5e1bf09ced6b",
+      "prefab_member": {
+        "member": "78771183-f07e-4af5-a13e-6fee3a321b55",
+        "root": "fa2abb14-bcbb-4ab7-b542-5e1bf09ced6b"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "9ff8b38e-bc8c-45f6-b008-b6ebbc923b82",
+      "name": "Body",
+      "parent": "b345f2f2-c7f6-4031-88ba-332c9ca28ff4",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "b345f2f2-c7f6-4031-88ba-332c9ca28ff4"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "d3228f7a-68bb-41d2-88e1-7ff83345837b",
+      "name": "Right linked marker",
+      "parent": "fa2abb14-bcbb-4ab7-b542-5e1bf09ced6b",
+      "prefab_member": {
+        "member": "bcf707ac-6b13-4f4d-87dc-6b82c9a55519",
+        "root": "fa2abb14-bcbb-4ab7-b542-5e1bf09ced6b"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "b7c3ebca-a4f2-4ab0-8af8-4a8af3e37dee",
+      "name": "Body",
+      "parent": "b670676f-c4ed-4820-b3c6-cfb0e6891382",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "b670676f-c4ed-4820-b3c6-cfb0e6891382"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "e830d2d7-5d67-41fe-acc9-ea4bec6da216",
+      "name": "Variant - cleared right link",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "81d90e45-bfe6-4a87-a425-df65c4d2f366",
+        "members": {
+          "3f1f9c7a-9a0d-40b6-b6c3-17104f749d7d": "e830d2d7-5d67-41fe-acc9-ea4bec6da216",
+          "78771183-f07e-4af5-a13e-6fee3a321b55": "6f83792b-0b89-4b4d-a585-aa762ea904d7",
+          "bcf707ac-6b13-4f4d-87dc-6b82c9a55519": "ec1a2ccf-5572-4f8f-b4e7-9b8ef9507fd9"
+        },
+        "nested": {
+          "78771183-f07e-4af5-a13e-6fee3a321b55": {
+            "d255167b-4179-46b6-af94-c76a589abf6b": "1a26be69-0a1e-44fc-a92f-b1b92ac5f344"
+          },
+          "bcf707ac-6b13-4f4d-87dc-6b82c9a55519": {
+            "d255167b-4179-46b6-af94-c76a589abf6b": "b68dc248-6642-497d-9911-c0e352d3cfdf"
+          }
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "0089cab1-905e-4a33-9a9a-a669745f8d19",
+      "name": "Crown",
+      "parent": "1a26be69-0a1e-44fc-a92f-b1b92ac5f344",
+      "prefab_member": {
+        "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+        "root": "1a26be69-0a1e-44fc-a92f-b1b92ac5f344"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "1a26be69-0a1e-44fc-a92f-b1b92ac5f344",
+      "name": "Capped marker",
+      "parent": "6f83792b-0b89-4b4d-a585-aa762ea904d7",
+      "prefab_instance": {
+        "asset": "d255167b-4179-46b6-af94-c76a589abf6b",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "1a26be69-0a1e-44fc-a92f-b1b92ac5f344",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "0089cab1-905e-4a33-9a9a-a669745f8d19",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "510ad364-5ee2-4fbd-98fc-644ff36b17b7"
+        },
+        "revision": 1,
+        "status": "current"
+      },
+      "prefab_nested": {
+        "mount": "78771183-f07e-4af5-a13e-6fee3a321b55",
+        "root": "e830d2d7-5d67-41fe-acc9-ea4bec6da216"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "510ad364-5ee2-4fbd-98fc-644ff36b17b7",
+      "name": "Body",
+      "parent": "1a26be69-0a1e-44fc-a92f-b1b92ac5f344",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "1a26be69-0a1e-44fc-a92f-b1b92ac5f344"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "6f83792b-0b89-4b4d-a585-aa762ea904d7",
+      "name": "Left linked marker",
+      "parent": "e830d2d7-5d67-41fe-acc9-ea4bec6da216",
+      "prefab_member": {
+        "member": "78771183-f07e-4af5-a13e-6fee3a321b55",
+        "root": "e830d2d7-5d67-41fe-acc9-ea4bec6da216"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "b68dc248-6642-497d-9911-c0e352d3cfdf",
+      "missing_member": true,
+      "name": "Capped marker",
+      "parent": "ec1a2ccf-5572-4f8f-b4e7-9b8ef9507fd9",
+      "prefab_instance": {
+        "asset": "d255167b-4179-46b6-af94-c76a589abf6b",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "b68dc248-6642-497d-9911-c0e352d3cfdf",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "44b3d73a-9572-4e57-85da-f3939b5b6b32"
+        },
+        "revision": 1,
+        "status": "inactive composition"
+      },
+      "prefab_nested": {
+        "mount": "bcf707ac-6b13-4f4d-87dc-6b82c9a55519",
+        "root": "e830d2d7-5d67-41fe-acc9-ea4bec6da216"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "ec1a2ccf-5572-4f8f-b4e7-9b8ef9507fd9",
+      "name": "Right linked marker",
+      "parent": "e830d2d7-5d67-41fe-acc9-ea4bec6da216",
+      "prefab_member": {
+        "member": "bcf707ac-6b13-4f4d-87dc-6b82c9a55519",
+        "root": "e830d2d7-5d67-41fe-acc9-ea4bec6da216"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 3.3,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "cde5ffed-51c0-42b2-b29f-6b43dba1298f",
+      "name": "Variant - replaced right child",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "550d6894-6721-4818-88ce-3ec3976143d7",
+        "members": {
+          "3f1f9c7a-9a0d-40b6-b6c3-17104f749d7d": "cde5ffed-51c0-42b2-b29f-6b43dba1298f",
+          "78771183-f07e-4af5-a13e-6fee3a321b55": "7d5c6781-476c-4ea5-9de6-e5d989efcb5f",
+          "bcf707ac-6b13-4f4d-87dc-6b82c9a55519": "67aa381d-1616-4937-bf7f-57ab54219223"
+        },
+        "nested": {
+          "78771183-f07e-4af5-a13e-6fee3a321b55": {
+            "d255167b-4179-46b6-af94-c76a589abf6b": "be8775fe-3104-461b-86f6-997770c770d1"
+          },
+          "bcf707ac-6b13-4f4d-87dc-6b82c9a55519": {
+            "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270": "8ab8f1aa-ca7f-4087-a8d5-77086c4ae34f"
+          }
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "256759bb-2fdc-4b9b-93f2-fc2749c0d2d4",
+      "name": "Crossbar",
+      "parent": "afe397b8-d221-4538-bc4b-85ea89d3c9bd",
+      "prefab_member": {
+        "member": "9ba113dc-053c-44a1-996a-d35eae931630",
+        "root": "8ab8f1aa-ca7f-4087-a8d5-77086c4ae34f"
+      },
+      "spatial": {
+        "mode": "explicit",
+        "target": {
+          "entity": "8ab8f1aa-ca7f-4087-a8d5-77086c4ae34f",
+          "scene": "f48fc291-7f91-488a-b99c-f332916b1d18"
+        }
+      }
+    },
+    {
+      "components": {},
+      "id": "7d5c6781-476c-4ea5-9de6-e5d989efcb5f",
+      "name": "Left linked marker",
+      "parent": "cde5ffed-51c0-42b2-b29f-6b43dba1298f",
+      "prefab_member": {
+        "member": "78771183-f07e-4af5-a13e-6fee3a321b55",
+        "root": "cde5ffed-51c0-42b2-b29f-6b43dba1298f"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "67aa381d-1616-4937-bf7f-57ab54219223",
+      "name": "Right linked marker",
+      "parent": "cde5ffed-51c0-42b2-b29f-6b43dba1298f",
+      "prefab_member": {
+        "member": "bcf707ac-6b13-4f4d-87dc-6b82c9a55519",
+        "root": "cde5ffed-51c0-42b2-b29f-6b43dba1298f"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "8ab8f1aa-ca7f-4087-a8d5-77086c4ae34f",
+      "name": "Capped marker",
+      "parent": "67aa381d-1616-4937-bf7f-57ab54219223",
+      "prefab_instance": {
+        "asset": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+        "members": {
+          "1e6e794e-bea6-4b92-9247-9c8d9235a1f3": "983cddfb-77a3-4c60-867e-307747054261",
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "8ab8f1aa-ca7f-4087-a8d5-77086c4ae34f",
+          "9ba113dc-053c-44a1-996a-d35eae931630": "256759bb-2fdc-4b9b-93f2-fc2749c0d2d4",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "afe397b8-d221-4538-bc4b-85ea89d3c9bd",
+          "fcaa0747-5f5b-45e2-a18c-84e79fde8282": "ebfa19e2-2c0f-4fcf-9127-c09e8807a998"
+        },
+        "revision": 2,
+        "status": "current"
+      },
+      "prefab_nested": {
+        "mount": "bcf707ac-6b13-4f4d-87dc-6b82c9a55519",
+        "root": "cde5ffed-51c0-42b2-b29f-6b43dba1298f"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "983cddfb-77a3-4c60-867e-307747054261",
+      "name": "Left beacon",
+      "parent": "256759bb-2fdc-4b9b-93f2-fc2749c0d2d4",
+      "prefab_member": {
+        "member": "1e6e794e-bea6-4b92-9247-9c8d9235a1f3",
+        "root": "8ab8f1aa-ca7f-4087-a8d5-77086c4ae34f"
+      },
+      "spatial": {
+        "mode": "explicit",
+        "target": {
+          "entity": "8ab8f1aa-ca7f-4087-a8d5-77086c4ae34f",
+          "scene": "f48fc291-7f91-488a-b99c-f332916b1d18"
+        }
+      }
+    },
+    {
+      "components": {},
+      "id": "9a37b11d-a975-401e-b4dd-39ee856b9109",
+      "name": "Crown",
+      "parent": "be8775fe-3104-461b-86f6-997770c770d1",
+      "prefab_member": {
+        "member": "94672d2b-b750-4769-9d5b-d242f4cbf818",
+        "root": "be8775fe-3104-461b-86f6-997770c770d1"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "afe397b8-d221-4538-bc4b-85ea89d3c9bd",
+      "name": "Body",
+      "parent": "8ab8f1aa-ca7f-4087-a8d5-77086c4ae34f",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "8ab8f1aa-ca7f-4087-a8d5-77086c4ae34f"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "be8775fe-3104-461b-86f6-997770c770d1",
+      "name": "Capped marker",
+      "parent": "7d5c6781-476c-4ea5-9de6-e5d989efcb5f",
+      "prefab_instance": {
+        "asset": "d255167b-4179-46b6-af94-c76a589abf6b",
+        "members": {
+          "61cdd295-eebe-4ff1-9f6e-764d817fb24a": "be8775fe-3104-461b-86f6-997770c770d1",
+          "94672d2b-b750-4769-9d5b-d242f4cbf818": "9a37b11d-a975-401e-b4dd-39ee856b9109",
+          "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb": "e4710915-d319-4be7-902a-812943383002"
+        },
+        "revision": 1,
+        "status": "current"
+      },
+      "prefab_nested": {
+        "mount": "78771183-f07e-4af5-a13e-6fee3a321b55",
+        "root": "cde5ffed-51c0-42b2-b29f-6b43dba1298f"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "e4710915-d319-4be7-902a-812943383002",
+      "name": "Body",
+      "parent": "be8775fe-3104-461b-86f6-997770c770d1",
+      "prefab_member": {
+        "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb",
+        "root": "be8775fe-3104-461b-86f6-997770c770d1"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "ebfa19e2-2c0f-4fcf-9127-c09e8807a998",
+      "name": "Right beacon",
+      "parent": "256759bb-2fdc-4b9b-93f2-fc2749c0d2d4",
+      "prefab_member": {
+        "member": "fcaa0747-5f5b-45e2-a18c-84e79fde8282",
+        "root": "8ab8f1aa-ca7f-4087-a8d5-77086c4ae34f"
+      },
+      "spatial": {
+        "mode": "explicit",
+        "target": {
+          "entity": "8ab8f1aa-ca7f-4087-a8d5-77086c4ae34f",
+          "scene": "f48fc291-7f91-488a-b99c-f332916b1d18"
+        }
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 5.7,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "76dd48b5-9fc5-4fc4-917c-9359dbdf1875",
+      "name": "Nested assembly overview",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 6
+}

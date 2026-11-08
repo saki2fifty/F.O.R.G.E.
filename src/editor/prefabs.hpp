@@ -1,6 +1,7 @@
 #pragma once
 #include "../json_value_equal.hpp"
 #include "../prefab_component_intent.hpp"
+#include "../prefab_composition.hpp"
 #include "../prefab_member_access.hpp"
 #include "component_choices.hpp"
 #include "document.hpp"
@@ -100,7 +101,8 @@ class PrefabEditor {
                 "Prefab draft changed during migration; prepare a fresh candidate");
         edit_draft(candidate, schema);
     }
-    void edit_draft(const Json& candidate, const Json& schema = Json::object()) {
+    void edit_draft(const Json& candidate, const Json& schema = Json::object(),
+                    const PrefabSources* supporting = nullptr) {
         if (!open_)
             throw std::runtime_error("Open a prefab source before editing its draft");
         PrefabDocument::validate(candidate);
@@ -112,11 +114,13 @@ class PrefabEditor {
              candidate.value("base", Json()) != draft_.value("base", Json())))
             throw std::runtime_error(
                 "Edits cannot change prefab source/base identity or publication revision");
-        auto sources = baseline_bases_;
+        auto sources = supporting ? *supporting : baseline_bases_;
         const auto asset = candidate.at("asset_id").get<AssetId>();
         sources[asset] = candidate;
         const auto view = resolve_prefab_sources(sources, schema).at(asset);
         draft_ = candidate;
+        if (supporting)
+            baseline_bases_ = *supporting;
         if (std::none_of(view.at("members").begin(), view.at("members").end(),
                          [&](const Json& member) { return member.at("id") == member_; })) {
             member_ = draft_.at("root").get<std::string>();
@@ -126,6 +130,28 @@ class PrefabEditor {
                 ui::editor_context->selection.select_member(draft_.at("asset_id").get<AssetId>(),
                                                             member_);
         }
+    }
+    void edit_draft(const Json& candidate, Scene& scene, SceneDocument& project) {
+        project.check_ownership();
+        if (!open_ || project_ != project.project())
+            throw std::runtime_error("Open this project's prefab source before editing");
+        const auto supporting = project.prefabs().base_sources(scene, baseline_, &candidate);
+        for (const auto& [asset, reviewed] : baseline_bases_)
+            if (const auto at = supporting.find(asset);
+                at != supporting.end() && !detail::json_value_equal(at->second, reviewed))
+                throw std::runtime_error("Prefab supporting source changed; review sources again");
+        edit_draft(candidate, scene.schema(), &supporting);
+    }
+    void set_nested_prefab(Scene& scene, SceneDocument& project, PrefabMemberId mount,
+                           AssetId asset) {
+        const auto view = source_view(scene.schema());
+        if (std::none_of(view.at("members").begin(), view.at("members").end(),
+                         [&](const Json& row) { return row.at("id") == Json(mount); }))
+            throw std::runtime_error("Choose an available source member as the nested mount");
+        edit_draft(PrefabDocument(draft_).with_nested_prefab(mount, asset).source, scene, project);
+    }
+    void revert_nested_prefab(Scene& scene, SceneDocument& project, PrefabMemberId mount) {
+        edit_draft(PrefabDocument(draft_).revert_nested_prefab(mount).source, scene, project);
     }
     PrefabMemberId add_child(PrefabMemberId parent, const Json& schema,
                              const std::string& name = "Child") {
@@ -320,13 +346,15 @@ class PrefabEditor {
     }
     void rebase_draft(Scene& scene, SceneDocument& project) {
         project.check_ownership();
-        if (!open_ || project_ != project.project() || !variant())
-            throw std::runtime_error("Open this project's variant source before reviewing bases");
+        if (!open_ || project_ != project.project())
+            throw std::runtime_error(
+                "Open this project's prefab source before reviewing supporting sources");
         if (!detail::json_value_equal(
                 project.prefabs().source(baseline_.at("asset_id").get<AssetId>()), baseline_))
-            throw std::runtime_error("Variant source changed on disk; reopen it before rebasing");
+            throw std::runtime_error(
+                "Prefab source changed on disk; reopen it before reviewing supporting sources");
         project.prefabs().refresh(scene);
-        auto bases = project.prefabs().base_sources(scene, draft_);
+        auto bases = project.prefabs().base_sources(scene, baseline_, &draft_);
         auto sources = bases;
         const auto asset = draft_.at("asset_id").get<AssetId>();
         sources[asset] = draft_;
@@ -613,8 +641,9 @@ class PrefabEditor {
                 const auto schema = scene.schema();
                 auto sources = baseline_bases_;
                 sources[edited] = draft_;
-                const auto resolved =
-                    variant() ? resolve_prefab_sources(sources, schema) : PrefabSources{};
+                const auto resolved = variant() || draft_.at("version").get<unsigned>() >= 7
+                                          ? resolve_prefab_sources(sources, schema)
+                                          : PrefabSources{};
                 auto view = variant() ? resolved.at(edited) : draft_;
                 if (variant()) {
                     const auto base = draft_.at("base").get<AssetId>();
@@ -630,7 +659,11 @@ class PrefabEditor {
                                    "retaining this draft’s explicit overrides. Successful source "
                                    "refresh clears Scene history."))
                         rebase_draft(scene, project);
-                }
+                } else if (!baseline_bases_.empty() &&
+                           ui::button("Review supporting sources",
+                                      "Refresh published sources while retaining this draft. "
+                                      "Successful refresh clears Scene history."))
+                    rebase_draft(scene, project);
                 for (const auto& m : view.at("members")) {
                     const std::string id = m.at("id");
                     ImGui::PushID(id.c_str());
@@ -670,7 +703,8 @@ class PrefabEditor {
                                    "Move the next sibling before this source member."))
                         move_sibling(siblings, index, index + 1, parent, schema);
                     ImGui::EndDisabled();
-                    if (variant() && draft_.at("version") == 6 && draft_.contains("member_order"))
+                    if (variant() && draft_.at("version").get<unsigned>() >= 6 &&
+                        draft_.contains("member_order"))
                         for (const auto& order : draft_.at("member_order"))
                             if (order.at("parent") == parent &&
                                 ui::button("Revert sibling order",
@@ -709,6 +743,7 @@ class PrefabEditor {
                             "Rename this member in every instance. Its durable member identity is "
                             "unchanged.");
                         draw_member_structure(m, view, schema);
+                        draw_nested_prefab(m, scene, project);
                         if (ui::button("+ Add Component",
                                        "Add a registered component to this source member. Publish "
                                        "validates the complete candidate."))
@@ -865,7 +900,7 @@ class PrefabEditor {
                                             set_property(key, name, next);
                                 }
                                 auto value = m["components"][key].value(f, field.at("default"));
-                                PrefabPropertyScope prefab_properties(view);
+                                PrefabPropertyScope prefab_properties(view, &resolved);
                                 bool changed =
                                     key == "forge.tile_map_collider_2d" && f == "layer" &&
                                             tile_map_layer
@@ -907,9 +942,13 @@ class PrefabEditor {
                                         field, admitted,
                                         [&](const Json& reference) {
                                             if (reference.contains("prefab")) {
-                                                (void)detail::checked_prefab_reference(reference,
-                                                                                       edited);
-                                                if (draft_.at("version").get<unsigned>() < 3)
+                                                const auto path = detail::checked_prefab_reference(
+                                                    reference, edited, 7);
+                                                if (!path.instances.empty())
+                                                    draft_ = PrefabDocument(draft_)
+                                                                 .with_nested_references()
+                                                                 .source;
+                                                else if (draft_.at("version").get<unsigned>() < 3)
                                                     draft_["version"] = 3;
                                             }
                                             return reference;
@@ -1032,6 +1071,44 @@ class PrefabEditor {
     }
 
   private:
+    void draw_nested_prefab(const Json& member, Scene& scene, SceneDocument& project) {
+        const auto mount = member.at("id").get<PrefabMemberId>();
+        const auto child = detail::nested_prefab_asset(member, 7);
+        std::string preview = "None";
+        if (child) {
+            const auto at = project.prefabs().records().find(*child);
+            preview = at == project.prefabs().records().end() ? child->str()
+                                                              : path_utf8(at->second.source);
+        }
+        ui::property_label_row("Nested Prefab");
+        if (ImGui::BeginCombo("##Nested Prefab", preview.c_str())) {
+            if (ImGui::Selectable("None", !child))
+                source_edit([&] { set_nested_prefab(scene, project, mount, {}); });
+            FORGE_UI_PROBE("prefab-nested-none");
+            const auto own = draft_.at("asset_id").get<AssetId>();
+            for (const auto& [asset, record] : project.prefabs().records()) {
+                if (asset == own)
+                    continue;
+                ui::IdScope scope(asset.str().c_str());
+                if (ImGui::Selectable(path_utf8(record.source).c_str(), child && *child == asset))
+                    source_edit([&] { set_nested_prefab(scene, project, mount, asset); });
+                FORGE_UI_PROBE("prefab-nested-asset:" + asset.str());
+            }
+            ImGui::EndCombo();
+        }
+        FORGE_UI_PROBE("prefab-nested-choice");
+        ui::help("Create a linked child instance below this member in every instance. "
+                 "This member controls its mount transform. Publish saves the link; "
+                 "child values remain owned by their own source.");
+        const auto* intent = selected_override();
+        if (inherited_member(mount.str()) && draft_.at("version").get<unsigned>() >= 7 && intent &&
+            intent->contains("prefab_instance")) {
+            if (ui::button("Use inherited nested Prefab",
+                           "Remove this link override and follow the current base link."))
+                source_edit([&] { revert_nested_prefab(scene, project, mount); });
+            FORGE_UI_PROBE("prefab-nested-revert");
+        }
+    }
     template <class Edit> void source_edit(Edit edit) {
         try {
             edit();
@@ -1046,7 +1123,8 @@ class PrefabEditor {
         std::vector<PrefabMemberId> prefix;
         std::size_t next = 0;
         const std::set<std::string> active(siblings.begin(), siblings.end());
-        if (variant() && draft_.at("version") == 6 && draft_.contains("member_order"))
+        if (variant() && draft_.at("version").get<unsigned>() >= 6 &&
+            draft_.contains("member_order"))
             for (const auto& order : draft_.at("member_order"))
                 if (order.at("parent") == parent)
                     for (const auto& id : order.at("members"))
@@ -1081,7 +1159,7 @@ class PrefabEditor {
         ui::help("Change this member's structural parent, retaining local channels. Cycles reject "
                  "the edit. A missing parent leaves the branch unavailable until repaired.");
         auto intent = member_override(identity);
-        if (inherited_member(identity) && draft_.at("version") == 6 && intent &&
+        if (inherited_member(identity) && draft_.at("version").get<unsigned>() >= 6 && intent &&
             intent->contains("parent") &&
             ui::button("Revert parent", "Follow the current base parent again."))
             source_edit([&] { revert_member_structure(id, "parent", schema); });
@@ -1131,7 +1209,7 @@ class PrefabEditor {
             FORGE_UI_PROBE("prefab-source-spatial-target:" + identity);
         }
         intent = member_override(identity);
-        if (inherited_member(identity) && draft_.at("version") == 6 && intent &&
+        if (inherited_member(identity) && draft_.at("version").get<unsigned>() >= 6 && intent &&
             intent->contains("spatial") &&
             ui::button("Revert spatial binding", "Follow the current base spatial binding again."))
             source_edit([&] { revert_member_structure(id, "spatial", schema); });
@@ -1157,8 +1235,8 @@ class PrefabEditor {
                     if (member.is_null())
                         member = {{"id", id}, {"name", "Missing inherited member"}};
                     for (const char* field : {"name", "parent", "spatial"})
-                        if (row.contains(field) &&
-                            (std::string_view(field) == "name" || draft_.at("version") == 6))
+                        if (row.contains(field) && (std::string_view(field) == "name" ||
+                                                    draft_.at("version").get<unsigned>() >= 6))
                             member[field] = row.at(field);
                 }
             }
@@ -1182,8 +1260,8 @@ class PrefabEditor {
             const auto* intent = detail::owned_prefab_member(draft_, id);
             if (!intent)
                 intent = member_override(id);
-            const bool removed =
-                draft_.at("version") == 6 && intent && intent->value("removed", false);
+            const bool removed = draft_.at("version").get<unsigned>() >= 6 && intent &&
+                                 intent->value("removed", false);
             if (removed) {
                 if (ui::button("Restore member", "Clear this source's retained removal flag."))
                     source_edit(

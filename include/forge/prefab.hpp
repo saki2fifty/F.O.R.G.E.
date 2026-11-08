@@ -4,7 +4,7 @@
 #include <vector>
 namespace forge {
 struct PrefabDocument {
-    static constexpr unsigned current_version = 6;
+    static constexpr unsigned current_version = 7;
     static constexpr bool supports_version(unsigned version) {
         return version >= 1 && version <= current_version;
     }
@@ -13,7 +13,7 @@ struct PrefabDocument {
     AssetId asset() const { return source.at("asset_id").get<AssetId>(); }
     std::uint64_t revision() const { return source.at("revision").get<std::uint64_t>(); }
     PrefabMemberId root() const { return source.at("root").get<PrefabMemberId>(); }
-    std::vector<AssetId> dependencies() const;
+    std::vector<AssetId> dependencies(const Json& schema = Json::object()) const;
     static void validate(const Json& document);
     static bool is_variant(const Json& document);
     // Only arrays whose meaning belongs to the selected source version.
@@ -29,6 +29,11 @@ struct PrefabDocument {
     PrefabDocument with_member_removed(PrefabMemberId member, bool removed) const;
     PrefabDocument with_member_order(PrefabMemberId parent,
                                      const std::vector<PrefabMemberId>& prefix) const;
+    // A mount retains its own definition; its child is a distinct instance.
+    // An empty asset explicitly clears an inherited mount link.
+    PrefabDocument with_nested_prefab(PrefabMemberId mount, AssetId asset) const;
+    PrefabDocument revert_nested_prefab(PrefabMemberId mount) const;
+    PrefabDocument with_nested_references() const;
     PrefabDocument duplicate(const Json& schema = Json::object()) const;
     PrefabDocument reorder_member(PrefabMemberId member, PrefabMemberId before) const;
 };
@@ -49,6 +54,21 @@ class CompiledPrefab {
 };
 using PrefabSources = std::map<AssetId, Json>;
 using PrefabTemplates = std::map<AssetId, std::shared_ptr<CompiledPrefab>>;
+// Authoring-only scoped address. Native components continue to hold EntityRef;
+// the established single-source PrefabMemberRef layout remains unchanged.
+struct PrefabInstanceStep {
+    PrefabMemberId mount;
+    AssetId asset;
+    auto operator<=>(const PrefabInstanceStep&) const = default;
+};
+struct PrefabMemberPath {
+    AssetId prefab;
+    std::vector<PrefabInstanceStep> instances;
+    PrefabMemberId member;
+    auto operator<=>(const PrefabMemberPath&) const = default;
+};
+void to_json(Json&, const PrefabMemberPath&);
+void from_json(const Json&, PrefabMemberPath&);
 // Detached source preparation. Raw documents retain authority; variant values
 // are admitted before the existing immutable template compiler consumes them.
 PrefabSources resolve_prefab_sources(const PrefabSources&, const Json& schema = Json::object());
@@ -66,6 +86,8 @@ void validate_prefab_instances(const Json& scene);
 // The resulting EntityRef may remain unresolved when its member was removed.
 std::optional<EntityRef> prefab_member_reference(const Json& scene, EntityId instance,
                                                  PrefabMemberRef reference);
+std::optional<EntityRef> prefab_member_path_reference(const Json& scene, EntityId instance,
+                                                      const PrefabMemberPath& reference);
 PrefabMemberRef
 remap_prefab_member_reference(PrefabMemberRef reference, AssetId old_asset, AssetId new_asset,
                               const std::map<PrefabMemberId, PrefabMemberId>& members);

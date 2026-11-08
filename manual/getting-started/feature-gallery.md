@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**207-nested-prefab-assemblies** compares an assembly with two linked copies, a
+variant clearing one link and a variant replacing one child. Open it and press
+**Play → Game**. Stop Play, edit `Assets/Assemblies/PairedMarkers.prefab.json` and
+select **Right linked marker** to inspect **Nested Prefab** and the scoped reference
+pickers. The reference component is disabled in this static demonstration. Publish
+source changes and save the Scene before export. Camera and Material are included;
+no project C++ module is required. See [Nested assemblies](../editor/prefabs.md).
+
 **206-prefab-member-structure** compares the capped base, a variant with owned
 fork parts, and a chained variant with member removal and changed attachment/order.
 Open the Scene and press **Play → Game**. Stop Play and edit

@@ -8,8 +8,7 @@ namespace forge::detail {
 // Catalog insertion still owns project locator, identity and graph validation.
 inline AssetRecord scene_asset_record(const std::filesystem::path& source, const Json& doc) {
     Scene::validate_document(doc);
-    if (doc.at("version") != 2 && doc.at("version") != 3 && doc.at("version") != 4 &&
-        doc.at("version") != 5)
+    if (doc.at("version") != 2 && !Scene::supports_saved_version(doc.at("version").get<unsigned>()))
         throw std::runtime_error("Scene must be migrated before catalog registration");
     return {doc.at("asset_id").get<AssetId>(),
             SceneAsset::type,

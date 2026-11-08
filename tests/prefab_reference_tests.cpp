@@ -516,8 +516,9 @@ void test(const std::filesystem::path& project) {
     auto collision = Json(controller);
     collision["member"] = "future payload";
     rejects([&] {
-        (void)detail::capture_prefab_reference(collision, scene.asset_id(), asset,
-                                               {{root, definition.root().str()}});
+        (void)detail::capture_prefab_reference(
+            collision, scene.asset_id(), asset,
+            std::map<std::string, std::string>{{root, definition.root().str()}});
     });
     check(collision.at("member") == "future payload", "Failed conversion overwrote opaque data");
     auto mixed = definition.source;

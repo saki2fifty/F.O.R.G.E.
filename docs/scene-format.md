@@ -92,3 +92,19 @@ sub-0.001 LocalScale values. Documents only promote when owned scale needs that
 range; positive-only scene3/4 remains unchanged. Older editors reject version5.
 Known negative-zero scale is written as positive zero; opaque values are untouched.
 See[transform semantics](transforms.md#numerical-compatibility).
+
+
+## Scene6 nested Prefab composition
+
+Scene6 preserves earlier Scene meanings and adds the nested instance contract in
+[ADR045](decisions/045-nested-prefab-composition.md). Each instance may retain a
+`prefab_instance.nested` map from mount member IDs to asset-specific child root
+EntityIds. Child roots remain normal instance roots and carry `prefab_nested:
+{root, mount}` provenance. They are separate from the owner's ordinary member map.
+Source removal keeps unavailable rows, scoped references and reservations; it does
+not flatten nested members or reuse another occurrence's identities. Whole-scene
+and subtree duplication remap these existing Scene-owned IDs together. Earlier
+opaque uses of the newly meaningful fields reject explicit promotion unchanged.
+Runtime snapshots embed the required source closure; saved Scene files retain
+references and maps without embedding source files. Existing local channel,
+spatial binding and legacy migration contracts remain unchanged.

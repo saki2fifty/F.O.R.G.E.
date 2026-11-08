@@ -191,8 +191,8 @@ Json admit_document(const AssetRecord& r, std::span<const std::byte> bytes) {
         throw std::runtime_error("game.export.document: Identity/snapshot mismatch: " + r.id.str());
     if (r.type == SceneAsset::type) {
         Scene::validate_document(doc);
-        if (doc.at("version") < 3 || doc.at("version") > 5 || r.schema_version < 3 ||
-            r.schema_version > 5)
+        if (!Scene::supports_saved_version(doc.at("version").get<unsigned>()) ||
+            !Scene::supports_saved_version(r.schema_version))
             throw std::runtime_error("game.export.document: Scene migration required");
     } else {
         PrefabDocument::validate(doc);

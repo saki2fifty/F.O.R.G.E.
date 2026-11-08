@@ -12,6 +12,11 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+nested_path = 'Scenes/207-nested-prefab-assemblies.scene.json'
+nested_scene = json.loads((project_root / nested_path).read_text())
+assert nested_scene['version'] == 6 and nested_scene['asset_id'] == by_source[nested_path]['id']
+assert sum('prefab_nested' in row and not row.get('missing_member', False)
+           for row in nested_scene['entities']) == 5
 structure_path = 'Scenes/206-prefab-member-structure.scene.json'
 structure_scene = json.loads((project_root / structure_path).read_text())
 assert structure_scene['asset_id'] == by_source[structure_path]['id'] == '23c4d7a7-6e76-4ab5-a3f4-9b0649136e19'
@@ -188,7 +193,7 @@ assert len(routed_sounds) == 3 and {row['custom_bus'] for row in routed_sounds} 
 for row in assets:
     if row['type'] == 'scene':
         saved = json.loads((project_root / row['source']).read_text(encoding='utf-8'))
-        assert 3 <= saved['version'] <= 5 and 3 <= row['schema_version'] <= 5, \
+        assert 3 <= saved['version'] <= 6 and 3 <= row['schema_version'] <= 6, \
             f"Gallery scene is not admitted by runtime packaging: {row['source']}"
 for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/RenderTextures/Split.rendertexture.json', 'render-texture.json'),
@@ -947,7 +952,7 @@ try:
     all_ids = set()
     for path in scenes:
         source = json.loads(path.read_text(encoding="utf-8"))
-        assert source['version'] in (3, 4, 5), path.name
+        assert source['version'] in (3, 4, 5, 6), path.name
         assert str(uuid.UUID(source['asset_id'])) == source['asset_id']
         assert source['asset_id'] not in all_ids
         all_ids.add(source['asset_id'])
@@ -962,7 +967,7 @@ try:
         if any('prefab_instance' in row for row in source['entities']):
             # The memory-only authoring API intentionally owns no project sources.
             # Use the native project/content owner to realize structured prefabs.
-            assert source['version'] in (4, 5) and len(sys.argv) == 4
+            assert source['version'] in (4, 5, 6) and len(sys.argv) == 4
             before = path.read_bytes()
             admission = subprocess.run(
                 [sys.argv[3], '--admit', str(project_root), str(path)],

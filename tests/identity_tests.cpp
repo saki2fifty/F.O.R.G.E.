@@ -66,7 +66,7 @@ int main() {
                     "UUID generation/round trip");
         }
         const auto v1 = legacy();
-        for (const auto version :
+        for (const auto& version :
              {Json(1.5), Json(2.5), Json(3), Json("2"), Json(4294967297ULL), Json(4294967298ULL)}) {
             auto bad = v1;
             bad["version"] = version;

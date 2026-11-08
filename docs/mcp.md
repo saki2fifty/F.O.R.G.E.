@@ -679,11 +679,30 @@ owned additions because they have no inherited value. Publish remains separate;
 these edits do not create Scene Undo entries. Raw patch uses the same full-schema
 candidate admission. Read-only discovery omits all seven structural mutation tools.
 
+`forge_prefab_source_nested_set`, `forge_prefab_source_nested_clear` and
+`forge_prefab_source_nested_revert` take the exact draft `state` and stable mount
+`member`; set additionally takes the selected child `asset`. They require
+`asset.write` and the normal target/lease/revision checks. Set/clear explicitly
+select source7; Revert resumes an inherited link. Shared source admission checks
+supporting sources, cycles, expanded membership and opaque-field collisions.
+Publication is separate. Read-only discovery omits these mutations.
+
+`forge_prefab_source_targets` uses `asset.read` and pages the native picker's
+available portable reference choices with `offset` and `limit` (1–128). Results
+include the current draft `state`, `total` and rows of `label`/`reference`.
+Occurrence labels include mount IDs; addresses use the source7 scoped member shape
+from [Prefab composition](prefabs.md#nested-instances-and-scoped-references).
+Use that returned reference in an admitted source field through raw patch, then
+Publish with the fresh digest. Missing addresses retain identity instead of
+silently selecting another occurrence. No Scene objects are fabricated by discovery.
+
 `forge_prefab_source_rebase` refreshes published sources and reviews updated bases
 while retaining draft intent; a successful refresh may clear Scene history.
 Source edits require the exact draft digest and preserve identity/publication
 revision. Publication checks both the source baseline and reviewed base chain
-against loaded values and disk. A variant Apply writes only its own intent;
+against loaded values and disk, including the before/after nested dependency
+closure. Complete sources use the same Rebase operation to review supporting
+source changes without dropping their draft. A variant Apply writes only its own intent;
 its base remains unchanged. Apply review captures the existing owner's candidate; commit requires
 its digest plus acknowledgment that all current scene changes will be saved.
 The existing recoverable prefab/scene transaction and Scene Undo/Redo own replay.

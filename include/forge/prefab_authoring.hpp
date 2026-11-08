@@ -19,8 +19,10 @@ class PrefabLibrary {
     void load_scene(Scene& scene, const Json& document);
     const std::map<AssetId, AssetRecord>& records() const { return records_; }
     Json source(AssetId asset) const;
-    // Review the loaded base chain against disk; retain this with the source draft.
-    PrefabSources base_sources(const Scene&, const Json& source) const;
+    // Review base/nested supporting sources against disk. A candidate reviews
+    // the union needed before and after publication; retain it with the draft.
+    PrefabSources base_sources(const Scene&, const Json& source,
+                               const Json* candidate = nullptr) const;
     AssetId create(Scene& scene, PrefabDocument document, const std::filesystem::path& relative);
     AssetId create_variant(Scene&, AssetId base, const std::filesystem::path& relative);
     AssetId duplicate(Scene& scene, AssetId asset, const std::filesystem::path& relative);

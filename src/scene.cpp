@@ -5,6 +5,7 @@
 #include "json_row_index.hpp"
 #include "json_value_equal.hpp"
 #include "navigation_collision_collection.hpp"
+#include "prefab_composition.hpp"
 #include "prefab_references.hpp"
 #include "reflected_extensions.hpp"
 #include "reflected_references.hpp"
@@ -40,10 +41,9 @@ bool same_prefab_sources(const PrefabSources& a, const PrefabSources& b) {
 }
 void validate(const Json& doc) {
     if (!doc.is_object() || !doc.contains("version") || !doc.at("version").is_number_integer() ||
-        (doc.at("version") != 1 && doc.at("version") != 2 && doc.at("version") != 3 &&
-         doc.at("version") != 4 && doc.at("version") != 5) ||
+        (doc.at("version") < 1 || doc.at("version") > Scene::current_version) ||
         !doc.contains("entities") || !doc.at("entities").is_array())
-        throw std::runtime_error("Expected scene version 1, 2, 3, 4 or 5 and an entities array");
+        throw std::runtime_error("Expected scene version 1, 2, 3, 4, 5 or 6 and an entities array");
     if (doc.at("version") != 1) {
         (void)doc.at("asset_id").get<AssetId>();
         if (doc.contains("legacy_ids")) {
@@ -255,13 +255,22 @@ void Scene::replace(const Json& source) {
                     throw std::runtime_error(
                         "Edit structured member names/hierarchy/bindings in the prefab source");
         }
+    if (doc.at("version").get<unsigned>() >= 6)
+        for (const auto& item : doc.at("entities"))
+            if (item.contains("prefab_nested")) {
+                const auto& expected = *reconciled_rows.at(item.at("id").get<std::string>());
+                for (auto key : {"parent", "missing_member", "prefab_nested"})
+                    if (item.value(key, Json()) != expected.value(key, Json()))
+                        throw std::runtime_error(
+                            "Edit nested prefab structural attachment/availability in its source");
+            }
     const auto projected = project_prefab_intent(doc, prefab_templates_, schema());
     const auto projected_rows = detail::index_json_rows(projected.at("entities"));
     const auto reference_materializations =
         detail::prefab_native_materializations(doc, prefab_templates_, schema());
     detail::validate_spatial(projected);
     std::map<std::string, flecs::entity> structured_bases;
-    std::set<std::string> inactive_members;
+    auto inactive_members = detail::inactive_prefab_composition_entities(doc);
     for (const auto& item : doc.at("entities")) {
         const Json* root = nullptr;
         std::string member;
@@ -277,7 +286,8 @@ void Scene::replace(const Json& source) {
             continue;
         const auto asset = root->at("prefab_instance").at("asset").get<AssetId>();
         if (!prefab_templates_.contains(asset) || item.value("missing_member", false)) {
-            if (item.contains("prefab_member"))
+            if (item.contains("prefab_member") ||
+                (doc.at("version").get<unsigned>() >= 6 && item.contains("prefab_nested")))
                 inactive_members.insert(item.at("id"));
             continue;
         }
@@ -441,7 +451,7 @@ void Scene::replace(const Json& source) {
         auto e = entity(next.id);
         if (e && e.is_alive() && !new_items.at(next.id)->contains("prefab_member")) {
             auto p = e.parent();
-            if (p && p.has<TemplateMember>())
+            if (p && p.owns<TemplateMember>())
                 e.remove(flecs::ChildOf, p);
         }
     }
@@ -616,7 +626,7 @@ void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& sou
         if (!sources.contains(asset))
             throw std::runtime_error("Missing prefab dependency: " + asset.str());
         const PrefabDocument source(sources.at(asset));
-        for (const auto& dependency : source.dependencies())
+        for (const auto& dependency : source.dependencies(schema()))
             dependencies(dependency);
         visiting.erase(asset);
         done.insert(asset);
@@ -666,6 +676,27 @@ void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& sou
                                            candidate.at(asset)->document.source)))
                 roots.insert(item.at("id"));
         }
+    if (intended.at("version").get<unsigned>() >= 6) {
+        // Adopt each affected composition as one native group. A descendant
+        // source update must not mix staged children with retained containers.
+        bool changed;
+        do {
+            changed = false;
+            for (const auto* document : {&before, &intended})
+                for (const auto& row : document->at("entities"))
+                    if (row.contains("prefab_nested")) {
+                        const auto owner = row.at("prefab_nested").at("root").get<std::string>();
+                        if (roots.contains(row.at("id")))
+                            changed |= roots.insert(owner).second;
+                        if (roots.contains(owner))
+                            changed |= roots.insert(row.at("id")).second;
+                    }
+        } while (changed);
+        for (const auto* document : {&before, &intended}) {
+            const auto inactive = detail::inactive_prefab_composition_entities(*document);
+            affected.insert(inactive.begin(), inactive.end());
+        }
+    }
     auto collect = [&](const Json& doc) {
         for (const auto& item : doc.at("entities"))
             if (all || roots.contains(item.at("id")) ||
@@ -910,7 +941,7 @@ Json Scene::snapshot() const {
         if (!result.contains("_prefab_sources"))
             result["_prefab_sources"] = Json::array();
         result["_prefab_sources"].push_back(source);
-        for (const auto& target : PrefabDocument(source).dependencies()) {
+        for (const auto& target : PrefabDocument(source).dependencies(schema())) {
             if (referenced.insert(target).second)
                 append(target);
         }
@@ -1048,10 +1079,22 @@ Json Scene::serialize(bool effective, bool ui_only) const {
     };
     // Ordinary C++ destruction retires the complete structural instance. Its
     // dead member rows must not become orphaned authored missing-member intent.
+    const auto inactive_composition = detail::inactive_prefab_composition_entities(opaque_);
     std::set<std::string> retired_instances;
     for (const auto& item : opaque_.at("entities"))
-        if (item.contains("prefab_instance") && !entity(item.at("id")))
+        if (item.contains("prefab_instance") && !entity(item.at("id")) &&
+            !inactive_composition.contains(item.at("id").get<std::string>()))
             retired_instances.insert(item.at("id"));
+    if (opaque_.at("version").get<unsigned>() >= 6) {
+        bool changed;
+        do {
+            changed = false;
+            for (const auto& item : opaque_.at("entities"))
+                if (item.contains("prefab_nested") &&
+                    retired_instances.contains(item.at("prefab_nested").at("root")))
+                    changed |= retired_instances.insert(item.at("id")).second;
+        } while (changed);
+    }
     if (!retired_instances.empty())
         std::erase_if(writable()["entities"].get_ref<Json::array_t&>(), [&](const Json& item) {
             return retired_instances.contains(item.at("id")) ||
@@ -1132,8 +1175,10 @@ Json Scene::serialize(bool effective, bool ui_only) const {
             item.erase("state_active");
         auto e = entity(item.at("id"));
         if (!e || !e.is_alive()) {
-            if (item.contains("prefab_member")) {
-                item["missing_member"] = true;
+            if (item.contains("prefab_member") ||
+                inactive_composition.contains(item.at("id").get<std::string>())) {
+                if (item.contains("prefab_member"))
+                    item["missing_member"] = true;
                 append(std::move(item));
             }
             continue;
@@ -1563,6 +1608,9 @@ void detail::SceneDraft::rename_entity(const std::string& id, const std::string&
 void detail::SceneDraft::reparent_entity(const std::string& id, const std::string& parent,
                                          ReparentMode mode) {
     auto doc = document();
+    if (doc.at("version").get<unsigned>() >= 6 &&
+        find_entity(doc, resolve_legacy_id(doc, id)).contains("prefab_nested"))
+        throw std::runtime_error("Edit nested prefab attachment in its source");
     const auto canonical_parent = resolve_legacy_id(doc, parent);
     detail::rebind(doc, effective_document(), resolve_legacy_id(doc, id),
                    {{"mode", "follow_structure"}}, &canonical_parent, mode);
@@ -1571,7 +1619,9 @@ void detail::SceneDraft::reparent_entity(const std::string& id, const std::strin
 std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
     auto doc = document();
     const auto canonical = resolve_legacy_id(doc, id);
-    if (find_entity(doc, canonical).contains("prefab_member"))
+    if (find_entity(doc, canonical).contains("prefab_member") ||
+        (doc.at("version").get<unsigned>() >= 6 &&
+         find_entity(doc, canonical).contains("prefab_nested")))
         throw std::runtime_error("Operate on the whole prefab instance or edit its source");
     const auto ids = subtree(doc, canonical);
     std::set<std::string> occupied;
@@ -1586,12 +1636,20 @@ std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
         remap[original] = copy;
     }
     for (const auto& e : doc["entities"])
-        if (ids.contains(e.at("id")) && e.contains("prefab_instance"))
+        if (ids.contains(e.at("id")) && e.contains("prefab_instance")) {
             for (const auto& value : e.at("prefab_instance").at("members")) {
                 const std::string old = value;
                 if (!remap.contains(old))
                     remap[old] = EntityId::generate().str();
             }
+            if (doc.at("version").get<unsigned>() >= 6)
+                for (const auto& assets : e.at("prefab_instance").value("nested", Json::object()))
+                    for (const auto& value : assets) {
+                        const auto old = value.get<std::string>();
+                        if (!remap.contains(old))
+                            remap[old] = EntityId::generate().str();
+                    }
+        }
     std::map<EntityId, EntityId> typed_remap;
     for (const auto& [a, b] : remap)
         typed_remap.emplace(EntityId::parse(a), EntityId::parse(b));
@@ -1615,7 +1673,7 @@ std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
                                             doc.at("asset_id").get<AssetId>(), typed_remap);
         copies.push_back(std::move(e));
     }
-    Json copied_document = {{"entities", copies}};
+    Json copied_document = {{"version", doc.at("version")}, {"entities", copies}};
     remap_prefab_instances(copied_document, typed_remap);
     for (auto& e : copied_document["entities"])
         doc["entities"].push_back(std::move(e));
@@ -1625,7 +1683,9 @@ std::string detail::SceneDraft::duplicate_subtree(const std::string& id) {
 void detail::SceneDraft::delete_subtree(const std::string& id) {
     auto doc = document();
     const auto canonical = resolve_legacy_id(doc, id);
-    if (find_entity(doc, canonical).contains("prefab_member"))
+    if (find_entity(doc, canonical).contains("prefab_member") ||
+        (doc.at("version").get<unsigned>() >= 6 &&
+         find_entity(doc, canonical).contains("prefab_nested")))
         throw std::runtime_error("Operate on the whole prefab instance or edit its source");
     const auto ids = subtree(doc, canonical);
     const auto effective = effective_document();

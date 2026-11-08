@@ -12,7 +12,7 @@ Instance root names follow their source until an explicit `name_override` is aut
 
 `components` on instance rows contains whole-component overrides. `property_overrides` records explicit built-in scalar field intent separately, including equal-value writes. Color and primitive fields support property masks; local TRS channels are independent atomic components. Materialized Flecs values combine current source fields with explicit masks. Serialization retains the mask, not the materialized inherited values. Revert removes intent and rebuilds/removes the owned component. Ordinary scene history owns instance creation, duplication, edits, deletion and Revert.
 
-No inherited values, WorldTransform, Flecs IDs, table IDs or TreeSpawner pointers are durable scene authority. Unknown asset/member/component/field data is preserved where its owner survives. Create from selection rejects nested structured instances and legacy prefab constructs instead of flattening them implicitly. Legacy scene-local `base`/ChildOf prefabs remain unchanged. Opening legacy scenes performs no automatic prefab conversion or asset creation.
+No inherited values, WorldTransform, Flecs IDs, table IDs or TreeSpawner pointers are durable scene authority. Unknown asset/member/component/field data is preserved where its owner survives. Create from selection can retain unchanged linked instances through source7 mounts. It rejects instance-only overrides, attachments and unsupported root bindings instead of flattening them. Legacy prefab constructs still reject capture. Legacy scene-local `base`/ChildOf prefabs remain unchanged. Opening legacy scenes performs no automatic prefab conversion or asset creation.
 
 ## Flecs realization and lifetime
 
@@ -60,8 +60,9 @@ Phase9 introduces a narrowly coordinated Apply for admitted instance overrides.
 See [ADR017](decisions/017-prefab-apply.md). PrefabLibrary prepares the source and
 reconciled scene; Scene owns the single history entry and candidate ECS handoff;
 SceneDocument supplies durable two-file publication through AssetFileTransaction.
-Unknown component/property payloads remain on the instance. No nested-prefab,
-structural Apply, Unpack or generic cross-document transaction framework is added.
+Unknown component/property payloads remain on the instance. Structural Apply,
+Unpack and generic cross-document transactions remain outside Apply. Source7
+component references can address nested occurrences through their existing maps.
 
 The private version2 journal requires an existing prefab followed by an existing
 scene as the final commit point. Version1 catalog operations retain their original
@@ -140,8 +141,8 @@ ordinary member-reference format. The additive variant contract is described bel
 stores `base: AssetRef<PrefabAsset>` and `overrides`, with its own AssetId/revision
 and the base root's member identity. It has no `members` array. Complete source4
 definitions store `members` without `base`/`overrides`. A variant reuses inherited
-member IDs in its own AssetId namespace; nested structured instances remain unsupported.
-Bound4096 override rows,16 base links and64MiB resolved source4/5/6 values; old source caller budgets and versions1–3 stay unchanged.
+member IDs in its own AssetId namespace. Source7 adds distinct nested instances.
+Bound4096 override rows,16 combined base/nesting links and64MiB resolved source4–7 values; old source caller budgets and versions1–3 stay unchanged.
 
 `resolve_prefab_sources` composes detached values through existing whole-component /
 property intent codecs. Known member references retag only their Prefab AssetId;
@@ -212,8 +213,8 @@ known local links/order/references; inherited IDs/base stay unchanged. Source1�
 retain their contracts. No Scene format, callback table, runtime flag or second
 hierarchy/history owner is introduced. Native and exact-state automation/MCP edits
 share candidate validation with the full admitted Scene schema. Unavailable members
-have attachment repair and source-local removal Restore controls. Nested structured
-Prefabs and multiple inheritance remain separate unsupported capabilities.
+have attachment repair and source-local removal Restore controls. Source7 adds
+nested structured instances below. Multiple inheritance remains unsupported.
 
 Gallery142 includes independent animated base/variant/chained instances; focused
 tests cover source-hidden relocated Windows-target data on Linux. Windows native
@@ -223,3 +224,45 @@ The shared native SDK fingerprint changes with the selected runtime creation and
 reflected-value support semantics. C callback tables and runtime reference value shapes retain their
 contracts; modules must use the kit matching the editor/runtime fingerprint.
 Current and installed/relocated SDK tests exercise actual variant creation.
+
+
+## Nested instances and scoped references
+
+[ADR045](decisions/045-nested-prefab-composition.md) defines source7 mounts and
+Scene6 persistence. A source member's `prefab_instance: {asset: childAssetId}` links
+a distinct normal child instance below that member. The mount owns its normal
+structure/values; the child owns its own source namespace and instance overrides.
+Variants inherit, replace, clear or Revert the link. Child root spatial attachment
+remains Scene-owned after its initial Follow Structure placement; interior member
+structure/spatial ownership is unchanged.
+
+Scene6 stores asset-specific child root reservations in the existing instance's
+`nested` map, plus `prefab_nested: {root, mount}` provenance on each child root.
+Removing a link retains unavailable rows, maps, overrides and Scene attachments;
+restoring the same pair reuses them. Replacement/return preserves separate asset
+reservations. Publication adopts the enclosing composition and children as one
+staged native group, including when an independent child source changes.
+
+Source7's member field can be a recursive `{instance: mountMemberId, asset:
+childAssetId, member: leafMemberIdOrScopedObject}`. Its outer `prefab` remains the
+containing source asset. Older string member addresses remain valid. Admitted
+reflected fields alone interpret addresses; unknown values remain opaque. Native
+EntityRef, existing PrefabMemberRef and SDK callback/value layouts are unchanged.
+Missing scoped references reserve existing map targets without native placeholders.
+Presentation retains unavailable rows but skips their native service callbacks.
+
+Prepare the base/nesting closure before compilation, reject cycles and enforce
+16 composition edges,4096 expanded active members,127 structural levels and16384
+retained map targets per composition. Existing byte limits still apply. Runtime
+queue publication charges every occurrence and commits a whole group at one fixed
+boundary. Game content/export use typed dependency closure, including source scopes
+needed by retained reference intent. Required missing definitions reject atomically.
+
+Source drafts review the union of supporting sources needed before/after a change.
+**Review supporting sources** refreshes a complete source's evidence while retaining
+its draft; variants use **Rebase draft**. Both paths share PrefabLibrary admission,
+loaded/disk comparison and publication. The native picker and paged automation/MCP
+target discovery share one disposable projection with occurrence IDs in labels.
+Capture, duplication, Apply/history and recovery use the same instance maps.
+Older source/Scene profiles preserve opaque spellings; explicit opt-in rejects
+collisions. Gallery207 demonstrates repeated, cleared and replaced child links.

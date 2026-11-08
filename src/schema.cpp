@@ -41,8 +41,8 @@ Json SchemaRegistry::prepare(const std::string& kind, const Json& source) const 
 SchemaRegistry core_document_schemas() {
     SchemaRegistry registry;
     registry.add({"scene",
-                  5,
-                  {1, 2, 3, 4, 5},
+                  Scene::current_version,
+                  {1, 2, 3, 4, 5, 6},
                   "Detached migration of 1/2 to3; signed/zero/tiny scales require5. Disk identity "
                   "journals/backups "
                   "remain read_scene_file/save_scene_file owned.",
@@ -50,7 +50,7 @@ SchemaRegistry core_document_schemas() {
                   [](const Json& j) { return migrate_scene(j); }});
     registry.add({"prefab",
                   PrefabDocument::current_version,
-                  {1, 2, 3, 4, 5, 6},
+                  {1, 2, 3, 4, 5, 6, 7},
                   "Explicit versions preserve scale, portable member links and variant intent; "
                   "no implicit conversion of inheritance or reference ownership.",
                   PrefabDocument::validate,

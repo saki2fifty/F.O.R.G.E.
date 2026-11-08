@@ -614,6 +614,10 @@ Json RuntimeSimulation::presentation_impl(double alpha, std::optional<double> se
     bool sampled = false;
     for (auto& item : result.at("entities")) {
         const auto entity = scene_.entity(item.at("id")).id();
+        if (!entity) {
+            item["state_active"] = false;
+            continue;
+        }
         if (!conditions.active(entity))
             item["state_active"] = false;
         if (particles_) {

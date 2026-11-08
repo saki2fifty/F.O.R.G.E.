@@ -125,6 +125,15 @@ reviews. Prefabs use the existing source editor and library. Applying instance
 overrides requires review and acknowledgment because it saves both the prefab
 and the current scene; the normal Scene Undo and Redo replay that pair.
 
+For nested Prefabs, the agent uses `forge_prefab_source_nested_set`,
+`forge_prefab_source_nested_clear` and `forge_prefab_source_nested_revert` on a
+selected source member. Asset authoring must be enabled. These edit the shared
+draft at its current state; Publish saves it separately. The read-only
+`forge_prefab_source_targets` lists available member references, including each
+nested occurrence. The agent can place a returned reference in an admitted source
+field through the existing source patch operation. It follows the same source,
+Scene, history and export rules as the editor. See [Nested assemblies](prefabs.md).
+
 ## See navigation in the editor
 
 With asset authoring enabled, an agent can use `forge_navigation_overlay` with

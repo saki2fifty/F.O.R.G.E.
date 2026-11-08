@@ -74,27 +74,32 @@ transform_prefab_component_references(Json& components, const Json& schema,
     }
     return found;
 }
-inline PrefabMemberRef checked_prefab_reference(const Json& value, AssetId asset) {
+inline PrefabMemberPath checked_prefab_reference(const Json& value, AssetId asset,
+                                                 unsigned version = 3) {
     if (!value.is_object() || value.contains("scene") || value.contains("entity"))
         throw std::runtime_error("Prefab v3 references require a source member or null");
-    const auto reference = value.get<PrefabMemberRef>();
+    const auto reference = value.get<PrefabMemberPath>();
     if (reference.prefab != asset)
         throw std::runtime_error("Prefab member reference belongs to another source");
+    if (version < 7 && !reference.instances.empty())
+        throw std::runtime_error("Scoped nested prefab references require source7");
     return reference;
 }
 // Source4 retains explicitly addressed legacy Scene values alongside portable
 // member values. Only an admitted entity_ref field reaches this discriminator.
-inline std::optional<PrefabMemberRef> source_member_reference(const Json& value, unsigned version,
-                                                              AssetId asset) {
+inline std::optional<PrefabMemberPath> source_member_reference(const Json& value, unsigned version,
+                                                               AssetId asset) {
     if (version >= 4 && !value.contains("prefab") && !value.contains("member")) {
         (void)value.get<EntityRef>();
         return {};
     }
-    return checked_prefab_reference(value, asset);
+    return checked_prefab_reference(value, asset, version);
 }
 inline Json normalize_prefab_components(
     const Json& source, const Json& member, const Json& schema,
-    const std::function<Json(PrefabMemberRef)>& resolve = [](PrefabMemberRef) { return Json(); }) {
+    const std::function<Json(const PrefabMemberPath&)>& resolve = [](const PrefabMemberPath&) {
+        return Json();
+    }) {
     auto values = member.at("components");
     if (source.at("version").get<unsigned>() >= 3) {
         const auto asset = source.at("asset_id").get<AssetId>();
@@ -112,8 +117,9 @@ inline Json normalize_prefab_components(
     }
     return values;
 }
+template <class Address>
 inline Json capture_prefab_reference(const Json& value, AssetId scene, AssetId prefab,
-                                     const std::map<std::string, std::string>& members) {
+                                     const std::map<std::string, Address>& members) {
     if (value.contains("prefab") || value.contains("member"))
         throw std::runtime_error(
             "Prefab reference conversion conflicts with reserved identity fields; "
@@ -128,6 +134,40 @@ inline Json capture_prefab_reference(const Json& value, AssetId scene, AssetId p
     result.erase("entity");
     result["prefab"] = prefab;
     result["member"] = members.at(reference.entity.str());
+    return result;
+}
+// Disposable inverse of the existing durable maps. Capture/Apply share the same
+// scoped address interpretation; no authoring state or identities are allocated.
+inline std::map<std::string, Json> prefab_instance_reference_members(const Json& scene,
+                                                                     const std::string& instance) {
+    const auto rows = index_json_rows(scene.at("entities"));
+    const auto owner = rows.at(instance)->at("prefab_instance").at("asset").get<AssetId>();
+    std::map<std::string, Json> result;
+    std::set<std::string> seen;
+    std::vector<PrefabInstanceStep> path;
+    std::function<void(const std::string&)> visit = [&](const std::string& root) {
+        if (!seen.insert(root).second || path.size() > 16)
+            throw std::runtime_error("Invalid nested prefab reference ownership");
+        const auto& p = rows.at(root)->at("prefab_instance");
+        for (const auto& [member, target] : p.at("members").items()) {
+            const auto address = Json(PrefabMemberPath{owner, path, PrefabMemberId::parse(member)});
+            if (!result.emplace(target.get<std::string>(), address.at("member")).second)
+                throw std::runtime_error("Competing prefab reference member identity");
+        }
+        if (scene.at("version").get<unsigned>() >= 6) {
+            const auto nested = p.value("nested", Json::object());
+            for (const auto& [mount, assets] : nested.items())
+                for (const auto& [asset, target] : assets.items()) {
+                    const auto child = target.get<std::string>();
+                    if (!rows.contains(child))
+                        continue;
+                    path.push_back({PrefabMemberId::parse(mount), AssetId::parse(asset)});
+                    visit(child);
+                    path.pop_back();
+                }
+        }
+    };
+    visit(instance);
     return result;
 }
 inline const Json& prefab_definition_source(const Json& source) { return source; }
@@ -206,6 +246,10 @@ prefab_native_materializations(const Json& scene, const Sources& sources, const 
                              components.at(key).value("$forge", Json()) != type.at("admission")))
                             continue;
                     }
+                    // A newly added whole reference component has no source
+                    // baseline. Its admitted authored seed still owns the value.
+                    if (whole && !components.contains(key))
+                        components[key] = row.at("components").at(key);
                     // A mask already owns native storage. Compare every
                     // unmasked field too, so unrelated runtime creation or
                     // recovery cannot replay inherited values over C++ edits.
@@ -237,12 +281,13 @@ prefab_native_materializations(const Json& scene, const Sources& sources, const 
                         portable
                             ? normalize_prefab_components(
                                   selected, definition, schema,
-                                  [&](PrefabMemberRef reference) {
-                                      return Json(EntityRef{scene.at("asset_id").get<AssetId>(),
-                                                            root->at("prefab_instance")
-                                                                .at("members")
-                                                                .at(reference.member.str())
-                                                                .get<EntityId>()});
+                                  [&](const PrefabMemberPath& reference) {
+                                      const auto resolved = prefab_member_path_reference(
+                                          scene, root->at("id").get<EntityId>(), reference);
+                                      if (!resolved)
+                                          throw std::runtime_error("Reconcile prefab member paths "
+                                                                   "before materialization");
+                                      return Json(*resolved);
                                   })
                             : definition.at("components");
                     for (const auto& key : keys)

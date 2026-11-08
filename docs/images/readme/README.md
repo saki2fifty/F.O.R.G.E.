@@ -1,5 +1,48 @@
 # README screenshots
 
+## Nested Prefab assemblies and source controls
+
+The current [nested source window](../../../manual/images/prefab-nested-source.png)
+is an authentic1180×1520 render of the shared PrefabEditor/property controls. The
+native fixture selects **Right linked marker** in the saved
+`Assets/Assemblies/PairedMarkers.prefab.json`; Nested Prefab, Target and Anchor show
+the selected asset and distinct scoped occurrences. No controls or labels were
+retouched. The source component is disabled for this static demonstration.
+
+The current [Game capture](../../../manual/images/prefab-nested-game.png) preserves
+all640×360 production FrameRenderer pixels from Gallery207. The existing software
+Vulkan probe checks independent silhouettes (20,826 interior and197,405 exterior
+pixels) and four exact authored/relocated source-hidden Windows-target image pairs.
+The only conversion is lossless PPM-to-PNG, with decoded RGB bytes compared.
+
+The basic, variant, suppression and structural source captures were refreshed
+from the same current editor-control fixture to include **Nested Prefab**. Their
+canonical assets remain `prefab-source.png`, `prefab-variant-source.png`,
+`prefab-component-suppression-source.png` and `prefab-member-structure-source.png`.
+Their actual mouse-selected members and task controls were reviewed. These are
+scrollable source-window viewports; a capture does not show every field below the
+viewport. Existing unaffected Game images retain their earlier attribution.
+Older sections below document earlier capture provenance.
+
+These captures use the source at the nested-composition local validation gate on
+2026-11-08, before its local commit. The strict/sanitizer results and final source
+freeze are separate evidence. Reproduce the source views with
+`tests/prefab_variant_editor_tests.cpp` (`--nested-capture`, `--basic-capture`,
+`--gallery-capture`, `--suppression-capture`, `--structure-capture`); Game/export
+proof uses `tests/prefab_nested_gallery_vulkan_probe.cpp`. SDL software controls
+and software Vulkan establish neither full-editor nor Windows/physical device,
+input or DPI acceptance.
+
+| Canonical image | SHA256 |
+| --- | --- |
+| `prefab-source.png` | `748668acbe5dd0142db3ec4de65060bb48f23aab394137291b68476863f2e178` |
+| `prefab-variant-source.png` | `72a24b9bd329cd34a3187151bd32202165b17de5518c39e6e00c12ce2e21f486` |
+| `prefab-component-suppression-source.png` | `5dbffde75858d4df851491cd2551ca5b84bd8ef6b6c721af66eed9170208dc43` |
+| `prefab-member-structure-source.png` | `5c62a87d0dd02f4ba9d2963d327617b6dcdf114b066fdb510ecf3070f0b3c4fa` |
+| `prefab-nested-source.png` | `5b90d5cefa3fc0393410dbf39c685db9b3540bb38353a833582a9edf377d009e` |
+| `prefab-nested-game.png` | `6cc0c23d94664ddec66ea6fdf3bd8f83fe2faa1c41a2757af84dbde1e63c8837` |
+
+
 ## Flat Mesh creation and Game view
 
 [Flat Mesh creation](../../../manual/images/planar-mesh-create.png) is an original

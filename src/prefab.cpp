@@ -3,6 +3,7 @@
 #include "builtins.hpp"
 #include "json_row_index.hpp"
 #include "prefab_component_intent.hpp"
+#include "prefab_composition.hpp"
 #include "prefab_member_access.hpp"
 #include "prefab_member_structure.hpp"
 #include "prefab_references.hpp"
@@ -22,9 +23,11 @@ void validate_member_values(const Json& doc, const Json& item, const std::string
                             const std::string& root) {
     if (!item.at("name").is_string() || !item.at("components").is_object())
         throw std::runtime_error("Invalid prefab member name/components");
-    if (item.contains("base") || item.contains("prefab_instance"))
+    if (item.contains("base") ||
+        (item.contains("prefab_instance") && doc.at("version").get<unsigned>() < 7))
         throw std::runtime_error(
             "Nested/legacy prefab definitions are not supported inside prefab assets");
+    (void)detail::nested_prefab_asset(item, doc.at("version"));
     if (item.contains("world_affine") || item["components"].contains("forge.world_transform"))
         throw std::runtime_error("WorldTransform is derived and cannot be authored in a prefab");
     if (doc.at("version").get<unsigned>() >= 3)
@@ -69,7 +72,7 @@ void validate_variant(const Json& source) {
     if (!base.id || base.id == asset)
         throw std::runtime_error("Prefab variant requires a different base Prefab asset");
     const auto root = source.at("root").get<PrefabMemberId>().str();
-    const bool structural = source.at("version") == 6;
+    const bool structural = source.at("version").get<unsigned>() >= 6;
     const auto& revision = source.at("revision");
     if (!revision.is_number_integer() || revision.get<double>() < 1)
         throw std::runtime_error("Prefab revision must be a positive unsigned integer");
@@ -80,7 +83,8 @@ void validate_variant(const Json& source) {
     const auto& overrides = source.at("overrides");
     if (!overrides.is_array() || overrides.size() > 4096)
         throw std::runtime_error("Prefab variant supports at most 4096 member overrides");
-    const Json reference_source{{"asset_id", asset}, {"version", 4}};
+    const Json reference_source{{"asset_id", asset},
+                                {"version", source.at("version").get<unsigned>() >= 7 ? 7 : 4}};
     std::set<PrefabMemberId> members;
     for (const auto& row : overrides) {
         if (!members.insert(row.at("id").get<PrefabMemberId>()).second)
@@ -89,10 +93,13 @@ void validate_variant(const Json& source) {
             (row.contains("name") && !row.at("name").is_string()) ||
             (row.contains("property_overrides") && !row.at("property_overrides").is_object()))
             throw std::runtime_error("Invalid prefab variant member intent");
-        for (const auto* key : {"base", "prefab_instance", "prefab_member", "world_affine",
-                                "prefab", "missing_member", "name_override"})
+        for (const auto* key :
+             {"base", "prefab_member", "world_affine", "prefab", "missing_member", "name_override"})
             if (row.contains(key))
                 throw std::runtime_error("Prefab variant structure follows its base");
+        if (row.contains("prefab_instance") && source.at("version").get<unsigned>() < 7)
+            throw std::runtime_error("Nested prefab intent requires source7");
+        (void)detail::nested_prefab_asset(row, source.at("version"));
         if (!structural && (row.contains("parent") || row.contains("spatial")))
             throw std::runtime_error("Prefab variant structure follows its base");
         if (structural)
@@ -166,7 +173,7 @@ void remap_member_fields(Json& item, const std::map<std::string, std::string>& i
 void enable_member_structure(Json& source) {
     if (!PrefabDocument::is_variant(source))
         return;
-    if (source.at("version") == 6)
+    if (source.at("version").get<unsigned>() >= 6)
         return;
     if (source.contains("added_members") || source.contains("member_order"))
         throw std::runtime_error(
@@ -181,6 +188,26 @@ void enable_member_structure(Json& source) {
     source["version"] = 6;
 }
 } // namespace
+void to_json(Json& value, const PrefabMemberPath& reference) {
+    Json member = reference.member;
+    for (auto at = reference.instances.rbegin(); at != reference.instances.rend(); ++at)
+        member = {{"instance", at->mount}, {"asset", at->asset}, {"member", std::move(member)}};
+    value = {{"prefab", reference.prefab}, {"member", std::move(member)}};
+}
+void from_json(const Json& value, PrefabMemberPath& reference) {
+    PrefabMemberPath result;
+    result.prefab = value.at("prefab").get<AssetId>();
+    const auto* member = &value.at("member");
+    while (member->is_object()) {
+        if (result.instances.size() >= 16)
+            throw std::runtime_error("Prefab member address exceeds16 nested instances");
+        result.instances.push_back(
+            {member->at("instance").get<PrefabMemberId>(), member->at("asset").get<AssetId>()});
+        member = &member->at("member");
+    }
+    result.member = member->get<PrefabMemberId>();
+    reference = std::move(result);
+}
 PrefabDocument::PrefabDocument(Json value) : source(std::move(value)) {
     validate(source);
     if (!is_variant(source))
@@ -193,7 +220,7 @@ bool PrefabDocument::is_variant(const Json& document) {
 std::vector<const char*> PrefabDocument::authored_member_arrays(const Json& document) {
     if (!is_variant(document))
         return {"members"};
-    if (document.at("version") == 6 && document.contains("added_members"))
+    if (document.at("version").get<unsigned>() >= 6 && document.contains("added_members"))
         return {"overrides", "added_members"};
     return {"overrides"};
 }
@@ -201,7 +228,7 @@ void PrefabDocument::validate(const Json& doc) {
     if (!doc.is_object() || doc.value("format", "") != "forge.prefab" ||
         !doc.at("version").is_number_integer() || doc.at("version") < 1 ||
         doc.at("version") > current_version)
-        throw std::runtime_error("Expected FORGE prefab schema 1, 2, 3, 4, 5 or 6");
+        throw std::runtime_error("Expected FORGE prefab schema 1, 2, 3, 4, 5, 6 or 7");
     if (is_variant(doc)) {
         validate_variant(doc);
         return;
@@ -209,7 +236,8 @@ void PrefabDocument::validate(const Json& doc) {
     if (doc.at("version").get<unsigned>() >= 4 &&
         (doc.contains("overrides") || doc.contains("reference_profile")))
         throw std::runtime_error("Prefab variant intent requires a base asset");
-    if (doc.at("version") == 6 && (doc.contains("added_members") || doc.contains("member_order")))
+    if (doc.at("version").get<unsigned>() >= 6 &&
+        (doc.contains("added_members") || doc.contains("member_order")))
         throw std::runtime_error("Prefab structural intent requires a base asset");
     (void)doc.at("asset_id").get<AssetId>();
     const auto& revision = doc.at("revision");
@@ -361,7 +389,7 @@ PrefabDocument PrefabDocument::with_member_removed(PrefabMemberId member, bool r
             if (!discarded.contains(row.at("id").get<std::string>()))
                 kept.push_back(row);
         candidate["members"] = std::move(kept);
-    } else if (!removed && candidate.at("version") != 6)
+    } else if (!removed && candidate.at("version").get<unsigned>() < 6)
         return *this; // Never reinterpret an older opaque removal field.
     else {
         enable_member_structure(candidate);
@@ -380,7 +408,7 @@ PrefabDocument PrefabDocument::revert_member_structure(PrefabMemberId member,
         throw std::runtime_error("Choose parent or spatial structure intent to revert");
     if (!is_variant(source) || detail::owned_prefab_member(source, member.str()))
         throw std::runtime_error("Only inherited members have inherited structure intent");
-    if (source.at("version") != 6)
+    if (source.at("version").get<unsigned>() < 6)
         return *this;
     auto candidate = source;
     for (auto& row : candidate.at("overrides"))
@@ -401,7 +429,7 @@ PrefabDocument PrefabDocument::with_member_order(PrefabMemberId parent,
         candidate["members"] =
             detail::compose_prefab_member_structure(candidate.at("members"), intent, {});
     } else {
-        if (prefix.empty() && candidate.at("version") != 6)
+        if (prefix.empty() && candidate.at("version").get<unsigned>() < 6)
             return *this;
         enable_member_structure(candidate);
         if (!candidate.contains("member_order"))
@@ -423,14 +451,64 @@ PrefabDocument PrefabDocument::with_member_order(PrefabMemberId parent,
     }
     return PrefabDocument(std::move(candidate));
 }
-std::vector<AssetId> PrefabDocument::dependencies() const {
+std::vector<AssetId> PrefabDocument::dependencies(const Json& schema) const {
     auto result = source.value("dependencies", std::vector<AssetId>{});
     if (is_variant(source)) {
         const auto base = source.at("base").get<AssetRef<PrefabAsset>>().id;
         if (std::find(result.begin(), result.end(), base) == result.end())
             result.push_back(base);
     }
+    for (const auto* rows : authored_member_arrays(source))
+        for (const auto& row : source.at(rows)) {
+            if (const auto child = detail::nested_prefab_asset(row, source.at("version"));
+                child && std::find(result.begin(), result.end(), *child) == result.end())
+                result.push_back(*child);
+            if (source.at("version").get<unsigned>() >= 7)
+                for (const auto* channel : {"components", "property_overrides"})
+                    if (row.contains(channel)) {
+                        auto components = row.at(channel);
+                        detail::transform_prefab_component_references(
+                            components, schema, [&](const Json& value) {
+                                const auto reference =
+                                    detail::source_member_reference(value, 7, asset());
+                                if (reference)
+                                    for (const auto& step : reference->instances)
+                                        if (std::find(result.begin(), result.end(), step.asset) ==
+                                            result.end())
+                                            result.push_back(step.asset);
+                                return value;
+                            });
+                    }
+        }
     return result;
+}
+PrefabDocument PrefabDocument::with_nested_prefab(PrefabMemberId mount, AssetId asset) const {
+    auto candidate = with_nested_references().source;
+    auto& row = detail::prefab_member_intent(candidate, mount.str());
+    row["prefab_instance"] = asset ? Json{{"asset", asset}} : Json();
+    return PrefabDocument(std::move(candidate));
+}
+PrefabDocument PrefabDocument::with_nested_references() const {
+    auto candidate = source;
+    // Source7 also includes source6 structure/suppression semantics. Reuse its
+    // opt-in collision checks before advancing an older variant.
+    enable_member_structure(candidate);
+    candidate["version"] = 7;
+    return PrefabDocument(std::move(candidate));
+}
+PrefabDocument PrefabDocument::revert_nested_prefab(PrefabMemberId mount) const {
+    if (!is_variant(source) || detail::owned_prefab_member(source, mount.str()))
+        throw std::runtime_error("Only inherited mounts have nested prefab intent to revert");
+    if (source.at("version").get<unsigned>() < 7)
+        return *this;
+    auto candidate = source;
+    for (auto& row : candidate.at("overrides"))
+        if (row.at("id") == Json(mount)) {
+            row.erase("prefab_instance");
+            break;
+        }
+    detail::prune_prefab_member_intent(candidate, mount.str());
+    return PrefabDocument(std::move(candidate));
 }
 PrefabDocument PrefabDocument::duplicate(const Json& schema) const {
     auto copy = source;
@@ -438,14 +516,14 @@ PrefabDocument PrefabDocument::duplicate(const Json& schema) const {
     copy["revision"] = std::uint64_t{1};
     if (is_variant(source)) {
         std::map<std::string, std::string> local;
-        if (source.at("version") == 6)
+        if (source.at("version").get<unsigned>() >= 6)
             for (const auto& row : source.value("added_members", Json::array()))
                 local.emplace(row.at("id").get<std::string>(), PrefabMemberId::generate().str());
         for (const auto* rows : authored_member_arrays(copy))
             for (auto& row : copy[rows]) {
                 if (std::string_view(rows) == "added_members")
                     row["id"] = local.at(row.at("id").get<std::string>());
-                if (source.at("version") == 6)
+                if (source.at("version").get<unsigned>() >= 6)
                     remap_member_fields(row, local, true);
                 for (const auto* key : {"components", "property_overrides"})
                     if (row.contains(key))
@@ -457,13 +535,19 @@ PrefabDocument PrefabDocument::duplicate(const Json& schema) const {
                                     return value;
                                 auto result = value;
                                 result["prefab"] = copy.at("asset_id");
-                                if (const auto at = local.find(reference->member.str());
-                                    at != local.end())
-                                    result["member"] = at->second;
+                                const auto owned = reference->instances.empty()
+                                                       ? reference->member
+                                                       : reference->instances.front().mount;
+                                if (const auto at = local.find(owned.str()); at != local.end()) {
+                                    if (reference->instances.empty())
+                                        result["member"] = at->second;
+                                    else
+                                        result["member"]["instance"] = at->second;
+                                }
                                 return result;
                             });
             }
-        if (source.at("version") == 6 && copy.contains("member_order"))
+        if (source.at("version").get<unsigned>() >= 6 && copy.contains("member_order"))
             for (auto& order : copy["member_order"]) {
                 const auto parent = order.at("parent").get<std::string>();
                 if (local.contains(parent))
@@ -489,11 +573,16 @@ PrefabDocument PrefabDocument::duplicate(const Json& schema) const {
                     if (!ref)
                         return value;
                     // Removed target identities remain missing in the independent source.
-                    if (!ids.contains(ref->member.str()))
-                        ids[ref->member.str()] = PrefabMemberId::generate().str();
+                    const auto owned =
+                        ref->instances.empty() ? ref->member : ref->instances.front().mount;
+                    if (!ids.contains(owned.str()))
+                        ids[owned.str()] = PrefabMemberId::generate().str();
                     auto result = value;
                     result["prefab"] = copy.at("asset_id");
-                    result["member"] = ids.at(ref->member.str());
+                    if (ref->instances.empty())
+                        result["member"] = ids.at(owned.str());
+                    else
+                        result["member"]["instance"] = ids.at(owned.str());
                     return result;
                 });
     }
@@ -619,6 +708,7 @@ Json prefab_override_value(const Json& definition, const Json& instance, const J
                                          detail::ComponentReferences::Resolved);
 }
 PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& schema) {
+    detail::validate_prefab_composition_graph(sources);
     PrefabSources resolved;
     std::map<AssetId, unsigned> depths;
     std::set<AssetId> visiting;
@@ -654,7 +744,7 @@ PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& s
                         row, detail::prefab_reference_schema(schema));
             // Keep the selected source profile; references retain source4 semantics.
             definition["members"] = inherited.at("members");
-            auto reserved = definition.at("version") == 6
+            auto reserved = definition.at("version").get<unsigned>() >= 6
                                 ? detail::inherited_prefab_member_ids(base, sources)
                                 : std::set<std::string>{};
             for (auto& row : definition["members"]) {
@@ -665,8 +755,10 @@ PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& s
                                 value, inherited.at("version"), base);
                             if (!reference_id)
                                 return value;
-                            if (definition.at("version") == 6)
-                                reserved.insert(reference_id->member.str());
+                            if (definition.at("version").get<unsigned>() >= 6)
+                                reserved.insert(reference_id->instances.empty()
+                                                    ? reference_id->member.str()
+                                                    : reference_id->instances.front().mount.str());
                             auto reference = value;
                             reference["prefab"] = asset;
                             return reference;
@@ -683,8 +775,10 @@ PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& s
                 row["components"] = std::move(components);
                 if (value.contains("name"))
                     row["name"] = value.at("name");
+                if (value.contains("prefab_instance"))
+                    row["prefab_instance"] = value.at("prefab_instance");
             }
-            if (definition.at("version") == 6) {
+            if (definition.at("version").get<unsigned>() >= 6) {
                 definition["members"] = detail::compose_prefab_member_structure(
                     definition.at("members"), definition, reserved);
                 definition.erase("added_members");
@@ -698,6 +792,15 @@ PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& s
                 {"sha256", asset_detail::content_digest(std::as_bytes(std::span(bytes)))}};
             definition.erase("base");
             definition.erase("overrides");
+            // Promote only the completed definition. Raw older variant fields
+            // above keep their original semantics and remain opaque.
+            if (inherited.at("version").get<unsigned>() >= 7) {
+                // Older top-level extension spellings remain in the raw source;
+                // they cannot become instructions in an effective source7 copy.
+                definition.erase("added_members");
+                definition.erase("member_order");
+                definition["version"] = 7;
+            }
             definition = PrefabDocument(std::move(definition)).source;
         }
         for (const auto& row : definition.at("members"))
@@ -716,6 +819,15 @@ PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& s
         (void)source;
         resolve(asset);
     }
+    for (const auto& [asset, definition] : resolved)
+        if (definition.at("version").get<unsigned>() >= 7) {
+            const auto lookup = [&](AssetId target) -> const Json* {
+                const auto at = resolved.find(target);
+                return at == resolved.end() ? nullptr : &at->second;
+            };
+            (void)detail::expanded_prefab_member_count(asset, lookup);
+            detail::validate_prefab_composition_structure(asset, lookup);
+        }
     return resolved;
 }
 void validate_prefab_instances(const Json& scene) {
@@ -727,8 +839,8 @@ void validate_prefab_instances(const Json& scene) {
         (void)id;
         if ((e->contains("prefab_member") || e->contains("prefab_instance") ||
              e->contains("property_overrides")) &&
-            (scene.at("version") != 4 && scene.at("version") != 5))
-            throw std::runtime_error("Reserved structured prefab fields require scene4/5");
+            (scene.at("version") != 4 && scene.at("version") != 5 && scene.at("version") != 6))
+            throw std::runtime_error("Reserved structured prefab fields require scene4/5/6");
         if (e->contains("property_overrides") &&
             (!e->at("property_overrides").is_object() ||
              (!e->contains("prefab_member") && !e->contains("prefab_instance"))))
@@ -737,8 +849,8 @@ void validate_prefab_instances(const Json& scene) {
     }
     for (const auto& [id, e] : rows)
         if (e->contains("prefab_instance")) {
-            if ((scene.at("version") != 4 && scene.at("version") != 5))
-                throw std::runtime_error("Structured prefabs require scene4/5");
+            if ((scene.at("version") != 4 && scene.at("version") != 5 && scene.at("version") != 6))
+                throw std::runtime_error("Structured prefabs require scene4/5/6");
             if (e->contains("base") || e->value("prefab", false))
                 throw std::runtime_error(
                     "An instance cannot also be a legacy prefab or derive from another base");
@@ -778,6 +890,70 @@ void validate_prefab_instances(const Json& scene) {
             if (e->contains("base") || e->contains("prefab_instance") || e->value("prefab", false))
                 throw std::runtime_error("Structured member cannot redefine inheritance");
         }
+    if (scene.at("version").get<unsigned>() < 6)
+        return; // Older extension spellings retain their opaque meaning.
+    std::map<std::string, std::string> owners;
+    for (const auto& [id, e] : rows)
+        if (e->contains("prefab_instance")) {
+            const auto& p = e->at("prefab_instance");
+            const auto nested = p.value("nested", Json::object());
+            if (!nested.is_object() || nested.size() > 16384)
+                throw std::runtime_error("Invalid nested prefab instance mapping");
+            std::size_t entries = 0;
+            for (const auto& [mount, assets] : nested.items()) {
+                (void)PrefabMemberId::parse(mount);
+                if (!p.at("members").contains(mount) || !assets.is_object() || assets.empty() ||
+                    assets.size() > 16384 - entries)
+                    throw std::runtime_error("Invalid nested prefab mount/asset mapping");
+                entries += assets.size();
+                for (const auto& [asset, target] : assets.items()) {
+                    (void)AssetId::parse(asset);
+                    const auto child = target.get<EntityId>().str();
+                    if (child == id || !owners.emplace(child, id).second)
+                        throw std::runtime_error("Nested prefab has competing root ownership");
+                    const auto found = rows.find(child);
+                    if (found != rows.end()) {
+                        const auto& row = *found->second;
+                        if (!row.contains("prefab_instance") || row.contains("prefab_member") ||
+                            row.at("prefab_instance").at("asset") != asset ||
+                            row.value("prefab_nested", Json()) !=
+                                Json{{"root", id}, {"mount", mount}} ||
+                            row.value("parent", Json()) != p.at("members").at(mount))
+                            throw std::runtime_error(
+                                "Nested prefab provenance does not match its map");
+                    } else if (mapped.contains(child))
+                        throw std::runtime_error(
+                            "Nested root collides with a reserved member identity");
+                }
+            }
+        }
+    for (const auto& [id, row] : rows)
+        if (row->contains("prefab_nested") &&
+            (!row->contains("prefab_instance") || !owners.contains(id)))
+            throw std::runtime_error("Orphan nested prefab root provenance");
+    const auto top = [&](std::string root) {
+        std::set<std::string> visited;
+        while (owners.contains(root)) {
+            if (!visited.insert(root).second || visited.size() > 16)
+                throw std::runtime_error("Invalid nested prefab ownership cycle/depth");
+            root = owners.at(root);
+        }
+        return root;
+    };
+    std::map<std::string, std::set<std::string>> retained;
+    for (const auto& [id, row] : rows)
+        if (row->contains("prefab_instance")) {
+            auto& targets = retained[top(id)];
+            for (const auto& target : row->at("prefab_instance").at("members"))
+                targets.insert(target.get<EntityId>().str());
+        }
+    for (const auto& [child, parent] : owners)
+        retained[top(parent)].insert(child);
+    for (const auto& [root, targets] : retained) {
+        (void)root;
+        if (targets.size() > 16384)
+            throw std::runtime_error("Nested prefab retained identity budget exceeds16384 entries");
+    }
 }
 namespace {
 using DefinitionLookup = std::function<const Json*(AssetId)>;
@@ -793,83 +969,237 @@ DefinitionLookup borrowed_definitions(const PrefabTemplates& templates) {
         return found == templates.end() ? nullptr : &found->second->document.source;
     };
 }
+Json prepare_prefab_reference(Json& scene, std::map<std::string, Json>& rows,
+                              const DefinitionLookup& definitions, std::string root_id,
+                              const PrefabMemberPath& reference) {
+    if (rows.at(root_id).at("prefab_instance").at("asset") != Json(reference.prefab))
+        throw std::runtime_error("Prefab member reference belongs to another instance source");
+    for (const auto& step : reference.instances) {
+        detail::enable_scene_prefab_composition(scene);
+        auto& owner = rows.at(root_id).at("prefab_instance");
+        auto& mapping = owner.at("members");
+        const auto mount = step.mount.str();
+        if (!mapping.contains(mount))
+            mapping[mount] = EntityId::generate();
+        const auto mount_id = mapping.at(mount).get<std::string>();
+        if (!rows.contains(mount_id))
+            rows[mount_id] = {{"id", mount_id},
+                              {"name", "Missing member"},
+                              {"parent", root_id},
+                              {"components", Json::object()},
+                              {"missing_member", true},
+                              {"spatial", {{"mode", "follow_structure"}}},
+                              {"prefab_member", {{"root", root_id}, {"member", mount}}}};
+        auto& nested = owner["nested"];
+        if (nested.is_null())
+            nested = Json::object();
+        auto& assets = nested[mount];
+        if (assets.is_null())
+            assets = Json::object();
+        const auto asset = step.asset.str();
+        if (!assets.contains(asset))
+            assets[asset] = EntityId::generate();
+        const auto child_id = assets.at(asset).get<std::string>();
+        const Json provenance{{"root", root_id}, {"mount", mount}};
+        if (!rows.contains(child_id)) {
+            const auto* child = definitions(step.asset);
+            if (!child)
+                throw std::runtime_error("Missing scoped prefab reference definition: " + asset);
+            rows[child_id] = {{"id", child_id},
+                              {"name", member(*child, child->at("root")).at("name")},
+                              {"parent", mount_id},
+                              {"spatial", {{"mode", "follow_structure"}}},
+                              {"components", Json::object()},
+                              {"missing_member", true},
+                              {"prefab_nested", provenance},
+                              {"prefab_instance",
+                               {{"asset", step.asset},
+                                {"revision", child->at("revision")},
+                                {"status", "inactive composition"},
+                                {"members", {{child->at("root").get<std::string>(), child_id}}}}}};
+        }
+        const auto& child = rows.at(child_id);
+        if (child.value("prefab_nested", Json()) != provenance ||
+            child.at("prefab_instance").at("asset") != asset)
+            throw std::runtime_error("Scoped prefab reference has competing root ownership");
+        root_id = child_id;
+    }
+    auto& mapping = rows.at(root_id).at("prefab_instance").at("members");
+    const auto target = reference.member.str();
+    if (!mapping.contains(target))
+        mapping[target] = EntityId::generate();
+    if (mapping.size() > 16384)
+        throw std::runtime_error("Prefab member mapping exceeds16384 entries");
+    return EntityRef{scene.at("asset_id").get<AssetId>(), mapping.at(target).get<EntityId>()};
+}
 Json reconcile_prefab_definitions(const Json& source, const DefinitionLookup& definitions,
                                   const Json& schema) {
     auto doc = source;
     std::map<std::string, Json> rows;
     for (const auto& e : source.at("entities"))
         rows[e.at("id")] = e;
-    for (const auto& root_row : source.at("entities"))
-        if (root_row.contains("prefab_instance")) {
-            const std::string root_id = root_row.at("id");
-            auto& root = rows.at(root_id);
-            auto& p = root["prefab_instance"];
-            const auto asset = p.at("asset").get<AssetId>();
-            const auto* definition = definitions(asset);
-            if (!definition) {
-                p["status"] = "missing asset";
-                continue;
+    struct Instance {
+        std::string id;
+        bool active;
+        unsigned depth;
+    };
+    std::vector<Instance> pending;
+    for (const auto& row : source.at("entities"))
+        if (row.contains("prefab_instance") &&
+            (source.at("version").get<unsigned>() < 6 || !row.contains("prefab_nested")))
+            pending.push_back({row.at("id"), true, 0});
+    std::set<std::string> processed;
+    for (std::size_t cursor = 0; cursor < pending.size(); ++cursor) {
+        const auto request = pending[cursor];
+        const auto root_id = request.id;
+        if (!processed.insert(root_id).second || request.depth > 16)
+            throw std::runtime_error("Invalid nested prefab instance ownership/depth");
+        auto& root = rows.at(root_id);
+        auto& p = root["prefab_instance"];
+        const auto asset = p.at("asset").get<AssetId>();
+        const auto* definition = definitions(asset);
+        if (doc.at("version").get<unsigned>() >= 6 && root.contains("prefab_nested")) {
+            if (request.active)
+                root.erase("missing_member");
+            else
+                root["missing_member"] = true;
+        }
+        if (!definition || !request.active) {
+            p["status"] = "missing asset";
+            if (!request.active) {
+                p["status"] = "inactive composition";
+                for (const auto& [member, id] : p.at("members").items()) {
+                    (void)member;
+                    if (id != root_id && rows.contains(id.get<std::string>()))
+                        rows.at(id.get<std::string>())["missing_member"] = true;
+                }
             }
-            const auto& prefab = *definition;
-            p["revision"] = prefab.at("revision");
-            p["status"] = "current";
-            auto& mapping = p["members"];
-            const auto root_member = prefab.at("root").get<std::string>();
-            if (mapping.contains(root_member) && mapping.at(root_member) != root_id)
-                throw std::runtime_error("Prefab root identity changed incompatibly");
-            mapping[root_member] = root_id;
-            std::set<std::string> alive;
-            for (const auto& item : prefab.at("members")) {
-                const std::string m = item.at("id");
-                alive.insert(m);
-                if (!mapping.contains(m))
-                    mapping[m] = EntityId::generate();
-                if (prefab.at("version").get<unsigned>() >= 3)
-                    (void)detail::normalize_prefab_components(
-                        prefab, item, schema, [&](PrefabMemberRef reference) {
-                            const auto target = reference.member.str();
-                            if (!mapping.contains(target))
-                                mapping[target] = EntityId::generate();
-                            if (mapping.size() > 16384)
-                                throw std::runtime_error(
-                                    "Prefab member mapping exceeds 16384 entries");
-                            return Json(EntityRef{doc.at("asset_id").get<AssetId>(),
-                                                  mapping.at(target).get<EntityId>()});
-                        });
-            }
-            for (const auto& item : prefab.at("members")) {
-                const std::string m = item.at("id"), id = mapping.at(m);
-                if (!rows.contains(id))
-                    rows[id] = {{"id", id}, {"components", Json::object()}};
-                auto& row = rows.at(id);
-                if (m == root_member && !row.value("name_override", false))
-                    row["name"] = item.at("name");
-                if (m != root_member) {
-                    row["name"] = item.at("name");
-                    row["parent"] = mapping.at(item.at("parent").get<std::string>());
-                    row["prefab_member"] = {{"root", root_id}, {"member", m}};
-                    row.erase("missing_member");
-                    row["spatial"] = item.value("spatial", Json{{"mode", "follow_structure"}});
-                    if (row["spatial"].value("mode", "") == "explicit") {
-                        const auto target = row["spatial"].at("member").get<std::string>();
-                        row["spatial"].erase("member");
-                        row["spatial"]["target"] = EntityRef{doc.at("asset_id").get<AssetId>(),
-                                                             mapping.at(target).get<EntityId>()};
+            if (doc.at("version").get<unsigned>() >= 6) {
+                const auto nested = p.value("nested", Json::object());
+                for (const auto& [mount, assets] : nested.items()) {
+                    (void)mount;
+                    for (const auto& [child_asset, child] : assets.items()) {
+                        (void)child_asset;
+                        if (rows.contains(child.get<std::string>()))
+                            pending.push_back({child, false, request.depth + 1});
                     }
                 }
-                if (prefab.at("version").get<unsigned>() >= 3) {
-                    auto normalized = item;
-                    normalized["components"] =
-                        detail::normalize_prefab_components(prefab, item, schema);
-                    (void)project_prefab_override_value(normalized, row, schema,
-                                                        detail::ComponentReferences::Deferred);
-                } else
-                    (void)prefab_override_value(item, row, schema);
             }
-            for (const auto& [m, id] : mapping.items())
-                if (!alive.contains(m) && rows.contains(id.get<std::string>()))
-                    rows.at(id.get<std::string>())["missing_member"] = true;
+            continue;
         }
+        const auto& prefab = *definition;
+        p["revision"] = prefab.at("revision");
+        p["status"] = "current";
+        auto& mapping = p["members"];
+        const auto root_member = prefab.at("root").get<std::string>();
+        if (mapping.contains(root_member) && mapping.at(root_member) != root_id)
+            throw std::runtime_error("Prefab root identity changed incompatibly");
+        mapping[root_member] = root_id;
+        std::set<std::string> alive;
+        for (const auto& item : prefab.at("members")) {
+            const std::string m = item.at("id");
+            alive.insert(m);
+            if (!mapping.contains(m))
+                mapping[m] = EntityId::generate();
+        }
+        for (const auto& item : prefab.at("members")) {
+            const std::string m = item.at("id"), id = mapping.at(m);
+            if (!rows.contains(id))
+                rows[id] = {{"id", id}, {"components", Json::object()}};
+            auto& row = rows.at(id);
+            if (m == root_member && !row.value("name_override", false))
+                row["name"] = item.at("name");
+            if (m != root_member) {
+                row["name"] = item.at("name");
+                row["parent"] = mapping.at(item.at("parent").get<std::string>());
+                row["prefab_member"] = {{"root", root_id}, {"member", m}};
+                row.erase("missing_member");
+                row["spatial"] = item.value("spatial", Json{{"mode", "follow_structure"}});
+                if (row["spatial"].value("mode", "") == "explicit") {
+                    const auto target = row["spatial"].at("member").get<std::string>();
+                    row["spatial"].erase("member");
+                    row["spatial"]["target"] = EntityRef{doc.at("asset_id").get<AssetId>(),
+                                                         mapping.at(target).get<EntityId>()};
+                }
+            }
+            if (prefab.at("version").get<unsigned>() >= 3) {
+                auto normalized = item;
+                normalized["components"] =
+                    detail::normalize_prefab_components(prefab, item, schema);
+                (void)project_prefab_override_value(normalized, row, schema,
+                                                    detail::ComponentReferences::Deferred);
+            } else
+                (void)prefab_override_value(item, row, schema);
+        }
+        for (const auto& [m, id] : mapping.items())
+            if (!alive.contains(m) && rows.contains(id.get<std::string>()))
+                rows.at(id.get<std::string>())["missing_member"] = true;
+        std::map<std::string, AssetId> links;
+        for (const auto& item : prefab.at("members"))
+            if (const auto child = detail::nested_prefab_asset(item, prefab.at("version"))) {
+                detail::enable_scene_prefab_composition(doc);
+                const auto mount = item.at("id").get<std::string>();
+                links.emplace(mount, *child);
+                auto& nested = p["nested"];
+                if (nested.is_null())
+                    nested = Json::object();
+                auto& assets = nested[mount];
+                if (assets.is_null())
+                    assets = Json::object();
+                if (!assets.contains(child->str()))
+                    assets[child->str()] = EntityId::generate();
+            }
+        if (doc.at("version").get<unsigned>() >= 6) {
+            const auto nested = p.value("nested", Json::object());
+            for (const auto& [mount, assets] : nested.items())
+                for (const auto& [child_asset, target] : assets.items()) {
+                    const auto child_id = target.get<EntityId>().str();
+                    const auto identity = AssetId::parse(child_asset);
+                    const bool active = links.contains(mount) && links.at(mount) == identity;
+                    if (!mapping.contains(mount))
+                        throw std::runtime_error("Nested prefab mount has no member mapping");
+                    const Json provenance{{"root", root_id}, {"mount", mount}};
+                    if (!rows.contains(child_id)) {
+                        if (!active)
+                            continue; // A reserved unavailable reference need not own a row.
+                        const auto* child = definitions(identity);
+                        if (!child)
+                            throw std::runtime_error("Missing nested prefab definition");
+                        rows[child_id] = {
+                            {"id", child_id},
+                            {"name", "Prefab"},
+                            {"components", Json::object()},
+                            {"spatial", {{"mode", "follow_structure"}}},
+                            {"prefab_nested", provenance},
+                            {"prefab_instance",
+                             {{"asset", identity},
+                              {"revision", child->at("revision")},
+                              {"members", {{child->at("root").get<std::string>(), child_id}}}}}};
+                    }
+                    auto& child = rows.at(child_id);
+                    if (child.value("prefab_nested", Json()) != provenance ||
+                        child.at("prefab_instance").at("asset") != child_asset)
+                        throw std::runtime_error("Nested prefab root has competing ownership");
+                    child["parent"] = mapping.at(mount);
+                    pending.push_back({child_id, active, request.depth + 1});
+                }
+        }
+    }
+    // Allocate typed reference tombstones only after every active occurrence has
+    // its own normal instance map. Projection never manufactures an identity.
+    for (const auto& request : pending) {
+        if (!request.active)
+            continue;
+        const auto& root = rows.at(request.id);
+        const auto* definition = definitions(root.at("prefab_instance").at("asset").get<AssetId>());
+        if (!definition || definition->at("version").get<unsigned>() < 3)
+            continue;
+        for (const auto& row : definition->at("members"))
+            (void)detail::normalize_prefab_components(
+                *definition, row, schema, [&](const PrefabMemberPath& reference) {
+                    return prepare_prefab_reference(doc, rows, definitions, request.id, reference);
+                });
+    }
     auto out = Json::array();
     std::set<std::string> done;
     for (const auto& row : source.at("entities")) {
@@ -882,7 +1212,7 @@ Json reconcile_prefab_definitions(const Json& source, const DefinitionLookup& de
     // Structured member order follows the published source. Retain ordinary
     // scene row slots and dynamic attachment order; no per-instance order override.
     for (const auto& [root_id, root] : rows) {
-        if (!root.contains("prefab_instance"))
+        if (!root.contains("prefab_instance") || root.value("missing_member", false))
             continue;
         const auto& instance = root.at("prefab_instance");
         const auto asset = instance.at("asset").get<AssetId>();
@@ -953,9 +1283,9 @@ Json project_prefab_definitions(const Json& scene, const DefinitionLookup& defin
         }
         auto normalized = source_member;
         normalized["components"] = detail::normalize_prefab_components(
-            definition, normalized, schema, [&](PrefabMemberRef reference) {
+            definition, normalized, schema, [&](const PrefabMemberPath& reference) {
                 const auto resolved =
-                    prefab_member_reference(scene, root->at("id").get<EntityId>(), reference);
+                    prefab_member_path_reference(scene, root->at("id").get<EntityId>(), reference);
                 if (!resolved)
                     throw std::runtime_error(
                         "Reconcile prefab member references before projection");
@@ -995,6 +1325,28 @@ std::optional<EntityRef> prefab_member_reference(const Json& scene, EntityId ins
         }
     return {};
 }
+std::optional<EntityRef> prefab_member_path_reference(const Json& scene, EntityId instance,
+                                                      const PrefabMemberPath& reference) {
+    if (reference.instances.size() > 16)
+        return {};
+    const auto rows = detail::index_json_rows(scene.at("entities"));
+    auto root = instance.str();
+    auto asset = reference.prefab;
+    for (const auto& step : reference.instances) {
+        const auto at = rows.find(root);
+        if (scene.at("version").get<unsigned>() < 6 || at == rows.end() ||
+            !at->second->contains("prefab_instance"))
+            return {};
+        const auto& p = at->second->at("prefab_instance");
+        if (p.at("asset") != Json(asset) || !p.contains("nested") ||
+            !p.at("nested").contains(step.mount.str()) ||
+            !p.at("nested").at(step.mount.str()).contains(step.asset.str()))
+            return {};
+        root = p.at("nested").at(step.mount.str()).at(step.asset.str()).get<std::string>();
+        asset = step.asset;
+    }
+    return prefab_member_reference(scene, EntityId::parse(root), {asset, reference.member});
+}
 PrefabMemberRef
 remap_prefab_member_reference(PrefabMemberRef reference, AssetId old_asset, AssetId new_asset,
                               const std::map<PrefabMemberId, PrefabMemberId>& members) {
@@ -1011,6 +1363,18 @@ void remap_prefab_instances(Json& scene, const std::map<EntityId, EntityId>& rem
             for (auto& id : e["prefab_instance"]["members"])
                 if (auto it = remap.find(id.get<EntityId>()); it != remap.end())
                     id = it->second;
+        if (scene.value("version", 0u) >= 6) {
+            if (e.contains("prefab_instance") && e["prefab_instance"].contains("nested"))
+                for (auto& assets : e["prefab_instance"]["nested"])
+                    for (auto& id : assets)
+                        if (auto it = remap.find(id.get<EntityId>()); it != remap.end())
+                            id = it->second;
+            if (e.contains("prefab_nested")) {
+                auto& id = e["prefab_nested"]["root"];
+                if (auto it = remap.find(id.get<EntityId>()); it != remap.end())
+                    id = it->second;
+            }
+        }
         if (e.contains("prefab_member")) {
             auto& id = e["prefab_member"]["root"];
             if (auto it = remap.find(id.get<EntityId>()); it != remap.end())

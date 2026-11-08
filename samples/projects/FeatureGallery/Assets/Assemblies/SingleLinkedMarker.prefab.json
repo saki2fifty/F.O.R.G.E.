@@ -1,0 +1,15 @@
+{
+  "asset_id": "81d90e45-bfe6-4a87-a425-df65c4d2f366",
+  "base": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
+  "format": "forge.prefab",
+  "overrides": [
+    {
+      "components": {},
+      "id": "bcf707ac-6b13-4f4d-87dc-6b82c9a55519",
+      "prefab_instance": null
+    }
+  ],
+  "revision": 2,
+  "root": "3f1f9c7a-9a0d-40b6-b6c3-17104f749d7d",
+  "version": 7
+}

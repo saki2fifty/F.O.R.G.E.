@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## Nested Prefab assemblies
+
+Open `Scenes/207-nested-prefab-assemblies.scene.json` and press **Play → Game**.
+The left assembly repeats one linked marker asset. The middle variant clears its
+right link; the right variant replaces that child with a forked marker. Stop Play,
+open **Assets/Assemblies/PairedMarkers.prefab.json** and select **Right linked marker**
+to inspect **Nested Prefab** and its occurrence-specific Target/Anchor fields.
+The reference component is disabled in this static example. Edit the child source
+to update linked copies, or choose a child variant for one source link. Clear an
+inherited link with **None**, or use **Use inherited nested Prefab** to follow the
+base again. Publish source edits and save the Scene before export. Camera and
+Material are included; no project C++ module is required. See [Nested assemblies](../../../manual/editor/prefabs.md).
+
 ## Prefab member structure
 
 Open `Scenes/206-prefab-member-structure.scene.json` and press **Play → Game**.

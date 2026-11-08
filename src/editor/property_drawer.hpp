@@ -1,4 +1,5 @@
 #pragma once
+#include "../prefab_member_choices.hpp"
 #include "../prefab_references.hpp"
 #include "../reflected_value.hpp"
 #include "asset_labels.hpp"
@@ -267,23 +268,30 @@ inline bool numeric_property(const char* label, ImGuiDataType type, const char* 
 inline bool property_field(const std::filesystem::path& root, const Json& field, Json& value,
                            bool commit_on_enter = true, std::optional<AssetId> owner = {});
 inline const Json* prefab_property_source = nullptr;
+inline const PrefabSources* prefab_property_definitions = nullptr;
 struct PrefabPropertyScope {
     const Json* previous = prefab_property_source;
-    explicit PrefabPropertyScope(const Json& source) { prefab_property_source = &source; }
+    const PrefabSources* previous_definitions = prefab_property_definitions;
+    explicit PrefabPropertyScope(const Json& source, const PrefabSources* definitions = nullptr) {
+        prefab_property_source = &source;
+        prefab_property_definitions = definitions;
+    }
     PrefabPropertyScope(const PrefabPropertyScope&) = delete;
     PrefabPropertyScope& operator=(const PrefabPropertyScope&) = delete;
-    ~PrefabPropertyScope() { prefab_property_source = previous; }
+    ~PrefabPropertyScope() {
+        prefab_property_source = previous;
+        prefab_property_definitions = previous_definitions;
+    }
 };
 inline bool prefab_member_property(const char* label, Json& value) {
     auto& source = *prefab_property_source;
     std::string preview = value.is_null() ? "None" : "External reference";
     if (value.is_object() && value.contains("member") && value.contains("prefab") &&
         value.at("prefab") == source.at("asset_id")) {
-        preview = "Missing member / " + value.at("member").get<std::string>().substr(0, 8);
-        for (const auto& member : source.at("members"))
-            if (member.at("id") == value.at("member"))
-                preview = member.at("name").get<std::string>() + " / " +
-                          member.at("id").get<std::string>().substr(0, 8);
+        static const PrefabSources empty;
+        preview = detail::prefab_member_preview(
+            source, prefab_property_definitions ? *prefab_property_definitions : empty,
+            value.get<PrefabMemberPath>());
     }
     bool changed = false;
     const bool open = ImGui::BeginCombo(label, preview.c_str());
@@ -298,17 +306,21 @@ inline bool prefab_member_property(const char* label, Json& value) {
 #ifdef FORGE_UI_FIXTURE
         test::observe_item("prefab-member-clear");
 #endif
-        for (const auto& member : source.at("members")) {
-            const auto id = member.at("id").get<std::string>();
-            ImGui::PushID(id.c_str());
-            const auto text = member.at("name").get<std::string>() + " / " + id.substr(0, 8);
-            const Json target = {{"prefab", source.at("asset_id")}, {"member", id}};
-            if (ImGui::Selectable(text.c_str(), value == target)) {
+        static const PrefabSources empty;
+        const auto choices = detail::prefab_member_choices(
+            source, prefab_property_definitions ? *prefab_property_definitions : empty);
+        for (const auto& choice : choices) {
+            const Json target = choice.reference;
+            const auto key = target.at("member").dump();
+            ImGui::PushID(key.c_str());
+            if (ImGui::Selectable(choice.label.c_str(), value == target)) {
                 value = target;
                 changed = true;
             }
 #ifdef FORGE_UI_FIXTURE
-            test::observe_item("prefab-member-row:" + id);
+            test::observe_item("prefab-member-row:" + (choice.reference.instances.empty()
+                                                           ? choice.reference.member.str()
+                                                           : key));
 #endif
             ImGui::PopID();
         }
@@ -471,7 +483,8 @@ inline bool property_collection(const std::filesystem::path& root, const Json& f
                                         return reference;
                                     (void)detail::checked_prefab_reference(
                                         reference,
-                                        prefab_property_source->at("asset_id").get<AssetId>());
+                                        prefab_property_source->at("asset_id").get<AssetId>(),
+                                        prefab_property_source->at("version"));
                                     return Json();
                                 },
                                 found_reference);

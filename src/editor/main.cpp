@@ -6208,7 +6208,9 @@ int main(int argc, char** argv) {
                                 for (const auto& candidate : doc["entities"])
                                     if (candidate.at("id") == parent)
                                         parent_name = candidate.at("name").get<std::string>();
-                                ImGui::BeginDisabled(e.contains("prefab_member"));
+                                ImGui::BeginDisabled(e.contains("prefab_member") ||
+                                                     (doc.at("version").get<unsigned>() >= 6 &&
+                                                      e.contains("prefab_nested")));
                                 forge::ui::property_label_row("Parent");
                                 const bool choose_parent =
                                     ImGui::BeginCombo("##Parent", parent_name.c_str());

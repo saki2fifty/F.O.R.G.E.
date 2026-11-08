@@ -19840,6 +19840,92 @@
       "source": "Assets/Variants/ForkedMarker.prefab.json",
       "source_dependencies": [],
       "type": "prefab"
+    },
+    {
+      "dependencies": [
+        "d255167b-4179-46b6-af94-c76a589abf6b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:dependencies",
+          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
+          "type": "prefab"
+        }
+      ],
+      "id": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
+      "metadata": {},
+      "schema_version": 7,
+      "source": "Assets/Assemblies/PairedMarkers.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [
+        "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
+        "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+        "d255167b-4179-46b6-af94-c76a589abf6b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
+          "type": "prefab"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:dependencies",
+          "target": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+          "type": "prefab"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:dependencies",
+          "target": "d255167b-4179-46b6-af94-c76a589abf6b",
+          "type": "prefab"
+        }
+      ],
+      "id": "550d6894-6721-4818-88ce-3ec3976143d7",
+      "metadata": {},
+      "schema_version": 7,
+      "source": "Assets/Assemblies/MixedLinkedMarkers.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [
+        "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
+          "type": "prefab"
+        }
+      ],
+      "id": "81d90e45-bfe6-4a87-a425-df65c4d2f366",
+      "metadata": {},
+      "schema_version": 7,
+      "source": "Assets/Assemblies/SingleLinkedMarker.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "f48fc291-7f91-488a-b99c-f332916b1d18",
+      "metadata": {},
+      "schema_version": 6,
+      "source": "Scenes/207-nested-prefab-assemblies.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     }
   ],
   "version": 2

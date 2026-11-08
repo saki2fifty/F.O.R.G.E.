@@ -1,0 +1,38 @@
+{
+  "asset_id": "550d6894-6721-4818-88ce-3ec3976143d7",
+  "base": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
+  "format": "forge.prefab",
+  "overrides": [
+    {
+      "components": {
+        "forge.navigation_behavior": {
+          "anchor": {
+            "member": {
+              "asset": "d255167b-4179-46b6-af94-c76a589abf6b",
+              "instance": "78771183-f07e-4af5-a13e-6fee3a321b55",
+              "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb"
+            },
+            "prefab": "550d6894-6721-4818-88ce-3ec3976143d7"
+          },
+          "enabled": false,
+          "graph": null,
+          "target": {
+            "member": {
+              "asset": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270",
+              "instance": "bcf707ac-6b13-4f4d-87dc-6b82c9a55519",
+              "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb"
+            },
+            "prefab": "550d6894-6721-4818-88ce-3ec3976143d7"
+          }
+        }
+      },
+      "id": "bcf707ac-6b13-4f4d-87dc-6b82c9a55519",
+      "prefab_instance": {
+        "asset": "8ecd06a1-3639-4d2f-ba6e-2be38cc9a270"
+      }
+    }
+  ],
+  "revision": 2,
+  "root": "3f1f9c7a-9a0d-40b6-b6c3-17104f749d7d",
+  "version": 7
+}

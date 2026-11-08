@@ -8,11 +8,14 @@
 #include <array>
 #include <forge/engine_assets.hpp>
 #include <forge/game_content.hpp>
+#include <forge/navigation_behavior_components.hpp>
 #include <forge/navigation_components.hpp>
 #include <forge/physics.hpp>
+#include <forge/primitive_catalog.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
 #include <iostream>
+#include <set>
 using namespace forge;
 namespace {
 void check(bool value, const char* message) {
@@ -204,6 +207,127 @@ void exercise(const Json& snapshot, const Fixture& fixture, bool suppressed = fa
     detail::release_runtime_entity(context, owner, later);
     system.destruct();
 }
+void nested_runtime() {
+    Fixture child;
+    const auto asset = AssetId::generate();
+    const auto root = PrefabMemberId::generate(), mount = PrefabMemberId::generate();
+    const Json identity{{"forge.primitive", {{"kind", no_primitive}}},
+                        {"forge.local_translation", {{"x", 0}, {"y", 0}, {"z", 0}}},
+                        {"forge.local_rotation", {{"x", 0}, {"y", 0}, {"z", 0}, {"w", 1}}},
+                        {"forge.local_scale", {{"x", 1}, {"y", 1}, {"z", 1}}}};
+    auto components = identity;
+    const PrefabMemberPath first{asset, {{root, child.prefab}}, child.bob};
+    const PrefabMemberPath second{asset, {{mount, child.prefab}}, child.bob};
+    components["forge.navigation_behavior"] = {
+        {"enabled", true}, {"graph", nullptr}, {"target", first}, {"anchor", second}};
+    const Json source{{"format", "forge.prefab"},
+                      {"version", 7},
+                      {"asset_id", asset},
+                      {"revision", 1},
+                      {"root", root},
+                      {"members", Json::array({{{"id", root},
+                                                {"name", "First occurrence"},
+                                                {"components", components},
+                                                {"prefab_instance", {{"asset", child.prefab}}}},
+                                               {{"id", mount},
+                                                {"parent", root},
+                                                {"name", "Second occurrence"},
+                                                {"components", identity},
+                                                {"prefab_instance", {{"asset", child.prefab}}}}})}};
+    World live;
+    auto& context = live.engine.world();
+    live.scene.set_prefab_sources({{asset, source}, {child.prefab, child.source()}});
+    const std::string owner = "project.nested_prefab";
+    const auto a = detail::request_runtime_prefab(context, owner, {}, asset, "Assembly A");
+    const auto b = detail::request_runtime_prefab(context, owner, {}, asset, "Assembly B");
+    check(live.scene.entity_count() == 0, "Nested request published before its fixed boundary");
+    std::vector<std::string> bodies;
+    bool placed = false;
+    auto system =
+        context.world()
+            .system("test.PlaceNestedRuntimePrefabs")
+            .kind(context.world().lookup("forge.runtime.Gameplay"))
+            .write<LocalTranslation>()
+            .run([&](flecs::iter&) {
+                if (placed)
+                    return;
+                const auto document = live.scene.document();
+                for (auto token : {a, b}) {
+                    const auto info = detail::inspect_runtime_entity(context, owner, token);
+                    check(info.state == detail::RuntimeEntityState::Ready,
+                          "Nested assembly was not atomically Ready before Gameplay");
+                    const auto found =
+                        std::find_if(document.at("entities").begin(), document.at("entities").end(),
+                                     [&](const Json& row) {
+                                         return row.at("id") == info.reference.entity.str();
+                                     });
+                    check(found != document.at("entities").end(),
+                          "Ready nested group is absent from the Scene");
+                    const auto& group = *found;
+                    const auto navigation =
+                        live.scene.entity(info.reference.entity.str()).get<NavigationBehavior>();
+                    unsigned occurrence = 0;
+                    for (auto slot : {root, mount}) {
+                        const auto nested = group.at("prefab_instance")
+                                                .at("nested")
+                                                .at(slot.str())
+                                                .at(child.prefab.str())
+                                                .get<std::string>();
+                        const auto bob = member(live.scene, EntityId::parse(nested), child.bob);
+                        const double x = -6 + 4 * double(bodies.size());
+                        live.scene.entity(nested).set<LocalTranslation>({x, 0, 0});
+                        live.scene.entity(bob).set<LocalTranslation>({x, -2, 0});
+                        const auto joint = live.scene.entity(nested).get<PhysicsJoint>();
+                        check(joint.body_a == live.scene.reference(nested) &&
+                                  joint.body_b == live.scene.reference(bob) &&
+                                  (occurrence++ == 0 ? navigation.target : navigation.anchor) ==
+                                      live.scene.reference(bob),
+                              "Runtime scoped references crossed nested occurrences");
+                        bodies.push_back(bob);
+                    }
+                }
+                placed = true;
+            });
+    system.add<FixedSimulation>();
+    live.simulation.tick(1.f / 60);
+    const Json observed{
+        {"entities", live.scene.entity_count()},
+        {"unique_bobs", std::set<std::string>(bodies.begin(), bodies.end()).size()},
+        {"bodies", live.physics->status().at("bodies")},
+        {"joints", live.physics->status().at("joints")},
+        {"meshes", extract_render_scene(live.simulation.presentation(1)).meshes.size()},
+        {"history", live.scene.can_undo()}};
+    const Json expected{{"entities", 12}, {"unique_bobs", 4}, {"bodies", 8},
+                        {"joints", 4},    {"meshes", 8},      {"history", false}};
+    if (observed != expected)
+        throw std::runtime_error("Nested native consumer mismatch: " + observed.dump());
+    World recovered;
+    recovered.scene.restore_snapshot(live.scene.snapshot());
+    recovered.physics->restore(live.physics->checkpoint());
+    for (unsigned i = 0; i < 8; ++i) {
+        live.simulation.tick(1.f / 60);
+        recovered.simulation.tick(1.f / 60);
+    }
+    for (const auto& id : bodies) {
+        const auto before = live.scene.entity(id).get<LocalTranslation>();
+        const auto after = recovered.scene.entity(id).get<LocalTranslation>();
+        check(std::abs(before.x - after.x) < .001 && std::abs(before.y - after.y) < .001,
+              "Recovered nested physics group diverged");
+    }
+    check(detail::release_runtime_entity(context, owner, a), "Nested observation release failed");
+    const auto other = detail::inspect_runtime_entity(context, owner, b);
+    context.world().entity(other.native_entity).destruct();
+    check(detail::inspect_runtime_entity(context, owner, b).state ==
+                  detail::RuntimeEntityState::Gone &&
+              live.scene.entity_count() == 6,
+          "Destroyed outer root retained part of its nested group");
+    live.simulation.tick(1.f / 60);
+    check(live.physics->status().at("bodies") == 4 && live.physics->status().at("joints") == 2 &&
+              extract_render_scene(live.simulation.presentation(1)).meshes.size() == 4,
+          "Destroyed nested group retained native participants");
+    detail::release_runtime_entity(context, owner, b);
+    system.destruct();
+}
 void many_member_overrides(unsigned version) {
     EngineContext engine(WorldRole::Runtime);
     Scene scene(engine.world());
@@ -309,7 +433,7 @@ void many_member_overrides(unsigned version) {
               "Many-member recovery changed values or inheritance");
     check(scene.prefab_sources().at(asset) == source, "Runtime append mutated Prefab source");
 }
-void publication_budget(bool variant = false) {
+void publication_budget(bool variant = false, bool nested = false) {
     const auto start = std::chrono::steady_clock::now();
     auto mark = [&](const char* phase) {
         std::cerr << "4096-member creation " << phase << ": "
@@ -323,18 +447,37 @@ void publication_budget(bool variant = false) {
     const auto asset = AssetId::generate();
     const auto root = PrefabMemberId::generate();
     Json members = Json::array({{{"id", root}, {"name", "Root"}, {"components", Json::object()}}});
-    for (unsigned i = 1; i < 4096; ++i)
+    for (unsigned i = 1; i < (nested ? 2047u : 4096u); ++i)
         members.push_back({{"id", PrefabMemberId::generate()},
                            {"parent", root},
                            {"name", "Member"},
                            {"components", Json::object()}});
-    scene.set_prefab_sources({{asset,
-                               {{"format", "forge.prefab"},
-                                {"version", 3},
-                                {"asset_id", asset},
-                                {"revision", 1u},
-                                {"root", root},
-                                {"members", members}}}});
+    PrefabSources initial{{asset,
+                           {{"format", "forge.prefab"},
+                            {"version", 3},
+                            {"asset_id", asset},
+                            {"revision", 1u},
+                            {"root", root},
+                            {"members", members}}}};
+    if (nested) {
+        const auto child = AssetId::generate();
+        auto& sources = initial;
+        auto definition = sources.at(asset);
+        definition["asset_id"] = child;
+        sources.emplace(child, std::move(definition));
+        const auto mount = PrefabMemberId::generate();
+        sources[asset]["version"] = 7;
+        sources[asset]["members"] = Json::array({{{"id", root},
+                                                  {"name", "First mount"},
+                                                  {"components", Json::object()},
+                                                  {"prefab_instance", {{"asset", child}}}},
+                                                 {{"id", mount},
+                                                  {"parent", root},
+                                                  {"name", "Second mount"},
+                                                  {"components", Json::object()},
+                                                  {"prefab_instance", {{"asset", child}}}}});
+    }
+    scene.set_prefab_sources(initial);
     auto selected = asset;
     if (variant) {
         selected = AssetId::generate();
@@ -375,12 +518,23 @@ int main(int argc, char** argv) {
                                           std::string_view(argv[2]) == "--variant" ||
                                           std::string_view(argv[2]) == "--suppression" ||
                                           std::string_view(argv[2]) == "--structure" ||
-                                          std::string_view(argv[2]) == "--variant-budget")),
+                                          std::string_view(argv[2]) == "--variant-budget" ||
+                                          std::string_view(argv[2]) == "--nested-budget" ||
+                                          std::string_view(argv[2]) == "--nested")),
               "Need runtime Prefab scratch directory and optional "
-              "--budget/--variant/--suppression/--structure/--variant-budget");
+              "--budget/--variant/--suppression/--structure/--variant-budget/--nested-budget/"
+              "--nested");
+        if (argc == 3 && std::string_view(argv[2]) == "--nested") {
+            nested_runtime();
+            std::cout
+                << "Nested runtime publication, scoped native consumers and recovery passed\n";
+            return 0;
+        }
         if (argc == 3 && (std::string_view(argv[2]) == "--budget" ||
-                          std::string_view(argv[2]) == "--variant-budget")) {
-            publication_budget(std::string_view(argv[2]) == "--variant-budget");
+                          std::string_view(argv[2]) == "--variant-budget" ||
+                          std::string_view(argv[2]) == "--nested-budget")) {
+            publication_budget(std::string_view(argv[2]) == "--variant-budget",
+                               std::string_view(argv[2]) == "--nested-budget");
             std::cout << "4096-member atomic group and next-boundary budget passed\n";
             return 0;
         }

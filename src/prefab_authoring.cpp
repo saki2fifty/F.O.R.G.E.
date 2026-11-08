@@ -2,6 +2,7 @@
 #include "json_document.hpp"
 #include "json_value_equal.hpp"
 #include "prefab_component_intent.hpp"
+#include "prefab_composition.hpp"
 #include "prefab_member_access.hpp"
 #include "prefab_references.hpp"
 #include <forge/assets.hpp>
@@ -19,9 +20,11 @@ Json read_prefab(const std::filesystem::path& path) {
     auto source = detail::parse_json_document(input);
     return PrefabDocument(std::move(source)).source;
 }
-AssetRecord prefab_record(const PrefabDocument& document, const std::filesystem::path& path) {
+AssetRecord prefab_record(const PrefabDocument& document, const std::filesystem::path& path,
+                          const Json& schema = Json::object()) {
     AssetRecord record{document.asset(), PrefabAsset::type, path,
-                       document.source.at("version").get<unsigned>(), document.dependencies()};
+                       document.source.at("version").get<unsigned>(),
+                       document.dependencies(schema)};
     for (const auto id : record.dependencies) {
         const bool base =
             PrefabDocument::is_variant(document.source) && document.source.at("base") == Json(id);
@@ -53,6 +56,9 @@ PrefabDocument create_prefab_source(const Scene& scene, const std::string& selec
         values[item.at("id")] = item;
     if (!rows.contains(root))
         throw std::runtime_error("Select a scene subtree first");
+    if (rows.at(root).contains("prefab_instance") || rows.at(root).contains("prefab_member"))
+        throw std::runtime_error(
+            "Choose an ordinary parent subtree for capture, or Duplicate the Prefab asset");
     std::set<std::string> included{root};
     bool changed;
     do {
@@ -61,32 +67,132 @@ PrefabDocument create_prefab_source(const Scene& scene, const std::string& selec
             if (included.contains(item.value("parent", "")))
                 changed |= included.insert(id).second;
     } while (changed);
-    std::map<std::string, std::string> ids;
+    std::map<std::string, std::string> ids, linked_owner;
+    std::map<std::string, AssetId> mounts;
     const auto asset = AssetId::generate();
     bool portable_references = false;
-    for (const auto& id : included)
-        ids[id] = PrefabMemberId::generate().str();
-    Json members = Json::array();
     for (const auto& id : included) {
-        auto item = rows.at(id);
+        auto ancestor = id;
+        std::string outermost;
+        std::size_t depth = 0;
+        while (included.contains(ancestor)) {
+            if (++depth > rows.size())
+                throw std::runtime_error("Cyclic Scene hierarchy cannot be captured");
+            const auto& row = rows.at(ancestor);
+            if (row.contains("base") || row.value("prefab", false))
+                throw std::runtime_error(
+                    "Legacy prefab conversion requires an ordinary authored subtree");
+            if (row.contains("prefab_instance"))
+                outermost = ancestor;
+            ancestor = row.value("parent", "");
+        }
+        if (outermost.empty() || outermost == id)
+            ids[id] = PrefabMemberId::generate().str();
+        if (!outermost.empty())
+            linked_owner.emplace(id, outermost);
+    }
+    std::map<std::string, Json> addresses;
+    for (const auto& [id, member] : ids)
+        addresses.emplace(id, member);
+    if (!linked_owner.empty()) {
+        const auto canonical = reconcile_prefab_intent(doc, scene.prefab_sources(), scene.schema());
+        const auto canonical_rows = detail::index_json_rows(canonical.at("entities"));
+        std::map<std::string, std::map<std::string, Json>> owned;
+        for (const auto& [id, owner] : linked_owner) {
+            if (!owned.contains(owner)) {
+                const auto& row = rows.at(owner);
+                const auto child = row.at("prefab_instance").at("asset").get<AssetId>();
+                if (!scene.prefab_definition(child) || row.value("missing_member", false))
+                    throw std::runtime_error("Resolve unavailable linked Prefabs before capture");
+                if (row.value("spatial", Json::object()).value("mode", "follow_structure") !=
+                    "follow_structure")
+                    throw std::runtime_error("Linked capture requires a root that follows its "
+                                             "parent; retain other root bindings in the Scene or "
+                                             "use a child source with an ordinary mount root");
+                for (const auto& [key, value] : row.at("prefab_instance").items()) {
+                    (void)value;
+                    if (key != "asset" && key != "revision" && key != "members" &&
+                        key != "status" &&
+                        !(doc.at("version").get<unsigned>() >= 6 && key == "nested"))
+                        throw std::runtime_error(
+                            "Linked capture cannot discard Scene-only instance extensions");
+                }
+                owned[owner] = detail::prefab_instance_reference_members(doc, owner);
+                mounts.emplace(owner, child);
+                for (const auto& [target, address] : owned.at(owner)) {
+                    if (rows.contains(target) && !included.contains(target))
+                        throw std::runtime_error(
+                            "Repair linked members outside the selected subtree before capture");
+                    addresses[target] = {
+                        {"instance", ids.at(owner)}, {"asset", child}, {"member", address}};
+                }
+            }
+            const auto& row = rows.at(id);
+            if (!owned.at(owner).contains(id))
+                throw std::runtime_error(
+                    "Linked capture cannot discard Scene-only attachments; author reusable "
+                    "attachments in the child source or a variant first");
+            if (!row.at("components").empty() ||
+                !row.value("property_overrides", Json::object()).empty() ||
+                row.value("name_override", false))
+                throw std::runtime_error("Linked capture requires unchanged instances; Apply or "
+                                         "Revert overrides, or mount a child variant instead");
+            for (const auto& [key, value] : row.items()) {
+                (void)value;
+                if (key != "id" && key != "name" && key != "parent" && key != "components" &&
+                    key != "prefab_instance" && key != "prefab_member" && key != "spatial" &&
+                    key != "property_overrides" && key != "name_override" &&
+                    key != "missing_member" &&
+                    !(doc.at("version").get<unsigned>() >= 6 && key == "prefab_nested"))
+                    throw std::runtime_error(
+                        "Linked capture cannot discard Scene-only member extensions");
+            }
+            const auto& expected = *canonical_rows.at(id);
+            for (const auto* key : {"name", "parent", "spatial", "missing_member"})
+                if (row.value(key, Json()) != expected.value(key, Json()))
+                    throw std::runtime_error("Repair modified linked structure before capture");
+        }
+    }
+    Json members = Json::array();
+    for (const auto& authored : doc.at("entities")) {
+        const auto id = authored.at("id").get<std::string>();
+        if (!included.contains(id))
+            continue;
+        if (linked_owner.contains(id) && !mounts.contains(id))
+            continue;
+        auto item = authored;
+        if (mounts.contains(id)) {
+            const auto& spatial = item.value("spatial", Json::object());
+            if (spatial.size() > 1 || (spatial.size() == 1 && !spatial.contains("mode")))
+                throw std::runtime_error(
+                    "Linked capture cannot discard Scene-only binding extensions");
+            members.push_back({{"id", ids.at(id)},
+                               {"name", item.at("name").get<std::string>() + " mount"},
+                               {"parent", ids.at(item.at("parent").get<std::string>())},
+                               {"components",
+                                {{"forge.local_translation", {{"x", 0}, {"y", 0}, {"z", 0}}},
+                                 {"forge.local_rotation", {{"x", 0}, {"y", 0}, {"z", 0}, {"w", 1}}},
+                                 {"forge.local_scale", {{"x", 1}, {"y", 1}, {"z", 1}}}}},
+                               {"prefab_instance", {{"asset", mounts.at(id)}}}});
+            continue;
+        }
         if (item.contains("prefab_instance") || item.contains("prefab_member") ||
             item.contains("base") || item.value("prefab", false))
-            throw std::runtime_error(
-                "Create Prefab requires an ordinary authored subtree; nested prefabs and legacy "
-                "conversion are deferred. Use Duplicate asset for an independent prefab.");
+            throw std::runtime_error("Create Prefab requires ordinary authored members or "
+                                     "unchanged linked child instances");
         if (item.value("missing_member", false))
             throw std::runtime_error("Resolve missing prefab members before creating a source");
         item["id"] = ids.at(id);
         for (const auto& type : detail::builtins())
             if (values.at(id)["components"].contains(type.name))
                 item["components"][type.name] = values.at(id)["components"].at(type.name);
-        portable_references |=
-            !detail::transform_prefab_component_references(
-                 item["components"], scene.schema(),
-                 [&](const Json& value) {
-                     return detail::capture_prefab_reference(value, scene.asset_id(), asset, ids);
-                 })
-                 .empty();
+        portable_references |= !detail::transform_prefab_component_references(
+                                    item["components"], scene.schema(),
+                                    [&](const Json& value) {
+                                        return detail::capture_prefab_reference(
+                                            value, scene.asset_id(), asset, addresses);
+                                    })
+                                    .empty();
         for (auto key : {"base", "prefab", "prefab_instance", "prefab_member", "property_overrides",
                          "missing_member", "name_override"})
             item.erase(key);
@@ -97,21 +203,33 @@ PrefabDocument create_prefab_source(const Scene& scene, const std::string& selec
             item["parent"] = ids.at(item.at("parent"));
             if (item.value("spatial", Json::object()).value("mode", "") == "explicit") {
                 const auto ref = item.at("spatial").at("target").get<EntityRef>();
-                if (ref.scene != scene.asset_id() || !ids.contains(ref.entity.str()))
+                if (ref.scene != scene.asset_id() || !addresses.contains(ref.entity.str()))
                     throw std::runtime_error("Prefab source cannot capture a spatial target "
                                              "outside the selected subtree");
+                if (!addresses.at(ref.entity.str()).is_string())
+                    throw std::runtime_error("Source spatial bindings require an ordinary member; "
+                                             "author nested attachment through its mount");
                 item["spatial"].erase("target");
-                item["spatial"]["member"] = ids.at(ref.entity.str());
+                item["spatial"]["member"] = addresses.at(ref.entity.str());
             }
         }
         members.push_back(std::move(item));
     }
-    return PrefabDocument({{"format", "forge.prefab"},
-                           {"version", portable_references ? 3 : 1},
-                           {"asset_id", asset},
-                           {"revision", std::uint64_t{1}},
-                           {"root", ids.at(root)},
-                           {"members", std::move(members)}});
+    auto result = PrefabDocument({{"format", "forge.prefab"},
+                                  {"version", !mounts.empty()       ? 7
+                                              : portable_references ? 3
+                                                                    : 1},
+                                  {"asset_id", asset},
+                                  {"revision", std::uint64_t{1}},
+                                  {"root", ids.at(root)},
+                                  {"members", std::move(members)}});
+    const auto lookup = [&](AssetId id) {
+        return id == result.asset() ? &result.source : scene.prefab_definition(id);
+    };
+    (void)detail::expanded_prefab_member_count(result.asset(), lookup);
+    if (!mounts.empty())
+        detail::validate_prefab_composition_structure(result.asset(), lookup);
+    return result;
 }
 std::string instantiate_prefab(Scene& scene, AssetId asset) {
     return authoring_command(scene, "prefab.instantiate", {{"asset", asset}}).at("selected");
@@ -194,18 +312,33 @@ Json PrefabLibrary::source(AssetId asset) const {
         throw std::runtime_error(resolved.diagnostic);
     return read_prefab(locate(resolved.record->source));
 }
-PrefabSources PrefabLibrary::base_sources(const Scene& scene, const Json& document) const {
+PrefabSources PrefabLibrary::base_sources(const Scene& scene, const Json& document,
+                                          const Json* candidate) const {
     PrefabSources result;
-    const Json* selected = &document;
-    while (PrefabDocument::is_variant(*selected)) {
-        const auto base = selected->at("base").get<AssetRef<PrefabAsset>>().id;
-        if (result.size() >= 16 || result.contains(base))
-            throw std::runtime_error("Invalid prefab base chain; refresh sources");
-        const auto loaded = scene.prefab_sources().find(base);
+    const auto schema = scene.schema();
+    const auto owner = document.at("asset_id").get<AssetId>();
+    auto pending = PrefabDocument(document).dependencies(schema);
+    if (candidate) {
+        const auto added = PrefabDocument(*candidate).dependencies(schema);
+        pending.insert(pending.end(), added.begin(), added.end());
+    }
+    // Loaded sources already passed Scene graph admission. Only a new edge
+    // reaching this owner can add a cycle. Review declared dependencies without
+    // imposing the separate base/nesting depth cap on older dependency lists.
+    for (std::size_t cursor = 0; cursor < pending.size(); ++cursor) {
+        const auto asset = pending[cursor];
+        if (asset == owner)
+            throw std::runtime_error("Cyclic prefab supporting source closure");
+        if (result.contains(asset))
+            continue;
+        const auto loaded = scene.prefab_sources().find(asset);
         if (loaded == scene.prefab_sources().end() ||
-            !detail::json_value_equal(source(base), loaded->second))
-            throw std::runtime_error("Prefab base changed on disk; refresh sources before editing");
-        selected = &result.emplace(base, loaded->second).first->second;
+            !detail::json_value_equal(source(asset), loaded->second))
+            throw std::runtime_error(
+                "Prefab base/nested source changed on disk; refresh before editing");
+        result.emplace(asset, loaded->second);
+        const auto added = PrefabDocument(loaded->second).dependencies(schema);
+        pending.insert(pending.end(), added.begin(), added.end());
     }
     return result;
 }
@@ -222,7 +355,7 @@ AssetId PrefabLibrary::create(Scene& scene, PrefabDocument document,
         throw std::runtime_error("Prefab source exceeds 8 MiB");
     auto candidate = catalog_;
     auto records = records_;
-    auto record = prefab_record(document, relative);
+    auto record = prefab_record(document, relative, scene.schema());
     candidate.add(record);
     records.emplace(record.id, record);
     auto sources = scene.prefab_sources();
@@ -279,18 +412,18 @@ void PrefabLibrary::publish(Scene& scene, const Json& expected, Json candidate,
     const auto path = locate(records_.at(old.asset()).source);
     if (!detail::json_value_equal(source(old.asset()), expected))
         throw std::runtime_error("Prefab changed on disk; reopen its source before publishing");
-    check_base_sources(base_sources(scene, expected), expected_bases);
+    check_base_sources(base_sources(scene, expected, &candidate), expected_bases);
     auto sources = scene.prefab_sources();
     sources[old.asset()] = candidate;
     auto records = records_;
-    records.at(old.asset()) = prefab_record(parsed, records.at(old.asset()).source);
+    records.at(old.asset()) = prefab_record(parsed, records.at(old.asset()).source, scene.schema());
     AssetCatalog catalog(project_);
     for (const auto& [id, record] : records) {
         (void)id;
         catalog.add(record);
     }
     scene.publish_prefab_sources(sources, [&] {
-        check_base_sources(base_sources(scene, expected), expected_bases);
+        check_base_sources(base_sources(scene, expected, &candidate), expected_bases);
         if (!detail::json_value_equal(read_prefab(path), expected))
             throw std::runtime_error("Prefab changed while preparing the candidate");
         atomic_write(path, bytes);
@@ -318,7 +451,6 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
     if (!scene.prefab_sources().contains(asset) ||
         scene.prefab_sources().at(asset) != result.expected)
         throw std::runtime_error("Prefab changed; refresh sources before reviewing Apply");
-    result.expected_bases = base_sources(scene, result.expected);
     result.source = result.expected;
     std::map<std::string, Json> shown;
     for (const auto& row : effective.at("entities"))
@@ -334,13 +466,14 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
     const auto* definition = scene.prefab_definition(asset);
     if (!definition)
         throw std::runtime_error("Refresh prefab sources before reviewing Apply");
-    std::map<std::string, std::string> inverse;
-    for (const auto& [member, entity] : mapping.items())
-        inverse.emplace(entity.get<std::string>(), member);
+    const auto inverse = detail::prefab_instance_reference_members(result.scene, root_id);
+    bool scoped_references = false;
     auto transfer_reference = [&](const Json& value) {
-        return addressed_references
-                   ? detail::capture_prefab_reference(value, scene.asset_id(), asset, inverse)
-                   : value;
+        if (!addressed_references)
+            return value;
+        auto result = detail::capture_prefab_reference(value, scene.asset_id(), asset, inverse);
+        scoped_references |= result.at("member").is_object();
+        return result;
     };
     bool portable_references = false;
     auto& authored = result.source[variant ? "overrides" : "members"];
@@ -449,6 +582,12 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
                                       }),
                        authored.end());
     }
+    if (scoped_references) {
+        // Check opt-in against the untouched source, before assigning the new
+        // profile to the completed candidate. Existing row references stay valid.
+        (void)PrefabDocument(result.expected).with_nested_references();
+        result.source["version"] = 7;
+    }
     if (portable_references && !addressed_references) {
         // Only an explicitly transferred non-null reference activates migration.
         // Unrelated edits retain legacy absolute Scene references and source version.
@@ -470,6 +609,7 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
     result.source = PrefabDocument(result.source).source;
     if (result.source.dump(2).size() > max_source_bytes)
         throw std::runtime_error("Prefab source exceeds 8 MiB");
+    result.expected_bases = base_sources(scene, result.expected, &result.source);
     auto sources = scene.prefab_sources();
     sources[asset] = result.source;
     result.scene = reconcile_prefab_intent(result.scene, sources, schema);
@@ -490,18 +630,19 @@ void PrefabLibrary::publish_apply(Scene& scene, const PrefabApplyCandidate& chan
          PrefabDocument::is_variant(change.expected)) &&
         change.source.value("base", Json()) != change.expected.value("base", Json()))
         throw std::runtime_error("Apply cannot replace a prefab's base identity");
-    check_base_sources(base_sources(scene, change.expected), change.expected_bases);
+    check_base_sources(base_sources(scene, change.expected, &change.source), change.expected_bases);
     auto sources = scene.prefab_sources();
     sources[old.asset()] = next.source;
     auto records = records_;
-    records.at(old.asset()) = prefab_record(next, records.at(old.asset()).source);
+    records.at(old.asset()) = prefab_record(next, records.at(old.asset()).source, scene.schema());
     AssetCatalog catalog(project_);
     for (const auto& [id, record] : records) {
         (void)id;
         catalog.add(record);
     }
     auto durable = [&] {
-        check_base_sources(base_sources(scene, change.expected), change.expected_bases);
+        check_base_sources(base_sources(scene, change.expected, &change.source),
+                           change.expected_bases);
         if (source(old.asset()) != change.expected)
             throw std::runtime_error("Prefab changed during Apply preparation");
         writer();

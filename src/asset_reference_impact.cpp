@@ -92,10 +92,14 @@ struct Inspect {
         if (type == "asset_ref")
             reference(value, path, "AssetRef", field.at("asset_type").get<std::string>());
         else if (type == "entity_ref") {
-            if (!value.is_null() && prefab_reference_owner &&
-                detail::source_member_reference(value, prefab_reference_version,
-                                                prefab_reference_owner)) {
-                // Internal member links are not external asset dependencies.
+            if (!value.is_null() && prefab_reference_owner) {
+                const auto member = detail::source_member_reference(value, prefab_reference_version,
+                                                                    prefab_reference_owner);
+                if (member) {
+                    for (const auto& step : member->instances)
+                        reference(Json(step.asset), path, "Nested member scope", PrefabAsset::type);
+                } else
+                    reference(value.at("scene"), path, "EntityRef scene", SceneAsset::type);
             } else if (!value.is_null())
                 reference(value.at("scene"), path, "EntityRef scene", SceneAsset::type);
         } else if (type == "struct")
@@ -132,7 +136,7 @@ struct Inspect {
         }
         const bool variant = prefab && PrefabDocument::is_variant(doc);
         const bool suppression_profile = variant && doc.at("version").get<unsigned>() >= 5;
-        const bool structural_profile = variant && doc.at("version") == 6;
+        const bool structural_profile = variant && doc.at("version").get<unsigned>() >= 6;
         if (suppression_profile)
             PrefabDocument::validate(doc);
         const auto collections = scene    ? std::vector<const char*>{"entities"}
@@ -158,7 +162,7 @@ struct Inspect {
                                 fields(found->second.at("fields"), value, component, 0, custom);
                         }
                     }
-                    if (row.contains("prefab_instance"))
+                    if (row.contains("prefab_instance") && !row.at("prefab_instance").is_null())
                         reference(row.at("prefab_instance").at("asset"), "prefab_instance.asset",
                                   "Prefab instance", PrefabAsset::type);
                     if (prefab && row.contains("spatial"))
@@ -169,13 +173,17 @@ struct Inspect {
                     // Both whole-component and per-property intent carry authored values.
                     for (const auto& [key, value] : row.items()) {
                         const bool state_flag =
-                            scene && (doc.at("version") == 4 || doc.at("version") == 5) &&
+                            scene &&
+                            (doc.at("version").get<unsigned>() >= 4 &&
+                             doc.at("version").get<unsigned>() <= 6) &&
                             (key == "name_override" || key == "missing_member") &&
                             value.is_boolean();
                         if (key != "id" && key != "name" && key != "components" &&
                             key != "parent" && key != "base" && key != "prefab" &&
                             key != "spatial" && key != "prefab_instance" &&
                             key != "prefab_member" && key != "property_overrides" && !state_flag &&
+                            !(scene && doc.at("version").get<unsigned>() >= 6 &&
+                              key == "prefab_nested") &&
                             !(suppression_profile && key == "suppressed_components") &&
                             !(structural_profile && key == "removed"))
                             unknown(key);

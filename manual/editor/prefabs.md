@@ -8,7 +8,7 @@ Edit the prefab source to update instances that follow its values.
 
 ## Create a prefab
 
-1. Build a small group of ordinary objects in the Hierarchy, with one parent and its children. A subtree already containing prefab instances or legacy prefab definitions is rejected; nested prefab conversion is deferred.
+1. Build a group in the Hierarchy with one parent and its children. It can include unchanged linked prefab instances. Linked children with Scene-only overrides, extra attachments, unavailable members or changed root bindings cannot be captured; use the nested source workflow below instead. Legacy scene-local prefab definitions still cannot be captured.
 2. Select the parent.
 3. In **Content**, expand **Create / Register → Prefabs**.
 4. Enter a new project-relative filename, such as `Assets/Chair.prefab.json`.
@@ -54,6 +54,76 @@ A successful publication updates non-overridden values. Existing overrides remai
 **History boundary:** publishing a source change affecting the current scene clears that scene's Undo/Redo history. Scene Undo does not undo shared prefab-asset edits. Save your scene after a source change adds new members so their new object mappings are persisted. Apply from an instance uses the separate coordinated workflow below.
 
 Prefab authoring is disabled while Play, native builds, file dialogs or transform gestures are active. Stop Play before publishing; the next Play session receives the updated prefab definitions.
+
+## Nest reusable assemblies
+
+Use a nested Prefab when an assembly needs linked copies of another reusable
+object. The child keeps its own source; editing that child updates every copy
+that still follows it.
+
+1. Create the child Prefab first, such as `Assets/Wheel.prefab.json`.
+2. Open the enclosing Prefab with **Edit source**.
+3. Select the member that will hold the child, or use **Add child** to create one.
+4. Set **Nested Prefab** to the child asset.
+5. Adjust the holding member's translation, rotation and scale to place the child.
+6. Click **Publish source**, then save the Scene.
+
+The holding member remains a normal part of the enclosing source. The linked
+child appears beneath it as a separate **[prefab]** root in the Scene Hierarchy.
+Repeated links to the same asset produce independent copies. To change only one
+kind of child, create a variant of that child and select the variant for its link.
+
+![Nested Prefab asset control and scoped Target and Anchor fields for the selected right linked marker](../images/prefab-nested-source.png)
+
+Select the holding member to choose its child asset and inspect references to the
+left or right linked occurrence.
+
+A source reference picker shows the holding member, its short identity and the
+child member. Choose the intended occurrence even when several copies share
+names. Each placed assembly resolves the reference to its own child. A missing
+reference keeps its identity until you explicitly change it.
+
+In an enclosing variant, choose **None** to clear an inherited child link.
+**Use inherited nested Prefab** restores the current base's choice. Clearing a
+link makes the existing child and attached Scene objects unavailable while
+retaining their identities and overrides. Restoring the same asset reconnects
+that copy. Selecting another asset creates a distinct linked copy; it does not
+retarget old references to the replacement.
+
+In the Scene, a linked child's root supports normal name, component, transform
+and **Spatial binding** overrides. Its structural Parent follows the enclosing
+source. Change that link in **Prefab source**; select the outer instance to
+move, duplicate or delete the whole assembly. Interior members follow the child
+source's structure and spatial bindings. Dynamic physics bodies still need World
+spatial binding.
+
+If a supporting child source changes while your source draft is open, choose
+**Review supporting sources** to review its current saved contents. Enclosing
+variants use **Rebase draft**. Your own draft intent is retained; Publish validates
+it against the reviewed sources. If this source's own file changed, reopen it.
+
+**Create from selection** can retain unchanged linked children. It does not copy
+Scene-only overrides, extra attachments or changed child-root bindings into the
+asset. If capture is blocked, keep the Scene unchanged and add the links in the
+source window, or put reusable differences in a child source/variant first.
+
+Assemblies support up to 4,096 expanded active members and 16 links along a path
+through bases and nested assets. Cycles, unavailable required sources and overly
+deep structural hierarchies reject publication. Nesting selects Prefab format7
+and Scene format6; use an editor/runtime that supports those saved formats.
+
+Open **Scenes/207-nested-prefab-assemblies.scene.json** and press **Play → Game**.
+The left assembly repeats a capped marker twice. The middle variant clears its
+right link. The right variant replaces its right child with a forked marker.
+Stop Play, edit **Assets/Assemblies/PairedMarkers.prefab.json**, and select
+**Right linked marker** to inspect the asset and scoped references shown above.
+The reference component is disabled for this static demonstration. Camera and
+Material are included; no project C++ module is required. Publish source edits
+and save the Scene before exporting.
+
+![Nested marker assemblies in Game, showing repeated children, one cleared link and a replaced right child](../images/prefab-nested-game.png)
+
+Compare the two capped children, the single capped child, and the capped/forked pair.
 
 ## Duplicate instances and assets
 
@@ -124,10 +194,10 @@ values while retaining your explicit draft overrides. A successful source refres
 can clear Scene history. If the variant's own file changed externally, close and
 reopen it to review that file before publishing. Failed validation keeps the draft.
 
-A variant can use another variant as its base, up to 16 base links. Missing bases
-and cycles reject. If the base removes a member, its variant overrides are retained
-for that same member identity to return; names do not retarget them. Nested prefab
-instances inside a source and multiple bases are unavailable.
+A variant can use another variant as its base. A path through base relationships
+and nested links can contain up to 16 links; missing required assets and cycles
+reject. If the base removes a member, its variant overrides are retained for that
+same identity to return; names do not retarget them. Multiple bases are unavailable.
 
 Open **Scenes/142-prefab-variants.scene.json** in the Feature Gallery and press
 **Play**. The base, amber, blue and chained pink variants run the same sliding
@@ -217,7 +287,7 @@ After editing source files outside FORGE, increase the source revision and use *
 
 ## Current boundaries
 
-The source window edits admitted built-in and project components. Unavailable plugin data is preserved without interpreting it. Nested prefabs, multiple bases, per-instance interior hierarchy changes and Unpack are unavailable. Apply supports admitted instance overrides as described below. Existing scene-local prefabs remain supported in their original form; opening them does not create asset files or automatically convert them.
+The source window edits admitted built-in and project components. Unavailable plugin data is preserved without interpreting it. Multiple bases, per-instance interior hierarchy changes and Unpack are unavailable. Apply supports admitted instance overrides as described below. Existing scene-local prefabs remain supported in their original form; opening them does not create asset files or automatically convert them.
 
 See also [Transforms](transforms.md), [Undo and redo](undo-redo.md), [Saving and recovery](saving-recovery.md) and [Play mode](play-mode.md).
 

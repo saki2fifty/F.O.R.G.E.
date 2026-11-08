@@ -1,4 +1,5 @@
 #include "runtime_entity_creation.hpp"
+#include "prefab_composition.hpp"
 #include "scene_draft.hpp"
 #include <algorithm>
 #include <atomic>
@@ -153,7 +154,9 @@ void publish_runtime_entities(WorldContext& context) {
                 if (!source)
                     throw std::runtime_error(
                         "Runtime prefab is not admitted; review Runtime Dependencies");
-                rows = source->at("members").size();
+                rows = expanded_prefab_member_count(intended.prefab, [&](AssetId asset) {
+                    return selected->prefab_definition(asset);
+                });
             }
             if (rows > remaining_rows)
                 break; // Preserve order and bound one fixed boundary's work.

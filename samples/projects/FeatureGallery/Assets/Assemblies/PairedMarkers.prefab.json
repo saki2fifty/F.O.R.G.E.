@@ -1,0 +1,112 @@
+{
+  "asset_id": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab",
+  "format": "forge.prefab",
+  "members": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3f1f9c7a-9a0d-40b6-b6c3-17104f749d7d",
+      "name": "Paired markers"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.local_scale": {
+          "x": 0.65,
+          "y": 0.65,
+          "z": 0.65
+        },
+        "forge.local_translation": {
+          "x": -0.8,
+          "y": 0,
+          "z": 0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "78771183-f07e-4af5-a13e-6fee3a321b55",
+      "name": "Left linked marker",
+      "parent": "3f1f9c7a-9a0d-40b6-b6c3-17104f749d7d",
+      "prefab_instance": {
+        "asset": "d255167b-4179-46b6-af94-c76a589abf6b"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.local_scale": {
+          "x": 0.65,
+          "y": 0.65,
+          "z": 0.65
+        },
+        "forge.local_translation": {
+          "x": 0.8,
+          "y": 0,
+          "z": 0
+        },
+        "forge.navigation_behavior": {
+          "anchor": {
+            "member": {
+              "asset": "d255167b-4179-46b6-af94-c76a589abf6b",
+              "instance": "78771183-f07e-4af5-a13e-6fee3a321b55",
+              "member": "fb3c0fa0-61bd-45c5-a2d1-81ea8be24fdb"
+            },
+            "prefab": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab"
+          },
+          "enabled": false,
+          "graph": null,
+          "target": {
+            "member": {
+              "asset": "d255167b-4179-46b6-af94-c76a589abf6b",
+              "instance": "bcf707ac-6b13-4f4d-87dc-6b82c9a55519",
+              "member": "94672d2b-b750-4769-9d5b-d242f4cbf818"
+            },
+            "prefab": "491f3f2c-f4a9-4b9a-97d6-6b1014dfdbab"
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "bcf707ac-6b13-4f4d-87dc-6b82c9a55519",
+      "name": "Right linked marker",
+      "parent": "3f1f9c7a-9a0d-40b6-b6c3-17104f749d7d",
+      "prefab_instance": {
+        "asset": "d255167b-4179-46b6-af94-c76a589abf6b"
+      }
+    }
+  ],
+  "revision": 1,
+  "root": "3f1f9c7a-9a0d-40b6-b6c3-17104f749d7d",
+  "version": 7
+}

@@ -1,8 +1,10 @@
+#include "fixtures/prefab_nested_gallery.hpp"
 #include "fixtures/prefab_structure_gallery.hpp"
 #include "fixtures/prefab_suppression_gallery.hpp"
 #include "imgui_software_capture.hpp"
 #include "prefabs.hpp"
 #include <algorithm>
+#include <forge/navigation_behavior_components.hpp>
 #include <imgui_internal.h>
 #include <iostream>
 
@@ -13,7 +15,7 @@ void check(bool value, const std::string& message) {
         throw std::runtime_error(message);
 }
 void exercise(const std::filesystem::path& scratch, float scale, bool narrow,
-              const std::filesystem::path& image = {}) {
+              const std::filesystem::path& image = {}, bool nested_only = false) {
     const auto root = scratch / AssetId::generate().str();
     SceneDocument::create_project(root, "Prefab variants");
     EngineContext engine;
@@ -58,6 +60,7 @@ void exercise(const std::filesystem::path& scratch, float scale, bool narrow,
     PrefabEditor editor;
     editor.edit_source(scene, project, variant);
     editor.rename_member("Amber beacon variant");
+    bool locked = false;
     test::observe_ui = true;
     auto frame = [&] {
         test::ui_targets.clear();
@@ -66,7 +69,7 @@ void exercise(const std::filesystem::path& scratch, float scale, bool narrow,
             ImGui::SetWindowSize(window, {(narrow ? 800 : 1160) * scale, 1060 * scale});
         ImGui::SetNextWindowPos({10 * scale, 10 * scale});
         ImGui::SetNextWindowSize({(narrow ? 800 : 1160) * scale, 1060 * scale});
-        editor.draw(scene, project, false);
+        editor.draw(scene, project, locked);
         capture.render();
     };
     frame();
@@ -112,6 +115,108 @@ void exercise(const std::filesystem::path& scratch, float scale, bool narrow,
         io.AddMouseButtonEvent(0, false);
         frame();
     };
+    if (nested_only) {
+        stage = "nested mount selection";
+        check(editor.resolve_close(ui::DraftResolution::Discard, scene, project),
+              "Could not settle the setup draft");
+        const auto child_asset =
+            project.prefabs().duplicate(scene, base, "Assets/NativeLinked.prefab.json");
+        const auto child_root =
+            project.prefabs().source(child_asset).at("root").get<PrefabMemberId>();
+        const auto parent_asset = AssetId::generate();
+        const auto parent_root = PrefabMemberId::generate();
+        project.prefabs().create(
+            scene,
+            PrefabDocument(
+                {{"format", "forge.prefab"},
+                 {"version", 1},
+                 {"asset_id", parent_asset},
+                 {"revision", 1},
+                 {"root", parent_root},
+                 {"members",
+                  Json::array(
+                      {{{"id", parent_root},
+                        {"name", "Nested assembly"},
+                        {"components",
+                         {{"forge.local_translation", {{"x", 0}, {"y", 0}, {"z", 0}}},
+                          {"forge.local_rotation", {{"x", 0}, {"y", 0}, {"z", 0}, {"w", 1}}},
+                          {"forge.local_scale", {{"x", 1}, {"y", 1}, {"z", 1}}},
+                          {"forge.navigation_behavior",
+                           {{"graph", nullptr},
+                            {"target", nullptr},
+                            {"anchor", nullptr},
+                            {"enabled", true}}}}}}})}}),
+            "Assets/NativeAssembly.prefab.json");
+        editor.edit_source(scene, project, parent_asset);
+        click("prefab-nested-choice");
+        click("prefab-nested-asset:" + child_asset.str());
+        auto source = editor.migration_document();
+        check(source.at("version") == 7 &&
+                  source.at("members")[0].at("prefab_instance").at("asset") == Json(child_asset),
+              "Actual nested selection failed to author the shared source link");
+        stage = "scoped native member picker";
+        std::string picker;
+        const auto picker_schema = scene.schema();
+        for (const auto& component : picker_schema.at("components"))
+            if (component.at("id") == "forge.navigation_behavior")
+                for (const auto& field : component.at("fields"))
+                    if (field.at("id") == "target")
+                        picker = "prefab-member-picker:##" + property_label(field);
+        check(!picker.empty(), "Missing native target field schema");
+        const PrefabMemberPath address{parent_asset, {{parent_root, child_asset}}, child_root};
+        const auto encoded = Json(address);
+        click(picker);
+        click("prefab-member-row:" + encoded.at("member").dump());
+        source = editor.migration_document();
+        check(
+            source.at("members")[0].at("components").at("forge.navigation_behavior").at("target") ==
+                encoded,
+            "Actual scoped picker retargeted or dropped the selected nested occurrence");
+        check(prefab_property_source == nullptr && prefab_property_definitions == nullptr,
+              "Nested reference scope leaked into another panel");
+        if (!image.empty()) {
+            ImGui::GetIO().AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+            frame();
+            frame();
+            capture.save(image);
+        }
+        stage = "native publication";
+        click("button:Publish source");
+        check(!editor.dirty() &&
+                  project.prefabs().source(parent_asset) == editor.migration_document(),
+              "Actual Publish did not save the reviewed nested source");
+        const auto instance = instantiate_prefab(scene, parent_asset);
+        const auto reference =
+            *prefab_member_path_reference(scene.document(), EntityId::parse(instance), address);
+        check(scene.entity(reference.entity.str()) &&
+                  scene.entity(instance).get<NavigationBehavior>().target == reference,
+              "Native-authored source did not realize its actual linked target");
+        const auto derived = project.prefabs().create_variant(
+            scene, parent_asset, "Assets/NativeAssemblyVariant.prefab.json");
+        check(editor.resolve_close(ui::DraftResolution::Discard, scene, project),
+              "Could not settle source switch");
+        editor.edit_source(scene, project, derived);
+        stage = "inherited nested clear and Revert";
+        click("prefab-nested-choice");
+        click("prefab-nested-none");
+        check(editor.migration_document().at("version") == 7 &&
+                  editor.migration_document().at("overrides")[0].at("prefab_instance").is_null(),
+              "Actual None selection did not retain explicit inherited-link clearing");
+        click("prefab-nested-revert");
+        check(editor.migration_document().at("overrides").empty() &&
+                  editor.source_view(scene.schema())
+                          .at("members")[0]
+                          .at("prefab_instance")
+                          .at("asset") == Json(child_asset),
+              "Actual nested Revert failed to restore its current base link");
+        locked = true;
+        frame();
+        frame();
+        check(!test::ui_targets.at("prefab-nested-choice").enabled,
+              "Locked source allowed nested link editing");
+        test::observe_ui = false;
+        return;
+    }
     click("button:Revert name");
     check(!editor.dirty(), "Actual name Revert retained variant intent");
     click("button:Override name");
@@ -320,9 +425,14 @@ void exercise(const std::filesystem::path& scratch, float scale, bool narrow,
           "Native order Revert retained the source's ordering prefix");
     test::observe_ui = false;
 }
+enum class SourceCapture { Variant, Suppression, Structure, Nested, Basic };
 void capture_gallery(const std::filesystem::path& gallery, const std::filesystem::path& scratch,
-                     const std::filesystem::path& output, bool suppression = false,
-                     bool structural = false) {
+                     const std::filesystem::path& output,
+                     SourceCapture mode = SourceCapture::Variant) {
+    const bool suppression = mode == SourceCapture::Suppression;
+    const bool structural = mode == SourceCapture::Structure;
+    const bool nested = mode == SourceCapture::Nested;
+    const bool basic = mode == SourceCapture::Basic;
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root);
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
@@ -332,7 +442,9 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     project.open_project(root);
     AssetId amber;
     for (const auto& [id, record] : project.prefabs().records())
-        if (record.source == (structural    ? test_prefab_structure_gallery::prefab_paths[0]
+        if (record.source == (basic         ? test_prefab_nested_gallery::child_path
+                              : nested      ? test_prefab_nested_gallery::prefab_paths[0]
+                              : structural  ? test_prefab_structure_gallery::prefab_paths[0]
                               : suppression ? test_prefab_suppression_gallery::prefab_paths[1]
                                             : "Assets/Variants/AmberBeacon.prefab.json"))
             amber = id;
@@ -341,7 +453,7 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     ui::style(1);
     PrefabEditor editor;
     editor.edit_source(scene, project, amber);
-    test::observe_ui = suppression || structural;
+    test::observe_ui = suppression || structural || nested || basic;
     const auto frame = [&] {
         test::ui_targets.clear();
         capture.new_frame();
@@ -353,11 +465,14 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     };
     for (unsigned i = 0; i < 6; ++i)
         frame();
-    if (suppression || structural) {
+    if (suppression || structural || nested || basic) {
         std::string crown;
         const auto view = editor.source_view(scene.schema());
         for (const auto& row : view.at("members"))
-            if (row.at("name") == (structural ? "Crossbar" : "Crown"))
+            if (basic ? row.at("id") == view.at("root")
+                      : row.at("name") == (nested       ? "Right linked marker"
+                                           : structural ? "Crossbar"
+                                                        : "Crown"))
                 crown = row.at("id");
         const auto box = test::ui_targets.at("prefab-source-member:" + crown);
         auto& io = ImGui::GetIO();
@@ -369,7 +484,11 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
         io.AddMouseButtonEvent(0, false);
         frame();
         frame();
-        if (structural)
+        if (nested || basic)
+            check(test::ui_targets.contains("prefab-nested-choice") &&
+                      test::ui_targets.at("prefab-nested-choice").enabled,
+                  "Gallery source capture did not reach its actual nested asset control");
+        else if (structural)
             check(test::ui_targets.contains("prefab-source-parent:" + crown) &&
                       test::ui_targets.contains("prefab-source-spatial:" + crown),
                   "Gallery source capture did not reach its actual local attachment controls");
@@ -377,6 +496,9 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
             check(test::ui_targets.contains("prefab-component-restore:forge.mesh_renderer"),
                   "Gallery source screenshot did not reach its actual Restore control");
     }
+    ImGui::GetIO().AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+    frame();
+    frame();
     std::filesystem::create_directories(output.parent_path());
     capture.save(output);
     test::observe_ui = false;
@@ -384,6 +506,18 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if ((argc == 3 || argc == 4) && std::string_view(argv[1]) == "--nested-ui") {
+            const auto scratch = std::filesystem::absolute(argv[2]);
+            std::filesystem::create_directories(scratch);
+            if (argc == 4)
+                exercise(scratch, 1, false, std::filesystem::absolute(argv[3]), true);
+            else
+                for (float scale : {1.f, 1.5f, 2.f})
+                    for (bool narrow : {false, true})
+                        exercise(scratch, scale, narrow, {}, true);
+            std::cout << "Actual native nested links and scoped picker passed\n";
+            return 0;
+        }
         if (argc == 5 && std::string_view(argv[1]) == "--gallery-capture") {
             capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
                             std::filesystem::absolute(argv[4]));
@@ -391,12 +525,22 @@ int main(int argc, char** argv) {
         }
         if (argc == 5 && std::string_view(argv[1]) == "--suppression-capture") {
             capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
-                            std::filesystem::absolute(argv[4]), true);
+                            std::filesystem::absolute(argv[4]), SourceCapture::Suppression);
             return 0;
         }
         if (argc == 5 && std::string_view(argv[1]) == "--structure-capture") {
             capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
-                            std::filesystem::absolute(argv[4]), false, true);
+                            std::filesystem::absolute(argv[4]), SourceCapture::Structure);
+            return 0;
+        }
+        if (argc == 5 && std::string_view(argv[1]) == "--nested-capture") {
+            capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                            std::filesystem::absolute(argv[4]), SourceCapture::Nested);
+            return 0;
+        }
+        if (argc == 5 && std::string_view(argv[1]) == "--basic-capture") {
+            capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                            std::filesystem::absolute(argv[4]), SourceCapture::Basic);
             return 0;
         }
         check(argc == 2 || argc == 3, "Provide UI scratch and optional capture path");

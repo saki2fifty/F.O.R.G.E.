@@ -18,6 +18,10 @@ using Json = nlohmann::json;
 struct NavigationSettings;
 class Scene {
   public:
+    static constexpr unsigned current_version = 6;
+    static constexpr bool supports_saved_version(unsigned version) {
+        return version >= 3 && version <= current_version;
+    }
     explicit Scene(WorldContext& context);
     ~Scene();
     Scene(const Scene&) = delete;

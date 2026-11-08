@@ -23,7 +23,7 @@ Json prepare_scene(const std::filesystem::path& root, AssetRef<SceneAsset> ref,
             throw std::runtime_error("game.content: Missing or incompatible " + std::string(type) +
                                      " " + id.str());
         const auto version = found->second.schema_version;
-        if (type == SceneAsset::type ? version < 3 || version > 5
+        if (type == SceneAsset::type ? !Scene::supports_saved_version(version)
                                      : !PrefabDocument::supports_version(version))
             throw std::runtime_error("game.content: Unsupported catalog schema version");
         auto data = access.read(found->second.source, 64 * 1024 * 1024);

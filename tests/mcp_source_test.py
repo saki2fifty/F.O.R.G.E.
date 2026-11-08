@@ -9,7 +9,7 @@ import tempfile
 import time
 import wave
 from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
-from mcp_prefab_workflow import check_prefab_workflow
+from mcp_prefab_workflow import check_prefab_workflow, check_prefab_nested
 from mcp_terrain_foliage_workflow import check_terrain_foliage_workflow
 from mcp_render_texture_workflow import check_render_texture_workflow
 from mcp_paint_texture_workflow import check_paint_texture_workflow
@@ -25,6 +25,7 @@ SEQUENCE_PROPERTY_SOURCES_ONLY = '--sequence-property-sources-only' in sys.argv[
 SEQUENCE_BINDING_SOURCES_ONLY = '--sequence-binding-sources-only' in sys.argv[5:]
 TERRAIN_FOLIAGE_ONLY = "--terrain-foliage-only" in sys.argv[5:]
 PREFAB_ONLY = "--prefab-only" in sys.argv[5:]
+NESTED_PREFABS_ONLY = "--nested-prefabs-only" in sys.argv[5:]
 # Instrumented native admission can exceed the unchanged production bridge
 # deadline for the multi-MiB boundary fixture. Normal CTest always includes it.
 SKIP_LARGE_PREFAB_READ = "--skip-large-prefab-read" in sys.argv[5:]
@@ -154,9 +155,9 @@ for legacy in (False, True):
         assert 'forge_asset_document_types' in names
         assert {'forge_asset_skeleton_joints', 'forge_asset_animation_retarget_catalog',
                 'forge_asset_animation_graph_catalog'} <= names
-        assert 'forge_prefab_source_read' in names
+        assert {'forge_prefab_source_read', 'forge_prefab_source_targets'} <= names
         assert not {'forge_prefab_variant_create', 'forge_prefab_duplicate', 'forge_prefab_source_rebase', 'forge_prefab_source_revert', 'forge_prefab_source_suppress'} & names
-        assert not any(name.startswith('forge_prefab_source_member_') for name in names)
+        assert not any(name.startswith(('forge_prefab_source_member_', 'forge_prefab_source_nested_')) for name in names)
         assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'save', 'paint', 'stroke', 'fill', 'copy_pixels', 'cancel_pixels', 'close', 'tile_collision', 'tile_animation', 'tile_autotile'))
         if PLANAR_MESH_ONLY:
             preview = client.tool('forge_asset_document_template', target=state['result']['target'],
@@ -190,6 +191,11 @@ for legacy in (False, True):
 
         if sys.argv[5:] == ['--audio-streaming-only']:
             check_audio_settings(read, mutate, root)
+            continue
+
+        if NESTED_PREFABS_ONLY:
+            assert {'forge_prefab_source_nested_' + action for action in ('set', 'clear', 'revert')} <= tool_names
+            check_prefab_nested(read, mutate, failed, root)
             continue
 
         if PREFAB_ONLY:

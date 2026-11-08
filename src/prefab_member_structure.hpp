@@ -23,7 +23,7 @@ inline std::set<std::string> inherited_prefab_member_ids(AssetId base,
                 if (row.contains("spatial") && row.at("spatial").value("mode", "") == "explicit")
                     ids.insert(row.at("spatial").at("member").get<PrefabMemberId>().str());
             }
-        if (PrefabDocument::is_variant(source) && source.at("version") == 6)
+        if (PrefabDocument::is_variant(source) && source.at("version").get<unsigned>() >= 6)
             for (const auto& order : source.value("member_order", Json::array())) {
                 ids.insert(order.at("parent").get<PrefabMemberId>().str());
                 for (const auto& member : order.at("members"))

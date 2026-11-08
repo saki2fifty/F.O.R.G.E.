@@ -63,7 +63,7 @@ static Json migrate_identity(const Json& source, const Json* existing = nullptr)
     return result;
 }
 Json migrate_scene(const Json& source, const Json* existing) {
-    if (source.at("version") == 3 || source.at("version") == 4 || source.at("version") == 5) {
+    if (Scene::supports_saved_version(source.at("version").get<unsigned>())) {
         Scene::validate_document(source);
         auto compatible = source;
         detail::promote_scale_format(compatible, "entities", 5);
@@ -81,7 +81,7 @@ Json duplicate_scene_asset(const Json& source, AssetId destination) {
 }
 Json duplicate_scene_asset(const Json& source, AssetId destination, const Json& schema) {
     Scene::validate_document(source);
-    if (source.at("version") != 3 && source.at("version") != 4 && source.at("version") != 5)
+    if (!Scene::supports_saved_version(source.at("version").get<unsigned>()))
         throw std::runtime_error("Migrate the scene before duplicating its asset");
     if (!destination || destination == source.at("asset_id").get<AssetId>())
         throw std::runtime_error("Duplicated scene requires a new asset identity");
@@ -120,9 +120,15 @@ Json duplicate_scene_asset(const Json& source, AssetId destination, const Json& 
     for (auto& entity : result["entities"])
         entity["id"] = fresh(entity.at("id"));
     for (const auto& entity : result["entities"])
-        if (entity.contains("prefab_instance"))
+        if (entity.contains("prefab_instance")) {
             for (const auto& id : entity.at("prefab_instance").at("members"))
                 (void)fresh(id.get<std::string>());
+            if (source.at("version").get<unsigned>() >= 6)
+                for (const auto& assets :
+                     entity.at("prefab_instance").value("nested", Json::object()))
+                    for (const auto& id : assets)
+                        (void)fresh(id.get<std::string>());
+        }
     std::map<EntityId, EntityId> typed_remap;
     for (const auto& [old, id] : remap)
         typed_remap.emplace(EntityId::parse(old), EntityId::parse(id));
@@ -174,7 +180,7 @@ Json read_scene_file(const std::filesystem::path& path) {
 }
 void write_scene_file(const std::filesystem::path& path, const Json& document) {
     Scene::validate_document(document);
-    if (document.at("version") != 3 && document.at("version") != 4 && document.at("version") != 5)
+    if (!Scene::supports_saved_version(document.at("version").get<unsigned>()))
         throw std::runtime_error("Save requires a migrated scene");
     if (std::filesystem::exists(path)) {
         const auto source = read(path);
