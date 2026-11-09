@@ -158,7 +158,9 @@ class ProjectSettingsEditor {
                     game["ui"]["grapheme_editing"] = grapheme_editing;
                 ui::help("Move and delete whole Unicode characters with plain Left, Right, "
                          "Backspace and Delete in UI text fields; Shift+Left/Right selects whole "
-                         "characters. Save Settings and restart Play. Other modified keys and "
+                         "characters. Ctrl arrows use native word grouping and whole character "
+                         "boundaries; add Shift to select. Save Settings and restart Play. "
+                         "Other modified keys and "
                          "active IME composition use native behavior. "
                          "Requires the matching runtime kit when exporting.");
                 auto text = [&](const char* label, Json& value, const char* help) {

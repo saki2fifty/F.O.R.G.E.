@@ -69,7 +69,7 @@ body {font-family:Lato;font-size:20px;} input,textarea {display:block;width:300p
         const auto initial = presenter.text_fields("fields");
         const auto revision = initial.at("presentation_revision").get<std::uint64_t>();
         check(initial.at("fields").size() == 8 && !initial.at("truncated").get<bool>() &&
-                  field(initial, "text").at("value") == "old" && initial.at("keys").size() == 12,
+                  field(initial, "text").at("value") == "old" && initial.at("keys").size() == 16,
               "Native field discovery differs from the actual controls");
         check(initial.dump().find("native-secret") == std::string::npos &&
                   !field(initial, "password").at("value_available").get<bool>(),
@@ -114,6 +114,29 @@ body {font-family:Lato;font-size:20px;} input,textarea {display:block;width:300p
               "Scoped reversed Shift key changed its native anchor");
         check(field(act("text", "backspace"), "text").at("value") == "b",
               "Scoped deletion did not consume the native whole-character selection");
+        act("text", "select_all");
+        act("text", "text",
+            ".\xcc\x81"
+            "a next");
+        act("text", "home");
+        check(field(act("text", "word_right"), "text").at("selection") ==
+                  Json{{"begin", 2}, {"end", 2}},
+              "Scoped word movement stopped inside a character");
+        check(field(act("text", "word_right"), "text").at("selection") ==
+                  Json{{"begin", 4}, {"end", 4}},
+              "Scoped word movement replaced native grouping");
+        act("text", "word_left");
+        check(field(act("text", "select_word_right"), "text").at("selection") ==
+                  Json{{"begin", 0}, {"end", 2}},
+              "Scoped word selection split a character");
+        act("text", "end");
+        act("text", "select_word_left");
+        check(field(act("text", "select_word_left"), "text").at("selection") ==
+                  Json{{"begin", 0}, {"end", 8}},
+              "Scoped reverse word selection lost its native anchor");
+        check(field(act("text", "select_word_right"), "text").at("selection") ==
+                  Json{{"begin", 2}, {"end", 8}},
+              "Scoped reversed word selection split its moving end");
         act("text", "select_all");
         const auto maximum = std::string(ui_protocol::max_string, 'x');
         check(field(act("text", "text", maximum), "text").at("value") == maximum,

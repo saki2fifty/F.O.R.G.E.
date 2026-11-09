@@ -830,11 +830,12 @@ int main(int argc, char** argv) {
             reject([&] { export_standalone_game(lease, request); });
             check(asset_storage::read(exported / "forge.standalone.json") == before_editing,
                   "A kit without whole-character editing replaced the last good distribution");
-            runtime["engine"]["runtime_ui_grapheme_editing"] = 1;
+            runtime["engine"]["runtime_ui_grapheme_editing"] =
+                ui_grapheme_editing_profile_version - 1;
             asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
             reject([&] { export_standalone_game(lease, request); });
             check(asset_storage::read(exported / "forge.standalone.json") == before_editing,
-                  "A plain-key-only kit replaced the distribution for Shift-aware editing");
+                  "An older UI editing kit replaced the last good distribution");
             runtime["engine"]["runtime_ui_grapheme_editing"] = ui_grapheme_editing_profile_version;
             asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
             (void)export_standalone_game(lease, request);

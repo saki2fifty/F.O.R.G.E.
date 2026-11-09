@@ -10,7 +10,7 @@ The example uses separate Latin and Arabic runs, a project font, native font
 effects and a local text field.
 
 The example also enables [Edit whole UI characters](ui-text-input.md), a separate
-option for plain arrow movement and deletion in its text field.
+option for arrow and word movement, selection and plain deletion in its text field.
 
 ## Try the example
 
@@ -152,5 +152,5 @@ See [Export a game](runtime-content.md) for the normal export workflow.
 - Missing glyph boxes usually mean the selected font lacks those characters. Assign a font containing the script. Fallback chooses a face covering a whole run; arbitrary mixed-script fallback is unavailable.
 - Use horizontal text and font sizes from **1–512 px**. A single run supports **64 KiB** of UTF-8 and **16,384 glyphs**, within the normal document limits.
 - Variable axes, color glyphs and vertical text are unsupported. Use a valid zero-based collection face index; an invalid index reports a font diagnostic.
-- Shaping does not provide full paragraph bidirectional layout, joining across separate elements, complete international input methods or accessibility. Use the separate [Edit whole UI characters](ui-text-input.md) option for bounded plain-key movement/deletion and Shift-arrow selection. Check text entry on your target systems.
+- Shaping does not provide full paragraph bidirectional layout, joining across separate elements, complete international input methods or accessibility. Use the separate [Edit whole UI characters](ui-text-input.md) option for bounded plain-key movement/deletion, Shift-arrow selection and Ctrl-arrow word movement/selection. Check text entry on your target systems.
 - A failed reload keeps the last usable HUD and reports a diagnostic. If a font or glyph cache limit is reached, simplify the UI or stop and restart Play.

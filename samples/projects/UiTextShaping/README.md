@@ -12,7 +12,9 @@ select its text with Ctrl+A, and paste `áb` (a combining accent after `a`). Pr
 End, Backspace, Backspace: the accented character is removed together. Home and
 plain Left/Right/Delete also use whole character boundaries. Hold Shift with
 Left/Right to extend or shrink a whole-character selection while keeping its
-native anchor. Other modified keys, pointer selection and active IME composition
+native anchor. Ctrl+Left/Right uses native word grouping with complete-character
+destinations; add Shift to select words. Word deletion, other modified keys,
+pointer selection and active IME composition
 keep native behavior. Save Settings
 and restart Play after changing either UI option. See
 [Edit whole UI characters](../../../manual/editor/ui-text-input.md) for bounds and controls.

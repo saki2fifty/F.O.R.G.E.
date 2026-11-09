@@ -219,6 +219,22 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
                                         "select_left");
             field->GetSelection(&begin, &end, nullptr);
             check(begin == 0 && end == 0, "Scoped output Shift reversal lost the native anchor");
+            field->SetValue(".\xcc\x81"
+                            "a next");
+            field->SetSelectionRange(0, 0);
+            presenter.text_field_action("output", "entry", fields.at("presentation_revision"),
+                                        "word_right");
+            field->GetSelection(&begin, &end, nullptr);
+            check(begin == 2 && end == 2, "Scoped output word key split a character");
+            presenter.text_field_action("output", "entry", fields.at("presentation_revision"),
+                                        "word_left");
+            presenter.text_field_action("output", "entry", fields.at("presentation_revision"),
+                                        "select_word_right");
+            field->GetSelection(&begin, &end, nullptr);
+            check(begin == 0 && end == 2, "Scoped output word selection lost its native anchor");
+            field->SetValue("a\xcc\x81"
+                            "b");
+            field->SetSelectionRange(0, 0);
             presenter.key(Rml::Input::KI_DELETE, true, 0);
             presenter.key(Rml::Input::KI_DELETE, false, 0);
             check(field->GetValue() == "b", "Output deletion split a combining character");

@@ -65,14 +65,14 @@ struct UiTextInput::Impl final : Rml::TextInputHandler {
     // Reentrant public key dispatch invalidates an outer transient correction.
     // This routing stamp contains no field, caret or selection authority.
     std::uint64_t key_dispatch = 0;
-    struct ShiftGate final : Rml::EventListener {
+    struct MovementGate final : Rml::EventListener {
         Rml::ObserverPtr<Rml::Element> element;
         std::function<void(Rml::Event&)> observe;
-        ShiftGate(Rml::Element& field, std::function<void(Rml::Event&)> callback)
+        MovementGate(Rml::Element& field, std::function<void(Rml::Event&)> callback)
             : element(field.GetObserverPtr()), observe(std::move(callback)) {
             element->AddEventListener(Rml::EventId::Keydown, this, true);
         }
-        ~ShiftGate() override {
+        ~MovementGate() override {
             if (element)
                 element->RemoveEventListener(Rml::EventId::Keydown, this, true);
         }
@@ -165,8 +165,8 @@ struct UiTextInput::Impl final : Rml::TextInputHandler {
         return propagated;
     }
     template <class T>
-    bool field_shift_key(Rml::Context& context, T* field, int key, int modifiers, UiTextKey action,
-                         std::uint64_t dispatch) {
+    bool field_movement_key(Rml::Context& context, T* field, int key, int modifiers,
+                            UiTextKey action, std::uint64_t dispatch) {
         const auto token = active;
         const auto previous = field->GetValue();
         UiTextSelection before;
@@ -177,7 +177,7 @@ struct UiTextInput::Impl final : Rml::TextInputHandler {
         // The pinned native widget edits in its capture listener. Observe the
         // same field after that handler; ancestor cancellation prevents this
         // listener too. Later callback edits must retain their result.
-        ShiftGate gate(*field, [&](Rml::Event& event) {
+        MovementGate gate(*field, [&](Rml::Event& event) {
             if (event.GetTargetElement() != field)
                 return;
             ++observed;
@@ -197,7 +197,12 @@ struct UiTextInput::Impl final : Rml::TextInputHandler {
             if (after != received)
                 return propagated;
             try {
-                if (const auto next = ui_text_shift_selection(previous, before, after, action))
+                const auto next =
+                    modifiers & Rml::Input::KM_CTRL
+                        ? ui_text_word_selection(previous, before, after, action,
+                                                 bool(modifiers & Rml::Input::KM_SHIFT))
+                        : ui_text_shift_selection(previous, before, after, action);
+                if (next)
                     field->SetSelectionRange(next->anchor, next->caret);
             } catch (const std::runtime_error&) {
                 // Non-admitted values retain native editing, without truncation.
@@ -223,10 +228,10 @@ struct UiTextInput::Impl final : Rml::TextInputHandler {
             break;
         }
         if (action && active && !active->composing &&
-            !(modifiers & (Rml::Input::KM_CTRL | Rml::Input::KM_ALT | Rml::Input::KM_META)))
+            !(modifiers & (Rml::Input::KM_ALT | Rml::Input::KM_META)))
             if (const auto field = ui_text_field(context.GetFocusElement());
                 field && ui_text_field_editable(*field)) {
-                if (!(modifiers & Rml::Input::KM_SHIFT))
+                if (!(modifiers & (Rml::Input::KM_SHIFT | Rml::Input::KM_CTRL)))
                     return std::visit(
                         [&](auto* value) {
                             return field_key(context, value, key, modifiers, *action);
@@ -235,8 +240,8 @@ struct UiTextInput::Impl final : Rml::TextInputHandler {
                 else if (*action == UiTextKey::Left || *action == UiTextKey::Right)
                     return std::visit(
                         [&](auto* value) {
-                            return field_shift_key(context, value, key, modifiers, *action,
-                                                   dispatch);
+                            return field_movement_key(context, value, key, modifiers, *action,
+                                                      dispatch);
                         },
                         *field);
             }

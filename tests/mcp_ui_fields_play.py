@@ -62,6 +62,7 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
     assert not field(value, 'password')['value_available'] and 'value' not in field(value, 'password')
     assert set(value['keys']) == set(advertised['forge_play_ui_key']['inputSchema']['properties']['key']['enum'])
     assert {'select_left', 'select_right'} <= set(value['keys'])
+    assert {'word_left', 'word_right', 'select_word_left', 'select_word_right'} <= set(value['keys'])
     assert value['limits']['text_bytes'] == 1024
     assert advertised['forge_play_ui_text']['inputSchema']['properties']['text']['maxLength'] == value['limits']['text_bytes']
     assert advertised['forge_play_ui_command']['inputSchema']['properties']['value']['maxLength'] == value['limits']['text_bytes']
@@ -94,6 +95,27 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
     assert field(fields(), 'entry')['selection'] == dict(begin=0, end=3)
     assert field(action('forge_play_ui_key', key='select_left'), 'entry')['selection'] == dict(begin=0, end=2)
     assert field(action('forge_play_ui_key', key='select_left'), 'entry')['selection'] == dict(begin=0, end=0)
+    action('forge_play_ui_key', key='select_all')
+    action('forge_play_ui_text', text='.́a next')
+    action('forge_play_ui_key', key='home')
+    word = field(action('forge_play_ui_key', key='word_right'), 'entry')
+    assert word['selection'] == dict(begin=2, end=2) and word['value'] == '.́a next'
+    assert field(action('forge_play_ui_key', key='word_right'), 'entry')['selection'] == dict(begin=4, end=4)
+    assert field(action('forge_play_ui_key', key='word_left'), 'entry')['selection'] == dict(begin=0, end=0)
+    assert field(action('forge_play_ui_key', key='select_word_right'), 'entry')['selection'] == dict(begin=0, end=2)
+    assert field(action('forge_play_ui_key', key='select_word_right'), 'entry')['selection'] == dict(begin=0, end=4)
+    assert field(action('forge_play_ui_key', key='select_word_left'), 'entry')['selection'] == dict(begin=0, end=0)
+    action('forge_play_ui_key', key='end')
+    assert field(action('forge_play_ui_key', key='select_word_left'), 'entry')['selection'] == dict(begin=4, end=8)
+    assert field(action('forge_play_ui_key', key='select_word_left'), 'entry')['selection'] == dict(begin=0, end=8)
+    word_args = arguments(**scope(), instance=instance, element='entry',
+                          presentation_revision=revision, key='select_word_right')
+    word_first = client.tool('forge_play_ui_key', **word_args)
+    word_replay = client.tool('forge_play_ui_key', **word_args)
+    assert word_first['ok'] and word_replay['ok'] and word_first['result'] == word_replay['result']
+    assert field(fields(), 'entry')['selection'] == dict(begin=2, end=8)
+    action('forge_play_ui_key', key='select_all')
+    action('forge_play_ui_text', text='áb')
     action('forge_play_ui_key', element='entry', key='end')
     replay_args = arguments(**scope(), instance=instance, element='entry',
                             presentation_revision=revision, key='backspace')

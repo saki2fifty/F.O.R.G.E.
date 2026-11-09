@@ -323,8 +323,9 @@ Arabic run, font effects and an interactive field. Its project font and saved UI
 setting travel through the normal export owners. See [Shape game UI text](manual/editor/ui-text-shaping.md)
 for the workflow and current limits.
 The independent [Edit whole UI characters](manual/editor/ui-text-input.md) option
-uses Unicode character boundaries for plain arrows, Backspace and Delete in the
-same native field. Modified selection, IME and complete international editing
+uses Unicode character boundaries for plain arrows, Backspace, Delete and
+Shift-arrow selection in the same native field. Ctrl-arrow word movement and
+selection keep native grouping with complete characters. IME and complete international editing
 retain their documented limits.
 Scoped MCP field discovery/focus/text/key tools operate the same native game HUD
 during editor Play. See [agent field testing](manual/editor/mcp.md) for guards,

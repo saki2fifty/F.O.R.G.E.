@@ -27,4 +27,9 @@ struct UiTextOrientedSelection {
 };
 std::optional<UiTextOrientedSelection> ui_text_shift_selection(std::string_view, UiTextSelection,
                                                                UiTextSelection, UiTextKey);
+// The native word policy chooses the destination. Only its admitted horizontal
+// result is aligned; selecting identifies Ctrl+Shift rather than Ctrl alone.
+std::optional<UiTextOrientedSelection> ui_text_word_selection(std::string_view, UiTextSelection,
+                                                              UiTextSelection, UiTextKey,
+                                                              bool selecting);
 } // namespace forge

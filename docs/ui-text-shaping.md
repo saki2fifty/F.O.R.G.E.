@@ -69,7 +69,8 @@ variable axes, named variation instances, color glyphs or a general typography e
 RmlUi still owns wrapping, DOM layout, focus and text input. Font coverage and
 author-selected language/direction affect the result.
 The independent [native input boundary option](ui-text-input.md) supplies bounded
-plain-key grapheme movement/deletion and Shift-arrow selection; shaping alone does not provide it.
+plain-key grapheme movement/deletion, Shift-arrow selection and whole-character
+alignment of native Ctrl-arrow word movement/selection; shaping alone does not provide it.
 
 ## Export and compatibility
 

@@ -5,6 +5,31 @@
 #include <utf8proc.h>
 
 namespace forge {
+namespace {
+void check_selection(UiTextSelection value, int last) {
+    if (value.begin < 0 || value.end < value.begin || value.end > last)
+        throw std::runtime_error("UI text selection is outside the native scalar range");
+}
+std::optional<UiTextOrientedSelection> align_selection(const std::vector<int>& boundaries,
+                                                       UiTextOrientedSelection value, UiTextKey key,
+                                                       bool selecting) {
+    const auto ceiling = [&](int point) {
+        return std::lower_bound(boundaries.begin(), boundaries.end(), point);
+    };
+    const auto floor = [&](int point) {
+        const auto next = ceiling(point);
+        return *next == point ? next : std::prev(next);
+    };
+    const int caret = key == UiTextKey::Left ? *floor(value.caret) : *ceiling(value.caret);
+    const int anchor = !selecting             ? caret
+                       : value.anchor < caret ? *floor(value.anchor)
+                       : value.anchor > caret ? *ceiling(value.anchor)
+                                              : value.anchor;
+    if (anchor == value.anchor && caret == value.caret)
+        return {};
+    return UiTextOrientedSelection{anchor, caret};
+}
+} // namespace
 std::vector<int> ui_grapheme_boundaries(std::string_view text) {
     if (text.size() > ui_edit_text_bytes)
         throw std::runtime_error("UI text editing supports fields up to 64 KiB");
@@ -33,8 +58,7 @@ std::vector<int> ui_grapheme_boundaries(std::string_view text) {
 std::optional<UiTextSelection> ui_text_key_selection(std::string_view text,
                                                      UiTextSelection selection, UiTextKey key) {
     const auto boundaries = ui_grapheme_boundaries(text);
-    if (selection.begin < 0 || selection.end < selection.begin || selection.end > boundaries.back())
-        throw std::runtime_error("UI text selection is outside the native scalar range");
+    check_selection(selection, boundaries.back());
     const auto ceiling = [&](int point) {
         return std::lower_bound(boundaries.begin(), boundaries.end(), point);
     };
@@ -77,11 +101,8 @@ std::optional<UiTextOrientedSelection> ui_text_shift_selection(std::string_view 
                                                                UiTextSelection after,
                                                                UiTextKey key) {
     const auto boundaries = ui_grapheme_boundaries(text);
-    const auto valid = [&](UiTextSelection value) {
-        return value.begin >= 0 && value.begin <= value.end && value.end <= boundaries.back();
-    };
-    if (!valid(before) || !valid(after))
-        throw std::runtime_error("UI text selection is outside the native scalar range");
+    check_selection(before, boundaries.back());
+    check_selection(after, boundaries.back());
     int anchor = 0, caret = 0;
     if (key == UiTextKey::Left && after.end == before.end && after.begin == before.begin - 1) {
         anchor = before.end;
@@ -100,19 +121,44 @@ std::optional<UiTextOrientedSelection> ui_text_shift_selection(std::string_view 
         caret = after.begin;
     } else
         return {}; // No proven one-scalar native movement; retain its current selection.
-    const auto ceiling = [&](int point) {
-        return std::lower_bound(boundaries.begin(), boundaries.end(), point);
-    };
-    const auto floor = [&](int point) {
-        const auto next = ceiling(point);
-        return *next == point ? next : std::prev(next);
-    };
-    const int next_caret = key == UiTextKey::Left ? *floor(caret) : *ceiling(caret);
-    const int next_anchor = anchor < next_caret   ? *floor(anchor)
-                            : anchor > next_caret ? *ceiling(anchor)
-                                                  : anchor;
-    if (next_anchor == anchor && next_caret == caret)
+    return align_selection(boundaries, {anchor, caret}, key, true);
+}
+std::optional<UiTextOrientedSelection> ui_text_word_selection(std::string_view text,
+                                                              UiTextSelection before,
+                                                              UiTextSelection after, UiTextKey key,
+                                                              bool selecting) {
+    const auto boundaries = ui_grapheme_boundaries(text);
+    check_selection(before, boundaries.back());
+    check_selection(after, boundaries.back());
+    if (before == after || (key != UiTextKey::Left && key != UiTextKey::Right))
         return {};
-    return UiTextOrientedSelection{next_anchor, next_caret};
+    if (!selecting) {
+        if (after.begin != after.end || (key == UiTextKey::Left && after.end > before.end) ||
+            (key == UiTextKey::Right && after.begin < before.begin))
+            return {};
+        return align_selection(boundaries, {after.begin, after.end}, key, false);
+    }
+    int anchor = 0, caret = 0;
+    if (key == UiTextKey::Left && after.end == before.end && after.begin < before.begin) {
+        anchor = before.end;
+        caret = after.begin;
+    } else if (key == UiTextKey::Left && after.begin == before.begin && after.end < before.end) {
+        anchor = before.begin;
+        caret = after.end;
+    } else if (key == UiTextKey::Left && after.end == before.begin && after.begin < before.begin) {
+        anchor = before.begin;
+        caret = after.begin;
+    } else if (key == UiTextKey::Right && after.begin == before.begin && after.end > before.end) {
+        anchor = before.begin;
+        caret = after.end;
+    } else if (key == UiTextKey::Right && after.end == before.end && after.begin > before.begin) {
+        anchor = before.end;
+        caret = after.begin;
+    } else if (key == UiTextKey::Right && after.begin == before.end && after.end > before.end) {
+        anchor = before.end;
+        caret = after.end;
+    } else
+        return {}; // No preserved native anchor identifies this transition.
+    return align_selection(boundaries, {anchor, caret}, key, true);
 }
 } // namespace forge

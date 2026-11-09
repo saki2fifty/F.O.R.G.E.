@@ -7,7 +7,8 @@ Two styles select different faces from **Assets/Fonts/Menu.ttc**: face **0** is
 Poppins and face **1** is Cairo. Compare the two Latin samples, the Arabic run and
 the text field. The saved **Shape UI text** option enables script joining;
 **Edit whole UI characters** enables bounded plain-key editing and Shift+Left/Right
-whole-character selection in the text field.
+whole-character selection in the text field. Ctrl+Left/Right moves by native
+words without splitting characters; add Shift for word selection.
 
 In Content, open **Assets/UI/hud.rcss**. Each `@font-face` names the same file,
 provides a family alias and uses `-rmlui-face-index` to select a zero-based face.

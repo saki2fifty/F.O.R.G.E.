@@ -43,6 +43,14 @@ shrinking and reversal retain the native anchor. Ambiguous transitions, changed
 values/focus, retired controls, later callback selection changes and active
 composition retain native behavior. There is no persistent cursor/anchor copy.
 
+Ctrl+Left/Right and Ctrl+Shift+Left/Right use the same call-local observation.
+RmlUi chooses the word destination; FORGE aligns that actual destination and,
+for selection, its preserved anchor to complete characters. Word selection may
+cross its anchor. The helper accepts only an unambiguous directional transition;
+it does not implement a word scanner or substitute language segmentation.
+Forward and backward native grouping can differ. Password fields retain the
+word grouping of their native masked display, without scanning plaintext words.
+
 The optional handler forwards the supplied platform handler through public
 context proxies. Native contexts remain borrowed until OnDestroy. Proxies
 observe composition calls without owning composition text, and forward all
@@ -67,8 +75,8 @@ The helper validates UTF-8, native scalar ranges, a64KiB byte limit and
 Font/glyph/document limits apply independently. The bounded full-field scan
 has no persistent invalidation cache and is not a physical performance claim.
 
-Other modified keys, word navigation, vertical movement and pointer selection
-remain native. Plain keys move in logical text order, without full paragraph
+Word deletion, other modified keys, vertical movement and pointer selection
+remain native. Horizontal keys move in logical text order, without full paragraph
 bidirectional semantics. Complete IME, accessibility and general Unicode editor
 coverage are not implied. Native readonly is not available at this pin; supported
 disabled fields remain authoritative. Ordinary key edits never call context
@@ -77,8 +85,9 @@ SetText, which bypasses native maximum length.
 ## Export, automation and validation
 
 Enabling the option requires exact runtime-kit capability
-`engine.runtime_ui_grapheme_editing: 2`. This profile includes native Shift-arrow
-selection; the older plain-key profile is rejected. Missing/malformed/mismatched support is
+`engine.runtime_ui_grapheme_editing: 3`. This profile includes Shift-arrow
+selection and whole-character alignment of native Ctrl-arrow word movement and
+selection; older profiles are rejected. Missing/malformed/mismatched support is
 rejected before replacing a good distribution. Default projects preserve their
 existing kit compatibility. The standalone host reads the packaged setting with
 source files unavailable. No Scene/asset format, serialized identity, cook format
@@ -94,7 +103,9 @@ is not exposed as an agent operation.
 The focused helper test runs all853official Unicode18 cases plus admission/key
 selection checks. Actual native-control tests cover text/password/textarea,
 combining marks, emoji sequences, flags, Hangul, events, limits, modifiers,
-composition forwarding, blur/removal/reset and both font modes. The original
+composition forwarding, blur/removal/reset and both font modes. Word checks
+include punctuation/whitespace with combining marks, anchor crossing and masked
+password grouping. The original
 example is exercised with its four IDs preserved and source-hidden relocation.
 Platform/physical input review remains separate from these CPU consumers.
 
@@ -127,9 +138,12 @@ exact field/output still to hold native focus.
 Text uses the existing text/ProcessTextInput path. Named keys send a balanced
 native down/up pair; next/previous/accept reuse native navigation. Home/end and
 select-all retain native semantics. `select_left` and `select_right` send paired
-Shift+Left/Right through that same key owner. The private Rml-free key catalog
-drives dispatch and automation schema discovery. The saved grapheme option affects
-its four plain keys and these two Shift arrows. Events, bindings, native restrictions and declared command
+Shift+Left/Right through that same key owner. `word_left`, `word_right`,
+`select_word_left` and `select_word_right` send Ctrl+Left/Right, adding Shift for
+selection. The private Rml-free key catalog drives dispatch and automation schema
+discovery. The saved grapheme option affects its four plain keys, Shift arrows
+and these word keys. Native word grouping remains authoritative. Events,
+bindings, native restrictions and declared command
 queues retain their existing owners. Action results report delivered/consumed
 and fresh observations; they do not acknowledge gameplay or persist UI values.
 Native model/game updates may replace a field value between observations.

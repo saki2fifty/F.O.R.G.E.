@@ -1,5 +1,20 @@
 # 2026-11-09
 
+## Native word movement and selection
+
+**Edit whole UI characters** also aligns Ctrl+Left/Right and Ctrl+Shift+Left/Right
+to complete characters in native text, password and textarea fields. Native
+word grouping remains authoritative, including masked password grouping.
+Extension, shrinking, reversal and anchor crossing share the existing native
+selection owner and callback/lifetime guards. Automation and MCP expose
+`word_left`, `word_right`, `select_word_left` and `select_word_right` through the
+same key catalog and guarded native dispatcher.
+
+The matching runtime profile is 3; older kits are rejected before replacing a
+good distribution when the option is enabled. Saved defaults, booleans and asset
+identities remain unchanged. Word deletion, vertical/pointer selection and full
+international editing retain their existing limits.
+
 ## Whole-character Shift selection
 
 The existing **Edit whole UI characters** option extends to logical horizontal

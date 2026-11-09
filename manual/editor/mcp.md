@@ -224,12 +224,15 @@ editing its saved RML source.
 4. Call `forge_play_ui_text` with `text`, or `forge_play_ui_key` with a supported `key`, using the same target and current guards. The exact field must still have focus.
 5. Inspect the returned native field values, selection and focus. Read again after **Reload UI**; old presentation revisions are rejected.
 
-Keys are `left`, `right`, `select_left`, `select_right`, `home`, `end`, `backspace`, `delete`, `select_all`,
-`accept`, `next` and `previous`. `select_left` and `select_right` send Shift+Left
-and Shift+Right. Enable **Edit whole UI characters** to select by complete
-characters with those arrows. For example, use `select_all`, then send the
-replacement text. [Edit whole UI characters](ui-text-input.md) controls plain
-arrow/deletion boundaries. Native maximum length, disabled controls, events and
+Keys are `left`, `right`, `select_left`, `select_right`, `word_left`, `word_right`,
+`select_word_left`, `select_word_right`, `home`, `end`, `backspace`, `delete`,
+`select_all`, `accept`, `next` and `previous`. `select_left` and `select_right`
+send Shift+Left and Shift+Right. The word keys send Ctrl+Left/Right, adding Shift
+for selection. Enable **Edit whole UI characters** to keep these movements and
+selections on complete characters while retaining native word grouping. For
+example, use `select_all`, then send the replacement text.
+[Edit whole UI characters](ui-text-input.md) also controls plain deletion
+boundaries. Native maximum length, disabled controls, events and
 bindings remain active. Game models may change fields between calls.
 
 The tools observe up to **64 fields** within **4,096 DOM nodes** per document.

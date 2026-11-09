@@ -1589,6 +1589,20 @@ Json UiPresenter::text_field_action(const std::string& instance, const std::stri
                 code = Rml::Input::KI_RIGHT;
                 modifiers = Rml::Input::KM_SHIFT;
                 break;
+            case ui_field::Key::WordLeft:
+            case ui_field::Key::SelectWordLeft:
+                code = Rml::Input::KI_LEFT;
+                modifiers = Rml::Input::KM_CTRL;
+                if (named_key->key == ui_field::Key::SelectWordLeft)
+                    modifiers |= Rml::Input::KM_SHIFT;
+                break;
+            case ui_field::Key::WordRight:
+            case ui_field::Key::SelectWordRight:
+                code = Rml::Input::KI_RIGHT;
+                modifiers = Rml::Input::KM_CTRL;
+                if (named_key->key == ui_field::Key::SelectWordRight)
+                    modifiers |= Rml::Input::KM_SHIFT;
+                break;
             case ui_field::Key::Home:
                 code = Rml::Input::KI_HOME;
                 break;

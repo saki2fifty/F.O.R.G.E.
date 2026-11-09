@@ -60,6 +60,26 @@ void policy() {
     shifted({0, 3}, {1, 3}, UiTextKey::Right, {3, 3});
     shifted({1, 1}, {1, 2}, UiTextKey::Right, {0, 3});
     shifted({1, 1}, {0, 1}, UiTextKey::Left, {3, 0});
+    const auto word = [&](UiTextSelection before, UiTextSelection after, UiTextKey key,
+                          bool selecting, UiTextOrientedSelection expected) {
+        check(ui_text_word_selection(emoji, before, after, key, selecting) == expected,
+              "Word destination alignment lost native anchor/caret roles");
+    };
+    word({0, 0}, {1, 1}, UiTextKey::Right, false, {3, 3});
+    word({4, 4}, {1, 1}, UiTextKey::Left, false, {0, 0});
+    word({0, 0}, {0, 2}, UiTextKey::Right, true, {0, 3});
+    word({0, 3}, {0, 1}, UiTextKey::Left, true, {0, 0});
+    word({0, 3}, {2, 3}, UiTextKey::Right, true, {3, 3});
+    word({1, 2}, {2, 3}, UiTextKey::Right, true, {0, 3});
+    word({1, 2}, {0, 1}, UiTextKey::Left, true, {3, 0});
+    check(!ui_text_word_selection(emoji, {0, 0}, {3, 3}, UiTextKey::Right, false),
+          "Already aligned native word destination was reset");
+    check(!ui_text_word_selection(emoji, {1, 1}, {1, 1}, UiTextKey::Right, true),
+          "Unchanged native word selection was corrected");
+    check(!ui_text_word_selection(emoji, {0, 1}, {2, 4}, UiTextKey::Right, true),
+          "Ambiguous word selection was assigned an invented anchor");
+    rejects([&] { ui_text_word_selection(emoji, {-1, 0}, {0, 0}, UiTextKey::Right, true); });
+    rejects([&] { ui_text_word_selection(emoji, {0, 0}, {3, 2}, UiTextKey::Right, false); });
     for (auto key : {UiTextKey::Left, UiTextKey::Right, UiTextKey::Backspace, UiTextKey::Delete}) {
         check(!ui_text_shift_selection(emoji, {0, 3}, {0, 3}, key),
               "Unchanged/canceled native selection was corrected");
