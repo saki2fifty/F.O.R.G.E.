@@ -47,7 +47,7 @@ Use **Preview** for native rendering and the supported pixel layout controls.
 For a ready-to-edit example, open **Scenes/211-ui-layout-preview.scene.json** in
 the Feature Gallery. In Content, choose **Edit UI source** on
 **Assets/UI/Layout/layout.rml**. Its blue panel already has a unique ID and an
-inline pixel layout.
+inline pixel layout. Its teal and purple siblings provide a group-editing example.
 
 1. Open a registered RML document and stop Play.
 2. Select **Preview**. Set **Size (px)** to the desired physical viewport width and height. **Density** controls density-independent units such as `dp`.
@@ -98,6 +98,23 @@ data-bound ancestors use Source for layout editing. Sizes clamped by native box
 sizing also use Source. An RML draft must have a
 registered, contained source in the editable project. To preview an RCSS
 stylesheet, open the RML that links it.
+
+## Move, align and space a group
+
+1. Open Gallery scene **211** and its **layout.rml** source, then select **Preview**.
+2. Click the blue panel. Hold **Ctrl** and click the teal and purple panels to add them. Ctrl+click a selected panel removes it. The same modifier works in **Elements**. Select between 2 and 32 elements with the same source parent.
+3. Drag any selected member to move the group while preserving sizes and spacing. Release for one Undo step, or press **Escape** to cancel. Resize handles are available when only one element is selected.
+4. Choose an **Operation** in the group controls, then **Apply group**. Edge and center alignment use the visible native border boxes, including padding and borders.
+5. For **Move group**, enter **Delta X / Y (px)**. Distribution needs at least three elements and spaces them in their native left-to-right or top-to-bottom order, regardless of selection order. Move the outer elements farther apart if there is insufficient room for non-overlapping gaps.
+6. Use **Undo** or **Redo** to restore the whole operation, then **Save source** when ready.
+
+![Three sibling panels selected with the group operation controls](../images/ui-source-group-layout.png)
+
+Every member must satisfy the canvas limits above. One unsupported, stale,
+out-of-range or differently parented member rejects the whole operation. No
+source changes during a drag; cancellation keeps the original source. Single
+selection retains its numeric layout fields and resize handle. Groups do not
+support resizing, flow/relative units or reparenting.
 
 ## Save a preview image
 

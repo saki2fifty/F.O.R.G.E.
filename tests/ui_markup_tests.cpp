@@ -5,6 +5,7 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <vector>
 
 namespace {
 void check(bool value, const char* message) {
@@ -205,6 +206,94 @@ void layout_edits() {
               slice(style, declarations[1].value) == " calc(1px + 2px)",
           "Inline ranges split quoted delimiters, functions or property digits");
 }
+void layout_group_edits() {
+    const std::string source =
+        "<!-- group -->\n<rml><body><div id='a' style='position:absolute;left:10px;top:20px;"
+        "width:30px;height:40px;color:red'>A &amp; B</div><button id='b' "
+        "style=\"position:absolute;left:100px;top:200px;width:80px;height:50px;"
+        "custom:url('x;y:z')\">Keep</button></body></rml>\n";
+    const auto a = find(source, "div"), b = find(source, "button");
+    const std::array original{forge::UiMarkupLayoutEdit{a, {10, 20, 30, 40}},
+                              forge::UiMarkupLayoutEdit{b, {100, 200, 80, 50}}};
+    check(forge::set_ui_markup_layouts(source, original) == source,
+          "An unchanged layout group rewrote source bytes");
+    const std::array changes{forge::UiMarkupLayoutEdit{b, {120.5f, 21, 85, 50}},
+                             forge::UiMarkupLayoutEdit{a, {-10, 21, 30, 45}}};
+    const auto expected = forge::set_ui_markup_layout(
+        forge::set_ui_markup_layout(source, a, changes[1].pixels), b, changes[0].pixels);
+    const auto edited = forge::set_ui_markup_layouts(source, changes);
+    check(edited == expected && edited.find("A &amp; B") != edited.npos &&
+              edited.find("custom:url('x;y:z')") != edited.npos,
+          "Unordered group replacements damaged source ranges or unrelated markup");
+    check(forge::set_ui_markup_layouts(edited, original) == source,
+          "Repeated group edits accumulated styles or changed unrelated bytes");
+    rejects([&] { forge::set_ui_markup_layouts(source, {}); });
+    const std::array repeated{original[0], original[0]};
+    rejects([&] { forge::set_ui_markup_layouts(source, repeated); });
+    auto invalid = changes;
+    invalid[1].pixels.width = 0;
+    rejects([&] { forge::set_ui_markup_layouts(source, invalid); });
+    invalid = changes;
+    invalid[1].element = std::numeric_limits<std::size_t>::max();
+    rejects([&] { forge::set_ui_markup_layouts(source, invalid); });
+    std::vector<forge::UiMarkupLayoutEdit> oversized(forge::ui_layout_selection_limit + 1,
+                                                     original[0]);
+    rejects([&] { forge::set_ui_markup_layouts(source, oversized); });
+    check(forge::set_ui_markup_layouts(source, original) == source,
+          "A rejected group changed the original admitted source");
+}
+void layout_group_geometry() {
+    using forge::UiMarkupLayoutBox;
+    const std::array boxes{UiMarkupLayoutBox{{4, {10, 20, 100, 40}}, {100, 200, 120, 60}},
+                           UiMarkupLayoutBox{{7, {210, 70, 50, 80}}, {300, 250, 70, 100}},
+                           UiMarkupLayoutBox{{9, {410, 220, 70, 40}}, {500, 400, 90, 60}}};
+    const auto check_positions = [&](std::string_view action, const std::array<float, 3>& x,
+                                     const std::array<float, 3>& y, float dx = 0, float dy = 0) {
+        const auto changes = forge::arrange_ui_markup_layouts(boxes, action, dx, dy);
+        check(changes.size() == boxes.size(), "Group geometry dropped an element");
+        for (std::size_t i = 0; i < boxes.size(); ++i)
+            check(changes[i].element == boxes[i].source.element && changes[i].pixels.left == x[i] &&
+                      changes[i].pixels.top == y[i] &&
+                      changes[i].pixels.width == boxes[i].source.pixels.width &&
+                      changes[i].pixels.height == boxes[i].source.pixels.height,
+                  "Group geometry ignored native border bounds, order or source dimensions");
+    };
+    check_positions("move", {22.5f, 222.5f, 422.5f}, {15, 65, 215}, 12.5f, -5);
+    check_positions("align_left", {10, 10, 10}, {20, 70, 220});
+    check_positions("align_horizontal_center", {195, 220, 210}, {20, 70, 220});
+    check_positions("align_right", {380, 430, 410}, {20, 70, 220});
+    check_positions("align_top", {10, 210, 410}, {20, 20, 20});
+    check_positions("align_vertical_center", {10, 210, 410}, {120, 100, 120});
+    check_positions("align_bottom", {10, 210, 410}, {220, 180, 220});
+    check_positions("distribute_horizontal", {10, 235, 410}, {20, 70, 220});
+    check_positions("distribute_vertical", {10, 210, 410}, {20, 100, 220});
+    const std::array unordered{boxes[2], boxes[0], boxes[1]};
+    const auto spaced = forge::arrange_ui_markup_layouts(unordered, "distribute_horizontal");
+    check(spaced[0].element == 9 && spaced[0].pixels.left == 410 && spaced[1].element == 4 &&
+              spaced[1].pixels.left == 10 && spaced[2].element == 7 && spaced[2].pixels.left == 235,
+          "Distribution used selection order instead of native spatial order");
+    rejects([&] { forge::arrange_ui_markup_layouts({}, "move"); });
+    rejects([&] { forge::arrange_ui_markup_layouts(std::span(boxes).first(1), "move"); });
+    rejects([&] {
+        forge::arrange_ui_markup_layouts(std::span(boxes).first(2), "distribute_vertical");
+    });
+    rejects([&] { forge::arrange_ui_markup_layouts(boxes, "other"); });
+    rejects([&] { forge::arrange_ui_markup_layouts(boxes, "align_left", 1, 0); });
+    rejects([&] { forge::arrange_ui_markup_layouts(boxes, "move", 65536, 0); });
+    rejects([&] {
+        forge::arrange_ui_markup_layouts(boxes, "move", std::numeric_limits<float>::infinity(), 0);
+    });
+    auto invalid = boxes;
+    invalid[2].bounds.width = 0;
+    rejects([&] { forge::arrange_ui_markup_layouts(invalid, "align_left"); });
+    invalid = boxes;
+    invalid[2].source.element = invalid[0].source.element;
+    rejects([&] { forge::arrange_ui_markup_layouts(invalid, "move"); });
+    invalid = boxes;
+    for (auto& item : invalid)
+        item.bounds.left = 0;
+    rejects([&] { forge::arrange_ui_markup_layouts(invalid, "distribute_horizontal"); });
+}
 } // namespace
 int main() {
     try {
@@ -212,6 +301,8 @@ int main() {
         invalid();
         edits();
         layout_edits();
+        layout_group_edits();
+        layout_group_geometry();
         std::cout << "Source-preserving outline/attributes and shared validator errors passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

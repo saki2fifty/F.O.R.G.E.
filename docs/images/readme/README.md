@@ -6,8 +6,12 @@ The current Source/Elements captures include the Preview tab. They remain exact
 700×950 outputs of `ui_source_editor`; the refreshed image bytes retain the same
 production controls/history workflow. `manual/images/ui-source-preview.png` is an
 unretouched700×950 capture of the production UiSourceEditor/DocumentWorkspace with
-its original Gallery211 RML/RCSS, actual panel selection, pixel controls, outline
-and resize handle, with the Save preview image control. The physical native preview is1000×700 and is fitted by the
+its Gallery211 RML/RCSS with three sibling panels, actual single selection, pixel
+controls, outline and resize handle, with the Save preview image control.
+`manual/images/ui-source-group-layout.png` is another exact700×950 output from the
+same fixture: real Ctrl+clicks select all three sibling panels and expose the
+production group operation controls. Both group widths700/1180 were inspected;
+no source write or rendering overlay is baked into the native saved preview. The physical native preview is1000×700 and is fitted by the
 widget, as in the editor.
 
 Reproduce the preview with `forge_ui_source_canvas_capture <output> <default-font>
@@ -24,7 +28,7 @@ the complete Main shell, physical GPU/input, Windows or display-density acceptan
 No controls or image content are fabricated, cropped, resized after capture or
 retouched. The checked source/capture-input and canonical SHA256 receipts retain
 the original output provenance. Current captures follow the2026-11-09 source
-preview/image-capture checkpoint; see [CI profiles](../../ci.md#test-profiles).
+source-group-layout and preview-image checkpoint; see [CI profiles](../../ci.md#test-profiles).
 
 `manual/images/ui-source-elements.png` and `ui-source-text.png` are unretouched
 700×950 captures of the production UiSourceEditor, TextEditor and borrowed

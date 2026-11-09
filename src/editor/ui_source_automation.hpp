@@ -152,6 +152,42 @@ struct UiSourceAutomation {
                               request.at("preview_revision").get<std::uint64_t>());
                 return state(editor, files.document);
             }));
+        auto group_properties = guard;
+        auto group_actions = Json::array();
+        for (const auto& [key, label] : ui_layout_group_actions)
+            group_actions.push_back(key);
+        group_properties["elements"] =
+            automation_array(automation_integer(0, 8191), ui_layout_selection_limit, 2);
+        group_properties["action"] = {{"type", "string"}, {"enum", std::move(group_actions)}};
+        group_properties["preview_instance"] = automation_uuid();
+        group_properties["preview_revision"] = automation_integer();
+        for (const auto* name : {"dx", "dy"})
+            group_properties[name] = {
+                {"type", "number"}, {"minimum", -131072}, {"maximum", 131072}};
+        auto group_required = required;
+        for (const auto* name : {"elements", "action", "preview_instance", "preview_revision"})
+            group_required.push_back(name);
+        result.push_back(automation_method(
+            "ui.source.arrange",
+            "Move, align border edges/centers or distribute equal gaps for2..32 distinct "
+            "same-parent native-admitted source elements. Distribution needs3elements. Native "
+            "bounds choose geometry; source sizes and unrelated text remain unchanged. dx/dy "
+            "are optional pixel offsets for move only. Rechecks exact source/native preview "
+            "guards and the complete candidate before one source Undo record. Unsupported, "
+            "duplicate, out-of-range or stale members reject the whole operation. No Save, "
+            "resource registration, Scene history or relative/flow/group-resize support.",
+            "assets.write",
+            automation_object(std::move(group_properties), std::move(group_required)), true,
+            [&files, &editor, ready](const Json& request) {
+                ready();
+                observed(editor, files.document, request);
+                editor.arrange(request.at("elements").get<std::vector<std::size_t>>(),
+                               request.at("action").get<std::string>(), request.value("dx", 0.f),
+                               request.value("dy", 0.f),
+                               request.at("preview_instance").get<std::string>(),
+                               request.at("preview_revision").get<std::uint64_t>());
+                return state(editor, files.document);
+            }));
         result.push_back(automation_method(
             "ui.source.open",
             "Open a contained RML/RCSS source in the actual UI Source document. Reuses its draft. "

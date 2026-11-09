@@ -1,7 +1,9 @@
 #pragma once
 #include "ui_markup.hpp"
+#include <array>
 #include <optional>
 #include <span>
+#include <utility>
 
 namespace forge {
 bool ui_markup_widget_editable(const UiMarkupElement&) noexcept;
@@ -9,6 +11,30 @@ struct UiPixelLayout {
     float left = 0, top = 0, width = 1, height = 1;
     bool operator==(const UiPixelLayout&) const = default;
 };
+inline constexpr std::size_t ui_layout_selection_limit = 32;
+struct UiMarkupLayoutEdit {
+    std::size_t element;
+    UiPixelLayout pixels;
+    bool operator==(const UiMarkupLayoutEdit&) const = default;
+};
+struct UiMarkupLayoutBox {
+    UiMarkupLayoutEdit source;
+    UiPixelLayout bounds; // Borrowed native border box in the common preview coordinates.
+};
+inline constexpr std::array<std::pair<std::string_view, std::string_view>, 9>
+    ui_layout_group_actions{{{"move", "Move group"},
+                             {"align_left", "Align left"},
+                             {"align_horizontal_center", "Align horizontal centers"},
+                             {"align_right", "Align right"},
+                             {"align_top", "Align top"},
+                             {"align_vertical_center", "Align vertical centers"},
+                             {"align_bottom", "Align bottom"},
+                             {"distribute_horizontal", "Distribute horizontal gaps"},
+                             {"distribute_vertical", "Distribute vertical gaps"}}};
+// The document owner supplies admitted same-parent source/native observations.
+std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMarkupLayoutBox>,
+                                                          std::string_view action, float dx = 0,
+                                                          float dy = 0);
 // Bounded plain inline absolute-pixel subset. Native preview eligibility is an
 // additional guard supplied by the document owner, never inferred from source.
 UiPixelLayout read_ui_markup_layout(std::string_view, std::size_t element);
@@ -17,6 +43,8 @@ UiPixelLayout read_ui_markup_layout(std::string_view, std::size_t element);
 UiPixelLayout read_ui_markup_layout(std::string_view, std::span<const UiMarkupElement>,
                                     std::size_t element);
 std::string set_ui_markup_layout(std::string_view, std::size_t element, UiPixelLayout);
+// One admitted source snapshot, one complete candidate; no partial publication.
+std::string set_ui_markup_layouts(std::string_view, std::span<const UiMarkupLayoutEdit>);
 // Detached source candidates only. The owning document supplies revision/history.
 std::string set_ui_markup_attribute(std::string_view, std::size_t element, std::string_view name,
                                     std::optional<std::string> value);

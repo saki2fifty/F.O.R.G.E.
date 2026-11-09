@@ -3,4 +3,8 @@
 <body><h1 style="position:absolute;left:24px;top:20px;width:90%;height:40px;">Draft UI preview</h1>
 <div id="panel" style="position:absolute;left:60px;top:90px;width:300px;height:220px;padding:16px;box-sizing:border-box;background-color:#2563eb;">
 <h1>Layout panel</h1><p>Move and resize its pixel layout.</p><p>The source stays unsaved until Save source.</p></div>
+<div id="layout-b" style="position:absolute;left:430px;top:140px;width:220px;height:140px;padding:16px;box-sizing:border-box;background-color:#0f766e;">
+<h1>Layout B</h1><p>Ctrl+click to add this panel to the selection.</p></div>
+<div id="layout-c" style="position:absolute;left:720px;top:220px;width:220px;height:140px;padding:16px;box-sizing:border-box;background-color:#7c3aed;">
+<h1>Layout C</h1><p>Move, align or distribute the selected panels.</p></div>
 <p style="position:absolute;left:24px;top:520px;width:90%;height:60px;">Static preview: gameplay bindings do not run.</p></body></rml>

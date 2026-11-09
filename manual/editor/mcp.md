@@ -15,6 +15,14 @@ absolute pixel layouts as the editor canvas. Preview returns native geometry.
 Saved linked styles and images reload when the preview is requested. Stale or
 unsupported geometry cannot authorize source edits.
 
+For groups, use `forge_ui_source_arrange` with 2–32 distinct sibling element
+indices, the current source/preview guards and an `action`. It provides movement,
+edge/center alignment and horizontal/vertical gap distribution. `move` accepts
+optional `dx`/`dy` pixel offsets; distribution needs at least three elements and
+space for non-overlapping gaps. Every member must satisfy the pixel-canvas limits.
+The full candidate is checked before one source Undo step; a bad member rejects
+all changes. Save remains explicit. See [group layout](ui-source.md).
+
 To inspect the rendered draft, grant an output folder and call
 `forge_capture_ui_source`. Its `path` selects the output file inside that folder;
 its nested `source` contains the current source `path`, `session`, `revision`,

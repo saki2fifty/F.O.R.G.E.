@@ -84,6 +84,17 @@ No persisted layout database, parallel selection/history, Scene identity, SDK
 layout, dependency pin or runtime protocol change is introduced. Unrestricted
 visual design remains a separate capability.
 
+Bounded same-parent groups extend this same source selection and gesture owner.
+At most32 source elements share one atomic pixel replacement, native candidate
+validation and TextEditor Undo record. Native border-box observations supply
+movement/alignment/distribution geometry; source sizes and unrelated bytes remain
+unchanged. The single-element path delegates to the batch source-range owner.
+Selection is one transient ordered set whose last entry is active; source changes
+clear it. Group moves retain one transient candidate and the existing cancellation
+boundaries. No new selection manager, layout solver, persisted data, runtime
+capability or gameplay SDK layout is introduced. Group resize and relative/flow
+layouts remain outside this bounded profile.
+
 Source-preview image output borrows the same observed native image through
 ViewImageTask. A rendered input retains the source/preview identity and rechecks
 it before the existing nonblocking GPU copy is submitted. Pending observations

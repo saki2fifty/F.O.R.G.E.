@@ -7,6 +7,11 @@ Open `Scenes/211-ui-layout-preview.scene.json`. With Play stopped, find
 **Preview**. Set the size to 1000 by 700, click the blue panel and drag it or its
 bottom-right resize handle. The pixel fields and **Apply layout** provide numeric
 editing. Escape cancels a gesture; release commits one source Undo step.
+Ctrl+click the teal and purple sibling panels to select a group. Drag a selected
+member to move all of them, or choose an Operation and Apply group to align border
+edges/centers or distribute gaps. Group operations keep sizes and use one Undo.
+Distribution needs three elements and enough space for non-overlapping gaps;
+resize handles remain available for single selection.
 
 Choose **Save source**, then press Play to see the saved layout in Game. The Scene
 includes a Camera and uses the bundled Lato font; no Light or project C++ module

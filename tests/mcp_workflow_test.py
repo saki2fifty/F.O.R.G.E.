@@ -461,6 +461,7 @@ for legacy in selected_protocols:
                 visible = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
                 assert 'forge_ui_source_read' in visible and 'forge_ui_source_open' not in visible
                 assert 'forge_ui_source_preview' in visible and 'forge_ui_source_layout' not in visible
+                assert 'forge_ui_source_arrange' not in visible
                 assert 'forge_ui_source_replace' not in visible and 'forge_ui_source_save' not in visible
                 denied = readonly.request('tools/call', dict(name='forge_ui_source_open', arguments=dict(path='Assets/Hud.rml')))
                 assert 'error' in denied or denied['result']['isError'], denied

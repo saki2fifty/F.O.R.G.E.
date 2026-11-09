@@ -5,7 +5,7 @@ from mcp_test_client import failed
 def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments):
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
-                 'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout')}
+                 'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange')}
     assert required <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
@@ -90,6 +90,8 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
     layout_source = '''<!-- canvas source -->\n<rml><head><style>
 body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
 </style></head><body><div id="panel" style="position:absolute;left:20px;top:30px;width:100px;height:60px; color:#ffffff;">Draft</div>
+<div id="first" style="position:absolute;left:220px;top:50px;width:80px;height:40px;">First</div>
+<div id="second" style="position:absolute;left:400px;top:130px;width:60px;height:40px;">Second</div>
 <div id="relative" style="position:relative;width:100px;height:20px;">Flow</div></body></rml>\n'''
     state = edit('replace', text=layout_source)
 
@@ -125,6 +127,41 @@ body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
     assert changed['text'] == expected
     assert edit('undo')['text'] == layout_source, 'Canvas layout did not use one Undo record'
     assert edit('redo')['text'] == expected
+    group_start = read('forge_ui_source_read')['text']
+    shown = preview()
+    indices = [next(item['source_index'] for item in shown['elements'] if item['id'] == key)
+               for key in ('second', 'panel', 'first')]
+    group_schema = advertised['forge_ui_source_arrange']['inputSchema']['properties']
+    assert group_schema['elements']['minItems'] == 2 and group_schema['elements']['maxItems'] == 32
+    assert len(group_schema['action']['enum']) == 9
+    failed(mutate('forge_ui_source_arrange', **guard(), elements=indices, action='move',
+                  **(layout_guard(shown) | dict(preview_revision=900000))), 'stale_ui_preview')
+    failed(mutate('forge_ui_source_arrange', **guard(), elements=[indices[0], indices[0]],
+                  action='move', **layout_guard(shown)), 'layout_selection')
+    failed(mutate('forge_ui_source_arrange', **guard(),
+                  elements=[indices[0], relative['source_index']], action='align_top',
+                  **layout_guard(shown)), 'layout_unsupported')
+    assert read('forge_ui_source_read')['text'] == group_start
+    group_args = arguments(**guard(), elements=indices, action='move', dx=10, dy=15,
+                           **layout_guard(shown))
+    group_first = client.tool('forge_ui_source_arrange', **group_args)
+    group_replay = client.tool('forge_ui_source_arrange', **group_args)
+    assert group_first['ok'] and group_replay['ok'] and group_first['result'] == group_replay['result']
+    moved = read('forge_ui_source_read')
+    group_expected = group_start.replace('left:-12.5px;top:45px', 'left:-2.5px;top:60px')
+    group_expected = group_expected.replace('left:220px;top:50px', 'left:230px;top:65px')
+    group_expected = group_expected.replace('left:400px;top:130px', 'left:410px;top:145px')
+    assert moved['text'] == group_expected and moved['selection'] == indices
+    assert edit('undo')['text'] == group_start, 'Group movement did not use one source Undo'
+    assert edit('redo')['text'] == group_expected
+    edit('undo')
+    edit('arrange', elements=indices, action='align_left', **layout_guard(preview()))
+    aligned = read('forge_ui_source_read')['text']
+    assert aligned == group_start.replace('left:220px', 'left:-12.5px').replace('left:400px', 'left:-12.5px')
+    assert edit('undo')['text'] == group_start
+    edit('arrange', elements=indices, action='distribute_horizontal', **layout_guard(preview()))
+    assert read('forge_ui_source_read')['text'] == group_start.replace('left:220px', 'left:258.875px')
+    assert edit('undo')['text'] == group_start
     old_guard = guard()
     state = edit('replace', text='<rml>')
     stale_read = client.tool('forge_ui_source_preview', target=arguments()['target'],

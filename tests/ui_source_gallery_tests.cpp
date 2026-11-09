@@ -204,13 +204,18 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
     {
         UiPresenter presenter(renderer, root, font);
         if (edit_source) {
-            const auto candidate =
+            const auto initial =
                 set_ui_markup_layout(*text, by_id(*text, "panel"), {150, 180, 250, 190});
+            const std::array group{
+                UiMarkupLayoutEdit{by_id(initial, "panel"), {175, 190, 250, 190}},
+                UiMarkupLayoutEdit{by_id(initial, "layout-b"), {455, 150, 220, 140}},
+                UiMarkupLayoutEdit{by_id(initial, "layout-c"), {745, 230, 220, 140}}};
+            const auto candidate = set_ui_markup_layouts(initial, group);
             check(presenter.preview_document({asset}, layout_document, candidate, 800, 600),
                   "Gallery draft preview did not load");
             const auto view = presenter.preview_layout();
             check(view.at("elements").at(0).at("editable").get<bool>() &&
-                      view.at("elements").at(0).at("bounds") == Json::array({150, 180, 250, 190}),
+                      view.at("elements").at(0).at("bounds") == Json::array({175, 190, 250, 190}),
                   "Gallery draft preview lost pixel layout eligibility");
             check(ProjectTextSource::read(file) == text && !presenter.asset_snapshot(),
                   "Gallery preview published source or catalog observations");
@@ -227,9 +232,18 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
         auto* panel = Rml::GetContext(0)->GetDocument(0)->GetElementById("panel");
         const auto position = panel->GetAbsoluteOffset(Rml::BoxArea::Border);
         const auto size = panel->GetBox().GetSize(Rml::BoxArea::Border);
-        check(position.x == 150 && position.y == 180 && size.x == 250 && size.y == 190 &&
+        check(position.x == 175 && position.y == 190 && size.x == 250 && size.y == 190 &&
                   renderer.draws,
               "Saved/exported UI did not retain the previewed layout");
+        for (const auto& [id, expected] :
+             std::array{std::pair{"layout-b", std::array{455.f, 150.f}},
+                        std::pair{"layout-c", std::array{745.f, 230.f}}}) {
+            auto* sibling = Rml::GetContext(0)->GetDocument(0)->GetElementById(id);
+            check(sibling != nullptr, "Saved/exported UI lost a grouped sibling");
+            const auto offset = sibling->GetAbsoluteOffset(Rml::BoxArea::Border);
+            check(offset.x == expected[0] && offset.y == expected[1],
+                  "Saved/exported sibling did not retain the atomic group change");
+        }
     }
     check(scene.snapshot() == source && renderer.geometry.empty() && renderer.textures.empty(),
           "Layout workflow changed Scene data or leaked native resources");

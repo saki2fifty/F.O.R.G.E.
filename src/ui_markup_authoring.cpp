@@ -5,7 +5,10 @@
 #include <charconv>
 #include <cmath>
 #include <forge/ui_assets.hpp>
+#include <limits>
+#include <numeric>
 #include <stdexcept>
+#include <vector>
 
 namespace forge {
 bool ui_markup_widget_editable(const UiMarkupElement& node) noexcept {
@@ -118,6 +121,93 @@ LayoutSource layout_source(std::string_view source, std::span<const UiMarkupElem
     return result;
 }
 } // namespace
+std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMarkupLayoutBox> boxes,
+                                                          std::string_view action, float dx,
+                                                          float dy) {
+    require(boxes.size() >= 2 && boxes.size() <= ui_layout_selection_limit,
+            "Choose2..32 elements for a group layout operation");
+    require(std::ranges::any_of(ui_layout_group_actions,
+                                [&](const auto& item) { return item.first == action; }),
+            "Unknown group layout operation");
+    require(std::isfinite(dx) && std::isfinite(dy), "Group movement must use finite pixels");
+    require(action == "move" || (dx == 0 && dy == 0),
+            "Only group movement accepts horizontal/vertical offsets");
+    double left = std::numeric_limits<double>::max(), top = left;
+    double right = std::numeric_limits<double>::lowest(), bottom = right;
+    std::vector<UiMarkupLayoutEdit> result;
+    result.reserve(boxes.size());
+    for (const auto& box : boxes) {
+        valid_layout(box.source.pixels);
+        for (const auto value :
+             {box.bounds.left, box.bounds.top, box.bounds.width, box.bounds.height})
+            require(std::isfinite(value), "Native group bounds must be finite");
+        require(box.bounds.width > 0 && box.bounds.height > 0,
+                "Native group bounds must have positive sizes");
+        require(std::ranges::none_of(
+                    result, [&](const auto& item) { return item.element == box.source.element; }),
+                "A layout group cannot repeat an element");
+        left = std::min(left, double(box.bounds.left));
+        top = std::min(top, double(box.bounds.top));
+        right = std::max(right, double(box.bounds.left) + box.bounds.width);
+        bottom = std::max(bottom, double(box.bounds.top) + box.bounds.height);
+        result.push_back(box.source);
+    }
+    const bool distribute_x = action == "distribute_horizontal";
+    if (distribute_x || action == "distribute_vertical") {
+        require(boxes.size() >= 3, "Distribution needs at least3 elements");
+        std::vector<std::size_t> order(boxes.size());
+        std::iota(order.begin(), order.end(), 0);
+        const auto position = [&](std::size_t i) {
+            return distribute_x ? boxes[i].bounds.left : boxes[i].bounds.top;
+        };
+        std::stable_sort(order.begin(), order.end(),
+                         [&](auto a, auto b) { return position(a) < position(b); });
+        double total_size = 0;
+        for (const auto& box : boxes)
+            total_size += distribute_x ? box.bounds.width : box.bounds.height;
+        const double available = (distribute_x ? right - left : bottom - top) - total_size;
+        // Match the source/native pixel admission precision at touching edges.
+        require(available >= -.001,
+                "Move outer elements apart before distributing non-overlapping gaps");
+        const double gap = std::max(0., available) / double(boxes.size() - 1);
+        double next = distribute_x ? left : top;
+        for (const auto i : order) {
+            auto& pixels = result[i].pixels;
+            if (distribute_x)
+                pixels.left = float(double(pixels.left) + (next - boxes[i].bounds.left));
+            else
+                pixels.top = float(double(pixels.top) + (next - boxes[i].bounds.top));
+            next += (distribute_x ? boxes[i].bounds.width : boxes[i].bounds.height) + gap;
+        }
+    } else {
+        for (std::size_t i = 0; i < boxes.size(); ++i) {
+            const auto& native = boxes[i].bounds;
+            auto& pixels = result[i].pixels;
+            double x = native.left, y = native.top;
+            if (action == "move") {
+                pixels.left += dx;
+                pixels.top += dy;
+                continue;
+            } else if (action == "align_left")
+                x = left;
+            else if (action == "align_horizontal_center")
+                x = (left + right - native.width) / 2;
+            else if (action == "align_right")
+                x = right - native.width;
+            else if (action == "align_top")
+                y = top;
+            else if (action == "align_vertical_center")
+                y = (top + bottom - native.height) / 2;
+            else if (action == "align_bottom")
+                y = bottom - native.height;
+            pixels.left = float(double(pixels.left) + (x - native.left));
+            pixels.top = float(double(pixels.top) + (y - native.top));
+        }
+    }
+    for (const auto& change : result)
+        valid_layout(change.pixels);
+    return result;
+}
 UiPixelLayout read_ui_markup_layout(std::string_view source, std::size_t index) {
     return read_ui_markup_layout(source, inspect_ui_markup(source), index);
 }
@@ -126,24 +216,48 @@ UiPixelLayout read_ui_markup_layout(std::string_view source, std::span<const UiM
     return layout_source(source, nodes, index).pixels;
 }
 std::string set_ui_markup_layout(std::string_view source, std::size_t index, UiPixelLayout pixels) {
-    valid_layout(pixels);
-    const auto original = layout_source(source, inspect_ui_markup(source), index);
-    if (pixels == original.pixels)
-        return std::string(source);
-    const std::array values{pixels.left, pixels.top, pixels.width, pixels.height};
-    std::array<std::pair<UiSourceRange, std::string>, 4> edits;
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        std::array<char, 128> buffer;
-        const auto formatted = std::to_chars(buffer.data(), buffer.data() + buffer.size(),
-                                             values[i], std::chars_format::fixed);
-        require(formatted.ec == std::errc{}, "Canvas pixel formatting failed");
-        edits[i] = {original.values[i], std::string(buffer.data(), formatted.ptr) + "px"};
+    const std::array edits{UiMarkupLayoutEdit{index, pixels}};
+    return set_ui_markup_layouts(source, edits);
+}
+std::string set_ui_markup_layouts(std::string_view source,
+                                  std::span<const UiMarkupLayoutEdit> changes) {
+    require(!changes.empty() && changes.size() <= ui_layout_selection_limit,
+            "Choose1..32 elements for an atomic canvas layout edit");
+    const auto nodes = inspect_ui_markup(source);
+    std::vector<std::size_t> seen;
+    std::vector<std::pair<UiSourceRange, std::string>> edits;
+    seen.reserve(changes.size());
+    edits.reserve(changes.size() * 4);
+    for (const auto& change : changes) {
+        require(std::ranges::find(seen, change.element) == seen.end(),
+                "A canvas layout batch cannot repeat an element");
+        seen.push_back(change.element);
+        valid_layout(change.pixels);
+        const auto original = layout_source(source, nodes, change.element);
+        if (change.pixels == original.pixels)
+            continue;
+        const auto& pixels = change.pixels;
+        const std::array values{pixels.left, pixels.top, pixels.width, pixels.height};
+        for (std::size_t i = 0; i < values.size(); ++i) {
+            std::array<char, 128> buffer;
+            const auto formatted = std::to_chars(buffer.data(), buffer.data() + buffer.size(),
+                                                 values[i], std::chars_format::fixed);
+            require(formatted.ec == std::errc{}, "Canvas pixel formatting failed");
+            edits.emplace_back(original.values[i],
+                               std::string(buffer.data(), formatted.ptr) + "px");
+        }
     }
+    if (edits.empty())
+        return std::string(source);
     std::ranges::sort(edits,
                       [](const auto& a, const auto& b) { return a.first.begin > b.first.begin; });
     std::string result(source);
-    for (const auto& [range, value] : edits)
+    std::size_t next_begin = source.size();
+    for (const auto& [range, value] : edits) {
+        require(range.end <= next_begin, "Canvas layout replacements overlap");
+        next_begin = range.begin;
         result.replace(range.begin, range.end - range.begin, value);
+    }
     validate_ui_text(result, true);
     return result;
 }

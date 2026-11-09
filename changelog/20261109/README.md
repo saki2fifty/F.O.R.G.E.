@@ -1,5 +1,22 @@
 # 2026-11-09
 
+## Atomic groups in the native UI canvas
+
+UI Source adds bounded same-parent multi-selection with Ctrl+click in Elements
+and Preview. Group dragging and movement, edge/center alignment and equal-gap
+distribution validate all members and the complete native candidate before one
+source Undo record. Native border bounds drive geometry; source dimensions and
+unrelated source bytes remain unchanged. Unsupported/stale groups reject together;
+existing cancellation, source Save and history ownership remain authoritative.
+
+The matching ui.source.arrange automation/MCP operation uses the same owner,
+grants, current source/preview guards and replay receipts. Gallery211 now provides
+three independently authored sibling panels with its existing asset IDs preserved.
+The illustrated UI source/manual and source-hidden save/export checks cover the
+workflow. Groups are limited to32siblings in the existing absolute-pixel subset;
+resizing remains single selection. Runtime profiles, gameplay SDK, dependencies
+and Scene/asset formats are unchanged; Windows/physical review remains queued.
+
 ## Whole-character native navigation and selected deletion
 
 The optional Edit whole UI characters setting now aligns unambiguous native

@@ -1145,6 +1145,22 @@ native-owner replacement require fresh observation. Save remains separate, and
 transport receipt replay cannot apply a second layout change. Canvas gestures
 block programmatic source mutations until release/cancellation.
 
+`forge_ui_source_arrange` borrows the same document/preview/history owner. It
+requires 2..32 distinct `elements` with a common source parent, `action`, source
+guards and observed `preview_instance`/`preview_revision`. The action catalog drives
+both native controls and discovery: `move`, `align_left`,
+`align_horizontal_center`, `align_right`, `align_top`, `align_vertical_center`,
+`align_bottom`, `distribute_horizontal`, `distribute_vertical`. Only movement accepts
+nonzero `dx`/`dy`; each offset is bounded to-131072..131072. Output positions/sizes
+retain the existing pixel limits. Distribution needs3members and a nonnegative gap
+within source/native admission precision. Spatial ordering uses native border
+bounds, not the input list; authored dimensions are unchanged. Native/source
+eligibility, source range replacement and complete candidate validation precede
+one TextEditor replacement. No invalid/stale member can partially publish.
+`layout_selection` covers invalid membership; existing stale/unsupported errors,
+permissions and receipt replay apply. Read state additionally reports the current
+transient source-index `selection`; it is not persisted or an extra source identity.
+
 Read needs `assets.read`; mutations need `assets.write` and the usual transport
 target/revision/sequence. After open, every mutation echoes the returned `path`,
 `session`, `revision` and `state`; a mismatch returns `stale_ui_source`. A different

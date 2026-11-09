@@ -8,6 +8,7 @@
 #include "source_text_widget.hpp"
 #include "widgets.hpp"
 #include <RmlUi/Core/StringUtilities.h>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -26,7 +27,7 @@ class UiSourceEditor {
     std::optional<std::filesystem::path> queued_;
     std::string disk_, saved_, session_, error_, outline_error_;
     std::vector<UiMarkupElement> outline_;
-    std::size_t selected_ = UiMarkupElement::no_parent;
+    std::vector<std::size_t> selected_;
     std::uint64_t revision_ = 0;
     bool dirty_ = false, close_ = false, focus_ = false, text_editable_ = false;
     char attribute_[65] = "id", value_[8193]{}, literal_[8193]{};
@@ -37,11 +38,12 @@ class UiSourceEditor {
     std::array<float, 4> layout_controls_{};
     std::string layout_controls_state_;
     std::size_t layout_controls_element_ = UiMarkupElement::no_parent;
+    int group_action_ = 1;
+    std::array<float, 2> group_offsets_{};
     struct LayoutGesture {
         std::string source, session;
         std::uint64_t revision;
-        std::size_t element;
-        UiPixelLayout initial, pixels;
+        std::vector<UiMarkupLayoutEdit> initial, pixels;
         ImVec2 pointer;
         float scale = 1;
         bool resize = false, valid = false;
@@ -55,7 +57,7 @@ class UiSourceEditor {
         const auto text = editor_.GetText();
         dirty_ = text != saved_;
         ++revision_;
-        selected_ = UiMarkupElement::no_parent;
+        selected_.clear();
         outline_.clear();
         outline_error_.clear();
         if (locator_.extension() == ".rml") {
@@ -84,7 +86,7 @@ class UiSourceEditor {
         outline_.clear();
         error_.clear();
         outline_error_.clear();
-        selected_ = UiMarkupElement::no_parent;
+        selected_.clear();
         dirty_ = close_ = false;
         editor_.SetText("");
     }
@@ -97,8 +99,13 @@ class UiSourceEditor {
             report_error("ui_source_editor.hpp", error_);
         }
     }
-    void select(std::size_t index) {
-        selected_ = index;
+    std::size_t selected_element() const {
+        return selected_.empty() ? UiMarkupElement::no_parent : selected_.back();
+    }
+    void selection_controls() {
+        const auto index = selected_element();
+        if (index == UiMarkupElement::no_parent)
+            return;
         const auto text = editor_.GetText();
         const auto& node = outline_.at(index);
         std::string value;
@@ -114,6 +121,26 @@ class UiSourceEditor {
             content = Rml::StringUtilities::DecodeRml(content);
         text_editable_ = text_editable_ && content.size() < sizeof(literal_);
         std::snprintf(literal_, sizeof(literal_), "%s", text_editable_ ? content.c_str() : "");
+    }
+    void select(std::size_t index, bool toggle = false) {
+        if (index >= outline_.size())
+            throw AuthoringError("source_element", "Select a current source element");
+        if (!toggle)
+            selected_.assign(1, index);
+        else if (const auto found = std::ranges::find(selected_, index); found != selected_.end())
+            selected_.erase(found);
+        else {
+            if (selected_.size() == ui_layout_selection_limit)
+                throw AuthoringError("layout_selection", "Select at most32 elements");
+            selected_.push_back(index);
+        }
+        selection_controls();
+    }
+    void select_layouts(std::span<const UiMarkupLayoutEdit> changes) {
+        selected_.clear();
+        for (const auto& change : changes)
+            selected_.push_back(change.element);
+        selection_controls();
     }
     static std::string source_id(std::string_view text, const UiMarkupElement& node) {
         std::string id;
@@ -132,6 +159,12 @@ class UiSourceEditor {
                !preview_frame_.state.value("stale", true) &&
                preview_frame_.state.value("source_state", "") ==
                    ProjectTextSource::digest(editor_.GetText());
+    }
+    void check_preview_observation(const std::string& instance, std::uint64_t revision) const {
+        if (!preview_current() || preview_frame_.state.at("instance") != instance ||
+            preview_frame_.state.at("revision") != revision)
+            throw AuthoringError("stale_ui_preview",
+                                 "Preview the current source draft before editing layout");
     }
     UiSourcePreviewFrame request_preview(const std::string& text,
                                          std::span<const UiMarkupElement> nodes, bool refresh) {
@@ -192,6 +225,34 @@ class UiSourceEditor {
                     return &element;
         return nullptr;
     }
+    std::vector<UiMarkupLayoutBox> layout_boxes(std::span<const std::size_t> indices) const {
+        if (indices.empty() || indices.size() > ui_layout_selection_limit)
+            throw AuthoringError("layout_selection", "Choose1..32 elements for layout");
+        const auto source = editor_.GetText();
+        std::optional<std::size_t> parent;
+        std::vector<UiMarkupLayoutBox> result;
+        result.reserve(indices.size());
+        for (const auto index : indices) {
+            const auto* native = preview_element(index);
+            if (!native || !native->at("editable").get<bool>())
+                throw AuthoringError("layout_unsupported",
+                                     native ? native->at("reason").get<std::string>()
+                                            : "Element has no editable preview geometry");
+            if (std::ranges::any_of(result,
+                                    [&](const auto& box) { return box.source.element == index; }))
+                throw AuthoringError("layout_selection", "Group elements must be distinct");
+            const auto current_parent = outline_.at(index).parent;
+            if (parent && *parent != current_parent)
+                throw AuthoringError("layout_unsupported",
+                                     "Group layout requires elements with the same source parent");
+            parent = current_parent;
+            const auto& bounds = native->at("bounds");
+            result.push_back({{index, read_ui_markup_layout(source, outline_, index)},
+                              {bounds.at(0).get<float>(), bounds.at(1).get<float>(),
+                               bounds.at(2).get<float>(), bounds.at(3).get<float>()}});
+        }
+        return result;
+    }
     void preview_controls(SceneDocument& project, bool locked) {
         if (locked) {
             gesture_.reset();
@@ -237,18 +298,53 @@ class UiSourceEditor {
             attempt([&] { save_preview(); });
         FORGE_UI_PROBE("ui-source:preview-save-image");
         ImGui::EndDisabled();
-        ImGui::BeginChild("ui-source-preview-properties", {0, 116}, ImGuiChildFlags_Borders);
-        const auto* selected = preview_element(selected_);
-        if (selected && preview_current()) {
+        ImGui::BeginChild("ui-source-preview-properties", {0, selected_.size() > 1 ? 200.f : 116.f},
+                          ImGuiChildFlags_Borders);
+        const auto* selected = preview_element(selected_element());
+        if (selected_.size() > 1 && preview_current()) {
+            ImGui::Text("%zu selected | Ctrl+click to toggle", selected_.size());
+            const auto& action = ui_layout_group_actions.at(std::size_t(group_action_));
+            if (ImGui::BeginCombo("Operation", action.second.data())) {
+                for (std::size_t i = 0; i < ui_layout_group_actions.size(); ++i) {
+                    if (ImGui::Selectable(ui_layout_group_actions[i].second.data(),
+                                          group_action_ == int(i)))
+                        group_action_ = int(i);
+                    FORGE_UI_PROBE("ui-source:group-choice:" +
+                                   std::string(ui_layout_group_actions[i].first));
+                }
+                ImGui::EndCombo();
+            }
+            FORGE_UI_PROBE("ui-source:group-action");
+            const auto key = ui_layout_group_actions.at(std::size_t(group_action_)).first;
+            if (key == "move") {
+                ImGui::InputFloat2("Delta X / Y (px)", group_offsets_.data());
+                FORGE_UI_PROBE("ui-source:group-offsets");
+            }
+            ImGui::BeginDisabled(gesture_active() ||
+                                 (key.starts_with("distribute_") && selected_.size() < 3));
+            if (button("Apply group", "Validate all rectangles, then make one source Undo step."))
+                attempt([&] {
+                    const auto indices = selected_;
+                    arrange(indices, key, key == "move" ? group_offsets_[0] : 0,
+                            key == "move" ? group_offsets_[1] : 0,
+                            preview_frame_.state.at("instance").get<std::string>(),
+                            preview_frame_.state.at("revision").get<std::uint64_t>());
+                });
+            FORGE_UI_PROBE("ui-source:group-apply");
+            ImGui::EndDisabled();
+            ImGui::TextWrapped(
+                "Use sibling absolute-pixel elements. Drag a selected member to move "
+                "the group. Resize handles are available for a single element.");
+        } else if (selected && preview_current()) {
             ImGui::Text("Selected: %s", selected->at("id").get<std::string>().c_str());
             if (selected->at("editable").get<bool>()) {
                 const auto source_state = ProjectTextSource::digest(editor_.GetText());
-                if (layout_controls_element_ != selected_ ||
+                if (layout_controls_element_ != selected_element() ||
                     layout_controls_state_ != source_state) {
                     const auto pixels =
-                        read_ui_markup_layout(editor_.GetText(), outline_, selected_);
+                        read_ui_markup_layout(editor_.GetText(), outline_, selected_element());
                     layout_controls_ = {pixels.left, pixels.top, pixels.width, pixels.height};
-                    layout_controls_element_ = selected_;
+                    layout_controls_element_ = selected_element();
                     layout_controls_state_ = source_state;
                 }
                 ImGui::BeginDisabled(gesture_active());
@@ -259,7 +355,7 @@ class UiSourceEditor {
                 if (button("Apply layout",
                            "Replace the four existing pixel values as one Undo step."))
                     attempt([&] {
-                        layout(selected_,
+                        layout(selected_element(),
                                {layout_controls_[0], layout_controls_[1], layout_controls_[2],
                                 layout_controls_[3]},
                                preview_frame_.state.at("instance").get<std::string>(),
@@ -270,34 +366,49 @@ class UiSourceEditor {
             } else
                 ImGui::TextWrapped("%s", selected->at("reason").get<std::string>().c_str());
         }
-        if (!selected)
+        if (!selected && selected_.size() < 2)
             ImGui::TextWrapped(
                 "Select an element in the preview or Elements tab to inspect its layout.");
         ImGui::EndChild();
         if (gesture_) {
             auto& gesture = *gesture_;
             const auto mouse = ImGui::GetMousePos();
-            const float dx = (mouse.x - gesture.pointer.x) / gesture.scale,
-                        dy = (mouse.y - gesture.pointer.y) / gesture.scale;
+            float dx = (mouse.x - gesture.pointer.x) / gesture.scale,
+                  dy = (mouse.y - gesture.pointer.y) / gesture.scale;
             auto pixels = gesture.initial;
             if (gesture.resize) {
-                pixels.width = std::clamp(pixels.width + dx, 1.f, 65536.f);
-                pixels.height = std::clamp(pixels.height + dy, 1.f, 65536.f);
+                auto& value = pixels.front().pixels;
+                value.width = std::clamp(value.width + dx, 1.f, 65536.f);
+                value.height = std::clamp(value.height + dy, 1.f, 65536.f);
             } else {
-                pixels.left = std::clamp(pixels.left + dx, -65536.f, 65536.f);
-                pixels.top = std::clamp(pixels.top + dy, -65536.f, 65536.f);
+                float min_x = -131072, max_x = 131072, min_y = -131072, max_y = 131072;
+                for (const auto& value : pixels) {
+                    min_x = std::max(min_x, -65536 - value.pixels.left);
+                    max_x = std::min(max_x, 65536 - value.pixels.left);
+                    min_y = std::max(min_y, -65536 - value.pixels.top);
+                    max_y = std::min(max_y, 65536 - value.pixels.top);
+                }
+                dx = std::clamp(dx, min_x, max_x);
+                dy = std::clamp(dy, min_y, max_y);
+                for (auto& value : pixels) {
+                    value.pixels.left += dx;
+                    value.pixels.top += dy;
+                }
             }
             if (!(pixels == gesture.pixels)) {
                 gesture.pixels = pixels;
                 gesture.valid = false;
                 attempt([&] {
-                    auto candidate = set_ui_markup_layout(gesture.source, gesture.element, pixels);
+                    auto candidate = set_ui_markup_layouts(gesture.source, pixels);
                     auto frame = request_preview(candidate, inspect_ui_markup(candidate), false);
-                    bool editable = false;
-                    if (frame.state.contains("elements"))
-                        for (const auto& element : frame.state.at("elements"))
-                            if (element.at("source_index") == gesture.element)
-                                editable = element.at("editable").get<bool>();
+                    const bool editable =
+                        frame.state.contains("elements") &&
+                        std::ranges::all_of(pixels, [&](const auto& change) {
+                            for (const auto& element : frame.state.at("elements"))
+                                if (element.at("source_index") == change.element)
+                                    return element.at("editable").template get<bool>();
+                            return false;
+                        });
                     gesture.valid = !frame.state.value("stale", true) && editable;
                     gesture.candidate = std::move(candidate);
                     gesture.frame = std::move(frame);
@@ -309,8 +420,9 @@ class UiSourceEditor {
         if (!preview_current() && !gesture_)
             ImGui::TextWrapped(
                 "Preview is stale. Complete the source and refresh before editing layout.");
-        ImGui::TextWrapped("Static draft preview. Gameplay bindings do not run. Drag to move; use "
-                           "the bottom-right handle to resize. Escape cancels.");
+        ImGui::TextWrapped("Static draft preview. Gameplay bindings do not run. Ctrl+click toggles "
+                           "group selection; drag to move. A single element has a resize handle. "
+                           "Escape cancels.");
         const auto error = frame.state.is_object() ? frame.state.value("error", "") : "";
         if (!error.empty()) {
             ImGui::TextWrapped("%s", error.c_str());
@@ -325,7 +437,10 @@ class UiSourceEditor {
         }
         if (gesture_ && !gesture_->valid && error.empty() && frame.state.contains("elements"))
             for (const auto& element : frame.state.at("elements"))
-                if (element.at("source_index") == gesture_->element && element.at("reason") != "")
+                if (element.at("reason") != "" &&
+                    std::ranges::any_of(gesture_->initial, [&](const auto& change) {
+                        return element.at("source_index") == change.element;
+                    }))
                     ImGui::TextWrapped("%s", element.at("reason").get<std::string>().c_str());
         ImGui::EndChild();
         if (!frame.state.contains("width") || !frame.state.contains("height"))
@@ -350,46 +465,62 @@ class UiSourceEditor {
                           "Preview image unavailable");
         }
         const Json* visual = nullptr;
-        if (frame.state.contains("elements"))
-            for (const auto& element : frame.state.at("elements"))
-                if (element.at("source_index") == selected_)
-                    visual = &element;
         ImVec2 handle{};
-        if (visual) {
-            const auto& bounds = visual->at("bounds");
-            const ImVec2 begin{origin.x + bounds.at(0).get<float>() * scale,
-                               origin.y + bounds.at(1).get<float>() * scale};
-            handle = {begin.x + bounds.at(2).get<float>() * scale,
-                      begin.y + bounds.at(3).get<float>() * scale};
-            const auto color = visual->at("editable").get<bool>() ? IM_COL32(70, 195, 255, 255)
-                                                                  : IM_COL32(245, 180, 65, 255);
-            draw->AddRect(begin, handle, color, 0.f, 2.f);
-            if (visual->at("editable").get<bool>())
-                draw->AddRectFilled({handle.x - 5, handle.y - 5}, {handle.x + 5, handle.y + 5},
-                                    color);
-        }
+        if (frame.state.contains("elements"))
+            for (const auto& element : frame.state.at("elements")) {
+                if (element.at("source_index").is_null() ||
+                    std::ranges::find(selected_, element.at("source_index").get<std::size_t>()) ==
+                        selected_.end())
+                    continue;
+                if (element.at("source_index") == selected_element())
+                    visual = &element;
+                const auto& bounds = element.at("bounds");
+                const ImVec2 begin{origin.x + bounds.at(0).get<float>() * scale,
+                                   origin.y + bounds.at(1).get<float>() * scale};
+                const ImVec2 corner{begin.x + bounds.at(2).get<float>() * scale,
+                                    begin.y + bounds.at(3).get<float>() * scale};
+                const auto color = element.at("editable").get<bool>() ? IM_COL32(70, 195, 255, 255)
+                                                                      : IM_COL32(245, 180, 65, 255);
+                draw->AddRect(begin, corner, color, 0.f, 2.f);
+                if (selected_.size() == 1 && element.at("editable").get<bool>()) {
+                    handle = corner;
+                    draw->AddRectFilled({handle.x - 5, handle.y - 5}, {handle.x + 5, handle.y + 5},
+                                        color);
+                }
+            }
         if (!gesture_ && preview_current() && ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
             const auto mouse = ImGui::GetMousePos();
-            const bool resize = visual && visual->at("editable").get<bool>() &&
-                                std::abs(mouse.x - handle.x) <= 8 &&
-                                std::abs(mouse.y - handle.y) <= 8;
+            const bool resize =
+                selected_.size() == 1 && visual && visual->at("editable").get<bool>() &&
+                std::abs(mouse.x - handle.x) <= 8 && std::abs(mouse.y - handle.y) <= 8;
             if (!resize && preview_hit) {
-                selected_ = UiMarkupElement::no_parent;
+                std::optional<std::size_t> hit;
                 const auto id =
                     preview_hit((mouse.x - origin.x) / scale, (mouse.y - origin.y) / scale);
                 if (preview_frame_.state.contains("elements"))
                     for (const auto& element : preview_frame_.state.at("elements"))
                         if (element.at("id") == id && !element.at("source_index").is_null())
-                            select(element.at("source_index").get<std::size_t>());
+                            hit = element.at("source_index").get<std::size_t>();
+                if (ImGui::GetIO().KeyCtrl) {
+                    if (hit)
+                        attempt([&] { select(*hit, true); });
+                    return; // A toggle chooses membership, without starting a drag.
+                }
+                if (!hit)
+                    selected_.clear();
+                else if (std::ranges::find(selected_, *hit) == selected_.end())
+                    select(*hit);
             }
-            if (const auto* element = preview_element(selected_);
-                element && element->at("editable").get<bool>()) {
-                const auto text = editor_.GetText();
-                const auto pixels = read_ui_markup_layout(text, outline_, selected_);
-                gesture_ =
-                    LayoutGesture{text,  session_, revision_, selected_, pixels, pixels,
-                                  mouse, scale,    resize,    true,      text,   preview_frame_};
-            }
+            if (!selected_.empty())
+                attempt([&] {
+                    const auto text = editor_.GetText();
+                    std::vector<UiMarkupLayoutEdit> pixels;
+                    for (const auto& box : layout_boxes(selected_))
+                        pixels.push_back(box.source);
+                    gesture_ =
+                        LayoutGesture{text,  session_, revision_, pixels, pixels,        mouse,
+                                      scale, resize,   true,      text,   preview_frame_};
+                });
         }
         if (gesture_ && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
             auto gesture = std::move(*gesture_);
@@ -398,7 +529,7 @@ class UiSourceEditor {
                 gesture.source == editor_.GetText())
                 attempt([&] {
                     replace_text(gesture.candidate);
-                    select(gesture.element);
+                    select_layouts(gesture.pixels);
                 });
         }
     }
@@ -422,7 +553,7 @@ class UiSourceEditor {
                 flags |= ImGuiTreeNodeFlags_DefaultOpen;
             if (leaf)
                 flags |= ImGuiTreeNodeFlags_Leaf;
-            if (selected_ == index)
+            if (std::ranges::find(selected_, index) != selected_.end())
                 flags |= ImGuiTreeNodeFlags_Selected;
             auto label = "<" + node.tag + ">";
             for (const auto& attr : node.attributes)
@@ -435,7 +566,7 @@ class UiSourceEditor {
                 ImGui::TreeNodeEx(reinterpret_cast<void*>(index + 1), flags, "%s", label.c_str());
             FORGE_UI_PROBE("ui-source:element:" + std::to_string(index));
             if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
-                select(index);
+                attempt([&] { select(index, ImGui::GetIO().KeyCtrl); });
             if (open) {
                 while (cursor < outline_.size() && outline_[cursor].source.begin < node.source.end)
                     self(self, cursor);
@@ -450,12 +581,12 @@ class UiSourceEditor {
                 draw_node(draw_node, cursor);
                 i = cursor - 1;
             }
-        if (selected_ >= outline_.size()) {
+        if (selected_element() >= outline_.size()) {
             ImGui::TextWrapped("Select a container or widget to edit its source.");
             return;
         }
         // Snapshot affordances before an edit can rebuild the derived outline.
-        const auto index = selected_;
+        const auto index = selected_element();
         const auto& node = outline_[index];
         const auto tag = node.tag;
         const bool widget_editable = ui_markup_widget_editable(node);
@@ -574,6 +705,7 @@ class UiSourceEditor {
                 {"disk_state", ProjectTextSource::digest(disk_)},
                 {"dirty", dirty_},
                 {"gesture_active", gesture_active()},
+                {"selection", selected_},
                 {"can_undo", can_undo()},
                 {"can_redo", can_redo()},
                 {"text", text},
@@ -619,6 +751,13 @@ class UiSourceEditor {
     }
     void layout(std::size_t index, UiPixelLayout pixels, const std::string& instance,
                 std::uint64_t preview_revision) {
+        const std::array changes{UiMarkupLayoutEdit{index, pixels}};
+        layouts(changes, instance, preview_revision);
+    }
+    void layouts(std::span<const UiMarkupLayoutEdit> changes, const std::string& instance,
+                 std::uint64_t preview_revision) {
+        if (changes.empty() || changes.size() > ui_layout_selection_limit)
+            throw AuthoringError("layout_selection", "Choose1..32 elements for a layout edit");
         if (gesture_)
             throw AuthoringError("source_busy", "Finish or cancel the canvas gesture first");
         // Reborrow the live owner: Play, project or presenter retirement can
@@ -630,32 +769,39 @@ class UiSourceEditor {
                 preview_frame_.state["stale"] = true;
                 throw;
             }
-        if (!preview_current() || preview_frame_.state.at("instance") != instance ||
-            preview_frame_.state.at("revision") != preview_revision)
-            throw AuthoringError("stale_ui_preview",
-                                 "Preview the current source draft before editing layout");
-        const auto* element = preview_element(index);
-        if (!element || !element->at("editable").get<bool>())
-            throw AuthoringError("layout_unsupported",
-                                 element ? element->at("reason").get<std::string>()
-                                         : "Element has no editable preview geometry");
-        const auto candidate = set_ui_markup_layout(editor_.GetText(), index, pixels);
+        check_preview_observation(instance, preview_revision);
+        std::vector<std::size_t> indices;
+        indices.reserve(changes.size());
+        for (const auto& change : changes)
+            indices.push_back(change.element);
+        layout_boxes(indices);
+        const auto candidate = set_ui_markup_layouts(editor_.GetText(), changes);
         try {
             preview_frame_ = request_preview(candidate, inspect_ui_markup(candidate), false);
         } catch (...) {
             preview_frame_.state["stale"] = true;
             throw;
         }
-        element = preview_element(index);
-        if (preview_frame_.state.value("stale", true) || !element ||
-            !element->at("editable").get<bool>()) {
-            preview_frame_.state["stale"] = true;
-            throw AuthoringError("layout_unsupported",
-                                 element ? element->at("reason").get<std::string>()
-                                         : "Candidate has no editable preview geometry");
+        for (const auto& change : changes) {
+            const auto* element = preview_element(change.element);
+            if (preview_frame_.state.value("stale", true) || !element ||
+                !element->at("editable").get<bool>()) {
+                preview_frame_.state["stale"] = true;
+                throw AuthoringError("layout_unsupported",
+                                     element ? element->at("reason").get<std::string>()
+                                             : "Candidate has no editable preview geometry");
+            }
         }
         replace_text(candidate);
-        select(index);
+        select_layouts(changes);
+    }
+    void arrange(std::span<const std::size_t> indices, std::string_view action, float dx, float dy,
+                 const std::string& instance, std::uint64_t preview_revision) {
+        check_preview_observation(instance, preview_revision);
+        if (indices.size() < 2 || indices.size() > ui_layout_selection_limit)
+            throw AuthoringError("layout_selection", "Choose2..32 elements for group layout");
+        const auto boxes = layout_boxes(indices);
+        layouts(arrange_ui_markup_layouts(boxes, action, dx, dy), instance, preview_revision);
     }
     void open(SceneDocument& project, const std::string& locator) {
         project.check_ownership();

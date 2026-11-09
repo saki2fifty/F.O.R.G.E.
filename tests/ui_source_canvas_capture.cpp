@@ -158,6 +158,25 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
         return;
     }
     surface.save(output / ("ui-source-preview-" + std::to_string(width) + ".png"));
+    const auto toggle = [&](float x, float y) {
+        const auto current = test::ui_targets.at("ui-source:canvas");
+        const float fitted = (current.maximum.x - current.minimum.x) / 1000;
+        io.AddMousePosEvent(current.minimum.x + x * fitted, current.minimum.y + y * fitted);
+        io.AddKeyEvent(ImGuiMod_Ctrl, true);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
+        io.AddKeyEvent(ImGuiMod_Ctrl, false);
+        frame();
+    };
+    toggle(470, 180);
+    toggle(760, 260);
+    require(editor.state().at("selection").size() == 3 &&
+                test::ui_targets.at("ui-source:group-apply").enabled && !editor.dirty(),
+            "Native group capture did not select the three unchanged source panels");
+    surface.save(output / ("ui-source-group-layout-" + std::to_string(width) + ".png"));
     input.click("ui-source:preview-save-image");
     const auto wait = [&] {
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);

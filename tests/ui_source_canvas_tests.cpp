@@ -25,7 +25,10 @@ void exercise(const std::filesystem::path& output, const std::vector<std::byte>&
     std::filesystem::create_directories(root / "Assets");
     const std::string source = R"rml(<!-- retained source -->
 <rml><head><style>body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
-</style></head><body><div id="panel" style="position:absolute;left:80px;top:90px;width:200px;height:100px;padding:10px;box-sizing:border-box;color:#ffffff;">Canvas</div></body></rml>
+</style></head><body><div id="panel" style="position:absolute;left:80px;top:90px;width:200px;height:100px;padding:10px;box-sizing:border-box;color:#ffffff;">Canvas
+<div id="nested" style="position:absolute;left:0px;top:0px;width:30px;height:20px;">N</div></div>
+<div id="first" style="position:absolute;left:350px;top:90px;width:80px;height:50px;padding:10px;">First</div>
+<div id="second" style="position:absolute;left:500px;top:220px;width:80px;height:50px;">Second</div></body></rml>
 )rml";
     asset_storage::replace(root / "Assets/Canvas.rml", source);
     const auto asset = register_ui_document(root, "Assets/Canvas.rml");
@@ -74,6 +77,60 @@ void exercise(const std::filesystem::path& output, const std::vector<std::byte>&
     const auto element = view.at("elements").at(0).at("source_index").get<std::size_t>();
     check(view.at("elements").at(0).at("editable").get<bool>(),
           "Native canvas fixture is not editable");
+    const auto index_for = [&](const char* id) {
+        for (const auto& item : view.at("elements"))
+            if (item.at("id") == id)
+                return item.at("source_index").get<std::size_t>();
+        throw std::runtime_error("Group fixture native element missing");
+    };
+    const auto first = index_for("first"), second = index_for("second"),
+               nested = index_for("nested");
+    const auto apply_group = [&](std::span<const UiMarkupLayoutEdit> changes) {
+        view = editor.preview_state(project, 800, 600, 1);
+        editor.layouts(changes, view.at("instance").get<std::string>(),
+                       view.at("revision").get<std::uint64_t>());
+    };
+    const auto group_before = editor.state();
+    const std::array group{UiMarkupLayoutEdit{first, {400, 100, 80, 50}},
+                           UiMarkupLayoutEdit{second, {550, 230, 80, 50}}};
+    auto invalid_group = group;
+    invalid_group[1] = {element, {80, 90, 1, 1}};
+    rejects([&] { apply_group(invalid_group); });
+    check(editor.state() == group_before,
+          "A later native-clamped group member partially changed source/history");
+    invalid_group[1] = {nested, {1, 2, 30, 20}};
+    rejects([&] { apply_group(invalid_group); });
+    check(editor.state() == group_before, "Mixed-parent group layout changed the source/history");
+    apply_group(group);
+    const auto grouped_text = editor.state().at("text").get<std::string>();
+    check(read_ui_markup_layout(grouped_text, first) == group[0].pixels &&
+              read_ui_markup_layout(grouped_text, second) == group[1].pixels && editor.can_undo(),
+          "Native group application did not publish both admitted source rectangles");
+    editor.undo(false);
+    check(editor.state().at("text") == group_before.at("text") && !editor.can_undo(),
+          "Atomic native group application needed more than one Undo");
+    editor.undo(true);
+    check(editor.state().at("text") == grouped_text,
+          "Native group Redo did not restore the complete candidate");
+    editor.undo(false);
+    view = editor.preview_state(project, 800, 600, 1);
+    const std::array group_indices{first, element, second};
+    editor.arrange(group_indices, "align_right", 0, 0, view.at("instance").get<std::string>(),
+                   view.at("revision").get<std::uint64_t>());
+    const auto aligned_text = editor.state().at("text").get<std::string>();
+    check(read_ui_markup_layout(aligned_text, first) == UiPixelLayout{480, 90, 80, 50} &&
+              read_ui_markup_layout(aligned_text, element) == UiPixelLayout{380, 90, 200, 100},
+          "Native group alignment confused padded border width with source width");
+    view = editor.preview_state(project, 800, 600, 1);
+    for (const auto& item : view.at("elements"))
+        if (item.at("id") == "first" || item.at("id") == "panel" || item.at("id") == "second")
+            check(item.at("bounds").at(0).get<float>() + item.at("bounds").at(2).get<float>() ==
+                      580,
+                  "Aligned native group border edges differ from the actual candidate");
+    editor.undo(false);
+    check(editor.state().at("text") == group_before.at("text") && !editor.can_undo(),
+          "Group alignment needed more than one native Undo");
+    view = editor.preview_state(project, 800, 600, 1);
     const auto before_image = editor.state();
     rejects([&] { editor.image_source(project); });
     check(editor.state() == before_image,
@@ -197,6 +254,90 @@ void exercise(const std::filesystem::path& output, const std::vector<std::byte>&
           "Owning-task lock committed a canvas gesture");
     release();
     locked = false;
+    frame();
+    const auto toggle = [&](float x, float y) {
+        const auto target = point(x, y);
+        io.AddMousePosEvent(target.x, target.y);
+        io.AddKeyEvent(ImGuiMod_Ctrl, true);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
+        io.AddKeyEvent(ImGuiMod_Ctrl, false);
+        frame();
+        check(!editor.gesture_active(), "Ctrl selection started an unwanted group drag");
+    };
+    toggle(365, 115);
+    toggle(520, 240);
+    check(editor.state().at("selection").size() == 3 && editor.state().at("text") == moved,
+          "Native preview Ctrl toggles changed source or lost group membership");
+    const auto group_source = editor.state().at("text").get<std::string>();
+    origin = point(365, 115);
+    press(origin);
+    canvas = test::ui_targets.at("ui-source:canvas");
+    const float group_scale = (canvas.maximum.x - canvas.minimum.x) / 800;
+    const auto group_start = ImGui::GetMousePos();
+    io.AddMousePosEvent(origin.x + 24, origin.y + 14);
+    frame();
+    const auto group_end = ImGui::GetMousePos();
+    check(editor.state().at("text") == group_source, "Group drag published before release");
+    release();
+    const auto group_moved = editor.state().at("text").get<std::string>();
+    for (const auto index : group_indices) {
+        const auto before = read_ui_markup_layout(group_source, index);
+        const auto after = read_ui_markup_layout(group_moved, index);
+        check(std::abs(after.left - before.left - (group_end.x - group_start.x) / group_scale) <
+                      .01f &&
+                  std::abs(after.top - before.top - (group_end.y - group_start.y) / group_scale) <
+                      .01f &&
+                  after.width == before.width && after.height == before.height,
+              "Group drag distorted spacing, sizes or a selected member");
+    }
+    editor.undo(false);
+    check(editor.state().at("text") == group_source, "Group drag needed more than one Undo");
+    editor.undo(true);
+    check(editor.state().at("text") == group_moved, "Group drag Redo lost a member");
+    editor.undo(false);
+    frame();
+    toggle(365, 115);
+    toggle(520, 240);
+    check(editor.state().at("selection").size() == 2, "Group reselection failed after Undo");
+    origin = point(365, 115);
+    press(origin);
+    io.AddMousePosEvent(origin.x + 18, origin.y + 10);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Escape, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Escape, false);
+    release();
+    check(editor.state().at("text") == group_source && !editor.gesture_active(),
+          "Escape published a transient group move");
+    input.click("ui-source:group-apply");
+    const auto left_aligned = editor.state().at("text").get<std::string>();
+    check(read_ui_markup_layout(left_aligned, first).left == 350 &&
+              read_ui_markup_layout(left_aligned, second).left == 350,
+          "Actual group controls did not align both source members");
+    editor.undo(false);
+    check(editor.state().at("text") == group_source, "Group controls needed more than one Undo");
+    frame();
+    toggle(200, 160);
+    toggle(365, 115);
+    toggle(520, 240);
+    input.click("ui-source:group-action");
+    input.select("ui-source:group-choice:distribute_horizontal");
+    input.click("ui-source:group-apply");
+    view = editor.preview_state(project, 800, 600, 1);
+    std::vector<std::array<float, 4>> spaced;
+    for (const auto& item : view.at("elements"))
+        if (item.at("id") == "panel" || item.at("id") == "first" || item.at("id") == "second")
+            spaced.push_back(item.at("bounds").get<std::array<float, 4>>());
+    std::ranges::sort(spaced, {}, [](const auto& box) { return box[0]; });
+    check(spaced.size() == 3 && std::abs((spaced[1][0] - spaced[0][0] - spaced[0][2]) -
+                                         (spaced[2][0] - spaced[1][0] - spaced[1][2])) < .01f,
+          "Actual distribution controls did not create equal native border gaps");
+    editor.undo(false);
+    check(editor.state().at("text") == group_source, "Distribution needed more than one Undo");
     frame();
     const auto problems = context.problems.size();
     editor.replace_text("<rml>");
