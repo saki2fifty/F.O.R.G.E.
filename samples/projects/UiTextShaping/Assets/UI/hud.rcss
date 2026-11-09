@@ -1,0 +1,13 @@
+@font-face {font-family:ForgeArabic;src:"Assets/Fonts/Cairo.ttf";}
+body {width:100%;height:100%;font-family:Lato;font-size:18px;color:#e7eef7;pointer-events:none;}
+body,div,p {display:block;} p {margin:8px 0;}
+#panel {position:absolute;left:5%;top:4%;width:90%;max-width:740px;max-height:92%;overflow:auto;box-sizing:border-box;padding:24px;background-color:#152b3df5;pointer-events:auto;}
+#eyebrow,.label {color:#8cd8cc;font-size:14px;} #heading {font-size:30px;color:#ffffff;}
+.sample,#arabic {font-size:32px;margin-bottom:14px;} .tracked {letter-spacing:2px;}
+#arabic {font-family:ForgeArabic;-rmlui-language:ar;-rmlui-direction:rtl;}
+#effects {font-size:26px;font-effect:shadow(2px 2px #0008), outline(1px #5c9379);}
+#state {font-size:14px;color:#bdd0e3;} button {padding:8px 16px;margin:4px;background-color:#315a72;}
+#controls {height:48px;}
+input {display:block;box-sizing:border-box;width:90%;height:40px;padding:6px;margin-top:4px;background-color:#0a1d2b;color:#ffffff;}
+#hint {font-size:14px;color:#c0cfdd;}
+scrollbarvertical {width:12px;background-color:#101e2c;} scrollbarvertical sliderbar {background-color:#477e9a;}

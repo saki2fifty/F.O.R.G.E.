@@ -51,13 +51,13 @@ build authoring: link
 build,ninja=sys.argv[1:]
 verify_path_controls(ninja)
 runtime=libraries(link(build,ninja,'forge_runtime'))
-for forbidden in ('rmlui','freetype','imgui','diligent','graphicsengined3d12','sdl3','forge_authoring'):
+for forbidden in ('rmlui','freetype','harfbuzz','imgui','diligent','graphicsengined3d12','sdl3','forge_authoring'):
  assert forbidden not in runtime,(forbidden,runtime)
 game=libraries(link(build,ninja,'forge_game_foundation_tests'))
-for forbidden in ('rmlui','freetype','imgui','diligent','graphicsengined3d12','sdl3','forge_authoring'):
+for forbidden in ('rmlui','freetype','harfbuzz','imgui','diligent','graphicsengined3d12','sdl3','forge_authoring'):
  assert forbidden not in game,(forbidden,game)
 package=libraries(link(build,ninja,'forge_runtime_package_tests'))
-for forbidden in ('imgui','sdl3','diligent','d3dcompiler','forge_authoring','forge_audio_decode','forge_gltf_native','forge_recast','forge_nav_build'):
+for forbidden in ('harfbuzz','imgui','sdl3','diligent','d3dcompiler','forge_authoring','forge_audio_decode','forge_gltf_native','forge_recast','forge_nav_build'):
  assert forbidden not in package,(forbidden,package)
 cache=(Path(build)/'CMakeCache.txt').read_text()
 if 'FORGE_BUILD_GAME:BOOL=ON' in cache:

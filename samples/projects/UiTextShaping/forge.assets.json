@@ -1,0 +1,109 @@
+{
+  "assets": [
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "51908d26-ebbe-44b2-9ca6-13ff2c3bf46c",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1132,
+          "digest": "aacece7082231e93f40397279f145370fef4c1596b8aa12c1ccbd253605ff64c",
+          "format": "rcss"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/hud.rcss",
+      "source_dependencies": [
+        {
+          "revision": "aacece7082231e93f40397279f145370fef4c1596b8aa12c1ccbd253605ff64c",
+          "role": "ui.source",
+          "source": "Assets/UI/hud.rcss"
+        }
+      ],
+      "type": "ui_stylesheet"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "65ef9b35-4e14-4363-be7c-8705a5ab6cf5",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 94484,
+          "digest": "7560e24bb16a57b5085b1efe01956c4d6e7ae9cbf0efbc9767efa4738d8b965b",
+          "format": "ttf"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Fonts/Cairo.ttf",
+      "source_dependencies": [
+        {
+          "revision": "7560e24bb16a57b5085b1efe01956c4d6e7ae9cbf0efbc9767efa4738d8b965b",
+          "role": "ui.source",
+          "source": "Assets/Fonts/Cairo.ttf"
+        }
+      ],
+      "type": "ui_font"
+    },
+    {
+      "dependencies": [
+        "51908d26-ebbe-44b2-9ca6-13ff2c3bf46c",
+        "65ef9b35-4e14-4363-be7c-8705a5ab6cf5"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "51908d26-ebbe-44b2-9ca6-13ff2c3bf46c",
+          "type": "ui_stylesheet"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "65ef9b35-4e14-4363-be7c-8705a5ab6cf5",
+          "type": "ui_font"
+        }
+      ],
+      "id": "9acc216f-f957-40e1-b7bb-6990a8f62970",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1100,
+          "digest": "83b64f948dad604b609aef150cf8433c1eaf45ac184dcc5459c5ec316cf13b76",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/hud.rml",
+      "source_dependencies": [
+        {
+          "revision": "7560e24bb16a57b5085b1efe01956c4d6e7ae9cbf0efbc9767efa4738d8b965b",
+          "role": "ui.observed",
+          "source": "Assets/Fonts/Cairo.ttf"
+        },
+        {
+          "revision": "aacece7082231e93f40397279f145370fef4c1596b8aa12c1ccbd253605ff64c",
+          "role": "ui.observed",
+          "source": "Assets/UI/hud.rcss"
+        },
+        {
+          "revision": "83b64f948dad604b609aef150cf8433c1eaf45ac184dcc5459c5ec316cf13b76",
+          "role": "ui.source",
+          "source": "Assets/UI/hud.rml"
+        }
+      ],
+      "type": "ui_document"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c22bd737-7f9c-4847-af8c-e10c9ad5efd7",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/TextShaping.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    }
+  ],
+  "version": 2
+}

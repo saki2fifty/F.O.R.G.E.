@@ -31,7 +31,7 @@ class UiPresenter {
   public:
     UiPresenter(Rml::RenderInterface&, std::filesystem::path project,
                 std::vector<std::byte> default_font, UiPlatformCallbacks callbacks = {},
-                Rml::TextInputHandler* text_handler = nullptr);
+                Rml::TextInputHandler* text_handler = nullptr, bool shape_text = false);
     ~UiPresenter();
     UiPresenter(const UiPresenter&) = delete;
     UiPresenter& operator=(const UiPresenter&) = delete;

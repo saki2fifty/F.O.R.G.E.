@@ -2,7 +2,6 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "audio_routing_package_tests.hpp"
-#include "sound_cue_package_tests.hpp"
 #include "audio_stream_profile.hpp"
 #include "fog_volume_package_tests.hpp"
 #include "game_export.hpp"
@@ -10,6 +9,7 @@
 #include "runtime_document_package.hpp"
 #include "runtime_reflection_profile.hpp"
 #include "runtime_workers_package_tests.hpp"
+#include "sound_cue_package_tests.hpp"
 #include "standalone_manifest.hpp"
 #include "ui_surface_limits.hpp"
 #include <array>
@@ -45,6 +45,23 @@ int main(int argc, char** argv) {
         const auto project = scratch / "source", out = scratch / "game";
         audio_routing_package_tests(scratch, check, reject);
         sound_cue_package_tests(scratch, check, reject);
+        {
+            AssetCatalog features(scratch / "ui-text-shaping-compatibility");
+            Json settings{{"game", default_game_settings("org.forge.shaping", "Shaped UI")}};
+            validate_runtime_compatibility(features, Json::object(), &settings);
+            settings["game"]["ui"]["text_shaping"] = false;
+            validate_runtime_compatibility(features, Json::object(), &settings);
+            settings["game"]["ui"]["text_shaping"] = true;
+            reject([&] { validate_runtime_compatibility(features, Json::object(), &settings); });
+            for (const Json& invalid : {Json(), Json(true), Json(0), Json(1.), Json("1"), Json(2)})
+                reject([&] {
+                    validate_runtime_compatibility(features, {{"runtime_ui_text_shaping", invalid}},
+                                                   &settings);
+                });
+            validate_runtime_compatibility(
+                features, {{"runtime_ui_text_shaping", ui_text_shaping_profile_version}},
+                &settings);
+        }
         {
             AssetCatalog features(scratch / "fbx-compatibility");
             AssetRecord record{};
@@ -739,6 +756,7 @@ int main(int argc, char** argv) {
         // Real service with a synthetic runtime kit: validates assembly/recovery,
         // not executable or graphics acceptance.
         const auto kit = scratch / "kit", exported = scratch / "exported";
+        const auto shaped_exported = scratch / "relocated-shaped-export";
         std::filesystem::create_directories(kit / "resources/ui");
         std::filesystem::copy_file(argv[2], kit / "resources/ui/LatoLatin-Regular.ttf");
         asset_storage::replace(kit / "forge_game", "test executable bytes");
@@ -766,6 +784,23 @@ int main(int argc, char** argv) {
             check(result.at("ok") && std::filesystem::exists(exported / "forge_game"),
                   "Export assembly failed");
             const auto first = asset_storage::read(exported / "forge.standalone.json");
+            project_settings["game"]["ui"]["text_shaping"] = true;
+            ProjectSettings(project).save(project_settings);
+            reject([&] { export_standalone_game(lease, request); });
+            check(asset_storage::read(exported / "forge.standalone.json") == first,
+                  "A kit without text shaping replaced the last good distribution");
+            runtime["engine"]["runtime_ui_text_shaping"] = ui_text_shaping_profile_version;
+            asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
+            (void)export_standalone_game(lease, request);
+            std::filesystem::copy(exported, shaped_exported,
+                                  std::filesystem::copy_options::recursive);
+            project_settings["game"].erase("ui");
+            ProjectSettings(project).save(project_settings);
+            runtime["engine"].erase("runtime_ui_text_shaping");
+            asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
+            (void)export_standalone_game(lease, request);
+            check(asset_storage::read(exported / "forge.standalone.json") == first,
+                  "Default text rendering changed its existing distribution shape");
             const auto before_audio = project_settings.at("game").at("audio");
             project_settings["game"]["audio"]["routing"] =
                 audio_routing_json({{{"rain", "Rain", .5f, "effects", {{"music", .25f}}}}});
@@ -1123,6 +1158,12 @@ int main(int argc, char** argv) {
             }
         } // Release the Windows project writer handle before moving its directory.
         std::filesystem::rename(project, scratch / "unavailable");
+        const auto shaped_distribution = open_standalone_distribution(
+            shaped_exported, target, "static-core", std::string(64, 'a'));
+        const ProjectSettings shaped_settings(shaped_distribution.content,
+                                              shaped_distribution.settings);
+        check(ui_text_shaping_enabled(shaped_settings.document().at("game")),
+              "Relocated standalone configuration lost its saved UI font backend");
         auto open = [&] {
             return open_standalone_distribution(out, target, "static-core", std::string(64, 'a'));
         };

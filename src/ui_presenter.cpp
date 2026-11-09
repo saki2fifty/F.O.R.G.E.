@@ -2,6 +2,7 @@
 #include "ui_filter_profile.hpp"
 #include "ui_luminance_mask.hpp"
 #include "ui_shadow_motion.hpp"
+#include "ui_shaped_font.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/ElementText.h>
 #include <algorithm>
@@ -261,6 +262,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         }
     };
     std::string session, error, loading_prefix, failed_structure;
+    std::unique_ptr<Rml::FontEngineInterface> shaped_font;
     LoadingState loading;
     std::string frame_statistics_label;
     std::optional<std::uint64_t> cancel_loading;
@@ -443,7 +445,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         }
     }
     Impl(Rml::RenderInterface& r, std::filesystem::path p, std::vector<std::byte> f,
-         UiPlatformCallbacks hooks, Rml::TextInputHandler* text_handler)
+         UiPlatformCallbacks hooks, Rml::TextInputHandler* text_handler, bool shape_text)
         : renderer(r, error), platform(std::move(hooks)), project(std::move(p)),
           font(std::move(f)) {
         if (presenter_active)
@@ -452,6 +454,9 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         validate_ui_font(font);
         presenter_active = true;
         try {
+            if (shape_text)
+                shaped_font = make_ui_shaped_font(error);
+            Rml::SetFontEngineInterface(shaped_font.get());
             Rml::SetSystemInterface(this);
             Rml::SetFileInterface(this);
             Rml::SetRenderInterface(&renderer);
@@ -472,6 +477,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             Rml::SetFileInterface(nullptr);
             Rml::SetRenderInterface(nullptr);
             Rml::SetTextInputHandler(nullptr);
+            Rml::SetFontEngineInterface(nullptr);
             presenter_active = false;
             throw;
         }
@@ -488,6 +494,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         Rml::SetFileInterface(nullptr);
         Rml::SetRenderInterface(nullptr);
         Rml::SetTextInputHandler(nullptr);
+        Rml::SetFontEngineInterface(nullptr);
         presenter_active = false;
     }
     double GetElapsedTime() override { return time; }
@@ -966,9 +973,9 @@ body { width:100%; height:100%; z-index:65536; }
 };
 UiPresenter::UiPresenter(Rml::RenderInterface& r, std::filesystem::path p,
                          std::vector<std::byte> font, UiPlatformCallbacks hooks,
-                         Rml::TextInputHandler* text_handler)
-    : impl_(std::make_unique<Impl>(r, std::move(p), std::move(font), std::move(hooks),
-                                   text_handler)) {}
+                         Rml::TextInputHandler* text_handler, bool shape_text)
+    : impl_(std::make_unique<Impl>(r, std::move(p), std::move(font), std::move(hooks), text_handler,
+                                   shape_text)) {}
 UiPresenter::~UiPresenter() = default;
 const UiAssetSnapshot* UiPresenter::asset_snapshot() const {
     impl_->check();

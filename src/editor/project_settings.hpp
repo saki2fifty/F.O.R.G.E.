@@ -148,6 +148,11 @@ class ProjectSettingsEditor {
                     setup_game_defaults();
             } else if (ImGui::TreeNodeEx("Game defaults", ImGuiTreeNodeFlags_DefaultOpen)) {
                 auto& game = draft_["game"];
+                bool shape_text = ui_text_shaping_enabled(game);
+                if (ImGui::Checkbox("Shape UI text", &shape_text))
+                    game["ui"]["text_shaping"] = shape_text;
+                ui::help("Shape horizontal glyph runs for supported project fonts. Save Settings "
+                         "and restart Play. Requires the matching runtime kit when exporting.");
                 auto text = [&](const char* label, Json& value, const char* help) {
                     char buffer[257]{};
                     SDL_strlcpy(buffer, value.get<std::string>().c_str(), sizeof(buffer));

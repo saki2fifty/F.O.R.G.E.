@@ -140,7 +140,9 @@ The source document, Content, CLI and automation/MCP share the existing authorin
 owners. See the [localization guide](../manual/editor/ui-localization.md).
 Gallery133 supplies original English/French/Spanish messages, regional/default
 fallback, literal accented text and paused controls. This is game UI localization;
-editor translation, full shaping and complete international input remain absent.
+editor translation, full paragraph bidirectional layout and complete international
+input remain absent. Bounded horizontal shaping is an optional saved project
+setting; see [UI text shaping](ui-text-shaping.md).
 
 ## Camera output composition
 
@@ -363,7 +365,7 @@ presentation state or access to arbitrary DOM/script/engine files.
 
 Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, PNG/JPEG/TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
 
-Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, free-space3D UI layout, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Other shader decorators remain unsupported and diagnosed. Box shadows use the extension below. Alpha masks use the profile below. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
+Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie, RCSS imports/templates, free-space3D UI layout, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Other shader decorators remain unsupported and diagnosed. Box shadows use the extension below. Alpha masks use the profile below. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
 
 ## Upstream evidence
 
@@ -835,3 +837,9 @@ Four animated/live/portrait Game source/export pairs run on software Vulkan.
 The authentic `manual/images/ui-luminance-mask-gallery.png` is a lossless encoding
 of that native Game capture. Windows/MSVC/D3D12/full Main/physical input/GPU review
 is queued; these local fixtures do not establish that acceptance.
+
+## Optional horizontal text shaping
+
+The saved **Shape UI text** project setting selects the bounded public-interface
+font backend. See [UI text shaping](ui-text-shaping.md) for language/direction,
+font coverage, limits, same-owner automation and runtime-kit compatibility.

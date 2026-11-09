@@ -196,7 +196,9 @@ int main(int argc, char** argv) {
             device, graphics.context, root,
             asset_detail::read_bytes(executable_root / "resources/ui/LatoLatin-Regular.ttf",
                                      4 * 1024 * 1024),
-            std::move(callbacks), &ime);
+            std::move(callbacks), &ime,
+            project.document().contains("game") &&
+                ui_text_shaping_enabled(project.document().at("game")));
         static constexpr const char* pending_rate = "FPS -- | Frame -- ms | Peak -- ms";
         if (show_fps)
             presentation.ui().frame_statistics(pending_rate);

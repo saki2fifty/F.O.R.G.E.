@@ -52,8 +52,9 @@ Only one UI source is open at a time. Switching to another file asks you to save
 discard or keep editing an unsaved draft. RCSS has no element outline.
 
 Incomplete markup may remain in the text draft. The Elements view explains why
-it cannot inspect that draft, and Save rejects invalid source. Correct the source
-before saving. Current admission limits include 256 KiB of source, 8,192 tags and
+it cannot inspect that draft. Save checks the bounded source structure and supported
+static profile; native styles, properties and resources are checked when loading
+the HUD. Correct source errors before saving and test the result in Play. Current admission limits include 256 KiB of source, 8,192 tags and
 32 levels of nesting. See [Runtime UI](runtime-ui.md) for supported resources,
 bindings and styling limits.
 

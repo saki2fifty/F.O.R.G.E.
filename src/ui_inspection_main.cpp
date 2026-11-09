@@ -5,6 +5,8 @@
 #include "ui_gradient_admission.hpp"
 #include "ui_inspection_transport.hpp"
 #include <RmlUi/Core.h>
+#include <forge/game_settings.hpp>
+#include <forge/project.hpp>
 #include <forge/ui_presenter.hpp>
 #include <set>
 namespace {
@@ -89,7 +91,10 @@ int main(int argc, char** argv) {
             throw std::runtime_error(
                 "export.ui.inspection: Absolute trusted worker paths required");
         InspectionRenderer renderer;
-        UiPresenter presenter(renderer, root, asset_detail::read_bytes(font, 4 * 1024 * 1024));
+        const auto settings = ProjectSettings(root).document();
+        UiPresenter presenter(
+            renderer, root, asset_detail::read_bytes(font, 4 * 1024 * 1024), {}, nullptr,
+            settings.contains("game") && ui_text_shaping_enabled(settings.at("game")));
         const auto result = presenter.inspect_static({input.at("asset").get<AssetId>()});
         asset_storage::replace(std::filesystem::current_path() / "result.json",
                                ui_inspection_detail::encode(result).dump());

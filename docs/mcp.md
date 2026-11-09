@@ -2235,3 +2235,17 @@ each dab must retain at least one candidate. Spacing applies within each dab
 only. There is no collision clearance or live surface link in this workflow.
 Recheck after published surface changes. Both tools use the same preparation,
 validation and Scene history owners as the editor.
+
+## UI text shaping configuration
+
+Use the existing `forge_project_settings_read`, `forge_project_settings_edit`
+and `forge_project_settings_save` tools to author `/game/ui/text_shaping`.
+It is an optional boolean, default false, validated by the same game-settings
+owner as the native **Shape UI text** checkbox. Add the `/game/ui` object before
+adding its child when absent. Supply the observed settings digest and current
+authoring target; normal Edit-mode, permission, stale-state, Save and discard
+rules apply. Settings are outside Scene Undo. Players cannot override this option.
+Save and restart Play; a live presenter does not switch font engines. Export
+requires a matching runtime kit when enabled. Fonts and source language/direction
+remain accessible through the existing Content/resource/source operations; there
+is no agent-only shaping or glyph tool. See [UI text shaping](ui-text-shaping.md).

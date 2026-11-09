@@ -4,7 +4,9 @@
 #include "runtime_ui_input.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/game_settings.hpp>
 #include <forge/loading_state.hpp>
+#include <forge/project.hpp>
 #include <forge/ui_diligent.hpp>
 #include <forge/ui_presenter.hpp>
 #include <set>
@@ -85,9 +87,11 @@ class RuntimeUiHost {
             SDL_StartTextInput(window_);
         };
         platform.deactivate_text = [this] { SDL_StopTextInput(window_); };
-        presenter_ = std::make_unique<UiPresenter>(renderer_->render_interface(), project_,
-                                                   asset_detail::read_bytes(font_, 4 * 1024 * 1024),
-                                                   std::move(platform), &ime_);
+        const auto settings = ProjectSettings(project_).document();
+        presenter_ = std::make_unique<UiPresenter>(
+            renderer_->render_interface(), project_,
+            asset_detail::read_bytes(font_, 4 * 1024 * 1024), std::move(platform), &ime_,
+            settings.contains("game") && ui_text_shaping_enabled(settings.at("game")));
         presenter_time_ = recording_origin_ = 0;
         recording_launch_.clear();
         if (surface_callbacks_.pick)

@@ -85,10 +85,12 @@ struct GamePresentation::Candidate final : GameScenePreparation {
 };
 GamePresentation::GamePresentation(DiligentPresentation& p, Diligent::IDeviceContext* context,
                                    std::filesystem::path root, std::vector<std::byte> font,
-                                   UiPlatformCallbacks callbacks, Rml::TextInputHandler* ime)
+                                   UiPlatformCallbacks callbacks, Rml::TextInputHandler* ime,
+                                   bool shape_text)
     : presentation_(p), context_(context), root_(std::move(root)),
       resources_(std::make_shared<MeshResourceHost>(p, context, root_)), ui_renderer_(p.device()),
-      ui_(ui_renderer_.render_interface(), root_, std::move(font), std::move(callbacks), ime) {
+      ui_(ui_renderer_.render_interface(), root_, std::move(font), std::move(callbacks), ime,
+          shape_text) {
     resources_->catalog(std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root_)));
     ui_.surface_input(ui_surface_callbacks([this] { return active_.get(); }));
 }

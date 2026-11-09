@@ -83,7 +83,7 @@ def _package(build, dependencies, output, gallery_root):
         check_pe64(image)
     converter = build/'tools/gltf2ozz.exe'
     check_pe64(converter)
-    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'cpp_text_editor-src', 'diligent-src', 'jolt-src', 'box2d-src', 'miniaudio-src', 'ozz-src', 'recast-src', 'rmlui-src', 'freetype-src', 'ktx-src', 'webp-src', 'meshoptimizer-src', 'draco-src', 'ufbx-src')
+    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'cpp_text_editor-src', 'diligent-src', 'jolt-src', 'box2d-src', 'miniaudio-src', 'ozz-src', 'recast-src', 'rmlui-src', 'freetype-src', 'harfbuzz-src', 'ktx-src', 'webp-src', 'meshoptimizer-src', 'draco-src', 'ufbx-src')
     notices = []
     for name in source_names:
         source = dependencies/name
@@ -138,15 +138,15 @@ def _package(build, dependencies, output, gallery_root):
     example_files = {p.relative_to(example_root).as_posix(): p
                      for p in example_root.rglob('*')
                      if p.is_file() and 'FeatureGallery' != p.relative_to(example_root).parts[0]
-                     and p.suffix in ('.json', '.wav', '.gltf', '.glb', '.png', '.md', '.txt', '.bin', '.values', '.clip', '.ozz', '.fmesh', '.fmat', '.fpcm', '.cpp', '.hpp', '.cmake')}
+                     and p.suffix in ('.json', '.wav', '.gltf', '.glb', '.png', '.md', '.txt', '.bin', '.values', '.clip', '.ozz', '.fmesh', '.fmat', '.fpcm', '.cpp', '.hpp', '.cmake', '.rml', '.rcss', '.ttf', '.otf')}
     example_files.update({'FeatureGallery/'+p.relative_to(gallery_root).as_posix(): p
                           for p in gallery_files(gallery_root)})
     # Source Markdown links follow the repository layout; the distributed manual
     # is HTML beside Examples. Hash the same derived README bytes that we write.
-    gallery_readme = gallery_root/'README.md'
-    example_overrides = {gallery_readme: re.sub(
-        r'\]\(\.\./\.\./\.\./manual/([^()#]+)\.md\)',
-        r'](../../manual/\1.html)', gallery_readme.read_text(encoding='utf-8')).encode('utf-8')}
+    example_overrides = {path: re.sub(
+        r'\]\(\.\./\.\./\.\./manual/([^()#]+)\.md(#[^()]*)?\)',
+        r'](../../manual/\1.html\2)', path.read_text(encoding='utf-8')).encode('utf-8')
+        for path in example_files.values() if path.suffix == '.md'}
     for relative, example in sorted(example_files.items()):
         content = example_overrides[example] if example in example_overrides else example.read_bytes()
         manifest['files']['Examples/'+relative] = hashlib.sha256(content).hexdigest()

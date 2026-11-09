@@ -35,6 +35,14 @@ runtime kit; an older kit without worker support is rejected. Players do not
 need a compiler. See [Write a worker-safe system](native-gameplay.md) and
 [Profiling limits](performance.md).
 
+## Shape game UI text
+
+Under **Game defaults**, enable **Shape UI text**, choose **Save Settings** and
+restart Play. Existing projects keep their original text rendering until enabled.
+Use a font containing the required script and the matching runtime kit for export.
+See [Shape game UI text](ui-text-shaping.md) for the example, language/direction,
+supported typography and current limits.
+
 ## Choose the startup scene
 
 Save your current scene, then click **Use saved current scene as startup** and **Save Settings**. FORGE stores the scene's asset identity. Moving its file inside the project does not change that identity. Copying a scene file by hand can create duplicate identities and makes startup ambiguous; use the editor's Save scene As... workflow for an independent scene.

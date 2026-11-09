@@ -25,10 +25,17 @@ with tempfile.TemporaryDirectory(prefix='ui-relocation-', dir=archive.parent) as
     assert (root / 'resources/ui/LICENSE-Lato.txt').is_file()
     assert (root / 'licenses/rmlui-src/LICENSE.txt').is_file()
     assert (root / 'licenses/freetype-src/docs/FTL.TXT').is_file()
+    assert (root / 'licenses/harfbuzz-src/COPYING').is_file()
+    assert (root / 'licenses/harfbuzz-src/src/ms-use/COPYING').is_file()
+    assert (root / 'resources/ui/LICENSE-Cairo.txt').is_file()
+    assert (root / 'resources/ui/Cairo-Regular.ttf').is_file()
     assert (root / 'manual/editor/runtime-ui.html').is_file()
     relocated = root / 'bin' / fixture.name
     shutil.copy2(fixture, relocated)
     env = os.environ.copy()
     env['PATH'] = str(Path(os.environ['SystemRoot']) / 'System32')
     subprocess.run([relocated, root / 'ui-checks', font], cwd=root, env=env, check=True, timeout=90)
+    subprocess.run([relocated, root / 'shaped-ui-checks', font,
+                    root / 'Examples/UiTextShaping', '--text-shaping-only'],
+                   cwd=root, env=env, check=True, timeout=90)
 print('Packaged runtime UI font, notices, rendering and relocation passed')

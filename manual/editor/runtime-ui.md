@@ -58,7 +58,9 @@ FORGE supplies the data model automatically; omit `data-model` attributes. `tick
 For translated menus, use a [UI Localization catalog](ui-localization.md) and
 `{{ 'message_key' | tr(forge_locale) }}`. Its language command works without
 project C++, including while paused. This catalog stores literal messages;
-editor translation, full shaping and parameter/plural formatting are unavailable.
+editor translation and parameter/plural formatting are unavailable. Supported
+script runs can use the optional [Shape UI text](ui-text-shaping.md) setting;
+full paragraph bidirectional layout remains unavailable.
 
 For menus and state-driven choices, use [Application States](application-states.md).
 Its read-only state bindings, ancestor conditions and revision-checked `forge.state`
@@ -733,6 +735,9 @@ a problem. FORGE does not apply camera orientation tags or image color profiles;
 export artwork in the orientation and display colors you want.
 
 ## Styles, fonts and images
+
+For supported script joining, ligatures and combining marks, enable the saved
+[Shape UI text](ui-text-shaping.md) project setting and use a suitable project font.
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts using an RCSS `@font-face` declaration, with suitable redistribution rights. Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.
 

@@ -1,0 +1,16 @@
+<rml><head>
+<link type="text/rcss" href="hud.rcss" /></head><body>
+<div id="panel"><p id="eyebrow">FORGE / UI TEXT SHAPING</p>
+<p id="heading">Letters become glyphs.</p>
+<p class="label">Latin ligatures / normal spacing</p><p class="sample">office affinity</p>
+<p class="label">Tracked text / separate Latin glyphs</p><p class="sample tracked">office affinity</p>
+<p class="label">Combining accents / source text remains UTF-8</p><p class="sample">á é ô</p>
+<p class="label">Arabic / an explicit right-to-left run</p><p id="arabic">سلام بالعالم</p>
+<p id="effects">Glyph outlines and shadows</p>
+<p id="state">Tick {{tick}} / paused {{paused}}</p>
+<div id="controls"><button id="Pause" data-event-click="command('Pause')">Pause</button>
+<button id="Resume" data-event-click="command('Resume')">Resume</button></div>
+<input id="field" type="text" value="office" />
+<p id="hint">Shape UI text is enabled in Project Settings. Edit the RML/RCSS in Content,
+save and restart Play. This example demonstrates separate horizontal runs, not mixed-direction paragraphs.</p>
+</div></body></rml>

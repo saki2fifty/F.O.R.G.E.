@@ -1,0 +1,87 @@
+{
+  "ecs_workers": 1,
+  "game": {
+    "application_id": "org.forge.examples.text-shaping",
+    "audio": {
+      "dialogue_volume": 1.0,
+      "effects_volume": 1.0,
+      "master_volume": 1.0,
+      "music_volume": 1.0
+    },
+    "display": {
+      "display": 0,
+      "height": 800,
+      "mode": "windowed",
+      "vsync": false,
+      "width": 1280
+    },
+    "input": {
+      "gamepad_sensitivity": 1.0,
+      "invert_gamepad_y": false,
+      "invert_mouse_y": false,
+      "mouse_sensitivity": 1.0,
+      "stick_deadzone": 0.15,
+      "trigger_deadzone": 0.05
+    },
+    "profile": "development",
+    "save_schema": 1,
+    "title": "UI Text Shaping",
+    "ui": {
+      "text_shaping": true
+    },
+    "version": 1
+  },
+  "input": {
+    "actions": [],
+    "version": 1
+  },
+  "name": "UI Text Shaping",
+  "physics": {
+    "gravity": [
+      0,
+      -9.81,
+      0
+    ],
+    "layers": [
+      "Default",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "version": 1
+  },
+  "simulation_hz": 60,
+  "startup_scene": {
+    "asset": "c22bd737-7f9c-4847-af8c-e10c9ad5efd7",
+    "source": "Scenes/TextShaping.scene.json"
+  },
+  "version": 2
+}

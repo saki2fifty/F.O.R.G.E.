@@ -53,6 +53,7 @@ TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 INPUT_RECORDING_ONLY = sys.argv[7:] == ['--input-recording-only']
 UI_SOURCE_ONLY = sys.argv[7:] == ['--ui-source-only']
+UI_TEXT_SHAPING_ONLY = sys.argv[7:] == ['--ui-text-shaping-only']
 AUDIO_STREAMING_ONLY = sys.argv[7:] == ['--audio-streaming-only']
 AUDIO_ROUTING_ONLY = sys.argv[7:] == ['--audio-routing-only']
 FINITE_SOUND_CUES_ONLY = sys.argv[7:] == ['--finite-sound-cues-only']
@@ -381,6 +382,36 @@ for legacy in (False, True):
                 assert 'forge_play_input_recording_save' not in readable
             print(('legacy' if legacy else 'current') + ': fresh input capture, save/reopen, replay, '
                   'scope/path/overwrite/grant guards and authored isolation passed')
+            continue
+        if UI_TEXT_SHAPING_ONLY:
+            scene_before = read('forge_scene_read')
+            edit_settings('forge_project_settings_game_defaults')
+            edit_settings('forge_project_settings_save')
+            initial = read('forge_project_settings_read')
+            assert 'text_shaping' in advertised['forge_project_settings_edit']['description']
+            changed = edit_settings('forge_project_settings_edit', patch=[
+                dict(op='add', path='/game/ui', value=dict(text_shaping=True))])
+            assert changed['draft']['game']['ui']['text_shaping'] is True and changed['dirty']
+            failed(mutate('forge_project_settings_save', state=initial['state']), 'stale_settings')
+            for invalid in (None, 1, 'true', {}, []):
+                before = read('forge_project_settings_read')
+                rejected = mutate('forge_project_settings_edit', state=before['state'], patch=[
+                    dict(op='replace', path='/game/ui/text_shaping', value=invalid)])
+                assert not rejected['ok'], rejected
+                assert read('forge_project_settings_read')['state'] == before['state']
+            edit_settings('forge_project_settings_save')
+            assert json.loads((root/'Game/forge.project.json').read_text())['game']['ui']['text_shaping'] is True
+            edit_settings('forge_project_settings_edit', patch=[
+                dict(op='replace', path='/game/ui/text_shaping', value=False)])
+            edit_settings('forge_project_settings_close', discard=True)
+            assert read('forge_project_settings_read')['draft']['game']['ui']['text_shaping'] is True
+            assert read('forge_scene_read') == scene_before
+            with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
+                readable = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
+                assert 'forge_project_settings_read' in readable
+                assert 'forge_project_settings_edit' not in readable
+            print(('legacy' if legacy else 'current') + ': UI text shaping settings, bool validation, '
+                  'stale digest, Save/discard, Scene isolation and grant discovery passed')
             continue
         if UI_SOURCE_ONLY:
             check_ui_source_authoring(read, ok, mutate, root, advertised)

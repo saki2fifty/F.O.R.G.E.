@@ -11,7 +11,7 @@ class GamePresentation {
   public:
     GamePresentation(DiligentPresentation&, Diligent::IDeviceContext*, std::filesystem::path,
                      std::vector<std::byte> font, UiPlatformCallbacks = {},
-                     Rml::TextInputHandler* = nullptr);
+                     Rml::TextInputHandler* = nullptr, bool shape_text = false);
     ~GamePresentation();
     void dimensions(unsigned width, unsigned height, float density);
     std::unique_ptr<GameScenePreparation> prepare(std::uint64_t);

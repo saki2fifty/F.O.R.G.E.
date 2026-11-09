@@ -112,7 +112,7 @@ in the exported game.
 - Each catalog supports eight languages and 128 message keys. Source is limited to 256 KiB, each message to 1 KiB, each language label to 64 bytes and each key to 48 bytes. These are UTF-8 byte limits.
 - A Scene UI context supports one configured controller and one catalog. Independent Worlds have independent language values.
 - Keep the model names `forge_locale` and `forge_resolved_locale`, and the action name `forge.locale`, free for localized UI.
-- Text is UTF-8, but visible characters depend on the loaded fonts. The bundled Latin font supports the Gallery's accented examples. Full script shaping and complete international input are unavailable.
+- Text is UTF-8, but visible characters depend on the loaded fonts. The bundled Latin font supports the Gallery's accented examples. Use [Shape UI text](ui-text-shaping.md) and a suitable project font for supported script runs. Full paragraph bidirectional layout and complete international input remain unavailable.
 - If text does not change, check the Scene controller, its published catalog, the message key, the RML expression and the requested language. Read the Game language/fallback status and Problems panel.
 - If a source edit fails validation, correct it or Undo the draft. If a reload fails, the displayed text may still belong to the retained previous presentation.
 

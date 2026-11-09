@@ -2202,3 +2202,41 @@ Play checks cover both protocol envelopes, stale settings, source Undo/Redo,
 read-only grants, faders, rejection and authored-state isolation. Full Main,
 Windows/MSVC/D3D12, physical listening/device deadlines/DPI and external-client
 review remain separate gates.
+
+
+## Native UI text shaping
+
+`ui_font_shaping` checks source-byte clusters, ligatures, combining marks, explicit
+RTL/Arabic, tracking, known-pair kerning, bounds and rejection recovery against
+pinned fonts. `ui_shaped_font` exercises the actual UiPresenter option, admitted
+file aliases, glyph/effect textures, public memory fallback, real input, stable
+textures and two cold native lifetimes. The backend source is original FORGE code
+using public interfaces; native sample backend implementation is not adopted.
+
+`ui_text_shaping_project` loads the original example through Scene/UiRuntime,
+checks model text, command routing, retained last-good reload and retirement,
+packages its four-record closure, relocates it and runs with the source directory
+unavailable. `standalone_manifest` also checks opt-in/default compatibility,
+malformed kit capabilities, retention of the previous distribution and the saved
+backend choice in relocated full distribution configuration. Its executable bytes
+are a synthetic inventory fixture, not graphical executable acceptance.
+`mcp_ui_text_shaping_stdio` checks both protocol envelopes, exact settings digest,
+boolean admission, Save/discard, Scene isolation and grant-based discovery through
+the same native settings owner. `runtime_ui_input` retains the existing input
+consumer and compiles its RuntimeUiHost header.
+
+`ui_text_shaping_render` uses the native D3D12 UI fixture; its optional software
+Vulkan consumer is `ui_text_shaping_vulkan`. The focused profile compares baseline
+and shaped rendering at1000x800 and420x800, then requires exact shaped/relocated
+pixels with source files unavailable. These are text-only UI consumers, independent
+of unrelated Sprite renderer acceptance. The local Vulkan check uses llvmpipe
+LLVM15.0.7/API1.3.255. It establishes no physical GPU, display or Windows result.
+
+`manual/images/ui-text-shaping-game.png` is the unretouched1000x800 native shaped
+Game UI capture from that local software Vulkan fixture, converted losslessly
+from its RGB PPM output. It is not a full-editor screenshot. The source and
+relocated output pixels agree; original font ownership/notices remain intact.
+The offline manual renderer checks local links/images; browser review at1180 and
+700px checks decoded images and horizontal overflow. Windows acceptance selection
+includes the new native/helper/project/MCP/render tests, and the relocated editor
+package UI check verifies the shaping notices, font and native example rendering.

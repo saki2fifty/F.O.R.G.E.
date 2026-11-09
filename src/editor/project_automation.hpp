@@ -236,6 +236,8 @@ struct ProjectAutomation {
                     "1..16 including the owner; explicitly parallel C++ systems only), startup "
                     "scene, input (including analog outer_deadzone and "
                     "response_exponent bindings), physics and game configuration including "
+                    "game.ui.text_shaping (optional boolean; absent false; Save and restart Play; "
+                    "horizontal shaped glyph runs, matching runtime kit required), and "
                     "game.audio.routing (bounded custom bus keys, outputs, post-fader sends and "
                     "optional effects: high/low pass, echo, reverb and impulse response). "
                     "Bus effects fields: high_pass_enabled/low_pass_enabled with high_pass_hz/"

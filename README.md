@@ -317,6 +317,12 @@ is independent of the Gallery. See [the impulse-response guide](manual/editor/au
 for import, saving, limits and export.
 
 
+The [UiTextShaping project](samples/projects/UiTextShaping/README.md) demonstrates
+opt-in native horizontal text shaping with ligatures, combining marks, an explicit
+Arabic run, font effects and an interactive field. Its project font and saved UI
+setting travel through the normal export owners. See [Shape game UI text](manual/editor/ui-text-shaping.md)
+for the workflow and current limits.
+
 [Runtime reflection capture](manual/editor/lighting.md) updates local specular and
 diffuse lighting from moving scene sources in Scene, Game and camera outputs.
 Gallery176 demonstrates simulation-time refresh and a saved fallback; Inspector,

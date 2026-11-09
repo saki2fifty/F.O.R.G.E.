@@ -8,6 +8,9 @@ bool valid_application_id(std::string_view);
 // Shared project.game defaults. User overrides are a separate document.
 nlohmann::json default_game_settings(std::string application_id, std::string title);
 void validate_game_settings(const nlohmann::json&);
+// Optional project-owned UI backend choice; absent means the existing font backend.
+inline constexpr unsigned ui_text_shaping_profile_version = 1;
+bool ui_text_shaping_enabled(const nlohmann::json& game);
 // Audio block from admitted game defaults or resolved settings; legacy channels default to one.
 std::array<float, 3> audio_channel_volumes(const nlohmann::json& audio);
 AudioRouting audio_routing_settings(const nlohmann::json& audio);

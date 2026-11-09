@@ -21,6 +21,7 @@ Official SDKs were reviewed; none is C++, and no SDK/reference code is included.
 | libwebp | 1.6.0 / `4fa21912338357f89e4fd51cf2368325b59e9bd9` | Private image decode/demux, still encoding and bounded sequence mux | [Source](https://chromium.googlesource.com/webm/libwebp/+/4fa21912338357f89e4fd51cf2368325b59e9bd9/) |
 | RmlUi | 6.3 / `ba95ffe8bfb6370efb2cdcca927eaad4710c5413` | Screen-space game documents, bindings and input; private Diligent adapter | [Official release](https://github.com/mikke89/RmlUi/releases/tag/6.3) |
 | FreeType | 2.14.3 / `0a0221a1347e2f1e07c395263540026e9a0aa7c7` | Pinned RmlUi font backend, FTL license option | [Official source](https://github.com/freetype/freetype/tree/0a0221a1347e2f1e07c395263540026e9a0aa7c7) |
+| HarfBuzz | 15.1.0 / `3df40d9b98d6b32f0e4288d4ecfbb158ddb3a372` | Private opt-in horizontal UI glyph-run shaping; static OpenType backend | [Official release](https://github.com/harfbuzz/harfbuzz/releases/tag/15.1.0) |
 | Recast Navigation | v1.6.0 / `6dc1667f580357e8a2154c28b7867bea7e8ad3a7` | Static/tiled generation, private Detour queries, obstacle tile updates and local velocity sampling | [Official source](https://github.com/recastnavigation/recastnavigation/tree/v1.6.0) |
 | Ozz Animation | v0.17.0 / `744eb9d99f606eda849acb0b1204f7a3dc20bca1` | Private skeletal sampling/local blending/local-to-model, validated runtime archives, official gltf2ozz conversion and offline clip building | [Official source](https://github.com/guillaumeblanc/ozz-animation/tree/744eb9d99f606eda849acb0b1204f7a3dc20bca1) |
 | miniaudio | v0.11.25 / `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` | WAV/FLAC/MP3 decoding, engine/group mixing, spatialization, WASAPI/PulseAudio/ALSA, offline tests | [Official source](https://github.com/mackron/miniaudio/tree/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d) |
@@ -169,9 +170,35 @@ Recast and Detour use the zlib license. FORGE compiles their source libraries pr
 
 ## Runtime UI adoption (Phase 6F)
 
-RmlUi 6.3 is the audited stable release (2026-08-22); FreeType 2.14.3 is the selected current font backend. The exact commits above are used together. RmlUi uses MIT, FreeType its FTL option, and packaged Lato Latin uses SIL OFL 1.1. Preserve all three notices. FreeType zlib/bzip2/PNG/HarfBuzz/Brotli dependencies are disabled. RmlUi Lua, SVG, Lottie, samples and optional shaping are disabled; the upstream debugger library may build but is not linked into FORGE. C++17 upstream is compatible with FORGE C++20.
+RmlUi 6.3 is the audited stable release (2026-08-22); FreeType 2.14.3 is the selected current font backend. The exact commits above are used together. RmlUi uses MIT, FreeType its FTL option, and packaged Lato Latin uses SIL OFL 1.1. Preserve all three notices. FreeType zlib/bzip2/PNG/HarfBuzz/Brotli dependencies are disabled. RmlUi Lua, SVG, Lottie and samples are disabled; its sample shaping backend is not adopted. The independent opt-in backend is described below; the upstream debugger library may build but is not linked into FORGE. C++17 upstream is compatible with FORGE C++20.
 
 See [Runtime UI](runtime-ui.md) for adopted vs deferred features, source references, memory limits, thread/ownership and lifetime rules. The renderer target and presenter are independent of ImGui; the headless runtime does not link either. Existing world rendering and all dependency pins outside these two additions remain unchanged.
+
+### Optional UI shaping — selected 2026-11-08
+
+HarfBuzz 15.1.0 is the official stable release published 2026-11-04, selected at
+`3df40d9b98d6b32f0e4288d4ecfbb158ddb3a372` (annotated tag object
+`6e3d4f80f4921fe908df96aeb98a839de86c2f9d`). Existing RmlUi and FreeType pins are
+unchanged. The optional presentation profile builds static OpenType shaping;
+subset, raster, vector, GPU, GPU demo and utility targets are disabled. Cairo,
+FreeType bridge, Graphite2, GLib, ICU, CoreText, Uniscribe, GDI, DirectWrite,
+GObject and introspection integrations are disabled. HarfBuzz does not link back
+to FreeType; the FORGE font adapter owns both public APIs independently.
+
+The selected upstream CMake path is community-maintained. The exact C++20/GCC12
+configuration and four matching Arabic/mark-cluster reference vectors were
+checked locally; this is not a complete upstream suite or Windows acceptance.
+Public font-interface/native draw/input/resource tests exercise the independent
+adapter. Windows/MSVC/D3D12 and physical typography review remain separate gates.
+[UI text shaping](ui-text-shaping.md) defines supported scope and compatibility.
+
+Preserve HarfBuzz `COPYING` (Old MIT) and `src/ms-use/COPYING` (MIT), including
+original copyright notices. Runtime-kit and editor-package dependency collectors
+include the exact source notices. Native test vectors/fonts retain their upstream
+ownership and notices and are not authored examples. The packaged Cairo font is
+unchanged data from the pinned RmlUi distribution, licensed under SIL OFL 1.1;
+`resources/ui/LICENSE-Cairo.txt` travels with runtime resources. No sample backend
+implementation is copied or adapted. The installed native SDK ABI is unchanged.
 
 Runtime UI pins are verified together in Build260918-000053: Windows/Linux core30/SDK38, actual D3D12 WARP UI rendering, relocated bundled-font rendering and local ASan/UBSan/leak checks. RmlUi and FreeType are instrumented in local sanitizer profiles. No machine-installed font is required.
 

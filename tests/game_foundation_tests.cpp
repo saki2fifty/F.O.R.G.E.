@@ -32,6 +32,27 @@ void settings() {
                                    {"kind", "digital"},
                                    {"bindings", Json::array({{{"control", "key.space"}}})}}})}});
     const auto defaults = default_game_settings("org.forge.test", "Test game");
+    check(!ui_text_shaping_enabled(defaults) && !defaults.contains("ui"),
+          "Legacy game settings changed the font backend");
+    auto shaped = defaults;
+    shaped["ui"]["text_shaping"] = true;
+    validate_game_settings(shaped);
+    check(ui_text_shaping_enabled(resolve_game_settings(shaped, Json::object(), input)),
+          "Saved UI text shaping did not reach resolved game settings");
+    rejects([&] { resolve_game_settings(shaped, {{"ui", {{"text_shaping", false}}}}, input); });
+    for (const Json& invalid : {Json(), Json(0), Json(1), Json("true"), Json::object()}) {
+        auto candidate = shaped;
+        candidate["ui"]["text_shaping"] = invalid;
+        auto project_candidate = ProjectSettings::defaults("Shaping validation");
+        project_candidate["game"] = candidate;
+        rejects([&] { ProjectSettings::validate(project_candidate); });
+        rejects([&] { validate_game_settings(candidate); });
+        candidate["ui"] = invalid;
+        if (!invalid.is_object())
+            rejects([&] { validate_game_settings(candidate); });
+    }
+    shaped["ui"] = Json::object();
+    check(!ui_text_shaping_enabled(shaped), "Empty UI options changed the legacy backend");
     const Json user = {{"display", {{"vsync", true}, {"mode", "borderless"}}},
                        {"input",
                         {{"mouse_sensitivity", 2},
@@ -51,7 +72,7 @@ void settings() {
     check(audio_channel_volumes(mixed.at("audio")) == std::array<float, 3>{.25f, .5f, 0},
           "Channel preferences did not override legacy defaults");
     for (const auto* key : {"music_volume", "effects_volume", "dialogue_volume"})
-        for (const Json invalid : {Json(-.1), Json(1.1), Json(true), Json("1"), Json(nullptr)})
+        for (const Json& invalid : {Json(-.1), Json(1.1), Json(true), Json("1"), Json(nullptr)})
             rejects([&] { resolve_game_settings(legacy, {{"audio", {{key, invalid}}}}, input); });
     rejects([&] { resolve_game_settings(legacy, {{"audio", {{"unknown_volume", .5}}}}, input); });
     check(resolved.at("display").at("width") == 1280 && resolved.at("display").at("vsync") == true,

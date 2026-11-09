@@ -29,6 +29,18 @@ void display(const Json& value) {
     number(value.at("display"), 0, 255, "display ordinal", true);
 }
 } // namespace
+bool ui_text_shaping_enabled(const Json& game) {
+    object(game, "game");
+    if (!game.contains("ui"))
+        return false;
+    const auto& ui = game.at("ui");
+    object(ui, "ui");
+    if (!ui.contains("text_shaping"))
+        return false;
+    if (!ui.at("text_shaping").is_boolean())
+        throw std::runtime_error("game.settings: UI text_shaping must be boolean");
+    return ui.at("text_shaping").get<bool>();
+}
 std::array<float, 3> audio_channel_volumes(const Json& audio) {
     object(audio, "audio");
     std::array<float, 3> result{1, 1, 1};
@@ -90,6 +102,7 @@ Json default_game_settings(std::string application_id, std::string title) {
 }
 void validate_game_settings(const Json& data) {
     object(data, "game");
+    (void)ui_text_shaping_enabled(data);
     number(data.at("version"), 1, 1, "version", true);
     if (!valid_application_id(data.at("application_id").get<std::string>()))
         throw std::runtime_error("game.settings: Expected a lowercase application ID such as "

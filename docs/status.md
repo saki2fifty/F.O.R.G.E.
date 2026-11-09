@@ -5,6 +5,17 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds optional horizontal UI text shaping through a public native
+font interface and the same saved Project Settings/MCP/host/export owners.
+Existing projects retain their previous font backend. The UiTextShaping sibling
+project demonstrates ligatures, combining marks, explicit Arabic runs, native
+font effects and local input. Matching runtime-kit capability is required when
+enabled. Source-hidden font relocation and native software pixels do not imply
+Windows/full-editor, physical or external-client acceptance. Full paragraph
+bidirectional layout and complete international editing remain outside this
+bounded profile. See [the contract](ui-text-shaping.md) and
+[the guide](../manual/editor/ui-text-shaping.md).
+
 Local source adds imported mono/stereo impulse processing on custom audio buses.
 Project Settings, Content selection, automation/MCP, existing AudioClip resources,
 shared native bus histories and full export use the same owners. The original

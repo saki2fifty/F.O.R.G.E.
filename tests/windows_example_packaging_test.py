@@ -39,7 +39,7 @@ class GalleryPackageTest(unittest.TestCase):
         # An unrecognized extension must survive without another allowlist change.
         self.write(self.gallery/'Assets/next-format.resource', b'\x00\x01\r\n\xff')
         for name in ('flecs', 'json', 'sdl', 'imgui_source', 'cpp_text_editor', 'diligent',
-                     'jolt', 'box2d', 'miniaudio', 'ozz', 'recast', 'rmlui', 'freetype', 'ktx',
+                     'jolt', 'box2d', 'miniaudio', 'ozz', 'recast', 'rmlui', 'freetype', 'harfbuzz', 'ktx',
                      'webp', 'meshoptimizer', 'draco', 'ufbx'):
             self.write(self.dependencies/(name+'-src')/'LICENSE.txt', b'Packaging test notice\n')
         metadata = dict(build_id='260101-000001', source_commit='1'*40)
@@ -63,11 +63,11 @@ class GalleryPackageTest(unittest.TestCase):
         self.write(self.source/'manual/images/scene-editor.png', self.manual_image)
         self.fbx_image = (SOURCE/'manual/images/fbx-import-gallery.png').read_bytes()
         self.write(self.source/'manual/images/fbx-import-gallery.png', self.fbx_image)
-        self.manual_links = re.findall(r'\]\((\.\./\.\./\.\./manual/[^)]+\.md)\)',
+        self.manual_links = re.findall(r'\]\((\.\./\.\./\.\./manual/[^)]+\.md(?:#[^)]*)?)\)',
                                        (self.gallery/'README.md').read_text(encoding='utf-8'))
         self.assertTrue(self.manual_links)
         for link in self.manual_links:
-            relative = link.removeprefix('../../../manual/')
+            relative = link.removeprefix('../../../manual/').split('#', 1)[0]
             self.assertTrue((SOURCE/'manual'/relative).is_file(), link)
             self.write(self.source/'manual'/relative, ('# '+Path(relative).stem+'\n').encode())
         self.write(self.source/'samples/animation/two-joints.gltf', b'{}\n')
@@ -75,6 +75,9 @@ class GalleryPackageTest(unittest.TestCase):
         self.write(self.source/'samples/projects/Other/.forge/cache/audio/audio.fpcm',
                    b'Cooked resident audio fixture\x00\x01')
         self.write(self.source/'samples/projects/Other/build/local.obj', b'Not example content')
+        self.shaping_example = SOURCE/'samples/projects/UiTextShaping'
+        shutil.copytree(self.shaping_example,
+                        self.source/'samples/projects/UiTextShaping')
         self.impulse_example = SOURCE/'samples/projects/AudioImpulseResponses'
         shutil.copytree(self.impulse_example,
                         self.source/'samples/projects/AudioImpulseResponses')
@@ -217,13 +220,15 @@ class GalleryPackageTest(unittest.TestCase):
                 name = 'Examples/FeatureGallery/'+relative
                 if relative == 'README.md':
                     for link in self.manual_links:
-                        target = '../../manual/'+link.removeprefix('../../../manual/')[:-3]+'.html'
+                        page, separator, anchor = link.partition('#')
+                        target = '../../manual/'+page.removeprefix('../../../manual/')[:-3]+'.html'+separator+anchor
                         content = content.replace((']('+link+')').encode(), (']('+target+')').encode())
                 self.assertEqual(archive.read(name), content, name)
                 self.assertEqual(manifest[name], hashlib.sha256(content).hexdigest(), name)
             for link in self.manual_links:
-                target = 'manual/'+link.removeprefix('../../../manual/')[:-3]+'.html'
-                self.assertIn(('](../../'+target+')').encode(),
+                page, separator, anchor = link.partition('#')
+                target = 'manual/'+page.removeprefix('../../../manual/')[:-3]+'.html'
+                self.assertIn(('](../../'+target+separator+anchor+')').encode(),
                               archive.read('Examples/FeatureGallery/README.md'))
                 self.assertIn(target, manifest)
             self.assertIn('Examples/Other/main.scene.json', manifest)
@@ -258,6 +263,34 @@ class GalleryPackageTest(unittest.TestCase):
             name = 'Examples/FeatureGallery/Assets/cache.lock'
             self.assertEqual(archive.read(name), b'Authored resource with a similar name')
             self.assertIn(name, manifest)
+
+    def test_shaped_ui_example_fonts_styles_and_manual_link(self):
+        self.package()
+        with zipfile.ZipFile(self.archive) as archive:
+            manifest = json.loads(archive.read('manifest.json'))['files']
+            for path in self.shaping_example.rglob('*'):
+                if not path.is_file():
+                    continue
+                name = 'Examples/UiTextShaping/'+path.relative_to(self.shaping_example).as_posix()
+                content = path.read_bytes()
+                if path.name == 'README.md':
+                    content = content.replace(b'](../../../manual/editor/ui-text-shaping.md)',
+                                              b'](../../manual/editor/ui-text-shaping.html)')
+                self.assertEqual(archive.read(name), content, name)
+                self.assertEqual(manifest[name], hashlib.sha256(content).hexdigest(), name)
+            notice = 'licenses/harfbuzz-src/LICENSE.txt'
+            self.assertEqual(archive.read(notice), b'Packaging test notice\n')
+
+    def test_sibling_manual_anchors_survive_offline_rewrite(self):
+        self.write(self.source/'samples/projects/Other/README.md',
+                   b'[Fonts](../../../manual/editor/runtime-ui.md#styles-fonts-and-images)\n')
+        self.package()
+        with zipfile.ZipFile(self.archive) as archive:
+            name = 'Examples/Other/README.md'
+            expected = b'[Fonts](../../manual/editor/runtime-ui.html#styles-fonts-and-images)\n'
+            self.assertEqual(archive.read(name), expected)
+            manifest = json.loads(archive.read('manifest.json'))['files']
+            self.assertEqual(manifest[name], hashlib.sha256(expected).hexdigest())
 
     def test_missing_backend_notice_retains_previous_archive(self):
         self.package()
