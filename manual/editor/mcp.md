@@ -16,6 +16,15 @@ rejects. `forge_ui_source_remove_group` takes 1–32 distinct sibling indices in
 `elements` and removes them in one Undo step. Both tools require source guards and
 `assets.write`, leave Save explicit and share the editor's limits and history.
 
+`forge_ui_source_reparent` moves 1–32 static sibling `elements` into `parent`.
+Omit `before` to append, or give an existing direct-child index for insertion
+before that child. Read fresh source guards and indices first. Moved markup/IDs
+and source order remain intact; styles and coordinates follow the new parent.
+Cycles, unsupported scopes or invalid members reject together. It shares one
+source Undo step, permissions and replay; a true no-op leaves source history
+unchanged. A successful change clears the transient selection. See
+[container movement](ui-source.md) for the workflow and limits.
+
 For layout, use `forge_ui_source_preview` with current source guards and the desired
 viewport size. Read its element indices, editable flags, explanations and preview
 instance/revision. Pass those guards and all four pixel values to

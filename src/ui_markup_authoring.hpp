@@ -54,6 +54,9 @@ std::string insert_ui_markup_child(std::string_view, std::size_t parent, std::st
                                    std::optional<std::size_t> before = {});
 std::string remove_ui_markup_element(std::string_view, std::size_t element);
 std::string remove_ui_markup_elements(std::string_view, std::span<const std::size_t> elements);
+// Move static source siblings into a container, retaining source order and IDs.
+std::string reparent_ui_markup_elements(std::string_view, std::span<const std::size_t> elements,
+                                        std::size_t parent, std::optional<std::size_t> before = {});
 // Copy a static subtree next to itself; empty prefix chooses an available copy prefix.
 std::string duplicate_ui_markup_element(std::string_view, std::size_t element,
                                         std::string_view prefix = {});

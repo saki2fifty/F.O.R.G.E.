@@ -394,6 +394,93 @@ void subtree_duplication() {
                   .find("id=\"custom-panel\"") != std::string::npos,
           "An explicit available prefix failed after the bounded automatic choices");
 }
+void hierarchy_moves() {
+    const std::string source =
+        "<!-- outside -->\n<rml><body><div id='left'><button id='a'>A</button>"
+        "<!-- gap --><label for='a'>Name</label><input id='c'/></div>"
+        "<form id='right'><p id='anchor'>Keep</p></form></body></rml>\n";
+    const auto button = find(source, "button"), input = find(source, "input");
+    const auto left = find(source, "div"), right = find(source, "form");
+    const auto anchor = find(source, "p");
+    const std::array group{input, button};
+    check(forge::reparent_ui_markup_elements(source, group, right) ==
+              "<!-- outside -->\n<rml><body><div id='left'><!-- gap -->"
+              "<label for='a'>Name</label></div><form id='right'>"
+              "<p id='anchor'>Keep</p><button id='a'>A</button><input id='c'/>"
+              "</form></body></rml>\n",
+          "Appending moved siblings changed IDs, source order, labels or retained comments");
+    check(forge::reparent_ui_markup_elements(source, group, right, anchor) ==
+              "<!-- outside -->\n<rml><body><div id='left'><!-- gap -->"
+              "<label for='a'>Name</label></div><form id='right'>"
+              "<button id='a'>A</button><input id='c'/><p id='anchor'>Keep</p>"
+              "</form></body></rml>\n",
+          "Before-child group placement used selection order or shifted the insertion range");
+    const std::array one{anchor};
+    check(forge::reparent_ui_markup_elements(source, one, left, button) ==
+              "<!-- outside -->\n<rml><body><div id='left'><p id='anchor'>Keep</p>"
+              "<button id='a'>A</button><!-- gap --><label for='a'>Name</label>"
+              "<input id='c'/></div><form id='right'></form></body></rml>\n",
+          "Moving source backwards damaged its old or new container");
+    const std::array input_only{input};
+    check(forge::reparent_ui_markup_elements(source, input_only, left, button) ==
+              "<!-- outside -->\n<rml><body><div id='left'><input id='c'/>"
+              "<button id='a'>A</button><!-- gap --><label for='a'>Name</label>"
+              "</div><form id='right'><p id='anchor'>Keep</p></form></body></rml>\n",
+          "Same-parent placement lost or duplicated source");
+    const std::array already_last{right};
+    check(forge::reparent_ui_markup_elements(source, already_last, find(source, "body")) == source,
+          "A true hierarchy no-op changed source");
+    const std::array moving_parent{left};
+    rejects([&] { forge::reparent_ui_markup_elements(source, moving_parent, left); });
+    rejects([&] { forge::reparent_ui_markup_elements(source, moving_parent, button); });
+    rejects([&] { forge::reparent_ui_markup_elements(source, group, input); });
+    rejects([&] { forge::reparent_ui_markup_elements(source, group, right, button); });
+    rejects([&] { forge::reparent_ui_markup_elements(source, group, left, input); });
+    rejects([&] { forge::reparent_ui_markup_elements(source, {}, right); });
+    const std::array duplicate{button, button}, mixed{button, anchor}, nested{left, button};
+    rejects([&] { forge::reparent_ui_markup_elements(source, duplicate, right); });
+    rejects([&] { forge::reparent_ui_markup_elements(source, mixed, right); });
+    rejects([&] { forge::reparent_ui_markup_elements(source, nested, right); });
+    const std::array protected_group{find(source, "body")};
+    rejects([&] { forge::reparent_ui_markup_elements(source, protected_group, right); });
+    rejects([&] {
+        forge::reparent_ui_markup_elements(source, group, std::numeric_limits<std::size_t>::max());
+    });
+    const std::array invalid{button, std::numeric_limits<std::size_t>::max()};
+    rejects([&] { forge::reparent_ui_markup_elements(source, invalid, right); });
+    const std::vector<std::size_t> oversized(forge::ui_source_selection_limit + 1, button);
+    rejects([&] { forge::reparent_ui_markup_elements(source, oversized, right); });
+    for (const auto* markup :
+         {"<rml><body data-model='live'><div>Go</div><form></form></body></rml>",
+          "<rml><body><div>Go</div><form data-model='live'></form></body></rml>",
+          "<rml><body><div data-event-click='go'>Go</div><form></form></body></rml>",
+          "<rml><body><div id='x'>Go</div><form id='x'></form></body></rml>",
+          "<rml><body><div>{{value}}</div><form></form></body></rml>",
+          "<rml><body><div><label for='#parent'>Go</label></div><form></form></body></rml>",
+          "<rml><body><div><label for='x' for='y'>Go</label></div><form></form></body></rml>",
+          "<rml><body><div><a href='#x'>Go</a></div><form></form></body></rml>",
+          "<rml><body><div><style>p{color:red;}</style></div><form></form></body></rml>"}) {
+        const std::string text(markup);
+        const std::array moving{find(text, "div")};
+        rejects([&] { forge::reparent_ui_markup_elements(text, moving, find(text, "form")); });
+    }
+    std::string deep = "<rml><body>";
+    for (int i = 0; i < 16; ++i)
+        deep += "<span>";
+    deep += "<div></div>";
+    for (int i = 0; i < 16; ++i)
+        deep += "</span>";
+    deep += "<button>";
+    for (int i = 0; i < 15; ++i)
+        deep += "<span>";
+    deep += "Move";
+    for (int i = 0; i < 15; ++i)
+        deep += "</span>";
+    deep += "</button></body></rml>";
+    forge::validate_ui_text(deep, true);
+    const std::array moving{find(deep, "button")};
+    rejects([&] { forge::reparent_ui_markup_elements(deep, moving, find(deep, "div")); });
+}
 } // namespace
 int main() {
     try {
@@ -405,6 +492,7 @@ int main() {
         layout_group_geometry();
         group_removals();
         subtree_duplication();
+        hierarchy_moves();
         std::cout << "Source-preserving outline/attributes and shared validator errors passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

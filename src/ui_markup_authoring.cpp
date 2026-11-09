@@ -8,7 +8,6 @@
 #include <limits>
 #include <map>
 #include <numeric>
-#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -54,6 +53,97 @@ std::size_t attribute_insertion(std::string_view source, const UiMarkupElement& 
     if (source[position - 1] == '/')
         --position;
     return position;
+}
+bool contains(UiSourceRange outer, UiSourceRange inner) {
+    return inner.begin >= outer.begin && inner.end <= outer.end;
+}
+void static_attributes(const UiMarkupElement& node) {
+    require(node.tag != "script" && node.tag != "template",
+            "Edit script/template declarations explicitly in Source");
+    for (const auto& attr : node.attributes)
+        require(!attr.name.starts_with("data-") && !attr.name.starts_with("on"),
+                "Edit bound or event-driven UI explicitly in Source");
+}
+void static_ancestry(std::span<const UiMarkupElement> nodes, std::size_t index) {
+    for (auto ancestor = index; ancestor != UiMarkupElement::no_parent;
+         ancestor = nodes[ancestor].parent)
+        static_attributes(nodes[ancestor]);
+}
+void static_subtree(std::string_view source, std::span<const UiMarkupElement> nodes,
+                    std::size_t index) {
+    const auto& root = element(nodes, index);
+    static_ancestry(nodes, index);
+    const auto fragment = source.substr(root.source.begin, root.source.end - root.source.begin);
+    require(fragment.find("{{") == fragment.npos, "Edit text expressions explicitly in Source");
+    for (const auto& node : nodes)
+        if (contains(root.source, node.source)) {
+            editable(node);
+            static_attributes(node);
+            bool label_target = false;
+            for (const auto& attr : node.attributes)
+                if (node.tag == "label" && attr.name == "for") {
+                    require(!label_target && attr.has_value,
+                            "Use one literal target for each source label");
+                    label_target = true;
+                } else if (attr.name == "href" && attr.has_value) {
+                    const auto href = Rml::StringUtilities::DecodeRml(std::string(
+                        source.substr(attr.value.begin, attr.value.end - attr.value.begin)));
+                    require(!href.starts_with('#'),
+                            "Edit fragment references explicitly in Source");
+                }
+        }
+}
+std::map<std::string, UiSourceRange> literal_ids(std::string_view source,
+                                                 std::span<const UiMarkupElement> nodes) {
+    std::map<std::string, UiSourceRange> ids;
+    for (const auto& node : nodes) {
+        bool has_id = false;
+        for (const auto& attr : node.attributes)
+            if (attr.name == "id") {
+                require(!has_id && attr.has_value, "Resolve ambiguous source IDs first");
+                has_id = true;
+                auto id = Rml::StringUtilities::DecodeRml(std::string(
+                    source.substr(attr.value.begin, attr.value.end - attr.value.begin)));
+                require(!id.empty() && id.size() <= 128 && id.find_first_of("{}") == id.npos &&
+                            std::ranges::all_of(
+                                id, [](unsigned char c) { return c >= 32 && c != 127; }),
+                        "Use nonempty literal UI IDs of at most128 bytes");
+                require(ids.emplace(std::move(id), attr.source).second,
+                        "Resolve duplicate source IDs first");
+            }
+    }
+    return ids;
+}
+std::vector<UiSourceRange> sibling_ranges(std::span<const UiMarkupElement> nodes,
+                                          std::span<const std::size_t> indices) {
+    require(!indices.empty() && indices.size() <= ui_source_selection_limit,
+            "Choose1..32 source siblings");
+    std::optional<std::size_t> parent;
+    std::vector<UiSourceRange> ranges;
+    ranges.reserve(indices.size());
+    for (const auto index : indices) {
+        const auto& node = element(nodes, index);
+        editable(node);
+        if (parent)
+            require(*parent == node.parent, "Choose source siblings with the same parent");
+        parent = node.parent;
+        require(
+            std::ranges::none_of(ranges, [&](const auto& range) { return range == node.source; }),
+            "A source group cannot repeat an element");
+        ranges.push_back(node.source);
+    }
+    std::ranges::sort(ranges, [](const auto& a, const auto& b) { return a.begin > b.begin; });
+    return ranges;
+}
+std::string without_ranges(std::string_view source, std::span<const UiSourceRange> descending) {
+    std::string result(source);
+    std::size_t next = source.size();
+    for (const auto range : descending) {
+        require(range.begin <= range.end && range.end <= next, "Source ranges overlap");
+        next = range.begin;
+        result.erase(range.begin, range.end - range.begin);
+    }
+    return result;
 }
 struct LayoutSource {
     UiPixelLayout pixels;
@@ -335,31 +425,61 @@ std::string remove_ui_markup_element(std::string_view source, std::size_t index)
 }
 std::string remove_ui_markup_elements(std::string_view source,
                                       std::span<const std::size_t> indices) {
-    require(!indices.empty() && indices.size() <= ui_source_selection_limit,
-            "Choose1..32 sibling source elements to remove");
     const auto nodes = inspect_ui_markup(source);
-    std::optional<std::size_t> parent;
-    std::vector<UiSourceRange> ranges;
-    ranges.reserve(indices.size());
+    auto result = without_ranges(source, sibling_ranges(nodes, indices));
+    validate_ui_text(result, true);
+    return result;
+}
+std::string reparent_ui_markup_elements(std::string_view source,
+                                        std::span<const std::size_t> indices, std::size_t parent,
+                                        std::optional<std::size_t> before) {
+    const auto nodes = inspect_ui_markup(source);
+    const auto ranges = sibling_ranges(nodes, indices);
+    const auto& container = element(nodes, parent);
+    if (container.tag != "body")
+        editable(container);
+    require(!container.self_closing, "Choose a container for the moved source");
+    static_ancestry(nodes, parent);
+    const auto ids = literal_ids(source, nodes);
+    auto position = container.closing.begin;
+    if (before) {
+        const auto& next = element(nodes, *before);
+        require(next.parent == parent, "Placement target must be a direct child of the container");
+        require(std::ranges::find(indices, *before) == indices.end(),
+                "Choose a placement target outside the moved selection");
+        position = next.source.begin;
+    }
     for (const auto index : indices) {
-        const auto& node = element(nodes, index);
-        editable(node);
-        if (parent)
-            require(*parent == node.parent, "Remove source siblings as one group");
-        parent = node.parent;
-        require(
-            std::ranges::none_of(ranges, [&](const auto& range) { return range == node.source; }),
-            "A source removal group cannot repeat an element");
-        ranges.push_back(node.source);
+        const auto& root = nodes[index];
+        require(!contains(root.source, container.source),
+                "A source subtree cannot move into itself or its descendants");
+        static_subtree(source, nodes, index);
+        for (const auto& [id, range] : ids)
+            if (contains(root.source, range))
+                require(id != "#self" && id != "#document" && id != "#parent",
+                        "Reserved native lookup tokens cannot be moved as UI IDs");
+        for (const auto& node : nodes)
+            if (contains(root.source, node.source) && node.tag == "label")
+                for (const auto& attr : node.attributes)
+                    if (attr.name == "for" && attr.has_value) {
+                        const auto target = Rml::StringUtilities::DecodeRml(std::string(
+                            source.substr(attr.value.begin, attr.value.end - attr.value.begin)));
+                        require(target != "#self" && target != "#document" && target != "#parent",
+                                "Move relative native label targets explicitly in Source");
+                    }
     }
-    std::ranges::sort(ranges, [](const auto& a, const auto& b) { return a.begin > b.begin; });
-    std::string result(source);
-    std::size_t next = source.size();
+    std::string moved;
+    for (auto range = ranges.rbegin(); range != ranges.rend(); ++range)
+        moved += source.substr(range->begin, range->end - range->begin);
+    auto adjusted = position;
     for (const auto range : ranges) {
-        require(range.end <= next, "Source removal ranges overlap");
-        next = range.begin;
-        result.erase(range.begin, range.end - range.begin);
+        require(position <= range.begin || position >= range.end,
+                "A source insertion cannot be inside a moved subtree");
+        if (range.end <= position)
+            adjusted -= range.end - range.begin;
     }
+    auto result = without_ranges(source, ranges);
+    result.insert(adjusted, moved);
     validate_ui_text(result, true);
     return result;
 }
@@ -368,60 +488,21 @@ std::string duplicate_ui_markup_element(std::string_view source, std::size_t ind
     const auto nodes = inspect_ui_markup(source);
     const auto& root = element(nodes, index);
     editable(root);
-    const auto static_attributes = [&](const UiMarkupElement& node) {
-        require(node.tag != "script" && node.tag != "template",
-                "Duplicate script/template declarations explicitly in Source");
-        for (const auto& attr : node.attributes)
-            require(!attr.name.starts_with("data-") && !attr.name.starts_with("on"),
-                    "Duplicate bound or event-driven UI explicitly in Source");
-    };
-    for (auto ancestor = index; ancestor != UiMarkupElement::no_parent;
-         ancestor = nodes[ancestor].parent)
-        static_attributes(nodes[ancestor]);
+    static_subtree(source, nodes, index);
     const auto inside = [&](const UiMarkupElement& node) {
-        return node.source.begin >= root.source.begin && node.source.end <= root.source.end;
+        return contains(root.source, node.source);
     };
     const auto fragment = source.substr(root.source.begin, root.source.end - root.source.begin);
-    require(fragment.find("{{") == fragment.npos,
-            "Duplicate text expressions explicitly in Source");
-    std::set<std::string> existing;
+    const auto existing = literal_ids(source, nodes);
     std::map<std::string, UiSourceRange> copied;
     bool root_has_id = false;
-    for (std::size_t i = 0; i < nodes.size(); ++i) {
-        const auto& node = nodes[i];
-        if (inside(node)) {
-            editable(node);
-            static_attributes(node);
+    for (const auto& [id, range] : existing)
+        if (contains(root.source, range)) {
+            require(id != "#self" && id != "#document" && id != "#parent",
+                    "Reserved native lookup tokens cannot be copied as UI IDs");
+            copied.emplace(id, range);
+            root_has_id = root_has_id || contains(root.opening, range);
         }
-        bool has_id = false;
-        for (const auto& attr : node.attributes) {
-            if (attr.name == "id") {
-                require(!has_id && attr.has_value,
-                        "Resolve ambiguous source IDs before duplication");
-                has_id = true;
-                const auto id = Rml::StringUtilities::DecodeRml(std::string(
-                    source.substr(attr.value.begin, attr.value.end - attr.value.begin)));
-                require(!id.empty() && id.size() <= 128 && id.find_first_of("{}") == id.npos &&
-                            std::ranges::all_of(
-                                id, [](unsigned char c) { return c >= 32 && c != 127; }),
-                        "Use nonempty literal UI IDs of at most128 bytes before duplication");
-                require(existing.insert(id).second,
-                        "Resolve duplicate source IDs before duplication");
-                if (inside(node)) {
-                    require(id != "#self" && id != "#document" && id != "#parent",
-                            "Reserved native lookup tokens cannot be copied as UI IDs");
-                    copied.emplace(id, attr.source);
-                    root_has_id = root_has_id || i == index;
-                }
-            }
-            if (inside(node) && attr.name == "href" && attr.has_value) {
-                const auto href = Rml::StringUtilities::DecodeRml(std::string(
-                    source.substr(attr.value.begin, attr.value.end - attr.value.begin)));
-                require(!href.starts_with('#'),
-                        "Duplicate fragment references explicitly in Source");
-            }
-        }
-    }
     std::map<std::string, std::string> renamed;
     std::string chosen;
     const auto choose = [&](std::string candidate) {

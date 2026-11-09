@@ -96,7 +96,42 @@ void exercise(const std::filesystem::path& output, int width) {
     input.click("button:Undo");
     check(editor.state().at("text") == original,
           "Copy/remove history did not restore its baseline");
+    const std::string hierarchy =
+        "<rml><body><p id='a'>One</p><button id='b'>Two</button>"
+        "<div id='target'><span id='anchor'>Keep</span></div></body></rml>\n";
+    editor.replace_text(hierarchy);
+    const auto hierarchy_baseline = editor.state().at("text");
     input.click("ui-source:element:2");
+    io.AddKeyEvent(ImGuiMod_Ctrl, true);
+    frame();
+    input.click("ui-source:element:3");
+    io.AddKeyEvent(ImGuiMod_Ctrl, false);
+    frame();
+    input.click("ui-source:hierarchy-open");
+    input.click("ui-source:hierarchy-parent");
+    input.select("ui-source:parent:4");
+    input.click("ui-source:hierarchy-before");
+    input.select("ui-source:before:5");
+    frame();
+    capture.save(output / ("ui-source-hierarchy-" + std::to_string(width) + ".png"));
+    input.click("ui-source:hierarchy-apply");
+    auto hierarchy_expected = hierarchy_baseline.get<std::string>();
+    const std::string siblings = "<p id='a'>One</p><button id='b'>Two</button>";
+    hierarchy_expected.erase(hierarchy_expected.find(siblings), siblings.size());
+    hierarchy_expected.insert(hierarchy_expected.find("<span id='anchor'>"), siblings);
+    check(editor.state().at("text") == hierarchy_expected && editor.state().at("selection").empty(),
+          "Native container/placement controls did not move the complete sibling selection");
+    input.click("button:Undo");
+    check(editor.state().at("text") == hierarchy_baseline,
+          "Native hierarchy movement needed more than one Undo");
+    input.click("button:Redo");
+    check(editor.state().at("text") == hierarchy_expected, "Hierarchy Redo lost moved source");
+    input.click("button:Undo");
+    input.click("button:Undo");
+    check(editor.state().at("text") == original,
+          "Hierarchy controls did not restore the original source history");
+    input.click("ui-source:element:2");
+    input.click("ui-source:hierarchy-open");
     input.type("ui-source:literal", "New & <literal>");
     input.click("ui-source:text-set");
     check(editor.dirty() && editor.state().at("text").get<std::string>().find(

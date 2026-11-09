@@ -46,6 +46,18 @@ selection, removes disjoint ranges in descending order and publishes one Undo
 record. Elements and Preview controls plus automation borrow these same helpers.
 Neither operation saves or publishes resources; asset/Scene identity is unchanged.
 
+Static source hierarchy moves reuse the same ancestry/content/literal-ID admission
+as copying and the sibling-range/removal owner. One admitted group moves in source
+order into an existing container, before a direct child or at its closing tag.
+Original ranges supply all moved bytes; insertion offsets account for preceding
+removals. Cycle/self-placement checks run before removal, and full source/nesting
+validation precedes one draft replacement. Root IDs and internal/external literal
+ID targets are unchanged; relative native label tokens reject. Styles/parent-relative
+coordinates follow the new DOM hierarchy. Elements and ui.source.reparent share
+this transaction/history; source selection clears on change, while exact no-ops
+retain revision/history. No Scene hierarchy, source identity database, protocol,
+resource owner or SDK layout is introduced.
+
 Text/attribute editing calls the pinned `Rml::StringUtilities::EncodeRml` API.
 Markup escapes do not suppress `{{model}}` bindings or attribute expressions;
 those retain ordinary RML source meaning. Leaf text containing child markup or

@@ -32,6 +32,8 @@ class UiSourceEditor {
     bool dirty_ = false, close_ = false, focus_ = false, text_editable_ = false;
     char attribute_[65] = "id", value_[8193]{}, literal_[8193]{};
     char duplicate_prefix_[65]{};
+    std::size_t hierarchy_parent_ = UiMarkupElement::no_parent;
+    std::size_t hierarchy_before_ = UiMarkupElement::no_parent;
     int child_kind_ = 0;
     UiSourcePreviewFrame preview_frame_;
     int preview_width_ = 1000, preview_height_ = 700;
@@ -59,6 +61,7 @@ class UiSourceEditor {
         dirty_ = text != saved_;
         ++revision_;
         selected_.clear();
+        hierarchy_parent_ = hierarchy_before_ = UiMarkupElement::no_parent;
         outline_.clear();
         outline_error_.clear();
         if (locator_.extension() == ".rml") {
@@ -88,6 +91,7 @@ class UiSourceEditor {
         error_.clear();
         outline_error_.clear();
         selected_.clear();
+        hierarchy_parent_ = hierarchy_before_ = UiMarkupElement::no_parent;
         dirty_ = close_ = false;
         editor_.SetText("");
     }
@@ -102,6 +106,93 @@ class UiSourceEditor {
     }
     std::size_t selected_element() const {
         return selected_.empty() ? UiMarkupElement::no_parent : selected_.back();
+    }
+    std::string element_label(std::string_view source, std::size_t index) const {
+        const auto& node = outline_.at(index);
+        auto label = "<" + node.tag + ">";
+        for (const auto& attr : node.attributes)
+            if (attr.name == "id" && attr.has_value) {
+                label += " #" + Rml::StringUtilities::DecodeRml(std::string(source.substr(
+                                    attr.value.begin, attr.value.end - attr.value.begin)));
+                break;
+            }
+        return label;
+    }
+    void hierarchy_controls(bool locked) {
+        const bool open = ImGui::CollapsingHeader("Move to container");
+        FORGE_UI_PROBE("ui-source:hierarchy-open");
+        if (!open)
+            return;
+        const auto source = editor_.GetText();
+        const auto selected = [&](std::size_t i) {
+            return std::ranges::find(selected_, i) != selected_.end();
+        };
+        ImGui::BeginDisabled(locked || std::ranges::any_of(selected_, [&](auto i) {
+                                 return !ui_markup_widget_editable(outline_.at(i));
+                             }));
+        const auto parent_label = hierarchy_parent_ < outline_.size()
+                                      ? element_label(source, hierarchy_parent_)
+                                      : "Choose a container";
+        const bool parent_open = ImGui::BeginCombo("New parent", parent_label.c_str());
+        FORGE_UI_PROBE("ui-source:hierarchy-parent");
+        if (parent_open) {
+            for (std::size_t i = 0; i < outline_.size(); ++i) {
+                const auto& node = outline_[i];
+                if (node.self_closing || (node.tag != "body" && !ui_markup_widget_editable(node)) ||
+                    std::ranges::any_of(selected_, [&](auto root) {
+                        return node.source.begin >= outline_[root].source.begin &&
+                               node.source.end <= outline_[root].source.end;
+                    }))
+                    continue;
+                std::size_t depth = 0;
+                for (auto ancestor = node.parent; ancestor != UiMarkupElement::no_parent;
+                     ancestor = outline_[ancestor].parent)
+                    ++depth;
+                const auto label = std::string(depth * 2, ' ') + element_label(source, i);
+                ImGui::PushID(int(i));
+                if (ImGui::Selectable(label.c_str(), hierarchy_parent_ == i)) {
+                    hierarchy_parent_ = i;
+                    hierarchy_before_ = UiMarkupElement::no_parent;
+                }
+                FORGE_UI_PROBE("ui-source:parent:" + std::to_string(i));
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::BeginDisabled(hierarchy_parent_ >= outline_.size());
+        const auto before_label = hierarchy_before_ < outline_.size()
+                                      ? "Before " + element_label(source, hierarchy_before_)
+                                      : "At end";
+        const bool before_open = ImGui::BeginCombo("Placement", before_label.c_str());
+        FORGE_UI_PROBE("ui-source:hierarchy-before");
+        if (before_open) {
+            if (ImGui::Selectable("At end", hierarchy_before_ == UiMarkupElement::no_parent))
+                hierarchy_before_ = UiMarkupElement::no_parent;
+            FORGE_UI_PROBE("ui-source:before-end");
+            for (std::size_t i = 0; i < outline_.size(); ++i)
+                if (outline_[i].parent == hierarchy_parent_ && !selected(i)) {
+                    const auto label = "Before " + element_label(source, i);
+                    ImGui::PushID(int(i));
+                    if (ImGui::Selectable(label.c_str(), hierarchy_before_ == i))
+                        hierarchy_before_ = i;
+                    FORGE_UI_PROBE("ui-source:before:" + std::to_string(i));
+                    ImGui::PopID();
+                }
+            ImGui::EndCombo();
+        }
+        if (button("Move selection",
+                   "Move static source siblings as one Undo step; keep their IDs."))
+            attempt([&] {
+                reparent(selected_, hierarchy_parent_,
+                         hierarchy_before_ == UiMarkupElement::no_parent
+                             ? std::nullopt
+                             : std::optional(hierarchy_before_));
+            });
+        FORGE_UI_PROBE("ui-source:hierarchy-apply");
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+        ImGui::TextWrapped("Styles and parent-relative positions follow the new container. "
+                           "Name containers with IDs to identify them here.");
     }
     void selection_controls() {
         const auto index = selected_element();
@@ -126,6 +217,7 @@ class UiSourceEditor {
     void select(std::size_t index, bool toggle = false) {
         if (index >= outline_.size())
             throw AuthoringError("source_element", "Select a current source element");
+        hierarchy_parent_ = hierarchy_before_ = UiMarkupElement::no_parent;
         if (!toggle)
             selected_.assign(1, index);
         else if (const auto found = std::ranges::find(selected_, index); found != selected_.end())
@@ -562,13 +654,7 @@ class UiSourceEditor {
                 flags |= ImGuiTreeNodeFlags_Leaf;
             if (std::ranges::find(selected_, index) != selected_.end())
                 flags |= ImGuiTreeNodeFlags_Selected;
-            auto label = "<" + node.tag + ">";
-            for (const auto& attr : node.attributes)
-                if (attr.name == "id" && attr.has_value) {
-                    label += " #" + Rml::StringUtilities::DecodeRml(snapshot.substr(
-                                        attr.value.begin, attr.value.end - attr.value.begin));
-                    break;
-                }
+            const auto label = element_label(snapshot, index);
             const bool open =
                 ImGui::TreeNodeEx(reinterpret_cast<void*>(index + 1), flags, "%s", label.c_str());
             FORGE_UI_PROBE("ui-source:element:" + std::to_string(index));
@@ -592,6 +678,9 @@ class UiSourceEditor {
             ImGui::TextWrapped("Select a container or widget to edit its source.");
             return;
         }
+        hierarchy_controls(locked);
+        if (selected_element() >= outline_.size())
+            return;
         if (selected_.size() > 1) {
             ImGui::Separator();
             ImGui::Text("%zu source elements selected", selected_.size());
@@ -896,6 +985,10 @@ class UiSourceEditor {
     }
     void removes(std::span<const std::size_t> indices) {
         replace_text(remove_ui_markup_elements(editor_.GetText(), indices));
+    }
+    void reparent(std::span<const std::size_t> indices, std::size_t parent,
+                  std::optional<std::size_t> before = {}) {
+        replace_text(reparent_ui_markup_elements(editor_.GetText(), indices, parent, before));
     }
     void duplicate(std::size_t index, std::string_view prefix = {}) {
         if (index >= outline_.size())

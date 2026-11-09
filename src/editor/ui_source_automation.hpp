@@ -203,8 +203,8 @@ struct UiSourceAutomation {
                 return state(editor, files.document);
             }));
         for (const auto* operation :
-             {"replace", "attribute", "text", "insert", "duplicate", "remove", "remove_group",
-              "move", "save", "undo", "redo", "reload", "close"}) {
+             {"replace", "attribute", "text", "insert", "duplicate", "reparent", "remove",
+              "remove_group", "move", "save", "undo", "redo", "reload", "close"}) {
             const std::string action(operation);
             auto properties = guard;
             auto fields = required;
@@ -220,7 +220,7 @@ struct UiSourceAutomation {
                 add("element", automation_integer(0, 8191));
             if (action == "duplicate")
                 add("prefix", automation_text(64), false);
-            if (action == "remove_group")
+            if (action == "remove_group" || action == "reparent")
                 add("elements",
                     automation_array(automation_integer(0, 8191), ui_source_selection_limit, 1));
             if (action == "attribute") {
@@ -229,9 +229,10 @@ struct UiSourceAutomation {
             }
             if (action == "text" || action == "insert")
                 add("text", automation_text(256 * 1024), action == "text");
-            if (action == "insert") {
+            if (action == "insert" || action == "reparent") {
                 add("parent", automation_integer(0, 8191));
-                add("tag", automation_text(64, 1));
+                if (action == "insert")
+                    add("tag", automation_text(64, 1));
                 add("before", automation_integer(0, 8191), false);
             }
             if (action == "move")
@@ -240,7 +241,14 @@ struct UiSourceAutomation {
                 add("discard", {{"type", "boolean"}}, false);
             result.push_back(automation_method(
                 "ui.source." + action,
-                action == "duplicate"
+                action == "reparent"
+                    ? "Move1..32 static source siblings into parent, appending or placing before "
+                      "its optional direct child. Preserve source order, moved bytes and IDs in "
+                      "one Undo step. Cycles, protected/dynamic/ambiguous source and invalid "
+                      "destinations reject atomically. Styles/parent-relative coordinates follow "
+                      "the new hierarchy; no automatic layout or reference rewrite. Requires "
+                      "current source guards/assets.write; no Save/registration/Scene history."
+                : action == "duplicate"
                     ? "Copy one static source subtree as its next sibling in one Undo step. "
                       "Existing bytes/IDs stay unchanged; copied IDs use prefix-oldID, and an "
                       "anonymous root gains prefix. Empty/omitted prefix tries copy,copy2..copy64. "
@@ -291,6 +299,12 @@ struct UiSourceAutomation {
                     else if (action == "duplicate")
                         editor.duplicate(request.at("element").get<std::size_t>(),
                                          request.value("prefix", std::string{}));
+                    else if (action == "reparent")
+                        editor.reparent(request.at("elements").get<std::vector<std::size_t>>(),
+                                        request.at("parent").get<std::size_t>(),
+                                        request.contains("before")
+                                            ? std::optional(request.at("before").get<std::size_t>())
+                                            : std::nullopt);
                     else if (action == "remove")
                         editor.remove(request.at("element").get<std::size_t>());
                     else if (action == "remove_group")

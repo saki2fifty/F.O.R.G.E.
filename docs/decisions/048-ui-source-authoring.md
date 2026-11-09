@@ -105,6 +105,15 @@ complete result, then replaces the draft once. Both native controls and borrowed
 automation use these helpers. No persisted source identity, native DOM writer,
 clipboard protocol, schema/SDK change or separate history is introduced.
 
+Bounded static reparenting also uses these source ranges and admission owners.
+At most32same-parent roots move in original source order, keeping their bytes/IDs;
+an existing container supplies an append or direct-child insertion position.
+Complete cycle, scope, membership and candidate checks precede the one draft
+replacement. Outside comments/text remain at their original ranges. CSS and
+parent-relative coordinates are not rewritten. Native Elements and borrowed
+automation/MCP use the same source transaction; exact no-ops create no history.
+This extends source editing, not the Scene hierarchy or a second native DOM owner.
+
 Source-preview image output borrows the same observed native image through
 ViewImageTask. A rendered input retains the source/preview identity and rechecks
 it before the existing nonblocking GPU copy is submitted. Pending observations

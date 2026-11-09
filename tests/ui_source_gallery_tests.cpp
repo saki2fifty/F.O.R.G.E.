@@ -220,6 +220,16 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
             candidate = duplicate_ui_markup_element(candidate, panel_index, "copied");
             candidate = set_ui_markup_layout(candidate, by_id(candidate, "copied-panel"),
                                              {20, 330, 250, 190});
+            const auto copied_closing =
+                inspect_ui_markup(candidate).at(by_id(candidate, "copied-panel")).closing.begin;
+            candidate.insert(copied_closing,
+                             "<div id='field-group' style='position:absolute;left:8px;top:70px;"
+                             "width:220px;height:96px;pointer-events:auto;"
+                             "background-color:#14283c;'></div>");
+            const std::array fields{by_id(candidate, "copied-clone-entry"),
+                                    by_id(candidate, "copied-clone-label")};
+            candidate =
+                reparent_ui_markup_elements(candidate, fields, by_id(candidate, "field-group"));
             check(presenter.preview_document({asset}, layout_document, candidate, 800, 600),
                   "Gallery draft preview did not load");
             const auto view = presenter.preview_layout();
@@ -260,6 +270,11 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
         check(original_input && copied_input && copied_label &&
                   copied_label->GetAttribute<Rml::String>("for", "") == "copied-clone-entry",
               "Saved/exported clone lost original/new IDs or its internal label target");
+        const auto* field_group = document->GetElementById("field-group");
+        check(field_group && copied_input->GetParentNode() == field_group &&
+                  copied_label->GetParentNode() == field_group &&
+                  original_input->GetParentNode() == document->GetElementById("panel"),
+              "Saved/exported source hierarchy lost moved fields or changed the original parent");
         const auto label_position = copied_label->GetAbsoluteOffset(Rml::BoxArea::Border);
         const auto label_size = copied_label->GetBox().GetSize(Rml::BoxArea::Border);
         check(label_size.x > 0 && label_size.y > 0, "Cloned runtime label has no native hit box");

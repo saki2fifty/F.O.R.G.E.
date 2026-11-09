@@ -74,6 +74,33 @@ layout. Protected document/resource elements, mixed parents or nested selections
 reject the whole operation. One **Undo** restores every removed subtree. Save
 remains explicit.
 
+## Move controls into a container
+
+1. In **Elements**, select one static control or use **Ctrl** to select up to 32 siblings.
+2. Expand **Move to container** and choose **New parent**. Containers appear in source order with indentation; giving them unique IDs makes them easier to identify.
+3. Set **Placement** to **At end**, or choose **Before** one of that container's existing children.
+4. Choose **Move selection**. All selected subtrees move together in their original source order, regardless of the order you selected them.
+5. Use **Undo** or **Redo** to restore the whole move. Select the controls again for another structured edit, then **Save source** when ready.
+
+![Two source siblings selected for movement into the target container before its anchor child](../images/ui-source-hierarchy.png)
+
+The move retains each subtree's markup and IDs. Comments inside a moved subtree
+travel with it; comments and text between selected siblings stay at the original
+location. Styles, inherited properties and parent-relative positions follow the
+new hierarchy. FORGE does not rewrite selectors, references or pixel offsets to
+preserve the old appearance. Preview and test the result before saving.
+
+Choose an existing container with separate opening and closing tags. The body is
+also a valid destination. The chooser excludes selected elements and their
+descendants. Invalid placement, mixed or nested selections, protected declarations,
+bound/event-driven scopes, expressions, fragment links and relative native label
+targets reject the entire move. Named IDs throughout the document must be unique,
+literal and at most 128 UTF-8 bytes. Anonymous controls can still move. The full
+result must satisfy the source nesting limits. Use Source for unsupported cases.
+If the resulting source is identical, its revision and history stay unchanged.
+Hierarchy editing does not require the pixel-canvas layout subset and
+does not change the Scene hierarchy.
+
 ## Preview and adjust layout
 
 For a ready-to-edit example, open **Scenes/211-ui-layout-preview.scene.json** in

@@ -2,6 +2,17 @@
 
 ## Native UI source authoring
 
+`manual/images/ui-source-hierarchy.png` is an exact700×950 production
+UiSourceEditor/DocumentWorkspace capture. Actual Ctrl+click selects a paragraph
+and button; real New parent/Placement dropdowns choose the target container and
+its anchor child before Move selection. The test then applies one move, Undo/Redo
+and restores the original source. Native controls run at1180/700/400pixels; the
+immutable raw outputs and canonical hashes belong to the scoped source-hierarchy
+validation owner. Reproduce with `forge_ui_source_editor_tests <output>`; the new
+files are `ui-source-hierarchy-<width>.png`. SDL software composition provides the
+unretouched pixels. This is an authentic component window, without full Main,
+Windows, physical input/GPU or display-density acceptance.
+
 The current Source/Elements captures include the Preview tab. They remain exact
 700×950 outputs of `ui_source_editor`; the refreshed image bytes retain the same
 production controls/history workflow. `manual/images/ui-source-preview.png` is an
@@ -36,7 +47,8 @@ image retains its earlier source-group provenance. See [CI profiles](../../ci.md
 DocumentWorkspace adapter. Real mouse/text controls select a paragraph, replace
 its text, Undo/Redo and Save. The Elements image shows the selected source node
 and its ID prefix/Duplicate subtree and attribute/text/child/order/removal controls.
-The Elements capture retains the prefix entered by the real duplication/history
+The current Elements capture also shows the collapsed Move to container controls.
+It retains the prefix entered by the real duplication/history
 test. Source shows the same draft
 with escaped markup. These are task-window fixtures, not a complete editor-shell
 capture or a rendered game HUD. No controls or pixels are fabricated or retouched.

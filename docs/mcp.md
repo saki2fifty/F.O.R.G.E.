@@ -1099,7 +1099,7 @@ including a clean open file. Use its native document operations or close it firs
 
 ### Native UI source documents
 
-`forge_ui_source_read/open/replace/attribute/text/insert/duplicate/remove/remove_group/move/save/undo/redo/reload/close`
+`forge_ui_source_read/open/replace/attribute/text/insert/duplicate/reparent/remove/remove_group/move/save/undo/redo/reload/close`
 borrow the actual UiSourceEditor. Read returns copied text, path, transient
 session, revision, content `state` digest, disk baseline, dirty/history status and
 derived element ranges. RCSS has no outline; incomplete RML reports
@@ -1125,6 +1125,19 @@ protected, duplicate or invalid members cannot partly remove source. It needs no
 preview observation or pixel-layout eligibility. Both new tools use the ordinary
 source guards, mutation envelope, assets.write grant and receipt replay below;
 Save and registration remain separate.
+
+`forge_ui_source_reparent` takes1..32distinct same-parent `elements`, a destination
+`parent`, and optional direct-child `before`. Omitted `before` appends at the
+container's closing tag. Roots move in source order, not request order; their
+bytes/IDs remain unchanged. Comments outside the ranges remain at their original
+source location. Protected/self-closing/cyclic targets, mixed/nested/repeated roots,
+bound/dynamic ancestry/content, ambiguous IDs/labels, fragment references and
+relative native label targets reject atomically. Existing IDs must be unique,
+literal and bounded; anonymous roots can move. The full candidate still passes
+source/nesting admission. CSS/coordinates follow their new parent without rewriting.
+It uses source guards, assets.write, ordinary mutation receipts and one TextEditor
+replacement; no preview observation is required. A source change clears selection;
+an exact no-op changes no source revision or history. Save stays separate.
 
 `forge_ui_source_preview` borrows that draft while Play is stopped. It needs
 `assets.read`, current `path/session/revision/state` guards, `width` and `height`

@@ -1,5 +1,19 @@
 # 2026-11-09
 
+## Static UI source hierarchy editing
+
+UI Source Elements adds Move to container with destination and before-child/end
+placement. One control or up to32source siblings move in source order, retaining
+subtree bytes/IDs and one Undo record. Shared static admission/ranges reject cycles,
+invalid scopes and complete-candidate nesting overflow before publication. CSS and
+parent-relative coordinates follow the new container; exact no-ops retain history.
+
+The matching ui.source.reparent operation shares source guards, permissions and
+replay. Native controls, both protocol envelopes and saved/exported relocated form
+checks cover the workflow; the manual illustrates it with authentic controls.
+Gallery assets/IDs, runtime profiles, SDK and dependencies remain unchanged.
+Windows/full-editor/physical review remains pending.
+
 ## Static UI copies and atomic group removal
 
 UI Source can duplicate a static subtree beside itself using collision-checked

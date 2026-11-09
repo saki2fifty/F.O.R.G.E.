@@ -51,7 +51,7 @@ attribute/text/child/order/removal, history, CRLF, invalid drafts, conflicts,
 read-only state, close/cancel/discard, moves/deletion and long-text protection.
 The C++ history fixture checks the shared widget replacement helper.
 `sprite_atlas_source_editor` also verifies hook-only document entries are excluded
-from typed-source discovery and dispatch. `mcp_ui_source_stdio` exercises18 actual
+from typed-source discovery and dispatch. `mcp_ui_source_stdio` exercises19 actual
 native-owner tools through both MCP envelopes, grants, stale guards, source-owned
 raw-write rejection, history, conflicts, RCSS and dirty-source Play rejection.
 It includes native draft geometry, source/preview guards, unsupported layouts and
@@ -71,6 +71,16 @@ and read-only discovery omission. `ui_layout_gallery` saves a cloned static form
 clicks its label through the actual presenter to focus the copied input, then
 packages, relocates and repeats with the source project hidden. Canonical Gallery
 assets and IDs remain unchanged by that scratch fixture.
+
+Hierarchy coverage additionally checks source-ordered groups, forward/backward
+append/before placement, retained IDs/comments, exact no-op, cycle/protected/mixed/
+nested/dynamic/ambiguous rejection and initially admitted nesting overflow. Native
+Elements destination/placement/group controls run at1180/700/400, with full one-step
+Undo/Redo and a new authentic component capture. Both MCP envelopes cover the same
+owner, no-op source revision/history, stale source guards, atomic rejection, replay
+and read-only discovery. The scratch Gallery form's copied label/input move into
+a new container; native parent observations and actual label focus are checked
+before and after source-hidden save/package/relocation.
 
 `ui_draft_resources` covers immutable draft admission, correction of invalid saved
 bytes, scope/budgets and package rejection. `ui_source_preview` checks native

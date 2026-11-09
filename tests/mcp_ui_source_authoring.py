@@ -6,7 +6,7 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
-                 'duplicate', 'remove_group')}
+                 'duplicate', 'remove_group', 'reparent')}
     assert required <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
@@ -53,6 +53,33 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
     assert '<p' not in edit('redo')['text']
     edit('undo')
     assert edit('undo')['text'] == original, 'Duplication needed more than one Undo'
+    state = read('forge_ui_source_read')
+
+    hierarchy = ("<rml><body><p id='a'>One</p><button id='b'>Two</button>"
+                 "<div id='target'><span id='anchor'>Keep</span></div></body></rml>\n")
+    hierarchy_baseline = edit('replace', text=hierarchy)
+    edit('reparent', elements=[index('div')], parent=index('body'))
+    assert read('forge_ui_source_read') == hierarchy_baseline, 'No-op hierarchy move changed source/history'
+    moving = [index('button'), index('p')]
+    move_guard = guard()
+    move_args = arguments(**move_guard, elements=moving, parent=index('div'), before=index('span'))
+    moved_once = client.tool('forge_ui_source_reparent', **move_args)
+    moved_replay = client.tool('forge_ui_source_reparent', **move_args)
+    assert moved_once['ok'] and moved_replay['ok'] and moved_once['result'] == moved_replay['result']
+    moved = read('forge_ui_source_read')
+    siblings = "<p id='a'>One</p><button id='b'>Two</button>"
+    moved_text = hierarchy_baseline['text'].replace(siblings, '', 1).replace(
+        "<span id='anchor'>", siblings + "<span id='anchor'>", 1)
+    assert moved['text'] == moved_text and not moved['selection']
+    failed(mutate('forge_ui_source_reparent', **move_guard, elements=moving,
+                  parent=index('div')), 'stale_ui_source')
+    assert not mutate('forge_ui_source_reparent', **guard(), elements=[index('div')], parent=index('p'))['ok']
+    assert not mutate('forge_ui_source_reparent', **guard(), elements=[index('body')], parent=index('div'))['ok']
+    assert read('forge_ui_source_read') == moved, 'Rejected hierarchy move partially changed source'
+    assert edit('undo')['text'] == hierarchy_baseline['text'], 'Hierarchy move needed more than one Undo'
+    assert edit('redo')['text'] == moved_text
+    edit('undo')
+    assert edit('undo')['text'] == original, 'Hierarchy fixture left an extra source history record'
     state = read('forge_ui_source_read')
 
     saved = read('forge_source_text_read', path=path)
