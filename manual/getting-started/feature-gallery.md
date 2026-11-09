@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**211-ui-layout-preview** contains a blue panel with an editable inline pixel
+layout. Stop Play and open `Assets/UI/Layout/layout.rml` from Content with
+**Edit UI source**. Select **Preview**, use a 1000 by 700 viewport and click the
+panel. Drag to move or use its bottom-right handle to resize; Escape cancels.
+Use the pixel fields and **Apply layout** for numeric changes. Save source, then
+start Play to test the result. Its Camera and UI resources are ready for normal
+save and export. See [UI source](../editor/ui-source.md).
+
 **210-ui-source-authoring** contains a panel with bound text, Pause, Resume,
 Step and a text field. Press Play and open Game, then Stop and edit
 `Assets/UI/SourceAuthoring/hud.rml` from Content with **Edit UI source**.

@@ -1108,6 +1108,29 @@ parent indices (null at root), byte-exclusive source/content/attribute spans,
 self-closing state and `widget_editable` structural eligibility. These indices
 are not persisted widget IDs and must be refreshed after each edit.
 
+`forge_ui_source_preview` borrows that draft while Play is stopped. It needs
+`assets.read`, current `path/session/revision/state` guards, `width` and `height`
+in1..2048 and optional `density` in0.5..4 (default1). It reloads saved linked
+resources, retains failed-candidate pixels and returns `stale`/`error`. A successful
+observation includes native preview `instance` UUID, `revision`, `source_state`,
+dimensions and `elements`: `id`, `tag`, border `bounds=[x,y,width,height]`, CSS
+`pixels`, nullable `source_index`, `editable` and `reason`. There are at most512ID
+observations of128UTF-8bytes. Duplicate/unsupported IDs cannot authorize layout.
+This is geometry metadata, not a screenshot; CPU hosts may supply native layout
+without a GPU image. No source, Scene, catalog or gameplay model is written.
+
+`forge_ui_source_layout` needs `assets.write`, the normal mutation envelope and
+source guards, `element`, observed `preview_instance`/`preview_revision`, and all
+four `left/top/width/height` pixel values. Position values are within-65536..65536;
+sizes are1..65536. It reborrows the live owner, verifies native/source eligibility,
+validates the candidate in native preview and replaces the four existing inline
+values as one source Undo record. A retired/replaced observation returns
+`stale_ui_preview`; unsupported layout returns `layout_unsupported`. Failed
+candidates cannot write source. Source changes, another successful preview or
+native-owner replacement require fresh observation. Save remains separate, and
+transport receipt replay cannot apply a second layout change. Canvas gestures
+block programmatic source mutations until release/cancellation.
+
 Read needs `assets.read`; mutations need `assets.write` and the usual transport
 target/revision/sequence. After open, every mutation echoes the returned `path`,
 `session`, `revision` and `state`; a mismatch returns `stale_ui_source`. A different

@@ -24,6 +24,10 @@ namespace forge {
 namespace {
 bool presenter_active = false; // Single presentation owner/thread in this phase.
 using Json = nlohmann::json;
+bool valid_ui_dimensions(int width, int height, float density, int limit) {
+    return width >= 1 && height >= 1 && width <= limit && height <= limit &&
+           std::isfinite(density) && density >= .5f && density <= 4;
+}
 Json localization_identity(const Json& descriptor) {
     return descriptor.is_null()
                ? Json()
@@ -35,6 +39,16 @@ Json application_state_identity(const Json& descriptor) {
                                        {"source_asset", descriptor.at("source_asset")},
                                        {"definition_digest", descriptor.at("definition_digest")}};
 }
+Json static_document_state(AssetRef<UiDocumentAsset> asset, bool visible) {
+    const auto entity = EntityId::generate();
+    return {{"documents", Json::array({{{"entity", entity},
+                                        {"asset", asset.id},
+                                        {"instance", entity.str()},
+                                        {"visible", visible},
+                                        {"layer", 0u},
+                                        {"model", Json::object()},
+                                        {"commands", Json::array()}}})}};
+}
 } // namespace
 struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     struct Doc {
@@ -45,6 +59,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         Rml::DataModelHandle model;
     };
     struct Set {
+        bool source_preview = false;
         std::string name;
         Rml::Context* context = nullptr;
         std::map<AssetId, Rml::Context*> outputs;
@@ -58,6 +73,8 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         Rml::ElementText* frame_text = nullptr;
     };
     std::set<AssetId> prepared_outputs;
+    const std::string preview_instance = EntityId::generate().str();
+    std::string preview_request;
     struct File {
         const std::vector<std::byte>* bytes;
         std::size_t pos = 0;
@@ -312,7 +329,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             throw std::logic_error("UI presenter used off its owning thread");
     }
     Rml::Context* input_context(AssetId output = {}) const {
-        if (!live)
+        if (!live || live->source_preview)
             return nullptr;
         if (!output)
             return live->context;
@@ -320,7 +337,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         return at == live->outputs.end() ? nullptr : at->second;
     }
     const Doc& field_document(const std::string& instance) const {
-        if (live)
+        if (live && !live->source_preview)
             for (const auto& doc : live->docs)
                 if (doc->instance == instance)
                     return *doc;
@@ -427,7 +444,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     bool route_mouse(int x, int y, int modifiers) {
         last_pointer = std::array{x, y};
         pointer_modifiers = modifiers;
-        if (!live)
+        if (!live || live->source_preview)
             return false;
         if (!held_buttons.empty()) {
             if (captured_surface) {
@@ -666,7 +683,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     }
     bool enqueue_command(Doc& doc, const std::string& name,
                          const std::optional<std::string>& value) {
-        if (!live || pending.size() >= 128 ||
+        if (!live || live->source_preview || pending.size() >= 128 ||
             std::none_of(live->docs.begin(), live->docs.end(),
                          [&](const auto& d) { return d.get() == &doc; }))
             return false;
@@ -738,8 +755,14 @@ body { width:100%; height:100%; z-index:65536; }
         set.frame_document->Show(Rml::ModalFlag::None, Rml::FocusFlag::None);
         set.frame_document->PullToFront();
     }
-    std::unique_ptr<Set> build(const Json& state, bool static_inspection = false) {
+    struct Draft {
+        std::filesystem::path source;
+        std::string_view text;
+    };
+    std::unique_ptr<Set> build(const Json& state, bool static_inspection = false,
+                               const Draft* draft = nullptr) {
         auto candidate = std::make_unique<Set>();
+        candidate->source_preview = draft != nullptr;
         candidate->name = "ui" + std::to_string(++serial);
         candidate->resources = std::make_shared<UiResources>(project);
         candidate->localization = state.value("localization", Json());
@@ -748,6 +771,10 @@ body { width:100%; height:100%; z-index:65536; }
         error.clear();
         loading_prefix = candidate->name;
         try {
+            if (draft)
+                candidate->resources->draft_document(
+                    {state.at("documents").at(0).at("asset").get<AssetId>()}, draft->source,
+                    draft->text);
             if (!candidate->localization.is_null())
                 candidate->messages = &candidate->resources->localization(
                     {candidate->localization.at("asset").get<AssetId>()});
@@ -998,6 +1025,8 @@ UiPresenter::UiPresenter(Rml::RenderInterface& r, std::filesystem::path p,
 UiPresenter::~UiPresenter() = default;
 const UiAssetSnapshot* UiPresenter::asset_snapshot() const {
     impl_->check();
+    if (impl_->live && impl_->live->source_preview)
+        return nullptr;
     if (impl_->live && impl_->error.empty() &&
         impl_->live->assets.sources.size() != impl_->live->resources->source_count())
         impl_->live->assets = impl_->live->resources->snapshot();
@@ -1008,20 +1037,166 @@ UiAssetSnapshot UiPresenter::inspect_static(AssetRef<UiDocumentAsset> asset) {
     s.check();
     if (s.live || s.staged)
         throw std::runtime_error("Static UI inspection requires an isolated empty presenter");
-    const auto entity = EntityId::generate();
-    Json state{{"documents", Json::array({{{"entity", entity},
-                                           {"asset", asset.id},
-                                           {"instance", entity.str()},
-                                           {"visible", false},
-                                           {"layer", 0u},
-                                           {"model", Json::object()},
-                                           {"commands", Json::array()}}})}};
-    auto candidate = s.build(state, true);
+    auto candidate = s.build(static_document_state(asset, false), true);
     if (!candidate)
         throw std::runtime_error(s.error);
     auto result = candidate->assets;
     s.retire(candidate);
     return result;
+}
+bool UiPresenter::preview_document(AssetRef<UiDocumentAsset> asset,
+                                   const std::filesystem::path& source, std::string_view text,
+                                   int width, int height, float density, bool refresh) {
+    auto& s = *impl_;
+    s.check();
+    if (s.staged || (s.live && !s.live->source_preview) || !s.current.is_null())
+        throw std::runtime_error("UI source preview requires an empty or preview presenter");
+    if (!valid_ui_dimensions(width, height, density, 2048) || text.size() > 256 * 1024)
+        throw std::runtime_error(
+            "UI source preview requires1..2048pixels,0.5..4density and<=256KiB text");
+    const auto key = Json{
+        {"asset", asset.id},
+        {"source", path_utf8(source)},
+        {"state", asset_detail::content_digest(std::as_bytes(std::span(text.data(), text.size())))},
+        {"width", width},
+        {"height", height},
+        {"density",
+         density}}.dump();
+    if (!refresh && key == s.preview_request && s.width == width && s.height == height &&
+        s.density == density)
+        return s.live && s.live->source_preview && s.error.empty();
+    update(s.time, width, height, density);
+    s.preview_request = key;
+    const Impl::Draft draft{source, text};
+    auto candidate = s.build(static_document_state(asset, true), true, &draft);
+    if (!candidate)
+        return false;
+    s.release_native_input();
+    s.retire(s.live);
+    s.live = std::move(candidate);
+    ++s.presentation_revision;
+    return true;
+}
+Json UiPresenter::preview_layout() const {
+    auto& s = *impl_;
+    s.check();
+    if ((s.live && !s.live->source_preview) || (!s.live && s.preview_request.empty()))
+        return Json();
+    const auto observation = [&](Json elements, const std::string& digest) {
+        return Json{{"instance", s.preview_instance},
+                    {"revision", s.presentation_revision},
+                    {"width", s.width},
+                    {"height", s.height},
+                    {"density", s.density},
+                    {"source_state", digest},
+                    {"stale", !s.live || !s.error.empty()},
+                    {"error", s.error},
+                    {"elements", std::move(elements)}};
+    };
+    if (!s.live)
+        return observation(Json::array(), "");
+    Json elements = Json::array();
+    std::map<std::string, unsigned> ids;
+    std::vector<Rml::Element*> pending{s.live->docs.at(0)->document};
+    std::size_t visited = 0;
+    while (!pending.empty()) {
+        auto* element = pending.back();
+        pending.pop_back();
+        if (++visited > 8192)
+            throw std::runtime_error("UI preview exceeds8192 native elements");
+        for (int i = element->GetNumChildren() - 1; i >= 0; --i)
+            pending.push_back(element->GetChild(i));
+        const auto id = element->GetId();
+        if (id.empty())
+            continue;
+        if (id.size() > 128 || elements.size() >= 512)
+            throw std::runtime_error("UI preview supports512 IDs of at most128 UTF-8 bytes");
+        ++ids[id];
+        const auto offset = element->GetAbsoluteOffset(Rml::BoxArea::Border);
+        const auto size = element->GetBox().GetSize(Rml::BoxArea::Border);
+        Json pixels = Json::object();
+        std::string reason;
+        if (element->GetComputedValues().position() != Rml::Style::Position::Absolute)
+            reason = "Use absolute positioning for canvas layout edits";
+        for (const auto* name : {"left", "top", "width", "height"}) {
+            const auto* property = element->GetProperty(name);
+            if (!property || property->unit != Rml::Unit::PX ||
+                !std::isfinite(property->Get<float>())) {
+                if (reason.empty())
+                    reason = "Use explicit pixel left, top, width and height";
+            } else
+                pixels[name] = property->Get<float>();
+        }
+        for (const auto* name : {"right", "bottom"}) {
+            const auto* property = element->GetProperty(name);
+            if (property && property->ToString() != "auto" && reason.empty())
+                reason = "Remove right/bottom constraints before canvas edits";
+        }
+        for (auto* ancestor = element; ancestor; ancestor = ancestor->GetParentNode()) {
+            const auto& computed = ancestor->GetComputedValues();
+            if ((computed.has_local_transform() || computed.has_local_perspective() ||
+                 computed.animation() || computed.transition() || ancestor->GetScrollLeft() ||
+                 ancestor->GetScrollTop()) &&
+                reason.empty())
+                reason = "Transformed, animated, transitioning or scrolled layouts use Source";
+        }
+        const auto& computed = element->GetComputedValues();
+        if (pixels.size() == 4 && reason.empty()) {
+            const auto sized_box = element->GetBox().GetSize(
+                computed.box_sizing() == Rml::Style::BoxSizing::BorderBox ? Rml::BoxArea::Border
+                                                                          : Rml::BoxArea::Content);
+            if (std::abs(sized_box.x - pixels.at("width").get<float>()) > .01f ||
+                std::abs(sized_box.y - pixels.at("height").get<float>()) > .01f)
+                reason = "Native box sizing clamps these dimensions; use Source";
+        }
+        const auto min_width = computed.min_width(), min_height = computed.min_height();
+        const auto max_width = computed.max_width(), max_height = computed.max_height();
+        if ((min_width.type != Rml::Style::LengthPercentage::Length || min_width.value != 0 ||
+             min_height.type != Rml::Style::LengthPercentage::Length || min_height.value != 0 ||
+             max_width.value != std::numeric_limits<float>::max() ||
+             max_height.value != std::numeric_limits<float>::max()) &&
+            reason.empty())
+            reason = "Remove min/max size constraints before canvas edits";
+        if ((!std::isfinite(offset.x) || !std::isfinite(offset.y) || !std::isfinite(size.x) ||
+             !std::isfinite(size.y) || size.x <= 0 || size.y <= 0) &&
+            reason.empty())
+            reason = "Element has no finite visible border box";
+        if (!element->IsVisible(true) && reason.empty())
+            reason = "Element is hidden in this static preview";
+        elements.push_back({{"id", id},
+                            {"tag", element->GetTagName()},
+                            {"bounds", {offset.x, offset.y, size.x, size.y}},
+                            {"pixels", std::move(pixels)},
+                            {"reason", reason}});
+    }
+    for (auto& element : elements) {
+        if (ids.at(element.at("id").get<std::string>()) != 1)
+            element["reason"] = "Canvas selection requires a unique element ID";
+        element["editable"] = element.at("reason") == "";
+    }
+    const auto asset = s.live->docs.at(0)->descriptor.at("asset").get<AssetId>();
+    const auto& source = s.live->assets.documents.at(asset);
+    const auto found = std::find_if(s.live->assets.sources.begin(), s.live->assets.sources.end(),
+                                    [&](const auto& info) { return info.source == source; });
+    if (found == s.live->assets.sources.end())
+        throw std::logic_error("UI preview source observation is missing");
+    return observation(std::move(elements), found->digest);
+}
+std::string UiPresenter::preview_hit(float x, float y) const {
+    auto& s = *impl_;
+    s.check();
+    if (!s.live || !s.live->source_preview || !s.error.empty() || !std::isfinite(x) ||
+        !std::isfinite(y) || x < 0 || y < 0 || x >= s.width || y >= s.height)
+        return {};
+    const auto layout = preview_layout();
+    for (auto* hit = s.live->context->GetElementAtPoint({x, y}); hit; hit = hit->GetParentNode()) {
+        const auto id = hit->GetId();
+        if (!id.empty() &&
+            std::count_if(layout.at("elements").begin(), layout.at("elements").end(),
+                          [&](const auto& element) { return element.at("id") == id; }) == 1)
+            return id;
+    }
+    return {};
 }
 void UiPresenter::reset(std::string session, std::uint64_t generation) {
     auto& s = *impl_;
@@ -1037,6 +1212,7 @@ void UiPresenter::reset(std::string session, std::uint64_t generation) {
     s.session = std::move(session);
     s.generation = generation;
     s.current = nullptr;
+    s.preview_request.clear();
     s.prepared_outputs.clear();
     s.error.clear();
     s.failed_structure.clear();
@@ -1045,6 +1221,8 @@ void UiPresenter::reset(std::string session, std::uint64_t generation) {
 std::uint64_t UiPresenter::prepare(const Json& snapshot) {
     auto& s = *impl_;
     s.check();
+    if (s.live && s.live->source_preview)
+        throw std::runtime_error("Retire the UI source preview before preparing runtime UI");
     if (s.staged)
         s.retire(s.staged->set);
     s.staged.reset();
@@ -1104,6 +1282,8 @@ void UiPresenter::cancel_prepared(std::uint64_t ticket) {
 bool UiPresenter::accept(const Json& j) {
     auto& s = *impl_;
     s.check();
+    if (s.live && s.live->source_preview)
+        throw std::runtime_error("Retire the UI source preview before accepting runtime UI");
     if (!s.replica.accept(j))
         return false;
     bool rebuild = !s.live;
@@ -1232,8 +1412,7 @@ std::optional<std::uint64_t> UiPresenter::take_loading_cancel() {
 void UiPresenter::update(double t, int w, int h, float dp) {
     auto& s = *impl_;
     s.check();
-    if (!std::isfinite(t) || t < s.time || w < 1 || h < 1 || w > 8192 || h > 8192 ||
-        !std::isfinite(dp) || dp < .5f || dp > 4)
+    if (!std::isfinite(t) || t < s.time || !valid_ui_dimensions(w, h, dp, 8192))
         throw std::runtime_error("Invalid UI presentation dimensions/time");
     s.prepared_outputs.clear();
     if ((s.width != w || s.height != h || s.density != dp) &&
@@ -1291,7 +1470,7 @@ void UiPresenter::frame_statistics(const std::string& text) {
     if (text == s.frame_statistics_label)
         return;
     s.frame_statistics_label = text;
-    if (s.live)
+    if (s.live && !s.live->source_preview)
         s.update_frame_statistics(*s.live);
     if (s.staged)
         s.update_frame_statistics(*s.staged->set);
@@ -1427,6 +1606,8 @@ bool UiPresenter::key(int k, bool down, int m) {
 bool UiPresenter::text(const std::string& t) {
     auto& s = *impl_;
     s.check();
+    if (s.live && s.live->source_preview)
+        return false;
     s.validate_surface_focus();
     try {
         ui_protocol::validate_value(t);
@@ -1721,7 +1902,7 @@ void UiPresenter::acknowledge(const Json& ack) {
 const std::string& UiPresenter::diagnostic() const { return impl_->error; }
 std::uint64_t UiPresenter::presentation_revision() const { return impl_->presentation_revision; }
 std::size_t UiPresenter::document_count() const {
-    return impl_->live ? impl_->live->docs.size() : 0;
+    return impl_->live && !impl_->live->source_preview ? impl_->live->docs.size() : 0;
 }
 Json UiPresenter::localization_state() const {
     const auto& s = *impl_;

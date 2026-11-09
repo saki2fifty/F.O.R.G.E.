@@ -51,9 +51,35 @@ attribute/text/child/order/removal, history, CRLF, invalid drafts, conflicts,
 read-only state, close/cancel/discard, moves/deletion and long-text protection.
 The C++ history fixture checks the shared widget replacement helper.
 `sprite_atlas_source_editor` also verifies hook-only document entries are excluded
-from typed-source discovery and dispatch. `mcp_ui_source_stdio` exercises13 actual
+from typed-source discovery and dispatch. `mcp_ui_source_stdio` exercises15 actual
 native-owner tools through both MCP envelopes, grants, stale guards, source-owned
 raw-write rejection, history, conflicts, RCSS and dirty-source Play rejection.
+It includes native draft geometry, source/preview guards, unsupported layouts and
+atomic pixel-edit receipt replay. The read-only grant includes preview metadata.
+
+`ui_draft_resources` covers immutable draft admission, correction of invalid saved
+bytes, scope/budgets and package rejection. `ui_source_preview` checks native
+geometry/padding/borders/density, unique-ID picking, request/failure caching,
+last-good state and runtime handover with both font modes. `ui_source_canvas`
+drives actual move/resize, single-record history, Save, source/focus/lock/close
+cancellation and native box-clamped candidate rejection at1180/700/400pixels.
+Preview errors use the existing timestamped, deduplicated Problems owner.
+
+`ui_layout_gallery` previews Gallery211's original UI sample, saves a changed
+layout and verifies native runtime geometry before and after package relocation
+and source-folder removal. The optional `ui_source_preview_vulkan` and Windows
+`ui_source_preview_render` profiles exercise opaque native preview pixels,
+last-good candidate failure, saved stylesheet refresh, exact restore/relocation
+and image lifetime through native/backend retirement. The Linux probe includes
+both font modes and420/1000pixel widths. This is software rendering evidence.
+
+`ui_source_canvas_capture` renders the production source widget with native
+UiPresenter/UiDiligentRenderer pixels uploaded unchanged to its SDL software
+surface. It uses the same original Gallery sample and actual panel selection at
+1180/700pixels. Optional Vulkan UI probes enable the existing SDL dummy/software
+profile; X11/Wayland/KMS dependencies remain disabled. The existing pinned source
+widget is reused. These are component captures, without full Main/physical/DPI
+acceptance; see [capture provenance](images/readme/README.md).
 
 `ui_source_gallery` runs Gallery210 through native RmlUi bindings, actual pointer
 commands, linked styles and last-good reload. It retires contexts while RmlUi is

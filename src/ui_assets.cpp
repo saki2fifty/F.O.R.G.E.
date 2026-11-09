@@ -49,7 +49,8 @@ struct TextProfile {
     unsigned gradients = 0;
 };
 TextProfile validate_text_profile(std::string_view text, bool markup,
-                                  std::vector<UiMarkupElement>* elements = nullptr) {
+                                  std::vector<UiMarkupElement>* elements = nullptr,
+                                  std::vector<UiStyleDeclaration>* declarations = nullptr) {
     require(text.size() <= 256 * 1024, "RML/RCSS exceeds 256 KiB");
     require(text.find('\0') == std::string_view::npos, "RML/RCSS contains NUL");
     (void)nlohmann::json(std::string(text)).dump();
@@ -63,6 +64,16 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
     std::string property, token;
     unsigned filter_profile = 0;
     unsigned gradients = 0;
+    std::string declaration_name;
+    auto value_begin = std::string_view::npos;
+    const auto finish_declaration = [&](std::size_t end) {
+        if (value_begin != std::string_view::npos)
+            declarations->push_back({declaration_name, {value_begin, end}});
+        else
+            require(declaration_name.empty(), "Inline style declaration requires a colon");
+        declaration_name.clear();
+        value_begin = std::string_view::npos;
+    };
     for (std::size_t i = 0; i < text.size();) {
         if (markup && text.substr(i, 4) == "<!--") {
             auto e = text.find("-->", i + 4);
@@ -260,6 +271,19 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
         }
         if (!markup) {
             char c = text[i];
+            if (declarations) {
+                require(c != '{' && c != '}', "Inline style cannot contain blocks");
+                if (!parens && c == ';')
+                    finish_declaration(i);
+                else if (!parens && c == ':' && value_begin == text.npos) {
+                    require(!declaration_name.empty(), "Inline style property name is empty");
+                    value_begin = i + 1;
+                } else if (value_begin == text.npos && !space(c)) {
+                    require(std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_',
+                            "Unsupported inline style property name");
+                    declaration_name += char(std::tolower(static_cast<unsigned char>(c)));
+                }
+            }
             // Anonymous functions and named @decorator type declarations share
             // this evidence. Quoted ordinary text/comments stay excluded.
             if (((property == "decorator" || property == "mask-image" || property == "source") &&
@@ -353,6 +377,8 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
         ++i;
     }
     require(stack.empty() && !braces && !parens, "Truncated RML/RCSS structure");
+    if (declarations)
+        finish_declaration(text.size());
     if (markup)
         require(nodes > 0 && text.find("<rml") != text.npos && text.find("<body") != text.npos,
                 "RML requires rml and body elements");
@@ -365,6 +391,11 @@ void validate_ui_text(std::string_view text, bool markup) {
 std::vector<UiMarkupElement> inspect_ui_markup(std::string_view text) {
     std::vector<UiMarkupElement> result;
     (void)validate_text_profile(text, true, &result);
+    return result;
+}
+std::vector<UiStyleDeclaration> inspect_ui_style(std::string_view text) {
+    std::vector<UiStyleDeclaration> result;
+    (void)validate_text_profile(text, false, nullptr, &result);
     return result;
 }
 void validate_ui_font(std::span<const std::byte> b) { (void)ui_font_detail::face_count(b); }
@@ -464,12 +495,22 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
     const auto key = path_utf8(locator);
     if (auto it = files_.find(key); it != files_.end())
         return it->second.bytes;
+    const auto ext = lower(locator.extension().string());
+    return admit(locator,
+                 access_.read(locator, ext == ".rml" || ext == ".rcss" ? 256 * 1024
+                                                                       : 16 * 1024 * 1024 + 274));
+}
+const std::vector<std::byte>& UiResources::admit(const std::filesystem::path& locator,
+                                                 std::vector<std::byte> data) {
+    const auto key = path_utf8(locator);
+    require(!files_.contains(key), "UI candidate sources are immutable");
     require(resource_count() < 32, "UI dependency count exceeds 32");
     const auto ext = lower(locator.extension().string());
     const bool text = ext == ".rml" || ext == ".rcss";
     require(text || ui_font_detail::extension(ext) || image_extension(ext),
             "Unsupported UI resource type");
-    auto data = access_.read(locator, text ? 256 * 1024 : 16 * 1024 * 1024 + 274);
+    require(data.size() <= (text ? 256 * 1024 : 16 * 1024 * 1024 + 274),
+            "UI source exceeds byte budget");
     require(bytes_ + data.size() <= 32 * 1024 * 1024, "UI resource bytes exceed 32 MiB");
     TextProfile profile;
     if (text)
@@ -494,15 +535,36 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
     return files_.emplace(key, File{std::move(data), profile.filters, profile.gradients})
         .first->second.bytes;
 }
-std::string UiResources::document(AssetRef<UiDocumentAsset> ref) {
+std::filesystem::path UiResources::document_source(AssetRef<UiDocumentAsset> ref) const {
     const auto resolved = AssetCatalog::open_project(paths_.root()).resolve(ref);
     require(resolved.state == AssetState::Available, "UI document asset missing or wrong type");
     require(resolved.record->schema_version == 1, "Unsupported UI document asset schema");
-    auto name = path_utf8(resolved.record->source);
-    require(std::filesystem::u8path(name).extension() == ".rml", "UI asset must reference RML");
+    const auto source = ProjectPaths::normalize(resolved.record->source);
+    require(source.extension() == ".rml", "UI asset must reference RML");
+    (void)paths_.resolve(source);
+    return source;
+}
+std::string UiResources::document(AssetRef<UiDocumentAsset> ref) {
+    const auto source = document_source(ref);
+    const auto name = path_utf8(source);
     (void)read(name);
-    documents_[ref.id] = resolved.record->source;
+    documents_[ref.id] = source;
     return name;
+}
+std::string UiResources::draft_document(AssetRef<UiDocumentAsset> ref,
+                                        const std::filesystem::path& source,
+                                        std::string_view text) {
+    require(!access_.packaged(), "UI drafts require an editable project");
+    require(files_.empty() && documents_.empty() && !localization_ && automatic_.empty(),
+            "UI draft requires a fresh candidate");
+    const auto registered = document_source(ref);
+    require(paths_.same_locator(registered, source),
+            "UI draft source does not match its registered document");
+    require(text.size() <= 256 * 1024, "RML/RCSS exceeds 256 KiB");
+    const auto bytes = std::as_bytes(std::span(text.data(), text.size()));
+    (void)admit(registered, {bytes.begin(), bytes.end()});
+    documents_[ref.id] = registered;
+    return path_utf8(registered);
 }
 const UiLocalizationData& UiResources::localization(AssetRef<UiLocalizationAsset> ref) {
     if (localization_) {

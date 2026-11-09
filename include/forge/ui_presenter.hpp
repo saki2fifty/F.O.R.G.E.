@@ -39,6 +39,15 @@ class UiPresenter {
     // Authoring worker only: native DOM/styles without gameplay model evaluation.
     // This is the reliable static subset, not conditional-resource completeness.
     UiAssetSnapshot inspect_static(AssetRef<UiDocumentAsset>);
+    // Exclusive editor use while no runtime/staged set is installed. A failed
+    // candidate retains the previous preview; reset() retires either purpose.
+    // refresh=false reuses an identical request, including its source failure;
+    // true reloads saved dependencies. Layout includes the admitted source digest.
+    bool preview_document(AssetRef<UiDocumentAsset>, const std::filesystem::path& source,
+                          std::string_view text, int width, int height, float density = 1,
+                          bool refresh = true);
+    nlohmann::json preview_layout() const;
+    std::string preview_hit(float x, float y) const;
     void reset(std::string session, std::uint64_t generation);
     bool accept(const nlohmann::json& snapshot);
     bool reload();

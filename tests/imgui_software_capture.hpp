@@ -48,6 +48,7 @@ class ImGuiSoftwareCapture {
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui::NewFrame();
     }
+    SDL_Renderer* native_renderer() const { return renderer_.get(); }
     void render() {
         ImGui::Render();
         SDL_SetRenderDrawColor(renderer_.get(), 9, 15, 18, 255);

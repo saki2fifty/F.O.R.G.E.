@@ -41,6 +41,37 @@ disables compact text replacement. Existing admission caps the entire opening
 tag at8192bytes, keeping valid attributes within the field capacity. The runtime source
 profile remains256KiB/8192tags/32levels. No UI protocol or kit requirement changes.
 
+Native draft preview reuses RuntimeUiHost's exclusive presenter/backend while Play
+is stopped. UiResources::draft_document seeds a fresh editable candidate's existing
+immutable file map with one matching registered RML source. Ordinary admission,
+containment and aggregate resource budgets apply; linked resources use saved bytes.
+Packaged content cannot take a draft override. Preview uses static native loading
+without attaching gameplay models or OS input callbacks. Its asset observations
+are withheld from runtime/catalog publication.
+
+UiPresenter observes native border boxes and hit tests, binding unique IDs to the
+source outline. At most8192native nodes and512ID observations of128UTF-8bytes are
+admitted. Preview viewports are1..2048pixels per axis at density0.5..4. Native boxes
+include border/padding, while separate pixel properties retain CSS sizing semantics.
+Canvas elements additionally require plain quoted inline absolute pixel left/top/
+width/height, sizes at least1 and finite values within65536. Transforms, animation/
+transition, scrolled ancestors, min/max or right/bottom constraints, native box
+clamping, duplicate properties, entity-encoded styles and data-bound source ancestors
+reject canvas edits. Source remains available for those layouts; this is a bounded
+pixel canvas rather than an unrestricted responsive designer.
+
+The same CSS admission scanner optionally records inline declaration value ranges.
+Four-value candidates preserve unrelated bytes. Numeric changes validate native
+candidate geometry before source publication; mouse gestures retain transient
+candidates and commit one TextEditor Undo record on release. Escape, source/view,
+lock and close boundaries cancel. Save cannot publish a partial gesture. Native
+preview instance/revision and source guards prevent edits against retired or stale
+geometry. Invalid candidates retain last-good pixels. UiDiligentRenderer owns two
+bounded opaque RGBA8 targets; retained views survive native/backend retirement for
+ImGui composition. No persisted preview metadata or Scene history is introduced.
+Source preview returns geometry through automation/MCP; that operation does not
+return a pixel image. Existing Game capture remains available after save/run.
+
 `UiDocument` contains a typed `AssetRef<UiDocumentAsset>`, `enabled`, `visible`, `layer` (0–255), and optional typed `render_texture` output reference. One entity displays one document. Only these fields are authored. The builtin participates in reflected editing, structured prefab inheritance, explicit equal-value property overrides, Revert, scene Undo/Redo and save/reopen. No DOM, focus, GPU handle, hover, copied model or text layout is serialized.
 
 The catalog records a schema-1 `ui_document` asset with an AssetId and project-relative `.rml` locator. Renaming a catalog locator preserves references. Supporting RCSS, PNG/JPEG/TGA and font files remain contained source resources. Phase7 optionally registers them as logical Content assets for identity, inspection and dependency/referrer workflows; the presenter continues to use admitted file copies. Registration and the generated HUD example are UI-independent operations in `forge_ui_assets`. These asset writes are outside scene Undo. RML and supporting raw resources have no UI cooker or HTTP loader. Typed localization tables use the source/import/cook owner described below. Component edits retain ordinary Scene/Prefab history rules; resource registration remains separate from Scene Undo.

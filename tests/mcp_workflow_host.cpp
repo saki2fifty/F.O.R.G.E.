@@ -155,6 +155,52 @@ int main(int argc, char** argv) {
                        ? "Finish current native work"
                        : "";
         };
+        bool source_preview = false;
+        const auto ensure_presenter = [&] {
+            if (presenter)
+                return;
+            const auto project_settings = files.document.settings().document();
+            presenter = std::make_unique<forge::UiPresenter>(
+                renderer, files.document.project(),
+                forge::asset_detail::read_bytes(kit / "resources/ui/LatoLatin-Regular.ttf",
+                                                4 * 1024 * 1024),
+                forge::UiPlatformCallbacks{}, nullptr,
+                project_settings.contains("game") &&
+                    forge::ui_text_shaping_enabled(project_settings.at("game")),
+                project_settings.contains("game") &&
+                    forge::ui_grapheme_editing_enabled(project_settings.at("game")));
+        };
+        ui_source.preview = [&](const std::filesystem::path& source, std::string_view text,
+                                int width, int height, float density, bool refresh) {
+            if (!blocked().empty())
+                throw forge::AuthoringError("source_busy", blocked());
+            const auto catalog = forge::AssetCatalog::open_project(files.document.project());
+            const forge::ProjectPaths paths(files.document.project());
+            forge::AssetId asset;
+            for (const auto& [id, record] : catalog.records())
+                if (record.type == forge::UiDocumentAsset::type &&
+                    paths.same_locator(record.source, source))
+                    asset = id;
+            if (!asset)
+                throw forge::AuthoringError("preview_unregistered",
+                                            "Register this RML before previewing it");
+            if (presenter && !source_preview)
+                presenter.reset();
+            ensure_presenter();
+            source_preview = true;
+            if (presenter->preview_document({asset}, source, text, width, height, density, refresh))
+                presenter->render();
+            return forge::ui::UiSourcePreviewFrame{presenter->preview_layout(), 0};
+        };
+        ui_source.preview_hit = [&](float x, float y) {
+            return source_preview && presenter ? presenter->preview_hit(x, y) : std::string{};
+        };
+        ui_source.close_preview = [&] {
+            if (source_preview) {
+                presenter.reset();
+                source_preview = false;
+            }
+        };
         forge::ui::AutomationWorkspace workspace;
         workspace.workflow_methods = [&](const auto& permissions) {
             auto methods =
@@ -331,22 +377,15 @@ int main(int argc, char** argv) {
                 play.submit_sdk_candidate_ack(true, play.session(), play.sdk_candidate_ticket());
             if (sdk_play || mode == "gamepads")
                 input.pump(play, true);
+            if (play.active() && source_preview)
+                ui_source.close_preview();
             if (play.ready() && play.ui_snapshot().is_object() &&
                 (presenter || (play.ui_snapshot().contains("documents") &&
                                !play.ui_snapshot().at("documents").empty()))) {
                 const auto& snapshot = play.ui_snapshot();
                 const auto generation = snapshot.at("generation").get<std::uint64_t>();
                 if (!presenter) {
-                    const auto project_settings = files.document.settings().document();
-                    presenter = std::make_unique<forge::UiPresenter>(
-                        renderer, files.document.project(),
-                        forge::asset_detail::read_bytes(kit / "resources/ui/LatoLatin-Regular.ttf",
-                                                        4 * 1024 * 1024),
-                        forge::UiPlatformCallbacks{}, nullptr,
-                        project_settings.contains("game") &&
-                            forge::ui_text_shaping_enabled(project_settings.at("game")),
-                        project_settings.contains("game") &&
-                            forge::ui_grapheme_editing_enabled(project_settings.at("game")));
+                    ensure_presenter();
                 }
                 if (presenter_session != play.session() || presenter_generation != generation) {
                     presenter->reset(play.session(), generation);
@@ -365,7 +404,7 @@ int main(int argc, char** argv) {
                     std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count(),
                     800, 600);
                 presenter->render();
-            } else if (!play.active()) {
+            } else if (!play.active() && !source_preview) {
                 presenter.reset();
                 presenter_session.clear();
                 presenter_generation = submitted = 0;

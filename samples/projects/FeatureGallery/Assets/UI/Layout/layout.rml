@@ -1,0 +1,6 @@
+<!-- FORGE native UI layout example -->
+<rml><head><link type="text/rcss" href="layout.rcss" /></head>
+<body><h1 style="position:absolute;left:24px;top:20px;width:90%;height:40px;">Draft UI preview</h1>
+<div id="panel" style="position:absolute;left:60px;top:90px;width:300px;height:220px;padding:16px;box-sizing:border-box;background-color:#2563eb;">
+<h1>Layout panel</h1><p>Move and resize its pixel layout.</p><p>The source stays unsaved until Save source.</p></div>
+<p style="position:absolute;left:24px;top:520px;width:90%;height:60px;">Static preview: gameplay bindings do not run.</p></body></rml>

@@ -35,6 +35,13 @@ class RuntimeUiHost {
     RuntimeUiInput input_;
     std::string error_;
     bool creation_failed_ = false, suspended_ = true, frame_ready_ = false;
+    bool source_preview_ = false;
+    std::string preview_error_;
+    std::uint64_t preview_attempted_ = 0;
+    Json preview_layout_;
+    // Keep the displayed image alive through the current ImGui draw list even
+    // when its native document/backend closes. The existing renderer owns allocation.
+    std::shared_ptr<Diligent::ITextureView> preview_image_;
     double presenter_time_ = 0, recording_origin_ = 0;
     std::string recording_launch_, preparing_recording_launch_;
     double frame_time(const PlaySession* play = nullptr) {
@@ -65,9 +72,24 @@ class RuntimeUiHost {
     // Shared presenter construction used by both sync() and the staged
     // prepare path. Single owner; identical platform callbacks; no
     // duplicate state in either path.
-    void ensure_presenter() {
+    void retire_presenter() {
         if (presenter_)
+            presenter_->release_input();
+        presenter_.reset();
+        renderer_.reset();
+        source_preview_ = false;
+        preview_attempted_ = 0;
+        preview_error_.clear();
+        preview_layout_ = nullptr;
+        suspended_ = true;
+        frame_ready_ = false;
+    }
+    void ensure_presenter(bool source_preview = false) {
+        if (presenter_) {
+            if (source_preview != source_preview_)
+                throw std::runtime_error("Retire the current UI purpose before replacing it");
             return;
+        }
         renderer_ = std::make_unique<UiDiligentRenderer>(device_);
         UiPlatformCallbacks platform;
         platform.get_clipboard = [] {
@@ -87,19 +109,71 @@ class RuntimeUiHost {
             SDL_StartTextInput(window_);
         };
         platform.deactivate_text = [this] { SDL_StopTextInput(window_); };
+        if (source_preview)
+            platform = {}; // The source widget, not its preview, owns OS text/clipboard input.
         const auto settings = ProjectSettings(project_).document();
         presenter_ = std::make_unique<UiPresenter>(
             renderer_->render_interface(), project_,
-            asset_detail::read_bytes(font_, 4 * 1024 * 1024), std::move(platform), &ime_,
+            asset_detail::read_bytes(font_, 4 * 1024 * 1024), std::move(platform),
+            source_preview ? nullptr : &ime_,
             settings.contains("game") && ui_text_shaping_enabled(settings.at("game")),
             settings.contains("game") && ui_grapheme_editing_enabled(settings.at("game")));
+        source_preview_ = source_preview;
         presenter_time_ = recording_origin_ = 0;
         recording_launch_.clear();
-        if (surface_callbacks_.pick)
+        if (!source_preview && surface_callbacks_.pick)
             presenter_->surface_input(surface_callbacks_);
     }
 
   public:
+    Json preview_source(PlaySession& play, const std::filesystem::path& project,
+                        AssetRef<UiDocumentAsset> asset, const std::filesystem::path& source,
+                        std::string_view text, int width, int height, float density,
+                        Diligent::IDeviceContext* context, bool refresh = false) {
+        if (play.active() || prepared_ticket_)
+            throw std::runtime_error("Stop Play before previewing a UI source draft");
+        if (!context || width < 1 || height < 1 || width > 2048 || height > 2048 ||
+            !std::isfinite(density) || density < .5f || density > 4)
+            throw std::runtime_error("UI source preview needs1..2048 pixels and0.5..4 density");
+        set_project(project, play);
+        if (presenter_ && !source_preview_)
+            clear(play);
+        try {
+            ensure_presenter(true);
+            if (!presenter_->preview_document(asset, source, text, width, height, density, refresh))
+                throw std::runtime_error(presenter_->diagnostic());
+            const auto revision = presenter_->presentation_revision();
+            if (refresh || preview_attempted_ != revision) {
+                preview_attempted_ = revision;
+                auto layout = presenter_->preview_layout();
+                auto image = renderer_->draw_preview(*presenter_, context, unsigned(width),
+                                                     unsigned(height));
+                preview_image_ = std::move(image);
+                preview_layout_ = std::move(layout);
+                preview_error_.clear();
+            }
+            if (!preview_layout_.is_null() && preview_layout_.at("revision") == revision)
+                preview_error_.clear();
+        } catch (const std::exception& e) {
+            preview_error_ = e.what();
+        }
+        auto result = preview_layout_.is_null() ? Json::object() : preview_layout_;
+        result["stale"] = !source_preview_ || !preview_error_.empty() || !preview_image_;
+        result["error"] = preview_error_;
+        return result;
+    }
+    Diligent::ITextureView* preview_source_image() const {
+        return source_preview_ && !preview_layout_.is_null() ? preview_image_.get() : nullptr;
+    }
+    std::string preview_source_hit(float x, float y) const {
+        return source_preview_ && presenter_ && preview_error_.empty()
+                   ? presenter_->preview_hit(x, y)
+                   : std::string{};
+    }
+    void close_source_preview() {
+        if (source_preview_)
+            retire_presenter();
+    }
     void detach_surface_input() {
         if (presenter_)
             presenter_->surface_input({});
@@ -150,6 +224,8 @@ class RuntimeUiHost {
     // RuntimeUiHost::presenter_ is the lifecycle owner.
     bool presenter_alive() const { return presenter_ != nullptr; }
     std::string diagnostic() const {
+        if (source_preview_)
+            return {}; // Source preview diagnostics belong to the source document.
         return !error_.empty() ? error_ : presenter_ ? presenter_->diagnostic() : std::string{};
     }
     RuntimeUiHost(SDL_Window* w, Diligent::IRenderDevice* d, std::filesystem::path font,
@@ -157,10 +233,7 @@ class RuntimeUiHost {
         : window_(w), device_(d), font_(std::move(font)),
           surface_callbacks_(std::move(surface_callbacks)) {}
     void clear(PlaySession& play) {
-        if (presenter_)
-            presenter_->release_input();
-        presenter_.reset();
-        renderer_.reset();
+        retire_presenter();
         session_.clear();
         generation_ = submitted_ = 0;
         prepared_ticket_ = 0;
@@ -174,10 +247,7 @@ class RuntimeUiHost {
     // UI snapshot. Preserves creation_failed_/project_/font_ so the
     // next candidate can prepare a fresh presenter.
     void clear_ui(PlaySession& play) {
-        if (presenter_)
-            presenter_->release_input();
-        presenter_.reset();
-        renderer_.reset();
+        retire_presenter();
         session_.clear();
         generation_ = submitted_ = 0;
         // prepared_* untouched on purpose.
@@ -209,9 +279,10 @@ class RuntimeUiHost {
         creation_failed_ = false;
     }
     void sync(PlaySession& play, const std::filesystem::path& project, bool visible) {
-        if (project_ != project) {
-            observed_assets_.reset();
-        }
+        if (project_ != project)
+            set_project(project, play);
+        if (play.active() && source_preview_)
+            clear(play);
         // Forward the latest transport loading state into the presenter
         // so configured loading UI/progress works in Editor Play. The
         // existing presenter->loading validates against a fixed state
@@ -220,7 +291,8 @@ class RuntimeUiHost {
         if (play.active())
             apply_loading(play.sdk_loading());
         if (!play.active()) {
-            clear(play);
+            if (!source_preview_)
+                clear(play);
             return;
         }
         const bool suspend = !play.ready() || !visible || play.ui_snapshot().is_null();
@@ -397,6 +469,8 @@ class RuntimeUiHost {
         }
     }
     inline std::uint64_t prepare_staged(const Json& snapshot) {
+        if (source_preview_)
+            retire_presenter();
         // Lazily create a presenter for the staged candidate. The
         // initial candidate scene always has a UI snapshot and the
         // sync() that would build the live presenter happens AFTER

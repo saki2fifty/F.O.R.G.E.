@@ -758,7 +758,9 @@ body { font-family: Game; }
 
 Stop Play and open a registered RML or RCSS asset from Content using **Edit UI
 source**. Edit **Source**, or use **Elements** for widget attributes, leaf text and
-structure. Choose **Save source**, then start Play again. See
+structure. **Preview** renders an unsaved registered RML draft while Play is
+stopped and supports bounded absolute pixel layout edits. Gameplay bindings run
+in Play. Choose **Save source**, then start Play again. See
 [Edit a game's UI source](ui-source.md).
 
 You can also edit the file in another text editor, save it, then click **Reload

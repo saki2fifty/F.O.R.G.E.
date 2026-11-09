@@ -3,6 +3,7 @@
 #include <array>
 #include <forge/ui_assets.hpp>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 
 namespace {
@@ -95,18 +96,18 @@ template <class F> void rejects(F&& operation) {
     }
     check(rejected, "Invalid structured source edit was accepted");
 }
+std::size_t find(const std::string& text, std::string_view tag) {
+    const auto nodes = forge::inspect_ui_markup(text);
+    for (std::size_t i = 0; i < nodes.size(); ++i)
+        if (nodes[i].tag == tag)
+            return i;
+    throw std::runtime_error("Fixture element missing");
+}
 void edits() {
     const std::string source =
         "<!-- keep -->\r\n<rml><head><style>/* retain */ body { color: red; }</style>"
         "</head><body id='root'>\r\n  <p id='first'>Old &amp; text</p><!-- between -->"
         "<button class='bright'>Go</button><input id=entry/>\r\n</body></rml>\r\n";
-    const auto find = [](const std::string& text, std::string_view tag) {
-        const auto nodes = forge::inspect_ui_markup(text);
-        for (std::size_t i = 0; i < nodes.size(); ++i)
-            if (nodes[i].tag == tag)
-                return i;
-        throw std::runtime_error("Fixture element missing");
-    };
     auto expected = source;
     const auto old = expected.find("Old &amp; text");
     expected.replace(old, std::string("Old &amp; text").size(), "New &amp; &lt;literal&gt;");
@@ -154,12 +155,63 @@ void edits() {
     const std::string comment = "<rml><body><p>Text<!-- keep --></p></body></rml>";
     rejects([&] { forge::set_ui_markup_text(comment, 2, "new"); });
 }
+void layout_edits() {
+    const std::string source = "<!-- keep -->\n<rml><body><div id='panel' class='bright' style=\""
+                               "position: absolute; /* keep ; : */ color: rgb(1,2,3); top: 30px ; "
+                               "custom: url('a;b:c'); LEFT: 20px; height:60px; width:100px\">"
+                               "Text &amp; content</div></body></rml>\n";
+    const auto index = find(source, "div");
+    const forge::UiPixelLayout original{20, 30, 100, 60}, updated{-12.5f, 0, 210.25f, 90};
+    check(forge::read_ui_markup_layout(source, index) == original,
+          "Inline pixel properties lost source order, case or comments");
+    check(forge::set_ui_markup_layout(source, index, original) == source,
+          "No-op layout edit changed original bytes");
+    const auto edited = forge::set_ui_markup_layout(source, index, updated);
+    auto expected = source;
+    for (const auto& [before, after] :
+         std::array{std::pair{"30px", "0px"}, std::pair{"20px", "-12.5px"},
+                    std::pair{"60px", "90px"}, std::pair{"100px", "210.25px"}})
+        expected.replace(expected.find(before), std::string_view(before).size(), after);
+    check(edited == expected && forge::read_ui_markup_layout(edited, index) == updated,
+          "Atomic layout edit changed unrelated source or values");
+    const auto repeated = forge::set_ui_markup_layout(edited, index, {0, 1, 2, 3});
+    const auto restored = forge::set_ui_markup_layout(repeated, index, original);
+    check(restored == source, "Repeated edits accumulated declarations or changed source");
+    for (const auto* style : {"position:relative;left:0px;top:0px;width:10px;height:10px",
+                              "position:absolute;left:0%;top:0px;width:10px;height:10px",
+                              "position:absolute;left:0px;top:0px;width:auto;height:10px",
+                              "position:absolute;left:0px;top:0px;width:10px;height:10px;left:2px",
+                              "position:absolute;left:/*keep*/0px;top:0px;width:10px;height:10px",
+                              "position:absolute;left:0px;top:0px;width:10px;height:10px;&amp;",
+                              "position:absolute;left:0px;top:0px;width:0px;height:10px"}) {
+        const auto invalid =
+            "<rml><body><div style=\"" + std::string(style) + "\"></div></body></rml>";
+        rejects([&] { forge::read_ui_markup_layout(invalid, 2); });
+    }
+    const auto bound =
+        forge::set_ui_markup_attribute(source, find(source, "body"), "data-if", "ok");
+    rejects([&] { forge::read_ui_markup_layout(bound, find(bound, "div")); });
+    rejects([&] { forge::set_ui_markup_layout(source, index, {0, 0, -1, 2}); });
+    rejects([&] { forge::set_ui_markup_layout(source, index, {65537, 0, 1, 1}); });
+    rejects([&] {
+        forge::set_ui_markup_layout(source, index,
+                                    {std::numeric_limits<float>::infinity(), 0, 1, 1});
+    });
+    rejects([&] { forge::inspect_ui_style("body {left:1px}"); });
+    const std::string style = "/* first */ custom-2: 'quoted;:}';left: calc(1px + 2px);";
+    const auto declarations = forge::inspect_ui_style(style);
+    check(declarations.size() == 2 && declarations[0].name == "custom-2" &&
+              slice(style, declarations[0].value) == " 'quoted;:}'" &&
+              slice(style, declarations[1].value) == " calc(1px + 2px)",
+          "Inline ranges split quoted delimiters, functions or property digits");
+}
 } // namespace
 int main() {
     try {
         ranges();
         invalid();
         edits();
+        layout_edits();
         std::cout << "Source-preserving outline/attributes and shared validator errors passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

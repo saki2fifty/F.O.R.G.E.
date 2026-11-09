@@ -4,6 +4,13 @@ All integration and upgrade work follows the permanent
 [dependency source-of-truth policy](dependency-policy.md). The exact pinned
 source and its selected build options take precedence over live documentation.
 
+Optional Linux Vulkan UI component captures use the existing SDL3 dummy/software
+rendering profile also used by native editor fixtures. This profile enables local
+video/software support with X11, Wayland and KMS disabled; joystick selection stays
+with the existing input-test profile. It does not change the SDL revision or claim
+a Linux editor host. The existing pinned source-widget dependency is reused for
+the production UI Source component capture.
+
 CMake fetches immutable revisions. These selections are tested baselines, not claims that each is the latest release.
 
 The original native [MCP adapter](mcp.md) adds a protocol contract, not a new

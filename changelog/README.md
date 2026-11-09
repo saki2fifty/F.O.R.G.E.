@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-11-09](20261109/README.md) — Optional native UI text shaping, shared saved settings/MCP/host/export support, UiTextShaping project, font/notices packaging and illustrated manual. Local source; Windows verification and delivery pending.
+- [2026-11-09](20261109/README.md) — Native UI draft preview/pixel canvas and Gallery211; shared source/MCP/history/export workflows; optional native text shaping, font discovery and color glyphs. Source changes; Windows verification and delivery pending.
 
 - [2026-11-08](20261108/README.md) — Fixed gameplay input recording/replay and input-driven movies/Gallery209; related Prefab source contributions/Gallery208; ordered sound playlist authoring/Gallery198; shared native/MCP workflows and illustrated manuals. Local source; Windows verification and delivery pending.
 

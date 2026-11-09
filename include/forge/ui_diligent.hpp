@@ -22,6 +22,10 @@ class UiDiligentRenderer {
     void begin(Diligent::IDeviceContext*, Diligent::ITextureView* color, unsigned width,
                unsigned height);
     void end();
+    // Opaque editor preview with last-good publication. The returned view retains
+    // its image independently of native context/backend retirement.
+    std::shared_ptr<Diligent::ITextureView> draw_preview(UiPresenter&, Diligent::IDeviceContext*,
+                                                         unsigned width, unsigned height);
     // Allocation counts and logical bytes; not physical GPU memory or timing.
     struct ClippingStats {
         std::uint64_t allocations = 0;

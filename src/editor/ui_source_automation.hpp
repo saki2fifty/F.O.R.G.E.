@@ -66,17 +66,82 @@ struct UiSourceAutomation {
             "outline.",
             "assets.read", automation_object(), false,
             [&files, &editor](const Json&) { return state(editor, files.document); }));
-        if (!permissions.assets)
-            return result;
         const auto ready = [&files, &editor, unavailable] {
             files.document.check_ownership();
             const auto reason = unavailable ? unavailable() : std::string{};
             if (!reason.empty())
                 throw AuthoringError("source_busy", reason);
-            if (editor.close_pending())
+            if (editor.close_pending() || editor.gesture_active())
                 throw AuthoringError("source_busy",
-                                     "Finish the native UI source close dialog first");
+                                     "Finish the native UI source dialog or canvas gesture first");
         };
+        const Json guard{{"path", automation_text(2047, 1)},
+                         {"session", automation_uuid()},
+                         {"revision", automation_integer()},
+                         {"state", automation_digest()}};
+        const Json required{"path", "session", "revision", "state"};
+        auto preview_properties = guard;
+        preview_properties["width"] = automation_integer(1, 2048);
+        preview_properties["height"] = automation_integer(1, 2048);
+        preview_properties["density"] = {{"type", "number"}, {"minimum", .5}, {"maximum", 4}};
+        auto preview_required = required;
+        preview_required.push_back("width");
+        preview_required.push_back("height");
+        result.push_back(automation_method(
+            "ui.source.preview",
+            "Preview the observed registered RML draft while Play is stopped, without saving, "
+            "publishing metadata or executing gameplay bindings. Reloads saved linked "
+            "dependencies. "
+            "Returns native border boxes, source indices, editable flags/reasons and a transient "
+            "preview instance/revision for atomic layout edits. At most512 unique-ID observations, "
+            "128-byte IDs and2048x2048 physical pixels; density0.5..4. A failed candidate retains "
+            "last-good pixels and marks geometry stale. Metadata-only hosts need no GPU image.",
+            "assets.read",
+            automation_object(std::move(preview_properties), std::move(preview_required)), false,
+            [&files, &editor, ready](const Json& request) {
+                ready();
+                observed(editor, files.document, request);
+                return editor.preview_state(files.document, request.at("width").get<int>(),
+                                            request.at("height").get<int>(),
+                                            request.value("density", 1.f));
+            }));
+        if (!permissions.assets)
+            return result;
+        auto layout_properties = guard;
+        layout_properties["element"] = automation_integer(0, 8191);
+        layout_properties["preview_instance"] = automation_uuid();
+        layout_properties["preview_revision"] = automation_integer();
+        for (const auto* name : {"left", "top", "width", "height"})
+            layout_properties[name] = {
+                {"type", "number"},
+                {"minimum",
+                 std::string_view(name) == "left" || std::string_view(name) == "top" ? -65536 : 1},
+                {"maximum", 65536}};
+        auto layout_required = required;
+        for (const auto* name :
+             {"element", "preview_instance", "preview_revision", "left", "top", "width", "height"})
+            layout_required.push_back(name);
+        result.push_back(automation_method(
+            "ui.source.layout",
+            "Atomically set the observed source element's existing inline left/top/width/height "
+            "pixel values as one native Undo record. Requires the current source guards and "
+            "preview instance/revision from ui.source.preview. Only uniquely identified, visible "
+            "absolute layouts with plain quoted inline pixel values are editable. Transforms, "
+            "animation, scrolling, constraints, data-bound ancestors and ambiguous cascade reject "
+            "with reasons. Preserves unrelated source; no save, registration or Scene history "
+            "write.",
+            "assets.write",
+            automation_object(std::move(layout_properties), std::move(layout_required)), true,
+            [&files, &editor, ready](const Json& request) {
+                ready();
+                observed(editor, files.document, request);
+                editor.layout(request.at("element").get<std::size_t>(),
+                              {request.at("left").get<float>(), request.at("top").get<float>(),
+                               request.at("width").get<float>(), request.at("height").get<float>()},
+                              request.at("preview_instance").get<std::string>(),
+                              request.at("preview_revision").get<std::uint64_t>());
+                return state(editor, files.document);
+            }));
         result.push_back(automation_method(
             "ui.source.open",
             "Open a contained RML/RCSS source in the actual UI Source document. Reuses its draft. "
@@ -91,11 +156,6 @@ struct UiSourceAutomation {
                 editor.open(files.document, path_utf8(path));
                 return state(editor, files.document);
             }));
-        const Json guard{{"path", automation_text(2047, 1)},
-                         {"session", automation_uuid()},
-                         {"revision", automation_integer()},
-                         {"state", automation_digest()}};
-        const Json required{"path", "session", "revision", "state"};
         for (const auto* operation : {"replace", "attribute", "text", "insert", "remove", "move",
                                       "save", "undo", "redo", "reload", "close"}) {
             const std::string action(operation);

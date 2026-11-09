@@ -7,6 +7,15 @@ it, then use the existing UI registration and Play tools. Stop Play before sourc
 edits. Closing or reloading an unsaved draft requires explicit discard. See
 [UI source](ui-source.md) for the workflow and limits.
 
+For layout, use `forge_ui_source_preview` with current source guards and the desired
+viewport size. Read its element indices, editable flags, explanations and preview
+instance/revision. Pass those guards and all four pixel values to
+`forge_ui_source_layout` for one Undo step. It supports the same bounded inline
+absolute pixel layouts as the editor canvas. Preview returns native geometry;
+inspect pixels in the editor's Preview view, or save/run and use Game capture.
+Saved linked styles and images reload when the preview is requested. Stale or
+unsupported geometry cannot authorize source edits.
+
 FORGE lets a trusted AI agent develop a game through your open editor's existing
 authoring tools. Scene changes share normal Undo; source documents, files, builds,
 Play and export keep their own normal ownership and results.

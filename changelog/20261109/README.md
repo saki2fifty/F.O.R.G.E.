@@ -1,5 +1,22 @@
 # 2026-11-09
 
+## Native UI draft preview and pixel canvas
+
+UI Source adds a native Preview view for unsaved registered RML. Source, Elements,
+numeric layout and drag/resize share one source draft and Undo history. Bounded
+absolute pixel edits preserve unrelated source and validate native candidate
+geometry before publication. Stale and unsupported geometry cannot write; focus,
+view, source, lock and close boundaries cancel gestures. Saved dependencies reload
+explicitly, and preview observations stay outside catalog/Scene publication.
+
+Automation/MCP add guarded preview metadata and atomic layout operations through
+the same owner, permissions and receipt/history paths. Gallery211 supplies an
+original editable sample with save/export/relocation coverage; all597existing asset
+records remain unchanged. The source gallery now contains211Scenes and600records.
+UI text/runtime profiles, SDK layouts and dependency pins remain unchanged.
+Unrestricted responsive design and source-preview pixel capture through MCP are
+outside this bounded workflow. Full Main/Windows/physical acceptance remains pending.
+
 ## Native editing keys for agent workflows
 
 The shared native field catalog grows to32keys, adding vertical/page navigation,

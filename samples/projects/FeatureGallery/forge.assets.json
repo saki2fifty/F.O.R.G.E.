@@ -846,6 +846,43 @@
       "type": "application_states"
     },
     {
+      "dependencies": [
+        "70343795-fe5a-4604-8c20-8653d578fabd"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "70343795-fe5a-4604-8c20-8653d578fabd",
+          "type": "ui_stylesheet"
+        }
+      ],
+      "id": "09ebecdd-a7c2-4a36-b70b-9bdd72e63122",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 604,
+          "digest": "b32f4929591363647925bd85fd6b6beae6ae1d902d0332387b38b7447962d058",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/Layout/layout.rml",
+      "source_dependencies": [
+        {
+          "revision": "de7970135dc8585d588a2ab53d58e007f0f96a42e08e4ffecff2fd2f19097487",
+          "role": "ui.observed",
+          "source": "Assets/UI/Layout/layout.rcss"
+        },
+        {
+          "revision": "b32f4929591363647925bd85fd6b6beae6ae1d902d0332387b38b7447962d058",
+          "role": "ui.source",
+          "source": "Assets/UI/Layout/layout.rml"
+        }
+      ],
+      "type": "ui_document"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "0a33eed6-6c57-42c9-8e64-34ab0caf030f",
@@ -6965,6 +7002,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "4dd10616-0ff5-4d89-8acd-a552e679baba",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/211-ui-layout-preview.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "4df8a08b-a5e1-407b-8321-5f80efa720e2",
       "metadata": {},
       "schema_version": 3,
@@ -9526,6 +9573,28 @@
       "source": "Assets/Sprites/TrimmedAtlas.material.json",
       "source_dependencies": [],
       "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "70343795-fe5a-4604-8c20-8653d578fabd",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 188,
+          "digest": "de7970135dc8585d588a2ab53d58e007f0f96a42e08e4ffecff2fd2f19097487",
+          "format": "rcss"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/Layout/layout.rcss",
+      "source_dependencies": [
+        {
+          "revision": "de7970135dc8585d588a2ab53d58e007f0f96a42e08e4ffecff2fd2f19097487",
+          "role": "ui.source",
+          "source": "Assets/UI/Layout/layout.rcss"
+        }
+      ],
+      "type": "ui_stylesheet"
     },
     {
       "dependencies": [

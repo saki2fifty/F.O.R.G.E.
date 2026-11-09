@@ -50,3 +50,36 @@ UiRuntime, UiPresenter, resource inspection and package closure remain unchanged
 No scene format, asset identity/type, private UI protocol, SDK layout or runtime
 kit capability changes. Unrestricted visual layout, rich text shaping and
 accessibility remain separate capabilities.
+
+## Native draft preview and pixel layout extension
+
+2026-11-09: The same source document additionally owns a Preview view and bounded
+absolute pixel layout gestures. Source, Elements, numeric layout and canvas edits
+share the one TextEditor draft/history. Optional inline declaration ranges extend
+the existing admission scanner; four-value replacements preserve unrelated bytes.
+The native DOM remains a read-only layout and hit-test observation, never source.
+
+UiResources seeds one matching registered RML draft in its existing immutable
+per-candidate map, sharing ordinary admission and budgets. It requires a fresh
+editable-project candidate; saved dependencies retain their normal read policy.
+There is no package-manifest bypass, extra authoritative resource map, implicit
+registration or publication of draft metadata.
+
+RuntimeUiHost exclusively lends its existing presenter/backend to source preview
+while Play is stopped. Source preview omits gameplay model attachment and OS text,
+clipboard and IME callbacks. Runtime/staged/project/close handover retires it through
+the same lifetime owner. UiDiligentRenderer owns bounded opaque image allocation;
+retained views keep last-good pixels alive through native/backend retirement and
+ImGui draw-list consumption. Preview observations are withheld from runtime asset
+publication and gameplay input/field/command access.
+
+Unique authored IDs bind native geometry to current source ranges. Eligibility
+combines native layout with the source's plain inline absolute-pixel subset;
+unsupported transforms, bindings, constraints and relative values remain source
+edits. Gestures retain transient candidates only, commit once on release and
+cancel on owner/source/lock/close boundaries. Invalid candidates keep last-good
+pixels but cannot authorize edits. Agents borrow the same document and recheck
+source guards plus native preview instance/revision before atomic layout writes.
+No persisted layout database, parallel selection/history, Scene identity, SDK
+layout, dependency pin or runtime protocol change is introduced. Unrestricted
+visual design remains a separate capability.

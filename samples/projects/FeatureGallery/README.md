@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Native UI draft preview and pixel layouts
+
+Open `Scenes/211-ui-layout-preview.scene.json`. With Play stopped, find
+`Assets/UI/Layout/layout.rml` in Content, choose **Edit UI source** and select
+**Preview**. Set the size to 1000 by 700, click the blue panel and drag it or its
+bottom-right resize handle. The pixel fields and **Apply layout** provide numeric
+editing. Escape cancels a gesture; release commits one source Undo step.
+
+Choose **Save source**, then press Play to see the saved layout in Game. The Scene
+includes a Camera and uses the bundled Lato font; no Light or project C++ module
+is needed. Set this Scene as startup and save before exporting. Preview uses the
+RML draft and saved linked `layout.rcss`; gameplay bindings and form interaction
+are tested in Play. See [UI source](../../../manual/editor/ui-source.md) for limits.
+
 ## Native UI source authoring
 
 Open `Scenes/210-ui-source-authoring.scene.json` and press Play. In Game, capture

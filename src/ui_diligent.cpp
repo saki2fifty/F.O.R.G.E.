@@ -18,6 +18,7 @@
 using namespace Diligent;
 namespace forge {
 struct UiDiligentRenderer::Impl final : Rml::RenderInterface {
+    RefCntAutoPtr<ITexture> preview_image, preview_spare;
     struct Geometry {
         RefCntAutoPtr<IBuffer> vertices, indices;
         Uint32 count;
@@ -566,6 +567,46 @@ void UiDiligentRenderer::begin(IDeviceContext* c, ITextureView* color, unsigned 
 void UiDiligentRenderer::end() {
     impl_->layers.end();
     impl_->context.Release();
+}
+std::shared_ptr<ITextureView> UiDiligentRenderer::draw_preview(UiPresenter& presenter,
+                                                               IDeviceContext* context,
+                                                               unsigned width, unsigned height) {
+    auto& s = *impl_;
+    if (!context || !width || !height || width > 2048 || height > 2048)
+        throw std::runtime_error("UI source preview needs1..2048 pixels");
+    if (!s.preview_spare || s.preview_spare->GetDesc().Width != width ||
+        s.preview_spare->GetDesc().Height != height) {
+        TextureDesc desc;
+        desc.Name = "FORGE UI source preview";
+        desc.Type = RESOURCE_DIM_TEX_2D;
+        desc.Width = width;
+        desc.Height = height;
+        desc.Format = TEX_FORMAT_RGBA8_UNORM;
+        desc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
+        s.preview_spare.Release();
+        s.device->CreateTexture(desc, nullptr, &s.preview_spare);
+        if (!s.preview_spare)
+            throw std::runtime_error("UI source preview image allocation failed");
+    }
+    auto* color = s.preview_spare->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+    // Native UI blends premultiplied color. An opaque image is suitable for
+    // ordinary ImGui composition without applying its alpha a second time.
+    const float background[]{.035f, .045f, .06f, 1.f};
+    context->ClearRenderTarget(color, background, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    try {
+        begin(context, color, width, height);
+        presenter.render();
+        end();
+    } catch (...) {
+        end();
+        throw;
+    }
+    if (!presenter.diagnostic().empty())
+        throw std::runtime_error(presenter.diagnostic());
+    s.preview_image.swap(s.preview_spare);
+    auto* view = s.preview_image->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    view->AddRef();
+    return {view, [](ITextureView* retained) { retained->Release(); }};
 }
 UiDiligentRenderer::FilterStats UiDiligentRenderer::filter_stats() const {
     const auto s = impl_->layers.statistics();

@@ -25,6 +25,13 @@ struct UiMarkupElement {
     std::vector<UiMarkupAttribute> attributes;
     bool self_closing = false;
 };
+struct UiStyleDeclaration {
+    std::string name;
+    UiSourceRange value;
+};
 // Uses the runtime resource validator's grammar and bounds. No DOM serialization.
 std::vector<UiMarkupElement> inspect_ui_markup(std::string_view);
+// Inline declarations only. Ranges retain the original bytes and ignore quoted
+// semicolons, comments and function arguments using the same admission scanner.
+std::vector<UiStyleDeclaration> inspect_ui_style(std::string_view);
 } // namespace forge

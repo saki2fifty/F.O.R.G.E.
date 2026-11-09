@@ -1,9 +1,22 @@
 #pragma once
 #include "ui_markup.hpp"
 #include <optional>
+#include <span>
 
 namespace forge {
 bool ui_markup_widget_editable(const UiMarkupElement&) noexcept;
+struct UiPixelLayout {
+    float left = 0, top = 0, width = 1, height = 1;
+    bool operator==(const UiPixelLayout&) const = default;
+};
+// Bounded plain inline absolute-pixel subset. Native preview eligibility is an
+// additional guard supplied by the document owner, never inferred from source.
+UiPixelLayout read_ui_markup_layout(std::string_view, std::size_t element);
+// Borrow ranges from inspect_ui_markup of this exact source snapshot. Read-only
+// outline consumers avoid reparsing the document for each observed element.
+UiPixelLayout read_ui_markup_layout(std::string_view, std::span<const UiMarkupElement>,
+                                    std::size_t element);
+std::string set_ui_markup_layout(std::string_view, std::size_t element, UiPixelLayout);
 // Detached source candidates only. The owning document supplies revision/history.
 std::string set_ui_markup_attribute(std::string_view, std::size_t element, std::string_view name,
                                     std::optional<std::string> value);

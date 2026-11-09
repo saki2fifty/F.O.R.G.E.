@@ -13,6 +13,8 @@ namespace {
 constexpr auto scene_path = "Scenes/210-ui-source-authoring.scene.json";
 constexpr auto document_path = "Assets/UI/SourceAuthoring/hud.rml";
 constexpr auto stylesheet_path = "Assets/UI/SourceAuthoring/hud.rcss";
+constexpr auto layout_scene = "Scenes/211-ui-layout-preview.scene.json";
+constexpr auto layout_document = "Assets/UI/Layout/layout.rml";
 void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
@@ -163,21 +165,99 @@ void exercise(const std::filesystem::path& root, const Json& source,
           "Source UI native resources survived presenter retirement");
     check(scene.snapshot() == source, "UI interaction changed authored Scene state");
 }
+void author_layout(const std::filesystem::path& root, const std::vector<std::byte>& font) {
+    check(!std::filesystem::exists(root / layout_scene), "UI layout example already exists");
+    const auto ui = register_ui_document(root, layout_document);
+    EngineContext engine;
+    Scene scene(engine.world());
+    auto source = duplicate_scene_asset(read_json(root / "Scenes/100-ui-animation.scene.json"),
+                                        AssetId::generate(), scene.schema());
+    for (auto& row : source["entities"])
+        if (row["components"].contains("forge.ui_document")) {
+            row["name"] = "UI layout - open Preview";
+            row["components"]["forge.ui_document"]["document"] = ui.id;
+        }
+    scene.reset(source);
+    scene.save(root / layout_scene);
+    auto catalog = AssetCatalog::open_project(root);
+    const auto record = catalog.add_scene(layout_scene);
+    catalog.save(AssetCatalog::project_index(root));
+    ProjectLease lease(root);
+    const std::array roots{record.id};
+    prepare_runtime_content_catalog(lease, roots, inspector(root, font), scene.schema());
+}
+void exercise_layout(const std::filesystem::path& root, const Json& source,
+                     const std::vector<std::byte>& font, bool edit_source) {
+    AssetId asset;
+    for (const auto& row : source.at("entities"))
+        if (row.at("components").contains("forge.ui_document"))
+            asset = row.at("components").at("forge.ui_document").at("document").get<AssetId>();
+    check(bool(asset), "UI layout Scene has no assigned document");
+    const auto file = ProjectTextSource::path(root, layout_document);
+    auto text = ProjectTextSource::read(file);
+    check(text.has_value(), "UI layout example source missing");
+    EngineContext engine(WorldRole::Runtime, false, {ui_module(root)});
+    Scene scene(engine.world());
+    scene.restore_snapshot(source);
+    const auto ui = std::static_pointer_cast<UiRuntime>(engine.services().ui());
+    UiTestRenderer renderer;
+    {
+        UiPresenter presenter(renderer, root, font);
+        if (edit_source) {
+            const auto candidate =
+                set_ui_markup_layout(*text, by_id(*text, "panel"), {150, 180, 250, 190});
+            check(presenter.preview_document({asset}, layout_document, candidate, 800, 600),
+                  "Gallery draft preview did not load");
+            const auto view = presenter.preview_layout();
+            check(view.at("elements").at(0).at("editable").get<bool>() &&
+                      view.at("elements").at(0).at("bounds") == Json::array({150, 180, 250, 190}),
+                  "Gallery draft preview lost pixel layout eligibility");
+            check(ProjectTextSource::read(file) == text && !presenter.asset_snapshot(),
+                  "Gallery preview published source or catalog observations");
+            ProjectLease lease(root);
+            ProjectTextSource::validate(file, candidate);
+            ProjectTextSource::write_validated(file, text, candidate);
+            text = candidate;
+        }
+        presenter.reset("layout-runtime", 1);
+        check(presenter.accept(ui->snapshot(scene, "layout-runtime", 1, 0, false)),
+              "Saved layout example did not load in runtime UI");
+        presenter.update(0, 800, 600);
+        presenter.render();
+        auto* panel = Rml::GetContext(0)->GetDocument(0)->GetElementById("panel");
+        const auto position = panel->GetAbsoluteOffset(Rml::BoxArea::Border);
+        const auto size = panel->GetBox().GetSize(Rml::BoxArea::Border);
+        check(position.x == 150 && position.y == 180 && size.x == 250 && size.y == 190 &&
+                  renderer.draws,
+              "Saved/exported UI did not retain the previewed layout");
+    }
+    check(scene.snapshot() == source && renderer.geometry.empty() && renderer.textures.empty(),
+          "Layout workflow changed Scene data or leaked native resources");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4, "Need Gallery, scratch root and font; or --author Gallery font");
+        check(argc == 4 || (argc == 5 && std::string_view(argv[4]) == "--layout-only"),
+              "Need Gallery, scratch root and font; or --author/--author-layout Gallery font");
         const auto font = asset_detail::read_bytes(argv[3], 4 * 1024 * 1024);
         if (std::string_view(argv[1]) == "--author") {
             author(argv[2], font);
+            return 0;
+        }
+        if (std::string_view(argv[1]) == "--author-layout") {
+            author_layout(argv[2], font);
             return 0;
         }
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(scratch);
         const auto root = scratch / "source";
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
-        const auto source = read_json(root / scene_path);
-        exercise(root, source, font, true);
+        const bool layout_only = argc == 5;
+        const auto source = read_json(root / (layout_only ? layout_scene : scene_path));
+        if (layout_only)
+            exercise_layout(root, source, font, true);
+        else
+            exercise(root, source, font, true);
         const std::array roots{source.at("asset_id").get<AssetId>()};
         {
             ProjectLease lease(root);
@@ -190,7 +270,11 @@ int main(int argc, char** argv) {
         const auto catalog = open_runtime_content(moved, {"windows", "d3d12"});
         check(catalog.records().size() == 3, "UI source package lost/duplicated its closure");
         std::filesystem::rename(root, scratch / "source-offline");
-        exercise(moved, read_json(moved / catalog.records().at(roots[0]).source), font, false);
+        const auto exported = read_json(moved / catalog.records().at(roots[0]).source);
+        if (layout_only)
+            exercise_layout(moved, exported, font, false);
+        else
+            exercise(moved, exported, font, false);
         std::cout << "UI source structured authoring, native bindings/input/last-good, linked "
                      "resources and source-hidden relocated content passed\n";
     } catch (const std::exception& error) {

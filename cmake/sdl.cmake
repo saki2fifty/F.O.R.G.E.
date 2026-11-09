@@ -3,16 +3,19 @@ FetchContent_Declare(sdl GIT_REPOSITORY https://github.com/libsdl-org/SDL.git GI
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 if(NOT FORGE_BUILD_EDITOR AND NOT FORGE_BUILD_GAME)
- # Local owner fixtures use SDL's real hidden dummy window/touch pipeline;
+ # Local owner/canvas fixtures use SDL's real dummy/software rendering pipeline;
  # shipping/headless processes still need no Linux desktop dependencies.
  set(SDL_VIDEO OFF)
  set(SDL_AUDIO OFF)
- if(FORGE_BUILD_MCP_EDITOR_TESTS)
+ if(FORGE_BUILD_MCP_EDITOR_TESTS OR
+    (FORGE_BUILD_VULKAN_PROBES AND FORGE_BUILD_UI_PRESENTER))
   set(SDL_VIDEO ON)
   set(SDL_DUMMYVIDEO ON)
   set(SDL_X11 OFF)
   set(SDL_WAYLAND OFF)
   set(SDL_KMSDRM OFF)
+ endif()
+ if(FORGE_BUILD_MCP_EDITOR_TESTS)
   set(SDL_JOYSTICK ON)
  else()
   set(SDL_JOYSTICK OFF)

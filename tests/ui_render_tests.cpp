@@ -3,8 +3,10 @@
 #include "ui_filter_render_tests.hpp"
 #include "ui_gradient_render_tests.hpp"
 #include "ui_luminance_render_tests.hpp"
+#include "ui_render_readback.hpp"
 #include "ui_shadow_motion_render_tests.hpp"
 #include "ui_snapshot_render_tests.hpp"
+#include "ui_source_preview_render_tests.hpp"
 #include "ui_text_shaping_render_tests.hpp"
 // Independent RmlUi/Diligent host: deliberately no ImGui/editor linkage.
 #include "Common/interface/Float16.hpp"
@@ -47,43 +49,8 @@ void require(bool value, const char* text) {
 void check(HRESULT result, const char* text) { require(SUCCEEDED(result), text); }
 #endif
 using Pixels = std::vector<std::array<unsigned char, 4>>;
-template <class Pixel>
-std::vector<Pixel> readback_pixels(IRenderDevice* device, IDeviceContext* context,
-                                   ITextureView* view, TEXTURE_FORMAT format) {
-    auto* texture = view->GetTexture();
-    auto desc = texture->GetDesc();
-    require(desc.Format == format, "UI readback pixel format mismatch");
-    desc.Name = "FORGE test readback";
-    desc.Usage = USAGE_STAGING;
-    desc.BindFlags = BIND_NONE;
-    desc.CPUAccessFlags = CPU_ACCESS_READ;
-    RefCntAutoPtr<ITexture> staging;
-    device->CreateTexture(desc, nullptr, &staging);
-    require(bool(staging), "Readback texture allocation failed");
-    context->SetRenderTargets(0, nullptr, nullptr, RESOURCE_STATE_TRANSITION_MODE_NONE);
-    CopyTextureAttribs copy;
-    copy.pSrcTexture = texture;
-    copy.pDstTexture = staging;
-    copy.SrcTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-    copy.DstTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-    context->CopyTexture(copy);
-    context->WaitForIdle();
-    MappedTextureSubresource data;
-    context->MapTextureSubresource(staging, 0, 0, MAP_READ, MAP_FLAG_DO_NOT_WAIT, nullptr, data);
-    require(data.pData != nullptr, "Readback map failed");
-    std::vector<Pixel> result(desc.Width * desc.Height);
-    for (unsigned y = 0; y < desc.Height; ++y)
-        std::memcpy(result.data() + y * desc.Width,
-                    static_cast<const unsigned char*>(data.pData) + y * data.Stride,
-                    desc.Width * sizeof(Pixel));
-    context->UnmapTextureSubresource(staging, 0, 0);
-    context->FinishFrame();
-    return result;
-}
-Pixels readback(IRenderDevice* device, IDeviceContext* context, ITextureView* view) {
-    return readback_pixels<std::array<unsigned char, 4>>(device, context, view,
-                                                         TEX_FORMAT_RGBA8_UNORM);
-}
+using forge::test::readback;
+using forge::test::readback_pixels;
 void save(const Pixels& pixels, unsigned width, unsigned height,
           const std::filesystem::path& path) {
     std::ofstream output(path, std::ios::binary);
@@ -102,8 +69,9 @@ int main(int argc, char** argv) {
         const bool shadow_motion_only =
             argc == 5 && std::string_view(argv[4]) == "--shadow-motion-only";
         const bool shaping_only = argc == 5 && std::string_view(argv[4]) == "--text-shaping-only";
+        const bool preview_only = argc == 5 && std::string_view(argv[4]) == "--source-preview-only";
         require(argc == 3 || argc == 4 || states_only || conditions_only || luminance_only ||
-                    shadow_motion_only || shaping_only,
+                    shadow_motion_only || shaping_only || preview_only,
                 "Need image output, font, optional Gallery and application-state profile");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
@@ -140,6 +108,13 @@ int main(int argc, char** argv) {
         require(device && context, "Diligent device attachment failed");
 #endif
 
+        if (preview_only) {
+            forge::test_ui_preview_pixels::exercise(device, context, images, argv[2], argv[3],
+                                                    readback, save);
+            context->WaitForIdle();
+            std::cout << "Native draft preview layout/last-good/retained/relocated pixels passed\n";
+            return 0;
+        }
         forge::UiDiligentRenderer renderer(device);
         if (shaping_only) {
             forge::test_ui_shaping_pixels::exercise(device, context, renderer, images, argv[2],

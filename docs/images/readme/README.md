@@ -2,6 +2,26 @@
 
 ## Native UI source authoring
 
+The current Source/Elements captures include the Preview tab. They remain exact
+700×950 outputs of `ui_source_editor`; the refreshed image bytes retain the same
+production controls/history workflow. `manual/images/ui-source-preview.png` is an
+unretouched700×950 capture of the production UiSourceEditor/DocumentWorkspace with
+its original Gallery211 RML/RCSS, actual panel selection, pixel controls, outline
+and resize handle. The physical native preview is1000×700 and is fitted by the
+widget, as in the editor.
+
+Reproduce the preview with `forge_ui_source_canvas_capture <output> <default-font>
+<FeatureGallery>`. It uses the pinned source widget and SDL software composition;
+the preview texture comes from UiPresenter/UiDiligentRenderer on software Vulkan,
+with an unmodified RGBA8 readback uploaded to that surface. The shared readback
+is exercised by the native image probe. Both1180×950 and700×950 outputs are checked
+and personally reviewed. These are authentic isolated component captures, without
+the complete Main shell, physical GPU/input, Windows or display-density acceptance.
+No controls or image content are fabricated, cropped, resized after capture or
+retouched. The checked source/capture-input and canonical SHA256 receipts retain
+the original output provenance. Current captures follow the2026-11-09 source
+preview/pixel-layout checkpoint; see [CI profiles](../../ci.md#test-profiles).
+
 `manual/images/ui-source-elements.png` and `ui-source-text.png` are unretouched
 700×950 captures of the production UiSourceEditor, TextEditor and borrowed
 DocumentWorkspace adapter. Real mouse/text controls select a paragraph, replace
@@ -10,8 +30,8 @@ and its attribute/text/child/order/removal controls. Source shows the same draft
 with escaped markup. These are task-window fixtures, not a complete editor-shell
 capture or a rendered game HUD. No controls or pixels are fabricated or retouched.
 
-The local source authoring checkpoint following1400e61 builds these controls with
-GCC12 and SDL software rendering. `ui_source_editor` runs1180/700/400pixel layouts,
+The current source controls are built with GCC12 and SDL software rendering.
+`ui_source_editor` runs1180/700/400pixel layouts,
 including actual structural operations, read-only/close/file lifecycle and large
 leaf protection. Original captures are in `ui-source-captures` in its test output;
 the scoped source-authoring validation receipt records their retained originals

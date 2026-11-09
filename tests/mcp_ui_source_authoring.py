@@ -2,10 +2,10 @@
 from mcp_test_client import failed
 
 
-def check_ui_source_authoring(read, ok, mutate, root, advertised):
+def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments):
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
-                 'save', 'undo', 'redo', 'reload', 'close')}
+                 'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout')}
     assert required <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
@@ -82,6 +82,64 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised):
     assert not state['dirty'] and (root / 'Game' / path).read_bytes().endswith(b'\r\n')
     ui = ok('forge_source_ui_register', path=path)
     assert ui['type'] == 'ui_document'
+    # Preview observes the unsaved source, while its registered baseline and
+    # catalog remain unchanged. Actual native layout supplies geometry.
+    clean = read('forge_ui_source_read')['text']
+    disk_before = (root / 'Game' / path).read_bytes()
+    catalog_before = (root / 'Game/forge.assets.json').read_bytes()
+    layout_source = '''<!-- canvas source -->\n<rml><head><style>
+body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
+</style></head><body><div id="panel" style="position:absolute;left:20px;top:30px;width:100px;height:60px; color:#ffffff;">Draft</div>
+<div id="relative" style="position:relative;width:100px;height:20px;">Flow</div></body></rml>\n'''
+    state = edit('replace', text=layout_source)
+
+    def preview():
+        return read('forge_ui_source_preview', **guard(), width=800, height=600, density=1)
+
+    def layout_guard(value):
+        return dict(preview_instance=value['instance'], preview_revision=value['revision'])
+
+    shown = preview()
+    panel = next(element for element in shown['elements'] if element['id'] == 'panel')
+    relative = next(element for element in shown['elements'] if element['id'] == 'relative')
+    assert not shown['stale'] and shown['source_state'] == state['state']
+    assert panel['editable'] and panel['bounds'] == [20, 30, 100, 60]
+    assert not relative['editable'] and relative['reason']
+    assert read('forge_ui_source_read') == state, 'Preview changed source/history'
+    values = dict(left=-12.5, top=45, width=210.25, height=90)
+    for bad in (dict(preview_instance='00000000-0000-4000-8000-000000000001'),
+                dict(preview_revision=900000)):
+        failed(mutate('forge_ui_source_layout', **guard(), element=panel['source_index'],
+                      **(layout_guard(shown) | bad), **values), 'stale_ui_preview')
+        assert read('forge_ui_source_read') == state
+    failed(mutate('forge_ui_source_layout', **guard(), element=relative['source_index'],
+                  **layout_guard(shown), **values), 'layout_unsupported')
+    replay_args = arguments(**guard(), element=panel['source_index'],
+                            **layout_guard(shown), **values)
+    first = client.tool('forge_ui_source_layout', **replay_args)
+    replay = client.tool('forge_ui_source_layout', **replay_args)
+    assert first['ok'] and replay['ok'] and first['result'] == replay['result']
+    changed = read('forge_ui_source_read')
+    expected = layout_source.replace('left:20px', 'left:-12.5px').replace('top:30px', 'top:45px')
+    expected = expected.replace('width:100px;height:60px', 'width:210.25px;height:90px')
+    assert changed['text'] == expected
+    assert edit('undo')['text'] == layout_source, 'Canvas layout did not use one Undo record'
+    assert edit('redo')['text'] == expected
+    old_guard = guard()
+    state = edit('replace', text='<rml>')
+    stale_read = client.tool('forge_ui_source_preview', target=arguments()['target'],
+                             **old_guard, width=800, height=600)
+    failed(stale_read, 'stale_ui_source')
+    stale = preview()
+    assert stale['stale'] and stale['error']
+    failed(mutate('forge_ui_source_layout', **guard(), element=panel['source_index'],
+                  **layout_guard(shown), **values), 'stale_ui_preview')
+    edit('undo')
+    current = preview()
+    assert not current['stale'] and current['revision'] != shown['revision']
+    assert (root / 'Game' / path).read_bytes() == disk_before
+    assert (root / 'Game/forge.assets.json').read_bytes() == catalog_before
+    edit('replace', text=clean)
     state = edit('text', element=index('p'), text='Unsaved')
     external = '<rml><body><p>External</p></body></rml>'
     (root / 'Game' / path).write_text(external, encoding='utf-8')

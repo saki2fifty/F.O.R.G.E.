@@ -1750,6 +1750,35 @@ int main(int argc, char** argv) {
                        {},
                        {},
                        [&] { return std::exchange(script_editor.close_cancelled, false); }});
+        ui_source.preview = [&](const std::filesystem::path& source, std::string_view text,
+                                int width, int height, float density, bool refresh) {
+            files.document.check_ownership();
+            if (asset_document_locked || play.active())
+                throw forge::AuthoringError("source_busy",
+                                            "Stop Play and finish the owning task first");
+            const auto catalog = content.catalog();
+            if (!catalog)
+                throw forge::AuthoringError("preview_unavailable",
+                                            "Refresh Content before previewing UI");
+            const forge::ProjectPaths paths(files.document.project());
+            for (const auto& [id, record] : catalog->records())
+                if (record.type == forge::UiDocumentAsset::type &&
+                    paths.same_locator(record.source, source)) {
+                    forge::ui::UiSourcePreviewFrame frame;
+                    frame.state =
+                        runtime_ui.preview_source(play, files.document.project(), {id}, source,
+                                                  text, width, height, density, context, refresh);
+                    frame.image = reinterpret_cast<ImTextureID>(runtime_ui.preview_source_image());
+                    return frame;
+                }
+            throw forge::AuthoringError(
+                "preview_unregistered",
+                "Register this RML document in Content before previewing it");
+        };
+        ui_source.preview_hit = [&](float x, float y) {
+            return runtime_ui.preview_source_hit(x, y);
+        };
+        ui_source.close_preview = [&] { runtime_ui.close_source_preview(); };
         documents.add(ui_source.workspace_document(
             files.document, editor, [&] { return asset_document_locked || play.active(); }));
         documents.bind_source(

@@ -38,6 +38,10 @@ class UiResources {
   public:
     explicit UiResources(std::filesystem::path project) : paths_(project), access_(project) {}
     std::string document(AssetRef<UiDocumentAsset>);
+    // Editor-only candidate: seed one registered RML source before any reads.
+    // Other dependencies retain ordinary disk admission. No saved catalog writes.
+    std::string draft_document(AssetRef<UiDocumentAsset>, const std::filesystem::path& source,
+                               std::string_view text);
     // One selected immutable table per context. The reference lives with this
     // resource owner; replacement uses the existing whole-context candidate.
     const UiLocalizationData& localization(AssetRef<UiLocalizationAsset>);
@@ -50,6 +54,8 @@ class UiResources {
     void automatic(const std::string& locator);
 
   private:
+    std::filesystem::path document_source(AssetRef<UiDocumentAsset>) const;
+    const std::vector<std::byte>& admit(const std::filesystem::path&, std::vector<std::byte>);
     ProjectPaths paths_;
     RuntimeContentAccess access_;
     std::set<std::filesystem::path> automatic_;

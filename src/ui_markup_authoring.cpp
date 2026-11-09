@@ -1,6 +1,9 @@
 #include "ui_markup_authoring.hpp"
 #include <RmlUi/Core/StringUtilities.h>
 #include <algorithm>
+#include <array>
+#include <charconv>
+#include <cmath>
 #include <forge/ui_assets.hpp>
 #include <stdexcept>
 
@@ -14,7 +17,7 @@ void require(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
 }
-const UiMarkupElement& element(const std::vector<UiMarkupElement>& nodes, std::size_t index) {
+const UiMarkupElement& element(std::span<const UiMarkupElement> nodes, std::size_t index) {
     require(index < nodes.size(), "Choose an element from the current UI source outline");
     return nodes[index];
 }
@@ -41,7 +44,109 @@ std::string replaced(std::string_view source, UiSourceRange range, std::string_v
     validate_ui_text(result, true);
     return result;
 }
+struct LayoutSource {
+    UiPixelLayout pixels;
+    std::array<UiSourceRange, 4> values;
+};
+UiSourceRange trimmed(std::string_view source, UiSourceRange range) {
+    const auto space = [](char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; };
+    while (range.begin < range.end && space(source[range.begin]))
+        ++range.begin;
+    while (range.end > range.begin && space(source[range.end - 1]))
+        --range.end;
+    return range;
+}
+void valid_layout(UiPixelLayout value) {
+    for (const auto number : {value.left, value.top, value.width, value.height})
+        require(std::isfinite(number) && std::abs(number) <= 65536,
+                "Canvas layout values must be finite pixels within65536");
+    require(value.width >= 1 && value.height >= 1,
+            "Canvas width and height must be at least1 pixel");
+}
+LayoutSource layout_source(std::string_view source, std::span<const UiMarkupElement> nodes,
+                           std::size_t index) {
+    const auto& node = element(nodes, index);
+    editable(node);
+    for (auto parent = index; parent != UiMarkupElement::no_parent;
+         parent = element(nodes, parent).parent)
+        for (const auto& attr : element(nodes, parent).attributes)
+            require(!attr.name.starts_with("data-"),
+                    "Data-bound elements and ancestors use Source for layout edits");
+    const UiMarkupAttribute* style = nullptr;
+    for (const auto& attr : node.attributes)
+        if (attr.name == "style") {
+            require(!style && attr.has_value && attr.quote,
+                    "Use one quoted inline style for canvas layout edits");
+            style = &attr;
+        }
+    require(style, "Define the absolute pixel layout in the element's inline style");
+    const auto inline_style =
+        source.substr(style->value.begin, style->value.end - style->value.begin);
+    require(inline_style.find('&') == inline_style.npos,
+            "Entity-encoded inline styles use Source for layout edits");
+    const auto declarations = inspect_ui_style(inline_style);
+    const auto value_range = [&](std::string_view name) {
+        const UiStyleDeclaration* found = nullptr;
+        for (const auto& declaration : declarations)
+            if (declaration.name == name) {
+                require(!found, "Resolve duplicate layout properties in Source first");
+                found = &declaration;
+            }
+        require(found, "Define inline position:absolute and pixel left, top, width and height");
+        return trimmed(inline_style, found->value);
+    };
+    const auto position = value_range("position");
+    require(inline_style.substr(position.begin, position.end - position.begin) == "absolute",
+            "Canvas layout requires inline position:absolute");
+    LayoutSource result;
+    std::array<float*, 4> values{&result.pixels.left, &result.pixels.top, &result.pixels.width,
+                                 &result.pixels.height};
+    constexpr std::array names{"left", "top", "width", "height"};
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        const auto range = value_range(names[i]);
+        const auto value = inline_style.substr(range.begin, range.end - range.begin);
+        require(value.size() > 2 && value.ends_with("px"),
+                "Canvas layout requires plain inline pixel values");
+        const auto number = value.substr(0, value.size() - 2);
+        const auto parsed =
+            std::from_chars(number.data(), number.data() + number.size(), *values[i]);
+        require(parsed.ec == std::errc{} && parsed.ptr == number.data() + number.size(),
+                "Canvas layout requires plain inline pixel values");
+        result.values[i] = {style->value.begin + range.begin, style->value.begin + range.end};
+    }
+    valid_layout(result.pixels);
+    return result;
+}
 } // namespace
+UiPixelLayout read_ui_markup_layout(std::string_view source, std::size_t index) {
+    return read_ui_markup_layout(source, inspect_ui_markup(source), index);
+}
+UiPixelLayout read_ui_markup_layout(std::string_view source, std::span<const UiMarkupElement> nodes,
+                                    std::size_t index) {
+    return layout_source(source, nodes, index).pixels;
+}
+std::string set_ui_markup_layout(std::string_view source, std::size_t index, UiPixelLayout pixels) {
+    valid_layout(pixels);
+    const auto original = layout_source(source, inspect_ui_markup(source), index);
+    if (pixels == original.pixels)
+        return std::string(source);
+    const std::array values{pixels.left, pixels.top, pixels.width, pixels.height};
+    std::array<std::pair<UiSourceRange, std::string>, 4> edits;
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        std::array<char, 128> buffer;
+        const auto formatted = std::to_chars(buffer.data(), buffer.data() + buffer.size(),
+                                             values[i], std::chars_format::fixed);
+        require(formatted.ec == std::errc{}, "Canvas pixel formatting failed");
+        edits[i] = {original.values[i], std::string(buffer.data(), formatted.ptr) + "px"};
+    }
+    std::ranges::sort(edits,
+                      [](const auto& a, const auto& b) { return a.first.begin > b.first.begin; });
+    std::string result(source);
+    for (const auto& [range, value] : edits)
+        result.replace(range.begin, range.end - range.begin, value);
+    validate_ui_text(result, true);
+    return result;
+}
 std::string set_ui_markup_attribute(std::string_view source, std::size_t index,
                                     std::string_view name, std::optional<std::string> value) {
     identifier(name);

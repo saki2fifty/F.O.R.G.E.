@@ -210,7 +210,7 @@ def editor(mode='full'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-workflows-') as temporary:
         root = Path(temporary)
         # State-only checks need the real packaged font, but no Windows export kit.
-        host_resources = str(Path(__file__).resolve().parents[1]) if APPLICATION_STATES_ONLY or UI_FIELDS_ONLY or UI_FONT_COLLECTIONS_ONLY else KIT
+        host_resources = str(Path(__file__).resolve().parents[1]) if APPLICATION_STATES_ONLY or UI_FIELDS_ONLY or UI_FONT_COLLECTIONS_ONLY or UI_SOURCE_ONLY else KIT
         command = [HOST, str(root), RUNTIME, host_resources, NAV, mode]
         if ANIMATION_GRAPH_ONLY:
             # Scene references are resolved by the runtime package owner, not
@@ -459,10 +459,11 @@ for legacy in protocol_cases[protocol_case]:
                   'stale digest, Save/discard, Scene isolation and grant discovery passed')
             continue
         if UI_SOURCE_ONLY:
-            check_ui_source_authoring(read, ok, mutate, root, advertised)
+            check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments)
             with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
                 visible = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
                 assert 'forge_ui_source_read' in visible and 'forge_ui_source_open' not in visible
+                assert 'forge_ui_source_preview' in visible and 'forge_ui_source_layout' not in visible
                 assert 'forge_ui_source_replace' not in visible and 'forge_ui_source_save' not in visible
                 denied = readonly.request('tools/call', dict(name='forge_ui_source_open', arguments=dict(path='Assets/Hud.rml')))
                 assert 'error' in denied or denied['result']['isError'], denied
