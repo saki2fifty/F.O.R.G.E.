@@ -75,8 +75,16 @@ The helper validates UTF-8, native scalar ranges, a64KiB byte limit and
 Font/glyph/document limits apply independently. The bounded full-field scan
 has no persistent invalidation cache and is not a physical performance claim.
 
-Word deletion, other modified keys, vertical movement and pointer selection
-remain native. Horizontal keys move in logical text order, without full paragraph
+Up/Down, PageUp/PageDown and Home/End use this same native movement observer,
+including their Shift/Ctrl selection forms. Native layout chooses the destination;
+only an unambiguous directional result and preserved anchor are aligned. No line
+scanner, preferred-column cache or parallel selection state is introduced.
+Already-selected Ctrl+Backspace/Delete and Shift-modified deletion expand partial
+characters before the ordinary native deletion. Cancelled events restore temporary
+selection; active composition bypasses preparation.
+
+Collapsed Ctrl+Backspace/Delete still use the native private word-deletion range,
+which can split a character. Pointer selection and other modified keys remain native. Horizontal keys move in logical text order, without full paragraph
 bidirectional semantics. Complete IME, accessibility and general Unicode editor
 coverage are not implied. Native readonly is not available at this pin; supported
 disabled fields remain authoritative. Ordinary key edits never call context
@@ -85,9 +93,10 @@ SetText, which bypasses native maximum length.
 ## Export, automation and validation
 
 Enabling the option requires exact runtime-kit capability
-`engine.runtime_ui_grapheme_editing: 3`. This profile includes Shift-arrow
-selection and whole-character alignment of native Ctrl-arrow word movement and
-selection; older profiles are rejected. Missing/malformed/mismatched support is
+`engine.runtime_ui_grapheme_editing: 4`. This profile includes Shift-arrow and
+native word/line/page/vertical movement and selection alignment, plus selected
+modified deletion. Older profiles are rejected; profile4 does not promise
+whole-character collapsed word deletion. Missing/malformed/mismatched support is
 rejected before replacing a good distribution. Default projects preserve their
 existing kit compatibility. The standalone host reads the packaged setting with
 source files unavailable. No Scene/asset format, serialized identity, cook format
@@ -141,8 +150,9 @@ select-all retain native semantics. `select_left` and `select_right` send paired
 Shift+Left/Right through that same key owner. `word_left`, `word_right`,
 `select_word_left` and `select_word_right` send Ctrl+Left/Right, adding Shift for
 selection. The private Rml-free key catalog drives dispatch and automation schema
-discovery. The saved grapheme option affects its four plain keys, Shift arrows
-and these word keys. Native word grouping remains authoritative. Events,
+discovery. The saved grapheme option affects its four plain keys, Shift arrows,
+these word keys, native line/page/vertical navigation and selected modified
+deletion. Native word grouping remains authoritative. Events,
 bindings, native restrictions and declared command
 queues retain their existing owners. Action results report delivered/consumed
 and fresh observations; they do not acknowledge gameplay or persist UI values.
@@ -150,10 +160,11 @@ The same shared key catalog also admits native Up/Down, PageUp/PageDown,
 Shift variants, Shift+Home/End, Ctrl+Home/End, Ctrl+Shift+Home/End and native
 Ctrl+Backspace/Delete. These names map to the existing paired presenter input
 path without custom line or word segmentation, caret storage, text replacement
-or modified-delete interception. Native layout/events/cancellation/password policy
-remain authoritative. Word deletion can split a grapheme; full word-grapheme,
-vertical/page/line selection, pointer and broad IME editing remain gaps. No
-runtime-profile bump is required for adding aliases to existing keyboard behavior.
+or a separate editing owner. Native layout/events/cancellation/password policy
+remain authoritative. With the saved option enabled, profile4 aligns supported
+native directional movement and expands existing deletion selections. Collapsed
+word deletion can split a grapheme; full word-grapheme, pointer and broad IME
+editing remain gaps. The32-key catalog is unchanged.
 
 Native model/game updates may replace a field value between observations.
 

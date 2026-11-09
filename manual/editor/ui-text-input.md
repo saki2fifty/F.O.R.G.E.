@@ -2,7 +2,8 @@
 
 Enable **Edit whole UI characters** to move and delete a complete Unicode
 character with arrow and deletion keys in game UI text fields. It also keeps
-word movement and selection on complete character boundaries. A character
+word, line and page navigation on complete character boundaries when the native
+control reports an unambiguous movement. A character
 can contain several code points, such as a letter with a combining accent or an
 emoji sequence. This option works independently of [Shape UI text](ui-text-shaping.md).
 
@@ -45,8 +46,10 @@ coverage, even when an emoji sequence is edited as one character.
 - **Shift+Left / Shift+Right:** extend or shrink a selection by whole characters in logical text order. Reverse direction to move back toward where the selection started.
 - **Ctrl+Left / Ctrl+Right:** use native word movement, keeping the destination on a complete character boundary.
 - **Ctrl+Shift+Left / Ctrl+Shift+Right:** extend, shrink or reverse a native word selection while keeping complete characters and its original anchor.
-- **Partially selected character + a plain key above:** expand to its whole character boundary before the native action.
-- **Ctrl+Backspace / Ctrl+Delete and other modified keys:** existing native behavior.
+- **Up / Down, Page Up / Page Down, Home / End:** use native layout and align an unambiguous destination to a complete character. Shift selects; Ctrl+Home/End targets the document bounds.
+- **Partially selected character + a supported key above:** expand to its whole character boundary before the native action.
+- **Shift+Backspace / Shift+Delete:** delete complete selected or adjacent characters.
+- **Ctrl+Backspace / Ctrl+Delete:** delete a complete existing selection. With no selection, native word deletion applies and can split a combined character.
 - **Active IME composition:** existing platform/native behavior.
 
 When a supported selection starts inside a character, the selection expands to
@@ -56,8 +59,8 @@ Password fields use their native masked-word grouping.
 
 Text inputs, password inputs and textareas support the option. Native disabled
 controls and ordinary maximum-length restrictions still apply. Pointer selection,
-vertical movement, word deletion and other modified selection retain native behavior;
-their caret can be inside a multi-code-point character. The next supported key above
+collapsed word deletion and unsupported or ambiguous modified selection retain
+native behavior; their caret can be inside a multi-code-point character. The next supported key above
 uses the complete character boundary.
 
 The option covers fields up to **64 KiB of UTF-8** and **16,384 code points**.
@@ -71,7 +74,7 @@ is unavailable; use supported disabled controls when editing must be blocked.
 
 Save the UI source, Scene and Project Settings, and test Play before exporting.
 Use the runtime kit packaged with the matching editor. A kit lacking the enabled
-whole-character editing profile, including word movement and selection,
+whole-character editing profile, including native navigation and selected deletion,
 is rejected. Players need no compiler or
 machine-installed font. See [Export a game](runtime-content.md).
 
@@ -91,8 +94,8 @@ For native line/document, vertical/page navigation and word deletion, the agent
 can use the additional keys listed in [MCP game creation](mcp.md). `select_home`
 and `select_end` send Shift+Home/End; `document_home` and `document_end` send
 Ctrl+Home/End. `word_backspace` and `word_delete` send Ctrl+Backspace/Delete.
-These retain native boundaries and can split a combined character; the option
-above does not extend to them. Read the resulting selection and focus each time.
+The saved option aligns supported native navigation and existing deletion
+selections. With no selection, Ctrl word deletion can split a combined character. Read the resulting selection and focus each time.
 
 These operations use the same native fields and saved editing option. Password
 plaintext is omitted from observations. Field text stays in the running UI;

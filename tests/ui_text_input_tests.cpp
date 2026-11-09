@@ -240,6 +240,18 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
                     press(key);
                     check(field->GetValue() == "x", "Partial native selection split a grapheme");
                 }
+                // Native modified deletion consumes an existing selection;
+                // its word scanner must not replace that selected range.
+                for (const int modifiers :
+                     std::array<int, 3>{Rml::Input::KM_CTRL, Rml::Input::KM_SHIFT,
+                                        Rml::Input::KM_CTRL | Rml::Input::KM_SHIFT})
+                    for (const auto key : {Rml::Input::KI_BACK, Rml::Input::KI_DELETE}) {
+                        field->SetValue(value);
+                        field->SetSelectionRange(1, scalars);
+                        press(key, modifiers);
+                        check(field->GetValue() == "x",
+                              "Modified native selected deletion split a character");
+                    }
                 for (const auto key : {Rml::Input::KI_LEFT, Rml::Input::KI_RIGHT}) {
                     field->SetValue(value);
                     field->SetSelectionRange(key == Rml::Input::KI_LEFT ? scalars : 0,
@@ -283,6 +295,27 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
                     press(key, Rml::Input::KM_SHIFT);
                     check(selection(*field) == UiTextSelection{0, scalars},
                           "An interior native anchor produced a partial-character selection");
+                }
+                // A public native reference proves that Home leaves an
+                // interior anchor partial at this pin. The adapter must expand
+                // it through the ordinary native selection API.
+                field->SetValue(value);
+                field->SetSelectionRange(1, 1);
+                auto* native = Rml::GetContext(0);
+                native->ProcessKeyDown(Rml::Input::KI_HOME, Rml::Input::KM_SHIFT);
+                native->ProcessKeyUp(Rml::Input::KI_HOME, Rml::Input::KM_SHIFT);
+                check(selection(*field) == UiTextSelection{0, 1},
+                      "Native Home reference no longer exercises a partial anchor");
+                for (const int modifiers : std::array<int, 2>{
+                         Rml::Input::KM_SHIFT, Rml::Input::KM_SHIFT | Rml::Input::KM_CTRL}) {
+                    field->SetSelectionRange(1, 1);
+                    press(Rml::Input::KI_HOME, modifiers);
+                    check(selection(*field) == UiTextSelection{0, scalars},
+                          "Native Home selection split its interior anchor");
+                    field->SetSelectionRange(1, 1);
+                    press(Rml::Input::KI_END, modifiers);
+                    check(selection(*field) == UiTextSelection{0, scalars + 1},
+                          "Native End selection split its interior anchor");
                 }
                 field->SetSelectionRange(scalars, 0);
                 press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
@@ -346,6 +379,14 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
             press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
             check(nested && selection(*text) == UiTextSelection{0, 2},
                   "Outer Shift correction overwrote a reentrant native input operation");
+            for (const auto key : {Rml::Input::KI_UP, Rml::Input::KI_DOWN, Rml::Input::KI_PRIOR,
+                                   Rml::Input::KI_NEXT, Rml::Input::KI_HOME, Rml::Input::KI_END}) {
+                nested = false;
+                text->SetSelectionRange(0, 0);
+                press(key, Rml::Input::KM_SHIFT);
+                check(nested && selection(*text) == UiTextSelection{0, 2},
+                      "Outer native jump overwrote a reentrant input operation");
+            }
             for (auto key : {Rml::Input::KI_LEFT, Rml::Input::KI_RIGHT, Rml::Input::KI_BACK,
                              Rml::Input::KI_DELETE}) {
                 text->SetSelectionRange(1, 1);
@@ -354,6 +395,30 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
                 check(selection(*text) == UiTextSelection{1, 1} &&
                           text->GetValue() == utf8(u8"a\u0301b"),
                       "Canceled native event left a temporary selection or changed text");
+            }
+            for (const int modifiers :
+                 std::array<int, 3>{Rml::Input::KM_CTRL, Rml::Input::KM_SHIFT,
+                                    Rml::Input::KM_CTRL | Rml::Input::KM_SHIFT})
+                for (const auto key : {Rml::Input::KI_BACK, Rml::Input::KI_DELETE}) {
+                    text->SetValue(utf8(u8"a\u0301b"));
+                    text->SetSelectionRange(1, 2);
+                    listener.action = [](Rml::Event& event) { event.StopImmediatePropagation(); };
+                    press(key, modifiers);
+                    check(selection(*text) == UiTextSelection{1, 2} &&
+                              text->GetValue() == utf8(u8"a\u0301b"),
+                          "Canceled modified deletion retained its transient selection");
+                }
+            for (const auto key : {Rml::Input::KI_UP, Rml::Input::KI_DOWN, Rml::Input::KI_PRIOR,
+                                   Rml::Input::KI_NEXT, Rml::Input::KI_HOME, Rml::Input::KI_END}) {
+                text->SetSelectionRange(1, 1);
+                listener.action = [&](Rml::Event& event) {
+                    check(selection(*text) == UiTextSelection{1, 1},
+                          "Native jump changed selection before its key event");
+                    event.StopImmediatePropagation();
+                };
+                press(key, Rml::Input::KM_SHIFT);
+                check(selection(*text) == UiTextSelection{1, 1},
+                      "Canceled native jump changed its original selection");
             }
             // Exercise the same public composition calls used by the platform delegate.
             handler.active->SetText(utf8(u8"a\u0301b"), 0, 3);
@@ -376,6 +441,14 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
             press(Rml::Input::KI_RIGHT, Rml::Input::KM_CTRL | Rml::Input::KM_SHIFT);
             check(composition_event && selection(*text) == UiTextSelection{2, 2},
                   "Word preparation interfered with active native composition");
+            for (const auto key : {Rml::Input::KI_UP, Rml::Input::KI_DOWN, Rml::Input::KI_PRIOR,
+                                   Rml::Input::KI_NEXT, Rml::Input::KI_HOME, Rml::Input::KI_END,
+                                   Rml::Input::KI_BACK, Rml::Input::KI_DELETE}) {
+                composition_event = false;
+                press(key, Rml::Input::KM_CTRL | Rml::Input::KM_SHIFT);
+                check(composition_event && selection(*text) == UiTextSelection{2, 2},
+                      "Modified native editing interfered with active composition");
+            }
             handler.active->CommitComposition(utf8(u8"a\u0301"));
             check(text->GetValue() == utf8(u8"a\u0301b"),
                   "Public composition commit did not reach the native field");

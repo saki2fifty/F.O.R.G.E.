@@ -157,12 +157,11 @@ class ProjectSettingsEditor {
                 bool grapheme_editing = ui_grapheme_editing_enabled(game);
                 if (ImGui::Checkbox("Edit whole UI characters", &grapheme_editing))
                     game["ui"]["grapheme_editing"] = grapheme_editing;
-                ui::help("Move and delete whole Unicode characters with plain Left, Right, "
-                         "Backspace and Delete in UI text fields; Shift+Left/Right selects whole "
-                         "characters. Ctrl arrows use native word grouping and whole character "
-                         "boundaries; add Shift to select. Save Settings and restart Play. "
-                         "Other modified keys and "
-                         "active IME composition use native behavior. "
+                ui::help("Move and select complete Unicode characters with arrows, native "
+                         "line/page keys and Ctrl word movement. Backspace/Delete and Shift "
+                         "variants remove complete characters; existing Ctrl deletion selections "
+                         "expand to complete characters. Collapsed Ctrl word deletion and active "
+                         "IME composition keep native behavior. Save Settings and restart Play. "
                          "Requires the matching runtime kit when exporting.");
                 auto text = [&](const char* label, Json& value, const char* help) {
                     char buffer[257]{};

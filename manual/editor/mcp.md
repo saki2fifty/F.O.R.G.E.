@@ -265,11 +265,11 @@ The same catalog also provides these native editing keys:
 - `word_backspace`, `word_delete`: Ctrl+Backspace / Delete.
 
 Line and page navigation follows the native control's layout. Read the returned
-selection and focus before continuing. These additional keys retain native
-behavior; **Edit whole UI characters** does not add whole-character boundaries
-to vertical/page/line selection or word deletion. Ctrl+Delete can leave a
-combining mark behind. Use the supported whole-character horizontal selection
-and plain deletion when you need those boundaries.
+selection and focus before continuing. **Edit whole UI characters** aligns
+unambiguous native line/page/vertical destinations and selection anchors. It also
+expands an existing Ctrl deletion selection to complete characters. With no
+selection, Ctrl+Delete can leave a combining mark behind. Select whole characters
+first and delete the selection when you need complete character boundaries.
 
 The tools observe up to **64 fields** within **4,096 DOM nodes** per document.
 IDs must be unique, nonempty UTF-8 up to **256 bytes**. Duplicate IDs or a

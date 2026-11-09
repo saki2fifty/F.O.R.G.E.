@@ -1,5 +1,20 @@
 # 2026-11-09
 
+## Whole-character native navigation and selected deletion
+
+The optional Edit whole UI characters setting now aligns unambiguous native
+Up/Down, PageUp/PageDown and Home/End destinations and selection anchors. Native
+layout remains authoritative. Existing Ctrl deletion selections and Shift-modified
+deletion expand partial Unicode characters before ordinary native deletion.
+Collapsed Ctrl word deletion remains native and can split a character. Native
+composition, cancellation, restrictions and callback ownership are preserved.
+
+Keyboard and the same32named MCP keys share the presenter. Enabled exports require
+editing profile4; default projects retain their existing compatibility. Font
+shaping profile3, gameplay SDK ABI, source/Scene identity and dependency pins are
+unchanged. Native and MCP checks are local; Windows/physical input review remains
+pending. No new sample or Windows ZIP accompanies this source change.
+
 ## Native UI draft preview and pixel canvas
 
 UI Source adds a native Preview view for unsaved registered RML. Source, Elements,

@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "ui_test_renderer.hpp"
+#include "ui_text_boundaries.hpp"
 #include "ui_text_field.hpp"
 #include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include <RmlUi/Core/Elements/ElementFormControlTextArea.h>
@@ -109,56 +110,115 @@ textarea {white-space:pre-wrap;}
             check(bool(field), "Native edit-key field missing");
             std::visit(
                 [&](auto* control) {
-                    const auto prepare = [&] {
-                        check(control->Focus(), "Native edit-key focus failed");
-                        presenter.key(Rml::Input::KI_A, true, Rml::Input::KM_CTRL);
-                        presenter.key(Rml::Input::KI_A, false, Rml::Input::KM_CTRL);
-                        presenter.text("one two\nthree four\nfive six\nseven eight");
-                        presenter.update(time += .02, 800, 600);
-                        presenter.key(Rml::Input::KI_HOME, true, Rml::Input::KM_CTRL);
-                        presenter.key(Rml::Input::KI_HOME, false, Rml::Input::KM_CTRL);
-                        for (int step = 0; step < 10; ++step) {
-                            presenter.key(Rml::Input::KI_RIGHT, true, 0);
-                            presenter.key(Rml::Input::KI_RIGHT, false, 0);
+                    const auto check_corpus = [&](const std::string& value, int steps) {
+                        const auto prepare = [&] {
+                            check(control->Focus(), "Native edit-key focus failed");
+                            presenter.key(Rml::Input::KI_A, true, Rml::Input::KM_CTRL);
+                            presenter.key(Rml::Input::KI_A, false, Rml::Input::KM_CTRL);
+                            presenter.text(value);
+                            presenter.update(time += .02, 800, 600);
+                            presenter.key(Rml::Input::KI_HOME, true, Rml::Input::KM_CTRL);
+                            presenter.key(Rml::Input::KI_HOME, false, Rml::Input::KM_CTRL);
+                            for (int step = 0; step < steps; ++step) {
+                                presenter.key(Rml::Input::KI_RIGHT, true, 0);
+                                presenter.key(Rml::Input::KI_RIGHT, false, 0);
+                            }
+                            presenter.update(time += .02, 800, 600);
+                            presenter.render();
+                            trace.reset();
+                        };
+                        for (const auto& key : cases) {
+                            prepare();
+                            presenter.key(key.code, true, key.modifiers);
+                            presenter.key(key.code, false, key.modifiers);
+                            const auto expected = find(presenter.text_fields("keys"), id);
+                            const auto expected_events = trace.events;
+                            const auto expected_changes = trace.changes;
+                            prepare();
+                            const auto result =
+                                presenter.text_field_action("keys", id, revision, key.name);
+                            if (editing && key.code != Rml::Input::KI_BACK &&
+                                key.code != Rml::Input::KI_DELETE) {
+                                const auto boundaries = ui_grapheme_boundaries(control->GetValue());
+                                int begin = 0, end = 0;
+                                control->GetSelection(&begin, &end, nullptr);
+                                if (!std::binary_search(boundaries.begin(), boundaries.end(),
+                                                        begin) ||
+                                    !std::binary_search(boundaries.begin(), boundaries.end(), end))
+                                    throw std::runtime_error(
+                                        std::string("Native navigation split a character: ") + id +
+                                        "/" + key.name);
+                            }
+                            if (!(result.at("delivered") && find(result, id) == expected &&
+                                  trace.events == expected_events &&
+                                  trace.changes == expected_changes))
+                                throw std::runtime_error(
+                                    std::string("Native key mismatch ") + id + "/" + key.name +
+                                    " shaping=" + std::to_string(shaping) + " editing=" +
+                                    std::to_string(editing) + " expected=" + expected.dump() +
+                                    " actual=" + find(result, id).dump() +
+                                    " events=" + trace.events.dump() +
+                                    " expected_events=" + expected_events.dump());
+                            check(trace.events.size() == 2 && trace.events[0].at("down") == true &&
+                                      trace.events[1].at("down") == false &&
+                                      trace.events[0].at("code") == key.code,
+                                  "Named edit key lost its native paired dispatch");
+                            if (std::string_view(id) == "password")
+                                check(!find(result, id).contains("value"),
+                                      "Modified key exposed password text");
+                            prepare();
+                            const auto before = find(presenter.text_fields("keys"), id);
+                            trace.cancel = true;
+                            const auto canceled =
+                                presenter.text_field_action("keys", id, revision, key.name);
+                            trace.cancel = false;
+                            check(find(canceled, id) == before && trace.changes == 0 &&
+                                      trace.events.size() == 2,
+                                  "Canceled named edit key changed a native field or lost key "
+                                  "release");
                         }
-                        presenter.update(time += .02, 800, 600);
-                        presenter.render();
-                        trace.reset();
                     };
-                    for (const auto& key : cases) {
-                        prepare();
+                    check_corpus("one two\nthree four\nfive six\nseven eight", 10);
+                    const auto unicode = std::u8string_view(
+                        u8"a\u0301b\nWWa\u0301b\nc\u0301d\n\U0001f469\u200d\U0001f4bbx\nq\u0301r");
+                    for (const int steps : {1, 4, 10})
+                        check_corpus(
+                            {reinterpret_cast<const char*>(unicode.data()), unicode.size()}, steps);
+                    for (const auto& key : std::array{
+                             KeyCase{"word_backspace", Rml::Input::KI_BACK, Rml::Input::KM_CTRL},
+                             KeyCase{"word_delete", Rml::Input::KI_DELETE, Rml::Input::KM_CTRL}}) {
+                        const auto partial = [&] {
+                            check(control->Focus(), "Selected deletion focus failed");
+                            control->SetValue(
+                                {reinterpret_cast<const char*>(unicode.data()), unicode.size()});
+                            control->SetSelectionRange(1, 2);
+                            presenter.update(time += .02, 800, 600);
+                            trace.reset();
+                        };
+                        partial();
+                        const auto original = control->GetValue();
+                        const auto expected = editing ? original.substr(3)
+                                                      : original.substr(0, 1) + original.substr(3);
                         presenter.key(key.code, true, key.modifiers);
                         presenter.key(key.code, false, key.modifiers);
-                        const auto expected = find(presenter.text_fields("keys"), id);
-                        const auto expected_events = trace.events;
-                        const auto expected_changes = trace.changes;
-                        prepare();
-                        const auto result =
+                        check(control->GetValue() == expected && trace.changes == 1,
+                              "Raw selected word key lost its boundary/native change policy");
+                        const auto raw_events = trace.events;
+                        partial();
+                        const auto delivered =
                             presenter.text_field_action("keys", id, revision, key.name);
-                        if (!(result.at("delivered") && find(result, id) == expected &&
-                              trace.events == expected_events && trace.changes == expected_changes))
-                            throw std::runtime_error(
-                                std::string("Native key mismatch ") + id + "/" + key.name +
-                                " shaping=" + std::to_string(shaping) + " editing=" +
-                                std::to_string(editing) + " expected=" + expected.dump() +
-                                " actual=" + find(result, id).dump() + " events=" +
-                                trace.events.dump() + " expected_events=" + expected_events.dump());
-                        check(trace.events.size() == 2 && trace.events[0].at("down") == true &&
-                                  trace.events[1].at("down") == false &&
-                                  trace.events[0].at("code") == key.code,
-                              "Named edit key lost its native paired dispatch");
-                        if (std::string_view(id) == "password")
-                            check(!find(result, id).contains("value"),
-                                  "Modified key exposed password text");
-                        prepare();
-                        const auto before = find(presenter.text_fields("keys"), id);
+                        check(delivered.at("delivered") && control->GetValue() == expected &&
+                                  trace.events == raw_events && trace.changes == 1,
+                              "Named selected deletion diverged from the native keyboard");
+                        partial();
                         trace.cancel = true;
-                        const auto canceled =
-                            presenter.text_field_action("keys", id, revision, key.name);
+                        presenter.text_field_action("keys", id, revision, key.name);
                         trace.cancel = false;
-                        check(find(canceled, id) == before && trace.changes == 0 &&
-                                  trace.events.size() == 2,
-                              "Canceled named edit key changed a native field or lost key release");
+                        int begin = 0, end = 0;
+                        control->GetSelection(&begin, &end, nullptr);
+                        check(control->GetValue() == original && begin == 1 && end == 2 &&
+                                  trace.changes == 0,
+                              "Canceled selected named word key changed native state");
                     }
                 },
                 *field);

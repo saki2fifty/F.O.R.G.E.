@@ -87,7 +87,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Animate named UI values with a Scene sequence](editor/sequence-ui.md)
 - [Edit UI source, adjust pixel layouts and save preview images](editor/ui-source.md)
 - [Shape game UI text: ligatures, script runs, collections, weights and layered color glyphs](editor/ui-text-shaping.md)
-- [Edit and select whole UI characters: arrows, words, deletion, agent testing and native input limits](editor/ui-text-input.md)
+- [Edit and select whole UI characters: arrows, words, lines/pages, deletion, agent testing and native input limits](editor/ui-text-input.md)
 - [Translate a game's menus and HUD](editor/ui-localization.md)
 - [Flecs Script](editor/flecs-script.md)
 

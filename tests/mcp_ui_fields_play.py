@@ -136,6 +136,11 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
     assert field(action('forge_play_ui_key', key='select_end'), 'entry')['selection'] == dict(begin=0, end=7)
     action('forge_play_ui_key', key='select_all')
     action('forge_play_ui_text', text='áb')
+    action('forge_play_ui_key', key='document_home')
+    action('forge_play_ui_key', key='select_right')
+    assert field(action('forge_play_ui_key', key='word_delete'), 'entry')['value'] == 'b'
+    action('forge_play_ui_key', key='select_all')
+    action('forge_play_ui_text', text='áb')
     action('forge_play_ui_key', element='entry', key='end')
     replay_args = arguments(**scope(), instance=instance, element='entry',
                             presentation_revision=revision, key='backspace')
@@ -165,13 +170,18 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
     action('forge_play_ui_focus', element='area')
     action('forge_play_ui_key', element='area', key='select_all')
     assert field(action('forge_play_ui_text', element='area', text='first\nsecond'), 'area')['value'] == 'first\nsecond'
-    multiline = 'first\nsecond\nthird'
+    multiline = 'q\náz\nx́w\nr'
+    complete_boundaries = {0, 1, 2, 4, 5, 6, 8, 9, 10, 11}
     action('forge_play_ui_key', element='area', key='select_all')
     action('forge_play_ui_text', element='area', text=multiline)
     # All aliases have raw-vs-named native coverage; RPC cases exercise each family.
-    for key in ('up', 'select_down', 'page_up', 'select_page_down'):
+    action('forge_play_ui_key', element='area', key='document_home')
+    action('forge_play_ui_key', element='area', key='right')
+    for key in ('down', 'down', 'up', 'select_up', 'select_down', 'page_up',
+                'select_page_down', 'select_home', 'select_end'):
         row = field(action('forge_play_ui_key', element='area', key=key), 'area')
         assert row['value'] == multiline and 0 <= row['selection']['begin'] <= row['selection']['end'] <= len(multiline)
+        assert set(row['selection'].values()) <= complete_boundaries, (key, row['selection'])
     action('forge_play_ui_key', element='area', key='document_end')
     assert field(action('forge_play_ui_key', element='area', key='select_document_home'), 'area')['selection'] == dict(begin=0, end=len(multiline))
     action('forge_play_ui_key', element='area', key='document_home')

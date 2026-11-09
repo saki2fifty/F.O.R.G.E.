@@ -867,7 +867,10 @@ struct PlayAutomation {
                        "up/down and page_up/down retain native layout; select_ variants add Shift. "
                        "select_home/end select to native line bounds; document_home/end add Ctrl. "
                        "select_document_home/end add Ctrl+Shift. word_backspace/delete send native "
-                       "Ctrl+Backspace/Delete and can split a combined character. ") +
+                       "Ctrl+Backspace/Delete; a collapsed word range can split a combined "
+                       "character. The whole-character option also aligns observed native "
+                       "line/page/vertical destinations and existing modified deletion "
+                       "selections. ") +
                     std::string(
                         "Read play.ui.fields first and supply its presentation revision, "
                         "document instance and unique element ID. Native values, selection, "

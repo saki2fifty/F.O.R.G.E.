@@ -244,6 +244,19 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
                   "Output native word deletion did not consume selection");
             field->SetValue("a\xcc\x81"
                             "b");
+            field->SetSelectionRange(1, 1);
+            presenter.text_field_action("output", "entry", fields.at("presentation_revision"),
+                                        "select_home");
+            field->GetSelection(&begin, &end, nullptr);
+            check(begin == 0 && end == 2,
+                  "Output native line selection retained a partial-character anchor");
+            field->SetSelectionRange(1, 2);
+            presenter.text_field_action("output", "entry", fields.at("presentation_revision"),
+                                        "word_delete");
+            check(field->GetValue() == "b",
+                  "Output modified selected deletion split a combining character");
+            field->SetValue("a\xcc\x81"
+                            "b");
             field->SetSelectionRange(0, 0);
             presenter.key(Rml::Input::KI_DELETE, true, 0);
             presenter.key(Rml::Input::KI_DELETE, false, 0);

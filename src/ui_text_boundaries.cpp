@@ -123,10 +123,10 @@ std::optional<UiTextOrientedSelection> ui_text_shift_selection(std::string_view 
         return {}; // No proven one-scalar native movement; retain its current selection.
     return align_selection(boundaries, {anchor, caret}, key, true);
 }
-std::optional<UiTextOrientedSelection> ui_text_word_selection(std::string_view text,
-                                                              UiTextSelection before,
-                                                              UiTextSelection after, UiTextKey key,
-                                                              bool selecting) {
+std::optional<UiTextOrientedSelection> ui_text_movement_selection(std::string_view text,
+                                                                  UiTextSelection before,
+                                                                  UiTextSelection after,
+                                                                  UiTextKey key, bool selecting) {
     const auto boundaries = ui_grapheme_boundaries(text);
     check_selection(before, boundaries.back());
     check_selection(after, boundaries.back());

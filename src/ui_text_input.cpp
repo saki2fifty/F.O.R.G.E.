@@ -166,7 +166,7 @@ struct UiTextInput::Impl final : Rml::TextInputHandler {
     }
     template <class T>
     bool field_movement_key(Rml::Context& context, T* field, int key, int modifiers,
-                            UiTextKey action, std::uint64_t dispatch) {
+                            UiTextKey action, std::uint64_t dispatch, bool jump) {
         const auto token = active;
         const auto previous = field->GetValue();
         UiTextSelection before;
@@ -198,9 +198,9 @@ struct UiTextInput::Impl final : Rml::TextInputHandler {
                 return propagated;
             try {
                 const auto next =
-                    modifiers & Rml::Input::KM_CTRL
-                        ? ui_text_word_selection(previous, before, after, action,
-                                                 bool(modifiers & Rml::Input::KM_SHIFT))
+                    jump || (modifiers & Rml::Input::KM_CTRL)
+                        ? ui_text_movement_selection(previous, before, after, action,
+                                                     bool(modifiers & Rml::Input::KM_SHIFT))
                         : ui_text_shift_selection(previous, before, after, action);
                 if (next)
                     field->SetSelectionRange(next->anchor, next->caret);
@@ -213,12 +213,27 @@ struct UiTextInput::Impl final : Rml::TextInputHandler {
     bool key_down(Rml::Context& context, int key, int modifiers) {
         const auto dispatch = ++key_dispatch;
         std::optional<UiTextKey> action;
+        // Boundary alignment uses logical direction; the original native key
+        // still chooses its line/page/word destination and geometry.
+        bool jump = false;
         switch (key) {
         case Rml::Input::KI_LEFT:
             action = UiTextKey::Left;
             break;
         case Rml::Input::KI_RIGHT:
             action = UiTextKey::Right;
+            break;
+        case Rml::Input::KI_UP:
+        case Rml::Input::KI_HOME:
+        case Rml::Input::KI_PRIOR:
+            action = UiTextKey::Left;
+            jump = true;
+            break;
+        case Rml::Input::KI_DOWN:
+        case Rml::Input::KI_END:
+        case Rml::Input::KI_NEXT:
+            action = UiTextKey::Right;
+            jump = true;
             break;
         case Rml::Input::KI_BACK:
             action = UiTextKey::Backspace;
@@ -231,19 +246,26 @@ struct UiTextInput::Impl final : Rml::TextInputHandler {
             !(modifiers & (Rml::Input::KM_ALT | Rml::Input::KM_META)))
             if (const auto field = ui_text_field(context.GetFocusElement());
                 field && ui_text_field_editable(*field)) {
-                if (!(modifiers & (Rml::Input::KM_SHIFT | Rml::Input::KM_CTRL)))
-                    return std::visit(
-                        [&](auto* value) {
-                            return field_key(context, value, key, modifiers, *action);
-                        },
-                        *field);
-                else if (*action == UiTextKey::Left || *action == UiTextKey::Right)
-                    return std::visit(
-                        [&](auto* value) {
+                return std::visit(
+                    [&](auto* value) {
+                        const bool movement =
+                            *action == UiTextKey::Left || *action == UiTextKey::Right;
+                        if (jump || (movement &&
+                                     (modifiers & (Rml::Input::KM_SHIFT | Rml::Input::KM_CTRL))))
                             return field_movement_key(context, value, key, modifiers, *action,
-                                                      dispatch);
-                        },
-                        *field);
+                                                      dispatch, jump);
+                        if (!movement && (modifiers & Rml::Input::KM_CTRL)) {
+                            UiTextSelection selected;
+                            value->GetSelection(&selected.begin, &selected.end, nullptr);
+                            if (selected.begin == selected.end)
+                                // The native word range is private; preserve that
+                                // policy instead of synthesizing movement events.
+                                return context.ProcessKeyDown(
+                                    static_cast<Rml::Input::KeyIdentifier>(key), modifiers);
+                        }
+                        return field_key(context, value, key, modifiers, *action);
+                    },
+                    *field);
             }
         return context.ProcessKeyDown(static_cast<Rml::Input::KeyIdentifier>(key), modifiers);
     }
