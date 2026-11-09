@@ -1,5 +1,6 @@
 #include "ui_markup.hpp"
 #include "ui_markup_authoring.hpp"
+#include <algorithm>
 #include <array>
 #include <forge/ui_assets.hpp>
 #include <iostream>
@@ -635,6 +636,139 @@ void stylesheet_rules() {
     forge::validate_ui_text(many + ".b{}", false);
     rejects([&] { forge::insert_ui_stylesheet_rule(many, ".b"); });
 }
+void reusable_styles() {
+    const std::string source =
+        "<rml><body data-model='demo'><p id='a' class='old' "
+        "data-class-hot='hot' style='color:red; width:2px;'>A</p><!-- gap -->"
+        "<button id='b' class=\"other\" style=\"color:blue;\">B</button>"
+        "<div><span>Nested</span></div></body></rml>";
+    const auto nodes = forge::inspect_ui_markup(source);
+    const std::array indices{find(source, "button"), find(source, "p")};
+    const auto values = forge::read_ui_markup_styles(source, nodes, indices, "color");
+    check(values == std::vector<std::optional<std::string>>{"blue", "red"},
+          "Group property read lost input order or mixed authored values");
+    const auto widths = forge::read_ui_markup_styles(source, nodes, indices, "width");
+    check(widths == std::vector<std::optional<std::string>>{std::nullopt, "2px"},
+          "Group property read confused missing and authored overrides");
+    auto expected = source;
+    expected.replace(expected.find("color:red;"), 10, "color:#abc;");
+    expected.replace(expected.find("color:blue;"), 11, "color:#abc;");
+    const auto styled = forge::set_ui_markup_styles(source, indices, "color", "#abc");
+    check(styled == expected &&
+              forge::set_ui_markup_styles(styled, indices, "color", "#abc") == styled,
+          "Atomic group styles rewrote unrelated source or changed an exact no-op");
+    expected = source;
+    expected.erase(expected.find("color:red;"), 10);
+    expected.erase(expected.find("color:blue;"), 11);
+    check(forge::set_ui_markup_styles(source, indices, "color", {}) == expected &&
+              forge::set_ui_markup_styles(source, indices, "absent", {}) == source,
+          "Group style removal damaged other declarations or missing-property history");
+    rejects([&] { forge::set_ui_markup_styles(source, indices, "font-family", "\"Lato\""); });
+    check(forge::read_ui_markup_classes(source, nodes, indices) ==
+              std::vector<std::optional<std::string>>{"other", "old"},
+          "Group class read lost authored values");
+    expected = source;
+    expected.replace(expected.find("class='old'"), 11, "class=\"Base hover_2\"");
+    expected.replace(expected.find("class=\"other\""), 13, "class=\"Base hover_2\"");
+    check(forge::set_ui_markup_classes(source, indices, "Base hover_2") == expected &&
+              expected.find("data-class-hot='hot'") != std::string::npos,
+          "Group class assignment changed IDs, runtime bindings or unrelated source");
+    const std::array paragraph{find(source, "p")};
+    check(forge::set_ui_markup_classes(source, paragraph, "old") == source,
+          "An identical logical class value rewrote original quote/attribute bytes");
+    expected = source;
+    expected.erase(expected.find("class='old'"), 11);
+    expected.erase(expected.find("class=\"other\""), 13);
+    check(forge::set_ui_markup_classes(source, indices, {}) == expected &&
+              forge::set_ui_markup_classes(expected, indices, {}) == expected,
+          "Group class clearing changed unrelated source or missing values");
+    const std::string encoded = "<rml><body><p class='one&#32;two'>X</p></body></rml>";
+    const auto encoded_nodes = forge::inspect_ui_markup(encoded);
+    const std::array encoded_index{find(encoded, "p")};
+    check(forge::read_ui_markup_classes(encoded, encoded_nodes, encoded_index).front() ==
+                  "one two" &&
+              forge::set_ui_markup_classes(encoded, encoded_index, "one two") == encoded,
+          "Class read/no-op damaged an existing encoded value");
+    for (const auto* value : {"", " ", "bad:name", "9first", "a\tb", "a a", "{{bound}}", "café"})
+        rejects([&] { forge::set_ui_markup_classes(source, indices, value); });
+    rejects([&] { forge::set_ui_markup_classes(source, indices, std::string(65, 'a')); });
+    rejects([&] { forge::set_ui_markup_classes(source, indices, std::string(1025, 'a')); });
+    std::string classes;
+    for (int i = 0; i < 32; ++i)
+        classes += "c" + std::to_string(i) + ' ';
+    check(forge::set_ui_markup_classes(source, indices, classes).find("class=\"") !=
+              std::string::npos,
+          "Class-list limit rejected its32-token boundary");
+    rejects([&] { forge::set_ui_markup_classes(source, indices, classes + "extra"); });
+    for (const auto* bad : {"<rml><body><p class='{{bound}}'>X</p></body></rml>",
+                            "<rml><body><p class='&#123;&#123;bound}}'>X</p></body></rml>",
+                            "<rml><body><p class='a' class='b'>X</p></body></rml>",
+                            "<rml><body><p class>X</p></body></rml>"}) {
+        const std::string text(bad);
+        const std::array selection{find(text, "p")};
+        rejects([&] { forge::set_ui_markup_classes(text, selection, "new"); });
+    }
+    const std::vector<std::vector<std::size_t>> invalid{{},
+                                                        {indices[0], indices[0]},
+                                                        {indices[0], find(source, "body")},
+                                                        {indices[0], find(source, "span")},
+                                                        std::vector<std::size_t>(33, indices[0])};
+    for (const auto& selection : invalid) {
+        rejects([&] { forge::set_ui_markup_styles(source, selection, "color", "red"); });
+        rejects([&] { forge::read_ui_markup_styles(source, nodes, selection, "color"); });
+        rejects([&] { forge::set_ui_markup_classes(source, selection, "new"); });
+        rejects([&] { forge::read_ui_markup_classes(source, nodes, selection); });
+    }
+    const std::string rules = "/* lead */ .a{color:red;} /* between */ .b{color:blue;} /* tail */";
+    std::string thirty_two = "<rml><body>";
+    for (int i = 0; i < 32; ++i)
+        thirty_two += "<p>Member</p>";
+    thirty_two += "</body></rml>";
+    std::vector<std::size_t> selection;
+    for (std::size_t i = 0; i < 32; ++i)
+        selection.push_back(33 - i);
+    auto all = forge::set_ui_markup_styles(thirty_two, selection, "color", "red");
+    all = forge::set_ui_markup_classes(all, selection, "shared");
+    const auto all_nodes = forge::inspect_ui_markup(all);
+    const auto all_styles = forge::read_ui_markup_styles(all, all_nodes, selection, "color");
+    const auto all_classes = forge::read_ui_markup_classes(all, all_nodes, selection);
+    check(all_styles.size() == 32 && all_classes.size() == 32 &&
+              std::ranges::all_of(all_styles, [](const auto& v) { return v == "red"; }) &&
+              std::ranges::all_of(all_classes, [](const auto& v) { return v == "shared"; }),
+          "Atomic group styling failed its32-distinct-member boundary");
+    const std::string budget = "<rml><body><p data-note='" + std::string(8100, 'x') +
+                               "'>A</p><button>B</button></body></rml>";
+    forge::validate_ui_text(budget, true);
+    const std::array budget_group{find(budget, "button"), find(budget, "p")};
+    rejects([&] {
+        forge::set_ui_markup_styles(budget, budget_group, "font-family",
+                                    "'" + std::string(200, 'a') + "'");
+    });
+    rejects([&] {
+        forge::set_ui_markup_classes(budget, budget_group,
+                                     std::string(60, 'a') + ' ' + std::string(60, 'b') + ' ' +
+                                         std::string(60, 'c'));
+    });
+    check(forge::duplicate_ui_stylesheet_rule(rules, 0) ==
+              "/* lead */ .a{color:red;}\n.a{color:red;} /* between */ .b{color:blue;} /* tail */",
+          "Rule copying changed original selectors, body or outside comments");
+    const auto swapped = "/* lead */ .b{color:blue;} /* between */ .a{color:red;} /* tail */";
+    check(forge::move_ui_stylesheet_rule(rules, 0, 1) == swapped &&
+              forge::move_ui_stylesheet_rule(rules, 1, -1) == swapped &&
+              forge::move_ui_stylesheet_rule(rules, 0, -1) == rules &&
+              forge::move_ui_stylesheet_rule(rules, 1, 1) == rules,
+          "Rule movement changed block/interstitial bytes or boundary no-ops");
+    const std::string same = ".a{} /* between */ .a{}";
+    check(forge::move_ui_stylesheet_rule(same, 0, 1) == same,
+          "Identical rule movement changed source bytes");
+    rejects([&] { forge::move_ui_stylesheet_rule(rules, 0, 2); });
+    rejects([&] { forge::move_ui_stylesheet_rule(".a{} @media(x){.b{}}", 0, 1); });
+    rejects([&] { forge::duplicate_ui_stylesheet_rule("@media(x){.b{}}", 0); });
+    std::string capped;
+    for (int i = 0; i < 4096; ++i)
+        capped += ".a{}";
+    rejects([&] { forge::duplicate_ui_stylesheet_rule(capped, 0); });
+}
 } // namespace
 int main() {
     try {
@@ -649,6 +783,7 @@ int main() {
         hierarchy_moves();
         inline_properties();
         stylesheet_rules();
+        reusable_styles();
         std::cout << "Source-preserving outline/attributes and shared validator errors passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

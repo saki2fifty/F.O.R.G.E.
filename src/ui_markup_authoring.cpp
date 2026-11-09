@@ -49,11 +49,86 @@ std::string replaced(std::string_view source, UiSourceRange range, std::string_v
     validate_ui_text(result, markup);
     return result;
 }
+using SourceEdit = std::pair<UiSourceRange, std::string>;
+std::string markup_edits(std::string_view source, std::vector<SourceEdit> edits) {
+    if (edits.empty())
+        return std::string(source);
+    std::ranges::sort(edits,
+                      [](const auto& a, const auto& b) { return a.first.begin > b.first.begin; });
+    std::string result(source);
+    auto next = source.size();
+    for (const auto& [range, value] : edits) {
+        require(range.begin <= range.end && range.end <= next, "Source replacements overlap");
+        next = range.begin;
+        result.replace(range.begin, range.end - range.begin, value);
+    }
+    validate_ui_text(result, true);
+    return result;
+}
 std::size_t attribute_insertion(std::string_view source, const UiMarkupElement& node) {
     auto position = node.opening.end - 1;
     if (source[position - 1] == '/')
         --position;
     return position;
+}
+const UiMarkupAttribute* markup_attribute(const UiMarkupElement& node, std::string_view name) {
+    const UiMarkupAttribute* found = nullptr;
+    for (const auto& attribute : node.attributes)
+        if (attribute.name == name) {
+            require(!found, "Resolve duplicate attributes in the source view first");
+            found = &attribute;
+        }
+    return found;
+}
+SourceEdit attribute_edit(std::string_view source, const UiMarkupElement& node,
+                          std::string_view name, const std::optional<std::string>& value) {
+    require(node.tag != "head" && node.tag != "style" && node.tag != "link" && node.tag != "meta",
+            "Edit resource and style attributes in the source view");
+    const auto* found = markup_attribute(node, name);
+    const auto insertion = attribute_insertion(source, node);
+    if (!value)
+        return {found ? found->source : UiSourceRange{insertion, insertion}, {}};
+    const auto assignment = std::string(name) + "=\"" + escaped(*value) + '"';
+    return found ? SourceEdit{found->source, assignment}
+                 : SourceEdit{{insertion, insertion}, " " + assignment};
+}
+void literal_classes(std::string_view value) {
+    require(!value.empty() && value.size() <= 1024,
+            "Use1..1024 bytes of literal classes, or clear them");
+    std::vector<std::string_view> names;
+    for (auto begin = value.find_first_not_of(' '); begin != value.npos;) {
+        auto end = value.find(' ', begin);
+        if (end == value.npos)
+            end = value.size();
+        const auto name = value.substr(begin, end - begin);
+        const auto letter = [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); };
+        require(name.size() <= 64 && (letter(name.front()) || name.front() == '_') &&
+                    std::ranges::all_of(name,
+                                        [&](char c) {
+                                            return letter(c) || (c >= '0' && c <= '9') ||
+                                                   c == '_' || c == '-';
+                                        }),
+                "Use space-separated ASCII classes starting with a letter or underscore, up to64 "
+                "bytes each");
+        require(names.size() < 32 && std::ranges::find(names, name) == names.end(),
+                "Use at most32 distinct class names");
+        names.push_back(name);
+        begin = value.find_first_not_of(' ', end);
+    }
+    require(!names.empty(), "Enter a literal class list or clear it");
+}
+std::optional<std::string> class_value(std::string_view source, const UiMarkupElement& node) {
+    const auto* attribute = markup_attribute(node, "class");
+    if (attribute) {
+        require(attribute->has_value, "Class attributes without values use Source");
+        const auto text =
+            source.substr(attribute->value.begin, attribute->value.end - attribute->value.begin);
+        auto value = Rml::StringUtilities::DecodeRml(std::string(text));
+        require(value.find("{{") == value.npos && value.find('\0') == value.npos,
+                "Dynamic or NUL-containing classes use Source");
+        return value;
+    }
+    return {};
 }
 bool contains(UiSourceRange outer, UiSourceRange inner) {
     return inner.begin >= outer.begin && inner.end <= outer.end;
@@ -225,6 +300,26 @@ std::pair<UiSourceRange, std::string> style_edit(std::string_view text,
     const bool separator =
         !declarations.empty() && declarations.back().source.end == declarations.back().value.end;
     return {{text.size(), text.size()}, (separator ? ";" : "") + declaration};
+}
+SourceEdit markup_style_edit(std::string_view source, const UiMarkupElement& node,
+                             std::string_view property, const std::optional<std::string>& value) {
+    const auto style = inline_style_source(source, node);
+    require(!value || value->find('&') == value->npos, "Entity-encoded inline styles use Source");
+    const auto edit = style_edit(style.text, style.declarations, property, value);
+    if (!style.attribute) {
+        const auto position = attribute_insertion(source, node);
+        if (!value)
+            return {{position, position}, {}};
+        const auto& declaration = edit.second;
+        const char quote = declaration.find('"') == declaration.npos ? '"' : '\'';
+        require(declaration.find(quote) == declaration.npos,
+                "Values requiring both attribute quote forms use Source");
+        return {{position, position}, " style=" + std::string(1, quote) + declaration + quote};
+    }
+    require(!value || value->find(style.attribute->quote) == value->npos,
+            "Use CSS quotes different from the inline attribute quotes, or edit in Source");
+    const auto offset = style.attribute->value.begin;
+    return {{offset + edit.first.begin, offset + edit.first.end}, edit.second};
 }
 const UiStyleRule& stylesheet_rule(std::span<const UiStyleRule> rules, std::size_t index) {
     require(index < rules.size(), "Choose a rule from the current stylesheet outline");
@@ -417,40 +512,15 @@ std::string set_ui_markup_layouts(std::string_view source,
                                std::string(buffer.data(), formatted.ptr) + "px");
         }
     }
-    if (edits.empty())
-        return std::string(source);
-    std::ranges::sort(edits,
-                      [](const auto& a, const auto& b) { return a.first.begin > b.first.begin; });
-    std::string result(source);
-    std::size_t next_begin = source.size();
-    for (const auto& [range, value] : edits) {
-        require(range.end <= next_begin, "Canvas layout replacements overlap");
-        next_begin = range.begin;
-        result.replace(range.begin, range.end - range.begin, value);
-    }
-    validate_ui_text(result, true);
-    return result;
+    return markup_edits(source, std::move(edits));
 }
 std::string set_ui_markup_attribute(std::string_view source, std::size_t index,
                                     std::string_view name, std::optional<std::string> value) {
     identifier(name);
     const auto nodes = inspect_ui_markup(source);
     const auto& node = element(nodes, index);
-    require(node.tag != "head" && node.tag != "style" && node.tag != "link" && node.tag != "meta",
-            "Edit resource and style attributes in the source view");
-    const UiMarkupAttribute* found = nullptr;
-    for (const auto& attribute : node.attributes)
-        if (attribute.name == name) {
-            require(!found, "Resolve duplicate attributes in the source view first");
-            found = &attribute;
-        }
-    if (!value)
-        return found ? replaced(source, found->source, {}) : std::string(source);
-    const auto assignment = std::string(name) + "=\"" + escaped(*value) + '"';
-    if (found)
-        return replaced(source, found->source, assignment);
-    const auto insertion = attribute_insertion(source, node);
-    return replaced(source, {insertion, insertion}, " " + assignment);
+    const auto edit = attribute_edit(source, node, name, value);
+    return replaced(source, edit.first, edit.second);
 }
 std::optional<std::string> read_ui_markup_style(std::string_view source,
                                                 std::span<const UiMarkupElement> nodes,
@@ -465,28 +535,55 @@ std::optional<std::string> read_ui_markup_style(std::string_view source,
 }
 std::string set_ui_markup_style(std::string_view source, std::size_t index,
                                 std::string_view property, std::optional<std::string> value) {
+    const std::array indices{index};
+    return set_ui_markup_styles(source, indices, property, std::move(value));
+}
+std::vector<std::optional<std::string>>
+read_ui_markup_styles(std::string_view source, std::span<const UiMarkupElement> nodes,
+                      std::span<const std::size_t> indices, std::string_view property) {
+    (void)sibling_ranges(nodes, indices);
+    std::vector<std::optional<std::string>> values;
+    values.reserve(indices.size());
+    for (const auto index : indices)
+        values.push_back(read_ui_markup_style(source, nodes, index, property));
+    return values;
+}
+std::string set_ui_markup_styles(std::string_view source, std::span<const std::size_t> indices,
+                                 std::string_view property, std::optional<std::string> value) {
     identifier(property);
     const auto nodes = inspect_ui_markup(source);
-    const auto& node = element(nodes, index);
-    editable(node);
-    const auto style = inline_style_source(source, node);
-    require(!value || value->find('&') == value->npos, "Entity-encoded inline styles use Source");
-    const auto edit = style_edit(style.text, style.declarations, property, value);
-    if (!style.attribute) {
-        if (!value)
-            return std::string(source);
-        const auto& declaration = edit.second;
-        const char quote = declaration.find('"') == declaration.npos ? '"' : '\'';
-        require(declaration.find(quote) == declaration.npos,
-                "Values requiring both attribute quote forms use Source");
-        const auto position = attribute_insertion(source, node);
-        return replaced(source, {position, position},
-                        " style=" + std::string(1, quote) + declaration + quote);
+    (void)sibling_ranges(nodes, indices);
+    std::vector<SourceEdit> edits;
+    edits.reserve(indices.size());
+    for (const auto index : indices)
+        edits.push_back(markup_style_edit(source, nodes[index], property, value));
+    return markup_edits(source, std::move(edits));
+}
+std::vector<std::optional<std::string>>
+read_ui_markup_classes(std::string_view source, std::span<const UiMarkupElement> nodes,
+                       std::span<const std::size_t> indices) {
+    (void)sibling_ranges(nodes, indices);
+    std::vector<std::optional<std::string>> values;
+    values.reserve(indices.size());
+    for (const auto index : indices)
+        values.push_back(class_value(source, nodes[index]));
+    return values;
+}
+std::string set_ui_markup_classes(std::string_view source, std::span<const std::size_t> indices,
+                                  std::optional<std::string> value) {
+    if (value)
+        literal_classes(*value);
+    const auto nodes = inspect_ui_markup(source);
+    (void)sibling_ranges(nodes, indices);
+    std::vector<SourceEdit> edits;
+    edits.reserve(indices.size());
+    for (const auto index : indices) {
+        const auto& node = nodes[index];
+        if (class_value(source, node) == value)
+            continue;
+        edits.push_back(attribute_edit(source, node, "class", value));
     }
-    require(!value || value->find(style.attribute->quote) == value->npos,
-            "Use CSS quotes different from the inline attribute quotes, or edit in Source");
-    const auto offset = style.attribute->value.begin;
-    return replaced(source, {offset + edit.first.begin, offset + edit.first.end}, edit.second);
+    return markup_edits(source, std::move(edits));
 }
 std::optional<std::string> read_ui_stylesheet_property(std::string_view source,
                                                        std::span<const UiStyleRule> rules,
@@ -530,6 +627,31 @@ std::string insert_ui_stylesheet_rule(std::string_view source, std::string_view 
 std::string remove_ui_stylesheet_rule(std::string_view source, std::size_t index) {
     const auto rules = inspect_ui_stylesheet(source);
     return replaced(source, stylesheet_rule(rules, index).source, {}, false);
+}
+std::string duplicate_ui_stylesheet_rule(std::string_view source, std::size_t index) {
+    const auto rules = inspect_ui_stylesheet(source);
+    const auto& rule = stylesheet_rule(rules, index);
+    require(rules.size() < 4096, "Stylesheet outline exceeds4096 blocks");
+    return replaced(
+        source, {rule.source.end, rule.source.end},
+        "\n" + std::string(source.substr(rule.source.begin, rule.source.end - rule.source.begin)),
+        false);
+}
+std::string move_ui_stylesheet_rule(std::string_view source, std::size_t index, int direction) {
+    require(direction == -1 || direction == 1, "Move a stylesheet rule up or down by one");
+    const auto rules = inspect_ui_stylesheet(source);
+    (void)stylesheet_rule(rules, index);
+    if ((direction < 0 && index == 0) || (direction > 0 && index + 1 == rules.size()))
+        return std::string(source);
+    const auto other = direction < 0 ? index - 1 : index + 1;
+    (void)stylesheet_rule(rules, other);
+    const auto first = rules[std::min(index, other)].source;
+    const auto second = rules[std::max(index, other)].source;
+    const auto a = source.substr(first.begin, first.end - first.begin);
+    const auto between = source.substr(first.end, second.begin - first.end);
+    const auto b = source.substr(second.begin, second.end - second.begin);
+    return replaced(source, {first.begin, second.end},
+                    std::string(b) + std::string(between) + std::string(a), false);
 }
 std::string set_ui_markup_text(std::string_view source, std::size_t index,
                                std::string_view literal) {

@@ -1,5 +1,17 @@
 # 2026-11-09
 
+## Reusable UI styling
+
+Elements supports authored sibling-group property editing and literal class
+assignment with explicit mixed-value feedback, atomic validation and one Undo.
+Styles, classes and pixel layout reuse source patch composition; class assignment
+retains other bindings/IDs and equal-value source encoding. Rules adds Copy and
+adjacent flat ordering with explicit cascade effects and protected nested barriers.
+Six matching read/write operations bring source MCP tools to32, sharing native
+guards/grants/replay/history and explicit Save. Long/ambiguous/dynamic forms retain
+Source access. Actual native controls and saved/exported class/cascade behavior
+cover the workflows; Gallery/SDK/pins/runtime profiles remain unchanged.
+
 ## Stylesheet rule authoring
 
 UI Source offers Rules for RCSS: navigate flat selectors, read/set/remove their

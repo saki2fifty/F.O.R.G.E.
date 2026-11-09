@@ -53,6 +53,18 @@ std::optional<std::string> read_ui_markup_style(std::string_view, std::span<cons
                                                 std::size_t element, std::string_view property);
 std::string set_ui_markup_style(std::string_view, std::size_t element, std::string_view property,
                                 std::optional<std::string> value);
+// Same-parent editable siblings, input order retained in copied read values.
+std::vector<std::optional<std::string>> read_ui_markup_styles(std::string_view,
+                                                              std::span<const UiMarkupElement>,
+                                                              std::span<const std::size_t>,
+                                                              std::string_view property);
+std::string set_ui_markup_styles(std::string_view, std::span<const std::size_t>,
+                                 std::string_view property, std::optional<std::string> value);
+std::vector<std::optional<std::string>> read_ui_markup_classes(std::string_view,
+                                                               std::span<const UiMarkupElement>,
+                                                               std::span<const std::size_t>);
+std::string set_ui_markup_classes(std::string_view, std::span<const std::size_t>,
+                                  std::optional<std::string> value);
 std::optional<std::string> read_ui_stylesheet_property(std::string_view,
                                                        std::span<const UiStyleRule>,
                                                        std::size_t rule, std::string_view property);
@@ -62,6 +74,8 @@ std::string set_ui_stylesheet_selector(std::string_view, std::size_t rule,
                                        std::string_view selector);
 std::string insert_ui_stylesheet_rule(std::string_view, std::string_view selector);
 std::string remove_ui_stylesheet_rule(std::string_view, std::size_t rule);
+std::string duplicate_ui_stylesheet_rule(std::string_view, std::size_t rule);
+std::string move_ui_stylesheet_rule(std::string_view, std::size_t rule, int direction);
 std::string set_ui_markup_text(std::string_view, std::size_t element, std::string_view literal);
 std::string insert_ui_markup_child(std::string_view, std::size_t parent, std::string_view tag,
                                    std::string_view literal = {},

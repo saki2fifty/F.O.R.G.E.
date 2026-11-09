@@ -51,7 +51,7 @@ attribute/text/child/order/removal, history, CRLF, invalid drafts, conflicts,
 read-only state, close/cancel/discard, moves/deletion and long-text protection.
 The C++ history fixture checks the shared widget replacement helper.
 `sprite_atlas_source_editor` also verifies hook-only document entries are excluded
-from typed-source discovery and dispatch. `mcp_ui_source_stdio` exercises26 actual
+from typed-source discovery and dispatch. `mcp_ui_source_stdio` exercises32 actual
 native-owner tools through both MCP envelopes, grants, stale guards, source-owned
 raw-write rejection, history, conflicts, RCSS and dirty-source Play rejection.
 It includes native draft geometry, source/preview guards, unsupported layouts and
@@ -104,6 +104,19 @@ oversized-value protection. Both source MCP envelopes exercise rule discovery,
 read-only access, current guards, property replay/no-op, atomic invalid/unsupported
 rejection and one-step history. The scratch linked stylesheet authors a selector/
 color; native styling is checked after Save and source-hidden package relocation.
+
+Reusable styling tests cover ordered mixed/absent reads,32distinct-member source
+patching, literal classes/entities/equal-value preservation, bindings/IDs, partial
+member/value/whole-tag rejection and class/rule limits. Native group/Classes and
+flat Copy/Move controls exercise mixed feedback, explicit input, retained selection,
+barriers/no-ops and one Undo at1180/700/400. Both MCP envelopes cover the six matching
+methods, read-only discovery/dispatch, stale guards, replay and atomic history.
+The combined source MCP case has a300-second suite budget; individual request
+timeouts remain unchanged.
+Scratch linked rules prove the copied class rule wins#aabbcc, then reordering
+restores#6ac98a; authored classes/backgrounds and the actual native cascade survive
+Save/source-hidden relocation. The shared input fixture names absent controls
+and display widths while retaining its real input/clipping checks.
 
 `ui_draft_resources` covers immutable draft admission, correction of invalid saved
 bytes, scope/budgets and package rejection. `ui_source_preview` checks native

@@ -26,7 +26,11 @@ class ImGuiInputDriver {
         bool visible = false;
         for (unsigned attempt = 0; attempt < 40; ++attempt) {
             frame_();
-            box = test::ui_targets.at(key);
+            const auto found = test::ui_targets.find(key);
+            if (found == test::ui_targets.end())
+                throw std::runtime_error(std::string("Display control is absent: ") + key +
+                                         " at scale " + std::to_string(io.DisplaySize.x));
+            box = found->second;
             const auto source = box;
             if (selectable) {
                 box.minimum.x = std::max(box.minimum.x, box.clip_minimum.x);

@@ -32,6 +32,21 @@ while stylesheet quotes retain their distinct semantics. Selector edits and rule
 append/removal preserve unrelated source and use the same document/history. Native
 and MCP readers/mutations borrow these operations with ordinary grants/revision/
 replay/lock rules; there is no second stylesheet parser or computed-style owner.
+
+Atomic sibling styling validates1..32distinct editable siblings from one admitted
+snapshot, then composes disjoint declaration/attribute range patches before full
+candidate admission and one replacement. Pixel layout reuses that same patch
+composer. Ordered optional read values distinguish uniform absence from mixed
+authored values without evaluating bindings. Class assignment reuses the attribute
+owner and a bounded literal list; identical decoded lists preserve original
+quotes/entities, and direct/encoded expressions stay Source. Other bindings and
+IDs remain unchanged. Native controls and guarded MCP share these operations and
+restore copied transient selection only after successful source publication.
+
+Flat rule copy retains its selector and body; adjacent flat reordering preserves
+interstitial source. At-rule/nested barriers stay Source. Source order can change
+the native cascade; no computed-style or specificity rewrite is attempted. Copy
+and changed moves select the resulting transient index and share ordinary history.
 Save shares `ProjectTextSource` containment, UTF-8 validation, baseline checks and
 atomic replacement with raw automation, preserving uniform CRLF. It does not
 publish catalog metadata or reload presentation. Raw automation cannot overwrite

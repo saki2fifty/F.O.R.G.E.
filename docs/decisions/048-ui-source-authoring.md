@@ -132,6 +132,14 @@ an inline-only restriction. Selector editing and rule insertion/removal remain
 source replacements under the same draft/history/guards. At-rules/nested blocks
 stay Source; native DOM parsing or serialization supplies no authoring identity.
 
+Sibling style/class operations borrow the existing sibling admission and source
+patch composer, sharing value/attribute validation and one complete replacement.
+Read values remain ordered optional authored values, with explicit mixed feedback
+in native/MCP consumers. Selection is copied before replacement can clear it.
+Literal class assignment retains binding/ID ownership and existing equal-value
+encoding; flat rule copy/order remains source manipulation under the same owner.
+No extracted theme, second stylesheet parser or persistent source identity follows.
+
 Source-preview image output borrows the same observed native image through
 ViewImageTask. A rendered input retains the source/preview identity and rechecks
 it before the existing nonblocking GPU copy is submitted. Pending observations

@@ -232,6 +232,11 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
                 reparent_ui_markup_elements(candidate, fields, by_id(candidate, "field-group"));
             candidate = set_ui_markup_style(candidate, by_id(candidate, "field-group"),
                                             "background-color", "#253f59");
+            const std::array styled_fields{by_id(candidate, "copied-clone-entry"),
+                                           by_id(candidate, "copied-clone-label")};
+            candidate =
+                set_ui_markup_styles(candidate, styled_fields, "background-color", "#334455");
+            candidate = set_ui_markup_classes(candidate, styled_fields, "shared-widget");
             check(presenter.preview_document({asset}, layout_document, candidate, 800, 600),
                   "Gallery draft preview did not load");
             const auto view = presenter.preview_layout();
@@ -240,17 +245,36 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
                   "Gallery draft preview lost pixel layout eligibility");
             check(ProjectTextSource::read(file) == text && !presenter.asset_snapshot(),
                   "Gallery preview published source or catalog observations");
-            ProjectLease lease(root);
-            ProjectTextSource::validate(file, candidate);
-            ProjectTextSource::write_validated(file, text, candidate);
             const auto style_file = ProjectTextSource::path(root, "Assets/UI/Layout/layout.rcss");
             const auto saved_style = ProjectTextSource::read(style_file);
             check(saved_style.has_value(), "Gallery linked stylesheet missing");
-            auto styled = insert_ui_stylesheet_rule(*saved_style, "#copied-clone-label");
+            auto styled = insert_ui_stylesheet_rule(*saved_style, ".shared-widget");
             const auto rule = inspect_ui_stylesheet(styled).size() - 1;
             styled = set_ui_stylesheet_property(styled, rule, "color", "#6ac98a");
-            ProjectTextSource::validate(style_file, styled);
-            ProjectTextSource::write_validated(style_file, saved_style, styled);
+            styled = duplicate_ui_stylesheet_rule(styled, rule);
+            styled = set_ui_stylesheet_property(styled, rule + 1, "color", "#aabbcc");
+            {
+                ProjectLease lease(root);
+                ProjectTextSource::validate(file, candidate);
+                ProjectTextSource::write_validated(file, text, candidate);
+                ProjectTextSource::validate(style_file, styled);
+                ProjectTextSource::write_validated(style_file, saved_style, styled);
+            }
+            presenter.reset("style-copy-cascade", 1);
+            check(presenter.preview_document({asset}, layout_document, candidate, 800, 600),
+                  "Copied class stylesheet preview did not load");
+            for (const auto* id : {"copied-clone-entry", "copied-clone-label"}) {
+                auto* node = Rml::GetContext(0)->GetDocument(0)->GetElementById(id);
+                const auto* color = node ? node->GetProperty("color") : nullptr;
+                check(color && color->Get<Rml::Colourb>() == Rml::Colourb(170, 187, 204, 255),
+                      "Native copied rule did not win the shared class cascade");
+            }
+            const auto reordered = move_ui_stylesheet_rule(styled, rule + 1, -1);
+            {
+                ProjectLease lease(root);
+                ProjectTextSource::validate(style_file, reordered);
+                ProjectTextSource::write_validated(style_file, styled, reordered);
+            }
             text = candidate;
         }
         presenter.reset("layout-runtime", 1);
@@ -291,6 +315,15 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
         const auto* label_color = copied_label->GetProperty("color");
         check(label_color && label_color->Get<Rml::Colourb>() == Rml::Colourb(106, 201, 138, 255),
               "Saved/exported linked stylesheet lost its authored selector/declaration color");
+        for (auto* node : {copied_input, copied_label}) {
+            check(node->GetAttribute<Rml::String>("class", "") == "shared-widget",
+                  "Saved/exported group class assignment lost its literal class list");
+            const auto* fill = node->GetProperty("background-color");
+            const auto* color = node->GetProperty("color");
+            check(fill && fill->Get<Rml::Colourb>() == Rml::Colourb(51, 68, 85, 255) && color &&
+                      color->Get<Rml::Colourb>() == Rml::Colourb(106, 201, 138, 255),
+                  "Saved/exported group styles or reordered class cascade changed native values");
+        }
         const auto label_position = copied_label->GetAbsoluteOffset(Rml::BoxArea::Border);
         const auto label_size = copied_label->GetBox().GetSize(Rml::BoxArea::Border);
         check(label_size.x > 0 && label_size.y > 0, "Cloned runtime label has no native hit box");

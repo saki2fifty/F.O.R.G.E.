@@ -71,6 +71,39 @@ For example, use CSS single quotes inside a double-quoted attribute. Source
 admission checks structure and resource limits; Preview and Play check native
 CSS behavior. These controls do not provide a complete theme or responsive designer.
 
+## Style several controls together
+
+1. In **Elements**, select a widget and **Ctrl**-click its siblings. Choose up to 32 widgets with the same parent.
+2. Expand **Group inline style**. Choose the property and **Read inline** to inspect authored values.
+3. If the values differ, the field is blank and **Mixed authored values** appears. Enter the value you want to apply to every selected sibling, then choose **Set property**. **Remove property** removes that override from the whole selection.
+4. The group stays selected after an edit. Each change is one **Undo** step; an invalid member or value rejects the whole change.
+
+![Selected siblings with Group inline style and one shared authored color](../images/ui-source-group-styling.png)
+
+Read inspects authored declarations, without computing stylesheets or evaluating
+bindings. A uniform absent property leaves the field blank without the mixed
+message. Use Preview and Play to check the result. The same name/value/quote/source
+limits apply as single-widget inline styles. A property change does not alter
+other declarations, bindings or widget IDs. Save remains explicit.
+
+## Assign reusable classes
+
+1. Select one widget or a sibling group in **Elements** and expand **Classes**.
+2. Choose **Read classes**. Different authored lists display **Mixed authored class lists** and leave the field blank.
+3. Enter a **Class list**, such as `shared Active`, then choose **Set classes**. This replaces the complete authored list on every selected sibling.
+4. Use **Clear classes** to remove those class attributes. Each change is one Undo step; runtime class bindings remain intact.
+5. Save the RML source. In its linked stylesheet's **Rules** view, use a selector such as `.shared` to style those widgets, save the stylesheet and refresh the RML preview or Reload UI in Play.
+
+![Classes controls applying a shared literal class list to selected siblings](../images/ui-source-classes.png)
+
+Enter names without a leading dot. The control accepts up to 32 distinct,
+space-separated ASCII names, 64 bytes per name and 1,024 bytes total. Names start
+with a letter or `_`, followed by letters, digits, `_` or `-`. Other class forms,
+duplicate attributes, direct class expressions and lists too large for the field
+use Source. Existing entities are decoded for reading; setting an identical list
+retains its original encoding and quotes. Clear on absent attributes is a no-op.
+Bindings can still change the active classes during Play.
+
 ## Duplicate a static control
 
 1. In **Elements**, select a static control or container.
@@ -245,6 +278,15 @@ Rules edit the stylesheet source; they do not show computed CSS. Order, specific
 inline styles and bindings affect the result. Other rules, declarations and
 surrounding comments retain their bytes. Identical source results create no Undo
 step. After Undo/Redo or a structural source edit, select the rule again.
+
+Use **Copy rule** to insert an unchanged copy immediately after the selected flat
+block. The selector stays the same and the copy becomes selected. Change its
+selector or properties as needed. **Move rule up** and **Move rule down** swap
+adjacent flat blocks; they cannot cross at-rules or nested blocks. Order can change
+which declaration wins. Comments inside a block travel with it; comments between
+blocks remain between them. Copy and each changed move use one Undo step. Boundary
+or identical-source moves create no history. Save, then refresh native UI to check
+the cascade.
 
 At-rules, nested blocks and incomplete source stay in **Source**. The outline
 supports up to 4,096 top-level blocks. New selectors fit 1,024 UTF-8 bytes and do

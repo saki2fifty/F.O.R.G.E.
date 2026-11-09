@@ -1182,6 +1182,31 @@ until tree traversal finishes. View/focus/lock/source/close cancellation prevent
 stale delivery, and shared source-gesture locks cover Save/history/programmatic
 mutations. No agent-only drag implementation or persistent source identity exists.
 
+`forge_ui_source_style_group_read` takes guards, `elements` and `name`;
+`forge_ui_source_classes_read` omits `name`. Assets.read suffices. Both validate
+1..32distinct editable RML siblings and return ordered `{element,value}` rows,
+`mixed` and a uniform `value`. Null with mixed:false means absent; mixed:true has
+null uniform value and preserves each row's observation. No native initialization,
+computed styles, selection/history writes or registration occurs.
+
+`forge_ui_source_style_group` uses assets.write and `elements/name/value` (null
+removes), with the existing inline source profile. `forge_ui_source_classes` takes
+`elements/value` (null clears). Its literal class list fits1024ASCIIbytes, up to32
+distinct space-separated tokens of64bytes, starting with a letter/underscore and
+continuing with letters/digits/_/-. Existing direct/encoded class expressions,
+ambiguous attributes and NUL values stay Source. Equal decoded class values retain
+original quotes/entities. All-member source validation precedes one replacement
+and Undo; changed source retains the edited group. Other declarations/bindings/IDs
+remain untouched. Revisions/grants/replay/locks/no-ops/Save use the native owner.
+
+`forge_ui_source_rule_copy` inserts an unchanged flat block/selector after itself
+with a newline and selects its new index. `forge_ui_source_rule_move` takes `rule`
+and `direction:-1/1`, swapping adjacent flat blocks while keeping interstitial
+bytes. At-rules/nested barriers use Source. Boundary/identical-source moves retain
+history/selection; changed moves select the moved rule. Order affects native
+cascade; neither operation renames selectors or rewrites specificity. Existing
+source guards/assets.write/replay/Undo/Save and4096block profile apply.
+
 `forge_ui_source_preview` borrows that draft while Play is stopped. It needs
 `assets.read`, current `path/session/revision/state` guards, `width` and `height`
 in1..2048 and optional `density` in0.5..4 (default1). It reloads saved linked

@@ -460,6 +460,34 @@ void exercise_stylesheet(const std::filesystem::path& output, int width) {
     check(editor.state() == styled_state, "Stylesheet read/no-op changed source/history");
     frame();
     capture.save(output / ("ui-source-rules-" + std::to_string(width) + ".png"));
+    input.click("ui-source:rule-copy");
+    const std::string fragment = ".accent { color:#77bdf7; }";
+    auto copied = styled;
+    const auto insertion = copied.find(fragment) + fragment.size();
+    copied.insert(insertion, "\n" + fragment);
+    check(editor.state().at("text") == copied && editor.state().at("rule_selection") == 1,
+          "Native rule copy changed source or failed to select the new block");
+    const auto copied_state = editor.state();
+    input.click("ui-source:rule-up");
+    check(editor.state() == copied_state, "Identical native rule move changed history/selection");
+    check(test::ui_targets.contains("ui-source:rule-down"), "Native rule-down control absent");
+    check(!test::ui_targets.at("ui-source:rule-down").enabled,
+          "Native rule movement exposed an at-rule barrier");
+    input.type("ui-source:style-value", "#112233");
+    input.click("ui-source:style-set");
+    auto edited_copy = copied;
+    edited_copy.replace(edited_copy.find("#77bdf7", insertion), 7, "#112233");
+    input.click("ui-source:rule-up");
+    auto moved = styled;
+    moved.replace(moved.find(fragment), fragment.size(), ".accent { color:#112233; }\n" + fragment);
+    check(editor.state().at("text") == moved && editor.state().at("rule_selection") == 0,
+          "Native rule order lost the moved source or selected index");
+    input.click("button:Undo");
+    check(editor.state().at("text") == edited_copy, "Rule movement needed more than one Undo");
+    input.click("button:Undo");
+    check(editor.state().at("text") == copied, "Copied rule editing needed more than one Undo");
+    input.click("button:Undo");
+    check(editor.state().at("text") == styled, "Rule copy needed more than one Undo");
     input.click("button:Undo");
     check(editor.state().at("text") == draft, "Stylesheet property needed more than one Undo");
     input.click("button:Redo");
@@ -519,11 +547,93 @@ void exercise_stylesheet(const std::filesystem::path& output, int width) {
     editor.replace_text(".large{color:" + std::string(9000, 'a') + ";}");
     frame();
     input.click("ui-source:rule:0");
+    check(test::ui_targets.contains("ui-source:style-set"), "Oversized-value style control absent");
     check(!test::ui_targets.at("ui-source:style-set").enabled,
           "An oversized CSS value exposed a silently truncated native replacement");
     editor.reload(project, true);
     editor.request_close();
     check(!editor.is_open() && editor.rules().empty(), "Close retained stylesheet ranges");
+    const auto group_file = root / "Assets/Group.rml";
+    asset_storage::replace(
+        group_file, "<rml><body data-model='demo'><p id='a' class='first' "
+                    "data-class-hot='hot' style='color:red;'>A</p><button id='b' class='second' "
+                    "style='color:blue;'>B</button></body></rml>\n");
+    editor.open(project, "Assets/Group.rml");
+    frame();
+    frame();
+    input.click("ui-source:elements-tab");
+    const auto group_original = editor.state().at("text").get<std::string>();
+    const auto choose_group = [&] {
+        input.click("ui-source:element:2");
+        io.AddKeyEvent(ImGuiMod_Ctrl, true);
+        frame();
+        input.click("ui-source:element:3");
+        io.AddKeyEvent(ImGuiMod_Ctrl, false);
+        frame();
+    };
+    choose_group();
+    input.click("ui-source:style-open");
+    check(test::ui_targets.contains("ui-source:style-mixed"),
+          "Native group property controls silently chose one mixed value");
+    const auto mixed = editor.state();
+    input.click("ui-source:style-set");
+    check(editor.state() == mixed, "An empty mixed property partially overwrote the group");
+    input.type("ui-source:style-value", "#77bdf7");
+    input.click("ui-source:style-set");
+    auto uniform = group_original;
+    uniform.replace(uniform.find("color:red"), 9, "color:#77bdf7");
+    uniform.replace(uniform.find("color:blue"), 10, "color:#77bdf7");
+    frame();
+    check(editor.state().at("text") == uniform &&
+              editor.state().at("selection") == Json::array({2, 3}) &&
+              !test::ui_targets.contains("ui-source:style-mixed"),
+          "Native group style edit lost source, retained selection or uniform feedback");
+    const auto uniform_state = editor.state();
+    input.type("ui-source:style-value", "scratch");
+    input.click("ui-source:style-read");
+    input.click("ui-source:style-set");
+    check(editor.state() == uniform_state, "Native group read/no-op changed history");
+    frame();
+    capture.save(output / ("ui-source-group-styling-" + std::to_string(width) + ".png"));
+    input.click("ui-source:style-open");
+    input.click("ui-source:classes-open");
+    check(test::ui_targets.contains("ui-source:classes-mixed") &&
+              !test::ui_targets.at("ui-source:classes-set").enabled,
+          "Native class controls silently chose one mixed class list");
+    input.type("ui-source:classes-value", "shared Active");
+    input.click("ui-source:classes-set");
+    auto assigned = uniform;
+    assigned.replace(assigned.find("class='first'"), 13, "class=\"shared Active\"");
+    assigned.replace(assigned.find("class='second'"), 14, "class=\"shared Active\"");
+    frame();
+    check(editor.state().at("text") == assigned &&
+              editor.state().at("selection") == Json::array({2, 3}) &&
+              !test::ui_targets.contains("ui-source:classes-mixed") &&
+              assigned.find("data-class-hot='hot'") != std::string::npos,
+          "Native class assignment lost group source, selection or runtime binding");
+    input.type("ui-source:classes-value", "scratch");
+    input.click("ui-source:classes-read");
+    input.click("ui-source:classes-set");
+    check(editor.state().at("text") == assigned, "Native class read changed the authored list");
+    frame();
+    capture.save(output / ("ui-source-classes-" + std::to_string(width) + ".png"));
+    input.click("ui-source:classes-clear");
+    check(editor.state().at("text").get<std::string>().find("class=\"shared Active\"") ==
+                  std::string::npos &&
+              editor.state().at("text").get<std::string>().find("data-class-hot='hot'") !=
+                  std::string::npos,
+          "Native class clearing removed runtime bindings or retained authored lists");
+    input.click("button:Undo");
+    check(editor.state().at("text") == assigned, "Class clearing needed more than one Undo");
+    input.click("button:Undo");
+    check(editor.state().at("text") == uniform, "Class assignment/no-op needed more than one Undo");
+    input.click("button:Undo");
+    check(editor.state().at("text") == group_original, "Group property needed more than one Undo");
+    check(scene.snapshot() == scene_before &&
+              asset_storage::read(root / "forge.assets.json") == catalog,
+          "Reusable source styling changed Scene or asset ownership");
+    editor.reload(project, true);
+    editor.request_close();
 }
 } // namespace
 int main(int argc, char** argv) {

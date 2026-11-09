@@ -37,6 +37,9 @@ class UiSourceEditor {
     char duplicate_prefix_[65]{};
     char style_name_[65] = "color", style_value_[8193]{};
     std::string style_error_;
+    bool style_mixed_ = false, classes_mixed_ = false;
+    char classes_[1025]{};
+    std::string classes_error_;
     std::size_t hierarchy_parent_ = UiMarkupElement::no_parent;
     std::size_t hierarchy_before_ = UiMarkupElement::no_parent;
     std::uint64_t drag_epoch_ = 0;
@@ -108,6 +111,8 @@ class UiSourceEditor {
         outline_error_.clear();
         selected_.clear();
         style_error_.clear();
+        classes_error_.clear();
+        style_mixed_ = classes_mixed_ = false;
         hierarchy_parent_ = hierarchy_before_ = UiMarkupElement::no_parent;
         dirty_ = close_ = false;
         editor_.SetText("");
@@ -213,13 +218,23 @@ class UiSourceEditor {
     }
     void read_style_controls() {
         style_error_.clear();
+        style_mixed_ = false;
         style_value_[0] = 0;
         const bool sheet = locator_.extension() == ".rcss";
         if (sheet ? selected_rule_ >= rules_.size() : selected_element() >= outline_.size())
             return;
         try {
-            const auto value = sheet ? read_rule_property(selected_rule_, style_name_)
-                                     : read_style(selected_element(), style_name_);
+            std::optional<std::string> value;
+            if (sheet)
+                value = read_rule_property(selected_rule_, style_name_);
+            else {
+                const auto values = read_styles(selected_, style_name_);
+                style_mixed_ = !std::ranges::all_of(
+                    values, [&](const auto& v) { return v == values.front(); });
+                if (style_mixed_)
+                    return;
+                value = values.front();
+            }
             if (value) {
                 if (value->size() >= sizeof(style_value_))
                     throw AuthoringError(
@@ -232,7 +247,9 @@ class UiSourceEditor {
         }
     }
     void style_controls(bool locked, bool sheet = false) {
-        const bool open = ImGui::CollapsingHeader(sheet ? "Rule properties" : "Inline style");
+        const bool open = ImGui::CollapsingHeader(sheet                  ? "Rule properties"
+                                                  : selected_.size() > 1 ? "Group inline style"
+                                                                         : "Inline style");
         FORGE_UI_PROBE("ui-source:style-open");
         if (!open)
             return;
@@ -265,6 +282,11 @@ class UiSourceEditor {
                    "Read the authored value; an empty field means no inline override."))
             read_style_controls();
         FORGE_UI_PROBE("ui-source:style-read");
+        if (style_mixed_) {
+            ImGui::TextWrapped(
+                "Mixed authored values. Enter a value to apply to every selected sibling.");
+            FORGE_UI_PROBE("ui-source:style-mixed");
+        }
         if (!style_error_.empty())
             ImGui::TextWrapped("%s", style_error_.c_str());
         ImGui::BeginDisabled(!style_error_.empty());
@@ -273,7 +295,7 @@ class UiSourceEditor {
                 if (sheet)
                     rule_property(selected_rule_, style_name_, std::string(style_value_));
                 else
-                    style(selected_element(), style_name_, std::string(style_value_));
+                    styles(selected_, style_name_, std::string(style_value_));
             });
         FORGE_UI_PROBE("ui-source:style-set");
         ImGui::SameLine();
@@ -282,7 +304,7 @@ class UiSourceEditor {
                 if (sheet)
                     rule_property(selected_rule_, style_name_, {});
                 else
-                    style(selected_element(), style_name_, {});
+                    styles(selected_, style_name_, {});
             });
         FORGE_UI_PROBE("ui-source:style-remove");
         ImGui::EndDisabled();
@@ -293,6 +315,73 @@ class UiSourceEditor {
                           "Rule order, other styles and bindings affect the result."
                         : "Authored inline CSS. Preview tests native styling; Play tests bindings. "
                           "Other styles and bindings can affect the displayed result.");
+    }
+    void read_class_controls() {
+        classes_[0] = 0;
+        classes_mixed_ = false;
+        classes_error_.clear();
+        if (selected_.empty())
+            return;
+        try {
+            const auto values = read_classes(selected_);
+            classes_mixed_ =
+                !std::ranges::all_of(values, [&](const auto& v) { return v == values.front(); });
+            if (classes_mixed_)
+                return;
+            if (const auto& value = values.front(); value) {
+                if (value->size() >= sizeof(classes_))
+                    throw AuthoringError("source_capacity",
+                                         "This class list exceeds1024 bytes; use Source");
+                std::snprintf(classes_, sizeof(classes_), "%s", value->c_str());
+            }
+        } catch (const std::exception& error) {
+            classes_error_ = error.what();
+        }
+    }
+    void class_controls(bool locked) {
+        const bool open = ImGui::CollapsingHeader("Classes");
+        FORGE_UI_PROBE("ui-source:classes-open");
+        if (!open)
+            return;
+        ImGui::BeginDisabled(locked);
+        if (ImGui::InputText("Class list", classes_, sizeof(classes_)))
+            classes_error_.clear();
+        FORGE_UI_PROBE("ui-source:classes-value");
+        if (button("Read classes",
+                   "Read authored class lists; mixed values leave the field blank."))
+            read_class_controls();
+        FORGE_UI_PROBE("ui-source:classes-read");
+        if (classes_mixed_) {
+            ImGui::TextWrapped(
+                "Mixed authored class lists. Set classes replaces all selected lists.");
+            FORGE_UI_PROBE("ui-source:classes-mixed");
+        }
+        if (!classes_error_.empty())
+            ImGui::TextWrapped("%s", classes_error_.c_str());
+        ImGui::BeginDisabled(!classes_error_.empty());
+        ImGui::BeginDisabled(classes_[0] == 0);
+        if (button("Set classes",
+                   "Set the literal class list for all selected siblings in one Undo step."))
+            attempt([&] { classes(selected_, std::string(classes_)); });
+        FORGE_UI_PROBE("ui-source:classes-set");
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (button("Clear classes",
+                   "Remove authored class attributes; retain runtime class bindings."))
+            attempt([&] { classes(selected_, {}); });
+        FORGE_UI_PROBE("ui-source:classes-clear");
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+        ImGui::TextWrapped("Space-separated literal classes. Set replaces the entire list; runtime "
+                           "bindings can override it.");
+    }
+    void replace_selected(const std::string& candidate, std::vector<std::size_t> retained) {
+        const auto before = revision_;
+        replace_text(candidate);
+        if (revision_ != before) {
+            selected_ = std::move(retained);
+            selection_controls();
+        }
     }
     void select_rule(std::size_t index) {
         if (index >= rules_.size())
@@ -358,8 +447,28 @@ class UiSourceEditor {
         if (long_selector)
             ImGui::TextWrapped(
                 "This selector exceeds the control's1024-byte capacity; use Source.");
-        if (selected_rule_ < rules_.size())
-            style_controls(locked, true);
+        if (selected_rule_ >= rules_.size())
+            return;
+        ImGui::BeginDisabled(locked || rules_.size() >= 4096);
+        if (button("Copy rule",
+                   "Copy this flat block with its selector unchanged; order affects the cascade."))
+            attempt([&] { copy_rule(selected_rule_); });
+        FORGE_UI_PROBE("ui-source:rule-copy");
+        ImGui::EndDisabled();
+        const auto index = selected_rule_;
+        ImGui::BeginDisabled(locked || index == 0 || !rules_[index - 1].flat);
+        if (button("Move rule up",
+                   "Swap adjacent flat rules; outside comments remain between them."))
+            attempt([&] { move_rule(selected_rule_, -1); });
+        FORGE_UI_PROBE("ui-source:rule-up");
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(locked || index + 1 >= rules_.size() || !rules_[index + 1].flat);
+        if (button("Move rule down", "Swap adjacent flat rules as one source Undo step."))
+            attempt([&] { move_rule(selected_rule_, 1); });
+        FORGE_UI_PROBE("ui-source:rule-down");
+        ImGui::EndDisabled();
+        style_controls(locked, true);
     }
     void selection_controls() {
         const auto index = selected_element();
@@ -381,6 +490,7 @@ class UiSourceEditor {
         text_editable_ = text_editable_ && content.size() < sizeof(literal_);
         std::snprintf(literal_, sizeof(literal_), "%s", text_editable_ ? content.c_str() : "");
         read_style_controls();
+        read_class_controls();
     }
     void select(std::size_t index, bool toggle = false) {
         if (index >= outline_.size())
@@ -929,6 +1039,10 @@ class UiSourceEditor {
         hierarchy_controls(locked);
         if (selected_element() >= outline_.size())
             return;
+        class_controls(locked);
+        style_controls(locked);
+        if (selected_element() >= outline_.size())
+            return;
         if (selected_.size() > 1) {
             ImGui::Separator();
             ImGui::Text("%zu source elements selected", selected_.size());
@@ -937,13 +1051,11 @@ class UiSourceEditor {
                 attempt([&] { removes(selected_); });
             FORGE_UI_PROBE("ui-source:selection-remove");
             ImGui::EndDisabled();
-            ImGui::TextWrapped("Use Preview for group layout. Select one element to edit its "
-                               "attributes or children.");
+            ImGui::TextWrapped(
+                "Styles and classes apply to all selected siblings. Use Preview for group layout; "
+                "select one element for other attributes or children.");
             return;
         }
-        style_controls(locked);
-        if (selected_element() >= outline_.size())
-            return;
         // Snapshot affordances before an edit can rebuild the derived outline.
         const auto index = selected_element();
         const auto& node = outline_[index];
@@ -1264,11 +1376,49 @@ class UiSourceEditor {
             throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
         replace_text(remove_ui_stylesheet_rule(editor_.GetText(), index));
     }
-    void style(std::size_t index, std::string_view property, std::optional<std::string> value) {
+    void copy_rule(std::size_t index) {
+        if (locator_.extension() != ".rcss")
+            throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        replace_text(duplicate_ui_stylesheet_rule(editor_.GetText(), index));
+        select_rule(index + 1);
+    }
+    void move_rule(std::size_t index, int direction) {
+        if (locator_.extension() != ".rcss")
+            throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
         const auto before = revision_;
-        replace_text(set_ui_markup_style(editor_.GetText(), index, property, std::move(value)));
-        if (revision_ != before)
-            select(index); // Inline declarations cannot change the source element ordering.
+        replace_text(move_ui_stylesheet_rule(editor_.GetText(), index, direction));
+        if (before != revision_)
+            select_rule(direction < 0 ? index - 1 : index + 1);
+    }
+    std::vector<std::optional<std::string>> read_styles(std::span<const std::size_t> indices,
+                                                        std::string_view property) const {
+        if (locator_.extension() != ".rml")
+            throw AuthoringError("source_scope", "Open an RML document first");
+        return read_ui_markup_styles(editor_.GetText(), outline_, indices, property);
+    }
+    std::vector<std::optional<std::string>>
+    read_classes(std::span<const std::size_t> indices) const {
+        if (locator_.extension() != ".rml")
+            throw AuthoringError("source_scope", "Open an RML document first");
+        return read_ui_markup_classes(editor_.GetText(), outline_, indices);
+    }
+    void styles(std::span<const std::size_t> indices, std::string_view property,
+                std::optional<std::string> value) {
+        if (locator_.extension() != ".rml")
+            throw AuthoringError("source_scope", "Open an RML document first");
+        replace_selected(
+            set_ui_markup_styles(editor_.GetText(), indices, property, std::move(value)),
+            std::vector<std::size_t>(indices.begin(), indices.end()));
+    }
+    void classes(std::span<const std::size_t> indices, std::optional<std::string> value) {
+        if (locator_.extension() != ".rml")
+            throw AuthoringError("source_scope", "Open an RML document first");
+        replace_selected(set_ui_markup_classes(editor_.GetText(), indices, std::move(value)),
+                         std::vector<std::size_t>(indices.begin(), indices.end()));
+    }
+    void style(std::size_t index, std::string_view property, std::optional<std::string> value) {
+        const std::array indices{index};
+        styles(indices, property, std::move(value));
     }
     void text(std::size_t index, std::string_view literal) {
         replace_text(set_ui_markup_text(editor_.GetText(), index, literal));

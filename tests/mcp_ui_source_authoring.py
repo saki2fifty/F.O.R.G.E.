@@ -7,7 +7,8 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
                  'duplicate', 'remove_group', 'reparent', 'style', 'style_read', 'rule_read',
-                 'rule_property', 'rule_selector', 'rule_insert', 'rule_remove')}
+                 'rule_property', 'rule_selector', 'rule_insert', 'rule_remove',
+                 'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move')}
     assert required <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
@@ -177,6 +178,75 @@ body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
 <div id="relative" style="position:relative;width:100px;height:20px;">Flow</div></body></rml>\n'''
     state = edit('replace', text=layout_source)
 
+    def source_id(value):
+        current = read('forge_ui_source_read')
+        return next(node['index'] for node in current['elements'] for attr in node['attributes']
+                    if attr['name'] == 'id' and current['text'][attr['value']['begin']:attr['value']['end']] == value)
+
+    members = [source_id('first'), source_id('panel')]
+    group_guard = guard()
+    before_group = read('forge_ui_source_read')
+    mixed = read('forge_ui_source_style_group_read', **group_guard, elements=members, name='color')
+    assert mixed == dict(name='color', values=[dict(element=members[0], value=None),
+                         dict(element=members[1], value='#ffffff')], mixed=True, value=None)
+    assert read('forge_ui_source_read') == before_group
+    group_args = arguments(**group_guard, elements=members, name='color', value='#77bdf7')
+    once = client.tool('forge_ui_source_style_group', **group_args)
+    replay = client.tool('forge_ui_source_style_group', **group_args)
+    assert once['ok'] and replay['ok'] and once['result'] == replay['result']
+    styled_group = read('forge_ui_source_read')
+    expected_group = layout_source.replace('color:#ffffff', 'color:#77bdf7')
+    expected_group = expected_group.replace('height:40px;">First', 'height:40px;color:#77bdf7;">First')
+    assert styled_group['text'] == expected_group and styled_group['selection'] == members
+    uniform = read('forge_ui_source_style_group_read', **guard(), elements=members, name='color')
+    assert not uniform['mixed'] and uniform['value'] == '#77bdf7'
+    assert [row['value'] for row in uniform['values']] == ['#77bdf7', '#77bdf7']
+    allowed = advertised['forge_ui_source_style_group_read']['inputSchema']['properties']
+    stale = {key: value for key, value in group_args.items() if key in allowed}
+    failed(client.tool('forge_ui_source_style_group_read', **stale), 'stale_ui_source')
+    edit('style_group', elements=members, name='color', value='#77bdf7')
+    assert read('forge_ui_source_read') == styled_group, 'Group property no-op changed history'
+    for selection, name, value in (([members[0], index('body')], 'color', 'red'),
+                                    ([members[0], members[0]], 'color', 'red'),
+                                    (members, 'font-size', '257px'),
+                                    (members, 'font-family', '"Lato"')):
+        assert not mutate('forge_ui_source_style_group', **guard(), elements=selection, name=name, value=value)['ok']
+        assert read('forge_ui_source_read') == styled_group, 'Rejected group style partially changed source'
+    cleared = edit('style_group', elements=members, name='color', value=None)
+    assert cleared['text'] == expected_group.replace('color:#77bdf7;', '')
+    assert edit('undo')['text'] == expected_group
+    assert edit('undo')['text'] == layout_source, 'Group styles needed more than one Undo'
+    empty_classes = read('forge_ui_source_classes_read', **guard(), elements=members)
+    assert not empty_classes['mixed'] and empty_classes['value'] is None
+    first_class = edit('classes', elements=members[:1], value='first-class')['text']
+    assert first_class == layout_source.replace('">First', '" class="first-class">First')
+    mixed_classes = read('forge_ui_source_classes_read', **guard(), elements=members)
+    assert mixed_classes['mixed'] and [row['value'] for row in mixed_classes['values']] == ['first-class', None]
+    class_args = arguments(**guard(), elements=members, value='shared Active')
+    once = client.tool('forge_ui_source_classes', **class_args)
+    replay = client.tool('forge_ui_source_classes', **class_args)
+    assert once['ok'] and replay['ok'] and once['result'] == replay['result']
+    assigned = read('forge_ui_source_read')
+    class_expected = first_class.replace('class="first-class"', 'class="shared Active"')
+    class_expected = class_expected.replace('">Draft', '" class="shared Active">Draft')
+    assert assigned['text'] == class_expected and assigned['selection'] == members
+    class_read = read('forge_ui_source_classes_read', **guard(), elements=members)
+    assert not class_read['mixed'] and class_read['value'] == 'shared Active'
+    assert read('forge_ui_source_read') == assigned, 'Class inspection changed selection/history'
+    allowed = advertised['forge_ui_source_classes_read']['inputSchema']['properties']
+    stale = {key: value for key, value in class_args.items() if key in allowed}
+    failed(client.tool('forge_ui_source_classes_read', **stale), 'stale_ui_source')
+    edit('classes', elements=members, value='shared Active')
+    assert read('forge_ui_source_read') == assigned, 'Class no-op changed source/history'
+    for value in ('bad:name', 'a a', '9class', '{{dynamic}}', ''):
+        assert not mutate('forge_ui_source_classes', **guard(), elements=members, value=value)['ok']
+        assert read('forge_ui_source_read') == assigned, 'Invalid class list partially changed group'
+    assert edit('classes', elements=members, value=None)['text'] == class_expected.replace('class="shared Active"', '')
+    assert edit('undo')['text'] == class_expected
+    assert edit('undo')['text'] == first_class
+    assert edit('undo')['text'] == layout_source, 'Class operations needed more than one Undo'
+    state = read('forge_ui_source_read')
+
     def preview():
         return read('forge_ui_source_preview', **guard(), width=800, height=600, density=1)
 
@@ -301,6 +371,23 @@ body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
                   dict(name='Color', value='red')):
         assert not mutate('forge_ui_source_rule_property', **guard(), rule=0, **extra)['ok']
         assert read('forge_ui_source_read') == state, 'Rejected rule value partially changed source'
+    edit('rule_move', rule=0, direction=-1)
+    assert read('forge_ui_source_read') == state, 'Boundary rule move changed history'
+    copy_args = arguments(**guard(), rule=0)
+    once = client.tool('forge_ui_source_rule_copy', **copy_args)
+    replay = client.tool('forge_ui_source_rule_copy', **copy_args)
+    assert once['ok'] and replay['ok'] and once['result'] == replay['result']
+    copied_rule = read('forge_ui_source_read')
+    assert copied_rule['text'] == blue + blue and copied_rule['rule_selection'] == 1
+    edit('rule_move', rule=1, direction=-1)
+    assert read('forge_ui_source_read') == copied_rule, 'Identical rule move changed source/history'
+    assert edit('rule_property', rule=1, name='color', value='red')['text'] == blue + baseline
+    moved = edit('rule_move', rule=1, direction=-1)
+    assert moved['text'] == baseline + blue and moved['rule_selection'] == 0
+    assert edit('undo')['text'] == blue + baseline
+    assert edit('undo')['text'] == blue + blue
+    assert edit('undo')['text'] == blue, 'Rule reuse operations needed more than one Undo'
+    state = read('forge_ui_source_read')
     assert edit('rule_property', rule=0, name='color', value=None)['text'] == 'body {  }\n'
     assert edit('undo')['text'] == state['text']
     assert edit('rule_selector', rule=0, selector='.renamed > p')['text'] == '.renamed > p{ color: blue; }\n'
@@ -315,7 +402,8 @@ body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
     unsupported = edit('replace', text='@media (min-width:20px) { .nested {color:red;} }')
     assert len(unsupported['rules']) == 1 and not unsupported['rules'][0]['editable']
     for operation, extra in (('rule_property', dict(name='color', value='red')),
-                             ('rule_selector', dict(selector='.bad')), ('rule_remove', {})):
+                             ('rule_selector', dict(selector='.bad')), ('rule_remove', {}),
+                             ('rule_copy', {}), ('rule_move', dict(direction=-1))):
         assert not mutate('forge_ui_source_' + operation, **guard(), rule=0, **extra)['ok']
         assert read('forge_ui_source_read') == unsupported
     assert edit('undo')['text'] == state['text']

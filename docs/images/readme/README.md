@@ -2,12 +2,23 @@
 
 ## Native UI source authoring
 
+The current `ui-source-group-styling.png` and `ui-source-classes.png` manual images
+are exact700×950 UiSourceEditor/DocumentWorkspace fixture captures after real
+Ctrl-selection, group property/class editing and read/no-op controls. Reproduce
+with `forge_ui_source_editor_tests <output>`; raw files use
+`ui-source-group-styling-<width>.png` and `ui-source-classes-<width>.png` at1180/700/400.
+Elements/Inline style/Hierarchy captures include the collapsed Classes section; Rules shows
+its native Copy/Move controls. Immutable originals and exact canonical hashes
+belong to the reusable-styling validation owner. SDL software component pixels are
+unretouched and separate from full Main, Windows, physical input/GPU and display
+density acceptance. No controls or source/game screenshots are fabricated.
+
 `manual/images/ui-source-rules.png` is an exact700×950 production UiSourceEditor/
 DocumentWorkspace capture after native RCSS selection and property editing.
 The Rules list, selector/add/remove actions and authored color controls are real,
 unretouched pixels. Reproduce with `forge_ui_source_editor_tests <output>`;
-`ui-source-rules-<width>.png` records1180/700/400pixel cases. The scoped stylesheet
-rule validation owner retains immutable originals and canonical SHA256. SDL
+`ui-source-rules-<width>.png` records1180/700/400pixel cases. The current refreshed
+originals and canonical SHA256 belong to the reusable-styling owner above. SDL
 software composition is component evidence, separate from full Main, Windows,
 physical GPU/input and display-density acceptance.
 
@@ -17,8 +28,8 @@ controls. It shows the authored color, common-property selector and explicit
 property buttons. Reproduce with `forge_ui_source_editor_tests <output>`;
 `ui-source-inline-style-<width>.png` records the1180/700/400pixel layouts.
 The current Elements capture also includes the collapsed Inline style controls.
-Original captures and exact canonical hashes belong to the scoped inline-style
-and outline-movement validation owner. SDL software composition supplies these
+Current refreshed originals and exact canonical hashes belong to the reusable-
+styling owner above; earlier inline-style/outline evidence remains retained. SDL software composition supplies these
 component pixels; full Main, Windows, physical GPU/input and display-density
 acceptance remain separate. No controls or pixels are fabricated or retouched.
 
@@ -27,8 +38,8 @@ UiSourceEditor/DocumentWorkspace capture. Actual Ctrl+click selects a paragraph
 and button; real New parent/Placement dropdowns choose the target container and
 its anchor child before Move selection. The test then applies one move, Undo/Redo
 and restores the original source. Native controls run at1180/700/400pixels; the
-immutable raw outputs and canonical hashes belong to the scoped source-hierarchy
-validation owner. Reproduce with `forge_ui_source_editor_tests <output>`; the new
+current immutable raw outputs and canonical hashes belong to the reusable-styling
+owner above; earlier hierarchy captures remain retained. Reproduce with `forge_ui_source_editor_tests <output>`; the
 files are `ui-source-hierarchy-<width>.png`. SDL software composition provides the
 unretouched pixels. This is an authentic component window, without full Main,
 Windows, physical input/GPU or display-density acceptance.

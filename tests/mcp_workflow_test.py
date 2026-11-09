@@ -310,23 +310,23 @@ def until(fn, predicate, timeout=30):
 selected_protocols = protocol_cases()
 for legacy in selected_protocols:
     with editor('application_states' if APPLICATION_STATES_ONLY else 'ui_localization' if UI_LOCALIZATION_ONLY else 'gamepads' if GAMEPADS_ONLY else 'clocked_audio' if FINITE_SOUND_CUES_ONLY else 'full') as (root, config), Client(config, legacy) as client:
-        # This focused workflow keeps one project/document target. Reuse that
+        # These focused workflows keep one project/document target. Reuse that
         # observed target for reads; every mutation still discovers fresh revision
         # and sequence guards. Other workflows retain their boundary discovery.
-        field_read_target = {}
+        stable_read_target = {}
 
         def discovery():
             value = client.tool('forge_discover')
             assert value['ok'], value
-            if UI_FIELDS_ONLY:
+            if UI_FIELDS_ONLY or UI_SOURCE_ONLY:
                 target = value['result']['target']
-                assert 'value' not in field_read_target or field_read_target['value'] == target, \
-                    'UI field workflow changed target; refresh the read-target policy'
-                field_read_target['value'] = target
+                assert 'value' not in stable_read_target or stable_read_target['value'] == target, \
+                    'Focused UI workflow changed target; refresh the read-target policy'
+                stable_read_target['value'] = target
             return value
 
         def read(tool, **extra):
-            target = field_read_target.get('value') if UI_FIELDS_ONLY else None
+            target = stable_read_target.get('value') if UI_FIELDS_ONLY or UI_SOURCE_ONLY else None
             if target is None:
                 target = discovery()['result']['target']
             value = client.tool(tool, target=target, **extra)
@@ -467,6 +467,9 @@ for legacy in selected_protocols:
                 assert 'forge_ui_source_style' not in visible
                 assert 'forge_ui_source_style_read' in visible
                 assert 'forge_ui_source_rule_read' in visible
+                assert {'forge_ui_source_style_group_read', 'forge_ui_source_classes_read'} <= visible
+                assert not {'forge_ui_source_style_group', 'forge_ui_source_classes',
+                            'forge_ui_source_rule_copy', 'forge_ui_source_rule_move'} & visible
                 assert not {'forge_ui_source_rule_property', 'forge_ui_source_rule_selector',
                             'forge_ui_source_rule_insert', 'forge_ui_source_rule_remove'} & visible
                 readonly_target = readonly.tool('forge_discover')['result']['target']
@@ -477,6 +480,12 @@ for legacy in selected_protocols:
                 failed(readonly.tool('forge_ui_source_rule_read', target=readonly_target,
                                      path='Assets/Hud.rcss', session='00000000-0000-4000-8000-000000000001',
                                      revision=0, state='0' * 64, rule=0, name='color'), 'source_closed')
+                for name in ('style_group_read', 'classes_read'):
+                    fields = dict(target=readonly_target, path='Assets/Hud.rml',
+                                  session='00000000-0000-4000-8000-000000000001',
+                                  revision=0, state='0' * 64, elements=[0])
+                    if name == 'style_group_read': fields['name'] = 'color'
+                    failed(readonly.tool('forge_ui_source_' + name, **fields), 'source_closed')
                 assert 'forge_ui_source_replace' not in visible and 'forge_ui_source_save' not in visible
                 denied = readonly.request('tools/call', dict(name='forge_ui_source_open', arguments=dict(path='Assets/Hud.rml')))
                 assert 'error' in denied or denied['result']['isError'], denied

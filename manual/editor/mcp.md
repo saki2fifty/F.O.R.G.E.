@@ -55,6 +55,26 @@ selection. At-rules/nested blocks stay in Source. Save remains separate, then
 refresh the linked RML preview or Reload UI to check the native cascade. See
 [stylesheet rules](ui-source.md) for source limits.
 
+For sibling groups, `forge_ui_source_style_group_read` takes source guards,
+`elements` and `name`; `forge_ui_source_classes_read` omits `name`. Both need
+`assets.read` and return ordered `values` rows plus `mixed` and a uniform `value`.
+When `mixed:true`, the uniform value is null; inspect the rows to see each authored
+value. With `mixed:false`, null means an absent override or class attribute.
+Reads change no selection or history and evaluate no runtime styling.
+
+`forge_ui_source_style_group` uses `elements/name/value` to set one inline property
+on up to 32 distinct editable siblings; null removes it. `forge_ui_source_classes`
+uses `elements/value`, with a literal class-list string or null to clear. These
+require `assets.write`, validate the entire group before one Undo, retain edited
+selection and keep Save explicit. Use fresh source guards and read mixed values
+before choosing the replacement. See [group styles and classes](ui-source.md).
+
+`forge_ui_source_rule_copy` takes `rule` and inserts an unchanged flat block after
+itself. `forge_ui_source_rule_move` takes `rule` and `direction:-1` or `1`. Both use
+write grants, source guards, replay and one Undo; moving cannot cross a nested or
+at-rule block. Selectors stay unchanged, order affects native styling and Save
+remains separate. Copy selects its new rule; changed moves select the moved rule.
+
 For layout, use `forge_ui_source_preview` with current source guards and the desired
 viewport size. Read its element indices, editable flags, explanations and preview
 instance/revision. Pass those guards and all four pixel values to

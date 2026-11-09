@@ -130,6 +130,51 @@ struct UiSourceAutomation {
                     return Json{{"name", name}, {"value", value ? Json(*value) : Json(nullptr)}};
                 }));
         }
+        for (const bool classes : {false, true}) {
+            auto properties = guard;
+            properties["elements"] =
+                automation_array(automation_integer(0, 8191), ui_source_selection_limit, 1);
+            auto fields = required;
+            fields.push_back("elements");
+            if (!classes) {
+                properties["name"] = automation_text(64, 1);
+                fields.push_back("name");
+            }
+            result.push_back(automation_method(
+                classes ? "ui.source.classes_read" : "ui.source.style_group_read",
+                "Read authored values for1..32distinct editable RML siblings with current source "
+                "guards/assets.read. "
+                "Pass elements, plus name for a CSS property. Return ordered element/value rows, "
+                "mixed, "
+                "and a uniform value (null when absent or mixed; inspect mixed to distinguish). "
+                "Class "
+                "values are decoded literals; ambiguous/dynamic/NUL-containing classes use Source. "
+                "Inline styles share the existing plain quoted/unique-property profile. No native "
+                "initialization, computed styling, selection/history mutation, Save or "
+                "registration.",
+                "assets.read", automation_object(std::move(properties), std::move(fields)), false,
+                [&files, &editor, classes](const Json& request) {
+                    observed(editor, files.document, request);
+                    const auto indices = request.at("elements").get<std::vector<std::size_t>>();
+                    const auto values =
+                        classes
+                            ? editor.read_classes(indices)
+                            : editor.read_styles(indices, request.at("name").get<std::string>());
+                    const bool mixed = !std::ranges::all_of(
+                        values, [&](const auto& v) { return v == values.front(); });
+                    auto rows = Json::array();
+                    for (std::size_t i = 0; i < indices.size(); ++i)
+                        rows.push_back({{"element", indices[i]},
+                                        {"value", values[i] ? Json(*values[i]) : Json(nullptr)}});
+                    Json value{{"values", std::move(rows)},
+                               {"mixed", mixed},
+                               {"value",
+                                !mixed && values.front() ? Json(*values.front()) : Json(nullptr)}};
+                    if (!classes)
+                        value["name"] = request.at("name");
+                    return value;
+                }));
+        }
         auto preview_properties = guard;
         preview_properties["width"] = automation_integer(1, 2048);
         preview_properties["height"] = automation_integer(1, 2048);
@@ -243,9 +288,11 @@ struct UiSourceAutomation {
                 return state(editor, files.document);
             }));
         for (const auto* operation :
-             {"replace", "attribute", "style", "text", "insert", "duplicate", "reparent", "remove",
-              "remove_group", "move", "save", "undo", "redo", "reload", "close", "rule_property",
-              "rule_selector", "rule_insert", "rule_remove"}) {
+             {"replace",       "attribute",     "style",       "text",         "insert",
+              "duplicate",     "reparent",      "remove",      "remove_group", "move",
+              "save",          "undo",          "redo",        "reload",       "close",
+              "rule_property", "rule_selector", "rule_insert", "rule_remove",  "rule_copy",
+              "rule_move",     "style_group",   "classes"}) {
             const std::string action(operation);
             auto properties = guard;
             auto fields = required;
@@ -265,15 +312,19 @@ struct UiSourceAutomation {
                 add("element", automation_integer(0, 8191));
             if (action == "duplicate")
                 add("prefix", automation_text(64), false);
-            if (action == "remove_group" || action == "reparent")
+            if (action == "remove_group" || action == "reparent" || action == "style_group" ||
+                action == "classes")
                 add("elements",
                     automation_array(automation_integer(0, 8191), ui_source_selection_limit, 1));
-            if (action == "attribute" || action == "style" || action == "rule_property") {
+            if (action == "attribute" || action == "style" || action == "rule_property" ||
+                action == "style_group") {
                 add("name", automation_text(64, 1));
                 add("value", {{"oneOf",
                                {automation_text(action == "attribute" ? 256 * 1024 : 8192),
                                 Json{{"type", "null"}}}}});
             }
+            if (action == "classes")
+                add("value", {{"oneOf", {automation_text(1024, 1), Json{{"type", "null"}}}}});
             if (action == "text" || action == "insert")
                 add("text", automation_text(256 * 1024), action == "text");
             if (action == "insert" || action == "reparent") {
@@ -282,13 +333,44 @@ struct UiSourceAutomation {
                     add("tag", automation_text(64, 1));
                 add("before", automation_integer(0, 8191), false);
             }
-            if (action == "move")
+            if (action == "move" || action == "rule_move")
                 add("direction", {{"type", "integer"}, {"enum", {-1, 1}}});
             if (action == "close" || action == "reload")
                 add("discard", {{"type", "boolean"}}, false);
             result.push_back(automation_method(
                 "ui.source." + action,
-                action.starts_with("rule_")
+                action == "classes"
+                    ? "Set literal class lists for1..32distinct editable RML siblings as one Undo. "
+                      "Needs elements/value and current source guards/assets.write; null clears. "
+                      "Space-separated ASCII classes,1..32distinct tokens/64bytes each/1024total, "
+                      "starting with letter/underscore. Direct/encoded expressions and ambiguous "
+                      "attributes use Source. Preserve IDs, other source and data-class bindings. "
+                      "Logical equal values preserve original encoding/quotes. Changed source "
+                      "retains the selected group; exact no-op retains history. Save stays "
+                      "explicit."
+                : action == "style_group"
+                    ? "Set/remove one authored inline CSS property for1..32distinct editable RML "
+                      "siblings in one Undo. Needs elements/name/value and current "
+                      "guards/assets.write. "
+                      "Same literal inline name/value/quote/duplicate/source budgets as style. "
+                      "Validate every member and full candidate before source replacement. "
+                      "Preserve "
+                      "other source/bindings, retain edited selection, exact no-op history and "
+                      "explicit Save."
+                : action == "rule_copy" || action == "rule_move"
+                    ? "Copy or reorder the observed flat RCSS rule with current "
+                      "guards/assets.write. "
+                      "Copy inserts the unchanged block/selector after itself with a newline and "
+                      "selects it; "
+                      "move takes direction -1/up or1/down, swaps adjacent flat blocks and selects "
+                      "the moved rule. "
+                      "At-rules/nested barriers use Source. Preserve block/interstitial bytes, one "
+                      "Undo, "
+                      "boundary/identical no-op history. Order affects native cascade; no "
+                      "automatic selector "
+                      "renaming or computed-style rewrite. Save remains separate.4096block outline "
+                      "cap."
+                : action.starts_with("rule_")
                     ? action +
                           " in the observed RCSS source with current guards/assets.write. "
                           "Flat ordinary rules only; at-rules/nested blocks use Source. Property "
@@ -364,6 +446,22 @@ struct UiSourceAutomation {
                         editor.add_rule(request.at("selector").get<std::string>());
                     else if (action == "rule_remove")
                         editor.remove_rule(request.at("rule").get<std::size_t>());
+                    else if (action == "rule_copy")
+                        editor.copy_rule(request.at("rule").get<std::size_t>());
+                    else if (action == "rule_move")
+                        editor.move_rule(request.at("rule").get<std::size_t>(),
+                                         request.at("direction").get<int>());
+                    else if (action == "style_group")
+                        editor.styles(request.at("elements").get<std::vector<std::size_t>>(),
+                                      request.at("name").get<std::string>(),
+                                      request.at("value").is_null()
+                                          ? std::nullopt
+                                          : std::optional(request.at("value").get<std::string>()));
+                    else if (action == "classes")
+                        editor.classes(request.at("elements").get<std::vector<std::size_t>>(),
+                                       request.at("value").is_null()
+                                           ? std::nullopt
+                                           : std::optional(request.at("value").get<std::string>()));
                     else if (action == "attribute")
                         editor.attribute(
                             request.at("element").get<std::size_t>(),
