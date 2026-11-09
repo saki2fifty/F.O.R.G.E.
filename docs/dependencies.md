@@ -201,6 +201,17 @@ unchanged data from the pinned RmlUi distribution, licensed under SIL OFL 1.1;
 `resources/ui/LICENSE-Cairo.txt` travels with runtime resources. No sample backend
 implementation is copied or adapted. The installed native SDK ABI is unchanged.
 
+Collection-font examples also include the unchanged Poppins-Regular.ttf from
+`Samples/basic/harfbuzz/data/Poppins-Regular.ttf` at the same pinned RmlUi commit.
+Its SHA256 is `707fdc5c8bab57a90061c6a8ed7b70d5ffb82fc810e994e79f90bace890c255a`.
+The complete Poppins notice block from that directory's LICENSE.txt is preserved
+in `resources/ui/LICENSE-Poppins.txt`, SHA256
+`84b0af7b7198dc1cfcfcebbddf4f3239e137a544281a5d4f86b5a95363736d59`.
+Poppins and Cairo retain their original OFL ownership/notices in the sample
+collection; the collection writer is original FORGE test/tooling code. Lato's
+reserved name is retained only for its unmodified bundled font, outside the
+redistributed collection. No vendor font backend implementation is reused.
+
 ### Optional native input boundaries — selected 2026-11-09
 
 Official stable utf8proc2.12.0 was published2026-09-25. The lightweight release tag

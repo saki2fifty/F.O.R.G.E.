@@ -1,0 +1,11 @@
+@font-face {font-family:MenuLatin;src:"Assets/Fonts/Menu.ttc";-rmlui-face-index:0;}
+@font-face {font-family:MenuArabic;src:"Assets/Fonts/Menu.ttc";-rmlui-face-index:1;}
+body {width:100%;height:100%;font-family:Lato;font-size:18px;color:#edf3fa;pointer-events:none;}
+body,div,p {display:block;} p {margin:8px 0;}
+#panel {position:absolute;left:5%;top:4%;width:90%;max-width:800px;max-height:92%;overflow:auto;box-sizing:border-box;padding:24px;background-color:#152b3df5;pointer-events:auto;}
+#eyebrow,.label {font-size:14px;color:#8cd8cc;} #heading {font-size:30px;color:#fff;}
+#latin {font-family:MenuLatin;font-size:28px;} #second,#arabic {font-family:MenuArabic;font-size:28px;}
+#arabic {-rmlui-language:ar;-rmlui-direction:rtl;}
+input {display:block;box-sizing:border-box;width:90%;height:48px;padding:6px;background-color:#0a1d2b;color:#fff;font-family:MenuArabic;}
+#state,#hint {font-size:14px;color:#bdd0e3;} scrollbarvertical {width:12px;background-color:#101e2c;}
+scrollbarvertical sliderbar {background-color:#477e9a;}

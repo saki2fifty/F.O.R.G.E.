@@ -2315,3 +2315,35 @@ manual links. No asset identity, source format, runtime-kit profile or installed
 native SDK ABI changes accompany editor-only field tools. Full Main/MSVC,
 Windows/D3D12, physical pointer/keyboard/IME/DPI, an external agent client and a
 real exported graphical EXE remain separately queued.
+
+
+## Collection-font UI consumers
+
+`ui_font_collections` exercises TTC v1/v2 admission, malformed directories/tables,
+uppercase resource paths, indexed native metrics and glyph draws in both font
+backends, retained byte sharing and retirement. `ui_font_collection_project`
+loads the four-asset UiFontCollections example, packages and relocates content,
+hides the authoring source and verifies native presentation with unchanged IDs.
+`standalone_manifest` covers absent/malformed/mismatched collection kit support.
+
+`mcp_ui_font_collections_stdio` and its `_sdk_` variant use both protocol
+envelopes, both saved font backends and actual native Play fields. Registration,
+metadata/read-owner publication, stable IDs, malformed files, scoped native input
+and authored isolation use existing owners. The fixture writer only assembles
+provided font bytes for the test; it does not grant an agent arbitrary file or
+font-conversion authority. Original Poppins/Cairo data and complete notices are
+retained in the example; the default bundled Lato stays unmodified.
+
+Manual/link/image and package-writer checks cover the collection guide, example,
+font data/notices, uppercase collection extension and offline README links.
+Strict/instrumented selected CPU consumers remain distinct from full Main/MSVC,
+Windows/D3D12, physical input/display, external-client and graphical EXE acceptance.
+
+The collection MCP workflows also provide a raw font fixture in the granted
+project scope and copy it through the actual prepare/review/commit controller.
+They assert `copy_only`, reject cooking without creating a destination, verify
+exact copied bytes/no implicit publication, close the review and explicitly
+register the copied font. Existing source-copy regressions retain containment,
+digest, stale-source and no-overwrite coverage. Native/SDK consumers are rerun
+when this controller integration changes; unchanged native font evidence remains
+reusable only with exact executable/dependency/fixture matches.

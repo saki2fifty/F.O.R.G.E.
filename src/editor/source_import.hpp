@@ -7,13 +7,17 @@
 #include "../source_copy.hpp"
 #include "../sprite_atlas_source.hpp"
 #include "../sprite_frame_json.hpp"
+#include "../ui_font_profile.hpp"
 #include "content_imports.hpp"
 #include "file_dialog.hpp"
 #include "icons.hpp"
 #include "widgets.hpp"
+#include <algorithm>
+#include <cctype>
 #include <forge/authoring.hpp>
 #include <fstream>
 #include <future>
+#include <limits>
 #include <misc/cpp/imgui_stdlib.h>
 namespace forge {
 class SourceImport {
@@ -49,6 +53,7 @@ class SourceImport {
             if (!prepared_->description.is_null())
                 result["generated"] = prepared_->description;
             result["destination"] = path_utf8(prepared_->plan.destination);
+            result["copy_only"] = copy_only();
             result["file_count"] = prepared_->plan.files.size();
             result["bytes"] = prepared_->plan.bytes;
             result["offset"] = offset;
@@ -135,6 +140,9 @@ class SourceImport {
     void copy_sources(bool import_with_defaults) {
         if (!review_ready())
             throw std::runtime_error("Prepare and review source files first.");
+        if (copy_only() && import_with_defaults)
+            throw AuthoringError(
+                "copy_only", "Font sources require copy only; then register the copied UI font");
         cook_ = import_with_defaults;
         cancelled_ = false;
         state_ = State::Drain;
@@ -264,6 +272,8 @@ class SourceImport {
                 if (stop_.stop_requested())
                     throw std::runtime_error("Source review cancelled.");
                 state_ = State::Review;
+                if (copy_only())
+                    cook_ = false;
             }
             if (state_ == State::Drain && imports.quiescent()) {
                 const auto lease = project.writer_guard();
@@ -550,9 +560,15 @@ class SourceImport {
                 ImGui::TextWrapped("%s", path_text(path).c_str());
             draw_atlas_layout();
             const bool revision = bool(prepared_->plan.revision);
+            ImGui::BeginDisabled(copy_only());
             ImGui::Checkbox(revision ? "Reimport with saved settings after updating"
                                      : "Import with defaults after copying",
                             &cook_);
+            ImGui::EndDisabled();
+            if (copy_only())
+                ui::help(
+                    "This batch contains font sources. Copy only, then register each font "
+                    "through Runtime UI. Font files are not cooked by the model/image importers.");
             ui::help(revision ? "Updating changes only the source. Reimport publishes a validated "
                                 "replacement with the same identity and existing settings. "
                                 "Turning this off skips this batch's reimport; closing the review "
@@ -647,6 +663,12 @@ class SourceImport {
     }
 
   private:
+    static constexpr auto raw_font_route = std::numeric_limits<std::size_t>::max();
+    bool copy_only() const {
+        return prepared_ &&
+               std::find(prepared_->route_indices.begin(), prepared_->route_indices.end(),
+                         raw_font_route) != prepared_->route_indices.end();
+    }
     enum class State { Choose, Preparing, Review, Drain, Copying, Importing, Done };
     struct Prepared {
         SourceCopyPlan plan;
@@ -685,6 +707,13 @@ class SourceImport {
                  profiles[i].registry->candidates({path.filename(), prefix}, profiles[i].target))
                 if (candidate.importer->descriptor().id == profiles[i].importer)
                     matches.insert(i);
+        if (matches.empty()) {
+            auto extension = path_utf8(path.extension());
+            std::transform(extension.begin(), extension.end(), extension.begin(),
+                           [](unsigned char c) { return char(std::tolower(c)); });
+            if (ui_font_detail::extension(extension))
+                return raw_font_route;
+        }
         if (matches.size() != 1)
             throw std::runtime_error(
                 "No unique supported importer for " + path_text(path.filename()) +

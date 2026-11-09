@@ -47,8 +47,8 @@ resource lifecycle; restart Play after replacing a font family.
 | Resource | Limit |
 | --- | --- |
 | One input run | 64 KiB UTF-8, 16,384 output glyphs |
-| Font files | Standalone scalable Unicode face at index 0; 4 MiB per file |
-| Backend face storage | 32 faces, 16 MiB retained font bytes including the default font |
+| Font files | Standalone scalable Unicode font or TTC/OTC v1/v2 collection; 4 MiB per file, at most 32 collection faces |
+| Backend face storage | 32 admitted faces, 16 MiB unique retained font bytes including the default font; aliases/indices share identical bytes |
 | Sized faces | 128; sizes 1–512 px |
 | Glyph cache | 16,384 entries |
 | Glyph atlas | 128 immutable pages, 32 MiB retained RGBA; page side at most 1,024 px |
@@ -65,7 +65,7 @@ the renderer accepted an incomplete replacement.
 This profile shapes individual horizontal runs. It does not implement paragraph
 bidirectional layout, joining across separate text spans, vertical text,
 complete international IME or accessibility,
-font collections, variable axes, color glyphs or a general typography editor.
+variable axes, named variation instances, color glyphs or a general typography editor.
 RmlUi still owns wrapping, DOM layout, focus and text input. Font coverage and
 author-selected language/direction affect the result.
 The independent [native input boundary option](ui-text-input.md) supplies bounded
@@ -90,3 +90,36 @@ Dependency pins, build options and notices are recorded in
 [dependency baselines](dependencies.md). See [runtime UI](runtime-ui.md) for
 resource ownership and [MCP](mcp.md) for the existing project
 settings permissions and revision checks.
+
+## Font collections
+
+The existing UiResources validator admits `.ttc` and `.otc` with TTC headers
+version 1.0 or 2.0, bounded face counts and checked absolute sfnt directory/table
+spans. Version 2 signature spans are structurally bounded, not authenticated.
+Standalone admission remains compatible. Native FreeType remains responsible
+for opening scalable Unicode faces and decoding actual glyph tables.
+
+Use the pinned native `@font-face` property `-rmlui-face-index` for a zero-based
+face index, default 0. No FORGE URL fragment or replacement style parser is added.
+The optional original font adapter supplies the same validated face index to
+FreeType and HarfBuzz, includes it in deduplication and shares immutable source
+bytes among aliases/indices. Native family/style/weight/fallback selection and
+renderer lifetime remain authoritative. The default backend uses its existing
+public font API. No new font manager or installed gameplay SDK ABI is introduced.
+
+Collection resource observations include `faces` and
+`runtime_features.font_collections: 1`. Existing catalog refresh preserves IDs,
+automatic source closure includes the whole collection and source-hidden content
+uses the usual runtime access. Used collections require exact kit capability
+`engine.runtime_ui_font_collections: 1` before export promotion. Projects without
+collection resources retain their existing compatibility. Source registration,
+metadata inspection and RML/RCSS edits use existing editor/automation/MCP owners.
+See the [collection workflow](../manual/editor/ui-text-shaping.md).
+
+The existing SourceImport controller admits font files as a reviewed copy-only
+batch, through both native Import files and the same asset.import automation/MCP
+operations. Its ordinary SourceCopy transaction owns bytes, destination checks,
+source digests and commit. Font-containing batches reject cooking with typed
+`copy_only`; they cannot index an importer route. After copying, UI registration
+uses the same font validator/catalog owner. No second import queue or file writer
+is added; native registration and raw copying remain separate steps.

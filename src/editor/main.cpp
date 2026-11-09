@@ -1255,6 +1255,12 @@ int main(int argc, char** argv) {
             graph_preview_catalog.reset();
         };
         forge::ContentImports content_imports;
+        const auto ui_catalog_published = [&] {
+            content_imports.catalog_changed(std::make_shared<const forge::AssetCatalog>(
+                forge::AssetCatalog::open_project(files.document.project())));
+            content.refresh(files);
+        };
+        runtime_ui_tools.catalog_published = ui_catalog_published;
         const auto selected_audio_record = [&]() -> const forge::AssetRecord* {
             return forge::audio_preview_record(content_imports.catalog(),
                                                content.record(audio_imports.selected_asset()),
@@ -2758,9 +2764,11 @@ int main(int argc, char** argv) {
             methods.insert(methods.end(), std::make_move_iterator(ui_sources.begin()),
                            std::make_move_iterator(ui_sources.end()));
             auto raw_sources = forge::ProjectSourceAutomation::methods(
-                files, permissions, source_unavailable, [&](const std::filesystem::path& path) {
+                files, permissions, source_unavailable,
+                [&](const std::filesystem::path& path) {
                     return ui_source.owns(files.document.project(), path);
-                });
+                },
+                ui_catalog_published);
             methods.insert(methods.end(), std::make_move_iterator(raw_sources.begin()),
                            std::make_move_iterator(raw_sources.end()));
             auto navigation = forge::NavigationAutomation::methods(navigation_tools, scene, files,

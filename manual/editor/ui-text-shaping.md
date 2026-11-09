@@ -37,7 +37,8 @@ changing the option or replacing a font family.
 
 ## Choose a font and run direction
 
-Put a suitable `.ttf` or `.otf` font inside your project. Font `src` paths are
+Put a suitable `.ttf` or `.otf` font inside your project. Collections use `.ttc`
+or `.otc`, as described below. Font `src` paths are
 relative to the project root. For example:
 
 ```css
@@ -64,6 +65,52 @@ ligatures; combining marks stay attached to their native cluster. Existing
 shadows and outlines work with shaped glyphs. Separate multiple `font-effect`
 values with commas.
 
+## Copy a font into your project
+
+1. In Content, choose **Import files...** and select a `.ttf`, `.otf`, `.ttc` or `.otc` file that you may redistribute.
+2. Choose an unused destination folder below **Assets**, then choose **Prepare import**.
+3. Review the files and destination. A batch containing fonts uses **copy only**; **Import with defaults after copying** is disabled.
+4. Choose **Copy sources**, wait for completion and close the review.
+5. In Content's **Create / Register** tools, expand **Runtime UI**, enter the copied relative path in **Project UI file** and choose **Register / Refresh**.
+
+Each selected source gets a **Source-1**, **Source-2**, and similar subfolder.
+Use that complete project-relative path in the font's `src` declaration. Copying
+preserves file bytes; registration validates the font and records its asset
+identity. Fonts are not registered by copying alone. A mixed batch containing
+fonts is also copy only; copy/import models or images separately when you want
+automatic import with defaults.
+
+## Use a font collection
+
+A collection stores multiple faces in one file. Put the `.ttc` or `.otc` inside
+your project, then give each face a family alias in your RCSS:
+
+```css
+@font-face {
+    font-family: MenuFace;
+    src: "Assets/Fonts/menu.ttc";
+    -rmlui-face-index: 1;
+}
+#caption { font-family: MenuFace; font-size: 28px; }
+```
+
+Face indices start at **0**. The example above chooses the second face. Omit
+`-rmlui-face-index` to choose the first face. Use a different family alias for
+each face you want to select in styles. Save the source, register or refresh
+its resources, and restart Play after replacing a loaded font family.
+
+Open **Examples/UiFontCollections**, open **Scenes/FontCollections.scene.json**
+and start Play. The two Latin samples use Poppins at face 0 and Cairo at face 1
+from the same **Assets/Fonts/Menu.ttc** file. The Arabic sample and text field
+also use Cairo. Open **Assets/UI/hud.rcss** in Content to see the declarations.
+Both font notices are included in the project.
+
+Collection face selection works with the default font backend and with **Shape
+UI text**. Script joining and ligatures still require the shaping option. Files
+are limited to **4 MiB** and **32 faces**; all selected faces must fit the normal
+font and UI budgets. Custom variation axes, named variation instances and color
+glyphs are outside this workflow.
+
 ## Save and export
 
 Save the UI source, Scene and Project Settings. After a successful Play, use
@@ -72,6 +119,7 @@ the saved Scene as startup and export using the runtime kit packaged with the
 matching editor. An older kit without shaping support is rejected. Exported
 games include the selected project font through the existing UI resource closure;
 players do not need that font installed.
+Collections also require matching font-collection support in the runtime kit.
 
 Keep the font's required redistribution notices with your game. The included
 example's Cairo font notice also travels in the matching runtime resources.
@@ -81,6 +129,6 @@ See [Export a game](runtime-content.md) for the normal export workflow.
 
 - Missing glyph boxes usually mean the selected font lacks those characters. Assign a font containing the script. Fallback chooses a face covering a whole run; arbitrary mixed-script fallback is unavailable.
 - Use horizontal text and font sizes from **1–512 px**. A single run supports **64 KiB** of UTF-8 and **16,384 glyphs**, within the normal document limits.
-- Font collections, variable axes, color glyphs and vertical text are unsupported.
+- Variable axes, color glyphs and vertical text are unsupported. Use a valid zero-based collection face index; an invalid index reports a font diagnostic.
 - Shaping does not provide full paragraph bidirectional layout, joining across separate elements, complete international input methods or accessibility. Use the separate [Edit whole UI characters](ui-text-input.md) option for bounded plain-key movement/deletion. Check text entry on your target systems.
 - A failed reload keeps the last usable HUD and reports a diagnostic. If a font or glyph cache limit is reached, simplify the UI or stop and restart Play.

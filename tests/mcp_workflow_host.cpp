@@ -164,8 +164,13 @@ int main(int argc, char** argv) {
                                std::make_move_iterator(values.end()));
             };
             append(forge::ProjectSourceAutomation::methods(
-                files, permissions, blocked, [&](const std::filesystem::path& path) {
+                files, permissions, blocked,
+                [&](const std::filesystem::path& path) {
                     return ui_source.owns(files.document.project(), path);
+                },
+                [&] {
+                    imports.catalog_changed(std::make_shared<const forge::AssetCatalog>(
+                        forge::AssetCatalog::open_project(files.document.project())));
                 }));
             append(forge::UiSourceAutomation::methods(files, ui_source, permissions, blocked));
             append(forge::asset_automation_methods(scene, files, imports, source, placement,
@@ -316,8 +321,8 @@ int main(int argc, char** argv) {
             scripts.poll(files.document, problems);
             placement.poll(scene, files, selection, play.active() || export_task.busy(), message);
             content_files.poll(files.document, scene, imports, message);
-            source.poll(files.document, imports, message);
             imports.suspend(export_task.busy() || source.busy() || content_files.busy());
+            source.poll(files.document, imports, message);
             imports.poll(files.document, message);
             export_task.poll(imports, [&] { imports.rescan(); });
             navigation.poll(scene, files.document, play.active(), message);

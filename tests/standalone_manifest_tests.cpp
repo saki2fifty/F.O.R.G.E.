@@ -45,6 +45,30 @@ int main(int argc, char** argv) {
         const auto project = scratch / "source", out = scratch / "game";
         audio_routing_package_tests(scratch, check, reject);
         sound_cue_package_tests(scratch, check, reject);
+        {
+            AssetCatalog fonts(scratch / "ui-font-collection-compatibility");
+            AssetRecord font{AssetId::generate(), "ui_font", "Assets/Fonts/menu.ttc", 1};
+            fonts.add(font);
+            validate_runtime_compatibility(fonts, Json::object());
+            font.metadata["forge.ui_source"]["runtime_features"] = {{"font_collections", 1}};
+            fonts.replace(font);
+            reject([&] { validate_runtime_compatibility(fonts, Json::object()); });
+            for (const Json& invalid : {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"),
+                                        Json(2), Json(std::uint64_t{1} << 32)})
+                reject([&] {
+                    validate_runtime_compatibility(fonts,
+                                                   {{"runtime_ui_font_collections", invalid}});
+                });
+            validate_runtime_compatibility(fonts, {{"runtime_ui_font_collections", 1}});
+            for (const Json& invalid :
+                 {Json(), Json(false), Json(-1), Json(0), Json(1.), Json("1"), Json(2)}) {
+                font.metadata["forge.ui_source"]["runtime_features"]["font_collections"] = invalid;
+                fonts.replace(font);
+                reject([&] {
+                    validate_runtime_compatibility(fonts, {{"runtime_ui_font_collections", 1}});
+                });
+            }
+        }
         for (const auto& [option, capability, version] :
              {std::tuple{"text_shaping", "runtime_ui_text_shaping",
                          ui_text_shaping_profile_version},

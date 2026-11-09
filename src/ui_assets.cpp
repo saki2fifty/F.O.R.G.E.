@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "texture_decode.h"
 #include "ui_filter_profile.hpp"
+#include "ui_font_profile.hpp"
 #include "ui_gradient_profile.hpp"
 #include "ui_localization_admission.hpp"
 #include "ui_markup.hpp"
@@ -366,20 +367,48 @@ std::vector<UiMarkupElement> inspect_ui_markup(std::string_view text) {
     (void)validate_text_profile(text, true, &result);
     return result;
 }
-void validate_ui_font(std::span<const std::byte> b) {
-    require(b.size() >= 12 && b.size() <= 4 * 1024 * 1024, "Invalid UI font size");
-    const auto signature = be(b, 0, 4);
-    require(signature == 0x00010000 || signature == 0x4f54544f,
-            "Only standalone TrueType/OpenType fonts are supported");
-    const auto count = be(b, 4, 2);
-    require(count > 0 && count <= 128 && 12 + count * 16 <= b.size(),
-            "Invalid UI font table directory");
-    for (unsigned i = 0; i < count; ++i) {
-        auto p = 12 + i * 16;
-        auto off = be(b, p + 8, 4), len = be(b, p + 12, 4);
-        require(off <= b.size() && len <= b.size() - off, "Truncated UI font table");
+unsigned ui_font_detail::face_count(std::span<const std::byte> b) {
+    require(b.size() >= 12 && b.size() <= file_byte_limit, "Invalid UI font size");
+    const auto directory = [&](std::size_t start) {
+        require(start <= b.size() && 12 <= b.size() - start, "Truncated UI font table directory");
+        const auto signature = be(b, start, 4);
+        require(signature == 0x00010000 || signature == 0x4f54544f,
+                "UI font requires TrueType/OpenType outlines");
+        const auto count = be(b, start + 4, 2);
+        require(count > 0 && count <= 128 && 12 + count * 16 <= b.size() - start,
+                "Invalid UI font table directory");
+        for (unsigned i = 0; i < count; ++i) {
+            const auto p = start + 12 + i * 16;
+            const auto off = be(b, p + 8, 4), len = be(b, p + 12, 4);
+            require(off <= b.size() && len <= b.size() - off, "Truncated UI font table");
+        }
+    };
+    if (be(b, 0, 4) != 0x74746366) {
+        directory(0);
+        return 1;
     }
+    const auto version = be(b, 4, 4), count = be(b, 8, 4);
+    require(version == 0x00010000 || version == 0x00020000,
+            "Unsupported UI font collection version");
+    require(count > 0 && count <= face_limit, "UI font collection requires 1..32 faces");
+    const auto header = std::size_t(12 + 4 * count + (version == 0x00020000 ? 12 : 0));
+    require(header <= b.size(), "Truncated UI font collection header");
+    if (version == 0x00020000) {
+        const auto at = 12 + 4 * count;
+        const auto tag = be(b, at, 4), length = be(b, at + 4, 4), offset = be(b, at + 8, 4);
+        require((tag == 0 && length == 0 && offset == 0) ||
+                    (tag == 0x44534947 && length > 0 && offset >= header && offset <= b.size() &&
+                     length == b.size() - offset),
+                "Invalid UI font collection signature span");
+    }
+    for (unsigned i = 0; i < count; ++i) {
+        const auto offset = be(b, 12 + i * 4, 4);
+        require(offset >= header && offset % 4 == 0, "Invalid UI font collection directory offset");
+        directory(offset);
+    }
+    return count;
 }
+void validate_ui_font(std::span<const std::byte> b) { (void)ui_font_detail::face_count(b); }
 UiImage decode_ui_image(std::span<const std::byte> b) {
     require(b.size() <= 16 * 1024 * 1024 + 274, "UI image source exceeds byte budget");
     const bool png = b.size() >= 4 && b[0] == std::byte{0x89} && b[1] == std::byte{'P'} &&
@@ -479,7 +508,7 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
     require(resource_count() < 32, "UI dependency count exceeds 32");
     const auto ext = lower(locator.extension().string());
     const bool text = ext == ".rml" || ext == ".rcss";
-    require(text || ext == ".ttf" || ext == ".otf" || image_extension(ext),
+    require(text || ui_font_detail::extension(ext) || image_extension(ext),
             "Unsupported UI resource type");
     auto data = access_.read(locator, text ? 256 * 1024 : 16 * 1024 * 1024 + 274);
     require(bytes_ + data.size() <= 32 * 1024 * 1024, "UI resource bytes exceed 32 MiB");
@@ -497,8 +526,11 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
                                                   : !png && !jpeg,
                 "UI image signature does not match its source extension");
         (void)decode_ui_image(data);
-    } else
+    } else {
         validate_ui_font(data);
+        require((ext != ".ttc" && ext != ".otc") || be(data, 0, 4) == 0x74746366,
+                "UI collection font extension requires a collection header");
+    }
     bytes_ += data.size();
     return files_.emplace(key, File{std::move(data), profile.filters, profile.gradients})
         .first->second.bytes;
@@ -552,6 +584,10 @@ UiAssetSnapshot UiResources::snapshot() const {
                           bytes.size(),
                           {{"format", extension.substr(1)}}};
         Json features = Json::object();
+        if (type == "ui_font" && bytes.size() >= 4 && be(bytes, 0, 4) == 0x74746366) {
+            info.details["faces"] = ui_font_detail::face_count(bytes);
+            features["font_collections"] = ui_font_detail::collection_profile_version;
+        }
         if (file.filter_profile)
             features["filters"] = file.filter_profile;
         if (file.gradients)

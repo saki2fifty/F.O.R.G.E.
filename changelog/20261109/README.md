@@ -62,3 +62,25 @@ manual describe agent field testing without changing its four asset identities
 or static HUD capture. Both protocol envelopes and both Play profiles are tested;
 full Windows/editor/physical/external-client review remains pending. No numbered
 Windows package accompanies this source checkpoint.
+
+
+## Native UI font collections
+
+Project UI resources admit bounded TTC/OTC collections and native zero-based
+face selection. Both font backends retain native layout/style ownership; the
+optional shaped adapter selects the same face in raster and shaping libraries,
+and identical collection bytes are shared across loaded aliases/indices.
+Resource metadata reports face count and matching-kit requirements. Font files
+also use the existing reviewed source-copy controller: font-containing batches
+are copy only, preserve bytes and require explicit later UI registration. Native
+and MCP workflows share those rules. Existing
+catalog IDs, source closure and source-hidden content export remain authoritative.
+
+Successful native/MCP UI registration and example creation now notify the existing
+catalog-read owner, making saved resources visible without reopening the project.
+Source operations, revisions, permissions, Scene history and native field input
+retain their existing boundaries. UiFontCollections includes two project faces,
+its notices, a Camera and native input; the manual explains selection and export.
+Variable axes, named instances, color glyphs and full typography remain outside
+scope. No dependency revision, installed gameplay SDK ABI or numbered Windows
+package changes accompany this source work.

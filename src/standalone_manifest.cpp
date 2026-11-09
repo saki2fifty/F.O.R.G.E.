@@ -8,6 +8,7 @@
 #include "runtime_execution_values.hpp"
 #include "runtime_reflection_profile.hpp"
 #include "ui_filter_profile.hpp"
+#include "ui_font_profile.hpp"
 #include "ui_gradient_profile.hpp"
 #include "ui_surface_limits.hpp"
 #include <algorithm>
@@ -392,6 +393,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             continue;
         require(features->is_object(), "Invalid UI source runtime features");
         for (const auto& [name, version] : features->items()) {
+            if (name == "font_collections") {
+                require(version.is_number_integer() &&
+                            version == ui_font_detail::collection_profile_version,
+                        "Unsupported UI font collection runtime profile");
+                const auto support = engine.find("runtime_ui_font_collections");
+                require(support != engine.end() && support->is_number_integer() &&
+                            *support == ui_font_detail::collection_profile_version,
+                        "UI font collections require the matching runtime kit packaged with this "
+                        "editor");
+                continue;
+            }
             if (name == "gradients") {
                 require(version.is_number_integer() &&
                             version >= ui_gradient_detail::basic_profile_version &&

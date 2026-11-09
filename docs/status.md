@@ -28,6 +28,13 @@ owners. Password plaintext is omitted, stale UI/Play targets are rejected and
 camera input retains existing surface-hit requirements. IME injection and full
 international text editing remain outside scope.
 
+Local source also admits bounded TTC/OTC font collections with native zero-based
+face selection in both font backends. The UiFontCollections example uses two
+project faces, native text input and normal source-hidden content export.
+Existing source/catalog/MCP owners publish collection metadata and retain asset
+IDs. Matching runtime-kit support is required. Variable axes, named instances,
+color glyphs and a general font designer remain outside the supported profile.
+
 Local source adds imported mono/stereo impulse processing on custom audio buses.
 Project Settings, Content selection, automation/MCP, existing AudioClip resources,
 shared native bus histories and full export use the same owners. The original

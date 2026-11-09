@@ -1,0 +1,179 @@
+#include "asset_bytes.hpp"
+#include "fixtures/ui_font_collection.hpp"
+#include "runtime_package.hpp"
+#include "ui_test_renderer.hpp"
+#include <forge/authoring.hpp>
+#include <forge/game_settings.hpp>
+#include <forge/primitive_catalog.hpp>
+#include <forge/project.hpp>
+#include <forge/render_components.hpp>
+#include <forge/runtime_ui.hpp>
+#include <fstream>
+#include <iostream>
+
+namespace {
+using namespace forge;
+constexpr auto scene_path = "Scenes/FontCollections.scene.json";
+constexpr auto hud_path = "Assets/UI/hud.rml";
+void check(bool value, const char* message) {
+    if (!value)
+        throw std::runtime_error(message);
+}
+RuntimeUiInspector inspect(const std::filesystem::path& root, const std::vector<std::byte>& font) {
+    return [=](AssetId asset, std::stop_token) {
+        UiTestRenderer renderer;
+        UiPresenter presenter(renderer, root, font, {}, nullptr, true);
+        return presenter.inspect_static({asset});
+    };
+}
+void author(const std::filesystem::path& root, const std::filesystem::path& fonts) {
+    check(!std::filesystem::exists(root),
+          "Choose a new example path; never reauthor published IDs");
+    std::filesystem::create_directories(root / "Assets/Fonts");
+    std::filesystem::create_directories(root / "Assets/UI");
+    std::filesystem::create_directories(root / "Scenes");
+    const auto latin = asset_detail::read_bytes(fonts / "Poppins-Regular.ttf", 4 * 1024 * 1024);
+    const auto arabic = asset_detail::read_bytes(fonts / "Cairo-Regular.ttf", 4 * 1024 * 1024);
+    const auto collection = test::font_collection({latin, arabic});
+    std::ofstream output(root / "Assets/Fonts/Menu.ttc", std::ios::binary);
+    output.write(reinterpret_cast<const char*>(collection.data()),
+                 std::streamsize(collection.size()));
+    output.close();
+    check(bool(output), "Could not write example font container");
+    for (const auto* name : {"LICENSE-Poppins.txt", "LICENSE-Cairo.txt"})
+        std::filesystem::copy_file(fonts / name, root / name);
+    std::ofstream(root / hud_path) << R"rml(<rml><head>
+<link type="text/rcss" href="hud.rcss" /></head><body>
+<div id="panel"><p id="eyebrow">FORGE / FONT COLLECTIONS</p>
+<p id="heading">One file. Two font faces.</p>
+<p class="label">Face 0 / Poppins</p><p id="latin">The quick brown fox / 0123456789</p>
+<p class="label">Face 1 / Cairo</p><p id="second">The quick brown fox / 0123456789</p>
+<p id="arabic">سلام بالعالم</p>
+<p class="label">A native field using face 1</p><input id="field" type="text" value="Edit this text" />
+<p id="state">Tick {{tick}} / paused {{paused}}</p>
+<p id="hint">Open Assets/UI/hud.rcss in Content. Each font-family selects a zero-based face
+from Assets/Fonts/Menu.ttc. Save changes and restart Play. Shape UI text is enabled.</p>
+</div></body></rml>)rml";
+    std::ofstream(root / "Assets/UI/hud.rcss")
+        << R"rcss(@font-face {font-family:MenuLatin;src:"Assets/Fonts/Menu.ttc";-rmlui-face-index:0;}
+@font-face {font-family:MenuArabic;src:"Assets/Fonts/Menu.ttc";-rmlui-face-index:1;}
+body {width:100%;height:100%;font-family:Lato;font-size:18px;color:#edf3fa;pointer-events:none;}
+body,div,p {display:block;} p {margin:8px 0;}
+#panel {position:absolute;left:5%;top:4%;width:90%;max-width:800px;max-height:92%;overflow:auto;box-sizing:border-box;padding:24px;background-color:#152b3df5;pointer-events:auto;}
+#eyebrow,.label {font-size:14px;color:#8cd8cc;} #heading {font-size:30px;color:#fff;}
+#latin {font-family:MenuLatin;font-size:28px;} #second,#arabic {font-family:MenuArabic;font-size:28px;}
+#arabic {-rmlui-language:ar;-rmlui-direction:rtl;}
+input {display:block;box-sizing:border-box;width:90%;height:48px;padding:6px;background-color:#0a1d2b;color:#fff;font-family:MenuArabic;}
+#state,#hint {font-size:14px;color:#bdd0e3;} scrollbarvertical {width:12px;background-color:#101e2c;}
+scrollbarvertical sliderbar {background-color:#477e9a;}
+)rcss";
+    const auto hud = register_ui_document(root, hud_path);
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto entity = [&](const char* name) {
+        const auto id = authoring_command(scene, "entity.create", {{"name", name}}).at("selected");
+        auto value = scene.entity(id.get<std::string>());
+        value.set<Primitive>({no_primitive});
+        return value;
+    };
+    entity("Font collection HUD").set<UiDocument>({{hud.id}, true, true, 0});
+    entity("Game Camera").set<Camera>({});
+    scene.save(root / scene_path);
+    auto catalog = AssetCatalog::open_project(root);
+    const auto saved_scene = catalog.add_scene(scene_path);
+    catalog.save(AssetCatalog::project_index(root));
+    ProjectSettings settings(root);
+    auto value = settings.document();
+    value["name"] = "UI Font Collections";
+    value["startup_scene"] = {{"asset", saved_scene.id}, {"source", scene_path}};
+    value["game"] =
+        default_game_settings("org.forge.examples.font-collections", "UI Font Collections");
+    value["game"]["ui"] = {{"text_shaping", true}, {"grapheme_editing", true}};
+    settings.save(value);
+    ProjectLease lease(root);
+    const std::array roots{saved_scene.id};
+    prepare_runtime_content_catalog(
+        lease, roots,
+        inspect(root, asset_detail::read_bytes(fonts / "LatoLatin-Regular.ttf", 4 * 1024 * 1024)),
+        scene.schema());
+}
+void present(const std::filesystem::path& root, const std::vector<std::byte>& font,
+             const std::filesystem::path& scene_source = scene_path) {
+    Json saved;
+    std::ifstream(root / scene_source) >> saved;
+    EngineContext engine(WorldRole::Runtime, false, {ui_module(root)});
+    Scene scene(engine.world());
+    scene.restore_snapshot(saved);
+    const auto ui = std::static_pointer_cast<UiRuntime>(engine.services().ui());
+    UiTestRenderer renderer;
+    {
+        UiPresenter presenter(renderer, root, font, {}, nullptr, true, true);
+        presenter.reset("font-collection-project", 1);
+        const auto snapshot = ui->snapshot(scene, "font-collection-project", 1, 7, true);
+        check(presenter.accept(snapshot), presenter.diagnostic().c_str());
+        presenter.update(0, 1000, 720);
+        presenter.render();
+        check(renderer.draws && !renderer.textures.empty() && presenter.diagnostic().empty(),
+              "Collection example native rendering failed");
+        const auto fields = presenter.text_fields(snapshot.at("documents")[0].at("instance"));
+        check(!fields.at("fields").empty(), "Collection example text field missing");
+        check(scene.snapshot() == saved, "Native collection rendering mutated the saved Scene");
+    }
+    check(renderer.geometry.empty() && renderer.textures.empty(), "Example resources leaked");
+}
+} // namespace
+int main(int argc, char** argv) {
+    try {
+        check(argc == 4, "Need project, scratch and fonts; or --author new-project fonts");
+        if (std::string_view(argv[1]) == "--author") {
+            author(argv[2], argv[3]);
+            return 0;
+        }
+        if (std::string_view(argv[1]) == "--refresh") {
+            const auto root = std::filesystem::absolute(argv[2]);
+            const auto font = asset_detail::read_bytes(
+                std::filesystem::path(argv[3]) / "LatoLatin-Regular.ttf", 4 * 1024 * 1024);
+            const auto settings = ProjectSettings(root).document();
+            const std::array roots{settings.at("startup_scene").at("asset").get<AssetId>()};
+            ProjectLease lease(root);
+            EngineContext engine;
+            Scene scene(engine.world());
+            prepare_runtime_content_catalog(lease, roots, inspect(root, font), scene.schema());
+            return 0;
+        }
+        const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
+        struct Cleanup {
+            std::filesystem::path path;
+            ~Cleanup() {
+                std::error_code error;
+                std::filesystem::remove_all(path, error);
+            }
+        } cleanup{scratch};
+        const auto source = scratch / "source";
+        std::filesystem::create_directories(scratch);
+        std::filesystem::copy(argv[1], source, std::filesystem::copy_options::recursive);
+        const auto font = asset_detail::read_bytes(
+            std::filesystem::path(argv[3]) / "LatoLatin-Regular.ttf", 4 * 1024 * 1024);
+        present(source, font);
+        const auto catalog = AssetCatalog::open_project(source);
+        ProjectSettings settings(source);
+        const std::array roots{settings.document().at("startup_scene").at("asset").get<AssetId>()};
+        package_runtime_content(source, scratch / "export", roots, {"windows", "d3d12"}, {}, {}, {},
+                                inspect(source, font));
+        const auto relocated = scratch / "relocated";
+        std::filesystem::rename(scratch / "export", relocated);
+        const auto runtime_catalog = open_runtime_content(relocated, {"windows", "d3d12"});
+        check(runtime_catalog.records().size() == catalog.records().size(),
+              "Collection runtime closure changed identities");
+        for (const auto& [id, record] : catalog.records())
+            check(runtime_catalog.records().contains(id),
+                  "Collection asset ID changed during export");
+        std::filesystem::rename(source, scratch / "source-offline");
+        present(relocated, font, runtime_catalog.records().at(roots[0]).source);
+        std::cout << "Collection example and source-hidden relocated native font content passed\n";
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << error.what() << '\n';
+        return 1;
+    }
+}

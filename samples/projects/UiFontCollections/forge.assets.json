@@ -1,0 +1,113 @@
+{
+  "assets": [
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "47e16c70-cbd4-4b85-8c26-0d54fb307906",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1029,
+          "digest": "a439e2e3d5a766814ef83ed49e9d25b99b912951ccf793a1d95032c4f060fa2c",
+          "format": "rcss"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/hud.rcss",
+      "source_dependencies": [
+        {
+          "revision": "a439e2e3d5a766814ef83ed49e9d25b99b912951ccf793a1d95032c4f060fa2c",
+          "role": "ui.source",
+          "source": "Assets/UI/hud.rcss"
+        }
+      ],
+      "type": "ui_stylesheet"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "71895db6-c849-4c98-8155-753f8fca5ae4",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/FontCollections.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b0886d9b-e77e-43bd-b3da-4177031c5822",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 252744,
+          "digest": "c8945d2c5d0fee40afe51ff40617e292593eca47c99715da244860213eb68229",
+          "faces": 2,
+          "format": "ttc",
+          "runtime_features": {
+            "font_collections": 1
+          }
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Fonts/Menu.ttc",
+      "source_dependencies": [
+        {
+          "revision": "c8945d2c5d0fee40afe51ff40617e292593eca47c99715da244860213eb68229",
+          "role": "ui.source",
+          "source": "Assets/Fonts/Menu.ttc"
+        }
+      ],
+      "type": "ui_font"
+    },
+    {
+      "dependencies": [
+        "47e16c70-cbd4-4b85-8c26-0d54fb307906",
+        "b0886d9b-e77e-43bd-b3da-4177031c5822"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "47e16c70-cbd4-4b85-8c26-0d54fb307906",
+          "type": "ui_stylesheet"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "b0886d9b-e77e-43bd-b3da-4177031c5822",
+          "type": "ui_font"
+        }
+      ],
+      "id": "e7658cd7-08c2-41f8-a9c8-50d70eff463d",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 748,
+          "digest": "1e4e79fb8def338930864fca4dc1a4acb949c62ed11137da7ab98f44616b450d",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/hud.rml",
+      "source_dependencies": [
+        {
+          "revision": "c8945d2c5d0fee40afe51ff40617e292593eca47c99715da244860213eb68229",
+          "role": "ui.observed",
+          "source": "Assets/Fonts/Menu.ttc"
+        },
+        {
+          "revision": "a439e2e3d5a766814ef83ed49e9d25b99b912951ccf793a1d95032c4f060fa2c",
+          "role": "ui.observed",
+          "source": "Assets/UI/hud.rcss"
+        },
+        {
+          "revision": "1e4e79fb8def338930864fca4dc1a4acb949c62ed11137da7ab98f44616b450d",
+          "role": "ui.source",
+          "source": "Assets/UI/hud.rml"
+        }
+      ],
+      "type": "ui_document"
+    }
+  ],
+  "version": 2
+}

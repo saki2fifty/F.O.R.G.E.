@@ -78,6 +78,11 @@ class GalleryPackageTest(unittest.TestCase):
         self.shaping_example = SOURCE/'samples/projects/UiTextShaping'
         shutil.copytree(self.shaping_example,
                         self.source/'samples/projects/UiTextShaping')
+        self.collection_example = SOURCE/'samples/projects/UiFontCollections'
+        shutil.copytree(self.collection_example,
+                        self.source/'samples/projects/UiFontCollections')
+        self.write(self.source/'samples/projects/Other/Uppercase.OTC',
+                   (self.collection_example/'Assets/Fonts/Menu.ttc').read_bytes())
         self.impulse_example = SOURCE/'samples/projects/AudioImpulseResponses'
         shutil.copytree(self.impulse_example,
                         self.source/'samples/projects/AudioImpulseResponses')
@@ -267,6 +272,24 @@ class GalleryPackageTest(unittest.TestCase):
             name = 'Examples/FeatureGallery/Assets/cache.lock'
             self.assertEqual(archive.read(name), b'Authored resource with a similar name')
             self.assertIn(name, manifest)
+
+    def test_collection_ui_example_fonts_and_manual_link(self):
+        self.package()
+        with zipfile.ZipFile(self.archive) as archive:
+            manifest = json.loads(archive.read('manifest.json'))['files']
+            for path in self.collection_example.rglob('*'):
+                if not path.is_file() or '.forge' in path.relative_to(self.collection_example).parts:
+                    continue
+                name = 'Examples/UiFontCollections/'+path.relative_to(self.collection_example).as_posix()
+                content = path.read_bytes()
+                if path.name == 'README.md':
+                    content = content.replace(b'](../../../manual/editor/ui-text-shaping.md)',
+                                              b'](../../manual/editor/ui-text-shaping.html)')
+                self.assertEqual(archive.read(name), content, name)
+                self.assertEqual(manifest[name], hashlib.sha256(content).hexdigest(), name)
+            self.assertEqual(archive.read('Examples/Other/Uppercase.OTC'),
+                             (self.collection_example/'Assets/Fonts/Menu.ttc').read_bytes())
+            self.assertNotIn('Examples/UiFontCollections/.forge/writer.lock', archive.namelist())
 
     def test_shaped_ui_example_fonts_styles_and_manual_link(self):
         self.package()

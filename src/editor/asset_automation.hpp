@@ -108,7 +108,8 @@ asset_automation_methods(Scene& scene, EditorFiles& files, ContentImports& impor
     methods.push_back(automation_method(
         "asset.import.prepare",
         "Prepare a reviewed raw-source copy/import batch. Paths are relative to the project or "
-        "explicitly granted import root; no files change yet.",
+        "explicitly granted import root; no files change yet. Font sources are copy-only: "
+        "the review reports copy_only; commit with import:false, then use source.ui.register.",
         "asset.write",
         automation_object({{"sources", automation_array(automation_text(2047, 1), 256, 1)},
                            {"root", {{"type", "string"}, {"enum", {"project", "import"}}}},
@@ -131,7 +132,8 @@ asset_automation_methods(Scene& scene, EditorFiles& files, ContentImports& impor
     methods.push_back(automation_method(
         "asset.import.commit",
         "Commit this exact reviewed copy plan, optionally importing with defaults. Publication "
-        "remains per asset; observe progress/results.",
+        "remains per asset; observe progress/results. A copy_only review requires import:false; "
+        "font registration remains explicit after copying.",
         "asset.write",
         automation_object({{"batch", automation_integer(1)},
                            {"review", automation_digest()},

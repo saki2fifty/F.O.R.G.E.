@@ -31,6 +31,8 @@ with tempfile.TemporaryDirectory(prefix='ui-relocation-', dir=archive.parent) as
     assert (root / 'manual/editor/ui-text-input.html').is_file()
     assert (root / 'resources/ui/LICENSE-Cairo.txt').is_file()
     assert (root / 'resources/ui/Cairo-Regular.ttf').is_file()
+    assert (root / 'resources/ui/Poppins-Regular.ttf').is_file()
+    assert (root / 'resources/ui/LICENSE-Poppins.txt').is_file()
     assert (root / 'manual/editor/runtime-ui.html').is_file()
     relocated = root / 'bin' / fixture.name
     shutil.copy2(fixture, relocated)

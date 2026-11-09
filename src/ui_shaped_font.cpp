@@ -1,4 +1,5 @@
 #include "ui_shaped_font.hpp"
+#include "ui_font_profile.hpp"
 #include "ui_font_shaping.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/CallbackTexture.h>
@@ -32,7 +33,9 @@ void require(bool value, const char* message) {
 using HbFace = std::unique_ptr<hb_face_t, decltype(&hb_face_destroy)>;
 using HbFont = std::unique_ptr<hb_font_t, decltype(&hb_font_destroy)>;
 struct Face {
-    std::string bytes, family;
+    std::shared_ptr<const std::string> bytes;
+    std::string family;
+    int index = 0;
     FT_Face native = nullptr;
     HbFace shaping{nullptr, hb_face_destroy};
     Rml::Style::FontStyle style = Rml::Style::FontStyle::Normal;
@@ -167,24 +170,33 @@ class ShapedFont final : public Rml::FontEngineInterface {
     }
     bool load(Rml::Span<const Rml::byte> data, int index, Rml::String family,
               Rml::Style::FontStyle style, Rml::Style::FontWeight weight, bool fallback) {
-        require(index == 0 && !data.empty() && data.size() <= 4 * 1024 * 1024,
-                "Shaped text requires a standalone font face within4MiB");
+        const auto count = ui_font_detail::face_count(
+            {reinterpret_cast<const std::byte*>(data.data()), data.size()});
+        require(index >= 0 && unsigned(index) < count, "UI font face index is out of range");
         require(library_, "Shaped font engine is not initialized");
         const std::string bytes(reinterpret_cast<const char*>(data.data()), data.size());
         family = Rml::StringUtilities::ToLower(std::move(family));
+        std::shared_ptr<const std::string> shared_bytes;
         for (const auto& face : faces_)
-            if (face->bytes == bytes && (family.empty() || face->family == family) &&
-                (weight == Rml::Style::FontWeight::Auto || face->weight == int(weight)) &&
-                (family.empty() || face->style == style)) {
-                face->fallback = face->fallback || fallback;
-                return true;
+            if (*face->bytes == bytes) {
+                shared_bytes = face->bytes;
+                if (face->index == index && (family.empty() || face->family == family) &&
+                    (weight == Rml::Style::FontWeight::Auto || face->weight == int(weight)) &&
+                    (family.empty() || face->style == style)) {
+                    face->fallback = face->fallback || fallback;
+                    return true;
+                }
             }
-        require(faces_.size() < 32 && source_bytes_ + bytes.size() <= font_bytes_limit,
+        const auto added_bytes = shared_bytes ? 0 : bytes.size();
+        require(faces_.size() < ui_font_detail::face_limit &&
+                    source_bytes_ + added_bytes <= font_bytes_limit,
                 "Shaped font source budget exceeded; restart Play");
         auto face = std::make_unique<Face>();
-        face->bytes = bytes;
-        require(FT_New_Memory_Face(library_, reinterpret_cast<const FT_Byte*>(face->bytes.data()),
-                                   FT_Long(face->bytes.size()), 0, &face->native) == 0 &&
+        face->bytes =
+            shared_bytes ? std::move(shared_bytes) : std::make_shared<const std::string>(bytes);
+        face->index = index;
+        require(FT_New_Memory_Face(library_, reinterpret_cast<const FT_Byte*>(face->bytes->data()),
+                                   FT_Long(face->bytes->size()), index, &face->native) == 0 &&
                     FT_IS_SCALABLE(face->native),
                 "Font does not provide a scalable face");
         require(FT_Select_Charmap(face->native, FT_ENCODING_UNICODE) == 0,
@@ -208,16 +220,16 @@ class ShapedFont final : public Rml::FontEngineInterface {
                                                                               : 400;
         }
         std::unique_ptr<hb_blob_t, decltype(&hb_blob_destroy)> blob(
-            hb_blob_create_or_fail(face->bytes.data(), unsigned(face->bytes.size()),
+            hb_blob_create_or_fail(face->bytes->data(), unsigned(face->bytes->size()),
                                    HB_MEMORY_MODE_READONLY, nullptr, nullptr),
             hb_blob_destroy);
         require(bool(blob), "Cannot allocate shaping font source");
-        face->shaping.reset(hb_face_create_or_fail(blob.get(), 0));
+        face->shaping.reset(hb_face_create_or_fail(blob.get(), unsigned(index)));
         require(bool(face->shaping) && hb_face_get_glyph_count(face->shaping.get()),
                 "Cannot open shaping font tables");
         face->fallback = fallback;
         faces_.push_back(std::move(face));
-        source_bytes_ += bytes.size();
+        source_bytes_ += added_bytes;
         advance_version();
         return true;
     }

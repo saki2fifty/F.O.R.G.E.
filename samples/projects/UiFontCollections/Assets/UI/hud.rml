@@ -1,0 +1,12 @@
+<rml><head>
+<link type="text/rcss" href="hud.rcss" /></head><body>
+<div id="panel"><p id="eyebrow">FORGE / FONT COLLECTIONS</p>
+<p id="heading">One file. Two font faces.</p>
+<p class="label">Face 0 / Poppins</p><p id="latin">The quick brown fox / 0123456789</p>
+<p class="label">Face 1 / Cairo</p><p id="second">The quick brown fox / 0123456789</p>
+<p id="arabic">سلام بالعالم</p>
+<p class="label">A native field using face 1</p><input id="field" type="text" value="Edit this text" />
+<p id="state">Tick {{tick}} / paused {{paused}}</p>
+<p id="hint">Open Assets/UI/hud.rcss in Content. Each font-family selects a zero-based face
+from Assets/Fonts/Menu.ttc. Save changes and restart Play. Shape UI text is enabled.</p>
+</div></body></rml>

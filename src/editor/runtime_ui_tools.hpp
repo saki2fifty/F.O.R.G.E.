@@ -9,6 +9,7 @@ class RuntimeUiTools {
     char source_[1024]{};
 
   public:
+    std::function<void()> catalog_published;
     void content(SceneDocument& project, bool locked, std::string& message,
                  const UiAssetSnapshot* observed = nullptr) {
         if (!ImGui::CollapsingHeader("Runtime UI")) {
@@ -25,11 +26,14 @@ class RuntimeUiTools {
                            "and a text field. This creates assets, outside scene Undo.")) {
                 project.check_ownership();
                 auto record = create_ui_example(project.project());
+                if (catalog_published)
+                    catalog_published();
                 message = "HUD registered: " + path_utf8(record.source) +
                           ". Add UI Document to an object and select it.";
             }
             ImGui::InputText("Project UI file", source_, sizeof(source_));
-            ui::help("Project-relative RML, RCSS, TTF/OTF or PNG/JPEG/TGA. Registration records "
+            ui::help("Project-relative RML, RCSS, TTF/OTF, TTC/OTC or PNG/JPEG/TGA. Registration "
+                     "records "
                      "admitted "
                      "source metadata; it does not replace live UI or its font cache.");
             if (ui::button("Register / Refresh",
@@ -38,6 +42,8 @@ class RuntimeUiTools {
                 project.check_ownership();
                 auto record =
                     register_ui_source(*project.writer_guard(), std::filesystem::u8path(source_));
+                if (catalog_published)
+                    catalog_published();
                 message = "UI source registered: " + path_utf8(record.source);
             }
             ImGui::BeginDisabled(!observed || observed->documents.empty());
@@ -47,6 +53,8 @@ class RuntimeUiTools {
                            "the HUD first. Does not alter scene Undo or live fonts.")) {
                 project.check_ownership();
                 (void)refresh_ui_asset_catalog(*project.writer_guard(), *observed);
+                if (catalog_published)
+                    catalog_published();
                 message = "UI source metadata and observed dependencies refreshed.";
             }
             ImGui::EndDisabled();

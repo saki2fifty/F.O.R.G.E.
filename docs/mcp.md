@@ -2309,6 +2309,27 @@ consumed (null for focus/navigation) and fresh fields. Delivery is not a
 gameplay acknowledgement or a claim that a canceled event edited text.
 These are editor Play operations; they do not attach MCP to an exported game process.
 
+Use the existing reviewed `forge_asset_import_prepare`/`commit` workflow to copy
+TTF/OTF/TTC/OTC files from the project or explicitly granted import root. A review
+containing fonts reports `copy_only: true`. Commit it with `import: false`, wait
+for copying to finish and close the review. `import: true` returns `copy_only`
+without creating the destination. Use the review destination plus its file's
+relative destination, including `Source-1`, for subsequent UI registration.
+The normal reviewed digest, containment, ordinary-file, revision and no-overwrite
+rules apply. No font asset is published until explicit UI registration.
+
+Existing `forge_source_ui_register` also admits contained TTC/OTC collection
+fonts. `forge_asset_read` exposes their `forge.ui_source.faces` and
+`runtime_features.font_collections` metadata. Successful UI registration/example
+creation publishes the saved catalog to the existing import/read owner, so asset
+search and inspection can observe it without reopening the project. No separate
+agent catalog is maintained. Create/edit `@font-face` and zero-based
+`-rmlui-face-index` through existing UI source operations, save/register the
+source and restart Play after replacing a loaded family. Execution grants,
+revision/receipt/source-conflict rules, native field input and export-kit checks
+retain their ordinary owners. Native execution does not provide font-file
+creation, arbitrary filesystem or font-license permissions.
+
 Transport replay returns its original receipt and does not type/delete twice.
 Reload replaces the presentation revision and native fields; callers must read
 again. Stop removes the presenter. Runtime values/model updates remain separate

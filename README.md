@@ -330,6 +330,12 @@ Scoped MCP field discovery/focus/text/key tools operate the same native game HUD
 during editor Play. See [agent field testing](manual/editor/mcp.md) for guards,
 password observations, source/history behavior and surface limits.
 
+The [UiFontCollections project](samples/projects/UiFontCollections/README.md)
+selects two faces from one project TTC file. Native styles, text input, source
+registration, MCP metadata and matching-kit export retain their existing owners.
+See [collection fonts](manual/editor/ui-text-shaping.md) for zero-based face
+selection and the current typography limits.
+
 [Runtime reflection capture](manual/editor/lighting.md) updates local specular and
 diffuse lighting from moving scene sources in Scene, Game and camera outputs.
 Gallery176 demonstrates simulation-time refresh and a saved fallback; Inspector,

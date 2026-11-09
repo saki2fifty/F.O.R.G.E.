@@ -40,7 +40,8 @@ struct ProjectSourceAutomation : ProjectTextSource {
     static std::vector<LiveAuthoringMethod>
     methods(EditorFiles& files, const ui::AutomationPermissions& permissions,
             std::function<std::string()> unavailable,
-            std::function<bool(const std::filesystem::path&)> source_owned = {}) {
+            std::function<bool(const std::filesystem::path&)> source_owned = {},
+            std::function<void()> catalog_published = {}) {
         std::vector<LiveAuthoringMethod> result;
         result.push_back(automation_method(
             "source.text.list",
@@ -200,30 +201,36 @@ struct ProjectSourceAutomation : ProjectTextSource {
         result.push_back(automation_method(
             "source.ui.register",
             "Admit a project RML/style/font/image through the existing UI "
-            "catalog operation, preserving registered identities. This "
+            "catalog operation. Fonts include standalone TTF/OTF and TTC/OTC collections. "
+            "Preserves registered identities. This "
             "publishes metadata; it does not reload live fonts/UI.",
             "assets.write", automation_object({{"path", automation_text(2047, 1)}}, {"path"}), true,
-            [&files, ready](const Json& request) {
+            [&files, ready, catalog_published](const Json& request) {
                 ready();
                 const auto relative =
                     automation_relative_path(request.at("path").get<std::string>());
                 const auto record = register_ui_source(*files.document.writer_guard(), relative);
+                if (catalog_published)
+                    catalog_published();
                 return Json{{"asset", record.id},
                             {"type", record.type},
                             {"path", path_utf8(record.source)}};
             }));
-        result.push_back(automation_method(
-            "source.ui.example",
-            "Create and register the existing HUD example through its native "
-            "owner. This is separate from scene Undo; assign its returned "
-            "document asset to a UI Document component.",
-            "assets.write", automation_object(), true, [&files, ready](const Json&) {
-                ready();
-                const auto record = create_ui_example(files.document.project());
-                return Json{{"asset", record.id},
-                            {"type", record.type},
-                            {"path", path_utf8(record.source)}};
-            }));
+        result.push_back(
+            automation_method("source.ui.example",
+                              "Create and register the existing HUD example through its native "
+                              "owner. This is separate from scene Undo; assign its returned "
+                              "document asset to a UI Document component.",
+                              "assets.write", automation_object(), true,
+                              [&files, ready, catalog_published](const Json&) {
+                                  ready();
+                                  const auto record = create_ui_example(files.document.project());
+                                  if (catalog_published)
+                                      catalog_published();
+                                  return Json{{"asset", record.id},
+                                              {"type", record.type},
+                                              {"path", path_utf8(record.source)}};
+                              }));
         return result;
     }
 };

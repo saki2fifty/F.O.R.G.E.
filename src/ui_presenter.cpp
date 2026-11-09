@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "ui_field_keys.hpp"
 #include "ui_filter_profile.hpp"
+#include "ui_font_profile.hpp"
 #include "ui_luminance_mask.hpp"
 #include "ui_shadow_motion.hpp"
 #include "ui_shaped_font.hpp"
@@ -580,10 +581,12 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     Rml::FileHandle Open(const Rml::String& requested) override {
         auto path = requested;
         try {
+            const bool font_source = ui_font_detail::extension(
+                Rml::StringUtilities::ToLower(std::filesystem::u8path(path).extension().string()));
             // RmlUi 6.3 @font-face passes src directly to FileInterface, without
             // SystemInterface::JoinPath. Its font locators are project-relative.
             auto prefix = path.substr(0, path.find('/'));
-            if (!resources.contains(prefix) && (path.ends_with(".ttf") || path.ends_with(".otf"))) {
+            if (!resources.contains(prefix) && font_source) {
                 if (loading_prefix.empty())
                     throw std::runtime_error("Font load outside candidate admission");
                 path = loading_prefix + "/" +
@@ -593,10 +596,9 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             if (slash == path.npos)
                 throw std::runtime_error("UI resource has no candidate origin");
             auto& bytes = resources.at(path.substr(0, slash))->read(path.substr(slash + 1));
-            if (!loading_prefix.empty() &&
-                (path.ends_with(".rcss") || path.ends_with(".ttf") || path.ends_with(".otf")))
+            if (!loading_prefix.empty() && (path.ends_with(".rcss") || font_source))
                 resources.at(path.substr(0, slash))->automatic(path.substr(slash + 1));
-            if (path.ends_with(".ttf") || path.ends_with(".otf")) {
+            if (font_source) {
                 auto digest = asset_detail::content_digest(bytes);
                 if (!admitted_fonts.contains(digest)) {
                     if (admitted_fonts.size() >= 32 || font_bytes + bytes.size() > 16 * 1024 * 1024)
