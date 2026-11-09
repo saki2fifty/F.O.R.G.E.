@@ -10,6 +10,7 @@
 #include <RmlUi/Core/StringUtilities.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_MULTIPLE_MASTERS_H
 #include FT_TRUETYPE_TABLES_H
 #include <algorithm>
 #include <cmath>
@@ -17,6 +18,7 @@
 #include <hb.h>
 #include <limits>
 #include <map>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <tuple>
@@ -40,6 +42,11 @@ struct Face {
     HbFace shaping{nullptr, hb_face_destroy};
     Rml::Style::FontStyle style = Rml::Style::FontStyle::Normal;
     int weight = 400;
+    // Native design coordinates belong to this raster face. Sized handles keep
+    // their own effective weight; the shared raster face restores it on use.
+    std::vector<FT_Fixed> coordinates;
+    std::optional<unsigned> weight_axis;
+    FT_Fixed weight_minimum = 0, weight_maximum = 0, selected_weight = 0;
     bool fallback = false;
     ~Face() {
         if (native)
@@ -49,6 +56,7 @@ struct Face {
 struct SizedFace {
     Face* face = nullptr;
     int size = 0;
+    FT_Fixed weight = 0;
     Rml::FontMetrics metrics{};
     HbFont shaping{nullptr, hb_font_destroy};
     Rml::FontFaceHandle id = 0;
@@ -104,23 +112,42 @@ class ShapedFont final : public Rml::FontEngineInterface {
         return *found->second;
     }
     void pixels(SizedFace& face) {
+        auto& source = *face.face;
+        if (source.weight_axis && source.selected_weight != face.weight) {
+            source.coordinates[*source.weight_axis] = face.weight;
+            require(FT_Set_Var_Design_Coordinates(source.native,
+                                                  unsigned(source.coordinates.size()),
+                                                  source.coordinates.data()) == 0,
+                    "Cannot select variable font weight");
+            source.selected_weight = face.weight;
+        }
         require(FT_Set_Pixel_Sizes(face.face->native, 0, unsigned(face.size)) == 0,
                 "Cannot select font pixel size");
     }
-    Rml::FontFaceHandle size(Face& face, int pixels_count) {
+    static FT_Fixed design_weight(const Face& face, FT_Fixed requested) {
+        return face.weight_axis ? std::clamp(requested, face.weight_minimum, face.weight_maximum)
+                                : FT_Fixed(face.weight) * 65536;
+    }
+    Rml::FontFaceHandle size(Face& face, int pixels_count, FT_Fixed requested_weight) {
         require(pixels_count >= 1 && pixels_count <= 512, "Shaped font size must be1..512px");
+        const auto weight = design_weight(face, requested_weight);
         for (const auto& [id, value] : sized_)
-            if (value->face == &face && value->size == pixels_count)
+            if (value->face == &face && value->size == pixels_count && value->weight == weight)
                 return id;
         require(sized_.size() < 128, "Shaped sized-font budget exceeded; restart Play");
         auto value = std::make_unique<SizedFace>();
         value->face = &face;
         value->size = pixels_count;
+        value->weight = weight;
         value->id = next_face_++;
         pixels(*value);
         value->shaping.reset(hb_font_create(face.shaping.get()));
         require(value->shaping.get() != hb_font_get_empty(), "Cannot allocate sized shaping font");
         hb_ot_font_set_funcs(value->shaping.get());
+        if (face.weight_axis) {
+            const hb_variation_t variation{HB_TAG('w', 'g', 'h', 't'), float(weight) / 65536.f};
+            hb_font_set_variations(value->shaping.get(), &variation, 1);
+        }
         hb_font_set_scale(value->shaping.get(), pixels_count * 64, pixels_count * 64);
         auto& metrics = value->metrics;
         metrics.size = pixels_count;
@@ -161,7 +188,7 @@ class ShapedFont final : public Rml::FontEngineInterface {
         if (!covered(shaped))
             for (const auto& face : faces_)
                 if (face->fallback && face.get() != primary.face) {
-                    auto& fallback = sized(size(*face, primary.size));
+                    auto& fallback = sized(size(*face, primary.size, primary.weight));
                     auto candidate = shape_ui_font_run(fallback.shaping.get(), source, context);
                     if (covered(candidate))
                         return {&fallback, std::move(candidate)};
@@ -170,6 +197,8 @@ class ShapedFont final : public Rml::FontEngineInterface {
     }
     bool load(Rml::Span<const Rml::byte> data, int index, Rml::String family,
               Rml::Style::FontStyle style, Rml::Style::FontWeight weight, bool fallback) {
+        require(weight == Rml::Style::FontWeight::Auto || (int(weight) >= 1 && int(weight) <= 1000),
+                "Font weight must be1..1000 or automatic");
         const auto count = ui_font_detail::face_count(
             {reinterpret_cast<const std::byte*>(data.data()), data.size()});
         require(index >= 0 && unsigned(index) < count, "UI font face index is out of range");
@@ -218,6 +247,37 @@ class ShapedFont final : public Rml::FontEngineInterface {
                                ? os2->usWeightClass
                            : (face->native->style_flags & FT_STYLE_FLAG_BOLD) ? 700
                                                                               : 400;
+        }
+        if (FT_HAS_MULTIPLE_MASTERS(face->native)) {
+            FT_MM_Var* native = nullptr;
+            const auto error = FT_Get_MM_Var(face->native, &native);
+            const auto release = [&](FT_MM_Var* value) { FT_Done_MM_Var(library_, value); };
+            std::unique_ptr<FT_MM_Var, decltype(release)> variation(native, release);
+            if (!error && native && native->num_axis &&
+                native->num_axis <= ui_font_detail::variation_axis_limit) {
+                bool supported = true;
+                for (unsigned i = 0; i < native->num_axis; ++i)
+                    if (native->axis[i].tag == FT_MAKE_TAG('w', 'g', 'h', 't')) {
+                        if (face->weight_axis || native->axis[i].minimum < 65536 ||
+                            native->axis[i].minimum > native->axis[i].def ||
+                            native->axis[i].def > native->axis[i].maximum ||
+                            native->axis[i].maximum > 1000 * 65536) {
+                            supported = false;
+                            break;
+                        }
+                        face->weight_axis = i;
+                    }
+                if (!supported)
+                    face->weight_axis.reset(); // Keep the previously supported default design.
+                if (face->weight_axis) {
+                    const auto& axis = native->axis[*face->weight_axis];
+                    face->weight_minimum = axis.minimum;
+                    face->weight_maximum = axis.maximum;
+                    face->selected_weight = axis.def;
+                    for (unsigned i = 0; i < native->num_axis; ++i)
+                        face->coordinates.push_back(native->axis[i].def);
+                }
+            }
         }
         std::unique_ptr<hb_blob_t, decltype(&hb_blob_destroy)> blob(
             hb_blob_create_or_fail(face->bytes->data(), unsigned(face->bytes->size()),
@@ -456,18 +516,19 @@ class ShapedFont final : public Rml::FontEngineInterface {
                 if (name.size() >= 2 && name.front() == '\'' && name.back() == '\'')
                     name = name.substr(1, name.size() - 2);
                 Face* selected = nullptr;
-                int distance = std::numeric_limits<int>::max();
+                FT_Fixed distance = std::numeric_limits<FT_Fixed>::max();
+                const auto requested = FT_Fixed(std::clamp(int(weight), 1, 1000)) * 65536;
                 for (const auto& face : faces_)
                     if (face->family == name) {
-                        const int score = (face->style == style ? 0 : 2000) +
-                                          std::abs(face->weight - int(weight));
+                        const auto score = (face->style == style ? 0 : FT_Fixed(2000) * 65536) +
+                                           std::abs(design_weight(*face, requested) - requested);
                         if (score < distance) {
                             distance = score;
                             selected = face.get();
                         }
                     }
                 if (selected)
-                    return size(*selected, pixels_count);
+                    return size(*selected, pixels_count, requested);
             }
             return Rml::FontFaceHandle{};
         });

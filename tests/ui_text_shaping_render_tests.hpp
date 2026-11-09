@@ -3,6 +3,8 @@
 #include "runtime_package.hpp"
 #include <RmlUi/Core.h>
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <forge/game_settings.hpp>
 #include <forge/project.hpp>
 #include <forge/runtime_ui.hpp>
@@ -86,6 +88,43 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
             });
             check(bright > 500, "Native font glyphs did not reach the rendered image");
             displays.push_back(std::move(pixels));
+            auto* weights = document->GetElementById("weights");
+            check(weights, "Variable weight comparison missing from native sample");
+            weights->ScrollIntoView(false);
+            presenter.update(.02, width, height);
+            context->ClearRenderTarget(view, clear,
+                                       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            renderer.begin(context, view, width, height);
+            presenter.render();
+            renderer.end();
+            check(presenter.diagnostic().empty(), presenter.diagnostic());
+            auto weight_pixels = readback(device, context, view);
+            save(weight_pixels, width, height,
+                 output / ("ui-text-weights-" + suffix + "-" + std::to_string(width) + ".ppm"));
+            if (shaping) {
+                std::array<std::size_t, 3> coverage{};
+                unsigned sample = 0;
+                for (const char* id : {"weight-light", "weight-regular", "weight-heavy"}) {
+                    auto* glyph = document->GetElementById(id);
+                    check(glyph, "Native variable glyph element missing");
+                    const auto origin = glyph->GetAbsoluteOffset(Rml::BoxArea::Content);
+                    const auto dimensions = glyph->GetBox().GetSize(Rml::BoxArea::Content);
+                    const int left = std::max(0, int(std::floor(origin.x))),
+                              right = std::min(int(width), int(std::ceil(origin.x + dimensions.x))),
+                              top = std::max(0, int(std::floor(origin.y))),
+                              bottom =
+                                  std::min(int(height), int(std::ceil(origin.y + dimensions.y)));
+                    for (int y = top; y < bottom; ++y)
+                        for (int x = left; x < right; ++x) {
+                            const auto& pixel = weight_pixels[std::size_t(y) * width + unsigned(x)];
+                            coverage[sample] += pixel[0] > 150 && pixel[1] > 150 && pixel[2] > 150;
+                        }
+                    ++sample;
+                }
+                check(coverage[0] > 50 && coverage[0] < coverage[1] && coverage[1] < coverage[2],
+                      "Native variable weight pixel coverage is not light < regular < heavy");
+            }
+            displays.push_back(std::move(weight_pixels));
         }
         return displays;
     };

@@ -7,6 +7,8 @@
 namespace forge::ui_font_detail {
 inline constexpr unsigned collection_profile_version = 1;
 inline constexpr unsigned face_limit = 32;
+inline constexpr unsigned variation_axis_limit = 16;
+inline constexpr unsigned axis_metadata_limit = 16; // Aggregate across a saved font file's faces.
 inline constexpr std::size_t file_byte_limit = 4 * 1024 * 1024;
 inline constexpr bool extension(std::string_view value) {
     return value == ".ttf" || value == ".otf" || value == ".ttc" || value == ".otc";

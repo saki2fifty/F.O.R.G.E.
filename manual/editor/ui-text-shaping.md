@@ -4,10 +4,10 @@ Enable text shaping when your game needs supported script joining, ligatures or
 combining marks. Use a project font containing the characters you want to show.
 The setting applies to the game's UI documents throughout the project.
 
-![Game UI with Latin ligatures, combining accents and an Arabic text run](../images/ui-text-shaping-game.png)
+![Game UI with Latin ligatures, combining accents, an Arabic run and three variable weights](../images/ui-text-shaping-game.png)
 
 The example uses separate Latin and Arabic runs, a project font, native font
-effects and a local text field.
+effects, a local text field and an original geometric font at three weights.
 
 The example also enables [Edit whole UI characters](ui-text-input.md), a separate
 option for arrow and word movement, selection and plain deletion in its text field.
@@ -108,7 +108,8 @@ Both font notices are included in the project.
 Collection face selection works with the default font backend and with **Shape
 UI text**. Script joining and ligatures still require the shaping option. Files
 are limited to **4 MiB** and **32 faces**; all selected faces must fit the normal
-font and UI budgets. Custom variation axes, named variation instances and color
+font and UI budgets. See **Use a variable weight font** below for an
+admitted weight axis. Other axis controls, named variation instances and color
 glyphs are outside this workflow.
 
 ## Find a font's face index
@@ -133,12 +134,47 @@ details. Older registered fonts can also need a refresh before the table appears
 Registration preserves their asset IDs and source bytes. Restart Play after
 replacing a loaded font. Inspecting the table does not edit or save font data.
 
+## Use a variable weight font
+
+1. Copy a variable TrueType font into your project, register it, and select its `ui_font` asset in Content.
+2. In **Inspector**, read its **variation axes** table. `wght` identifies weight; **Min**, **Default** and **Max** show the design range. The table is read-only.
+3. Enable **Shape UI text** in Project Settings, choose **Save Settings**, and restart Play.
+4. Declare the font with `@font-face`, then use ordinary numeric `font-weight`:
+
+```css
+@font-face {font-family:MenuVariable;src:"Assets/Fonts/MenuVariable.ttf";}
+.menu-heading {font-family:MenuVariable;font-weight:650;}
+```
+
+![Font Inspector showing the original geometric font's weight axis from 100 to 900 with default 400](../images/ui-variable-font-inspector.png)
+
+The axis table describes the saved font. Change the text element's RCSS weight
+to select a different design during Play.
+
+Weights from **1–1000** clamp to the font's admitted weight range. Other axes
+stay at their defaults. The font must have at most **16 axes** and one valid
+`wght` axis within 1–1000. A font outside these limits retains its default design.
+Normal font/glyph limits apply, including **128 distinct face, size and effective
+weight combinations**. Avoid continuously animating weight through many designs.
+
+In **Examples/UiTextShaping**, scroll down to **Variable weight**. The original
+geometric `H` font compares weights **100**, **400** and **900**. Open
+**Assets/UI/hud.rcss**, change one weight, choose **Save source**, then restart
+Play. This small font contains only `H` and space; use your own licensed typeface
+for normal game text.
+
+Axis names can be unavailable. Metadata lists at most **16 axis records across
+all faces** in a file; later faces can show that details were omitted by this
+limit. **Hidden** reflects the font's recorded axis flag. Register / Refresh after
+changing a font, and restart Play after replacing it. Inspection and refresh
+preserve the font's bytes and asset ID.
+
 ## Save and export
 
 Save the UI source, Scene and Project Settings. After a successful Play, use
 **Register / Refresh** to publish the UI resource metadata when needed. Choose
 the saved Scene as startup and export using the runtime kit packaged with the
-matching editor. An older kit without shaping support is rejected. Exported
+matching editor. An older kit without the current shaping and weight support is rejected. Exported
 games include the selected project font through the existing UI resource closure;
 players do not need that font installed.
 Collections also require matching font-collection support in the runtime kit.
@@ -151,6 +187,6 @@ See [Export a game](runtime-content.md) for the normal export workflow.
 
 - Missing glyph boxes usually mean the selected font lacks those characters. Assign a font containing the script. Fallback chooses a face covering a whole run; arbitrary mixed-script fallback is unavailable.
 - Use horizontal text and font sizes from **1–512 px**. A single run supports **64 KiB** of UTF-8 and **16,384 glyphs**, within the normal document limits.
-- Variable axes, color glyphs and vertical text are unsupported. Use a valid zero-based collection face index; an invalid index reports a font diagnostic.
+- Only the admitted weight axis is adjustable through `font-weight`; other axis controls, named variation instances, color glyphs and vertical text are unavailable. Use a valid zero-based collection face index; an invalid index reports a font diagnostic.
 - Shaping does not provide full paragraph bidirectional layout, joining across separate elements, complete international input methods or accessibility. Use the separate [Edit whole UI characters](ui-text-input.md) option for bounded plain-key movement/deletion, Shift-arrow selection and Ctrl-arrow word movement/selection. Check text entry on your target systems.
 - A failed reload keeps the last usable HUD and reports a diagnostic. If a font or glyph cache limit is reached, simplify the UI or stop and restart Play.

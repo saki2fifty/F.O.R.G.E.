@@ -151,7 +151,8 @@ class ProjectSettingsEditor {
                 bool shape_text = ui_text_shaping_enabled(game);
                 if (ImGui::Checkbox("Shape UI text", &shape_text))
                     game["ui"]["text_shaping"] = shape_text;
-                ui::help("Shape horizontal glyph runs for supported project fonts. Save Settings "
+                ui::help("Shape horizontal glyph runs for supported project fonts. Ordinary "
+                         "font-weight also selects an admitted variable weight axis. Save Settings "
                          "and restart Play. Requires the matching runtime kit when exporting.");
                 bool grapheme_editing = ui_grapheme_editing_enabled(game);
                 if (ImGui::Checkbox("Edit whole UI characters", &grapheme_editing))

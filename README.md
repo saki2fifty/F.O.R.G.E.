@@ -319,7 +319,8 @@ for import, saving, limits and export.
 
 The [UiTextShaping project](samples/projects/UiTextShaping/README.md) demonstrates
 opt-in native horizontal text shaping with ligatures, combining marks, an explicit
-Arabic run, font effects and an interactive field. Its project font and saved UI
+Arabic run, font effects, an interactive field and variable font weights using
+an original geometric font. Its project fonts and saved UI
 setting travel through the normal export owners. See [Shape game UI text](manual/editor/ui-text-shaping.md)
 for the workflow and current limits.
 The independent [Edit whole UI characters](manual/editor/ui-text-input.md) option

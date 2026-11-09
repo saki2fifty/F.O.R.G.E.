@@ -42,6 +42,13 @@ def check_ui_font_collections(root, read, ok, control, mutate, until, fixture):
     assert [(row['index'], row['family'], row['style'], row['weight'])
             for row in metadata['font_faces']] == [(0, 'Poppins', 'Regular', 400),
                                                    (1, 'Cairo', 'Regular', 400)]
+    variable_path = 'Assets/Incoming/Weight.ttf'
+    variable_bytes = (source/'tests/fixtures/fonts/FORGE-Weight-Test.ttf').read_bytes()
+    (project/variable_path).write_bytes(variable_bytes)  # Original binary fixture, before MCP authoring.
+    variable = ok('forge_source_ui_register', path=variable_path)
+    axis = read('forge_asset_read', asset=variable['asset'])['metadata']['forge.ui_source']['font_faces'][0]['axes'][0]
+    assert axis == dict(tag='wght', name='Weight', minimum=100, default=400, maximum=900, hidden=False)
+    assert ok('forge_source_ui_register', path=variable_path)['asset'] == variable['asset']
     bad = project/'Assets/Bad.ttc'
     bad.write_bytes(original[:19])
     failed(mutate('forge_source_ui_register', path='Assets/Bad.ttc'), 'operation_failed')
@@ -50,10 +57,13 @@ def check_ui_font_collections(root, read, ok, control, mutate, until, fixture):
     markup = '''<rml><head><style>
 @font-face {font-family:MenuLatin;src:"Assets/Menu.ttc";-rmlui-face-index:0;}
 @font-face {font-family:MenuArabic;src:"Assets/Menu.ttc";-rmlui-face-index:1;}
+@font-face {font-family:Variable;src:"Assets/Incoming/Weight.ttf";}
 body {font-family:MenuLatin;font-size:32px;color:#fff;}
 p {display:block;} #arabic {font-family:MenuArabic;-rmlui-direction:rtl;-rmlui-language:ar;}
 input {width:300px;height:48px;font-family:MenuLatin;}
+.weight {font-family:Variable;font-size:48px;} #light {font-weight:100;} #heavy {font-weight:900;}
 </style></head><body><p>office</p><p id="arabic">سلام</p>
+<p id="light" class="weight">HHH</p><p id="heavy" class="weight">HHH</p>
 <input id="entry" type="text" value="office"/></body></rml>'''.replace('Assets/Menu.ttc', font_path)
     ok('forge_source_text_write', path=hud['path'], state=saved['state'], text=markup)
     ok('forge_source_ui_register', path=hud['path'])
@@ -84,3 +94,4 @@ input {width:300px;height:48px;font-family:MenuLatin;}
     assert read('forge_scene_read') == before_scene
     assert collection.read_bytes() == original
     assert (project/hud['path']).read_text(encoding='utf-8') == markup
+    assert (project/variable_path).read_bytes() == variable_bytes

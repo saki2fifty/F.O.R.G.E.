@@ -13,4 +13,8 @@
 <input id="field" type="text" value="office" />
 <p id="hint">Shape UI text is enabled in Project Settings. Edit the RML/RCSS in Content,
 save and restart Play. This example demonstrates separate horizontal runs, not mixed-direction paragraphs.</p>
+<p class="label">Variable weight / original geometric H font</p>
+<div id="weights"><div class="weight-card"><p>100</p><p id="weight-light" class="weight-glyph">H</p></div>
+<div class="weight-card"><p>400</p><p id="weight-regular" class="weight-glyph">H</p></div>
+<div class="weight-card"><p>900</p><p id="weight-heavy" class="weight-glyph">H</p></div></div>
 </div></body></rml>

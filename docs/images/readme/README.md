@@ -2963,8 +2963,25 @@ The local project-font-face-discovery gate records build inputs and validation.
 
 PNG SHA256: `d8ac4cf2823d2cdc0261f2cf4e0d3063f6094b92193f9be124e9aaafd3cd5620`.
 
-The whole-character Shift-selection guide reuses the existing UiTextShaping Game
-image above. Its initial document, field appearance and visible controls are
-unchanged; keyboard selection is taught by the guide's steps and verified through
-the native field owner. No new or retouched image, Windows keyboard, IME or
-physical display acceptance is implied by that reuse.
+The whole-character editing guide uses the canonical UiTextShaping Game image
+described in [native text capture provenance](../../ci.md#native-ui-text-shaping).
+Its editable field and Pause/Resume controls remain unchanged. The current image
+also shows the original variable-weight comparison. Keyboard behavior is taught
+by the guide's steps and checked through the native field owner; image reuse does
+not establish Windows keyboard, IME or physical display acceptance.
+
+## Variable font axis Inspector
+
+The canonical [axis image](../../../manual/images/ui-variable-font-inspector.png)
+is the unretouched400×440 output from `forge_ui_font_details_tests` on
+2026-11-09. The actual Content Inspector widget reads the registered original
+FORGE Weight Test font through the normal UI-source catalog. Its `wght` row
+records100/400/900. The font's geometric outlines and standard-library generator
+are FORGE-authored in `tests/fixtures/fonts`; no outside font or writer code is
+included. The test also checks700px width, read-only display and stable refresh.
+
+This is a software ImGui/SDL widget capture, not full editor, Windows/MSVC/D3D12,
+DPI, physical input/display or GPU acceptance. No crop, resize, retouch or invented
+control is used. PNG SHA256:
+`68be048dd5dc6a23bc5e563fdcb27f70940f0b3523f9082cb03fe6bd3d51ed81`.
+The collection image above remains byte-identical.

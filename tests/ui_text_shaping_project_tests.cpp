@@ -37,13 +37,17 @@ RuntimeUiInspector inspector(const std::filesystem::path& root,
         return presenter.inspect_static({id});
     };
 }
-void author(const std::filesystem::path& root, const std::filesystem::path& resources) {
-    check(!std::filesystem::exists(root), "Choose a new path; never reauthor a published example");
+void write_sources(const std::filesystem::path& root, const std::filesystem::path& resources,
+                   const std::filesystem::path& variable) {
     std::filesystem::create_directories(root / "Assets/Fonts");
     std::filesystem::create_directories(root / "Assets/UI");
     std::filesystem::create_directories(root / "Scenes");
-    std::filesystem::copy_file(resources / "Cairo-Regular.ttf", root / "Assets/Fonts/Cairo.ttf");
-    std::filesystem::copy_file(resources / "LICENSE-Cairo.txt", root / "FONT-LICENSE.txt");
+    std::filesystem::copy_file(resources / "Cairo-Regular.ttf", root / "Assets/Fonts/Cairo.ttf",
+                               std::filesystem::copy_options::overwrite_existing);
+    std::filesystem::copy_file(resources / "LICENSE-Cairo.txt", root / "FONT-LICENSE.txt",
+                               std::filesystem::copy_options::overwrite_existing);
+    std::filesystem::copy_file(variable, root / "Assets/Fonts/Weight.ttf",
+                               std::filesystem::copy_options::overwrite_existing);
     atomic_write(root / document_path, R"rml(<rml><head>
 <link type="text/rcss" href="hud.rcss" /></head><body>
 <div id="panel"><p id="eyebrow">FORGE / UI TEXT SHAPING</p>
@@ -59,9 +63,14 @@ void author(const std::filesystem::path& root, const std::filesystem::path& reso
 <input id="field" type="text" value="office" />
 <p id="hint">Shape UI text is enabled in Project Settings. Edit the RML/RCSS in Content,
 save and restart Play. This example demonstrates separate horizontal runs, not mixed-direction paragraphs.</p>
+<p class="label">Variable weight / original geometric H font</p>
+<div id="weights"><div class="weight-card"><p>100</p><p id="weight-light" class="weight-glyph">H</p></div>
+<div class="weight-card"><p>400</p><p id="weight-regular" class="weight-glyph">H</p></div>
+<div class="weight-card"><p>900</p><p id="weight-heavy" class="weight-glyph">H</p></div></div>
 </div></body></rml>)rml");
     atomic_write(root / "Assets/UI/hud.rcss",
                  R"rcss(@font-face {font-family:ForgeArabic;src:"Assets/Fonts/Cairo.ttf";}
+@font-face {font-family:ForgeWeight;src:"Assets/Fonts/Weight.ttf";}
 body {width:100%;height:100%;font-family:Lato;font-size:18px;color:#e7eef7;pointer-events:none;}
 body,div,p {display:block;} p {margin:8px 0;}
 #panel {position:absolute;left:5%;top:4%;width:90%;max-width:740px;max-height:92%;overflow:auto;box-sizing:border-box;padding:24px;background-color:#152b3df5;pointer-events:auto;}
@@ -73,8 +82,16 @@ body,div,p {display:block;} p {margin:8px 0;}
 #controls {height:48px;}
 input {display:block;box-sizing:border-box;width:90%;height:40px;padding:6px;margin-top:4px;background-color:#0a1d2b;color:#ffffff;}
 #hint {font-size:14px;color:#c0cfdd;}
+#weights {height:120px;} .weight-card {display:inline-block;width:32%;vertical-align:top;}
+.weight-glyph {font-family:ForgeWeight;font-size:64px;}
+#weight-light {font-weight:100;} #weight-regular {font-weight:400;} #weight-heavy {font-weight:900;}
 scrollbarvertical {width:12px;background-color:#101e2c;} scrollbarvertical sliderbar {background-color:#477e9a;}
 )rcss");
+}
+void author(const std::filesystem::path& root, const std::filesystem::path& resources,
+            const std::filesystem::path& variable) {
+    check(!std::filesystem::exists(root), "Choose a new path; never reauthor a published example");
+    write_sources(root, resources, variable);
     const auto hud = register_ui_document(root, document_path);
     EngineContext engine;
     Scene scene(engine.world());
@@ -135,8 +152,10 @@ void exercise(const std::filesystem::path& root, const Json& source,
         check(document->GetElementById("state")->GetInnerRML() == "Tick 41 / paused 1",
               "Shaped project lost its native model binding");
         check(renderer.draws && !renderer.textures.empty() && presenter.asset_snapshot() &&
-                  presenter.asset_snapshot()->sources.size() == 3,
-              "Shaped project did not admit its RML, stylesheet and project font");
+                  presenter.asset_snapshot()->sources.size() == 4,
+              "Shaped project did not admit its RML, stylesheet and two project fonts");
+        check(document->GetElementById("weight-light") && document->GetElementById("weight-heavy"),
+              "Variable weight comparison is missing from the saved/relocated UI");
         check(ui_grapheme_editing_enabled(settings.at("game")),
               "Example does not enable whole-character editing");
         auto* field =
@@ -178,12 +197,32 @@ void exercise(const std::filesystem::path& root, const Json& source,
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4,
-              "Need project, scratch and UI resource directory; or --author project resources");
-        if (std::string_view(argv[1]) == "--author") {
-            author(std::filesystem::absolute(argv[2]), argv[3]);
+        check(argc >= 2, "Need an example mode or project path");
+        const auto mode = std::string_view(argv[1]);
+        if (mode == "--author" || mode == "--refresh") {
+            check(argc == 5, "Need mode, project, resources and original variable font");
+            const auto root = std::filesystem::absolute(argv[2]);
+            if (mode == "--author")
+                author(root, argv[3], argv[4]);
+            else {
+                check(std::filesystem::is_regular_file(root / scene_path), "Example Scene missing");
+                const auto catalog = AssetCatalog::open_project(root);
+                write_sources(root, argv[3], argv[4]);
+                ProjectLease lease(root);
+                const std::array roots{read_json(root / scene_path).at("asset_id").get<AssetId>()};
+                prepare_runtime_content_catalog(
+                    lease, roots,
+                    inspector(root, asset_detail::read_bytes(std::filesystem::path(argv[3]) /
+                                                                 "LatoLatin-Regular.ttf",
+                                                             4 * 1024 * 1024)));
+                const auto refreshed = AssetCatalog::open_project(root);
+                for (const auto& [id, record] : catalog.records())
+                    check(refreshed.records().at(id).source == record.source,
+                          "Refresh replaced an existing example asset identity");
+            }
             return 0;
         }
+        check(argc == 4, "Need project, scratch and UI resource directory");
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "source";
         std::filesystem::create_directories(scratch);
@@ -203,8 +242,8 @@ int main(int argc, char** argv) {
         const auto moved = scratch / "relocated";
         std::filesystem::rename(scratch / "export", moved);
         const auto catalog = open_runtime_content(moved, {"windows", "d3d12"});
-        check(catalog.records().size() == 4,
-              "Shaped runtime closure lost or duplicated its four assets");
+        check(catalog.records().size() == 5,
+              "Shaped runtime closure lost or duplicated its five assets");
         std::filesystem::rename(root, scratch / "source-offline");
         exercise(moved, read_json(moved / catalog.records().at(roots[0]).source), font, settings,
                  false);

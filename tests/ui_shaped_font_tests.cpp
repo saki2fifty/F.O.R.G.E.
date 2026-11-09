@@ -3,6 +3,10 @@
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include <RmlUi/Core/FontEngineInterface.h>
+#include <RmlUi/Core/Mesh.h>
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <forge/ui_assets.hpp>
 #include <fstream>
 #include <iostream>
@@ -104,14 +108,99 @@ input {width:240px;height:48px;}
     check(renderer.geometry.empty() && renderer.textures.empty(),
           "Shaped native glyph resources survived shutdown");
 }
+void weights(const std::filesystem::path& root, const std::vector<std::byte>& latin,
+             const std::filesystem::path& variable) {
+    using namespace forge;
+    std::filesystem::create_directories(root / "Assets");
+    std::filesystem::copy_file(variable, root / "Assets/Weight.ttf");
+    std::ofstream(root / "Assets/Weights.rml") << R"rml(<rml><head><style>
+@font-face {font-family:Variable;src:"Assets/Weight.ttf";}
+body {font-family:Variable;font-size:100px;color:#fff;}
+#light {font-weight:100;} #regular {font-weight:400;} #heavy {font-weight:900;}
+</style></head><body><p id="light">H</p><p id="regular">H</p><p id="heavy">H</p></body></rml>)rml";
+    const auto document = register_ui_document(root, "Assets/Weights.rml");
+    UiTestRenderer renderer;
+    {
+        UiPresenter presenter(renderer, root, latin, {}, nullptr, true);
+        const auto observed = presenter.inspect_static({document.id});
+        check(observed.sources.size() == 2 && presenter.diagnostic().empty(),
+              "Variable font bypassed native resource observation");
+        const auto entity = EntityId::generate();
+        presenter.reset("weight-native", 1);
+        const Json snapshot{{"version", 1},
+                            {"session", "weight-native"},
+                            {"generation", 1u},
+                            {"revision", 1u},
+                            {"documents", Json::array({{{"entity", entity},
+                                                        {"asset", document.id},
+                                                        {"instance", entity.str()},
+                                                        {"visible", true},
+                                                        {"layer", 0u},
+                                                        {"model", Json::object()},
+                                                        {"commands", Json::array()}}})}};
+        check(presenter.accept(snapshot), presenter.diagnostic().c_str());
+        presenter.update(0, 800, 600);
+        presenter.render();
+        check(presenter.diagnostic().empty(), presenter.diagnostic().c_str());
+        auto* font = Rml::GetFontEngineInterface();
+        auto* context = Rml::GetContext(0);
+        check(context && font, "Variable font context unavailable");
+        const auto handle = [&](int weight, int size = 100) {
+            return font->GetFontFaceHandle("Variable", Rml::Style::FontStyle::Normal,
+                                           static_cast<Rml::Style::FontWeight>(weight), size);
+        };
+        const auto light = handle(100), regular = handle(400), heavy = handle(900);
+        check(light && regular && heavy && light != regular && regular != heavy && light != heavy,
+              "Variable weights shared one sized glyph handle");
+        check(handle(1) == light && handle(1000) == heavy && handle(400) == regular,
+              "Weight clamping or exact handle reuse differs");
+        const Rml::String language = "en";
+        const Rml::TextShapingContext shaping{language};
+        const auto width = [&](Rml::FontFaceHandle face, int advance) {
+            Rml::TexturedMeshList meshes;
+            const auto result = font->GenerateString(context->GetRenderManager(), face, 0, "H", {},
+                                                     {255, 255, 255, 255}, 1, shaping, meshes);
+            check(result == advance && font->GetStringWidth(face, "H", shaping) == advance &&
+                      meshes.size() == 1 && meshes[0].mesh.vertices.size() == 4,
+                  "Variable raster geometry and shaped advance disagree");
+            const auto& vertices = meshes[0].mesh.vertices;
+            const auto [first, last] = std::minmax_element(
+                vertices.begin(), vertices.end(),
+                [](const auto& a, const auto& b) { return a.position.x < b.position.x; });
+            return last->position.x - first->position.x;
+        };
+        const auto thin_width = width(light, 60), normal_width = width(regular, 60),
+                   bold_width = width(heavy, 60);
+        check(thin_width < normal_width && normal_width < bold_width,
+              "Font weight did not vary the original H outline");
+        const auto middle = handle(650), small = handle(400, 50);
+        const auto middle_width = width(middle, 60), small_width = width(small, 30);
+        check(normal_width < middle_width && middle_width < bold_width &&
+                  small_width < normal_width,
+              "Interpolated weights or independent pixel sizes failed");
+        const auto stable_textures = renderer.textures.size();
+        for (int repeat = 0; repeat < 10; ++repeat) {
+            check(width(light, 60) == thin_width && width(heavy, 60) == bold_width &&
+                      width(regular, 60) == normal_width && width(small, 30) == small_width &&
+                      width(middle, 60) == middle_width,
+                  "Switching native weights/sizes changed a cached glyph design");
+        }
+        check(renderer.textures.size() == stable_textures && presenter.diagnostic().empty(),
+              "Repeated variable designs allocated new resources or failed");
+    }
+    check(renderer.geometry.empty() && renderer.textures.empty(),
+          "Variable font resources survived presenter retirement");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4, "Need scratch, Latin font and Arabic font");
+        check(argc == 5, "Need scratch, Latin, Arabic and original variable font");
         const auto root = std::filesystem::absolute(argv[1]);
         const auto latin = forge::asset_detail::read_bytes(argv[2], 4 * 1024 * 1024);
-        for (int i = 0; i < 2; ++i)
+        for (int i = 0; i < 2; ++i) {
             exercise(root / forge::AssetId::generate().str(), latin, argv[3]);
+            weights(root / forge::AssetId::generate().str(), latin, argv[4]);
+        }
         std::cout << "Public native font interface, glyph/effect textures, admitted project font, "
                      "input, stable resources and cold presenter retirement passed\n";
     } catch (const std::exception& error) {

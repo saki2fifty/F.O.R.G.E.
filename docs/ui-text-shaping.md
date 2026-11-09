@@ -49,7 +49,7 @@ resource lifecycle; restart Play after replacing a font family.
 | One input run | 64 KiB UTF-8, 16,384 output glyphs |
 | Font files | Standalone scalable Unicode font or TTC/OTC v1/v2 collection; 4 MiB per file, at most 32 collection faces |
 | Backend face storage | 32 admitted faces, 16 MiB unique retained font bytes including the default font; aliases/indices share identical bytes |
-| Sized faces | 128; sizes 1–512 px |
+| Sized faces | 128 face/size/effective-weight combinations; sizes 1–512 px |
 | Glyph cache | 16,384 entries |
 | Glyph atlas | 128 immutable pages, 32 MiB retained RGBA; page side at most 1,024 px |
 | Glyph bitmap/effect extent | 1,022 px per dimension |
@@ -64,8 +64,8 @@ the renderer accepted an incomplete replacement.
 
 This profile shapes individual horizontal runs. It does not implement paragraph
 bidirectional layout, joining across separate text spans, vertical text,
-complete international IME or accessibility,
-variable axes, named variation instances, color glyphs or a general typography editor.
+complete international IME or accessibility, arbitrary variation-axis controls,
+named variation instances, color glyphs or a general typography editor.
 RmlUi still owns wrapping, DOM layout, focus and text input. Font coverage and
 author-selected language/direction affect the result.
 The independent [native input boundary option](ui-text-input.md) supplies bounded
@@ -76,7 +76,7 @@ alignment of native Ctrl-arrow word movement/selection; shaping alone does not p
 
 The optional field preserves existing project and Scene versions. A project
 which enables shaping requires runtime-kit capability
-`engine.runtime_ui_text_shaping: 1`; absent, malformed or mismatched support is
+`engine.runtime_ui_text_shaping: 2`; absent, malformed or mismatched support is
 rejected before distribution promotion. Default projects retain their previous
 kit compatibility. The standalone host reads the saved packaged configuration,
 not the editor's current checkbox or the original project directory.
@@ -141,11 +141,44 @@ Other legacy codepages are omitted. Labels are bounded to 64 UTF-8 bytes without
 truncation. Malformed, missing, duplicate or unsupported optional naming data
 omits labels without rejecting an otherwise admitted font or changing its index.
 These labels are informational: native FreeType/RmlUi still owns usable font
-faces, glyph coverage, style selection and rendering. Variation controls and
+faces, glyph coverage, style selection and rendering. General variation controls and
 system-font discovery remain outside the supported profile.
+
+## Variable weight axis
+
+Ordinary native CSS `font-weight` selects an admitted OpenType `wght` axis in
+the existing optional shaped adapter. FreeType owns raster coordinates and
+HarfBuzz owns shaping coordinates for the same effective design weight. Each
+sized handle includes its effective weight; the shared native face restores
+coordinates before pixel size, raster and metrics use. Static faces retain
+their previous handle reuse. Whole-run fallback uses the selected design weight
+within the fallback face's range. Source bytes and glyph/atlas lifetime remain
+with their existing owners.
+
+The native face must expose at most16axes and one unambiguous ordered `wght`
+axis within1..1000. Requested weights clamp to its range; other axes remain at
+their defaults. Missing, unsupported or ambiguous weight axes retain the default
+design. The128sized-handle budget includes weight combinations; continuous
+weight animation is not an unbounded cache/eviction workflow. The original
+geometric TrueType H font and standard-library writer in `tests/fixtures/fonts`
+provide independently authored interpolation fixtures without outside outlines
+or writer code. Native raster/shaping extents and advances are checked separately.
+Other variable-font formats and general axis authoring are not established by it.
+
+Optional per-face `axes` metadata has `tag`, `minimum`, `default`, `maximum`,
+`hidden` and a supported optional `name`. The checked `fvar`1.0 reader reuses
+name decoding/ranking and admits16axisrecords across one saved file's faces.
+Later whole face arrays exceeding this budget are omitted with
+`axes_omitted:true`; no partial axis list is published. Malformed optional data
+omits axes without changing basic admission. Content Inspector and ordinary
+automation/MCP asset reads consume this same catalog metadata. Refresh preserves
+IDs and bytes; the native decoder remains authoritative for usable designs.
+The layout follows the primary [font variations specification](https://learn.microsoft.com/en-us/typography/opentype/spec/fvar).
 
 The bounded name-table layout follows the primary
 [OpenType naming specification](https://learn.microsoft.com/en-us/typography/opentype/spec/name).
+
+## Reviewed font copying
 
 The existing SourceImport controller admits font files as a reviewed copy-only
 batch, through both native Import files and the same asset.import automation/MCP

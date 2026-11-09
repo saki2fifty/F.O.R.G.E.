@@ -7,6 +7,13 @@ Compare normal Latin ligatures with tracked text, combining accents and the
 explicit right-to-left Arabic run. Pause and Resume use the ordinary game
 controls. The text field is local UI state.
 
+Scroll down to **Variable weight** to compare the original geometric `H` font
+at100,400 and900. `Assets/Fonts/Weight.ttf` is FORGE-authored fixture data, with
+only `H` and space. Its weight axis responds to ordinary `font-weight` in
+`Assets/UI/hud.rcss`; change a value, Save source and restart Play. Select the
+font in Content to inspect its recorded axis range. Use your own licensed font
+for general game text. Other variation axes stay at their defaults.
+
 **Edit whole UI characters** is also enabled in Game defaults. Click the field,
 select its text with Ctrl+A, and paste `áb` (a combining accent after `a`). Press
 End, Backspace, Backspace: the accented character is removed together. Home and

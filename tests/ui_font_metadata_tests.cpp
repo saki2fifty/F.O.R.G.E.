@@ -89,6 +89,79 @@ Data font(std::initializer_list<Name> records, std::initializer_list<Data> tags 
 Json face(const Data& bytes) {
     return forge::ui_font_detail::describe(bytes).at("font_faces").at(0);
 }
+Data variable(Data original, unsigned count = 1) {
+    using forge::test::font_u32;
+    // Extend this original synthetic two-table directory with an fvar record.
+    original.insert(original.begin() + 12, 16, std::byte{});
+    u16(original, 4, 3);
+    for (std::size_t entry : {28u, 44u})
+        font_u32(original, entry + 8, font_u32(original, entry + 8) + 16);
+    const auto offset = original.size();
+    const auto size = 16 + 20 * count;
+    font_u32(original, 12, 0x66766172);
+    font_u32(original, 20, unsigned(offset));
+    font_u32(original, 24, size);
+    original.resize(offset + size);
+    u16(original, offset, 1);
+    u16(original, offset + 4, 16);
+    u16(original, offset + 6, 2);
+    u16(original, offset + 8, count);
+    u16(original, offset + 10, 20);
+    u16(original, offset + 14, 4 + 4 * count);
+    for (unsigned i = 0; i < count; ++i) {
+        const auto at = offset + 16 + 20 * i;
+        font_u32(original, at, i == 0 ? 0x77676874 : 0x5a303041 + i);
+        font_u32(original, at + 4, 100 * 65536);
+        font_u32(original, at + 8, 400 * 65536);
+        font_u32(original, at + 12, 900 * 65536);
+        u16(original, at + 18, 256);
+    }
+    return original;
+}
+void variations() {
+    const auto valid = variable(font({{3, 1, 0x409, 256, ascii("Weight")}}));
+    const auto recorded = face(valid).at("axes");
+    check(recorded.size() == 1 && recorded[0] == Json{{"tag", "wght"},
+                                                      {"name", "Weight"},
+                                                      {"minimum", 100.},
+                                                      {"default", 400.},
+                                                      {"maximum", 900.},
+                                                      {"hidden", false}},
+          "Recorded weight axis bounds/name differ");
+    const auto offset = forge::test::font_u32(valid, 20);
+    const auto missing = [&](Data value) {
+        forge::validate_ui_font(value);
+        check(!face(value).contains("axes"), "Malformed optional axes were exposed");
+    };
+    for (const auto& [at, value] : {std::pair{0u, 2u},
+                                    {2u, 1u},
+                                    {4u, 0xffffu},
+                                    {6u, 0u},
+                                    {8u, 0u},
+                                    {8u, 17u},
+                                    {10u, 19u},
+                                    {12u, 1u},
+                                    {14u, 0u},
+                                    {32u, 2u},
+                                    {34u, 255u},
+                                    {34u, 32768u}}) {
+        auto invalid = valid;
+        u16(invalid, offset + at, value);
+        missing(std::move(invalid));
+    }
+    auto invalid = valid;
+    forge::test::font_u32(invalid, offset + 24, 99 * 65536);
+    missing(std::move(invalid));
+    invalid = variable(font({}), 2);
+    forge::test::font_u32(invalid, forge::test::font_u32(invalid, 20) + 36, 0x77676874);
+    missing(std::move(invalid));
+    auto signed_axis = valid;
+    forge::test::font_u32(signed_axis, offset + 20, 0xffff8000);
+    u16(signed_axis, offset + 32, 1);
+    const auto signed_metadata = face(signed_axis).at("axes")[0];
+    check(signed_metadata.at("minimum") == -.5 && signed_metadata.at("hidden") == true,
+          "Signed fractional design coordinate/hidden flag changed");
+}
 void synthetic() {
     const auto named =
         font({{3, 1, 0x411, 1, ascii("Other language")},
@@ -141,15 +214,19 @@ void synthetic() {
     check(face(missing).at("weight") == 400 && !face(missing).contains("family"),
           "Nameless font lost its index/weight");
     const auto escaped = ascii(std::string(64, '\\'));
-    const auto large = font({{3, 1, 0x409, 1, escaped},
-                             {3, 1, 0x409, 2, escaped},
-                             {3, 1, 0x409, 4, escaped},
-                             {3, 1, 0x409, 6, escaped}});
+    const auto large = variable(font({{3, 1, 0x409, 1, escaped},
+                                      {3, 1, 0x409, 2, escaped},
+                                      {3, 1, 0x409, 4, escaped},
+                                      {3, 1, 0x409, 6, escaped},
+                                      {3, 1, 0x409, 256, escaped}}),
+                                16);
     auto description = forge::ui_font_detail::describe(large);
     description["faces"] = 32;
     for (unsigned i = 1; i < 32; ++i) {
         auto row = description.at("font_faces")[0];
         row["index"] = i;
+        row.erase("axes");
+        row["axes_omitted"] = true;
         description["font_faces"].push_back(std::move(row));
     }
     forge::UiAssetSnapshot snapshot;
@@ -168,11 +245,24 @@ void synthetic() {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4, "Need default, Poppins and Cairo font files");
+        check(argc == 5, "Need default, Poppins, Cairo and original variable font files");
         synthetic();
+        variations();
         const auto latin = forge::asset_detail::read_bytes(argv[1], 4 * 1024 * 1024);
         const auto poppins = forge::asset_detail::read_bytes(argv[2], 4 * 1024 * 1024);
         const auto cairo = forge::asset_detail::read_bytes(argv[3], 4 * 1024 * 1024);
+        const auto variable_font = forge::asset_detail::read_bytes(argv[4], 4 * 1024 * 1024);
+        check(face(variable_font).at("axes")[0].at("name") == "Weight" &&
+                  face(variable_font).at("axes")[0].at("maximum") == 900,
+              "Original native variable font axis metadata differs");
+        const auto many = forge::ui_font_detail::describe(forge::test::font_collection(
+            {variable_font, variable_font, variable_font, variable_font, variable_font,
+             variable_font, variable_font, variable_font, variable_font, variable_font,
+             variable_font, variable_font, variable_font, variable_font, variable_font,
+             variable_font, variable_font}));
+        check(many.at("font_faces")[15].contains("axes") &&
+                  many.at("font_faces")[16].at("axes_omitted") == true,
+              "Collection axis metadata budget was not enforced across faces");
         check(face(latin).at("family") == "LatoLatin", "Actual default font name differs");
         check(face(poppins).at("family") == "Poppins" && face(cairo).at("family") == "Cairo",
               "Actual project font names differ");

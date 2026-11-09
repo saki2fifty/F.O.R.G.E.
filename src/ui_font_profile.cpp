@@ -124,24 +124,25 @@ std::optional<std::string> label(Bytes bytes, bool unicode) {
     }
     return result;
 }
-void names(Bytes bytes, nlohmann::json& result) {
+std::vector<std::string> name_labels(Bytes bytes, std::span<const unsigned> ids) {
+    std::vector<std::string> result(ids.size());
     if (bytes.size() < 6)
-        return;
+        return result;
     const auto version = word(bytes, 0, 2), count = word(bytes, 2, 2), storage = word(bytes, 4, 2);
     if (version > 1 || count > 512 || 6 + count * 12 > bytes.size())
-        return;
+        return result;
     auto records_end = std::size_t(6 + count * 12);
     unsigned languages = 0;
     if (version == 1) {
         if (records_end + 2 > bytes.size())
-            return;
+            return result;
         languages = word(bytes, records_end, 2);
         if (languages > 32 || records_end + 2 + languages * 4 > bytes.size())
-            return;
+            return result;
         records_end += 2 + languages * 4;
     }
     if (storage < records_end || storage > bytes.size())
-        return;
+        return result;
     const auto string = [&](std::size_t at, bool unicode) -> std::optional<std::string> {
         const auto length = word(bytes, at, 2), offset = word(bytes, at + 2, 2);
         if (offset > bytes.size() - storage || length > bytes.size() - storage - offset)
@@ -152,8 +153,7 @@ void names(Bytes bytes, nlohmann::json& result) {
         unsigned score = std::numeric_limits<unsigned>::max();
         std::string value;
     };
-    constexpr std::array ids{1u, 2u, 4u, 6u, 16u, 17u};
-    std::array<Candidate, ids.size()> candidates;
+    std::vector<Candidate> candidates(ids.size());
     for (unsigned i = 0; i < count; ++i) {
         const auto at = 6 + i * 12;
         const auto platform = word(bytes, at, 2), encoding = word(bytes, at + 2, 2),
@@ -190,23 +190,89 @@ void names(Bytes bytes, nlohmann::json& result) {
             selected.value = *value;
         }
     }
+    for (std::size_t i = 0; i < ids.size(); ++i)
+        result[i] =
+            candidates[std::size_t(std::find(ids.begin(), ids.end(), ids[i]) - ids.begin())].value;
+    return result;
+}
+void names(Bytes bytes, nlohmann::json& result) {
+    constexpr std::array ids{1u, 2u, 4u, 6u, 16u, 17u};
+    const auto candidates = name_labels(bytes, ids);
     const std::array<const char*, 4> keys{"family", "style", "full_name", "postscript_name"};
     for (unsigned i = 0; i < keys.size(); ++i) {
-        const auto& value = i < 2 && !candidates[i + 4].value.empty() ? candidates[i + 4].value
-                                                                      : candidates[i].value;
+        const auto& value = i < 2 && !candidates[i + 4].empty() ? candidates[i + 4] : candidates[i];
         if (!value.empty())
             result[keys[i]] = value;
     }
+}
+void axes(Bytes bytes, const std::optional<Bytes>& name, nlohmann::json& result) {
+    if (bytes.size() < 16 || word(bytes, 0, 4) != 0x00010000 || word(bytes, 6, 2) != 2)
+        return;
+    const auto offset = std::size_t(word(bytes, 4, 2));
+    const auto count = word(bytes, 8, 2), size = word(bytes, 10, 2);
+    const auto instances = word(bytes, 12, 2), instance_size = word(bytes, 14, 2);
+    if (!count || count > variation_axis_limit || size != 20 || offset < 16 ||
+        offset > bytes.size() || count * size > bytes.size() - offset ||
+        (instance_size != count * 4 + 4 && instance_size != count * 4 + 6) ||
+        std::size_t(instances) * instance_size > bytes.size() - offset - count * size)
+        return;
+    const auto fixed = [&](std::size_t at) {
+        const auto raw = word(bytes, at, 4);
+        const auto value = raw <= 0x7fffffff ? std::int64_t(raw) : std::int64_t(raw) - 0x100000000;
+        return double(value) / 65536.;
+    };
+    auto recorded = nlohmann::json::array();
+    std::vector<unsigned> ids;
+    for (unsigned i = 0; i < count; ++i) {
+        const auto at = offset + i * size;
+        std::string tag;
+        for (unsigned c = 0; c < 4; ++c) {
+            const auto value = word(bytes, at + c, 1);
+            if (value < 32 || value > 126)
+                return;
+            tag.push_back(char(value));
+        }
+        if (std::ranges::any_of(recorded, [&](const auto& axis) { return axis.at("tag") == tag; }))
+            return;
+        const auto minimum = fixed(at + 4), standard = fixed(at + 8), maximum = fixed(at + 12);
+        const auto flags = word(bytes, at + 16, 2), id = word(bytes, at + 18, 2);
+        if (minimum > standard || standard > maximum || flags > 1 || id < 256 || id > 32767)
+            return;
+        recorded.push_back({{"tag", tag},
+                            {"minimum", minimum},
+                            {"default", standard},
+                            {"maximum", maximum},
+                            {"hidden", bool(flags & 1)}});
+        ids.push_back(id);
+    }
+    if (name) {
+        const auto labels = name_labels(*name, ids);
+        for (std::size_t i = 0; i < labels.size(); ++i)
+            if (!labels[i].empty())
+                recorded[i]["name"] = labels[i];
+    }
+    result["axes"] = std::move(recorded);
 }
 } // namespace
 unsigned face_count(Bytes bytes) { return unsigned(directories(bytes).size()); }
 nlohmann::json describe(Bytes bytes) {
     const auto faces = directories(bytes);
     nlohmann::json result{{"faces", faces.size()}, {"font_faces", nlohmann::json::array()}};
+    unsigned recorded_axes = 0;
     for (std::size_t i = 0; i < faces.size(); ++i) {
         nlohmann::json face{{"index", i}};
-        if (const auto name = table(bytes, faces[i], 0x6e616d65))
+        const auto name = table(bytes, faces[i], 0x6e616d65);
+        if (name)
             names(*name, face);
+        if (const auto variation = table(bytes, faces[i], 0x66766172))
+            axes(*variation, name, face);
+        if (const auto recorded = face.find("axes"); recorded != face.end()) {
+            if (recorded->size() > axis_metadata_limit - recorded_axes) {
+                face.erase("axes");
+                face["axes_omitted"] = true;
+            } else
+                recorded_axes += unsigned(recorded->size());
+        }
         if (const auto os2 = table(bytes, faces[i], 0x4f532f32); os2 && os2->size() >= 6) {
             const auto weight = word(*os2, 4, 2);
             if (weight >= 1 && weight <= 1000)

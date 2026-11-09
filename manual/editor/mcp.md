@@ -257,6 +257,13 @@ registration and shader compilation use their existing tools. These raw files do
 not have Scene or document Undo. Typed material/mesh/animation/terrain/tile/particle
 sources continue to use their normal source documents and history.
 
+For variable UI weights, register the project font and read `forge_asset_read`.
+Its optional face `axes` list includes recorded tags, names and design ranges.
+Use the UI source tools to set numeric `font-weight` on an element, save the
+source, enable and save **Shape UI text**, then restart Play. This uses the same
+native font and source owners as the editor. See [variable weights](ui-text-shaping.md)
+for admission limits and matching-kit export.
+
 For UI drop shadows, read and edit the RML/RCSS through the source text tools,
 then register or refresh the UI source. Use `drop-shadow(#20408080 8px 6px 2px)`
 inside `filter`. Each offset is limited to `-128`..`128` resolved pixels and blur

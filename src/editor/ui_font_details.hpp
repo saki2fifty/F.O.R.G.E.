@@ -1,5 +1,8 @@
 #pragma once
+#include "../ui_font_profile.hpp"
 #include "widgets.hpp"
+#include <algorithm>
+#include <cmath>
 #include <forge/assets.hpp>
 #include <string_view>
 
@@ -55,7 +58,62 @@ inline void draw_ui_font_details(const AssetRecord& asset) {
         }
         ImGui::EndTable();
     }
+    for (const auto& row : *faces) {
+        if (!row.is_object() || !row.contains("index") || !row.at("index").is_number_integer() ||
+            row.at("index") < 0 || row.at("index") >= 32)
+            continue;
+        const auto axes = row.find("axes");
+        const auto omitted = row.find("axes_omitted");
+        if (omitted != row.end() && omitted->is_boolean() && omitted->get<bool>())
+            ImGui::TextWrapped("Face %u: axis details omitted by the metadata limit.",
+                               row.at("index").get<unsigned>());
+        if (axes == row.end() || !axes->is_array() || axes->empty() ||
+            axes->size() > ui_font_detail::variation_axis_limit)
+            continue;
+        ImGui::PushID(row.at("index").get<int>());
+        ImGui::Text("Face %u variation axes", row.at("index").get<unsigned>());
+        if (ImGui::BeginTable("font-axes", 5,
+                              ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
+                                  ImGuiTableFlags_SizingStretchProp)) {
+            for (const char* label : {"Tag", "Name", "Min", "Default", "Max"})
+                ImGui::TableSetupColumn(label);
+            ImGui::TableHeadersRow();
+            for (const auto& axis : *axes) {
+                if (!axis.is_object() || !axis.contains("tag") || !axis.at("tag").is_string())
+                    continue;
+                const auto& tag = axis.at("tag").get_ref<const std::string&>();
+                if (tag.size() != 4 ||
+                    !std::ranges::all_of(tag, [](unsigned char c) { return c >= 32 && c <= 126; }))
+                    continue;
+                bool valid = true;
+                for (const char* key : {"minimum", "default", "maximum"}) {
+                    const auto value = axis.find(key);
+                    valid &= value != axis.end() && value->is_number() &&
+                             std::isfinite(value->get<double>()) &&
+                             std::abs(value->get<double>()) <= 32768;
+                }
+                if (!valid || axis.at("minimum") > axis.at("default") ||
+                    axis.at("default") > axis.at("maximum"))
+                    continue;
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(tag.c_str());
+                ImGui::TableNextColumn();
+                ImGui::TextWrapped("%s", text(axis, "name"));
+                const auto hidden = axis.find("hidden");
+                if (hidden != axis.end() && hidden->is_boolean() && hidden->get<bool>())
+                    ImGui::TextDisabled("Hidden");
+                for (const char* key : {"minimum", "default", "maximum"}) {
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%.3g", axis.at(key).get<double>());
+                }
+            }
+            ImGui::EndTable();
+        }
+        ImGui::PopID();
+    }
     help("Optional names can be unavailable. Register / Refresh after a source change; restart "
-         "Play after replacing a loaded font. These labels do not change font selection.");
+         "Play after replacing a loaded font. Shape UI text uses an admitted wght axis with "
+         "ordinary font-weight; other axes stay at their defaults. Recorded axes are read-only.");
 }
 } // namespace forge::ui

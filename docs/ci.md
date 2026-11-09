@@ -2215,7 +2215,7 @@ using public interfaces; native sample backend implementation is not adopted.
 
 `ui_text_shaping_project` loads the original example through Scene/UiRuntime,
 checks model text, command routing, retained last-good reload and retirement,
-packages its four-record closure, relocates it and runs with the source directory
+packages its five-record closure, relocates it and runs with the source directory
 unavailable. `standalone_manifest` also checks opt-in/default compatibility,
 malformed kit capabilities, retention of the previous distribution and the saved
 backend choice in relocated full distribution configuration. Its executable bytes
@@ -2231,6 +2231,9 @@ and shaped rendering at1000x800 and420x800, then requires exact shaped/relocated
 pixels with source files unavailable. These are text-only UI consumers, independent
 of unrelated Sprite renderer acceptance. The local Vulkan check uses llvmpipe
 LLVM15.0.7/API1.3.255. It establishes no physical GPU, display or Windows result.
+Both sizes include the initial HUD and a native scroll to the weight comparison.
+Light/regular/heavy glyph pixel coverage must increase, and all four shaped
+frames must equal their source-hidden relocated counterparts.
 
 `manual/images/ui-text-shaping-game.png` is the unretouched1000x800 native shaped
 Game UI capture from that local software Vulkan fixture, converted losslessly
@@ -2240,6 +2243,25 @@ The offline manual renderer checks local links/images; browser review at1180 and
 700px checks decoded images and horizontal overflow. Windows acceptance selection
 includes the new native/helper/project/MCP/render tests, and the relocated editor
 package UI check verifies the shaping notices, font and native example rendering.
+
+Variable weight checks use the original reproducible TrueType fixture in
+`tests/fixtures/fonts`. Native font callbacks check separate weights/sizes,
+clamping, interpolation, exact repeated handles/geometry, stable texture counts
+and cold retirement. Metadata tests cover optional fvar records, signed values,
+shared name IDs, malformed data, aggregate face-axis budgets and inspection
+transport. The sample refresh preserves its existing four IDs, Scene and settings.
+MCP font workflows register/read the same axes, author numeric weights through
+ordinary source tools and exercise native fields in both font modes/Play profiles.
+The prior shaping profile is rejected before last-good distribution replacement.
+
+`manual/images/ui-font-faces-inspector.png` and
+`manual/images/ui-variable-font-inspector.png` are unretouched400px captures from
+the actual `draw_ui_font_details` widget in `ui_font_details`. The latter is
+400x440 and uses the registered original weight fixture; the collection view
+is400x330. These are software ImGui fixtures, not full desktop/MSVC/D3D12/DPI or
+physical-display acceptance. The current Game image above includes the original
+100/400/900 weight comparison. Its losslessly converted PNG SHA256 is
+`7deb3ffdff14ac3fb71b8dd1ae8c9ae9a2b06bd74f697eddf9dd9bfc22d70703`.
 
 
 ## Native UI character boundaries

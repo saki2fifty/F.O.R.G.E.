@@ -821,6 +821,11 @@ int main(int argc, char** argv) {
             reject([&] { export_standalone_game(lease, request); });
             check(asset_storage::read(exported / "forge.standalone.json") == first,
                   "A kit without text shaping replaced the last good distribution");
+            runtime["engine"]["runtime_ui_text_shaping"] = ui_text_shaping_profile_version - 1;
+            asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
+            reject([&] { export_standalone_game(lease, request); });
+            check(asset_storage::read(exported / "forge.standalone.json") == first,
+                  "An older shaping kit replaced the variable-weight distribution");
             runtime["engine"]["runtime_ui_text_shaping"] = ui_text_shaping_profile_version;
             asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
             (void)export_standalone_game(lease, request);

@@ -6,8 +6,8 @@
       "id": "51908d26-ebbe-44b2-9ca6-13ff2c3bf46c",
       "metadata": {
         "forge.ui_source": {
-          "bytes": 1132,
-          "digest": "aacece7082231e93f40397279f145370fef4c1596b8aa12c1ccbd253605ff64c",
+          "bytes": 1448,
+          "digest": "2cd3e7f0ef8492084737b2dafdb694f65bdd200cc82b6388a07e04e02a7f73b0",
           "format": "rcss"
         }
       },
@@ -15,7 +15,7 @@
       "source": "Assets/UI/hud.rcss",
       "source_dependencies": [
         {
-          "revision": "aacece7082231e93f40397279f145370fef4c1596b8aa12c1ccbd253605ff64c",
+          "revision": "2cd3e7f0ef8492084737b2dafdb694f65bdd200cc82b6388a07e04e02a7f73b0",
           "role": "ui.source",
           "source": "Assets/UI/hud.rcss"
         }
@@ -30,6 +30,17 @@
         "forge.ui_source": {
           "bytes": 94484,
           "digest": "7560e24bb16a57b5085b1efe01956c4d6e7ae9cbf0efbc9767efa4738d8b965b",
+          "faces": 1,
+          "font_faces": [
+            {
+              "family": "Cairo",
+              "full_name": "Cairo Regular",
+              "index": 0,
+              "postscript_name": "Cairo-Regular",
+              "style": "Regular",
+              "weight": 400
+            }
+          ],
           "format": "ttf"
         }
       },
@@ -45,9 +56,53 @@
       "type": "ui_font"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "92fb12f1-ffcb-4147-8290-c323f2bca2c0",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1228,
+          "digest": "e51dc0fb7ed741a0840f1d187c1ce4a5db6fe338f4764fcfdd3221a6b0f0d6cd",
+          "faces": 1,
+          "font_faces": [
+            {
+              "axes": [
+                {
+                  "default": 400.0,
+                  "hidden": false,
+                  "maximum": 900.0,
+                  "minimum": 100.0,
+                  "name": "Weight",
+                  "tag": "wght"
+                }
+              ],
+              "family": "FORGE Weight Test",
+              "full_name": "FORGE Weight Test Regular",
+              "index": 0,
+              "postscript_name": "FORGEWeightTest-Regular",
+              "style": "Regular",
+              "weight": 400
+            }
+          ],
+          "format": "ttf"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Fonts/Weight.ttf",
+      "source_dependencies": [
+        {
+          "revision": "e51dc0fb7ed741a0840f1d187c1ce4a5db6fe338f4764fcfdd3221a6b0f0d6cd",
+          "role": "ui.source",
+          "source": "Assets/Fonts/Weight.ttf"
+        }
+      ],
+      "type": "ui_font"
+    },
+    {
       "dependencies": [
         "51908d26-ebbe-44b2-9ca6-13ff2c3bf46c",
-        "65ef9b35-4e14-4363-be7c-8705a5ab6cf5"
+        "65ef9b35-4e14-4363-be7c-8705a5ab6cf5",
+        "92fb12f1-ffcb-4147-8290-c323f2bca2c0"
       ],
       "dependency_edges": [
         {
@@ -63,13 +118,20 @@
           "role": "ui.automatic",
           "target": "65ef9b35-4e14-4363-be7c-8705a5ab6cf5",
           "type": "ui_font"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "92fb12f1-ffcb-4147-8290-c323f2bca2c0",
+          "type": "ui_font"
         }
       ],
       "id": "9acc216f-f957-40e1-b7bb-6990a8f62970",
       "metadata": {
         "forge.ui_source": {
-          "bytes": 1100,
-          "digest": "83b64f948dad604b609aef150cf8433c1eaf45ac184dcc5459c5ec316cf13b76",
+          "bytes": 1458,
+          "digest": "9b31f24ba42a74031588eb147bf26e0d3a0be39dcfd09ace41b2c26cc59e6d7a",
           "format": "rml"
         }
       },
@@ -82,12 +144,17 @@
           "source": "Assets/Fonts/Cairo.ttf"
         },
         {
-          "revision": "aacece7082231e93f40397279f145370fef4c1596b8aa12c1ccbd253605ff64c",
+          "revision": "e51dc0fb7ed741a0840f1d187c1ce4a5db6fe338f4764fcfdd3221a6b0f0d6cd",
+          "role": "ui.observed",
+          "source": "Assets/Fonts/Weight.ttf"
+        },
+        {
+          "revision": "2cd3e7f0ef8492084737b2dafdb694f65bdd200cc82b6388a07e04e02a7f73b0",
           "role": "ui.observed",
           "source": "Assets/UI/hud.rcss"
         },
         {
-          "revision": "83b64f948dad604b609aef150cf8433c1eaf45ac184dcc5459c5ec316cf13b76",
+          "revision": "9b31f24ba42a74031588eb147bf26e0d3a0be39dcfd09ace41b2c26cc59e6d7a",
           "role": "ui.source",
           "source": "Assets/UI/hud.rml"
         }

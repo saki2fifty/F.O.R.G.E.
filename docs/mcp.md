@@ -2331,6 +2331,11 @@ its native zero-based `index` and available saved `family`, `style`, `full_name`
 not by assuming a family name or alias. Existing fonts acquire details through
 the same source registration/refresh operation, preserving their AssetIds and
 bytes. Informational discovery adds no permission or font-selection writer.
+Admitted variable fonts also expose bounded per-face `axes` with tag, name when
+available, minimum/default/maximum and hidden flag. At most16axisrecords are
+listed across a saved file's faces; `axes_omitted` explains a later omitted face
+array. Existing source-text tools author numeric `font-weight`; the saved shaping
+option selects the admitted weight design through the same native font owner.
 Successful UI registration/example
 creation publishes the saved catalog to the existing import/read owner, so asset
 search and inspection can observe it without reopening the project. No separate

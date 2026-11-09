@@ -1,5 +1,20 @@
 # 2026-11-09
 
+## Variable UI font weights and axis discovery
+
+The optional shaped-font adapter applies ordinary CSS weight to an admitted
+variable font's weight axis, retaining shared source bytes and native font
+ownership. Distinct sized designs keep their own glyph handles and restore
+raster/shaping coordinates consistently. Existing static faces retain handle
+reuse. Font metadata, Content Inspector and MCP asset reads expose bounded
+recorded axis ranges and names through the same catalog owner.
+
+UiTextShaping adds an original geometric font comparison, retaining its four
+existing asset IDs and adding one font. Shaping requires matching runtime
+profile2; older support is rejected before replacing a good export. Other axis
+controls, named-instance authoring, color glyphs and general typography remain
+outside the supported workflow.
+
 ## Native word movement and selection
 
 **Edit whole UI characters** also aligns Ctrl+Left/Right and Ctrl+Shift+Left/Right
