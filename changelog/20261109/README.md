@@ -42,3 +42,23 @@ digests/history and Save rules. Runtime native field input is explicitly not an
 MCP capability. The existing UiTextShaping example enables both options without
 changing any of its four asset identities. Its illustrated usage guide covers
 plain keys, local text, limits and export. No numbered Windows package is created.
+
+
+## Native game UI field automation
+
+MCP adds bounded native field discovery, focus, text and paired named keys through
+the existing UiPresenter/Play owners. Native values, selection, events, limits,
+platform input and camera surface mapping remain authoritative. Runtime input
+requires current Play and displayed UI scope, a current presentation revision,
+unique visible enabled fields and the execution grant. Read access omits password
+plaintext. Input receipt replay is exactly once and UI reload invalidates old
+presentation revisions. Transient field values never write authored source,
+Scene history or settings.
+
+A shared private native-field classifier and key catalog keep physical input,
+automation discovery and MCP consistent. No arbitrary DOM/script/value setter or
+IME injection is exposed. The existing UiTextShaping example and illustrated
+manual describe agent field testing without changing its four asset identities
+or static HUD capture. Both protocol envelopes and both Play profiles are tested;
+full Windows/editor/physical/external-client review remains pending. No numbered
+Windows package accompanies this source checkpoint.

@@ -15,6 +15,12 @@ pointer selection and active IME composition keep native behavior. Save Settings
 and restart Play after changing either UI option. See
 [Edit whole UI characters](../../../manual/editor/ui-text-input.md) for bounds and controls.
 
+With a project-authoring MCP connection and execution grant, an agent can read
+`forge_play_ui_fields`, focus the input with element ID `field`, then use
+`forge_play_ui_text` and `forge_play_ui_key`. Read its current document instance
+and presentation revision first. These actions use the same native field; its
+runtime text is not saved into the RML or Scene history.
+
 `Tools → Project Settings → Game defaults → Shape UI text` is enabled. Save
 settings and restart Play after changing it. Edit the RML/RCSS under `Assets/UI`
 through Content, Save source and restart Play. Use a matching runtime kit for

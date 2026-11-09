@@ -1,5 +1,6 @@
 #include "ui_text_input.hpp"
 #include "ui_text_boundaries.hpp"
+#include "ui_text_field.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include <RmlUi/Core/Elements/ElementFormControlTextArea.h>
@@ -10,23 +11,6 @@
 #include <variant>
 
 namespace forge {
-namespace {
-using Field = std::variant<Rml::ElementFormControlInput*, Rml::ElementFormControlTextArea*>;
-std::optional<Field> editable(Rml::Element* element) {
-    if (!element || !element->GetOwnerDocument() || !element->GetOwnerDocument()->IsVisible())
-        return {};
-    if (auto* input = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(element)) {
-        const auto type =
-            Rml::StringUtilities::ToLower(input->GetAttribute<Rml::String>("type", "text"));
-        if (!input->IsDisabled() && (type == "text" || type == "password"))
-            return input;
-    } else if (auto* area = rmlui_dynamic_cast<Rml::ElementFormControlTextArea*>(element)) {
-        if (!area->IsDisabled())
-            return area;
-    }
-    return {};
-}
-} // namespace
 struct UiTextInput::Impl final : Rml::TextInputHandler {
     struct State {
         Rml::TextInputContext* native = nullptr;
@@ -181,7 +165,8 @@ struct UiTextInput::Impl final : Rml::TextInputHandler {
         if (action && active && !active->composing &&
             !(modifiers & (Rml::Input::KM_SHIFT | Rml::Input::KM_CTRL | Rml::Input::KM_ALT |
                            Rml::Input::KM_META)))
-            if (const auto field = editable(context.GetFocusElement()))
+            if (const auto field = ui_text_field(context.GetFocusElement());
+                field && ui_text_field_editable(*field))
                 return std::visit(
                     [&](auto* value) { return field_key(context, value, key, modifiers, *action); },
                     *field);

@@ -60,3 +60,18 @@ Save the UI source, Scene and Project Settings, and test Play before exporting.
 Use the runtime kit packaged with the matching editor. A kit lacking the enabled
 whole-character editing profile is rejected. Players need no compiler or
 machine-installed font. See [Export a game](runtime-content.md).
+
+## Test fields with an AI agent
+
+After [connecting through MCP](mcp.md) with **Allow C++ build and execution**,
+ask the agent to start Play and inspect the native fields in the game HUD.
+It can focus a uniquely named visible enabled field, type text, select all and
+send the supported native navigation/deletion keys. The UiTextShaping example's
+input has the ID `field`. The agent reads the current document instance and
+presentation revision before acting; reloading the UI requires a fresh read.
+
+These operations use the same native fields and saved editing option. Password
+plaintext is omitted from observations. Field text stays in the running UI;
+game models may replace it, and it is not saved into source or Scene Undo.
+Camera-output input requires existing native surface focus/hover mapping. IME
+composition injection and arbitrary DOM/script editing are unavailable.

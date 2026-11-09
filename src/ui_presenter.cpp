@@ -1,11 +1,15 @@
 #include "asset_bytes.hpp"
+#include "ui_field_keys.hpp"
 #include "ui_filter_profile.hpp"
 #include "ui_luminance_mask.hpp"
 #include "ui_shadow_motion.hpp"
 #include "ui_shaped_font.hpp"
+#include "ui_text_field.hpp"
 #include "ui_text_input.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/ElementText.h>
+#include <RmlUi/Core/Elements/ElementFormControlInput.h>
+#include <RmlUi/Core/Elements/ElementFormControlTextArea.h>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -313,6 +317,13 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             return live->context;
         const auto at = live->outputs.find(output);
         return at == live->outputs.end() ? nullptr : at->second;
+    }
+    const Doc& field_document(const std::string& instance) const {
+        if (live)
+            for (const auto& doc : live->docs)
+                if (doc->instance == instance)
+                    return *doc;
+        throw std::runtime_error("No current native UI document has this instance");
     }
     void clear_input_state() {
         held_keys.clear();
@@ -1442,6 +1453,165 @@ bool UiPresenter::wants_text() const {
         return false;
     auto* element = context->GetFocusElement();
     return element && (element->GetTagName() == "input" || element->GetTagName() == "textarea");
+}
+Json UiPresenter::text_fields(const std::string& instance) const {
+    auto& s = *impl_;
+    s.check();
+    const auto& doc = s.field_document(instance);
+    const auto scan = scan_ui_text_fields(*doc.document);
+    Json result{{"instance", doc.instance},
+                {"session", s.session},
+                {"generation", s.generation},
+                {"presentation_revision", s.presentation_revision},
+                {"render_texture", doc.descriptor.value("render_texture", Json())},
+                {"visible", doc.document->IsVisible()},
+                {"visited_nodes", scan.visited},
+                {"truncated", scan.truncated},
+                {"limits",
+                 {{"nodes", ui_text_field_nodes},
+                  {"fields", ui_text_field_count},
+                  {"text_bytes", ui_protocol::max_string},
+                  {"element_id_bytes", 256}}},
+                {"keys", Json::array()},
+                {"fields", Json::array()}};
+    for (const auto& key : ui_field::keys)
+        result["keys"].push_back(key.name);
+    for (const auto& field : scan.fields) {
+        const auto* control = ui_text_field_control(field);
+        const auto& id = control->GetId();
+        const auto at = scan.ids.find(id);
+        const auto kind = ui_text_field_kind(field);
+        Json row{{"id", ui_text_field_id(id) ? Json(id) : Json()},
+                 {"addressable", !scan.truncated && at != scan.ids.end() && at->second == 1},
+                 {"kind", kind},
+                 {"visible", doc.document->IsVisible() && control->IsVisible(true)},
+                 {"enabled", !control->IsDisabled()},
+                 {"editable", ui_text_field_editable(field)},
+                 {"focused", doc.context == s.input_context(s.focus_output) &&
+                                 doc.context->GetFocusElement() == control},
+                 {"value_available", false}};
+        int begin = 0, end = 0;
+        std::visit([&](auto* value) { value->GetSelection(&begin, &end, nullptr); }, field);
+        row["selection"] = {{"begin", begin}, {"end", end}};
+        if (kind != "password") {
+            const auto value = control->GetValue();
+            row["value_bytes"] = value.size();
+            try {
+                ui_protocol::validate_value(value);
+                row["value"] = value;
+                row["value_available"] = true;
+            } catch (const std::exception&) {
+                // Return bounded observations without altering or normalizing the native value.
+            }
+        }
+        result["fields"].push_back(std::move(row));
+    }
+    return result;
+}
+Json UiPresenter::text_field_action(const std::string& instance, const std::string& element,
+                                    std::uint64_t revision, const std::string& action,
+                                    const std::string& text_value) {
+    auto& s = *impl_;
+    s.check();
+    if (revision != s.presentation_revision)
+        throw std::runtime_error("UI presentation changed; read its fields again");
+    const bool focus = action == "focus", insert = action == "text";
+    const auto named_key = std::find_if(ui_field::keys.begin(), ui_field::keys.end(),
+                                        [&](const auto& key) { return key.name == action; });
+    if (!focus && !insert && named_key == ui_field::keys.end())
+        throw std::runtime_error("Unknown native UI field action");
+    if (insert)
+        ui_protocol::validate_value(text_value);
+    else if (!text_value.empty())
+        throw std::runtime_error("Only the text action accepts text");
+    if (!ui_text_field_id(element))
+        throw std::runtime_error("Use a nonempty native UI element ID up to256UTF-8 bytes");
+    const auto& doc = s.field_document(instance);
+    const auto scan = scan_ui_text_fields(*doc.document);
+    if (scan.truncated)
+        throw std::runtime_error("Native UI field access requires at most4096nodes and64fields");
+    const auto count = scan.ids.find(element);
+    if (count == scan.ids.end() || count->second != 1)
+        throw std::runtime_error("Choose a unique current native UI element ID");
+    const auto found = std::find_if(scan.fields.begin(), scan.fields.end(), [&](const auto& field) {
+        return ui_text_field_control(field)->GetId() == element;
+    });
+    if (found == scan.fields.end() || !ui_text_field_editable(*found))
+        throw std::runtime_error("Choose a visible enabled native text/password/textarea field");
+    if (!s.held_keys.empty() || !s.held_buttons.empty())
+        throw std::runtime_error("Release the current native UI key or pointer press first");
+    auto* control = ui_text_field_control(*found);
+    const auto observer = control->GetObserverPtr();
+    const auto output_value = doc.descriptor.value("render_texture", Json());
+    const auto output = output_value.is_null() ? AssetId{} : output_value.get<AssetId>();
+    std::optional<UiSurfaceHit> surface;
+    if (output) {
+        for (const auto& candidate : {s.focused_surface, s.hovered_surface})
+            if (candidate && candidate->output.id == output && s.surface_available(*candidate)) {
+                surface = candidate;
+                break;
+            }
+        if (!surface)
+            throw std::runtime_error(
+                "Camera-output field input requires a current native surface hit");
+    }
+    Json consumed;
+    if (focus) {
+        s.focus_target(output, surface);
+        // Native blur/focus callbacks may remove or change the requested control.
+        const auto current = observer ? ui_text_field(observer.get()) : std::nullopt;
+        if (!current || !ui_text_field_editable(*current) || observer->GetId() != element ||
+            observer->GetOwnerDocument() != doc.document || !observer->Focus() || !observer ||
+            doc.context->GetFocusElement() != observer.get())
+            throw std::runtime_error("The native UI field could not receive focus");
+    } else {
+        s.validate_surface_focus();
+        if (s.focus_output != output || doc.context->GetFocusElement() != control)
+            throw std::runtime_error("Focus this exact native UI field before sending input");
+        if (insert) {
+            consumed = text(text_value);
+        } else {
+            int code = 0, modifiers = 0;
+            switch (named_key->key) {
+            case ui_field::Key::Left:
+                code = Rml::Input::KI_LEFT;
+                break;
+            case ui_field::Key::Right:
+                code = Rml::Input::KI_RIGHT;
+                break;
+            case ui_field::Key::Home:
+                code = Rml::Input::KI_HOME;
+                break;
+            case ui_field::Key::End:
+                code = Rml::Input::KI_END;
+                break;
+            case ui_field::Key::Backspace:
+                code = Rml::Input::KI_BACK;
+                break;
+            case ui_field::Key::Delete:
+                code = Rml::Input::KI_DELETE;
+                break;
+            case ui_field::Key::SelectAll:
+                code = Rml::Input::KI_A;
+                modifiers = Rml::Input::KM_CTRL;
+                break;
+            case ui_field::Key::Accept:
+            case ui_field::Key::Next:
+            case ui_field::Key::Previous:
+                navigate(action);
+                break;
+            }
+            if (code) {
+                const bool down = key(code, true, modifiers);
+                const bool up = key(code, false, modifiers);
+                consumed = down || up;
+            }
+        }
+    }
+    auto result = text_fields(instance);
+    result["delivered"] = true;
+    result["consumed"] = std::move(consumed);
+    return result;
 }
 void UiPresenter::release_input() {
     auto& s = *impl_;

@@ -11,6 +11,7 @@ import time
 from mcp_test_client import Client, failed, test_symlink, finish_host, write_capture
 from mcp_input_messages_play import check_input_messages_play
 from mcp_ui_sequence_play import check_ui_sequence_play
+from mcp_ui_fields_play import check_ui_fields_play
 from mcp_camera_shot_play import check_camera_shot_play
 from mcp_mesh_wind_play import check_mesh_wind_play
 from mcp_fog_volume_play import check_fog_volume_play
@@ -54,6 +55,8 @@ ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 INPUT_RECORDING_ONLY = sys.argv[7:] == ['--input-recording-only']
 UI_SOURCE_ONLY = sys.argv[7:] == ['--ui-source-only']
 UI_TEXT_SHAPING_ONLY = sys.argv[7:] == ['--ui-text-shaping-only']
+UI_FIELDS_SDK = sys.argv[7:] == ['--ui-fields-sdk-only']
+UI_FIELDS_ONLY = UI_FIELDS_SDK or sys.argv[7:] == ['--ui-fields-only']
 AUDIO_STREAMING_ONLY = sys.argv[7:] == ['--audio-streaming-only']
 AUDIO_ROUTING_ONLY = sys.argv[7:] == ['--audio-routing-only']
 FINITE_SOUND_CUES_ONLY = sys.argv[7:] == ['--finite-sound-cues-only']
@@ -204,7 +207,7 @@ def editor(mode='full'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-workflows-') as temporary:
         root = Path(temporary)
         # State-only checks need the real packaged font, but no Windows export kit.
-        host_resources = str(Path(__file__).resolve().parents[1]) if APPLICATION_STATES_ONLY else KIT
+        host_resources = str(Path(__file__).resolve().parents[1]) if APPLICATION_STATES_ONLY or UI_FIELDS_ONLY else KIT
         command = [HOST, str(root), RUNTIME, host_resources, NAV, mode]
         if ANIMATION_GRAPH_ONLY:
             # Scene references are resolved by the runtime package owner, not
@@ -278,7 +281,7 @@ def editor(mode='full'):
             command.append(str(audio_profile_project_template(root)))
         elif SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK:
+        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -382,6 +385,17 @@ for legacy in (False, True):
                 assert 'forge_play_input_recording_save' not in readable
             print(('legacy' if legacy else 'current') + ': fresh input capture, save/reopen, replay, '
                   'scope/path/overwrite/grant guards and authored isolation passed')
+            continue
+        if UI_FIELDS_ONLY:
+            check_ui_fields_play(root, client, read, ok, control, mutate, arguments, until, advertised)
+            with editor('read') as (_, readonly_config), Client(readonly_config, legacy) as readonly:
+                names = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
+                assert 'forge_play_ui_fields' in names
+                assert not {'forge_play_ui_focus', 'forge_play_ui_text', 'forge_play_ui_key'} & names
+                denied = readonly.request('tools/call', dict(name='forge_play_ui_text', arguments={}))
+                assert 'error' in denied or denied['result']['isError'], denied
+            print(('legacy' if legacy else 'current') + ': native UI fields, focus/text/keys, scope/limits, '
+                  'masked passwords, exact receipt replay, reload revision and authored isolation passed')
             continue
         if UI_TEXT_SHAPING_ONLY:
             scene_before = read('forge_scene_read')

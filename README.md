@@ -326,6 +326,9 @@ The independent [Edit whole UI characters](manual/editor/ui-text-input.md) optio
 uses Unicode character boundaries for plain arrows, Backspace and Delete in the
 same native field. Modified selection, IME and complete international editing
 retain their documented limits.
+Scoped MCP field discovery/focus/text/key tools operate the same native game HUD
+during editor Play. See [agent field testing](manual/editor/mcp.md) for guards,
+password observations, source/history behavior and surface limits.
 
 [Runtime reflection capture](manual/editor/lighting.md) updates local specular and
 diffuse lighting from moving scene sources in Scene, Game and camera outputs.

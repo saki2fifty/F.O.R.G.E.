@@ -22,8 +22,11 @@ Existing widget values, events, restrictions, focus and platform input remain
 authoritative. Settings/MCP and matching-kit compatibility share their existing
 owners. Modified selection, complete IME, accessibility and paragraph bidi are
 outside this bounded profile. See [the input contract](ui-text-input.md) and
-[the input guide](../manual/editor/ui-text-input.md). Native field input injection
-is not an MCP capability; settings/source access does not imply it.
+[the input guide](../manual/editor/ui-text-input.md). Bounded native field
+observation/focus/text/paired-key MCP tools use the same presenter and scoped Play
+owners. Password plaintext is omitted, stale UI/Play targets are rejected and
+camera input retains existing surface-hit requirements. IME injection and full
+international text editing remain outside scope.
 
 Local source adds imported mono/stereo impulse processing on custom audio buses.
 Project Settings, Content selection, automation/MCP, existing AudioClip resources,

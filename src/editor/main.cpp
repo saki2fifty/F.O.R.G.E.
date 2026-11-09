@@ -2729,6 +2729,19 @@ int main(int argc, char** argv) {
             play_providers.ui_application_states = [&] {
                 return runtime_ui.application_states_state();
             };
+            play_providers.ui_fields = [&](const std::string& instance) {
+                return runtime_ui.text_fields(instance);
+            };
+            play_providers.ui_field_action =
+                [&](const std::string& instance, const std::string& element, std::uint64_t revision,
+                    const std::string& action, const std::string& text) {
+                    const bool released =
+                        play.sdk_play() ? game_input.submit_external_release_observation(play, true)
+                                        : game_input.release_checked(play, true);
+                    if (!released)
+                        throw forge::AuthoringError("play_busy", "Release gameplay input first");
+                    return runtime_ui.text_field_action(instance, element, revision, action, text);
+                };
             auto runtime = forge::PlayAutomation::methods(scene, files, play, runtime_tuning_review,
                                                           std::move(play_providers), permissions);
             methods.insert(methods.end(), std::make_move_iterator(runtime.begin()),

@@ -2,6 +2,7 @@
 #include "../asset_bytes.hpp"
 #include "../cpu_profile_trace.hpp"
 #include "../input_recording_files.hpp"
+#include "../ui_field_keys.hpp"
 #include "animation_playback.hpp"
 #include "audio_source.hpp"
 #include "automation_permissions.hpp"
@@ -10,6 +11,7 @@
 #include "files.hpp"
 #include "play.hpp"
 #include "runtime_tuning_review.hpp"
+#include <forge/ui_protocol.hpp>
 
 namespace forge {
 struct PlayAutomationProviders {
@@ -30,6 +32,10 @@ struct PlayAutomationProviders {
     std::function<void()> reload_ui;
     std::function<Json()> ui_localization;
     std::function<Json()> ui_application_states;
+    std::function<Json(const std::string&)> ui_fields;
+    std::function<Json(const std::string&, const std::string&, std::uint64_t, const std::string&,
+                       const std::string&)>
+        ui_field_action;
 };
 struct PlayAutomation {
     static Json state(const PlaySession& play) {
@@ -132,6 +138,21 @@ struct PlayAutomation {
                 result["total"] = entities.size();
                 for (auto i = offset; i < entities.size() && i - offset < limit; ++i)
                     result["entities"].push_back(entities[i]);
+                return result;
+            }));
+        methods.push_back(automation_method(
+            "play.ui.fields",
+            "Read bounded actual native text/password/textarea fields in a current UI document "
+            "instance from play.ui. Reports the presentation revision, unique element IDs, "
+            "visibility, enabled/focus/selection state and admitted text values. Password "
+            "plaintext is omitted. At most4096 DOM nodes/64fields and1024UTF-8 bytes per value; "
+            "truncated observations cannot be used for input. Null value means no live presenter. "
+            "This observes runtime UI, never authored RML/Scene/history.",
+            "play.read", automation_object({{"instance", automation_text(256, 1)}}, {"instance"}),
+            false, [&files, &play, fields = providers.ui_fields](const Json& request) {
+                files.document.check_ownership();
+                auto result = state(play);
+                result["value"] = play.ready() && fields ? fields(request.at("instance")) : Json{};
                 return result;
             }));
         for (const auto* kind : {"schema", "diagnostics", "physics", "input", "ui", "audio",
@@ -795,7 +816,7 @@ struct PlayAutomation {
         auto ui_properties = properties(), ui_required = required();
         ui_properties.update({{"instance", automation_text(256, 1)},
                               {"command", automation_text(128, 1)},
-                              {"value", automation_text(4096)}});
+                              {"value", automation_text(ui_protocol::max_string)}});
         ui_required.push_back("instance");
         ui_required.push_back("command");
         methods.push_back(automation_method(
@@ -816,6 +837,64 @@ struct PlayAutomation {
                 return Json{{"queued", true}};
             },
             true));
+        auto field_properties = properties(), field_required = required();
+        field_properties.update({{"instance", automation_text(256, 1)},
+                                 {"element", automation_text(256, 1)},
+                                 {"presentation_revision", automation_integer()}});
+        for (const auto* name : {"instance", "element", "presentation_revision"})
+            field_required.push_back(name);
+        Json keys = Json::array();
+        for (const auto& key : ui_field::keys)
+            keys.push_back(key.name);
+        for (const auto* action : {"focus", "text", "key"}) {
+            auto properties = field_properties, required = field_required;
+            const std::string kind = action;
+            if (kind == "text") {
+                properties["text"] = automation_text(ui_protocol::max_string);
+                required.push_back("text");
+            } else if (kind == "key") {
+                properties["key"] = {{"type", "string"}, {"enum", keys}};
+                required.push_back("key");
+            }
+            methods.push_back(automation_method(
+                "play.ui." + kind,
+                (kind == "focus" ? "Focus the exact native text/password/textarea field. "
+                 : kind == "text"
+                     ? "Send UTF-8 text through the exact focused native field. "
+                     : "Send one paired native key through the exact focused field. ") +
+                    std::string(
+                        "Read play.ui.fields first and supply its presentation revision, "
+                        "document instance and unique element ID. Native values, selection, "
+                        "events, "
+                        "disabled/maximum-length rules and the saved whole-character option apply. "
+                        "Camera-output input requires an existing current native surface hit. "
+                        "Release held UI keys/pointer buttons first. Text/key requires this exact "
+                        "field still to have focus. Returns updated field observations and "
+                        "delivered/"
+                        "consumed; delivered is not a gameplay acknowledgement. Transient UI only: "
+                        "no RML/Scene/history write, no arbitrary DOM/script or IME composition "
+                        "injection."),
+                "play.execute", automation_object(properties, required), true,
+                [&files, &play, providers, kind](const Json& request) {
+                    current(play, files, providers, request);
+                    if (!play.ready())
+                        throw AuthoringError("not_ready", "Wait for the current Play world");
+                    if (!providers.ui_field_action || !providers.ui_fields)
+                        throw AuthoringError("ui_unavailable",
+                                             "Native UI field input is unavailable");
+                    const auto shown = providers.ui_fields(request.at("instance"));
+                    if (!shown.is_object() || shown.at("session") != play.session() ||
+                        shown.at("generation") != play.world_generation() ||
+                        shown.at("presentation_revision") != request.at("presentation_revision"))
+                        throw AuthoringError("stale_ui", "Read the current native UI fields first");
+                    return providers.ui_field_action(
+                        request.at("instance"), request.at("element"),
+                        request.at("presentation_revision"),
+                        kind == "key" ? request.at("key").get<std::string>() : kind,
+                        kind == "text" ? request.at("text").get<std::string>() : std::string{});
+                },
+                true));
+        }
     }
     static void append_tuning_controls(std::vector<LiveAuthoringMethod>& methods, Scene& scene,
                                        EditorFiles& files, PlaySession& play,

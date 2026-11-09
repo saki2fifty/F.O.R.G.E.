@@ -131,6 +131,16 @@ class RuntimeUiHost {
     Json application_states_state() const {
         return presenter_ && !suspended_ ? presenter_->application_states_state() : Json{};
     }
+    Json text_fields(const std::string& instance) const {
+        return presenter_ && !suspended_ ? presenter_->text_fields(instance) : Json{};
+    }
+    Json text_field_action(const std::string& instance, const std::string& element,
+                           std::uint64_t revision, const std::string& action,
+                           const std::string& text) {
+        if (!presenter_ || suspended_ || prepared_ticket_)
+            throw std::runtime_error("Runtime UI is unavailable or preparing a scene");
+        return presenter_->text_field_action(instance, element, revision, action, text);
+    }
     // Single source of truth for "has RmlUi Core been initialized by this
     // host yet?". Mirrors `set_game_input_observer`/`set_presenter_alive_observer`
     // in tests/editor_sdk_workflow.hpp: the workflow probes this before

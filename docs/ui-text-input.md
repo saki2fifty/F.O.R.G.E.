@@ -73,9 +73,10 @@ or installed gameplay SDK ABI changes.
 
 Existing settings and UI source tools can author this profile and native fields
 under their normal grants, revisions, histories and saved-baseline rules.
-`play.input.submit` remains the gameplay semantic queue. Native field focus,
-text/key injection and IME composition are not exposed as MCP tools; do not claim
-automated native-field interaction from settings/source access.
+Native field observation/focus/text/key tools use these same presenter methods
+and the existing Play provider; see [the field contract](#native-field-automation).
+`play.input.submit` remains the gameplay semantic queue. IME composition injection
+is not exposed as an agent operation.
 
 The focused helper test runs all853official Unicode18 cases plus admission/key
 selection checks. Actual native-control tests cover text/password/textarea,
@@ -83,3 +84,46 @@ combining marks, emoji sequences, flags, Hangul, events, limits, modifiers,
 composition forwarding, blur/removal/reset and both font modes. The original
 example is exercised with its four IDs preserved and source-hidden relocation.
 Platform/physical input review remains separate from these CPU consumers.
+
+## Native field automation
+
+UiPresenter::text_fields observes one current document instance from the displayed
+set. A call-local public native scan admits4096DOM nodes and64text/password/
+textarea controls. IDs are nonempty valid UTF-8 up to256bytes and must be unique
+across all scanned DOM nodes, including other element types. Missing/ambiguous
+IDs and truncated scans cannot authorize an action. No field registry or cached
+text model is created. Hidden/disabled fields can be observed but not edited.
+
+Observations include the native session/world generation and presentation
+revision, field kind, visibility/enabled/focus state and scalar selection range.
+Non-password values are included only when the existing UI scalar validator
+admits valid non-NUL UTF-8 up to1024bytes. Oversized or malformed values are
+omitted without truncating or normalizing the field. Password values are omitted
+from observations and action results. Routine field observations are not a
+security boundary around trusted native project code.
+
+UiPresenter::text_field_action checks the current presentation revision and
+exact unique native element before action. A field must be visible/enabled and
+there must be no held native UI key or pointer press. Focus uses the existing
+focus_target owner and public native Focus, guarded by a native ObserverPtr
+against callback retirement. Camera-output focus/input requires an existing
+current native focused/hovered surface hit and its geometry mapping; it does not
+invent a surface or bypass IME projection. Text/key additionally requires this
+exact field/output still to hold native focus.
+
+Text uses the existing text/ProcessTextInput path. Named keys send a balanced
+native down/up pair; next/previous/accept reuse native navigation. Home/end and
+select-all retain native semantics. The private Rml-free key catalog drives both
+dispatch and automation schema discovery. The saved grapheme option affects only
+its four plain keys. Events, bindings, native restrictions and declared command
+queues retain their existing owners. Action results report delivered/consumed
+and fresh observations; they do not acknowledge gameplay or persist UI values.
+Native model/game updates may replace a field value between observations.
+
+Play automation compares the actual shown session/world/presentation revision
+with the current Play owner before invoking the input provider. Mutations retain
+launch/session/generation, execution grant, authoring target/revision/sequence
+and replay receipts. RuntimeUiHost rejects suspended/preparing input. Its Play
+provider uses the existing truthful GameInput release policy with menu routing retained.
+Read access never grants native input. Source/Scene/history and the installed
+gameplay ABI remain unchanged. See [MCP field tools](mcp.md).

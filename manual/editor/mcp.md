@@ -212,6 +212,39 @@ To keep supported live values, the agent captures the existing review, stops Pla
 selects fields and applies them to the Scene. That creates one Undo step; saving
 is separate. Building changed C++ still requires Stop → Save → Build → Play.
 
+## Test native game UI fields
+
+During editor Play, the agent can operate native text fields with **Allow C++
+build and execution** enabled. This uses the running game HUD, separately from
+editing its saved RML source.
+
+1. Read `forge_play_ui` for the current document instance, then call `forge_play_ui_fields` with that `instance`.
+2. Choose a field whose `addressable` and `editable` values are true. Use its returned `id` as `element`; this is the RML `id` attribute, not a source editor element token or an asset UUID.
+3. Call `forge_play_ui_focus` with `instance`, `element` and the returned `presentation_revision`, plus the current Play and authoring guards.
+4. Call `forge_play_ui_text` with `text`, or `forge_play_ui_key` with a supported `key`, using the same target and current guards. The exact field must still have focus.
+5. Inspect the returned native field values, selection and focus. Read again after **Reload UI**; old presentation revisions are rejected.
+
+Keys are `left`, `right`, `home`, `end`, `backspace`, `delete`, `select_all`,
+`accept`, `next` and `previous`. For example, use `select_all`, then send the
+replacement text. [Edit whole UI characters](ui-text-input.md) controls plain
+arrow/deletion boundaries. Native maximum length, disabled controls, events and
+bindings remain active. Game models may change fields between calls.
+
+The tools observe up to **64 fields** within **4,096 DOM nodes** per document.
+IDs must be unique, nonempty UTF-8 up to **256 bytes**. Duplicate IDs or a
+truncated observation prevent input. Text actions and returned values use a
+**1,024-byte UTF-8** limit; larger values are omitted from observations without
+changing the field. Password plaintext is omitted. Release held native UI keys
+or pointer buttons before agent input. Camera-output fields require existing
+native surface focus/hover mapping.
+
+`delivered` means the native action was sent; it is not a gameplay
+acknowledgement. A canceled native event may leave text unchanged. Runtime field
+text is not written to RML, Scene Undo or source history, and Stop discards it.
+Save source/default values through the source editor when they should persist.
+IME composition injection, arbitrary DOM/scripts and input into a separately
+exported game process are outside these editor Play tools.
+
 ## Other game sources
 
 Raw game UI and HLSL sources can be edited with exact disk-conflict checks. UI

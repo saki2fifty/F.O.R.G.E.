@@ -77,6 +77,12 @@ class UiPresenter {
     bool key(int key, bool down, int modifiers);
     bool text(const std::string& utf8);
     bool wants_text() const;
+    // Bounded native observations/actions; no DOM scripts, value replacement or Scene writes.
+    // Targets use the current document instance, unique element ID and presentation revision.
+    nlohmann::json text_fields(const std::string& instance) const;
+    nlohmann::json text_field_action(const std::string& instance, const std::string& element,
+                                     std::uint64_t presentation_revision, const std::string& action,
+                                     const std::string& text = {});
     // Semantic action routed by RuntimeInput; delegates to native RmlUi focus.
     void navigate(const std::string& direction);
     void release_input();

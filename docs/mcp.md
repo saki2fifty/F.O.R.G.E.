@@ -2267,8 +2267,52 @@ Plain arrows/Backspace/Delete use the independent boundary adapter in the actual
 presenter; shaping and editing options can be enabled separately. No agent-only
 text field or alternate validation exists. See [native input](ui-text-input.md).
 
-Runtime native field focus, text/key injection and IME are not exposed by current
-MCP tools. `play.input.submit` queues gameplay semantic events, while
-`play.ui.command` queues declared HUD commands. Neither performs native field
-editing. Thus authoring the option/source is agent-accessible; automated native
-field interaction remains an explicit coverage gap.
+Native field observation/focus/text/key operations are described below.
+`play.input.submit` retains the gameplay semantic queue and `play.ui.command`
+retains declared HUD commands. Neither is repurposed into a second field editor.
+IME composition injection remains unavailable.
+
+## Native UI field tools
+
+| Tool | Existing owner and scope |
+| --- | --- |
+| `forge_play_ui_fields` | Observe one displayed document `instance`; `play.read` grant; returns actual native session/world/presentation and bounded field state in `value`, or null without a ready presenter |
+| `forge_play_ui_focus` | Focus one unique visible enabled `element` in that instance at the observed `presentation_revision` |
+| `forge_play_ui_text` | Send admitted UTF-8 `text` through that exact currently focused field |
+| `forge_play_ui_key` | Send one named balanced native key action through that exact focused field |
+
+Mutations require `play.execute`, current Play `launch`, `session`, `generation`,
+document `instance`, unique `element`, and its observed `presentation_revision`,
+plus the normal authoring target/revision/sequence envelope. The actual displayed
+native session/world and revision must also match, otherwise `stale_ui` is
+returned before invoking the input provider. Stale Play scope remains
+`stale_play`. Schema violations, including oversized UTF-8 text, return
+`invalid_arguments`. Missing/ambiguous/inappropriate fields, held native UI presses,
+other invalid text and absent surface mapping produce the native operation failure
+without a field edit. A native focus event can be canceled or retire a control;
+these are ordinary native events, not an authored transaction rollback.
+
+Names come from one native key catalog: `left`, `right`, `home`, `end`,
+`backspace`, `delete`, `select_all`, `accept`, `next`, `previous`. The existing
+UiPresenter key/text/navigation methods perform them. Whole-character editing
+applies to its four plain keys when enabled; other native navigation/selection
+semantics remain. No direct field setter, arbitrary DOM/script or IME context edit
+is exposed. Camera-output fields require an existing current native surface
+hit; ordinary native pointer/focus mapping and IME placement remain authoritative.
+
+Field observations visit at most4096DOM nodes/64fields, and IDs are valid nonempty
+UTF-8 up to256bytes. Truncated scans and duplicate IDs cannot authorize input.
+Values are admitted through the existing UI validator up to1024UTF-8 bytes;
+unadmitted values are omitted without changing the native field. Password
+plaintext is omitted from reads/action results. Actions return delivered,
+consumed (null for focus/navigation) and fresh fields. Delivery is not a
+gameplay acknowledgement or a claim that a canceled event edited text.
+These are editor Play operations; they do not attach MCP to an exported game process.
+
+Transport replay returns its original receipt and does not type/delete twice.
+Reload replaces the presentation revision and native fields; callers must read
+again. Stop removes the presenter. Runtime values/model updates remain separate
+from authored RML, Scene Undo, source history and saving. Starting Play and
+native execution retain their existing user grant; read access alone does not
+grant input. See [the native field contract](ui-text-input.md#native-field-automation)
+and [the guide](../manual/editor/mcp.md).

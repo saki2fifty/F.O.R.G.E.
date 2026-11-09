@@ -2282,3 +2282,36 @@ The editor/runtime collectors preserve full utf8proc and Unicode data notices;
 package-writer fixtures verify inclusion without asserting a Windows executable
 was built or run. Full Main/MSVC, Windows/D3D12, physical keyboard/IME/display/DPI,
 graphical exported EXE and external-client review remain separate pending gates.
+
+
+## Native UI field automation
+
+`ui_field_automation` uses actual RmlUi input/password/textarea controls and both
+font modes. It checks bounded/unique/native observations, omitted password and
+oversized text, focus/text/ten named keys, native limits, hidden/disabled fields,
+stale instances/presentation revisions, held-input rejection, callback removal,
+reload/reset and unchanged authored source. `ui_surface_grapheme_input` additionally
+rejects a fabricated absent surface mapping and reuses a real current native hit
+for field focus. The original surface/default and SDL input consumers remain in
+the focused gate. Static text rendering/resources reuse attributable unchanged
+proof; no new GPU or physical typography result is inferred from these tools.
+
+`mcp_ui_fields_stdio` and `mcp_ui_fields_sdk_stdio` exercise the real providers,
+Play owners and native presenter with both MCP protocol envelopes. They create
+and register UI source through existing owners, save the whole-character option,
+run actual fields and verify native typing/deletion/selection, disabled/max-length
+rules, password response masking, wrong focus, stale Play/UI revisions, exact
+input receipt replay, reload and authored Scene/source/settings isolation. Read
+connections discover fields but cannot invoke native input. The existing graceful
+fixture shutdown requires every native MCP host to exit0; forced termination
+is failure cleanup. These are independent legacy-runtime and SDK Play results,
+not an external-client or full graphical editor acceptance claim.
+
+The manual's MCP and input guides use the existing authentic native field capture
+with unchanged layout. Offline rendering verifies all local references/images;
+focused browser review checks the new tool steps/limits at desktop/narrow widths.
+Existing sibling-package fixtures verify the extended example README and its
+manual links. No asset identity, source format, runtime-kit profile or installed
+native SDK ABI changes accompany editor-only field tools. Full Main/MSVC,
+Windows/D3D12, physical pointer/keyboard/IME/DPI, an external agent client and a
+real exported graphical EXE remain separately queued.

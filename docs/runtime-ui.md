@@ -145,6 +145,9 @@ input remain absent. Bounded horizontal shaping is an optional saved project
 setting; see [UI text shaping](ui-text-shaping.md).
 The independent [native input boundary option](ui-text-input.md) covers bounded
 plain-key whole-character movement/deletion in existing fields.
+Native field observation/focus/text/key automation uses this same presenter;
+[the field contract](ui-text-input.md#native-field-automation) records scope,
+bounds, password observations and native surface mapping.
 
 ## Camera output composition
 

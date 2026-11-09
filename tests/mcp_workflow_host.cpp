@@ -243,6 +243,21 @@ int main(int argc, char** argv) {
             controls.ui_application_states = [&] {
                 return presenter ? presenter->application_states_state() : forge::Json{};
             };
+            controls.ui_fields = [&](const std::string& instance) {
+                return presenter ? presenter->text_fields(instance) : forge::Json{};
+            };
+            controls.ui_field_action = [&](const std::string& instance, const std::string& element,
+                                           std::uint64_t revision, const std::string& action,
+                                           const std::string& text) {
+                if (!presenter)
+                    throw forge::AuthoringError("ui_unavailable", "No live UI presenter");
+                const bool released = play.sdk_play()
+                                          ? input.submit_external_release_observation(play, true)
+                                          : input.release_checked(play, true);
+                if (!released)
+                    throw forge::AuthoringError("play_busy", "Release gameplay input first");
+                return presenter->text_field_action(instance, element, revision, action, text);
+            };
             controls.reload_ui = [&] {
                 if (!presenter)
                     throw forge::AuthoringError("ui_unavailable", "No live UI presenter");
@@ -317,10 +332,16 @@ int main(int argc, char** argv) {
                 const auto& snapshot = play.ui_snapshot();
                 const auto generation = snapshot.at("generation").get<std::uint64_t>();
                 if (!presenter) {
+                    const auto project_settings = files.document.settings().document();
                     presenter = std::make_unique<forge::UiPresenter>(
                         renderer, files.document.project(),
                         forge::asset_detail::read_bytes(kit / "resources/ui/LatoLatin-Regular.ttf",
-                                                        4 * 1024 * 1024));
+                                                        4 * 1024 * 1024),
+                        forge::UiPlatformCallbacks{}, nullptr,
+                        project_settings.contains("game") &&
+                            forge::ui_text_shaping_enabled(project_settings.at("game")),
+                        project_settings.contains("game") &&
+                            forge::ui_grapheme_editing_enabled(project_settings.at("game")));
                 }
                 if (presenter_session != play.session() || presenter_generation != generation) {
                     presenter->reset(play.session(), generation);

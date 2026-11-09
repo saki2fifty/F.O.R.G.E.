@@ -96,6 +96,17 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
             return std::array<double, 2>{surface_x + 160 * hit.uv[0], 100 + 100 * hit.uv[1]};
         };
         presenter.surface_input(callbacks);
+        if (editing) {
+            const auto fields = presenter.text_fields("output");
+            bool refused = false;
+            try {
+                presenter.text_field_action("output", "entry", fields.at("presentation_revision"),
+                                            "focus");
+            } catch (const std::exception&) {
+                refused = true;
+            }
+            check(refused, "Output field automation invented a missing native surface hit");
+        }
         bool rejected = false;
         try {
             presenter.surface_input({callbacks.pick, {}});
@@ -183,6 +194,12 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
         check(element("entry")->GetAttribute<Rml::String>("value", "") == "typed",
               "Text input changed the wrong native context");
         if (editing) {
+            const auto fields = presenter.text_fields("output");
+            check(presenter
+                      .text_field_action("output", "entry", fields.at("presentation_revision"),
+                                         "focus")
+                      .at("delivered"),
+                  "Current native surface hit was not reused by field focus");
             auto* field = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(element("entry"));
             check(field != nullptr, "Output text field is missing");
             field->SetValue("a\xcc\x81"
