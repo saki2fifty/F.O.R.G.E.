@@ -54,6 +54,16 @@ struct UiSourceAutomation {
                 throw AuthoringError("stale_ui_source",
                                      "UI source changed; read its current state");
     }
+    static Json image_source(ui::UiSourceEditor& editor, SceneDocument& project,
+                             const Json& request) {
+        observed(editor, project, request);
+        auto source = editor.image_source(project);
+        for (const auto* key : {"preview_instance", "preview_revision"})
+            if (request.at(key) != source.at(key))
+                throw AuthoringError("stale_ui_preview",
+                                     "Preview the current UI source before image capture");
+        return source;
+    }
     static std::vector<LiveAuthoringMethod> methods(EditorFiles& files, ui::UiSourceEditor& editor,
                                                     const ui::AutomationPermissions& permissions,
                                                     std::function<std::string()> unavailable) {

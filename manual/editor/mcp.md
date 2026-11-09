@@ -11,10 +11,19 @@ For layout, use `forge_ui_source_preview` with current source guards and the des
 viewport size. Read its element indices, editable flags, explanations and preview
 instance/revision. Pass those guards and all four pixel values to
 `forge_ui_source_layout` for one Undo step. It supports the same bounded inline
-absolute pixel layouts as the editor canvas. Preview returns native geometry;
-inspect pixels in the editor's Preview view, or save/run and use Game capture.
+absolute pixel layouts as the editor canvas. Preview returns native geometry.
 Saved linked styles and images reload when the preview is requested. Stale or
 unsupported geometry cannot authorize source edits.
+
+To inspect the rendered draft, grant an output folder and call
+`forge_capture_ui_source`. Its `path` selects the output file inside that folder;
+its nested `source` contains the current source `path`, `session`, `revision`,
+`state`, `preview_instance` and `preview_revision`. Use the source-read guards and
+map the preview's `instance` and `revision` to the last two fields. Poll
+`forge_capture_status`, then read the returned operation with `forge_capture_image`
+for an owned PNG image block. The source can remain unsaved. Keep the source and
+preview current until the image copy starts; once queued, it finishes independently
+of later source edits. A metadata-only host cannot supply preview pixels.
 
 FORGE lets a trusted AI agent develop a game through your open editor's existing
 authoring tools. Scene changes share normal Undo; source documents, files, builds,

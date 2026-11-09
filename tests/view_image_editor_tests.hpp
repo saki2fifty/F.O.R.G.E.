@@ -162,6 +162,44 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     check(message.starts_with("Image saved:") && !editor.log.empty() &&
               editor.log.back().find("  Image export: Image saved:") != std::string::npos,
           "Image completion did not use the timestamped editor log");
+    // A source image has its own native guard, independent of Scene selection.
+    check(!task.selected_path(View::UiSource, project / "unguarded.png", project, {}, message),
+          "UI source image accepted without its native guard");
+    bool current = true;
+    unsigned borrowed = 0;
+    const auto source_input = [&] {
+        return ui::ViewImageTask::RenderedInput{
+            {{"path", "Assets/Preview.rml"}}, [&]() -> ITextureView* {
+                ++borrowed;
+                if (!current)
+                    throw std::runtime_error("UI preview changed before capture");
+                return view;
+            }};
+    };
+    check(task.selected_path(View::UiSource, project / "cancelled-preview.png", project, {},
+                             message, {}, {}, {}, source_input()),
+          "UI source image was not admitted");
+    check(task.cancel(message) && borrowed == 0, "Cancelled source image borrowed native pixels");
+    check(task.selected_path(View::UiSource, project / "stale-preview.png", project, {}, message,
+                             {}, {}, {}, source_input()),
+          "Stale source image case was not admitted");
+    current = false;
+    task.poll(presentation, graphics, project, other_scene, message);
+    check(!task.busy() && !presentation.readback_pending() &&
+              !std::filesystem::exists(project / "stale-preview.png"),
+          "Stale UI source image queued pixels or wrote output");
+    current = true;
+    const auto preview_output = project / "source-preview.png";
+    FileDialog::fixture_selection =
+        FileDialog::Result{FileDialog::Kind::SaveImage, path_utf8(preview_output), {}, {}};
+    task.choose(View::UiSource, nullptr, project, {}, {}, source_input());
+    task.poll(presentation, graphics, project, other_scene, message);
+    check(presentation.readback_pending(), "Source image picker did not queue native readback");
+    const auto before_close = borrowed;
+    current = false; // Later source closure cannot replace an already queued copy.
+    finish();
+    exact_image(preview_output);
+    check(borrowed == before_close, "Copied source image reborrowed a retired preview");
     const auto previous = read(output);
     check(task.selected_path(View::Scene, project / "render", project, scene, message),
           "Image task did not stage appended PNG overwrite");

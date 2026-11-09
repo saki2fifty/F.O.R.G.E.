@@ -14,8 +14,13 @@ the same owner, permissions and receipt/history paths. Gallery211 supplies an
 original editable sample with save/export/relocation coverage; all597existing asset
 records remain unchanged. The source gallery now contains211Scenes and600records.
 UI text/runtime profiles, SDK layouts and dependency pins remain unchanged.
-Unrestricted responsive design and source-preview pixel capture through MCP are
-outside this bounded workflow. Full Main/Windows/physical acceptance remains pending.
+UI Source also exposes Save preview image through the existing capture task.
+Guarded capture.ui_source output and capture.image PNG projection let agents
+inspect the same native draft pixels. Source/preview guards are rechecked before
+nonblocking copy submission; already queued pixels survive later source changes.
+Existing output grants, conflicts, encoding and task receipts remain authoritative.
+Unrestricted responsive design remains outside this bounded workflow. Full
+Main/Windows/physical acceptance remains pending.
 
 ## Native editing keys for agent workflows
 

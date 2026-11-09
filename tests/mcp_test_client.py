@@ -14,6 +14,14 @@ CURRENT = '2026-07-28'
 CAPTURE = []
 
 
+def protocol_cases():
+    selected = os.environ.get('FORGE_MCP_TEST_PROTOCOL', 'both')
+    choices = {'both': (False, True), 'current': (False,), 'legacy': (True,)}
+    if selected not in choices:
+        raise SystemExit('FORGE_MCP_TEST_PROTOCOL must be both, current or legacy')
+    return choices[selected]
+
+
 def write_capture(path):
     """Stream compact evidence; large schema catalogs need no uncompressed copy."""
     path = Path(path)

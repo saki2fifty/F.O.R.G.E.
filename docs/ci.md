@@ -76,9 +76,20 @@ both font modes and420/1000pixel widths. This is software rendering evidence.
 `ui_source_canvas_capture` renders the production source widget with native
 UiPresenter/UiDiligentRenderer pixels uploaded unchanged to its SDL software
 surface. It uses the same original Gallery sample and actual panel selection at
-1180/700pixels. Optional Vulkan UI probes enable the existing SDL dummy/software
-profile; X11/Wayland/KMS dependencies remain disabled. The existing pinned source
-widget is reused. These are component captures, without full Main/physical/DPI
+1180/700pixels. It clicks Save preview image, compares the production image task's
+file against an independent native readback, checks same-owner automation source/
+preview guards, output grants and image projection. `mcp_ui_source_image_vulkan`
+serves the actual native preview through the existing AutomationWorkspace and MCP
+bridge in both protocol envelopes, with read-only/output grants, stale guards,
+receipt replay, exact saved-file/image-block PNG and source/Scene isolation. Native
+parents must exit cleanly. No detached pixel producer stands in for that image.
+These MCP image/source scripts share `FORGE_MCP_TEST_PROTOCOL=both|current|legacy`
+(default both). The fixed-project image workflow reuses its observed target for
+reads, asserts target stability at every discovery and still discovers revision/
+sequence before each mutation. Its host120s and CTest180s guards are unchanged.
+Optional Vulkan UI probes enable the existing SDL dummy/software profile;
+X11/Wayland/KMS dependencies remain disabled. The existing pinned source widget
+is reused. These are component captures, without full Main/physical/DPI
 acceptance; see [capture provenance](images/readme/README.md).
 
 `ui_source_gallery` runs Gallery210 through native RmlUi bindings, actual pointer

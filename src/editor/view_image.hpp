@@ -101,7 +101,13 @@ class ViewImageTask {
   public:
     ViewImageTask() = default;
     explicit ViewImageTask(std::filesystem::path worker) : sequence_worker_(std::move(worker)) {}
-    enum class View { Scene, Game, Texture };
+    enum class View { Scene, Game, Texture, UiSource };
+    // A borrowed native image. Recheck the exact source/preview observation at
+    // copy submission; later edits cannot replace the already queued GPU copy.
+    struct RenderedInput {
+        Json source;
+        std::function<Diligent::ITextureView*()> current;
+    };
     struct PixelInput {
         Json source;
         std::function<ImagePixels(ViewImageFormat)> load;
@@ -339,18 +345,20 @@ class ViewImageTask {
         return false; // A readback/file write already committing must finish.
     }
     void choose(View view, SDL_Window* window, const std::filesystem::path& project, AssetId scene,
-                std::optional<PixelInput> input = {}) {
+                std::optional<PixelInput> input = {}, std::optional<RenderedInput> rendered = {}) {
         if (busy())
             return;
-        validate_input(view, input);
+        validate_input(view, input, rendered);
         start_operation();
         project_ = project;
-        scene_ = view == View::Texture ? AssetId{} : scene;
+        scene_ = view == View::Texture || view == View::UiSource ? AssetId{} : scene;
         view_ = view;
         input_ = std::move(input);
-        const char* filename = view == View::Texture ? "Texture.png"
-                               : view == View::Scene ? "Scene.png"
-                                                     : "Game.png";
+        rendered_input_ = std::move(rendered);
+        const char* filename = view == View::Texture    ? "Texture.png"
+                               : view == View::UiSource ? "UiPreview.png"
+                               : view == View::Scene    ? "Scene.png"
+                                                        : "Game.png";
         const auto only_format = input_ ? input_->only_format : std::nullopt;
         const auto suggested = view == View::Texture && only_format
                                    ? std::string("Texture") + view_image_suffix(*only_format)
@@ -364,16 +372,18 @@ class ViewImageTask {
                        const std::filesystem::path& project, AssetId scene, std::string& message,
                        std::optional<ViewImageFormat> picker_format = {},
                        std::optional<PixelInput> input = {},
-                       std::optional<ImageEncodingOptions> encoding = {}) {
+                       std::optional<ImageEncodingOptions> encoding = {},
+                       std::optional<RenderedInput> rendered = {}) {
         if (busy())
             return false;
         try {
-            validate_input(view, input);
+            validate_input(view, input, rendered);
             start_operation();
             project_ = project;
-            scene_ = view == View::Texture ? AssetId{} : scene;
+            scene_ = view == View::Texture || view == View::UiSource ? AssetId{} : scene;
             view_ = view;
             input_ = std::move(input);
+            rendered_input_ = std::move(rendered);
             destination_ = std::filesystem::absolute(path).lexically_normal();
             const bool append = destination_.extension().empty();
             if (append)
@@ -513,7 +523,7 @@ class ViewImageTask {
             }
             if (!frames_ && pending_ && !current_source(project, scene)) {
                 pending_ = confirm_ = false;
-                publish_status(view_ == View::Texture
+                publish_status(view_ == View::Texture || view_ == View::UiSource
                                    ? "Image save cancelled because the project changed"
                                    : "Image save cancelled because the Scene changed",
                                message);
@@ -541,7 +551,7 @@ class ViewImageTask {
                     if (result->path.empty())
                         publish_status("Image save cancelled", message);
                     else if (!current_source(project, scene))
-                        publish_status(view_ == View::Texture
+                        publish_status(view_ == View::Texture || view_ == View::UiSource
                                            ? "Image save cancelled because the project changed"
                                            : "Image save cancelled because the Scene changed",
                                        message);
@@ -550,7 +560,8 @@ class ViewImageTask {
                         const auto format =
                             FileDialog::image_format(result->filter_index, only_format);
                         selected_path(view_, std::filesystem::u8path(result->path), project, scene,
-                                      message, format, std::move(input_));
+                                      message, format, std::move(input_), {},
+                                      std::move(rendered_input_));
                     }
                 }
             }
@@ -559,7 +570,13 @@ class ViewImageTask {
                 publish_status("Image save cancelled because the Scene changed", message);
             }
             if (input_)
-                return; // CPU pixel producers never request a Scene/Game readback.
+                return; // CPU pixel producers never request a rendered-view readback.
+            if (rendered_input_ && pending_ && !confirm_ && !jpeg_configuring_) {
+                auto* texture = rendered_input_->current();
+                if (!texture)
+                    throw std::runtime_error("The observed UI preview image is unavailable");
+                capture(View::UiSource, presentation, context, texture, message);
+            }
 
             if (frames_ && (frames_->cancelled || !frames_->error.empty()) && copied_ &&
                 !frames_->discarding) {
@@ -945,6 +962,7 @@ class ViewImageTask {
     bool frame_popup_ = false;
     FileDialog dialog_;
     std::optional<PixelInput> input_;
+    std::optional<RenderedInput> rendered_input_;
     std::filesystem::path project_, destination_;
     AssetId scene_;
     std::filesystem::path sequence_worker_;
@@ -963,12 +981,18 @@ class ViewImageTask {
     std::optional<FrameReceipt> completed_frames_;
     std::optional<ViewImagePreview> preview_;
     bool preview_requested_ = false;
-    static void validate_input(View view, const std::optional<PixelInput>& input) {
+    static void validate_input(View view, const std::optional<PixelInput>& input,
+                               const std::optional<RenderedInput>& rendered) {
         if (view == View::Texture ? !input || !input->load : bool(input))
             throw std::runtime_error("Stored Texture pixels require an explicit pixel producer");
+        if (view == View::UiSource
+                ? !rendered || !rendered->current || !rendered->source.is_object()
+                : bool(rendered))
+            throw std::runtime_error("UI preview capture requires a guarded native image");
     }
     bool current_source(const std::filesystem::path& project, AssetId scene) const {
-        return project == project_ && (view_ == View::Texture || scene == scene_);
+        return project == project_ &&
+               (view_ == View::Texture || view_ == View::UiSource || scene == scene_);
     }
     void start_operation(bool keep_artifact = false) {
         if (!keep_artifact)
@@ -985,6 +1009,7 @@ class ViewImageTask {
             encoding_ = {};
             destination_.clear();
             input_.reset();
+            rendered_input_.reset();
             artifact_operation_ = operation_;
             completed_image_.clear();
             completed_component_bits_ = 0;

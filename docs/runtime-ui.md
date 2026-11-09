@@ -69,8 +69,16 @@ preview instance/revision and source guards prevent edits against retired or sta
 geometry. Invalid candidates retain last-good pixels. UiDiligentRenderer owns two
 bounded opaque RGBA8 targets; retained views survive native/backend retirement for
 ImGui composition. No persisted preview metadata or Scene history is introduced.
-Source preview returns geometry through automation/MCP; that operation does not
-return a pixel image. Existing Game capture remains available after save/run.
+Source preview returns geometry through automation/MCP. Source-image capture
+borrows that same observed native image through ViewImageTask's rendered input,
+existing DiligentPresentation nonblocking copy and detached encoding/PNG preview.
+Its callback verifies source and preview guards immediately before copy submission;
+no competing image manager or synchronous production readback is introduced.
+Before-copy source/presenter changes fail, while queued copies retain their pixels
+through the existing readback owner. UI Save preview image and capture.ui_source
+share the image task's exclusivity, output/overwrite policy, status and image
+projection. Native image observations retain source identity without copying source
+text. Metadata-only hosts reject pixel access. Game capture remains available.
 
 `UiDocument` contains a typed `AssetRef<UiDocumentAsset>`, `enabled`, `visible`, `layer` (0–255), and optional typed `render_texture` output reference. One entity displays one document. Only these fields are authored. The builtin participates in reflected editing, structured prefab inheritance, explicit equal-value property overrides, Revert, scene Undo/Redo and save/reopen. No DOM, focus, GPU handle, hover, copied model or text layout is serialized.
 

@@ -133,6 +133,7 @@
 #include "ui_localization_editor.hpp"
 #include "ui_source_automation.hpp"
 #include "ui_source_editor.hpp"
+#include "ui_source_image_input.hpp"
 #include "view_image.hpp"
 #include "view_state.hpp"
 #include "viewport.hpp"
@@ -1779,6 +1780,17 @@ int main(int argc, char** argv) {
             return runtime_ui.preview_source_hit(x, y);
         };
         ui_source.close_preview = [&] { runtime_ui.close_source_preview(); };
+        const auto ui_source_image_input = [&](const forge::Json& observed = forge::Json()) {
+            return forge::ui::ui_source_image_input(
+                ui_source, files.document, [&] { return runtime_ui.preview_source_image(); },
+                observed);
+        };
+        ui_source.save_preview = [&] {
+            if (view_image.busy())
+                throw forge::AuthoringError("capture_busy", "Finish the current image task");
+            view_image.choose(forge::ui::ViewImageTask::View::UiSource, window.get(),
+                              files.document.project(), {}, {}, ui_source_image_input());
+        };
         documents.add(ui_source.workspace_document(
             files.document, editor, [&] { return asset_document_locked || play.active(); }));
         documents.bind_source(
@@ -2844,6 +2856,7 @@ int main(int argc, char** argv) {
             methods.insert(methods.end(), std::make_move_iterator(exports.begin()),
                            std::make_move_iterator(exports.end()));
             forge::CaptureAutomationProviders capturing;
+            capturing.source_image = ui_source_image_input;
             capturing.record_game = [&](const forge::ui::GameRecordingRequest& request) {
                 return make_game_recording(request, false);
             };

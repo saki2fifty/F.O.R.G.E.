@@ -9,6 +9,7 @@
 #include "view_image.hpp"
 namespace forge {
 struct CaptureAutomationProviders {
+    std::function<ui::ViewImageTask::RenderedInput(const Json&)> source_image;
     std::function<void(ui::ViewImageTask::View)> show;
     std::function<void(const std::string&)> open_sequence;
     std::function<ui::SequenceFrameSource&()> sequence;
@@ -36,6 +37,10 @@ struct CaptureAutomation {
             {"view", owner.view_ == ui::ViewImageTask::View::Scene ? "scene" : "game"}};
         if (owner.scene_)
             value["scene"] = owner.scene_;
+        if (owner.view_ == ui::ViewImageTask::View::UiSource && owner.rendered_input_) {
+            value["view"] = "ui_source";
+            value["source"] = owner.rendered_input_->source;
+        }
         if (owner.preview_ && owner.preview_operation_ == owner.operation_ &&
             !owner.preview_->profile.empty())
             value["preview_profile"] = owner.preview_->profile;
@@ -333,6 +338,8 @@ struct CaptureAutomation {
                     {"height", preview.height},
                     {"image",
                      {{"mimeType", "image/png"}, {"data", automation_image_base64(preview.png)}}}};
+                if (owner.view_ == ui::ViewImageTask::View::UiSource && owner.rendered_input_)
+                    result["source"] = owner.rendered_input_->source;
                 if (!preview.profile.empty())
                     result["preview_profile"] = preview.profile;
                 return result;
@@ -369,6 +376,48 @@ struct CaptureAutomation {
                 return state(owner, files);
             },
             true));
+        if (providers.source_image)
+            result.push_back(automation_method(
+                "capture.ui_source",
+                "Save the exact observed native UI source preview through the existing image "
+                "task. Requires current source and preview guards, stopped Play and the output "
+                "grant. The source may be unsaved. Source/presenter changes before GPU copy "
+                "submission fail; after submission the accepted pixels finish independently. "
+                "PNG, lossless WebP and opaque JPEG use ordinary output conflicts and encoding. "
+                "Poll capture.status/image for the owned bounded PNG. A metadata-only host "
+                "cannot provide preview pixels.",
+                "capture.write",
+                automation_object(
+                    {{"path", automation_text(2047, 1)},
+                     {"replace", {{"type", "boolean"}}},
+                     {"jpeg_quality",
+                      automation_integer(FORGE_JPEG_QUALITY_MIN, FORGE_JPEG_QUALITY_MAX)},
+                     {"source", automation_object({{"path", automation_text(2047, 1)},
+                                                   {"session", automation_uuid()},
+                                                   {"revision", automation_integer()},
+                                                   {"state", automation_digest()},
+                                                   {"preview_instance", automation_uuid()},
+                                                   {"preview_revision", automation_integer()}},
+                                                  {"path", "session", "revision", "state",
+                                                   "preview_instance", "preview_revision"})}},
+                    {"path", "source"}),
+                true,
+                [&owner, &files, providers, root, &message](const Json& request) {
+                    ready(files, providers, true);
+                    if (owner.busy())
+                        throw AuthoringError("capture_busy", "Finish the current image task");
+                    const auto& source = request.at("source");
+                    auto input = providers.source_image(source);
+                    const auto file = image_destination(root, request);
+                    const auto encoding = encoding_options(file, request);
+                    if (!owner.selected_path(ui::ViewImageTask::View::UiSource, file,
+                                             files.document.project(), {}, message, {}, {},
+                                             encoding, std::move(input)))
+                        throw AuthoringError("capture_busy", owner.status());
+                    owner.preview_requested_ = true;
+                    return state(owner, files);
+                },
+                true));
         if (providers.texture)
             result.push_back(automation_method(
                 "capture.texture",

@@ -7,20 +7,24 @@ The current Source/Elements captures include the Preview tab. They remain exact
 production controls/history workflow. `manual/images/ui-source-preview.png` is an
 unretouched700×950 capture of the production UiSourceEditor/DocumentWorkspace with
 its original Gallery211 RML/RCSS, actual panel selection, pixel controls, outline
-and resize handle. The physical native preview is1000×700 and is fitted by the
+and resize handle, with the Save preview image control. The physical native preview is1000×700 and is fitted by the
 widget, as in the editor.
 
 Reproduce the preview with `forge_ui_source_canvas_capture <output> <default-font>
 <FeatureGallery>`. It uses the pinned source widget and SDL software composition;
 the preview texture comes from UiPresenter/UiDiligentRenderer on software Vulkan,
 with an unmodified RGBA8 readback uploaded to that surface. The shared readback
-is exercised by the native image probe. Both1180×950 and700×950 outputs are checked
+is exercised by the native image probe. The same component also verifies production
+ViewImageTask saved pixels against an independent native readback, source guard
+rejection and capture/image automation. Its optional --mcp/--mcp-read modes serve
+that actual GPU image to the normal MCP bridge; current and legacy protocol tests
+compare the PNG image block with the saved file. Both1180×950 and700×950 outputs are checked
 and personally reviewed. These are authentic isolated component captures, without
 the complete Main shell, physical GPU/input, Windows or display-density acceptance.
 No controls or image content are fabricated, cropped, resized after capture or
 retouched. The checked source/capture-input and canonical SHA256 receipts retain
 the original output provenance. Current captures follow the2026-11-09 source
-preview/pixel-layout checkpoint; see [CI profiles](../../ci.md#test-profiles).
+preview/image-capture checkpoint; see [CI profiles](../../ci.md#test-profiles).
 
 `manual/images/ui-source-elements.png` and `ui-source-text.png` are unretouched
 700×950 captures of the production UiSourceEditor, TextEditor and borrowed

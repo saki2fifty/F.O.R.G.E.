@@ -99,6 +99,20 @@ sizing also use Source. An RML draft must have a
 registered, contained source in the editable project. To preview an RCSS
 stylesheet, open the RML that links it.
 
+## Save a preview image
+
+1. Open **Preview** and check that the current draft has rendered successfully.
+2. Choose **Save preview image** and select an output filename. PNG preserves the display pixels; lossless WebP and opaque JPEG are also supported.
+3. For JPEG, choose the quality and confirm **Save JPEG**. Confirm replacement when asked.
+4. Wait for the image task to report that the image was saved.
+
+The file contains the rendered game UI, without editor controls, selection outlines
+or resize handles. Saving an image does not save the source or change the Scene.
+The draft and preview must still match when the native image copy starts. Changes
+before that point cancel or fail the request; a queued copy finishes independently
+of later editing or source closure. Finish the current image task before saving
+another image. Stale previews and hosts without a rendered image cannot be saved.
+
 ## Edit the source and styles
 
 ![UI Source text view with source editing and Save controls](../images/ui-source-text.png)

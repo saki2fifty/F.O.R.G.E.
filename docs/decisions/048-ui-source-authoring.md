@@ -83,3 +83,11 @@ source guards plus native preview instance/revision before atomic layout writes.
 No persisted layout database, parallel selection/history, Scene identity, SDK
 layout, dependency pin or runtime protocol change is introduced. Unrestricted
 visual design remains a separate capability.
+
+Source-preview image output borrows the same observed native image through
+ViewImageTask. A rendered input retains the source/preview identity and rechecks
+it before the existing nonblocking GPU copy is submitted. Pending observations
+cannot silently switch drafts; after submission the queued copy owns its pixels
+independently. Source Preview's Save preview image and the capture.ui_source
+operation reuse output grants, file conflicts, encoding, status and bounded PNG
+projection. No second capture owner, source history or gameplay execution is added.

@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from mcp_test_client import Client, failed, test_symlink, finish_host, write_capture
+from mcp_test_client import Client, failed, test_symlink, finish_host, write_capture, protocol_cases
 
 TOOLS, HOST = sys.argv[1:3]
 GAME_ONLY = len(sys.argv) == 7 and sys.argv[6] == '--game-only'
@@ -52,15 +52,25 @@ def png_has_chunk(data, wanted):
     return False
 
 
-for legacy in (False,True):
+for legacy in protocol_cases():
     with editor('game-output' if GAME_ONLY else 'output') as (root,config),Client(config,legacy) as client:
         catalog={tool['name']:tool for tool in client.request('tools/list')['result']['tools']}
         assert catalog['forge_capture_image']['annotations']['readOnlyHint']
         assert {'forge_capture_sequence_start','forge_output_folder_create'} <= set(catalog)
+        # This workflow never switches its project/document. Reads reuse that
+        # observed target; every mutation still discovers revision and sequence.
+        read_target = {}
         def discovery():
-            value=client.tool('forge_discover'); assert value['ok'],value; return value
+            value=client.tool('forge_discover'); assert value['ok'],value
+            target=value['result']['target']
+            assert 'value' not in read_target or read_target['value']==target, \
+                'Image workflow changed target; refresh the read-target policy'
+            read_target['value']=target
+            return value
+        def target():
+            return read_target['value'] if 'value' in read_target else discovery()['result']['target']
         def read(tool,**extra):
-            value=client.tool(tool,target=discovery()['result']['target'],**extra)
+            value=client.tool(tool,target=target(),**extra)
             assert value['ok'],value
             return value['result']
         def arguments(**extra):
@@ -72,7 +82,7 @@ for legacy in (False,True):
         def settled(): return until(lambda:read('forge_capture_status'),lambda r:not r['busy'])
         def image(operation):
             result=client.request('tools/call',dict(name='forge_capture_image',arguments=dict(
-                target=discovery()['result']['target'],operation=operation)))['result']
+                target=target(),operation=operation)))['result']
             assert not result['isError'],result
             blocks=result['content']; assert len(blocks)==2 and blocks[0]['type']=='text'
             assert blocks[1]['type']=='image' and blocks[1]['mimeType']=='image/png'

@@ -1116,8 +1116,22 @@ observation includes native preview `instance` UUID, `revision`, `source_state`,
 dimensions and `elements`: `id`, `tag`, border `bounds=[x,y,width,height]`, CSS
 `pixels`, nullable `source_index`, `editable` and `reason`. There are at most512ID
 observations of128UTF-8bytes. Duplicate/unsupported IDs cannot authorize layout.
-This is geometry metadata, not a screenshot; CPU hosts may supply native layout
-without a GPU image. No source, Scene, catalog or gameplay model is written.
+This is geometry metadata; CPU hosts may supply native layout without a GPU image.
+No source, Scene, catalog or gameplay model is written.
+
+With the existing output-folder grant, `forge_capture_ui_source` saves the observed
+native preview through ViewImageTask. Its normal mutation envelope is separate
+from nested `source`: the latter requires current `path/session/revision/state`,
+`preview_instance` and `preview_revision`. Top-level `path` selects the output file;
+`replace` and `jpeg_quality` follow ordinary capture policy. PNG, lossless WebP and
+opaque JPEG reuse existing encoding. Poll `forge_capture_status`, then read that
+operation using `forge_capture_image` for the owned PNG image block and source
+identity. Pixels/base64 retain the existing bounded image projection, not text.
+A callback reborrows the source/native observation immediately before nonblocking
+GPU copy submission. Stale source or retired/replaced preview cannot substitute a
+different image; an already queued copy finishes independently of later edits.
+Metadata-only hosts fail `preview_image_unavailable`. This saves neither source
+nor Scene and starts no gameplay. There is one capture task and readback owner.
 
 `forge_ui_source_layout` needs `assets.write`, the normal mutation envelope and
 source guards, `element`, observed `preview_instance`/`preview_revision`, and all

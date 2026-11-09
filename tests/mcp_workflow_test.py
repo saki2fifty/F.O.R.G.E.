@@ -8,7 +8,7 @@ import shutil
 import sys
 import tempfile
 import time
-from mcp_test_client import Client, failed, test_symlink, finish_host, write_capture
+from mcp_test_client import Client, failed, test_symlink, finish_host, write_capture, protocol_cases
 from mcp_input_messages_play import check_input_messages_play
 from mcp_ui_sequence_play import check_ui_sequence_play
 from mcp_ui_fields_play import check_ui_fields_play
@@ -307,11 +307,8 @@ def until(fn, predicate, timeout=30):
     raise AssertionError(('Native owner timed out', value))
 
 
-protocol_case = os.environ.get('FORGE_MCP_TEST_PROTOCOL', 'both')
-protocol_cases = {'both': (False, True), 'current': (False,), 'legacy': (True,)}
-if protocol_case not in protocol_cases:
-    raise SystemExit('FORGE_MCP_TEST_PROTOCOL must be both, current or legacy')
-for legacy in protocol_cases[protocol_case]:
+selected_protocols = protocol_cases()
+for legacy in selected_protocols:
     with editor('application_states' if APPLICATION_STATES_ONLY else 'ui_localization' if UI_LOCALIZATION_ONLY else 'gamepads' if GAMEPADS_ONLY else 'clocked_audio' if FINITE_SOUND_CUES_ONLY else 'full') as (root, config), Client(config, legacy) as client:
         # This focused workflow keeps one project/document target. Reuse that
         # observed target for reads; every mutation still discovers fresh revision
@@ -2261,5 +2258,6 @@ summary = ('Both MCP protocols: collision collection discovery/validation/histor
       'Both MCP protocols: animated UI source/reload, current Play guards and execution grant verified; Windows execution pending' if UI_ANIMATION_ONLY else
       'Both MCP protocols: navigation ownership, XY authoring and live controls verified; no export or Windows execution' if NAVIGATION_ONLY else
       'Both MCP protocols and independent runtime/output grants verified; no graphical Windows execution claimed')
-print(summary if protocol_case == 'both' else
-      summary.replace('Both MCP protocols', f'MCP {protocol_case} protocol', 1))
+selected_name = 'legacy' if selected_protocols[0] else 'current'
+print(summary if len(selected_protocols) == 2 else
+      summary.replace('Both MCP protocols', f'MCP {selected_name} protocol', 1))

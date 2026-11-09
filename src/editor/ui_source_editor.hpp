@@ -230,6 +230,13 @@ class UiSourceEditor {
                 preview_frame_.state["stale"] = true;
                 preview_frame_.state["error"] = error.what();
             }
+        ImGui::BeginDisabled(gesture_active() || !preview_current() || !preview_frame_.image ||
+                             !save_preview);
+        if (button("Save preview image",
+                   "Save this observed native preview through the image task."))
+            attempt([&] { save_preview(); });
+        FORGE_UI_PROBE("ui-source:preview-save-image");
+        ImGui::EndDisabled();
         ImGui::BeginChild("ui-source-preview-properties", {0, 116}, ImGuiChildFlags_Borders);
         const auto* selected = preview_element(selected_);
         if (selected && preview_current()) {
@@ -517,6 +524,7 @@ class UiSourceEditor {
         preview;
     std::function<std::string(float, float)> preview_hit;
     std::function<void()> close_preview;
+    std::function<void()> save_preview;
     std::function<bool()> save_shortcut = [] {
         return ImGui::GetIO().KeyMods == ImGuiMod_Ctrl && ImGui::IsKeyPressed(ImGuiKey_S, false);
     };
@@ -593,6 +601,21 @@ class UiSourceEditor {
             throw;
         }
         return preview_frame_.state;
+    }
+    Json image_source(SceneDocument& project) {
+        preview_state(project, preview_width_, preview_height_, preview_density_, false);
+        if (!preview_current() || !preview_frame_.image)
+            throw AuthoringError("preview_image_unavailable",
+                                 "Preview the current source in a host with a native image first");
+        return {{"path", path_utf8(locator_)},
+                {"session", session_},
+                {"revision", revision_},
+                {"state", preview_frame_.state.at("source_state")},
+                {"preview_instance", preview_frame_.state.at("instance")},
+                {"preview_revision", preview_frame_.state.at("revision")},
+                {"width", preview_frame_.state.at("width")},
+                {"height", preview_frame_.state.at("height")},
+                {"density", preview_frame_.state.at("density")}};
     }
     void layout(std::size_t index, UiPixelLayout pixels, const std::string& instance,
                 std::uint64_t preview_revision) {

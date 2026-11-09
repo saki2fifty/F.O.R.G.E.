@@ -74,6 +74,10 @@ void exercise(const std::filesystem::path& output, const std::vector<std::byte>&
     const auto element = view.at("elements").at(0).at("source_index").get<std::size_t>();
     check(view.at("elements").at(0).at("editable").get<bool>(),
           "Native canvas fixture is not editable");
+    const auto before_image = editor.state();
+    rejects([&] { editor.image_source(project); });
+    check(editor.state() == before_image,
+          "Metadata-only image request changed the source or invented pixels");
     const auto before_clamp = editor.state();
     rejects([&] {
         editor.layout(element, {80, 90, 1, 1}, view.at("instance").get<std::string>(),
