@@ -253,6 +253,45 @@ void axes(Bytes bytes, const std::optional<Bytes>& name, nlohmann::json& result)
     }
     result["axes"] = std::move(recorded);
 }
+void colors(Bytes layers, Bytes palette, nlohmann::json& result) {
+    if (layers.size() < 14 || word(layers, 0, 2) != 0 || palette.size() < 12 ||
+        word(palette, 0, 2) > 1)
+        return;
+    const auto bases = word(layers, 2, 2), base_offset = word(layers, 4, 4),
+               layer_offset = word(layers, 8, 4), count = word(layers, 12, 2);
+    const auto entries = word(palette, 2, 2), palettes = word(palette, 4, 2),
+               records = word(palette, 6, 2), color_offset = word(palette, 8, 4);
+    if (!bases || !count || base_offset < 14 || base_offset > layers.size() ||
+        bases * 6 > layers.size() - base_offset || layer_offset < 14 ||
+        layer_offset > layers.size() || count * 4 > layers.size() - layer_offset || !entries ||
+        !palettes || palettes * 2 > palette.size() - 12 || color_offset < 12 + palettes * 2 ||
+        color_offset > palette.size() || records * 4 > palette.size() - color_offset)
+        return;
+    for (unsigned i = 0; i < palettes; ++i) {
+        const auto start = word(palette, 12 + 2 * i, 2);
+        if (start > records || entries > records - start)
+            return;
+    }
+    unsigned previous = 0;
+    for (unsigned i = 0; i < bases; ++i) {
+        const auto at = base_offset + i * 6;
+        const auto glyph = word(layers, at, 2), start = word(layers, at + 2, 2),
+                   length = word(layers, at + 4, 2);
+        if ((i && glyph <= previous) || !length || start > count || length > count - start)
+            return;
+        previous = glyph;
+    }
+    bool foreground = false;
+    for (unsigned i = 0; i < count; ++i) {
+        const auto color = word(layers, layer_offset + i * 4 + 2, 2);
+        if (color == 0xffff)
+            foreground = true;
+        else if (color >= entries)
+            return;
+    }
+    result["color"] = {{"format", "COLRv0"},   {"palettes", palettes}, {"palette_entries", entries},
+                       {"base_glyphs", bases}, {"layers", count},      {"foreground", foreground}};
+}
 } // namespace
 unsigned face_count(Bytes bytes) { return unsigned(directories(bytes).size()); }
 nlohmann::json describe(Bytes bytes) {
@@ -266,6 +305,10 @@ nlohmann::json describe(Bytes bytes) {
             names(*name, face);
         if (const auto variation = table(bytes, faces[i], 0x66766172))
             axes(*variation, name, face);
+        const auto color = table(bytes, faces[i], 0x434f4c52);
+        const auto palette = table(bytes, faces[i], 0x4350414c);
+        if (color && palette)
+            colors(*color, *palette, face);
         if (const auto recorded = face.find("axes"); recorded != face.end()) {
             if (recorded->size() > axis_metadata_limit - recorded_axes) {
                 face.erase("axes");

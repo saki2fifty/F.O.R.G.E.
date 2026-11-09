@@ -245,7 +245,8 @@ void synthetic() {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 5, "Need default, Poppins, Cairo and original variable font files");
+        check(argc == 7,
+              "Need default, Poppins, Cairo, variable and two original color font files");
         synthetic();
         variations();
         const auto latin = forge::asset_detail::read_bytes(argv[1], 4 * 1024 * 1024);
@@ -255,6 +256,46 @@ int main(int argc, char** argv) {
         check(face(variable_font).at("axes")[0].at("name") == "Weight" &&
                   face(variable_font).at("axes")[0].at("maximum") == 900,
               "Original native variable font axis metadata differs");
+        for (int color_font = 5; color_font <= 6; ++color_font) {
+            const auto color_bytes =
+                forge::asset_detail::read_bytes(argv[color_font], 4 * 1024 * 1024);
+            const auto color = face(color_bytes).at("color");
+            check(color == Json{{"format", "COLRv0"},
+                                {"palettes", 1},
+                                {"palette_entries", 3},
+                                {"base_glyphs", 1},
+                                {"layers", 3},
+                                {"foreground", color_font == 6}},
+                  "Original color font metadata differs");
+            std::size_t colr = 0, cpal = 0;
+            for (unsigned i = 0; i < (forge::test::font_u32(color_bytes, 4) >> 16); ++i) {
+                const auto at = 12 + i * 16;
+                const auto tag = forge::test::font_u32(color_bytes, at);
+                if (tag == 0x434f4c52)
+                    colr = forge::test::font_u32(color_bytes, at + 8);
+                if (tag == 0x4350414c)
+                    cpal = forge::test::font_u32(color_bytes, at + 8);
+            }
+            check(colr && cpal, "Original color fixture tables are missing");
+            for (const auto& [offset, value] :
+                 std::initializer_list<std::pair<std::size_t, unsigned>>{{colr, 1},
+                                                                         {colr + 2, 0xffff},
+                                                                         {colr + 12, 0xffff},
+                                                                         {colr + 18, 4},
+                                                                         {colr + 22, 3},
+                                                                         {cpal, 2},
+                                                                         {cpal + 2, 0xffff},
+                                                                         {cpal + 4, 0xffff},
+                                                                         {cpal + 12, 3}}) {
+                auto malformed = color_bytes;
+                u16(malformed, offset, value);
+                const auto info = face(malformed);
+                check(!info.contains("color") && info.at("family") == "FORGE Color Test",
+                      "Malformed optional color data invented support or damaged ordinary labels");
+                check(forge::ui_font_detail::face_count(malformed) == 1,
+                      "Optional color metadata changed source admission");
+            }
+        }
         const auto many = forge::ui_font_detail::describe(forge::test::font_collection(
             {variable_font, variable_font, variable_font, variable_font, variable_font,
              variable_font, variable_font, variable_font, variable_font, variable_font,

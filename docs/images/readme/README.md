@@ -2985,3 +2985,22 @@ DPI, physical input/display or GPU acceptance. No crop, resize, retouch or inven
 control is used. PNG SHA256:
 `68be048dd5dc6a23bc5e563fdcb27f70940f0b3523f9082cb03fe6bd3d51ed81`.
 The collection image above remains byte-identical.
+
+## Layered UI color glyph captures
+
+[Game color view](../../../manual/images/ui-color-font-game.png) is the full
+1000×800native software Vulkan Game UI from the current text-only fixture,
+losslessly converted from PPM. The native scroll displays original palette,
+foreground and half-alpha/effect H cards. Both1000px and420px views were reviewed;
+six shaped frames agree exactly with relocated copies while the original source
+is unavailable. SHA256: `10060a360e2b94466c7243bcff4f746374981d0c00a0b5e3300a4318cd19ff0b`.
+
+[Color Inspector](../../../manual/images/ui-color-font-inspector.png) is the
+actual400×240 `draw_ui_font_details` output from `ui_font_details`, reading the
+registered original COLRv0 fixture. The test also captures700px and preserves
+font bytes/identity. SHA256: `3430fc84904d6c1ed9fc5177bf9cb0726d8009fafbaa15e8c40813a34605bc49`.
+The current initial Game capture is `f658e463fb1713edae754c0aaab2fba4bf6fe8e6c2aaa969c80bc194b036192d`;
+collection and axis captures above are unchanged. No crop/resize/retouch or
+invented controls are used. These are native software fixtures, not full desktop,
+Windows/MSVC/D3D12, DPI, physical input/display or GPU acceptance. See
+[native text provenance](../../ci.md#native-ui-text-shaping) for scope.

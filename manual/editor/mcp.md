@@ -264,6 +264,12 @@ source, enable and save **Shape UI text**, then restart Play. This uses the same
 native font and source owners as the editor. See [variable weights](ui-text-shaping.md)
 for admission limits and matching-kit export.
 
+For layered UI color fonts, register the font and inspect each face's optional
+`color` metadata with `forge_asset_read`. Author `@font-face` and ordinary text
+`color`/opacity through the same UI source tools, save/register and restart Play.
+**Shape UI text** uses COLRv0 vector layers and palette 0; foreground layers use
+the text color. See [color glyphs](ui-text-shaping.md) for limits and export.
+
 For UI drop shadows, read and edit the RML/RCSS through the source text tools,
 then register or refresh the UI source. Use `drop-shadow(#20408080 8px 6px 2px)`
 inside `filter`. Each offset is limited to `-128`..`128` resolved pixels and blur

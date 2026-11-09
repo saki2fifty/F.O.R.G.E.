@@ -49,6 +49,14 @@ def check_ui_font_collections(root, read, ok, control, mutate, until, fixture):
     axis = read('forge_asset_read', asset=variable['asset'])['metadata']['forge.ui_source']['font_faces'][0]['axes'][0]
     assert axis == dict(tag='wght', name='Weight', minimum=100, default=400, maximum=900, hidden=False)
     assert ok('forge_source_ui_register', path=variable_path)['asset'] == variable['asset']
+    color_path = 'Assets/Incoming/Color.ttf'
+    color_bytes = (source/'tests/fixtures/fonts/FORGE-Color-Foreground-Test.ttf').read_bytes()
+    (project/color_path).write_bytes(color_bytes)  # Original binary fixture, before MCP authoring.
+    color_font = ok('forge_source_ui_register', path=color_path)
+    color_metadata = read('forge_asset_read', asset=color_font['asset'])['metadata']['forge.ui_source']['font_faces'][0]['color']
+    assert color_metadata == dict(format='COLRv0', palettes=1, palette_entries=3,
+                                  base_glyphs=1, layers=3, foreground=True)
+    assert ok('forge_source_ui_register', path=color_path)['asset'] == color_font['asset']
     bad = project/'Assets/Bad.ttc'
     bad.write_bytes(original[:19])
     failed(mutate('forge_source_ui_register', path='Assets/Bad.ttc'), 'operation_failed')
@@ -58,13 +66,15 @@ def check_ui_font_collections(root, read, ok, control, mutate, until, fixture):
 @font-face {font-family:MenuLatin;src:"Assets/Menu.ttc";-rmlui-face-index:0;}
 @font-face {font-family:MenuArabic;src:"Assets/Menu.ttc";-rmlui-face-index:1;}
 @font-face {font-family:Variable;src:"Assets/Incoming/Weight.ttf";}
+@font-face {font-family:Color;src:"Assets/Incoming/Color.ttf";}
 body {font-family:MenuLatin;font-size:32px;color:#fff;}
 p {display:block;} #arabic {font-family:MenuArabic;-rmlui-direction:rtl;-rmlui-language:ar;}
 input {width:300px;height:48px;font-family:MenuLatin;}
+#color {font-family:Color;font-size:64px;color:#59d9aa80;}
 .weight {font-family:Variable;font-size:48px;} #light {font-weight:100;} #heavy {font-weight:900;}
 </style></head><body><p>office</p><p id="arabic">سلام</p>
 <p id="light" class="weight">HHH</p><p id="heavy" class="weight">HHH</p>
-<input id="entry" type="text" value="office"/></body></rml>'''.replace('Assets/Menu.ttc', font_path)
+<p id="color">HHH</p><input id="entry" type="text" value="office"/></body></rml>'''.replace('Assets/Menu.ttc', font_path)
     ok('forge_source_text_write', path=hud['path'], state=saved['state'], text=markup)
     ok('forge_source_ui_register', path=hud['path'])
     actor = ok('forge_entity_create', arguments=dict(name='Collection HUD'))['results'][0]['selected']
@@ -95,3 +105,4 @@ input {width:300px;height:48px;font-family:MenuLatin;}
     assert collection.read_bytes() == original
     assert (project/hud['path']).read_text(encoding='utf-8') == markup
     assert (project/variable_path).read_bytes() == variable_bytes
+    assert (project/color_path).read_bytes() == color_bytes

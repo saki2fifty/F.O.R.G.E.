@@ -17,4 +17,9 @@ save and restart Play. This example demonstrates separate horizontal runs, not m
 <div id="weights"><div class="weight-card"><p>100</p><p id="weight-light" class="weight-glyph">H</p></div>
 <div class="weight-card"><p>400</p><p id="weight-regular" class="weight-glyph">H</p></div>
 <div class="weight-card"><p>900</p><p id="weight-heavy" class="weight-glyph">H</p></div></div>
+<p class="label">Color layers / original geometric H fonts</p>
+<div id="colors"><div class="color-card"><p>Palette</p><p id="color-palette" class="color-glyph">H</p></div>
+<div class="color-card"><p>Text color</p><p id="color-foreground" class="color-glyph">H</p></div>
+<div class="color-card"><p>50% + fx</p><p id="color-effects" class="color-glyph">H</p></div></div>
+<p class="label">Palette colors retain their own hue. Foreground layers use text color; text alpha fades the whole glyph.</p>
 </div></body></rml>

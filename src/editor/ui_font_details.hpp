@@ -62,6 +62,19 @@ inline void draw_ui_font_details(const AssetRecord& asset) {
         if (!row.is_object() || !row.contains("index") || !row.at("index").is_number_integer() ||
             row.at("index") < 0 || row.at("index") >= 32)
             continue;
+        if (const auto color = row.find("color");
+            color != row.end() && color->is_object() &&
+            color->value("format", nlohmann::json{}) == "COLRv0") {
+            const auto palettes = color->find("palettes"), entries = color->find("palette_entries");
+            if (palettes != color->end() && palettes->is_number_unsigned() &&
+                entries != color->end() && entries->is_number_unsigned() && *palettes > 0 &&
+                *palettes <= 65535 && *entries > 0 && *entries <= 65535)
+                ImGui::TextWrapped(
+                    "Face %u: COLRv0 color layers; %u palettes, %u entries. "
+                    "Shape UI text uses palette 0 and the text color for foreground layers.",
+                    row.at("index").get<unsigned>(), palettes->get<unsigned>(),
+                    entries->get<unsigned>());
+        }
         const auto axes = row.find("axes");
         const auto omitted = row.find("axes_omitted");
         if (omitted != row.end() && omitted->is_boolean() && omitted->get<bool>())
@@ -114,6 +127,7 @@ inline void draw_ui_font_details(const AssetRecord& asset) {
     }
     help("Optional names can be unavailable. Register / Refresh after a source change; restart "
          "Play after replacing a loaded font. Shape UI text uses an admitted wght axis with "
-         "ordinary font-weight; other axes stay at their defaults. Recorded axes are read-only.");
+         "ordinary font-weight; other axes stay at their defaults. Color layer and axis details "
+         "are read-only; recorded metadata does not guarantee native font admission.");
 }
 } // namespace forge::ui

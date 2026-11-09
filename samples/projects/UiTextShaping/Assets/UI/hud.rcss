@@ -1,5 +1,7 @@
 @font-face {font-family:ForgeArabic;src:"Assets/Fonts/Cairo.ttf";}
 @font-face {font-family:ForgeWeight;src:"Assets/Fonts/Weight.ttf";}
+@font-face {font-family:ForgeColor;src:"Assets/Fonts/Color.ttf";}
+@font-face {font-family:ForgeForeground;src:"Assets/Fonts/Foreground.ttf";}
 body {width:100%;height:100%;font-family:Lato;font-size:18px;color:#e7eef7;pointer-events:none;}
 body,div,p {display:block;} p {margin:8px 0;}
 #panel {position:absolute;left:5%;top:4%;width:90%;max-width:740px;max-height:92%;overflow:auto;box-sizing:border-box;padding:24px;background-color:#152b3df5;pointer-events:auto;}
@@ -14,4 +16,8 @@ input {display:block;box-sizing:border-box;width:90%;height:40px;padding:6px;mar
 #weights {height:120px;} .weight-card {display:inline-block;width:32%;vertical-align:top;}
 .weight-glyph {font-family:ForgeWeight;font-size:64px;}
 #weight-light {font-weight:100;} #weight-regular {font-weight:400;} #weight-heavy {font-weight:900;}
+#colors {height:150px;} .color-card {display:inline-block;width:32%;vertical-align:top;}
+.color-card p {font-size:14px;} .color-card .color-glyph {font-family:ForgeColor;font-size:64px;}
+#color-foreground {font-family:ForgeForeground;color:#7be4d5;}
+#color-effects {font-family:ForgeForeground;color:#7be4d580;font-effect:shadow(2px 2px #0008), outline(1px #fff);}
 scrollbarvertical {width:12px;background-color:#101e2c;} scrollbarvertical sliderbar {background-color:#477e9a;}

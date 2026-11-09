@@ -7,7 +7,7 @@ The setting applies to the game's UI documents throughout the project.
 ![Game UI with Latin ligatures, combining accents, an Arabic run and three variable weights](../images/ui-text-shaping-game.png)
 
 The example uses separate Latin and Arabic runs, a project font, native font
-effects, a local text field and an original geometric font at three weights.
+effects, a local text field, three variable weights and original layered color glyphs.
 
 The example also enables [Edit whole UI characters](ui-text-input.md), a separate
 option for arrow and word movement, selection and plain deletion in its text field.
@@ -18,7 +18,8 @@ option for arrow and word movement, selection and plain deletion in its text fie
 2. Open **Scenes/TextShaping.scene.json**, then start **Play** and select **Game**.
 3. Compare the normal and tracked Latin samples. Tracking separates the Latin ligatures. The Arabic sample uses an explicit right-to-left run.
 4. Click the text field to enter text. **Pause** and **Resume** use the normal gameplay controls; the field's contents stay local to the running UI.
-5. Stop Play. In **Content**, open **Assets/UI/hud.rml** or **hud.rcss** to edit the text and styles. Choose **Save source**, then start Play again.
+5. Scroll down to compare **Variable weight** and **Color layers**. The latter shows fixed palette colors, a foreground layer using the text color, and half-opacity text with effects.
+6. Stop Play. In **Content**, open **Assets/UI/hud.rml** or **hud.rcss** to edit the text and styles. Choose **Save source**, then start Play again.
 
 The example includes a Camera, so it can run in Game without scene setup. Its
 font notice is included in the project. See [Edit UI source](ui-source.md) for
@@ -169,12 +170,47 @@ limit. **Hidden** reflects the font's recorded axis flag. Register / Refresh aft
 changing a font, and restart Play after replacing it. Inspection and refresh
 preserve the font's bytes and asset ID.
 
+## Use layered color glyphs
+
+1. Copy a font with **COLRv0** vector layers and a **CPAL** palette into your project, then register it as a UI source.
+2. Select its `ui_font` asset in Content. Inspector lists recorded color-layer details when available. Register / Refresh after replacing the source; these details are read-only.
+3. Enable and save **Shape UI text** in Project Settings, then restart Play.
+4. Use the normal `@font-face` declaration and assign that family to your text:
+
+```css
+@font-face {font-family:MenuColor;src:"Assets/Fonts/MenuColor.ttf";}
+.badge {font-family:MenuColor;font-size:64px;color:#7be4d580;}
+```
+
+![Font Inspector showing a COLRv0 font with one palette and three entries](../images/ui-color-font-inspector.png)
+
+![Game UI comparing fixed palette colors, text foreground color and half-opacity text with effects](../images/ui-color-font-game.png)
+
+Palette **0** supplies the font's fixed layer colors. A layer marked as
+foreground by the font uses the element's text `color`. Text alpha and inherited
+opacity fade all layers; changing RGB leaves fixed palette hues intact. Shadows
+and outlines use the glyph's combined intrinsic coverage, including palette
+alpha. A foreground layer contributes opaque intrinsic coverage to effects;
+text transparency still fades the text itself.
+
+The font must provide **1–16 palettes**, each with **1–256 entries**. A glyph can
+have at most **32 layers**. Normal font and atlas limits apply. The optional
+renderer admits at most **16,384 color-glyph lookups**, **65,536 cached layer
+references**, and **262,144 quads in a text layer**; stop and restart Play after
+reaching a cache limit. Unsupported color formats retain their available outline
+fallback; they are not established color-rendering workflows.
+
+Open **Examples/UiTextShaping** and scroll to **Color layers** to try the original
+geometric `H` fixtures. Edit **Assets/UI/hud.rcss**, save the source, then restart
+Play. These fonts contain only `H` and space. Use a properly licensed typeface
+with the glyph coverage your game needs.
+
 ## Save and export
 
 Save the UI source, Scene and Project Settings. After a successful Play, use
 **Register / Refresh** to publish the UI resource metadata when needed. Choose
 the saved Scene as startup and export using the runtime kit packaged with the
-matching editor. An older kit without the current shaping and weight support is rejected. Exported
+matching editor. An older kit without the current shaping, weight and color-layer support is rejected. Exported
 games include the selected project font through the existing UI resource closure;
 players do not need that font installed.
 Collections also require matching font-collection support in the runtime kit.
@@ -187,6 +223,6 @@ See [Export a game](runtime-content.md) for the normal export workflow.
 
 - Missing glyph boxes usually mean the selected font lacks those characters. Assign a font containing the script. Fallback chooses a face covering a whole run; arbitrary mixed-script fallback is unavailable.
 - Use horizontal text and font sizes from **1–512 px**. A single run supports **64 KiB** of UTF-8 and **16,384 glyphs**, within the normal document limits.
-- Only the admitted weight axis is adjustable through `font-weight`; other axis controls, named variation instances, color glyphs and vertical text are unavailable. Use a valid zero-based collection face index; an invalid index reports a font diagnostic.
+- Only the admitted weight axis is adjustable through `font-weight`; other axis controls, named variation instances and vertical text are unavailable. Color rendering is limited to COLRv0 vector layers with palette 0; COLRv1 paints, SVG glyphs, bitmap color fonts and general color emoji are unsupported. Use a valid zero-based collection face index; an invalid index reports a font diagnostic.
 - Shaping does not provide full paragraph bidirectional layout, joining across separate elements, complete international input methods or accessibility. Use the separate [Edit whole UI characters](ui-text-input.md) option for bounded plain-key movement/deletion, Shift-arrow selection and Ctrl-arrow word movement/selection. Check text entry on your target systems.
 - A failed reload keeps the last usable HUD and reports a diagnostic. If a font or glyph cache limit is reached, simplify the UI or stop and restart Play.

@@ -18,6 +18,22 @@ def checksum(data):
     return sum(struct.unpack('>' + 'I' * (len(data) // 4), data)) & 0xffffffff
 
 
+def assemble(tables):
+    """Assemble original sfnt fixture tables with their directory/checksums."""
+    count = len(tables)
+    power = 1 << (count.bit_length() - 1)
+    result = bytearray(pack('I4H', 0x00010000, count, power * 16, count.bit_length() - 1,
+                            count * 16 - power * 16) + bytes(count * 16))
+    positions = {}
+    for i, (tag, data) in enumerate(sorted(tables.items())):
+        positions[tag] = len(result)
+        struct.pack_into('>4sIII', result, 12 + 16 * i, tag, checksum(data), len(result), len(data))
+        result += data + bytes((-len(data)) % 4)
+    struct.pack_into('>I', result, positions[b'head'] + 8, (0xb1b0afba - checksum(result)) & 0xffffffff)
+    assert checksum(result) == 0xb1b0afba
+    return bytes(result)
+
+
 def build():
     tables = {}
     # A single original twelve-point H contour in a 1000-unit em square.
@@ -85,18 +101,7 @@ def build():
     stat_values = b''.join(pack('4Hi', 1, 0, 2 if weight == 400 else 0, label, weight << 16)
                            for label, weight in ((257, 100), (258, 400), (259, 900)))
     tables[b'STAT'] = stat_header + b'wght' + pack('2H', 256, 0) + pack('3H', 6, 18, 30) + stat_values
-    count = len(tables)
-    power = 1 << (count.bit_length() - 1)
-    result = bytearray(pack('I4H', 0x00010000, count, power * 16, count.bit_length() - 1,
-                            count * 16 - power * 16) + bytes(count * 16))
-    positions = {}
-    for i, (tag, data) in enumerate(sorted(tables.items())):
-        positions[tag] = len(result)
-        struct.pack_into('>4sIII', result, 12 + 16 * i, tag, checksum(data), len(result), len(data))
-        result += data + bytes((-len(data)) % 4)
-    struct.pack_into('>I', result, positions[b'head'] + 8, (0xb1b0afba - checksum(result)) & 0xffffffff)
-    assert checksum(result) == 0xb1b0afba
-    return bytes(result)
+    return assemble(tables)
 
 
 if __name__ == '__main__':

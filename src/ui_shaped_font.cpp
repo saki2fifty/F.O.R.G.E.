@@ -10,6 +10,7 @@
 #include <RmlUi/Core/StringUtilities.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_COLOR_H
 #include FT_MULTIPLE_MASTERS_H
 #include FT_TRUETYPE_TABLES_H
 #include <algorithm>
@@ -34,6 +35,10 @@ void require(bool value, const char* message) {
 }
 using HbFace = std::unique_ptr<hb_face_t, decltype(&hb_face_destroy)>;
 using HbFont = std::unique_ptr<hb_font_t, decltype(&hb_font_destroy)>;
+struct ColorLayer {
+    std::uint32_t glyph = 0;
+    unsigned color = 0;
+};
 struct Face {
     std::shared_ptr<const std::string> bytes;
     std::string family;
@@ -47,6 +52,8 @@ struct Face {
     std::vector<FT_Fixed> coordinates;
     std::optional<unsigned> weight_axis;
     FT_Fixed weight_minimum = 0, weight_maximum = 0, selected_weight = 0;
+    std::vector<Rml::Colourb> palette;
+    std::map<std::uint32_t, std::vector<ColorLayer>> color_layers;
     bool fallback = false;
     ~Face() {
         if (native)
@@ -70,7 +77,8 @@ struct Glyph {
     Page* page = nullptr;
     Rml::Vector2i origin{}, dimensions{}, uv{};
 };
-using GlyphKey = std::tuple<Rml::FontFaceHandle, std::uint32_t, const Rml::FontEffect*>;
+enum class GlyphRole { Text, ColorLayer };
+using GlyphKey = std::tuple<Rml::FontFaceHandle, std::uint32_t, const Rml::FontEffect*, GlyphRole>;
 struct Bitmap {
     GlyphKey key;
     Glyph glyph;
@@ -87,6 +95,7 @@ class ShapedFont final : public Rml::FontEngineInterface {
     std::map<GlyphKey, Glyph> glyphs_;
     std::vector<std::unique_ptr<Page>> pages_;
     std::size_t source_bytes_ = 0, atlas_bytes_ = 0;
+    std::size_t color_lookups_ = 0, color_layer_count_ = 0;
     std::uintptr_t next_face_ = 1, next_effect_ = 1;
     int version_ = 1;
 
@@ -110,6 +119,30 @@ class ShapedFont final : public Rml::FontEngineInterface {
         const auto found = sized_.find(id);
         require(found != sized_.end(), "Font handle is no longer available");
         return *found->second;
+    }
+    const std::vector<ColorLayer>& color_layers(Face& face, std::uint32_t index) {
+        static const std::vector<ColorLayer> empty;
+        if (face.palette.empty())
+            return empty;
+        if (const auto found = face.color_layers.find(index); found != face.color_layers.end())
+            return found->second;
+        require(color_lookups_ < 16384, "Color glyph lookup budget exceeded; restart Play");
+        std::vector<ColorLayer> layers;
+        FT_LayerIterator iterator{};
+        FT_UInt glyph = 0, color = 0;
+        while (FT_Get_Color_Glyph_Layer(face.native, index, &glyph, &color, &iterator)) {
+            require(layers.size() < 32 && color_layer_count_ + layers.size() < 65536,
+                    "Color glyph layers exceed32 per glyph/65536 total; restart Play");
+            require(glyph < unsigned(face.native->num_glyphs) &&
+                        (color == 0xffff || color < face.palette.size()),
+                    "Invalid native color glyph layer");
+            layers.push_back({glyph, color});
+        }
+        auto [entry, added] = face.color_layers.emplace(index, std::move(layers));
+        (void)added;
+        ++color_lookups_;
+        color_layer_count_ += entry->second.size();
+        return entry->second;
     }
     void pixels(SizedFace& face) {
         auto& source = *face.face;
@@ -279,6 +312,27 @@ class ShapedFont final : public Rml::FontEngineInterface {
                 }
             }
         }
+        // FreeType owns table admission, palette decoding and layer iteration.
+        // Other color formats keep their previously supported outline fallback.
+        FT_Byte color_version[2]{};
+        FT_ULong color_version_size = sizeof(color_version);
+        if (FT_Load_Sfnt_Table(face->native, FT_MAKE_TAG('C', 'O', 'L', 'R'), 0, color_version,
+                               &color_version_size) == 0 &&
+            color_version_size == 2 && color_version[0] == 0 && color_version[1] == 0) {
+            FT_Palette_Data data{};
+            require(FT_Palette_Data_Get(face->native, &data) == 0 && data.num_palettes &&
+                        data.num_palettes <= 16 && data.num_palette_entries &&
+                        data.num_palette_entries <= 256,
+                    "Color font requires1..16 palettes with1..256 entries");
+            FT_Color* palette = nullptr;
+            require(FT_Palette_Select(face->native, 0, &palette) == 0 && palette,
+                    "Cannot select default color font palette");
+            require(FT_Palette_Set_Foreground_Color(face->native, {0, 0, 0, 255}) == 0,
+                    "Cannot initialize color font effect coverage");
+            for (unsigned i = 0; i < data.num_palette_entries; ++i)
+                face->palette.emplace_back(palette[i].red, palette[i].green, palette[i].blue,
+                                           palette[i].alpha);
+        }
         std::unique_ptr<hb_blob_t, decltype(&hb_blob_destroy)> blob(
             hb_blob_create_or_fail(face->bytes->data(), unsigned(face->bytes->size()),
                                    HB_MEMORY_MODE_READONLY, nullptr, nullptr),
@@ -302,26 +356,33 @@ class ShapedFont final : public Rml::FontEngineInterface {
         return load({reinterpret_cast<const Rml::byte*>(bytes.data()), bytes.size()}, index, family,
                     style, weight, fallback);
     }
-    Bitmap bitmap(SizedFace& face, std::uint32_t index, const Rml::FontEffect* effect) {
+    Bitmap bitmap(SizedFace& face, std::uint32_t index, const Rml::FontEffect* effect,
+                  GlyphRole role) {
         pixels(face);
-        require(FT_Load_Glyph(face.face->native, index, FT_LOAD_DEFAULT | FT_LOAD_NO_BITMAP) == 0 &&
+        const bool composite = role == GlyphRole::Text && !color_layers(*face.face, index).empty();
+        require(FT_Load_Glyph(face.face->native, index,
+                              FT_LOAD_DEFAULT | FT_LOAD_NO_BITMAP |
+                                  (composite ? FT_LOAD_COLOR : 0)) == 0 &&
                     FT_Render_Glyph(face.face->native->glyph, FT_RENDER_MODE_NORMAL) == 0,
                 "Cannot rasterize shaped glyph");
         const auto slot = face.face->native->glyph;
         const auto& source = slot->bitmap;
         require(source.width <= 1022 && source.rows <= 1022, "Shaped glyph bitmap exceeds1022px");
         Bitmap result;
-        result.key = {face.id, index, effect};
+        result.key = {face.id, index, effect, role};
         result.glyph.origin = {slot->bitmap_left, -slot->bitmap_top};
         result.glyph.dimensions = {int(source.width), int(source.rows)};
         if (!source.width || !source.rows)
             return result;
         require(source.buffer && (source.pixel_mode == FT_PIXEL_MODE_GRAY ||
-                                  source.pixel_mode == FT_PIXEL_MODE_MONO),
-                "Shaped text requires grayscale or monochrome outlines");
+                                  source.pixel_mode == FT_PIXEL_MODE_MONO ||
+                                  (composite && source.pixel_mode == FT_PIXEL_MODE_BGRA)),
+                "Shaped text requires outlines or admitted color layers");
         const auto stride = std::abs(source.pitch);
-        require(stride >= int(source.pixel_mode == FT_PIXEL_MODE_MONO ? (source.width + 7) / 8
-                                                                      : source.width),
+        require(stride >=
+                    int(source.pixel_mode == FT_PIXEL_MODE_MONO
+                            ? (source.width + 7) / 8
+                            : source.width * (source.pixel_mode == FT_PIXEL_MODE_BGRA ? 4 : 1)),
                 "Invalid shaped glyph bitmap stride");
         std::vector<Rml::byte> alpha(std::size_t(source.width) * source.rows);
         for (unsigned y = 0; y < source.rows; ++y) {
@@ -331,7 +392,8 @@ class ShapedFont final : public Rml::FontEngineInterface {
                 alpha[std::size_t(y) * source.width + x] =
                     source.pixel_mode == FT_PIXEL_MODE_MONO
                         ? ((row[x / 8] & (0x80 >> (x % 8))) ? 255 : 0)
-                        : row[x];
+                    : source.pixel_mode == FT_PIXEL_MODE_BGRA ? row[x * 4 + 3]
+                                                              : row[x];
         }
         Rml::FontGlyph glyph;
         glyph.bearing = {slot->bitmap_left, slot->bitmap_top};
@@ -358,27 +420,40 @@ class ShapedFont final : public Rml::FontEngineInterface {
         return result;
     }
     void ensure(SizedFace& face, const UiShapedRun& run, const Rml::FontEffect* effect) {
+        const bool effect_layer = effect != nullptr;
         if (effect && !effect->HasUniqueTexture())
             effect = nullptr;
-        std::set<std::uint32_t> missing;
+        std::set<std::pair<std::uint32_t, GlyphRole>> missing;
+        const auto add = [&](std::uint32_t index, GlyphRole role) {
+            if (!glyphs_.contains({face.id, index, effect, role}))
+                missing.emplace(index, role);
+        };
+        const auto prepare = [&](std::uint32_t index) {
+            const auto& layers = color_layers(*face.face, index);
+            if (!effect_layer && !layers.empty())
+                for (const auto& layer : layers)
+                    add(layer.glyph, GlyphRole::ColorLayer);
+            else
+                add(index, GlyphRole::Text);
+        };
+        // Nonunique effects still need the intrinsic composite mask, rather than
+        // recoloring each palette layer as a separate shadow.
         for (const auto& glyph : run.glyphs)
-            if (!glyphs_.contains({face.id, glyph.index, effect}))
-                missing.insert(glyph.index);
-        const bool warm = !effect && !face.warmed;
+            prepare(glyph.index);
+        const bool warm = !effect_layer && !face.warmed;
         if (warm)
             for (std::uint32_t c = 32; c < 127; ++c) {
                 hb_codepoint_t index = 0;
-                if (hb_font_get_nominal_glyph(face.shaping.get(), c, &index) &&
-                    !glyphs_.contains({face.id, index, nullptr}))
-                    missing.insert(index);
+                if (hb_font_get_nominal_glyph(face.shaping.get(), c, &index))
+                    prepare(index);
             }
         require(glyphs_.size() + missing.size() <= 16384,
                 "Shaped glyph cache exceeded16384 entries");
         std::vector<Bitmap> pending;
         std::size_t area = 0, transient = 0;
         int largest = 0;
-        for (const auto index : missing) {
-            auto value = bitmap(face, index, effect);
+        for (const auto& [index, role] : missing) {
+            auto value = bitmap(face, index, effect, role);
             transient += value.rgba.size();
             require(transient <= atlas_bytes_limit, "Shaped glyph preparation exceeds32MiB");
             area += std::size_t(value.glyph.dimensions.x + 2) * (value.glyph.dimensions.y + 2);
@@ -442,12 +517,30 @@ class ShapedFont final : public Rml::FontEngineInterface {
                const Rml::FontEffect* effect, Rml::TexturedMeshList& meshes) {
         ensure(face, run, effect);
         std::map<Page*, std::size_t> groups;
-        for (const auto& shaped : run.glyphs) {
-            const auto& glyph = glyphs_.at(
-                {face.id, shaped.index, effect && effect->HasUniqueTexture() ? effect : nullptr});
+        const bool ordered = !effect && std::ranges::any_of(run.glyphs, [&](const auto& glyph) {
+            return !color_layers(*face.face, glyph.index).empty();
+        });
+        Page* last_page = nullptr;
+        std::size_t last_mesh = 0, quads = 0;
+        const auto append = [&](const UiShapedGlyph& shaped, const Glyph& glyph,
+                                Rml::ColourbPremultiplied tint) {
             if (!glyph.page)
-                continue;
-            auto [entry, added] = groups.emplace(glyph.page, meshes.size());
+                return;
+            require(++quads <= 262144, "Color text geometry exceeds262144 quads");
+            std::size_t mesh = 0;
+            bool added = false;
+            if (ordered) {
+                added = last_page != glyph.page;
+                if (added) {
+                    last_page = glyph.page;
+                    last_mesh = meshes.size();
+                }
+                mesh = last_mesh;
+            } else {
+                const auto entry = groups.emplace(glyph.page, meshes.size());
+                mesh = entry.first->second;
+                added = entry.second;
+            }
             if (added) {
                 meshes.emplace_back();
                 meshes.back().texture = glyph.page->texture.GetTexture(manager);
@@ -458,15 +551,35 @@ class ShapedFont final : public Rml::FontEngineInterface {
                 metrics.bitmap_dimensions = glyph.dimensions;
                 Rml::Vector2i offset{}, dimensions = glyph.dimensions;
                 if (!effect->GetGlyphMetrics(offset, dimensions, metrics))
-                    continue;
+                    return;
                 origin += offset;
             }
             const auto scale = 1.f / glyph.page->side;
             Rml::MeshUtilities::GenerateQuad(
-                meshes.at(entry->second).mesh,
+                meshes.at(mesh).mesh,
                 position + Rml::Vector2f{shaped.x + origin.x, shaped.y + origin.y},
-                Rml::Vector2f(glyph.dimensions), colour, Rml::Vector2f(glyph.uv) * scale,
+                Rml::Vector2f(glyph.dimensions), tint, Rml::Vector2f(glyph.uv) * scale,
                 Rml::Vector2f(glyph.uv + glyph.dimensions) * scale);
+        };
+        for (const auto& shaped : run.glyphs) {
+            const auto& layers = color_layers(*face.face, shaped.index);
+            if (!effect && !layers.empty()) {
+                for (const auto& layer : layers) {
+                    const auto tint =
+                        layer.color == 0xffff
+                            ? colour
+                            : face.face->palette[layer.color].ToPremultiplied(colour.alpha / 255.f);
+                    append(shaped,
+                           glyphs_.at({face.id, layer.glyph, nullptr, GlyphRole::ColorLayer}),
+                           tint);
+                }
+            } else {
+                append(shaped,
+                       glyphs_.at({face.id, shaped.index,
+                                   effect && effect->HasUniqueTexture() ? effect : nullptr,
+                                   GlyphRole::Text}),
+                       colour);
+            }
         }
     }
 
@@ -485,6 +598,7 @@ class ShapedFont final : public Rml::FontEngineInterface {
         ReleaseFontResources();
         faces_.clear();
         source_bytes_ = 0;
+        color_lookups_ = color_layer_count_ = 0;
         if (library_)
             FT_Done_FreeType(std::exchange(library_, nullptr));
     }

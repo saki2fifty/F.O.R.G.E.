@@ -2231,9 +2231,9 @@ and shaped rendering at1000x800 and420x800, then requires exact shaped/relocated
 pixels with source files unavailable. These are text-only UI consumers, independent
 of unrelated Sprite renderer acceptance. The local Vulkan check uses llvmpipe
 LLVM15.0.7/API1.3.255. It establishes no physical GPU, display or Windows result.
-Both sizes include the initial HUD and a native scroll to the weight comparison.
+Both sizes include the initial HUD and native scrolls to the weight and color comparisons.
 Light/regular/heavy glyph pixel coverage must increase, and all four shaped
-frames must equal their source-hidden relocated counterparts.
+frames plus the two color frames must equal their source-hidden relocated counterparts.
 
 `manual/images/ui-text-shaping-game.png` is the unretouched1000x800 native shaped
 Game UI capture from that local software Vulkan fixture, converted losslessly
@@ -2376,3 +2376,32 @@ register the copied font. Existing source-copy regressions retain containment,
 digest, stale-source and no-overwrite coverage. Native/SDK consumers are rerun
 when this controller integration changes; unchanged native font evidence remains
 reusable only with exact executable/dependency/fixture matches.
+
+Native color-font checks use independently authored geometric COLRv0 fixtures.
+`ui_color_font` exercises palette/foreground/text-alpha values, color-independent
+atlas reuse, intrinsic partial effect alpha, unique/nonunique effects, empty
+base outlines,32-layer admission/33-layer rejection without partial geometry,
+alternating atlas-page order and cold retirement. `ui_font_metadata` checks
+optional malformed color headers/spans/indices while retaining basic admission.
+`ui_font_details` captures the actual read-only color metadata widget and verifies
+stable source refresh. The existing two MCP font workflows register/read the same
+color fields and author a colored HUD through ordinary source tools in both Play
+profiles and protocol envelopes. They require local IPC capability.
+
+The text-only native software Vulkan profile renders18frames at1000x800 and
+420x800, including palette, foreground and half-alpha/effect cards. Six shaped
+frames must equal their source-hidden relocated copies. Hue checks verify the
+color glyphs reached the render target; these do not establish physical hardware
+performance, Windows or full editor/graphical executable acceptance.
+
+`manual/images/ui-color-font-game.png` is the full1000x800 native shaped color
+view, converted losslessly from the fixture's PPM. Its SHA256 is `10060a360e2b94466c7243bcff4f746374981d0c00a0b5e3300a4318cd19ff0b`.
+`manual/images/ui-color-font-inspector.png` is the actual400x240 color widget,
+SHA256 `3430fc84904d6c1ed9fc5177bf9cb0726d8009fafbaa15e8c40813a34605bc49`.
+Neither image is cropped, resized, retouched or a full desktop screenshot.
+The current initial Game image SHA256 is `f658e463fb1713edae754c0aaab2fba4bf6fe8e6c2aaa969c80bc194b036192d`;
+the existing400x330collection and400x440axis captures remain byte-identical.
+This sample refresh retains its five prior asset IDs, Scene/settings and existing
+font/notice files, adding two original color-font assets. Enabled shaping uses
+matching source-derived profile3 and rejects earlier profiles before replacing
+a last-good export. Exact pins and native SDK ABI policy remain unchanged.

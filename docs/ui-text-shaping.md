@@ -65,7 +65,7 @@ the renderer accepted an incomplete replacement.
 This profile shapes individual horizontal runs. It does not implement paragraph
 bidirectional layout, joining across separate text spans, vertical text,
 complete international IME or accessibility, arbitrary variation-axis controls,
-named variation instances, color glyphs or a general typography editor.
+named variation instances, COLRv1 paints, SVG/bitmap color glyphs, general color emoji or a general typography editor.
 RmlUi still owns wrapping, DOM layout, focus and text input. Font coverage and
 author-selected language/direction affect the result.
 The independent [native input boundary option](ui-text-input.md) supplies bounded
@@ -76,7 +76,7 @@ alignment of native Ctrl-arrow word movement/selection; shaping alone does not p
 
 The optional field preserves existing project and Scene versions. A project
 which enables shaping requires runtime-kit capability
-`engine.runtime_ui_text_shaping: 2`; absent, malformed or mismatched support is
+`engine.runtime_ui_text_shaping: 3`; absent, malformed or mismatched support is
 rejected before distribution promotion. Default projects retain their previous
 kit compatibility. The standalone host reads the saved packaged configuration,
 not the editor's current checkbox or the original project directory.
@@ -187,3 +187,45 @@ source digests and commit. Font-containing batches reject cooking with typed
 `copy_only`; they cannot index an importer route. After copying, UI registration
 uses the same font validator/catalog owner. No second import queue or file writer
 is added; native registration and raw copying remain separate steps.
+
+## Native color layers
+
+The optional shaped-font owner admits COLRv0 vector layers with default CPAL
+palette0. FreeType owns native table admission, palette decoding, layer iteration
+and rasterization; the metadata reader only reports bounded informational table
+counts. Palette RGB stays intrinsic, foreground sentinel0xFFFF uses the caller's
+premultiplied color, and all palette colors receive the full caller text alpha
+(including CSS alpha and inherited opacity). Style changes do not create another
+raster-cache dimension.
+
+The existing glyph atlas stores raw grayscale layer masks independently of
+composited base masks. This distinction also covers a glyph index used both as
+a base and as a raw layer. Intrinsic native BGRA alpha supplies the existing A8
+font-effect callbacks with an opaque foreground, preserving palette alpha and
+unique/nonunique effects. Primary colored text emits ordered consecutive atlas
+runs so a pageA/pageB/pageA sequence cannot reorder overlapping layers. Ordinary
+monochrome runs retain their existing page grouping.
+
+Native admission requires1..16palettes and1..256entries. A used glyph has at most
+32layers, with16384cached lookups and65536layer references across admitted faces.
+The existing16384glyph entries,128pages/32MiB atlas and128sized-design limits
+still apply. One text-layer generation admits262144quads. Failed callbacks keep
+the existing diagnostic and candidate-publication behavior; no partial geometry
+is appended to the caller. There is no palette selector, binary font editor,
+COLRv1/SVG/bitmap color support or general color-emoji guarantee.
+
+Optional `font_faces[].color` contains `format:"COLRv0"`, `palettes`,
+`palette_entries`, `base_glyphs`, `layers` and `foreground`. Common headers, palette indices and ordered base/layer spans are checked without
+native decoding. Malformed common data omits this object without changing basic
+font admission or ordinary labels; optional CPALv1 name/type arrays are not
+validated by informational discovery.
+Recorded counts do not establish native usability. Content Inspector and existing
+automation/MCP asset reads consume the same catalog fields, preserving source
+bytes, IDs, permissions and history. Existing source-text operations author
+styles and the existing project setting chooses the renderer.
+
+Original geometric palette, foreground and empty-base/wide-layer fonts use the
+FORGE-owned standard-library fixture writer. Their outlines and implementation
+were independently authored; native decoding, shader pixels, cache stability and
+source-hidden relocation require their own evidence. Matching shaping profile3
+is required for enabled projects; older profiles are rejected before promotion.

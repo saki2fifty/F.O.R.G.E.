@@ -14,6 +14,13 @@ only `H` and space. Its weight axis responds to ordinary `font-weight` in
 font in Content to inspect its recorded axis range. Use your own licensed font
 for general game text. Other variation axes stay at their defaults.
 
+Scroll to **Color layers** for the independently authored geometric palette
+and foreground H fonts. Palette0 supplies fixed hues. A foreground layer follows
+text color; text alpha fades every layer. The final card uses half-alpha text
+with native shadow/outline effects. Inspect a font in Content for its recorded
+COLRv0 details. These fixtures do not establish other color-font formats or a
+general emoji typeface. Edit `Assets/UI/hud.rcss`, save and restart Play.
+
 **Edit whole UI characters** is also enabled in Game defaults. Click the field,
 select its text with Ctrl+A, and paste `áb` (a combining accent after `a`). Press
 End, Backspace, Backspace: the accented character is removed together. Home and

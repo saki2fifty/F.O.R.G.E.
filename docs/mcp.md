@@ -2336,6 +2336,11 @@ available, minimum/default/maximum and hidden flag. At most16axisrecords are
 listed across a saved file's faces; `axes_omitted` explains a later omitted face
 array. Existing source-text tools author numeric `font-weight`; the saved shaping
 option selects the admitted weight design through the same native font owner.
+Optional `font_faces[].color` reports COLRv0 format, palette and entry counts,
+base glyph/layer counts and foreground usage. These are informational saved-byte
+details; native admission still applies. Existing source-text operations author
+`@font-face`, text color and opacity. Enabled shaping uses palette0 and ordinary
+caller foreground color; no binary font editor or extra permission is exposed.
 Successful UI registration/example
 creation publishes the saved catalog to the existing import/read owner, so asset
 search and inspection can observe it without reopening the project. No separate

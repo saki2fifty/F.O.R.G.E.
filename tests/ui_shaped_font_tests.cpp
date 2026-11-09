@@ -138,7 +138,8 @@ body {font-family:Variable;font-size:100px;color:#fff;}
                                                         {"layer", 0u},
                                                         {"model", Json::object()},
                                                         {"commands", Json::array()}}})}};
-        check(presenter.accept(snapshot), presenter.diagnostic().c_str());
+        const bool accepted = presenter.accept(snapshot);
+        check(accepted, presenter.diagnostic().c_str());
         presenter.update(0, 800, 600);
         presenter.render();
         check(presenter.diagnostic().empty(), presenter.diagnostic().c_str());

@@ -9,7 +9,7 @@ bool valid_application_id(std::string_view);
 nlohmann::json default_game_settings(std::string application_id, std::string title);
 void validate_game_settings(const nlohmann::json&);
 // Optional project-owned UI backend choice; absent means the existing font backend.
-inline constexpr unsigned ui_text_shaping_profile_version = 2;
+inline constexpr unsigned ui_text_shaping_profile_version = 3;
 bool ui_text_shaping_enabled(const nlohmann::json& game);
 // Optional horizontal whole-character editing/selection in native UI text fields.
 inline constexpr unsigned ui_grapheme_editing_profile_version = 3;

@@ -6,8 +6,8 @@
       "id": "51908d26-ebbe-44b2-9ca6-13ff2c3bf46c",
       "metadata": {
         "forge.ui_source": {
-          "bytes": 1448,
-          "digest": "2cd3e7f0ef8492084737b2dafdb694f65bdd200cc82b6388a07e04e02a7f73b0",
+          "bytes": 1955,
+          "digest": "c66705e8ab50abe072fc9652604e1524982d3e4cf9f2f59ea38249f52b0bded4",
           "format": "rcss"
         }
       },
@@ -15,7 +15,7 @@
       "source": "Assets/UI/hud.rcss",
       "source_dependencies": [
         {
-          "revision": "2cd3e7f0ef8492084737b2dafdb694f65bdd200cc82b6388a07e04e02a7f73b0",
+          "revision": "c66705e8ab50abe072fc9652604e1524982d3e4cf9f2f59ea38249f52b0bded4",
           "role": "ui.source",
           "source": "Assets/UI/hud.rcss"
         }
@@ -102,7 +102,9 @@
       "dependencies": [
         "51908d26-ebbe-44b2-9ca6-13ff2c3bf46c",
         "65ef9b35-4e14-4363-be7c-8705a5ab6cf5",
-        "92fb12f1-ffcb-4147-8290-c323f2bca2c0"
+        "92fb12f1-ffcb-4147-8290-c323f2bca2c0",
+        "bcf5217c-f016-430a-939c-02c443942aa8",
+        "d862b6fc-16fa-4f53-ba25-b616b4327b8e"
       ],
       "dependency_edges": [
         {
@@ -125,13 +127,27 @@
           "role": "ui.automatic",
           "target": "92fb12f1-ffcb-4147-8290-c323f2bca2c0",
           "type": "ui_font"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "bcf5217c-f016-430a-939c-02c443942aa8",
+          "type": "ui_font"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "d862b6fc-16fa-4f53-ba25-b616b4327b8e",
+          "type": "ui_font"
         }
       ],
       "id": "9acc216f-f957-40e1-b7bb-6990a8f62970",
       "metadata": {
         "forge.ui_source": {
-          "bytes": 1458,
-          "digest": "9b31f24ba42a74031588eb147bf26e0d3a0be39dcfd09ace41b2c26cc59e6d7a",
+          "bytes": 1953,
+          "digest": "88410bb2cb920cdda10e66b578a0109ed0b9d44eae8da61afe8bfb09b6ffa97b",
           "format": "rml"
         }
       },
@@ -144,22 +160,73 @@
           "source": "Assets/Fonts/Cairo.ttf"
         },
         {
+          "revision": "05c0bc4da4be08dec721a2748f071051c1b06a1c6edf6600fd4067daa180770d",
+          "role": "ui.observed",
+          "source": "Assets/Fonts/Color.ttf"
+        },
+        {
+          "revision": "02c04d9fd1d4db33e96509b47fdfe8483eef0e2890bdc06474407fb30da0aa7f",
+          "role": "ui.observed",
+          "source": "Assets/Fonts/Foreground.ttf"
+        },
+        {
           "revision": "e51dc0fb7ed741a0840f1d187c1ce4a5db6fe338f4764fcfdd3221a6b0f0d6cd",
           "role": "ui.observed",
           "source": "Assets/Fonts/Weight.ttf"
         },
         {
-          "revision": "2cd3e7f0ef8492084737b2dafdb694f65bdd200cc82b6388a07e04e02a7f73b0",
+          "revision": "c66705e8ab50abe072fc9652604e1524982d3e4cf9f2f59ea38249f52b0bded4",
           "role": "ui.observed",
           "source": "Assets/UI/hud.rcss"
         },
         {
-          "revision": "9b31f24ba42a74031588eb147bf26e0d3a0be39dcfd09ace41b2c26cc59e6d7a",
+          "revision": "88410bb2cb920cdda10e66b578a0109ed0b9d44eae8da61afe8bfb09b6ffa97b",
           "role": "ui.source",
           "source": "Assets/UI/hud.rml"
         }
       ],
       "type": "ui_document"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "bcf5217c-f016-430a-939c-02c443942aa8",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1036,
+          "digest": "02c04d9fd1d4db33e96509b47fdfe8483eef0e2890bdc06474407fb30da0aa7f",
+          "faces": 1,
+          "font_faces": [
+            {
+              "color": {
+                "base_glyphs": 1,
+                "foreground": true,
+                "format": "COLRv0",
+                "layers": 3,
+                "palette_entries": 3,
+                "palettes": 1
+              },
+              "family": "FORGE Color Test",
+              "full_name": "FORGE Color Test Regular",
+              "index": 0,
+              "postscript_name": "FORGEColorTest-Regular",
+              "style": "Regular",
+              "weight": 400
+            }
+          ],
+          "format": "ttf"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Fonts/Foreground.ttf",
+      "source_dependencies": [
+        {
+          "revision": "02c04d9fd1d4db33e96509b47fdfe8483eef0e2890bdc06474407fb30da0aa7f",
+          "role": "ui.source",
+          "source": "Assets/Fonts/Foreground.ttf"
+        }
+      ],
+      "type": "ui_font"
     },
     {
       "dependencies": [],
@@ -170,6 +237,47 @@
       "source": "Scenes/TextShaping.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d862b6fc-16fa-4f53-ba25-b616b4327b8e",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1036,
+          "digest": "05c0bc4da4be08dec721a2748f071051c1b06a1c6edf6600fd4067daa180770d",
+          "faces": 1,
+          "font_faces": [
+            {
+              "color": {
+                "base_glyphs": 1,
+                "foreground": false,
+                "format": "COLRv0",
+                "layers": 3,
+                "palette_entries": 3,
+                "palettes": 1
+              },
+              "family": "FORGE Color Test",
+              "full_name": "FORGE Color Test Regular",
+              "index": 0,
+              "postscript_name": "FORGEColorTest-Regular",
+              "style": "Regular",
+              "weight": 400
+            }
+          ],
+          "format": "ttf"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Fonts/Color.ttf",
+      "source_dependencies": [
+        {
+          "revision": "05c0bc4da4be08dec721a2748f071051c1b06a1c6edf6600fd4067daa180770d",
+          "role": "ui.source",
+          "source": "Assets/Fonts/Color.ttf"
+        }
+      ],
+      "type": "ui_font"
     }
   ],
   "version": 2

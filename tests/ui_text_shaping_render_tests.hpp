@@ -125,6 +125,47 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
                       "Native variable weight pixel coverage is not light < regular < heavy");
             }
             displays.push_back(std::move(weight_pixels));
+            auto* colors = document->GetElementById("colors");
+            check(colors, "Color glyph comparison missing from native sample");
+            colors->ScrollIntoView(false);
+            presenter.update(.04, width, height);
+            context->ClearRenderTarget(view, clear,
+                                       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            renderer.begin(context, view, width, height);
+            presenter.render();
+            renderer.end();
+            check(presenter.diagnostic().empty(), presenter.diagnostic());
+            auto color_pixels = readback(device, context, view);
+            save(color_pixels, width, height,
+                 output / ("ui-text-colors-" + suffix + "-" + std::to_string(width) + ".ppm"));
+            if (shaping) {
+                unsigned sample = 0;
+                for (const char* id : {"color-palette", "color-foreground", "color-effects"}) {
+                    auto* glyph = document->GetElementById(id);
+                    check(glyph, "Native color glyph element missing");
+                    const auto origin = glyph->GetAbsoluteOffset(Rml::BoxArea::Content);
+                    const auto dimensions = glyph->GetBox().GetSize(Rml::BoxArea::Content);
+                    const int left = std::max(0, int(std::floor(origin.x))),
+                              right = std::min(int(width), int(std::ceil(origin.x + dimensions.x))),
+                              top = std::max(0, int(std::floor(origin.y))),
+                              bottom =
+                                  std::min(int(height), int(std::ceil(origin.y + dimensions.y)));
+                    std::array<std::size_t, 3> hues{};
+                    for (int y = top; y < bottom; ++y)
+                        for (int x = left; x < right; ++x) {
+                            const auto& p = color_pixels[std::size_t(y) * width + unsigned(x)];
+                            hues[0] += p[0] > p[1] + 40 && p[0] > p[2] + 40;
+                            hues[1] += p[2] > p[0] + 40 && p[2] > p[1] + 15;
+                            hues[2] += sample == 0 ? p[1] > p[0] + 60 && p[1] > p[2] + 40
+                                                   : p[1] > p[0] + 40 && p[2] > p[0] + 40 &&
+                                                         std::abs(int(p[1]) - int(p[2])) < 35;
+                        }
+                    check(hues[0] > 20 && hues[1] > 20 && hues[2] > 10,
+                          "Native color glyph palette, foreground or alpha did not reach pixels");
+                    ++sample;
+                }
+            }
+            displays.push_back(std::move(color_pixels));
         }
         return displays;
     };

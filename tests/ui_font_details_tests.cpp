@@ -10,8 +10,9 @@ void check(bool value, const char* message) {
         throw std::runtime_error(message);
 }
 void exercise(const forge::AssetRecord& record, const std::filesystem::path& output, int width,
-              bool variable = false) {
-    const int height = variable ? 440 : 330;
+              unsigned kind = 0) {
+    const bool variable = kind == 1, color = kind == 2;
+    const int height = color ? 240 : variable ? 440 : 330;
     forge::test::ImGuiSoftwareCapture capture(width, height);
     forge::ui::style(1);
     const auto before = record.metadata;
@@ -32,7 +33,11 @@ void exercise(const forge::AssetRecord& record, const std::filesystem::path& out
     };
     frame(record);
     const auto text = frame(record);
-    if (variable)
+    if (color)
+        check(text.find("COLRv0") != text.npos && text.find("palette 0") != text.npos &&
+                  text.find("3 entries") != text.npos,
+              "Actual Inspector omitted recorded color layers/default palette");
+    else if (variable)
         check(text.find("wght") != text.npos && text.find("Weight") != text.npos &&
                   text.find("100") != text.npos && text.find("900") != text.npos,
               "Actual Inspector omitted the recorded variable axis");
@@ -41,8 +46,10 @@ void exercise(const forge::AssetRecord& record, const std::filesystem::path& out
                   text.find("Cairo") != text.npos && text.find("Regular") != text.npos &&
                   text.find("400") != text.npos,
               "Actual Inspector omitted saved face labels or weight");
-    capture.save(output /
-                 ((variable ? "font-axes-" : "font-faces-") + std::to_string(width) + ".png"));
+    capture.save(output / ((color      ? "font-colors-"
+                            : variable ? "font-axes-"
+                                       : "font-faces-") +
+                           std::to_string(width) + ".png"));
     check(record.metadata == before, "Read-only font Inspector changed source metadata");
     if (variable) {
         auto malformed = record;
@@ -68,7 +75,8 @@ void exercise(const forge::AssetRecord& record, const std::filesystem::path& out
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4, "Need collection example, capture directory and original variable font");
+        check(argc == 5,
+              "Need collection example, capture directory, original variable and color fonts");
         const auto output = std::filesystem::absolute(argv[2]);
         const auto root = output / "project";
         std::filesystem::create_directories(root / "Assets/Fonts");
@@ -106,10 +114,19 @@ int main(int argc, char** argv) {
         const auto variable = forge::register_ui_source(lease, "Assets/Fonts/Weight.ttf");
         const auto variable_bytes = forge::asset_storage::read(root / variable.source);
         for (const auto width : {700, 400})
-            exercise(variable, output, width, true);
+            exercise(variable, output, width, 1);
         check(forge::register_ui_source(lease, variable.source).id == variable.id &&
                   forge::asset_storage::read(root / variable.source) == variable_bytes,
               "Variable axis refresh changed source bytes or identity");
+        std::filesystem::copy_file(argv[4], root / "Assets/Fonts/Color.ttf",
+                                   std::filesystem::copy_options::overwrite_existing);
+        const auto color = forge::register_ui_source(lease, "Assets/Fonts/Color.ttf");
+        const auto color_bytes = forge::asset_storage::read(root / color.source);
+        for (const auto width : {700, 400})
+            exercise(color, output, width, 2);
+        check(forge::register_ui_source(lease, color.source).id == color.id &&
+                  forge::asset_storage::read(root / color.source) == color_bytes,
+              "Color metadata refresh changed source bytes or identity");
         std::cout << "Native font Inspector, legacy metadata and stable refresh passed\n";
         return 0;
     } catch (const std::exception& error) {

@@ -1,5 +1,20 @@
 # 2026-11-09
 
+## Layered UI color glyphs
+
+The existing optional shaped-font adapter renders bounded COLRv0 vector layers
+from palette0. Fixed palette hues retain their colors; foreground layers use
+ordinary text color, and text alpha fades every layer. Cached grayscale masks
+keep color changes independent of raster allocation. Ordered atlas runs preserve
+overlap across pages. Native composited alpha supplies the existing shadow and
+outline paths.
+
+Content Inspector and the same catalog/MCP reads expose optional saved-byte
+color metadata. UiTextShaping adds original palette/foreground H fixtures while
+preserving its five existing asset IDs, Scene and settings. Enabled shaping now
+requires matching runtime profile3 before export promotion. COLRv1 paints,
+SVG/bitmap color glyphs and general emoji remain unsupported.
+
 ## Variable UI font weights and axis discovery
 
 The optional shaped-font adapter applies ordinary CSS weight to an admitted
@@ -12,7 +27,7 @@ recorded axis ranges and names through the same catalog owner.
 UiTextShaping adds an original geometric font comparison, retaining its four
 existing asset IDs and adding one font. Shaping requires matching runtime
 profile2; older support is rejected before replacing a good export. Other axis
-controls, named-instance authoring, color glyphs and general typography remain
+controls, named-instance authoring and general typography remain
 outside the supported workflow.
 
 ## Native word movement and selection
