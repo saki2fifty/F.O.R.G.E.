@@ -66,13 +66,18 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
     unsigned gradients = 0;
     std::string declaration_name;
     auto value_begin = std::string_view::npos;
+    auto declaration_begin = std::string_view::npos;
     const auto finish_declaration = [&](std::size_t end) {
         if (value_begin != std::string_view::npos)
-            declarations->push_back({declaration_name, {value_begin, end}});
+            declarations->push_back(
+                {declaration_name,
+                 {value_begin, end},
+                 {declaration_begin, end + std::size_t(end < text.size() && text[end] == ';')}});
         else
             require(declaration_name.empty(), "Inline style declaration requires a colon");
         declaration_name.clear();
         value_begin = std::string_view::npos;
+        declaration_begin = std::string_view::npos;
     };
     for (std::size_t i = 0; i < text.size();) {
         if (markup && text.substr(i, 4) == "<!--") {
@@ -281,6 +286,8 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
                 } else if (value_begin == text.npos && !space(c)) {
                     require(std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_',
                             "Unsupported inline style property name");
+                    if (declaration_begin == text.npos)
+                        declaration_begin = i;
                     declaration_name += char(std::tolower(static_cast<unsigned char>(c)));
                 }
             }

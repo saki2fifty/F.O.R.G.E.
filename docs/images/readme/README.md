@@ -2,6 +2,17 @@
 
 ## Native UI source authoring
 
+`manual/images/ui-source-inline-style.png` is an unretouched700×950 capture of
+the production UiSourceEditor after actual selection and property read/set/remove
+controls. It shows the authored color, common-property selector and explicit
+property buttons. Reproduce with `forge_ui_source_editor_tests <output>`;
+`ui-source-inline-style-<width>.png` records the1180/700/400pixel layouts.
+The current Elements capture also includes the collapsed Inline style controls.
+Original captures and exact canonical hashes belong to the scoped inline-style
+and outline-movement validation owner. SDL software composition supplies these
+component pixels; full Main, Windows, physical GPU/input and display-density
+acceptance remain separate. No controls or pixels are fabricated or retouched.
+
 `manual/images/ui-source-hierarchy.png` is an exact700×950 production
 UiSourceEditor/DocumentWorkspace capture. Actual Ctrl+click selects a paragraph
 and button; real New parent/Placement dropdowns choose the target container and

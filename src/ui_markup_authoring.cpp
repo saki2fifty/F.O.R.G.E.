@@ -157,6 +157,47 @@ UiSourceRange trimmed(std::string_view source, UiSourceRange range) {
         --range.end;
     return range;
 }
+struct InlineStyleSource {
+    const UiMarkupAttribute* attribute = nullptr;
+    std::string_view text;
+    std::vector<UiStyleDeclaration> declarations;
+};
+InlineStyleSource inline_style_source(std::string_view source, const UiMarkupElement& node) {
+    InlineStyleSource result;
+    for (const auto& attr : node.attributes)
+        if (attr.name == "style") {
+            require(!result.attribute && attr.has_value && attr.quote,
+                    "Use one quoted inline style; edit other forms in Source");
+            result.attribute = &attr;
+        }
+    if (result.attribute) {
+        const auto range = result.attribute->value;
+        result.text = source.substr(range.begin, range.end - range.begin);
+        require(result.text.find('&') == result.text.npos,
+                "Entity-encoded inline styles use Source");
+        result.declarations = inspect_ui_style(result.text);
+    }
+    return result;
+}
+const UiStyleDeclaration* style_property(const InlineStyleSource& style, std::string_view name) {
+    const UiStyleDeclaration* found = nullptr;
+    for (const auto& declaration : style.declarations)
+        if (declaration.name == name) {
+            require(!found, "Resolve duplicate matching properties in Source first");
+            const auto range =
+                trimmed(style.text, {declaration.source.begin, declaration.value.begin - 1});
+            const auto literal = style.text.substr(range.begin, range.end - range.begin);
+            require(std::ranges::equal(literal, declaration.name,
+                                       [](char c, char expected) {
+                                           if (c >= 'A' && c <= 'Z')
+                                               c = char(c - 'A' + 'a');
+                                           return c == expected;
+                                       }),
+                    "Use a plain property name; edit split/commented names in Source");
+            found = &declaration;
+        }
+    return found;
+}
 void valid_layout(UiPixelLayout value) {
     for (const auto number : {value.left, value.top, value.width, value.height})
         require(std::isfinite(number) && std::abs(number) <= 65536,
@@ -173,26 +214,11 @@ LayoutSource layout_source(std::string_view source, std::span<const UiMarkupElem
         for (const auto& attr : element(nodes, parent).attributes)
             require(!attr.name.starts_with("data-"),
                     "Data-bound elements and ancestors use Source for layout edits");
-    const UiMarkupAttribute* style = nullptr;
-    for (const auto& attr : node.attributes)
-        if (attr.name == "style") {
-            require(!style && attr.has_value && attr.quote,
-                    "Use one quoted inline style for canvas layout edits");
-            style = &attr;
-        }
-    require(style, "Define the absolute pixel layout in the element's inline style");
-    const auto inline_style =
-        source.substr(style->value.begin, style->value.end - style->value.begin);
-    require(inline_style.find('&') == inline_style.npos,
-            "Entity-encoded inline styles use Source for layout edits");
-    const auto declarations = inspect_ui_style(inline_style);
+    const auto style = inline_style_source(source, node);
+    require(style.attribute, "Define the absolute pixel layout in the element's inline style");
+    const auto inline_style = style.text;
     const auto value_range = [&](std::string_view name) {
-        const UiStyleDeclaration* found = nullptr;
-        for (const auto& declaration : declarations)
-            if (declaration.name == name) {
-                require(!found, "Resolve duplicate layout properties in Source first");
-                found = &declaration;
-            }
+        const auto* found = style_property(style, name);
         require(found, "Define inline position:absolute and pixel left, top, width and height");
         return trimmed(inline_style, found->value);
     };
@@ -213,7 +239,8 @@ LayoutSource layout_source(std::string_view source, std::span<const UiMarkupElem
             std::from_chars(number.data(), number.data() + number.size(), *values[i]);
         require(parsed.ec == std::errc{} && parsed.ptr == number.data() + number.size(),
                 "Canvas layout requires plain inline pixel values");
-        result.values[i] = {style->value.begin + range.begin, style->value.begin + range.end};
+        result.values[i] = {style.attribute->value.begin + range.begin,
+                            style.attribute->value.begin + range.end};
     }
     valid_layout(result.pixels);
     return result;
@@ -379,6 +406,62 @@ std::string set_ui_markup_attribute(std::string_view source, std::size_t index,
         return replaced(source, found->source, assignment);
     const auto insertion = attribute_insertion(source, node);
     return replaced(source, {insertion, insertion}, " " + assignment);
+}
+std::optional<std::string> read_ui_markup_style(std::string_view source,
+                                                std::span<const UiMarkupElement> nodes,
+                                                std::size_t index, std::string_view property) {
+    identifier(property);
+    const auto style = inline_style_source(source, element(nodes, index));
+    if (const auto* found = style_property(style, property)) {
+        const auto range = trimmed(style.text, found->value);
+        return std::string(style.text.substr(range.begin, range.end - range.begin));
+    }
+    return {};
+}
+std::string set_ui_markup_style(std::string_view source, std::size_t index,
+                                std::string_view property, std::optional<std::string> value) {
+    identifier(property);
+    const auto nodes = inspect_ui_markup(source);
+    const auto& node = element(nodes, index);
+    editable(node);
+    const auto style = inline_style_source(source, node);
+    const auto* found = style_property(style, property);
+    if (!value) {
+        if (!found)
+            return std::string(source);
+        const auto offset = style.attribute->value.begin;
+        return replaced(source, {offset + found->source.begin, offset + found->source.end}, {});
+    }
+    require(value->size() <= 8192 && value->find_first_of("&<>") == value->npos &&
+                value->find("{{") == value->npos,
+            "Use a literal inline CSS value without markup/entities, up to8192 bytes");
+    const auto nonspace = trimmed(*value, {0, value->size()});
+    require(nonspace.begin != nonspace.end, "Enter a CSS value or remove the property");
+    const auto declaration = std::string(property) + ':' + *value + ';';
+    const auto checked = inspect_ui_style(declaration);
+    require(checked.size() == 1 && checked[0].name == property &&
+                checked[0].value.begin == property.size() + 1 &&
+                checked[0].value.end == declaration.size() - 1,
+            "Enter one CSS value without extra declarations");
+    if (!style.attribute) {
+        const char quote = declaration.find('"') == declaration.npos ? '"' : '\'';
+        require(declaration.find(quote) == declaration.npos,
+                "Values requiring both attribute quote forms use Source");
+        const auto position = attribute_insertion(source, node);
+        return replaced(source, {position, position},
+                        " style=" + std::string(1, quote) + declaration + quote);
+    }
+    require(value->find(style.attribute->quote) == value->npos,
+            "Use CSS quotes different from the inline attribute quotes, or edit in Source");
+    const auto offset = style.attribute->value.begin;
+    if (found) {
+        const auto range = trimmed(style.text, found->value);
+        return replaced(source, {offset + range.begin, offset + range.end}, *value);
+    }
+    const bool separator = !style.declarations.empty() && style.declarations.back().source.end ==
+                                                              style.declarations.back().value.end;
+    const auto position = style.attribute->value.end;
+    return replaced(source, {position, position}, (separator ? ";" : "") + declaration);
 }
 std::string set_ui_markup_text(std::string_view source, std::size_t index,
                                std::string_view literal) {

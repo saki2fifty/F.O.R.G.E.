@@ -83,13 +83,36 @@ struct UiSourceAutomation {
                 throw AuthoringError("source_busy", reason);
             if (editor.close_pending() || editor.gesture_active())
                 throw AuthoringError("source_busy",
-                                     "Finish the native UI source dialog or canvas gesture first");
+                                     "Finish the native UI source dialog or source gesture first");
         };
         const Json guard{{"path", automation_text(2047, 1)},
                          {"session", automation_uuid()},
                          {"revision", automation_integer()},
                          {"state", automation_digest()}};
         const Json required{"path", "session", "revision", "state"};
+        auto style_read_properties = guard;
+        style_read_properties["element"] = automation_integer(0, 8191);
+        style_read_properties["name"] = automation_text(64, 1);
+        auto style_read_required = required;
+        style_read_required.push_back("element");
+        style_read_required.push_back("name");
+        result.push_back(automation_method(
+            "ui.source.style_read",
+            "Read one authored inline CSS property from the observed native source. Requires "
+            "assets.read and current path/session/revision/state plus element/name. Returns "
+            "name/value, with value:null when no inline override exists. Shares the editor's "
+            "plain quoted/non-entity style and unique literal matching-property profile; this "
+            "is not computed styling or binding evaluation. No native initialization, source "
+            "selection, history, Save or resource publication.",
+            "assets.read",
+            automation_object(std::move(style_read_properties), std::move(style_read_required)),
+            false, [&files, &editor](const Json& request) {
+                observed(editor, files.document, request);
+                const auto value = editor.read_style(request.at("element").get<std::size_t>(),
+                                                     request.at("name").get<std::string>());
+                return Json{{"name", request.at("name")},
+                            {"value", value ? Json(*value) : Json(nullptr)}};
+            }));
         auto preview_properties = guard;
         preview_properties["width"] = automation_integer(1, 2048);
         preview_properties["height"] = automation_integer(1, 2048);
@@ -203,7 +226,7 @@ struct UiSourceAutomation {
                 return state(editor, files.document);
             }));
         for (const auto* operation :
-             {"replace", "attribute", "text", "insert", "duplicate", "reparent", "remove",
+             {"replace", "attribute", "style", "text", "insert", "duplicate", "reparent", "remove",
               "remove_group", "move", "save", "undo", "redo", "reload", "close"}) {
             const std::string action(operation);
             auto properties = guard;
@@ -215,17 +238,19 @@ struct UiSourceAutomation {
             };
             if (action == "replace")
                 add("text", automation_text(256 * 1024 - 1));
-            if (action == "attribute" || action == "text" || action == "duplicate" ||
-                action == "remove" || action == "move")
+            if (action == "attribute" || action == "style" || action == "text" ||
+                action == "duplicate" || action == "remove" || action == "move")
                 add("element", automation_integer(0, 8191));
             if (action == "duplicate")
                 add("prefix", automation_text(64), false);
             if (action == "remove_group" || action == "reparent")
                 add("elements",
                     automation_array(automation_integer(0, 8191), ui_source_selection_limit, 1));
-            if (action == "attribute") {
+            if (action == "attribute" || action == "style") {
                 add("name", automation_text(64, 1));
-                add("value", {{"oneOf", {automation_text(256 * 1024), Json{{"type", "null"}}}}});
+                add("value", {{"oneOf",
+                               {automation_text(action == "style" ? 8192 : 256 * 1024),
+                                Json{{"type", "null"}}}}});
             }
             if (action == "text" || action == "insert")
                 add("text", automation_text(256 * 1024), action == "text");
@@ -241,7 +266,18 @@ struct UiSourceAutomation {
                 add("discard", {{"type", "boolean"}}, false);
             result.push_back(automation_method(
                 "ui.source." + action,
-                action == "reparent"
+                action == "style"
+                    ? "Set one literal inline CSS property or remove it with value:null. "
+                      "Needs element/name/value and current source guards/assets.write. Preserve "
+                      "unrelated source, declarations/comments and bindings in one Undo step; "
+                      "exact no-ops retain source history. Lowercase name starts with a letter, "
+                      "up to64bytes; literal value up to8192bytes. Requires one quoted non-entity "
+                      "style, no duplicate matching properties, quote conflicts, extra "
+                      "declarations "
+                      "or markup injection. Full source admission applies; native CSS behavior is "
+                      "checked in Preview/Play. This edits authored values; bindings can override "
+                      "them. No Save/registration."
+                : action == "reparent"
                     ? "Move1..32 static source siblings into parent, appending or placing before "
                       "its optional direct child. Preserve source order, moved bytes and IDs in "
                       "one Undo step. Cycles, protected/dynamic/ambiguous source and invalid "
@@ -286,6 +322,12 @@ struct UiSourceAutomation {
                             request.at("value").is_null()
                                 ? std::nullopt
                                 : std::optional(request.at("value").get<std::string>()));
+                    else if (action == "style")
+                        editor.style(request.at("element").get<std::size_t>(),
+                                     request.at("name").get<std::string>(),
+                                     request.at("value").is_null()
+                                         ? std::nullopt
+                                         : std::optional(request.at("value").get<std::string>()));
                     else if (action == "text")
                         editor.text(request.at("element").get<std::size_t>(),
                                     request.at("text").get<std::string>());

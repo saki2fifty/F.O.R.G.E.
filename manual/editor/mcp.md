@@ -25,6 +25,22 @@ source Undo step, permissions and replay; a true no-op leaves source history
 unchanged. A successful change clears the transient selection. See
 [container movement](ui-source.md) for the workflow and limits.
 
+Use `forge_ui_source_style` with current source guards, `element`, a lowercase
+property `name` and CSS string `value`. `value:null` removes that declaration.
+It preserves unrelated inline CSS, comments and bindings, and selects the edited
+element after a source change. An identical source result leaves revision/history
+unchanged. Read the source for authored values; native computed styling is checked
+through Preview or Play. The same quote, encoding, duplicate-property and source
+limits apply as the editor. Native outline drag/drop uses the existing guarded
+`forge_ui_source_reparent` behavior; an agent can call that operation directly.
+Source mutations wait until a native source gesture finishes or is cancelled.
+
+`forge_ui_source_style_read` needs only `assets.read`, current source guards,
+`element` and `name`. It returns the authored `name` and `value`; `value:null`
+means there is no matching inline declaration. It uses the same property reader
+as **Read inline**, without changing source, selection or history and without
+evaluating gameplay bindings or native computed styles.
+
 For layout, use `forge_ui_source_preview` with current source guards and the desired
 viewport size. Read its element indices, editable flags, explanations and preview
 instance/revision. Pass those guards and all four pixel values to

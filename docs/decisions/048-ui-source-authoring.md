@@ -114,6 +114,16 @@ parent-relative coordinates are not rewritten. Native Elements and borrowed
 automation/MCP use the same source transaction; exact no-ops create no history.
 This extends source editing, not the Scene hierarchy or a second native DOM owner.
 
+Inline CSS authoring extends that same optional admission collector with full
+declaration ranges. Plain style/property extraction also serves pixel layout;
+literal set/remove validates the complete candidate and replaces the source once.
+An inline declaration cannot change element ordering, so changed styles can safely
+restore the edited transient index. Exact no-ops retain revision/history. Existing
+bindings and Scene model values keep their owners. Native outline drag/drop uses
+the existing reparent operation with bounded immutable source/interaction guards,
+gesture cancellation/locks and post-traversal publication. Neither workflow adds
+a parser, style/DOM database, identity service or native serialization boundary.
+
 Source-preview image output borrows the same observed native image through
 ViewImageTask. A rendered input retains the source/preview identity and rechecks
 it before the existing nonblocking GPU copy is submitted. Pending observations

@@ -62,6 +62,32 @@ void exercise(const std::filesystem::path& output, int width) {
     const auto old_clipboard = ImGui::GetPlatformIO().Platform_GetClipboardTextFn;
     const auto old_data = ImGui::GetPlatformIO().Platform_ClipboardUserData;
     test::ImGuiInputDriver input(frame);
+    const auto start_drag = [&](const char* from, const char* to, bool before = false) {
+        frame();
+        const auto a = test::ui_targets.at(from), b = test::ui_targets.at(to);
+        const ImVec2 source_point{(a.minimum.x + a.maximum.x) / 2, (a.minimum.y + a.maximum.y) / 2};
+        const ImVec2 target_point{(b.minimum.x + b.maximum.x) / 2, (b.minimum.y + b.maximum.y) / 2};
+        io.AddMousePosEvent(source_point.x, source_point.y);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMousePosEvent(source_point.x + 12, source_point.y);
+        frame();
+        frame();
+        check(editor.gesture_active(), "Actual outline dragging did not start a guarded gesture");
+        io.AddKeyEvent(ImGuiMod_Shift, before);
+        io.AddMousePosEvent(target_point.x, target_point.y);
+        frame();
+        frame();
+    };
+    const auto release_drag = [&] {
+        io.AddMouseButtonEvent(0, false);
+        frame();
+        io.AddKeyEvent(ImGuiMod_Shift, false);
+        frame();
+        frame();
+        check(!editor.gesture_active(), "Outline drop retained an active source gesture");
+    };
     input.click("ui-source:elements-tab");
     input.click("ui-source:element:2");
     input.type("ui-source:duplicate-prefix", "second");
@@ -127,11 +153,123 @@ void exercise(const std::filesystem::path& output, int width) {
     input.click("button:Redo");
     check(editor.state().at("text") == hierarchy_expected, "Hierarchy Redo lost moved source");
     input.click("button:Undo");
+    input.click("ui-source:element:2");
+    io.AddKeyEvent(ImGuiMod_Ctrl, true);
+    frame();
+    input.click("ui-source:element:3");
+    io.AddKeyEvent(ImGuiMod_Ctrl, false);
+    frame();
+    start_drag("ui-source:element:2", "ui-source:element:4");
+    check(editor.state().at("text") == hierarchy_baseline && !editor.can_undo(),
+          "Outline hover published source or left history enabled during a gesture");
+    rejects([&] { editor.save(project); });
+    release_drag();
+    auto appended = hierarchy_baseline.get<std::string>();
+    appended.erase(appended.find(siblings), siblings.size());
+    appended.insert(appended.find("</div>"), siblings);
+    check(editor.state().at("text") == appended,
+          "Native outline drop lost a selected sibling, source order or its destination");
+    input.click("button:Undo");
+    check(editor.state().at("text") == hierarchy_baseline,
+          "Outline group drop needed more than one Undo");
+    input.click("ui-source:element:3");
+    start_drag("ui-source:element:3", "ui-source:element:2", true);
+    release_drag();
+    auto reordered = hierarchy_baseline.get<std::string>();
+    reordered.replace(reordered.find(siblings), siblings.size(),
+                      "<button id='b'>Two</button><p id='a'>One</p>");
+    check(editor.state().at("text") == reordered,
+          "Shift outline drop did not place before the row");
+    input.click("button:Undo");
+    check(editor.state().at("text") == hierarchy_baseline,
+          "Shift outline placement needed more than one Undo");
+    input.click("ui-source:element:2");
+    start_drag("ui-source:element:2", "ui-source:element:4");
+    io.AddKeyEvent(ImGuiKey_Escape, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Escape, false);
+    release_drag();
+    check(editor.state().at("text") == hierarchy_baseline,
+          "Escaping an outline drag changed source");
+    start_drag("ui-source:element:2", "ui-source:element:4");
+    locked = true;
+    frame();
+    locked = false;
+    frame();
+    release_drag();
+    check(editor.state().at("text") == hierarchy_baseline,
+          "A task lock failed to cancel the native outline payload");
+    start_drag("ui-source:element:2", "ui-source:element:4");
+    io.AddFocusEvent(false);
+    frame();
+    io.AddFocusEvent(true);
+    frame();
+    release_drag();
+    check(editor.state().at("text") == hierarchy_baseline,
+          "Application focus loss committed an outline drop");
+    start_drag("ui-source:element:2", "ui-source:element:4");
+    const auto tab = test::ui_targets.at("ui-source:source-tab");
+    io.AddMousePosEvent((tab.minimum.x + tab.maximum.x) / 2, (tab.minimum.y + tab.maximum.y) / 2);
+    for (int i = 0; i < 60; ++i)
+        frame();
+    check(!test::ui_targets.contains("ui-source:element:2") && !editor.gesture_active(),
+          "Native tab hover did not cancel the outline source gesture");
+    release_drag();
+    check(editor.state().at("text") == hierarchy_baseline,
+          "Changing source views during a drag changed source");
+    input.click("ui-source:elements-tab");
+    input.click("ui-source:element:2");
+    start_drag("ui-source:element:2", "ui-source:element:4");
+    editor.attribute(2, "title", "Changed during drag");
+    const auto changed_during_drag = editor.state().at("text");
+    frame();
+    release_drag();
+    check(editor.state().at("text") == changed_during_drag,
+          "A stale native payload authorized a source move");
+    input.click("button:Undo");
+    check(editor.state().at("text") == hierarchy_baseline,
+          "Rejected stale drop added a source history record");
     input.click("button:Undo");
     check(editor.state().at("text") == original,
           "Hierarchy controls did not restore the original source history");
     input.click("ui-source:element:2");
     input.click("ui-source:hierarchy-open");
+    input.click("ui-source:style-open");
+    input.type("ui-source:style-name", "color");
+    input.type("ui-source:style-value", "#77bdf7");
+    input.click("ui-source:style-set");
+    auto color_expected = original.get<std::string>();
+    color_expected.replace(color_expected.find("<p>"), 3, "<p style=\"color:#77bdf7;\">");
+    check(editor.state().at("text") == color_expected &&
+              editor.state().at("selection") == Json::array({2}),
+          "Native inline property controls lost the declaration or edited selection");
+    input.click("ui-source:element:2");
+    const auto colored_state = editor.state();
+    input.type("ui-source:style-value", "scratch");
+    input.click("ui-source:style-read");
+    input.click("ui-source:style-set");
+    check(editor.state() == colored_state, "Read inline or exact property no-op changed history");
+    frame();
+    capture.save(output / ("ui-source-inline-style-" + std::to_string(width) + ".png"));
+    input.click("button:Undo");
+    check(editor.state().at("text") == original, "Inline property set needed more than one Undo");
+    input.click("ui-source:element:2");
+    input.click("ui-source:style-common");
+    input.select("ui-source:style-choice:width");
+    input.type("ui-source:style-value", "24px");
+    input.click("ui-source:style-set");
+    const auto width_source = editor.state().at("text");
+    input.click("ui-source:element:2");
+    input.click("ui-source:style-remove");
+    check(editor.state().at("text").get<std::string>().find("style=\"\"") != std::string::npos,
+          "Native property removal changed unrelated attribute bytes");
+    input.click("button:Undo");
+    check(editor.state().at("text") == width_source, "Inline removal needed more than one Undo");
+    input.click("button:Undo");
+    check(editor.state().at("text") == original,
+          "Common-property history lost the original source");
+    input.click("ui-source:element:2");
+    input.click("ui-source:style-open");
     input.type("ui-source:literal", "New & <literal>");
     input.click("ui-source:text-set");
     check(editor.dirty() && editor.state().at("text").get<std::string>().find(

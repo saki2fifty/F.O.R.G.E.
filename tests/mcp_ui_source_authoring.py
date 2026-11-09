@@ -6,7 +6,7 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
-                 'duplicate', 'remove_group', 'reparent')}
+                 'duplicate', 'remove_group', 'reparent', 'style', 'style_read')}
     assert required <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
@@ -80,6 +80,34 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
     assert edit('redo')['text'] == moved_text
     edit('undo')
     assert edit('undo')['text'] == original, 'Hierarchy fixture left an extra source history record'
+    state = read('forge_ui_source_read')
+
+    property_guard = guard()
+    assert read('forge_ui_source_style_read', **property_guard, element=index('p'), name='color') == dict(name='color', value=None)
+    property_args = arguments(**property_guard, element=index('p'), name='color', value='#77bdf7')
+    property_once = client.tool('forge_ui_source_style', **property_args)
+    property_replay = client.tool('forge_ui_source_style', **property_args)
+    assert property_once['ok'] and property_replay['ok'] and property_once['result'] == property_replay['result']
+    styled = read('forge_ui_source_read')
+    styled_text = original.replace('id="caption"', 'id="caption" style="color:#77bdf7;"', 1)
+    assert styled['text'] == styled_text and styled['selection'] == [index('p')]
+    assert read('forge_ui_source_style_read', **guard(), element=index('p'), name='color') == dict(name='color', value='#77bdf7')
+    assert read('forge_ui_source_read') == styled, 'Property inspection changed source/selection/history'
+    read_schema = advertised['forge_ui_source_style_read']['inputSchema']['properties']
+    stale_property_read = {key: value for key, value in property_args.items() if key in read_schema}
+    failed(client.tool('forge_ui_source_style_read', **stale_property_read), 'stale_ui_source')
+    failed(mutate('forge_ui_source_style', **property_guard, element=index('p'),
+                  name='color', value='red'), 'stale_ui_source')
+    edit('style', element=index('p'), name='color', value='#77bdf7')
+    assert read('forge_ui_source_read') == styled, 'Exact style no-op changed source/history'
+    for name, value in (('color', 'red;opacity:0'), ('font-size', '257px'),
+                        ('Color', 'red'), ('color', ''), ('font-family', '"Lato"')):
+        assert not mutate('forge_ui_source_style', **guard(), element=index('p'), name=name, value=value)['ok']
+        assert read('forge_ui_source_read') == styled, 'Rejected style property partially changed source'
+    removed = edit('style', element=index('p'), name='color', value=None)
+    assert removed['text'] == styled_text.replace('style="color:#77bdf7;"', 'style=""', 1)
+    assert edit('undo')['text'] == styled_text, 'Inline removal needed more than one Undo'
+    assert edit('undo')['text'] == original, 'Inline set/no-op needed more than one Undo'
     state = read('forge_ui_source_read')
 
     saved = read('forge_source_text_read', path=path)

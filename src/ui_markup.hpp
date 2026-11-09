@@ -27,7 +27,7 @@ struct UiMarkupElement {
 };
 struct UiStyleDeclaration {
     std::string name;
-    UiSourceRange value;
+    UiSourceRange value, source;
 };
 // Uses the runtime resource validator's grammar and bounds. No DOM serialization.
 std::vector<UiMarkupElement> inspect_ui_markup(std::string_view);

@@ -203,7 +203,9 @@ void layout_edits() {
     const auto declarations = forge::inspect_ui_style(style);
     check(declarations.size() == 2 && declarations[0].name == "custom-2" &&
               slice(style, declarations[0].value) == " 'quoted;:}'" &&
-              slice(style, declarations[1].value) == " calc(1px + 2px)",
+              slice(style, declarations[1].value) == " calc(1px + 2px)" &&
+              slice(style, declarations[0].source) == "custom-2: 'quoted;:}';" &&
+              slice(style, declarations[1].source) == "left: calc(1px + 2px);",
           "Inline ranges split quoted delimiters, functions or property digits");
 }
 void layout_group_edits() {
@@ -481,6 +483,86 @@ void hierarchy_moves() {
     const std::array moving{find(deep, "button")};
     rejects([&] { forge::reparent_ui_markup_elements(deep, moving, find(deep, "div")); });
 }
+void inline_properties() {
+    const std::string source =
+        "<!-- retained -->\n<rml><body data-model='demo'><button id='x' data-event-click='go' "
+        "style=\" /* lead */ color : red ; /* between */width: calc(10px + 2px);\">"
+        "Go</button></body></rml>\n";
+    const auto index = find(source, "button");
+    const auto nodes = forge::inspect_ui_markup(source);
+    check(forge::read_ui_markup_style(source, nodes, index, "color") == "red" &&
+              !forge::read_ui_markup_style(source, nodes, index, "height"),
+          "Inline property reading confused authored/default values or whitespace");
+    auto expected = source;
+    expected.replace(expected.find(" red "), 5, " #123456 ");
+    check(forge::set_ui_markup_style(source, index, "color", "#123456") == expected,
+          "Property replacement damaged unrelated CSS, bindings, IDs or comments");
+    check(forge::set_ui_markup_style(source, index, "color", "red") == source,
+          "An identical inline value changed source formatting");
+    expected = source;
+    expected.insert(expected.find("\">Go"), "height:20px;");
+    check(forge::set_ui_markup_style(source, index, "height", "20px") == expected,
+          "Adding a property rewrote the old declarations or lost its separator");
+    expected = source;
+    expected.erase(expected.find("color : red ;"), std::string_view("color : red ;").size());
+    check(forge::set_ui_markup_style(source, index, "color", {}) == expected &&
+              forge::set_ui_markup_style(source, index, "height", {}) == source,
+          "Property removal damaged surrounding source or changed a missing override");
+    const std::string no_style = "<rml><body><p>Text</p></body></rml>";
+    check(forge::set_ui_markup_style(no_style, find(no_style, "p"), "color", "red") ==
+              "<rml><body><p style=\"color:red;\">Text</p></body></rml>",
+          "An anonymous widget did not receive one quoted inline declaration");
+    check(forge::set_ui_markup_style(no_style, find(no_style, "p"), "font-family", "\"Lato\"") ==
+              "<rml><body><p style='font-family:\"Lato\";'>Text</p></body></rml>",
+          "New style attributes did not choose an unambiguous quote form");
+    const std::string void_node = "<rml><body><input id=x/></body></rml>";
+    check(forge::set_ui_markup_style(void_node, find(void_node, "input"), "width", "20px") ==
+              "<rml><body><input id=x style=\"width:20px;\"/></body></rml>",
+          "Adding an inline style damaged a void tag or unquoted unrelated ID");
+    const std::string unterminated =
+        "<rml><body><p style='width:10px /* tail */'>Text</p></body></rml>";
+    check(forge::set_ui_markup_style(unterminated, find(unterminated, "p"), "height", "20px") ==
+              "<rml><body><p style='width:10px /* tail */;height:20px;'>Text</p></body></rml>",
+          "An unterminated existing declaration swallowed a new property");
+    const std::string comment_only = "<rml><body><p style='/* keep */ '>Text</p></body></rml>";
+    check(forge::set_ui_markup_style(comment_only, find(comment_only, "p"), "color", "red") ==
+              "<rml><body><p style='/* keep */ color:red;'>Text</p></body></rml>",
+          "Appending to comment-only style lost its comments");
+    const std::string only = "<rml><body><p style='color:red'>Text</p></body></rml>";
+    check(forge::set_ui_markup_style(only, find(only, "p"), "color", {}) ==
+              "<rml><body><p style=''>Text</p></body></rml>",
+          "Removing an unterminated sole declaration removed unrelated attribute bytes");
+    for (const auto* value :
+         {"red; width:4px", "red;", "", "   ", "{{color}}", "a&b", "a<b", "rgb(1,2", "999999999px"})
+        rejects([&] { forge::set_ui_markup_style(source, index, "color", value); });
+    rejects([&] { forge::set_ui_markup_style(source, index, "color", std::string(1, '\0')); });
+    rejects([&] { forge::set_ui_markup_style(source, index, "color", std::string(8193, 'a')); });
+    rejects([&] { forge::set_ui_markup_style(source, index, "font-size", "257px"); });
+    rejects([&] { forge::set_ui_markup_style(source, index, "font-family", "\"Lato\""); });
+    for (const auto* property : {"", "Color", "9color", "bad name"})
+        rejects([&] { forge::set_ui_markup_style(source, index, property, "red"); });
+    rejects([&] { forge::set_ui_markup_style(source, index, std::string(65, 'a'), "red"); });
+    rejects([&] { forge::set_ui_markup_style(source, find(source, "body"), "color", "red"); });
+    rejects([&] {
+        forge::set_ui_markup_style(source, std::numeric_limits<std::size_t>::max(), "color", "red");
+    });
+    for (const auto* markup :
+         {"<rml><body><p style=color:red;>Text</p></body></rml>",
+          "<rml><body><p style='co lor:red;'>Text</p></body></rml>",
+          "<rml><body><p style='color:r&#101;d;'>Text</p></body></rml>",
+          "<rml><body><p style='color:red;' style='color:blue;'>Text</p></body></rml>",
+          "<rml><body><p style='color:red;COLOR:blue;'>Text</p></body></rml>"}) {
+        const std::string text(markup);
+        rejects([&] { forge::set_ui_markup_style(text, find(text, "p"), "color", "green"); });
+    }
+    const std::string tag_limit =
+        "<rml><body><p data-note='" + std::string(8100, 'x') + "'>Text</p></body></rml>";
+    forge::validate_ui_text(tag_limit, true);
+    rejects([&] {
+        forge::set_ui_markup_style(tag_limit, find(tag_limit, "p"), "font-family",
+                                   "'" + std::string(200, 'x') + "'");
+    });
+}
 } // namespace
 int main() {
     try {
@@ -493,6 +575,7 @@ int main() {
         group_removals();
         subtree_duplication();
         hierarchy_moves();
+        inline_properties();
         std::cout << "Source-preserving outline/attributes and shared validator errors passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

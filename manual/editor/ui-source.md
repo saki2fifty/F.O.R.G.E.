@@ -33,7 +33,8 @@ Select a widget in the source outline to change its attributes, text or position
 
 Each successful operation is one source Undo step. The outline is derived again
 after an edit; most operations clear the selection. Duplication selects the new
-root. Select an element again after Undo or Redo.
+root, and inline style edits keep the edited element selected. Select an element
+again after Undo or Redo.
 Element positions describe the current source, rather than permanent widget IDs.
 Use an `id` attribute to name a widget for styles and bindings.
 
@@ -42,6 +43,33 @@ bindings keep their source meaning: `Tick {{tick}}` displays the runtime counter
 Use **Source** to write child markup, resource declarations or other RML syntax.
 The Elements controls protect document structure and style/resource declarations.
 Use **Preview** for native rendering and the supported pixel layout controls.
+
+## Edit an inline style property
+
+1. Select one widget in **Elements** and expand **Inline style**.
+2. Choose a property from **Common**, or enter its **Property** name, such as `color`, `width` or `font-size`.
+3. Choose **Read inline** to load its authored value. If the property is absent, the field is blank. It does not show the computed value from stylesheets or inheritance.
+4. Enter a **CSS value**, such as `#77bdf7`, `24px` or `50%`, and choose **Set property**. The same widget stays selected for your next property edit.
+5. To remove that declaration, choose **Remove property**. Stylesheets, inheritance and bindings then determine its appearance.
+6. Each source change is one **Undo** step. Open **Preview** to check native styling, then **Save source** and use Play to check gameplay bindings.
+
+![Inline style controls with an authored color value and property set/remove buttons](../images/ui-source-inline-style.png)
+
+The selected paragraph has a `color` override. These fields edit authored source,
+not a computed runtime value. Existing model/event bindings remain intact and can
+override the authored value during Play. Other declarations and surrounding
+comments keep their original bytes. Removing the only declaration keeps the
+`style` attribute and any surrounding comments. An identical value or absent-property removal
+creates no source Undo step.
+
+Use a lowercase property name beginning with a letter, up to 64 letters, digits,
+`_` or `-`. Values are limited to 8,192 UTF-8 bytes and the whole opening tag must
+still fit its source limit. Use one quoted inline style with plain property names.
+Duplicate matching declarations, entity-encoded styles, extra declarations in a
+value, markup and conflicts with the attribute's quote character use **Source**.
+For example, use CSS single quotes inside a double-quoted attribute. Source
+admission checks structure and resource limits; Preview and Play check native
+CSS behavior. These controls do not provide a complete theme or responsive designer.
 
 ## Duplicate a static control
 
@@ -101,6 +129,16 @@ If the resulting source is identical, its revision and history stay unchanged.
 Hierarchy editing does not require the pixel-canvas layout subset and
 does not change the Scene hierarchy.
 
+You can also drag a selected row onto a container in the Elements outline.
+Dragging a selected group member carries the whole group. A click on an unselected
+row selects it alone; **Ctrl** toggles membership. Hold **Shift** while dropping to
+place the selection before that row instead of inside it. The same static-source
+and placement limits apply. Source does not change during hover; one drop creates
+one Undo step. **Escape**, application/window focus loss, a task lock, a source
+change or switching views cancels or invalidates the drag. Finish or cancel a drag
+before Save or source Undo/Redo. The explicit **New parent / Placement** controls
+remain available when you need a precise destination.
+
 ## Preview and adjust layout
 
 For a ready-to-edit example, open **Scenes/211-ui-layout-preview.scene.json** in
@@ -130,8 +168,8 @@ child inside the document's body in Source:
 ```
 
 Give the element an ID used only once. Existing percentages, `dp`, automatic
-sizes and responsive rules remain available in Source. The source-authoring
-example's main panel uses responsive constraints, so edit that panel in Source
+sizes and responsive rules remain available through Inline style or Source. The source-authoring
+example's main panel uses responsive constraints, so edit that panel through those controls
 or create a separate pixel layout element for the canvas.
 
 Move and resize replace the four existing values and retain unrelated source,

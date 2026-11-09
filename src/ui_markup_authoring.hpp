@@ -48,6 +48,11 @@ std::string set_ui_markup_layouts(std::string_view, std::span<const UiMarkupLayo
 // Detached source candidates only. The owning document supplies revision/history.
 std::string set_ui_markup_attribute(std::string_view, std::size_t element, std::string_view name,
                                     std::optional<std::string> value);
+// Literal inline declarations only; null removes the matching property override.
+std::optional<std::string> read_ui_markup_style(std::string_view, std::span<const UiMarkupElement>,
+                                                std::size_t element, std::string_view property);
+std::string set_ui_markup_style(std::string_view, std::size_t element, std::string_view property,
+                                std::optional<std::string> value);
 std::string set_ui_markup_text(std::string_view, std::size_t element, std::string_view literal);
 std::string insert_ui_markup_child(std::string_view, std::size_t parent, std::string_view tag,
                                    std::string_view literal = {},

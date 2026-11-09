@@ -32,8 +32,13 @@ class UiSourceEditor {
     bool dirty_ = false, close_ = false, focus_ = false, text_editable_ = false;
     char attribute_[65] = "id", value_[8193]{}, literal_[8193]{};
     char duplicate_prefix_[65]{};
+    char style_name_[65] = "color", style_value_[8193]{};
+    std::string style_error_;
     std::size_t hierarchy_parent_ = UiMarkupElement::no_parent;
     std::size_t hierarchy_before_ = UiMarkupElement::no_parent;
+    std::uint64_t drag_epoch_ = 0;
+    bool outline_drag_active_ = false, elements_active_ = false;
+    static constexpr const char* source_drag_type = "FORGE_UI_SOURCE";
     int child_kind_ = 0;
     UiSourcePreviewFrame preview_frame_;
     int preview_width_ = 1000, preview_height_ = 700;
@@ -57,6 +62,7 @@ class UiSourceEditor {
 
     void changed() {
         gesture_.reset();
+        outline_drag_active_ = false;
         const auto text = editor_.GetText();
         dirty_ = text != saved_;
         ++revision_;
@@ -79,6 +85,8 @@ class UiSourceEditor {
     }
     void finish_close() {
         gesture_.reset();
+        outline_drag_active_ = elements_active_ = false;
+        ++drag_epoch_;
         preview_frame_ = {};
         if (close_preview)
             close_preview();
@@ -91,6 +99,7 @@ class UiSourceEditor {
         error_.clear();
         outline_error_.clear();
         selected_.clear();
+        style_error_.clear();
         hierarchy_parent_ = hierarchy_before_ = UiMarkupElement::no_parent;
         dirty_ = close_ = false;
         editor_.SetText("");
@@ -194,6 +203,67 @@ class UiSourceEditor {
         ImGui::TextWrapped("Styles and parent-relative positions follow the new container. "
                            "Name containers with IDs to identify them here.");
     }
+    void read_style_controls() {
+        style_error_.clear();
+        style_value_[0] = 0;
+        if (selected_element() >= outline_.size())
+            return;
+        try {
+            const auto value = read_style(selected_element(), style_name_);
+            if (value)
+                std::snprintf(style_value_, sizeof(style_value_), "%s", value->c_str());
+        } catch (const std::exception& error) {
+            style_error_ = error.what();
+        }
+    }
+    void style_controls(bool locked) {
+        const bool open = ImGui::CollapsingHeader("Inline style");
+        FORGE_UI_PROBE("ui-source:style-open");
+        if (!open)
+            return;
+        ImGui::BeginDisabled(locked || !ui_markup_widget_editable(outline_.at(selected_element())));
+        const bool choices = ImGui::BeginCombo("Common", style_name_);
+        FORGE_UI_PROBE("ui-source:style-common");
+        if (choices) {
+            for (const auto* name :
+                 {"color", "background-color", "opacity", "font-size", "font-family", "width",
+                  "height", "padding", "margin", "left", "top", "display", "text-align"}) {
+                if (ImGui::Selectable(name, std::string_view(style_name_) == name)) {
+                    std::snprintf(style_name_, sizeof(style_name_), "%s", name);
+                    read_style_controls();
+                }
+                FORGE_UI_PROBE("ui-source:style-choice:" + std::string(name));
+            }
+            ImGui::EndCombo();
+        }
+        if (ImGui::InputText("Property", style_name_, sizeof(style_name_))) {
+            style_error_.clear();
+            style_value_[0] = 0;
+        }
+        FORGE_UI_PROBE("ui-source:style-name");
+        ImGui::InputTextWithHint("CSS value", "e.g. #77bdf7 or 24px", style_value_,
+                                 sizeof(style_value_));
+        FORGE_UI_PROBE("ui-source:style-value");
+        if (button("Read inline",
+                   "Read the authored value; an empty field means no inline override."))
+            read_style_controls();
+        FORGE_UI_PROBE("ui-source:style-read");
+        if (!style_error_.empty())
+            ImGui::TextWrapped("%s", style_error_.c_str());
+        ImGui::BeginDisabled(!style_error_.empty());
+        if (button("Set property", "Replace only this inline CSS value as one source Undo step."))
+            attempt([&] { style(selected_element(), style_name_, std::string(style_value_)); });
+        FORGE_UI_PROBE("ui-source:style-set");
+        ImGui::SameLine();
+        if (button("Remove property", "Remove this declaration; preserve surrounding source."))
+            attempt([&] { style(selected_element(), style_name_, {}); });
+        FORGE_UI_PROBE("ui-source:style-remove");
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+        ImGui::TextWrapped(
+            "Authored inline CSS. Preview tests native styling; Play tests bindings. "
+            "Other styles and bindings can affect the displayed result.");
+    }
     void selection_controls() {
         const auto index = selected_element();
         if (index == UiMarkupElement::no_parent)
@@ -213,6 +283,7 @@ class UiSourceEditor {
             content = Rml::StringUtilities::DecodeRml(content);
         text_editable_ = text_editable_ && content.size() < sizeof(literal_);
         std::snprintf(literal_, sizeof(literal_), "%s", text_editable_ ? content.c_str() : "");
+        read_style_controls();
     }
     void select(std::size_t index, bool toggle = false) {
         if (index >= outline_.size())
@@ -632,6 +703,28 @@ class UiSourceEditor {
                 });
         }
     }
+    Json drag_observation(const ImGuiPayload& payload) const {
+        if (payload.DataSize < 2 || payload.DataSize > 1024 ||
+            static_cast<const char*>(payload.Data)[payload.DataSize - 1] != 0)
+            throw AuthoringError("stale_ui_source", "Start a new source outline drag");
+        auto request = Json::parse(std::string_view(static_cast<const char*>(payload.Data),
+                                                    std::size_t(payload.DataSize - 1)));
+        if (!request.is_object() || !request.contains("revision") ||
+            !request.at("revision").is_number_unsigned() || !request.contains("epoch") ||
+            !request.at("epoch").is_number_unsigned() ||
+            request.value("session", std::string{}) != session_ ||
+            request.value("revision", std::uint64_t(-1)) != revision_ ||
+            request.value("epoch", std::uint64_t(-1)) != drag_epoch_ ||
+            !request.contains("elements") || !request.at("elements").is_array() ||
+            request.at("elements").empty() ||
+            request.at("elements").size() > ui_source_selection_limit ||
+            !std::ranges::all_of(request.at("elements"), [&](const auto& index) {
+                return index.is_number_unsigned() &&
+                       index.template get<std::uint64_t>() < outline_.size();
+            }))
+            throw AuthoringError("stale_ui_source", "Source changed; start a new outline drag");
+        return request;
+    }
     void element_controls(bool locked) {
         if (locator_.extension() != ".rml") {
             ImGui::TextWrapped("Edit stylesheet rules in the Source tab.");
@@ -643,6 +736,7 @@ class UiSourceEditor {
             return;
         }
         const auto snapshot = editor_.GetText();
+        std::optional<Json> dropped;
         const auto draw_node = [&](auto&& self, std::size_t& cursor) -> void {
             const auto index = cursor++;
             const auto& node = outline_[index];
@@ -658,8 +752,52 @@ class UiSourceEditor {
             const bool open =
                 ImGui::TreeNodeEx(reinterpret_cast<void*>(index + 1), flags, "%s", label.c_str());
             FORGE_UI_PROBE("ui-source:element:" + std::to_string(index));
-            if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+            if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen() &&
+                (ImGui::GetIO().KeyCtrl || selected_.size() <= 1 ||
+                 std::ranges::find(selected_, index) == selected_.end()))
                 attempt([&] { select(index, ImGui::GetIO().KeyCtrl); });
+            if (!locked && !selected_.empty() &&
+                std::ranges::find(selected_, index) != selected_.end() &&
+                ui_markup_widget_editable(node) &&
+                std::ranges::all_of(
+                    selected_, [&](auto i) { return ui_markup_widget_editable(outline_.at(i)); }) &&
+                ImGui::BeginDragDropSource()) {
+                const auto payload = Json{
+                    {"session", session_},
+                    {"revision", revision_},
+                    {"epoch", drag_epoch_},
+                    {"elements",
+                     selected_}}.dump();
+                ImGui::SetDragDropPayload(source_drag_type, payload.c_str(), payload.size() + 1,
+                                          ImGuiCond_Once);
+                ImGui::TextUnformatted("Move static source selection");
+                ImGui::TextUnformatted("Drop into a container; hold Shift to place before a row.");
+                ImGui::EndDragDropSource();
+            }
+            const bool before = ImGui::GetIO().KeyShift;
+            const auto parent = before ? node.parent : index;
+            const bool container =
+                parent < outline_.size() && !outline_[parent].self_closing &&
+                (outline_[parent].tag == "body" || ui_markup_widget_editable(outline_[parent]));
+            if (!locked && container && ImGui::BeginDragDropTarget()) {
+                if (const auto* payload = ImGui::AcceptDragDropPayload(
+                        source_drag_type, ImGuiDragDropFlags_AcceptBeforeDelivery)) {
+                    try {
+                        auto request = drag_observation(*payload);
+                        ImGui::SetTooltip("%s %s", before ? "Place before" : "Move into",
+                                          label.c_str());
+                        if (payload->IsDelivery()) {
+                            request["parent"] = parent;
+                            if (before)
+                                request["before"] = index;
+                            dropped = std::move(request);
+                        }
+                    } catch (const std::exception& error) {
+                        ImGui::SetTooltip("%s", error.what());
+                    }
+                }
+                ImGui::EndDragDropTarget();
+            }
             if (open) {
                 while (cursor < outline_.size() && outline_[cursor].source.begin < node.source.end)
                     self(self, cursor);
@@ -674,6 +812,19 @@ class UiSourceEditor {
                 draw_node(draw_node, cursor);
                 i = cursor - 1;
             }
+        if (dropped) {
+            // Commit after traversal; rebuilding the outline invalidates row references.
+            outline_drag_active_ = false;
+            ++drag_epoch_;
+            attempt([&] {
+                reparent(dropped->at("elements").get<std::vector<std::size_t>>(),
+                         dropped->at("parent").get<std::size_t>(),
+                         dropped->contains("before")
+                             ? std::optional(dropped->at("before").get<std::size_t>())
+                             : std::nullopt);
+            });
+            return;
+        }
         if (selected_element() >= outline_.size()) {
             ImGui::TextWrapped("Select a container or widget to edit its source.");
             return;
@@ -693,6 +844,9 @@ class UiSourceEditor {
                                "attributes or children.");
             return;
         }
+        style_controls(locked);
+        if (selected_element() >= outline_.size())
+            return;
         // Snapshot affordances before an edit can rebuild the derived outline.
         const auto index = selected_element();
         const auto& node = outline_[index];
@@ -786,9 +940,9 @@ class UiSourceEditor {
     bool close_pending() const { return close_; }
     const std::filesystem::path& project() const { return root_; }
     bool owns_keyboard() const { return is_open() && source_widget_owns_keyboard("###UI Source"); }
-    bool gesture_active() const { return gesture_.has_value(); }
-    bool can_undo() const { return is_open() && !gesture_ && editor_.CanUndo(); }
-    bool can_redo() const { return is_open() && !gesture_ && editor_.CanRedo(); }
+    bool gesture_active() const { return gesture_.has_value() || outline_drag_active_; }
+    bool can_undo() const { return is_open() && !gesture_active() && editor_.CanUndo(); }
+    bool can_redo() const { return is_open() && !gesture_active() && editor_.CanRedo(); }
     WorkspaceDocument workspace_document(SceneDocument& project, EditorUiContext& context,
                                          std::function<bool()> locked) {
         return {"ui_source",
@@ -875,8 +1029,8 @@ class UiSourceEditor {
                  std::uint64_t preview_revision) {
         if (changes.empty() || changes.size() > ui_source_selection_limit)
             throw AuthoringError("layout_selection", "Choose1..32 elements for a layout edit");
-        if (gesture_)
-            throw AuthoringError("source_busy", "Finish or cancel the canvas gesture first");
+        if (gesture_active())
+            throw AuthoringError("source_busy", "Finish or cancel the source gesture first");
         // Reborrow the live owner: Play, project or presenter retirement can
         // invalidate a preview even when its source text has not changed.
         if (preview_current())
@@ -972,6 +1126,15 @@ class UiSourceEditor {
     void attribute(std::size_t index, std::string_view name, std::optional<std::string> value) {
         replace_text(set_ui_markup_attribute(editor_.GetText(), index, name, std::move(value)));
     }
+    std::optional<std::string> read_style(std::size_t index, std::string_view property) const {
+        return read_ui_markup_style(editor_.GetText(), outline_, index, property);
+    }
+    void style(std::size_t index, std::string_view property, std::optional<std::string> value) {
+        const auto before = revision_;
+        replace_text(set_ui_markup_style(editor_.GetText(), index, property, std::move(value)));
+        if (revision_ != before)
+            select(index); // Inline declarations cannot change the source element ordering.
+    }
     void text(std::size_t index, std::string_view literal) {
         replace_text(set_ui_markup_text(editor_.GetText(), index, literal));
     }
@@ -1016,9 +1179,9 @@ class UiSourceEditor {
     }
     void save(SceneDocument& project) {
         check_project(project);
-        if (gesture_)
+        if (gesture_active())
             throw AuthoringError("source_busy",
-                                 "Finish or cancel the canvas gesture before saving");
+                                 "Finish or cancel the source gesture before saving");
         if (!dirty_)
             return;
         const auto file = ProjectTextSource::path(root_, locator_);
@@ -1088,6 +1251,14 @@ class UiSourceEditor {
         }
         bool visible = true;
         const bool contents = ImGui::Begin("UI Source###UI Source", &visible);
+        const bool focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+                             !ImGui::GetIO().AppFocusLost;
+        if (locked || close_ || !contents || !focused ||
+            ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+            ++drag_epoch_;
+            outline_drag_active_ = false;
+        }
+        bool elements_visible = false;
         const bool save_key = !locked && !gesture_ && save_shortcut && save_shortcut() &&
                               ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
         if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
@@ -1137,6 +1308,7 @@ class UiSourceEditor {
                 const bool elements_tab = ImGui::BeginTabItem("Elements");
                 FORGE_UI_PROBE("ui-source:elements-tab");
                 if (elements_tab) {
+                    elements_visible = true;
                     gesture_.reset();
                     element_controls(locked);
                     ImGui::EndTabItem();
@@ -1149,9 +1321,23 @@ class UiSourceEditor {
                 }
                 ImGui::EndTabBar();
             }
-            if (save_key && !gesture_)
+            if (save_key && !gesture_active())
                 attempt([&] { save(project); });
         }
+        if (elements_active_ && !elements_visible)
+            ++drag_epoch_;
+        elements_active_ = elements_visible;
+        outline_drag_active_ = false;
+        if (elements_visible && !locked && focused && !close_)
+            if (const auto* payload = ImGui::GetDragDropPayload();
+                payload && payload->IsDataType(source_drag_type)) {
+                try {
+                    (void)drag_observation(*payload);
+                    outline_drag_active_ = true;
+                } catch (const std::exception&) {
+                    // An invalidated native payload cannot authorize a source operation.
+                }
+            }
         if (close_)
             ImGui::OpenPopup("Save UI source?");
         if (ImGui::BeginPopupModal("Save UI source?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {

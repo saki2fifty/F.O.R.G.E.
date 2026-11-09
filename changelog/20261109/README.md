@@ -1,5 +1,21 @@
 # 2026-11-09
 
+## Inline UI styles and outline drag/drop
+
+Elements adds authored inline CSS property read/set/remove with common-property
+choices, source-preserving declaration edits, one Undo and retained edited
+selection. Shared optional CSS ranges also serve pixel layout; quotes, ambiguous
+forms, injection and complete-source budgets validate before source publication.
+Bindings keep their source semantics and can replace authored values during Play.
+
+Native outline dragging reuses bounded static reparenting, including groups and
+Shift-before placement. Immutable source/interaction guards, cancellation and
+post-traversal commit preserve source/history ownership. Matching property write
+and read-only automation/MCP access use the same reader/transaction; source tools
+now total21. Native controls, both envelopes, source-hidden native styling and the
+illustrated manual cover the workflow. Gallery/SDK/pins/profiles remain unchanged;
+Windows/full-editor/physical review remains queued.
+
 ## Static UI source hierarchy editing
 
 UI Source Elements adds Move to container with destination and before-child/end

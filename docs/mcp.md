@@ -1099,7 +1099,7 @@ including a clean open file. Use its native document operations or close it firs
 
 ### Native UI source documents
 
-`forge_ui_source_read/open/replace/attribute/text/insert/duplicate/reparent/remove/remove_group/move/save/undo/redo/reload/close`
+`forge_ui_source_read/open/replace/attribute/style/style_read/text/insert/duplicate/reparent/remove/remove_group/move/save/undo/redo/reload/close`
 borrow the actual UiSourceEditor. Read returns copied text, path, transient
 session, revision, content `state` digest, disk baseline, dirty/history status and
 derived element ranges. RCSS has no outline; incomplete RML reports
@@ -1138,6 +1138,33 @@ source/nesting admission. CSS/coordinates follow their new parent without rewrit
 It uses source guards, assets.write, ordinary mutation receipts and one TextEditor
 replacement; no preview observation is required. A source change clears selection;
 an exact no-op changes no source revision or history. Save stays separate.
+
+`forge_ui_source_style` takes current source guards, `element`, lowercase `name`
+and string-or-null `value`. Null removes the matching declaration; set edits only
+its value or appends a missing property/style attribute. One quoted non-entity
+inline style, a plain literal name and at most one matching declaration are
+required. New values fit8192UTF-8bytes, contain one complete CSS value and cannot
+inject attributes/extra declarations; existing attribute quote conflicts use
+Source. Names fit64ASCIIletters/digits/_/-, starting with a lowercase letter.
+The existing optional CSS collector owns full declaration/value ranges; unrelated
+source/comments/bindings remain unchanged. Full candidate/opening-tag budgets
+validate before one TextEditor replacement. A source change reselects the same
+element (ordering cannot change); exact no-ops retain revision/history/selection.
+This authors CSS defaults, not native computed styling or Scene UiValues models.
+Bindings can replace the value in Play. Save/registration remain explicit.
+
+`forge_ui_source_style_read` uses assets.read, source guards, `element` and `name`.
+It calls the editor's same property reader and returns `{name,value}`; null means
+no matching inline declaration. Read does not initialize native presentation,
+evaluate bindings, select a widget, mutate source/history or publish metadata.
+Unsupported/ambiguous inline forms reject through the shared source profile.
+
+Native outline drop maps to the existing guarded reparent operation; agents use
+that same capability directly. Source session/revision plus a transient UI epoch
+scope the bounded native payload. Hover writes no source; drop publication waits
+until tree traversal finishes. View/focus/lock/source/close cancellation prevents
+stale delivery, and shared source-gesture locks cover Save/history/programmatic
+mutations. No agent-only drag implementation or persistent source identity exists.
 
 `forge_ui_source_preview` borrows that draft while Play is stopped. It needs
 `assets.read`, current `path/session/revision/state` guards, `width` and `height`

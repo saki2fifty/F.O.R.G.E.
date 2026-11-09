@@ -58,6 +58,26 @@ this transaction/history; source selection clears on change, while exact no-ops
 retain revision/history. No Scene hierarchy, source identity database, protocol,
 resource owner or SDK layout is introduced.
 
+Inline property set/remove reuses the existing optional CSS declaration collector,
+now including whole declaration ranges through an optional semicolon. Runtime
+no-collector admission retains its grammar and allocation behavior. Plain quoted
+inline-style extraction/property lookup is shared with pixel layout. Property
+edits preserve unrelated bytes; names, one complete literal value, quotes/entities,
+matching duplicate declarations and the complete candidate are checked before one
+source replacement. Model/event bindings remain authored and may replace the base
+value in Play. Scene UiValues remains a separate owner of model numbers. Native
+Inline style and ui.source.style share this transaction; changed declarations keep
+the edited index selected, while exact no-ops retain source revision/history.
+
+Elements drag/drop borrows the same static reparent transaction. A bounded native
+text payload snapshots source session/revision, an interaction epoch and at most32
+indices once. View/focus/lock/close/source changes cannot refresh a stale payload.
+Shift chooses before-row placement. Native targets defer publication until after
+outline traversal so source replacement cannot invalidate active row references.
+Pending native drags share existing Save/history/programmatic source gesture locks;
+hover performs no source mutation or whole-candidate rebuild. Selection/history
+ownership remains in the source document; there is no new persistent drag protocol.
+
 Text/attribute editing calls the pinned `Rml::StringUtilities::EncodeRml` API.
 Markup escapes do not suppress `{{model}}` bindings or attribute expressions;
 those retain ordinary RML source meaning. Leaf text containing child markup or
