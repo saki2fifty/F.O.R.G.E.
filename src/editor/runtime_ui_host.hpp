@@ -91,7 +91,8 @@ class RuntimeUiHost {
         presenter_ = std::make_unique<UiPresenter>(
             renderer_->render_interface(), project_,
             asset_detail::read_bytes(font_, 4 * 1024 * 1024), std::move(platform), &ime_,
-            settings.contains("game") && ui_text_shaping_enabled(settings.at("game")));
+            settings.contains("game") && ui_text_shaping_enabled(settings.at("game")),
+            settings.contains("game") && ui_grapheme_editing_enabled(settings.at("game")));
         presenter_time_ = recording_origin_ = 0;
         recording_launch_.clear();
         if (surface_callbacks_.pick)

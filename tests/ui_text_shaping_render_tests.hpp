@@ -54,7 +54,8 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
             Scene scene(engine.world());
             scene.restore_snapshot(source);
             auto ui = std::static_pointer_cast<UiRuntime>(engine.services().ui());
-            UiPresenter presenter(renderer.render_interface(), project, font, {}, nullptr, shaping);
+            UiPresenter presenter(renderer.render_interface(), project, font, {}, nullptr, shaping,
+                                  ui_grapheme_editing_enabled(settings.at("game")));
             presenter.reset("shape-pixels", 1);
             const bool accepted =
                 presenter.accept(ui->snapshot(scene, "shape-pixels", 1, 41, true));
@@ -98,7 +99,8 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
     }
     const std::array roots{source.at("asset_id").get<AssetId>()};
     RuntimeUiInspector inspector = [&](AssetId id, std::stop_token) {
-        UiPresenter presenter(renderer.render_interface(), root, font, {}, nullptr, true);
+        UiPresenter presenter(renderer.render_interface(), root, font, {}, nullptr, true,
+                              ui_grapheme_editing_enabled(settings.at("game")));
         return presenter.inspect_static({id});
     };
     package_runtime_content(root, scratch / "export", roots, {"windows", "d3d12"}, {}, {}, {},

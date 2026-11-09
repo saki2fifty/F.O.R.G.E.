@@ -91,6 +91,13 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                 "Custom audio routing requires the runtime kit packaged with this editor");
     };
     if (project && project->contains("game")) {
+        if (ui_grapheme_editing_enabled(project->at("game"))) {
+            const auto support = engine.find("runtime_ui_grapheme_editing");
+            require(
+                support != engine.end() && support->is_number_integer() &&
+                    *support == ui_grapheme_editing_profile_version,
+                "UI whole-character editing requires the runtime kit packaged with this editor");
+        }
         if (ui_text_shaping_enabled(project->at("game"))) {
             const auto support = engine.find("runtime_ui_text_shaping");
             require(support != engine.end() && support->is_number_integer() &&

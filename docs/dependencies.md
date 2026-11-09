@@ -22,6 +22,7 @@ Official SDKs were reviewed; none is C++, and no SDK/reference code is included.
 | RmlUi | 6.3 / `ba95ffe8bfb6370efb2cdcca927eaad4710c5413` | Screen-space game documents, bindings and input; private Diligent adapter | [Official release](https://github.com/mikke89/RmlUi/releases/tag/6.3) |
 | FreeType | 2.14.3 / `0a0221a1347e2f1e07c395263540026e9a0aa7c7` | Pinned RmlUi font backend, FTL license option | [Official source](https://github.com/freetype/freetype/tree/0a0221a1347e2f1e07c395263540026e9a0aa7c7) |
 | HarfBuzz | 15.1.0 / `3df40d9b98d6b32f0e4288d4ecfbb158ddb3a372` | Private opt-in horizontal UI glyph-run shaping; static OpenType backend | [Official release](https://github.com/harfbuzz/harfbuzz/releases/tag/15.1.0) |
+| utf8proc | 2.12.0 / `79cdd5ab40c79afa559f689ffc13b76812dee1ac` | Private Unicode18.0.0 extended-grapheme boundaries for optional native UI editing | [Official release](https://github.com/JuliaStrings/utf8proc/releases/tag/v2.12.0) |
 | Recast Navigation | v1.6.0 / `6dc1667f580357e8a2154c28b7867bea7e8ad3a7` | Static/tiled generation, private Detour queries, obstacle tile updates and local velocity sampling | [Official source](https://github.com/recastnavigation/recastnavigation/tree/v1.6.0) |
 | Ozz Animation | v0.17.0 / `744eb9d99f606eda849acb0b1204f7a3dc20bca1` | Private skeletal sampling/local blending/local-to-model, validated runtime archives, official gltf2ozz conversion and offline clip building | [Official source](https://github.com/guillaumeblanc/ozz-animation/tree/744eb9d99f606eda849acb0b1204f7a3dc20bca1) |
 | miniaudio | v0.11.25 / `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` | WAV/FLAC/MP3 decoding, engine/group mixing, spatialization, WASAPI/PulseAudio/ALSA, offline tests | [Official source](https://github.com/mackron/miniaudio/tree/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d) |
@@ -199,6 +200,30 @@ ownership and notices and are not authored examples. The packaged Cairo font is
 unchanged data from the pinned RmlUi distribution, licensed under SIL OFL 1.1;
 `resources/ui/LICENSE-Cairo.txt` travels with runtime resources. No sample backend
 implementation is copied or adapted. The installed native SDK ABI is unchanged.
+
+### Optional native input boundaries — selected 2026-11-09
+
+Official stable utf8proc2.12.0 was published2026-09-25. The lightweight release tag
+resolves to `79cdd5ab40c79afa559f689ffc13b76812dee1ac`; the public API/data report
+Unicode18.0.0. Matching UAX29 is revision49. The private static C target uses
+`utf8proc::utf8proc` and its exported static-library define. Tests/install are
+explicitly disabled, including upstream implicit Unicode-data downloads. No
+existing dependency pin changes. Headless runtime, catalogs, packaging and the
+installed gameplay SDK acquire no native Unicode dependency.
+
+FORGE calls the public stateful extended-grapheme function on every adjacent
+scalar pair in order from zero state, through its original bounded UTF-8 helper.
+The exact header, implementation/data, CMake, notice and matching tests were
+verified against immutable source blobs. All853official Unicode18 cases pass
+through the actual FORGE helper; an unchanged matching upstream selected test
+also passes. This is not a full upstream suite or Windows input acceptance.
+[Native UI text input](ui-text-input.md) records bounds, ownership and compatibility.
+
+Preserve the complete `LICENSE.md`: current MIT, original MIT and the embedded
+Unicode data notice. Runtime-kit and editor-package collectors include it. The
+unaltered official test corpus is accompanied by its separate UnicodeLicenseV3
+notice and SHA256 provenance. Grapheme boundaries are independent of font shaping
+clusters, and the library does not provide a second native text field or IME.
 
 Runtime UI pins are verified together in Build260918-000053: Windows/Linux core30/SDK38, actual D3D12 WARP UI rendering, relocated bundled-font rendering and local ASan/UBSan/leak checks. RmlUi and FreeType are instrumented in local sanitizer profiles. No machine-installed font is required.
 

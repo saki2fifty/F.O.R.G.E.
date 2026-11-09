@@ -64,10 +64,12 @@ the renderer accepted an incomplete replacement.
 
 This profile shapes individual horizontal runs. It does not implement paragraph
 bidirectional layout, joining across separate text spans, vertical text,
-grapheme-aware selection/deletion, complete international IME or accessibility,
+complete international IME or accessibility,
 font collections, variable axes, color glyphs or a general typography editor.
 RmlUi still owns wrapping, DOM layout, focus and text input. Font coverage and
 author-selected language/direction affect the result.
+The independent [native input boundary option](ui-text-input.md) supplies bounded
+plain-key grapheme movement/deletion; shaping alone does not provide it.
 
 ## Export and compatibility
 

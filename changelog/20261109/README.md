@@ -23,3 +23,22 @@ documents, styles and fonts and adapt their manual links for the offline edition
 Local native, source-hidden export and software-rendered pixel checks are distinct
 from pending Windows/full-editor, physical and external-client acceptance. No
 numbered Windows package accompanies this source checkpoint.
+
+
+## Optional whole-character native UI editing
+
+Project Settings adds **Edit whole UI characters**, an independent saved boolean
+for bounded plain Left/Right/Backspace/Delete in existing native text/password/
+textarea controls. An original public-interface adapter prepares transient
+Unicode18 extended-grapheme selections while preserving widget values/events,
+disabled/max-length behavior, focus and the SDL composition path. Modified keys,
+full international editing, accessibility and paragraph bidirectional layout
+remain outside scope. Existing dependency pins and the installed gameplay ABI
+are unchanged; exact utf8proc2.12.0 is private to optional UI presentation.
+
+The editor, standalone and inspection worker share the setting; export requires
+matching kit capability. Existing settings/source MCP tools retain their grants,
+digests/history and Save rules. Runtime native field input is explicitly not an
+MCP capability. The existing UiTextShaping example enables both options without
+changing any of its four asset identities. Its illustrated usage guide covers
+plain keys, local text, limits and export. No numbered Windows package is created.

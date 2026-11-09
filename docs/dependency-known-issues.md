@@ -299,3 +299,28 @@ FORGE's independently authored standard-based block decoder in the existing
 isolated image worker; no later Basis HDR API or dependency upgrade is assumed.
 Signed BC4/5 likewise retain their separate FORGE mapping. See
 [BC6 HDR output](texture-assets.md) for typed transport and current limits.
+
+
+## Native UI custom composition commit
+
+At pinned RmlUi6.3 `ba95ffe8bfb6370efb2cdcca927eaad4710c5413`, the public
+TextInputContext::SetText bypasses maximum length as documented. A nonempty
+CommitComposition additionally does not reliably enforce that limit:
+Source/Core/Elements/WidgetTextInput.cpp calculates its replacement length using
+reversed selection subtraction and an incorrect available-length expression.
+An original actual-native test starts with `ab`, maxlength3, replaces preedit
+`cd` at2..4 with `xyz`, and observes `abxy` (four ASCII characters). Both the
+original handler and FORGE's forwarding proxy produce the same result.
+
+The supplied SDL handler uses a different commit sequence: remove preedit,
+clear composition range, commit empty, then deliver the committed text through
+native ProcessTextInput. That actual sequence produces `abx` and retains the
+native restriction, with both font modes and boundary editing enabled/disabled.
+Ordinary FORGE key edits use native key actions, never context SetText.
+
+Preserve the current pin and platform ownership; no upstream patch, suppression
+or claim of complete custom IME support is introduced. A caller implementing a
+custom nonempty-commit backend must treat this native limitation explicitly.
+The independent boundary adapter forwards public context behavior and does not
+silently replace the native text/maximum-length owner. Recheck exact source and
+both native paths when the dependency or platform backend changes.

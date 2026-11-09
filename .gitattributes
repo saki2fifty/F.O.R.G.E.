@@ -8,3 +8,6 @@
 /tests/fixtures/gltf-official/** -text -whitespace
 /tests/fixtures/gltf-official/README.md text !whitespace
 /tests/fixtures/gltf-official/provenance.json text eol=lf !whitespace
+# Preserve the version-matched official Unicode corpus and notice verbatim.
+/tests/fixtures/unicode18/** -text -whitespace
+/tests/fixtures/unicode18/provenance.json text eol=lf !whitespace

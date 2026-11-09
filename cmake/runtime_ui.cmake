@@ -31,19 +31,32 @@ endforeach()
 FetchContent_Declare(harfbuzz GIT_REPOSITORY https://github.com/harfbuzz/harfbuzz.git
  GIT_TAG 3df40d9b98d6b32f0e4288d4ecfbb158ddb3a372) # 15.1.0
 FetchContent_MakeAvailable(harfbuzz)
+set(UTF8PROC_INSTALL OFF CACHE BOOL "Private UI text boundary provider" FORCE)
+set(UTF8PROC_ENABLE_TESTING OFF CACHE BOOL "FORGE uses pinned offline conformance data" FORCE)
+FetchContent_Declare(utf8proc GIT_REPOSITORY https://github.com/JuliaStrings/utf8proc.git
+ GIT_TAG 79cdd5ab40c79afa559f689ffc13b76812dee1ac) # 2.12.0 / Unicode 18.0.0
+FetchContent_MakeAvailable(utf8proc)
 set(BUILD_SHARED_LIBS "${_forge_ui_shared}")
 # Source editing uses pinned Core escaping only in presentation-enabled tooling.
 # Keep catalogs, packaging and headless runtime/model targets free of RmlUi.
 add_library(forge_ui_source_authoring src/ui_markup_authoring.cpp)
 target_link_libraries(forge_ui_source_authoring PUBLIC forge_ui_asset_catalog PRIVATE RmlUi::Core)
-add_library(forge_ui_presenter src/ui_presenter.cpp src/ui_gradient_profile.cpp src/ui_luminance_mask.cpp src/ui_shadow_motion.cpp src/ui_font_shaping.cpp src/ui_shaped_font.cpp)
-target_link_libraries(forge_ui_presenter PUBLIC forge_ui_assets forge_ui_protocol PRIVATE RmlUi::Core forge_asset_bytes Freetype::Freetype harfbuzz)
+add_library(forge_ui_presenter src/ui_presenter.cpp src/ui_gradient_profile.cpp src/ui_luminance_mask.cpp src/ui_shadow_motion.cpp src/ui_font_shaping.cpp src/ui_shaped_font.cpp src/ui_text_boundaries.cpp src/ui_text_input.cpp)
+target_link_libraries(forge_ui_presenter PUBLIC forge_ui_assets forge_ui_protocol PRIVATE RmlUi::Core forge_asset_bytes Freetype::Freetype harfbuzz utf8proc::utf8proc)
 # No SDL/ImGui dependency. The host translates input and supplies a RenderInterface.
 
 add_executable(forge_ui_inspect src/ui_inspection_main.cpp)
 target_link_libraries(forge_ui_inspect PRIVATE forge_ui_presenter forge_core forge_file_storage forge_asset_bytes RmlUi::Core)
 
 if(BUILD_TESTING)
+ add_executable(forge_ui_text_input_tests tests/ui_text_input_tests.cpp)
+ target_include_directories(forge_ui_text_input_tests PRIVATE src)
+ target_link_libraries(forge_ui_text_input_tests PRIVATE forge_ui_presenter forge_asset_bytes RmlUi::Core)
+ add_test(NAME ui_text_input COMMAND forge_ui_text_input_tests "${CMAKE_BINARY_DIR}/ui-text-input-tests" "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf")
+ add_executable(forge_ui_text_boundaries_tests tests/ui_text_boundaries_tests.cpp)
+ target_include_directories(forge_ui_text_boundaries_tests PRIVATE src)
+ target_link_libraries(forge_ui_text_boundaries_tests PRIVATE forge_ui_presenter forge_asset_bytes utf8proc::utf8proc)
+ add_test(NAME ui_text_boundaries COMMAND forge_ui_text_boundaries_tests "${PROJECT_SOURCE_DIR}/tests/fixtures/unicode18/GraphemeBreakTest.txt")
  add_executable(forge_ui_font_shaping_tests tests/ui_font_shaping_tests.cpp)
  target_include_directories(forge_ui_font_shaping_tests PRIVATE src)
  target_link_libraries(forge_ui_font_shaping_tests PRIVATE forge_ui_presenter RmlUi::Core harfbuzz)
@@ -78,6 +91,7 @@ if(BUILD_TESTING)
  add_executable(forge_ui_surface_input_tests tests/ui_surface_input_tests.cpp)
  target_include_directories(forge_ui_surface_input_tests PRIVATE src)
  target_link_libraries(forge_ui_surface_input_tests PRIVATE forge_ui_presenter RmlUi::Core)
+ add_test(NAME ui_surface_grapheme_input COMMAND forge_ui_surface_input_tests "${CMAKE_BINARY_DIR}/ui-surface-grapheme-tests" "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf" --grapheme-editing)
  add_test(NAME ui_surface_input COMMAND forge_ui_surface_input_tests "${CMAKE_BINARY_DIR}/ui-surface-input" "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf")
  set_tests_properties(ui_surface_input PROPERTIES TIMEOUT 120)
 

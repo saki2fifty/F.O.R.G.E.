@@ -32,27 +32,31 @@ void settings() {
                                    {"kind", "digital"},
                                    {"bindings", Json::array({{{"control", "key.space"}}})}}})}});
     const auto defaults = default_game_settings("org.forge.test", "Test game");
-    check(!ui_text_shaping_enabled(defaults) && !defaults.contains("ui"),
-          "Legacy game settings changed the font backend");
-    auto shaped = defaults;
-    shaped["ui"]["text_shaping"] = true;
-    validate_game_settings(shaped);
-    check(ui_text_shaping_enabled(resolve_game_settings(shaped, Json::object(), input)),
-          "Saved UI text shaping did not reach resolved game settings");
-    rejects([&] { resolve_game_settings(shaped, {{"ui", {{"text_shaping", false}}}}, input); });
-    for (const Json& invalid : {Json(), Json(0), Json(1), Json("true"), Json::object()}) {
-        auto candidate = shaped;
-        candidate["ui"]["text_shaping"] = invalid;
-        auto project_candidate = ProjectSettings::defaults("Shaping validation");
-        project_candidate["game"] = candidate;
-        rejects([&] { ProjectSettings::validate(project_candidate); });
-        rejects([&] { validate_game_settings(candidate); });
-        candidate["ui"] = invalid;
-        if (!invalid.is_object())
+    check(!defaults.contains("ui"), "Legacy defaults gained optional UI behavior");
+    for (const auto& [key, enabled] :
+         {std::pair{"text_shaping", &ui_text_shaping_enabled},
+          std::pair{"grapheme_editing", &ui_grapheme_editing_enabled}}) {
+        check(!enabled(defaults), "Legacy game settings enabled an optional UI profile");
+        auto configured = defaults;
+        configured["ui"][key] = true;
+        validate_game_settings(configured);
+        check(enabled(resolve_game_settings(configured, Json::object(), input)),
+              "Saved UI option did not reach resolved game settings");
+        rejects([&] { resolve_game_settings(configured, {{"ui", {{key, false}}}}, input); });
+        for (const Json& invalid : {Json(), Json(0), Json(1), Json("true"), Json::object()}) {
+            auto candidate = configured;
+            candidate["ui"][key] = invalid;
+            auto project_candidate = ProjectSettings::defaults("UI validation");
+            project_candidate["game"] = candidate;
+            rejects([&] { ProjectSettings::validate(project_candidate); });
             rejects([&] { validate_game_settings(candidate); });
+            candidate["ui"] = invalid;
+            if (!invalid.is_object())
+                rejects([&] { validate_game_settings(candidate); });
+        }
+        configured["ui"] = Json::object();
+        check(!enabled(configured), "Empty UI options enabled an optional profile");
     }
-    shaped["ui"] = Json::object();
-    check(!ui_text_shaping_enabled(shaped), "Empty UI options changed the legacy backend");
     const Json user = {{"display", {{"vsync", true}, {"mode", "borderless"}}},
                        {"input",
                         {{"mouse_sensitivity", 2},

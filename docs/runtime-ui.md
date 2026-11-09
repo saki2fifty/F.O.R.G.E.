@@ -143,6 +143,8 @@ fallback, literal accented text and paused controls. This is game UI localizatio
 editor translation, full paragraph bidirectional layout and complete international
 input remain absent. Bounded horizontal shaping is an optional saved project
 setting; see [UI text shaping](ui-text-shaping.md).
+The independent [native input boundary option](ui-text-input.md) covers bounded
+plain-key whole-character movement/deletion in existing fields.
 
 ## Camera output composition
 

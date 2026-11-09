@@ -2249,3 +2249,26 @@ Save and restart Play; a live presenter does not switch font engines. Export
 requires a matching runtime kit when enabled. Fonts and source language/direction
 remain accessible through the existing Content/resource/source operations; there
 is no agent-only shaping or glyph tool. See [UI text shaping](ui-text-shaping.md).
+
+
+## Native UI whole-character editing configuration
+
+Use `forge_project_settings_read`, `forge_project_settings_edit` and
+`forge_project_settings_save` to author `/game/ui/grapheme_editing`, an optional
+boolean with absence/false retaining native editing. Add `/game/ui` first when
+absent. The same settings owner validates the native **Edit whole UI characters**
+checkbox, target/digest, Edit-mode/grant checks, Save and discard. This field is
+project-owned, outside Scene Undo and player preferences. Save and restart Play;
+export requires exact runtime-kit support when enabled.
+
+Existing UI source operations can author input/password/textarea controls and
+their native attributes under the normal source draft/history/baseline rules.
+Plain arrows/Backspace/Delete use the independent boundary adapter in the actual
+presenter; shaping and editing options can be enabled separately. No agent-only
+text field or alternate validation exists. See [native input](ui-text-input.md).
+
+Runtime native field focus, text/key injection and IME are not exposed by current
+MCP tools. `play.input.submit` queues gameplay semantic events, while
+`play.ui.command` queues declared HUD commands. Neither performs native field
+editing. Thus authoring the option/source is agent-accessible; automated native
+field interaction remains an explicit coverage gap.

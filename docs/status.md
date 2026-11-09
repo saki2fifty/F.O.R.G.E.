@@ -16,6 +16,15 @@ bidirectional layout and complete international editing remain outside this
 bounded profile. See [the contract](ui-text-shaping.md) and
 [the guide](../manual/editor/ui-text-shaping.md).
 
+The independent saved **Edit whole UI characters** option uses Unicode18
+extended-grapheme boundaries for plain native text-field arrows and deletion.
+Existing widget values, events, restrictions, focus and platform input remain
+authoritative. Settings/MCP and matching-kit compatibility share their existing
+owners. Modified selection, complete IME, accessibility and paragraph bidi are
+outside this bounded profile. See [the input contract](ui-text-input.md) and
+[the input guide](../manual/editor/ui-text-input.md). Native field input injection
+is not an MCP capability; settings/source access does not imply it.
+
 Local source adds imported mono/stereo impulse processing on custom audio buses.
 Project Settings, Content selection, automation/MCP, existing AudioClip resources,
 shared native bus histories and full export use the same owners. The original

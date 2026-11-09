@@ -738,6 +738,8 @@ export artwork in the orientation and display colors you want.
 
 For supported script joining, ligatures and combining marks, enable the saved
 [Shape UI text](ui-text-shaping.md) project setting and use a suitable project font.
+For whole-character plain arrow movement and deletion in native text fields,
+enable the separate [Edit whole UI characters](ui-text-input.md) setting.
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts using an RCSS `@font-face` declaration, with suitable redistribution rights. Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.
 

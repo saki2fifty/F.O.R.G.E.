@@ -388,29 +388,35 @@ for legacy in (False, True):
             edit_settings('forge_project_settings_game_defaults')
             edit_settings('forge_project_settings_save')
             initial = read('forge_project_settings_read')
-            assert 'text_shaping' in advertised['forge_project_settings_edit']['description']
+            options = ('text_shaping', 'grapheme_editing')
+            for option in options:
+                assert option in advertised['forge_project_settings_edit']['description']
             changed = edit_settings('forge_project_settings_edit', patch=[
-                dict(op='add', path='/game/ui', value=dict(text_shaping=True))])
-            assert changed['draft']['game']['ui']['text_shaping'] is True and changed['dirty']
+                dict(op='add', path='/game/ui', value={option: True for option in options})])
+            assert all(changed['draft']['game']['ui'][option] is True for option in options)
+            assert changed['dirty']
             failed(mutate('forge_project_settings_save', state=initial['state']), 'stale_settings')
-            for invalid in (None, 1, 'true', {}, []):
-                before = read('forge_project_settings_read')
-                rejected = mutate('forge_project_settings_edit', state=before['state'], patch=[
-                    dict(op='replace', path='/game/ui/text_shaping', value=invalid)])
-                assert not rejected['ok'], rejected
-                assert read('forge_project_settings_read')['state'] == before['state']
+            for option in options:
+                for invalid in (None, 1, 'true', {}, []):
+                    before = read('forge_project_settings_read')
+                    rejected = mutate('forge_project_settings_edit', state=before['state'], patch=[
+                        dict(op='replace', path='/game/ui/' + option, value=invalid)])
+                    assert not rejected['ok'], rejected
+                    assert read('forge_project_settings_read')['state'] == before['state']
             edit_settings('forge_project_settings_save')
-            assert json.loads((root/'Game/forge.project.json').read_text())['game']['ui']['text_shaping'] is True
+            saved_ui = json.loads((root/'Game/forge.project.json').read_text())['game']['ui']
+            assert all(saved_ui[option] is True for option in options)
             edit_settings('forge_project_settings_edit', patch=[
-                dict(op='replace', path='/game/ui/text_shaping', value=False)])
+                dict(op='replace', path='/game/ui/' + option, value=False) for option in options])
             edit_settings('forge_project_settings_close', discard=True)
-            assert read('forge_project_settings_read')['draft']['game']['ui']['text_shaping'] is True
+            assert all(read('forge_project_settings_read')['draft']['game']['ui'][option] is True
+                       for option in options)
             assert read('forge_scene_read') == scene_before
             with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
                 readable = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
                 assert 'forge_project_settings_read' in readable
                 assert 'forge_project_settings_edit' not in readable
-            print(('legacy' if legacy else 'current') + ': UI text shaping settings, bool validation, '
+            print(('legacy' if legacy else 'current') + ': UI shaping/editing settings, bool validation, '
                   'stale digest, Save/discard, Scene isolation and grant discovery passed')
             continue
         if UI_SOURCE_ONLY:

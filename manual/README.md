@@ -87,6 +87,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Animate named UI values with a Scene sequence](editor/sequence-ui.md)
 - [Edit UI source, widgets and styles inside FORGE](editor/ui-source.md)
 - [Shape game UI text: ligatures, combining marks and script runs](editor/ui-text-shaping.md)
+- [Edit whole UI characters: arrows, deletion and native input limits](editor/ui-text-input.md)
 - [Translate a game's menus and HUD](editor/ui-localization.md)
 - [Flecs Script](editor/flecs-script.md)
 

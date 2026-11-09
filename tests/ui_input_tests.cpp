@@ -1,6 +1,7 @@
 #include "runtime_ui_host.hpp"
 #include "runtime_ui_input.hpp"
 #include <RmlUi/Core.h>
+#include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -43,14 +44,15 @@ int main(int argc, char** argv) {
         auto root = std::filesystem::path(argv[3]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         std::ofstream(root / "hud.rml")
-            << R"(<rml><head><style>body {font-family:Lato;font-size:18px;pointer-events:none;} input {width:120px;height:40px;pointer-events:auto;} button {width:120px;height:40px;pointer-events:auto;}</style></head><body><input id="field" type="text"/><button id="button">Button</button></body></rml>)";
+            << R"(<rml><head><style>body {font-family:Lato;font-size:18px;pointer-events:none;} input {width:120px;height:40px;pointer-events:auto;} button {width:120px;height:40px;pointer-events:auto;}</style></head><body><input id="field" type="text" maxlength="3"/><button id="button">Button</button></body></rml>)";
         auto asset = register_ui_document(root, "hud.rml");
         std::ifstream f(argv[2], std::ios::binary);
         std::string bytes{std::istreambuf_iterator<char>(f), {}};
         std::vector<std::byte> font(bytes.size());
         std::memcpy(font.data(), bytes.data(), bytes.size());
         Renderer renderer;
-        UiPresenter presenter(renderer, root, std::move(font));
+        TextInputMethodEditor_SDL ime;
+        UiPresenter presenter(renderer, root, std::move(font), {}, &ime, false, true);
         presenter.reset("test", 1);
         auto entity = EntityId::generate();
         check(presenter.accept({{"version", 1},
@@ -94,7 +96,6 @@ int main(int argc, char** argv) {
         game.capture(play);
         RuntimeUiInput input;
         input.bounds({0, 0}, {640, 480}, 640, 480);
-        TextInputMethodEditor_SDL ime;
         auto route = [&](SDL_Event e) {
             if (!input.event(e, presenter, ime, game, play))
                 game.event(e, play);
@@ -127,6 +128,51 @@ int main(int argc, char** argv) {
         auto state = tick();
         check(!state["held"].get<bool>() && state["presses"] == 1,
               "Typing W does not move gameplay");
+        auto* field =
+            rmlui_dynamic_cast<Rml::ElementFormControlInput*>(doc->GetElementById("field"));
+        check(field != nullptr, "Native routed field is missing");
+        SDL_Event text_event{};
+        text_event.type = SDL_EVENT_TEXT_INPUT;
+        text_event.text.text = "a\xcc\x81"
+                               "b";
+        route(text_event);
+        check(field->GetValue() == "a\xcc\x81"
+                                   "b",
+              "SDL text did not reach the native field");
+        const auto plain_key = [&](SDL_Scancode scan, SDL_Keycode code) {
+            SDL_Event value{};
+            value.type = SDL_EVENT_KEY_DOWN;
+            value.key.scancode = scan;
+            value.key.key = code;
+            value.key.down = true;
+            route(value);
+            value.type = SDL_EVENT_KEY_UP;
+            value.key.down = false;
+            route(value);
+        };
+        plain_key(SDL_SCANCODE_HOME, SDLK_HOME);
+        plain_key(SDL_SCANCODE_RIGHT, SDLK_RIGHT);
+        int begin = -1, end = -1;
+        field->GetSelection(&begin, &end, nullptr);
+        check(begin == 2 && end == 2, "SDL arrow split a combining character");
+        plain_key(SDL_SCANCODE_BACKSPACE, SDLK_BACKSPACE);
+        check(field->GetValue() == "b", "SDL Backspace split a combining character");
+        field->SetValue("ab");
+        field->SetSelectionRange(2, 2);
+        SDL_Event preedit{};
+        preedit.type = SDL_EVENT_TEXT_EDITING;
+        preedit.edit.text = "cd";
+        preedit.edit.start = 0;
+        preedit.edit.length = 2;
+        route(preedit);
+        check(field->GetValue() == "abcd", "SDL preedit was not delegated to the native context");
+        preedit.edit.text = "";
+        preedit.edit.length = 0;
+        route(preedit);
+        text_event.text.text = "xyz";
+        route(text_event);
+        check(field->GetValue() == "abx", "Actual SDL composition commit bypassed maximum length");
+        check(!tick()["held"].get<bool>(), "Native character editing leaked into gameplay");
         presenter.release_input();
         e.type = SDL_EVENT_KEY_UP;
         e.key.down = false;

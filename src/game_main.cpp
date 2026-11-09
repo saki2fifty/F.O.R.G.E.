@@ -198,7 +198,9 @@ int main(int argc, char** argv) {
                                      4 * 1024 * 1024),
             std::move(callbacks), &ime,
             project.document().contains("game") &&
-                ui_text_shaping_enabled(project.document().at("game")));
+                ui_text_shaping_enabled(project.document().at("game")),
+            project.document().contains("game") &&
+                ui_grapheme_editing_enabled(project.document().at("game")));
         static constexpr const char* pending_rate = "FPS -- | Frame -- ms | Peak -- ms";
         if (show_fps)
             presentation.ui().frame_statistics(pending_rate);

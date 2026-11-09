@@ -45,22 +45,23 @@ int main(int argc, char** argv) {
         const auto project = scratch / "source", out = scratch / "game";
         audio_routing_package_tests(scratch, check, reject);
         sound_cue_package_tests(scratch, check, reject);
-        {
-            AssetCatalog features(scratch / "ui-text-shaping-compatibility");
-            Json settings{{"game", default_game_settings("org.forge.shaping", "Shaped UI")}};
+        for (const auto& [option, capability, version] :
+             {std::tuple{"text_shaping", "runtime_ui_text_shaping",
+                         ui_text_shaping_profile_version},
+              std::tuple{"grapheme_editing", "runtime_ui_grapheme_editing",
+                         ui_grapheme_editing_profile_version}}) {
+            AssetCatalog features(scratch / (std::string("ui-compatibility-") + option));
+            Json settings{{"game", default_game_settings("org.forge.ui", "UI")}};
             validate_runtime_compatibility(features, Json::object(), &settings);
-            settings["game"]["ui"]["text_shaping"] = false;
+            settings["game"]["ui"][option] = false;
             validate_runtime_compatibility(features, Json::object(), &settings);
-            settings["game"]["ui"]["text_shaping"] = true;
+            settings["game"]["ui"][option] = true;
             reject([&] { validate_runtime_compatibility(features, Json::object(), &settings); });
             for (const Json& invalid : {Json(), Json(true), Json(0), Json(1.), Json("1"), Json(2)})
                 reject([&] {
-                    validate_runtime_compatibility(features, {{"runtime_ui_text_shaping", invalid}},
-                                                   &settings);
+                    validate_runtime_compatibility(features, {{capability, invalid}}, &settings);
                 });
-            validate_runtime_compatibility(
-                features, {{"runtime_ui_text_shaping", ui_text_shaping_profile_version}},
-                &settings);
+            validate_runtime_compatibility(features, {{capability, version}}, &settings);
         }
         {
             AssetCatalog features(scratch / "fbx-compatibility");
@@ -792,11 +793,21 @@ int main(int argc, char** argv) {
             runtime["engine"]["runtime_ui_text_shaping"] = ui_text_shaping_profile_version;
             asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
             (void)export_standalone_game(lease, request);
+            project_settings["game"]["ui"]["grapheme_editing"] = true;
+            ProjectSettings(project).save(project_settings);
+            const auto before_editing = asset_storage::read(exported / "forge.standalone.json");
+            reject([&] { export_standalone_game(lease, request); });
+            check(asset_storage::read(exported / "forge.standalone.json") == before_editing,
+                  "A kit without whole-character editing replaced the last good distribution");
+            runtime["engine"]["runtime_ui_grapheme_editing"] = ui_grapheme_editing_profile_version;
+            asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
+            (void)export_standalone_game(lease, request);
             std::filesystem::copy(exported, shaped_exported,
                                   std::filesystem::copy_options::recursive);
             project_settings["game"].erase("ui");
             ProjectSettings(project).save(project_settings);
             runtime["engine"].erase("runtime_ui_text_shaping");
+            runtime["engine"].erase("runtime_ui_grapheme_editing");
             asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
             (void)export_standalone_game(lease, request);
             check(asset_storage::read(exported / "forge.standalone.json") == first,
@@ -1162,7 +1173,8 @@ int main(int argc, char** argv) {
             shaped_exported, target, "static-core", std::string(64, 'a'));
         const ProjectSettings shaped_settings(shaped_distribution.content,
                                               shaped_distribution.settings);
-        check(ui_text_shaping_enabled(shaped_settings.document().at("game")),
+        check(ui_text_shaping_enabled(shaped_settings.document().at("game")) &&
+                  ui_grapheme_editing_enabled(shaped_settings.document().at("game")),
               "Relocated standalone configuration lost its saved UI font backend");
         auto open = [&] {
             return open_standalone_distribution(out, target, "static-core", std::string(64, 'a'));

@@ -39,7 +39,7 @@ class GalleryPackageTest(unittest.TestCase):
         # An unrecognized extension must survive without another allowlist change.
         self.write(self.gallery/'Assets/next-format.resource', b'\x00\x01\r\n\xff')
         for name in ('flecs', 'json', 'sdl', 'imgui_source', 'cpp_text_editor', 'diligent',
-                     'jolt', 'box2d', 'miniaudio', 'ozz', 'recast', 'rmlui', 'freetype', 'harfbuzz', 'ktx',
+                     'jolt', 'box2d', 'miniaudio', 'ozz', 'recast', 'rmlui', 'freetype', 'harfbuzz', 'utf8proc', 'ktx',
                      'webp', 'meshoptimizer', 'draco', 'ufbx'):
             self.write(self.dependencies/(name+'-src')/'LICENSE.txt', b'Packaging test notice\n')
         metadata = dict(build_id='260101-000001', source_commit='1'*40)
@@ -235,6 +235,8 @@ class GalleryPackageTest(unittest.TestCase):
             self.assertNotIn('Examples/Other/build/local.obj', manifest)
             notice = 'licenses/box2d-src/LICENSE.txt'
             self.assertEqual(archive.read(notice), b'Packaging test notice\n')
+            self.assertEqual(archive.read('licenses/utf8proc-src/LICENSE.txt'),
+                             b'Packaging test notice\n')
             self.assertEqual(manifest[notice], hashlib.sha256(archive.read(notice)).hexdigest())
             image = 'manual/images/scene-editor.png'
             self.assertEqual(archive.read(image), self.manual_image)
@@ -242,6 +244,8 @@ class GalleryPackageTest(unittest.TestCase):
             self.assertIn(b'src="images/scene-editor.png"', archive.read('manual/index.html'))
             notice = 'licenses/ufbx-src/LICENSE.txt'
             self.assertEqual(archive.read(notice), b'Packaging test notice\n')
+            self.assertEqual(archive.read('licenses/utf8proc-src/LICENSE.txt'),
+                             b'Packaging test notice\n')
             self.assertEqual(manifest[notice], hashlib.sha256(archive.read(notice)).hexdigest())
             image = 'manual/images/fbx-import-gallery.png'
             self.assertEqual(archive.read(image), self.fbx_image)
@@ -276,10 +280,14 @@ class GalleryPackageTest(unittest.TestCase):
                 if path.name == 'README.md':
                     content = content.replace(b'](../../../manual/editor/ui-text-shaping.md)',
                                               b'](../../manual/editor/ui-text-shaping.html)')
+                    content = content.replace(b'](../../../manual/editor/ui-text-input.md)',
+                                              b'](../../manual/editor/ui-text-input.html)')
                 self.assertEqual(archive.read(name), content, name)
                 self.assertEqual(manifest[name], hashlib.sha256(content).hexdigest(), name)
             notice = 'licenses/harfbuzz-src/LICENSE.txt'
             self.assertEqual(archive.read(notice), b'Packaging test notice\n')
+            self.assertEqual(archive.read('licenses/utf8proc-src/LICENSE.txt'),
+                             b'Packaging test notice\n')
 
     def test_sibling_manual_anchors_survive_offline_rewrite(self):
         self.write(self.source/'samples/projects/Other/README.md',

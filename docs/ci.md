@@ -2240,3 +2240,45 @@ The offline manual renderer checks local links/images; browser review at1180 and
 700px checks decoded images and horizontal overflow. Windows acceptance selection
 includes the new native/helper/project/MCP/render tests, and the relocated editor
 package UI check verifies the shaping notices, font and native example rendering.
+
+
+## Native UI character boundaries
+
+`ui_text_boundaries` checks all853unmodified official Unicode18 extended-grapheme
+cases through FORGE's UTF-8/scalar-coordinate helper, verifies fixture/notice
+hashes, and checks malformed text/ranges, bounds and temporary key selections.
+The separate unchanged upstream selected test confirms the exact provider's
+matching behavior; neither is a complete upstream suite claim.
+
+`ui_text_input` uses actual native input/password/textarea widgets in both font
+modes and with boundary editing disabled/enabled. It covers combining accents,
+emoji sequences, flags, Hangul, collapsed/interior/partial selections, native
+arrows/deletion, canceled events, modifiers, disabled/max-length fields,
+composition forwarding, focus release, callback removal and cold reset/shutdown.
+Oversized fallback stress uses the original font mode because the shaped font
+has an independent glyph-run limit. The known nonempty custom-commit behavior is
+compared with the unwrapped native path; it is not accepted as maxlength support.
+
+`runtime_ui_input` supplies actual SDL key/text/preedit events through the
+production RuntimeUiInput and TextInputMethodEditor_SDL. It verifies whole-character
+movement/deletion, the real empty-preedit/committed-text path, native maximum
+length and gameplay input isolation. `ui_surface_grapheme_input` runs the existing
+surface-routing consumer with the option enabled, checks camera-output combining
+characters, and preserves native pointer capture, focus/IME projection, output
+removal and retirement. `ui_surface_input` retains the original disabled profile.
+
+`game_foundation`, `standalone_manifest`, `ui_text_shaping_project` and
+`mcp_ui_text_shaping_stdio` also cover the independent saved grapheme option:
+boolean/default/player-override rules, exact kitcapability rejection/retention,
+source-hidden relocation with four original example IDs, and both MCP envelopes'
+settings digest, Save/discard and read-only grant discovery. Settings/source
+access does not prove MCP native-field input; that remains an explicit gap.
+
+The whole-character guide reuses the unchanged authentic native HUD capture
+already documented above: it shows the same field/layout and is not a new
+Windows/full-editor capture. Its steps, controls, limits and Project Settings
+links are checked by the offline manual renderer, fixtures and browser layout.
+The editor/runtime collectors preserve full utf8proc and Unicode data notices;
+package-writer fixtures verify inclusion without asserting a Windows executable
+was built or run. Full Main/MSVC, Windows/D3D12, physical keyboard/IME/display/DPI,
+graphical exported EXE and external-client review remain separate pending gates.

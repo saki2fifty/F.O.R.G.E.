@@ -17,7 +17,7 @@ Native ECS game editor under development. Windows/D3D12 is the first editor targ
 | Editor interface | Dear ImGui docking | Editor panels, inspectors, workspaces and controls. |
 | Rendering | Diligent Engine and selected DiligentFX utilities | Shared Scene/Game renderer, PBR materials and GPU resources; D3D12 editor with Vulkan validation probes. |
 | Shaders | HLSL | Surface shaders and shader generation from FORGE material graphs. |
-| Game interface and fonts | RmlUi and FreeType | Runtime HUD documents, input, text and bundled-font rendering. |
+| Game interface and fonts | RmlUi, FreeType, HarfBuzz and utf8proc | Runtime HUD documents, native input, optional shaped text/whole-character editing and bundled-font rendering. |
 | Physics | Jolt Physics and Box2D | Jolt supplies 3D bodies, queries, constraints and character movement; private Box2D supplies XY bodies, colliders, joints, sensors, queries, painted Tile Map collision and native 2D character movement. |
 | Skeletal animation | Ozz Animation | Animation sampling, blending and glTF animation conversion. |
 | Navigation | Recast and Detour | Navigation mesh generation, static collision collection, dynamic obstacle updates, authored links, path queries and local steering. |
@@ -322,6 +322,10 @@ opt-in native horizontal text shaping with ligatures, combining marks, an explic
 Arabic run, font effects and an interactive field. Its project font and saved UI
 setting travel through the normal export owners. See [Shape game UI text](manual/editor/ui-text-shaping.md)
 for the workflow and current limits.
+The independent [Edit whole UI characters](manual/editor/ui-text-input.md) option
+uses Unicode character boundaries for plain arrows, Backspace and Delete in the
+same native field. Modified selection, IME and complete international editing
+retain their documented limits.
 
 [Runtime reflection capture](manual/editor/lighting.md) updates local specular and
 diffuse lighting from moving scene sources in Scene, Game and camera outputs.

@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "ui_test_renderer.hpp"
+#include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include <forge/runtime_ui.hpp>
 #include <fstream>
 #include <iostream>
@@ -21,7 +22,8 @@ Rml::Element* element(const char* id) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3, "Need input scratch and default font");
+        const bool editing = argc == 4 && std::string_view(argv[3]) == "--grapheme-editing";
+        check(argc == 3 || editing, "Need input scratch, default font and optional editing mode");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         struct Cleanup {
@@ -49,7 +51,7 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
         UiPlatformCallbacks platform;
         platform.activate_text = [&](float x, float y, float h) { ime = {x, y, h}; };
         UiPresenter presenter(renderer, root, asset_detail::read_bytes(argv[2], 4 * 1024 * 1024),
-                              platform);
+                              platform, nullptr, false, editing);
         presenter.reset("surface-input", 1);
         auto row = [](const AssetRecord& asset, const char* instance) {
             return Json{{"entity", EntityId::generate()},
@@ -180,6 +182,21 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
         check(presenter.text("typed"), "Focused output rejected text input");
         check(element("entry")->GetAttribute<Rml::String>("value", "") == "typed",
               "Text input changed the wrong native context");
+        if (editing) {
+            auto* field = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(element("entry"));
+            check(field != nullptr, "Output text field is missing");
+            field->SetValue("a\xcc\x81"
+                            "b");
+            field->SetSelectionRange(2, 2);
+            presenter.key(Rml::Input::KI_LEFT, true, 0);
+            presenter.key(Rml::Input::KI_LEFT, false, 0);
+            int begin = -1, end = -1;
+            field->GetSelection(&begin, &end, nullptr);
+            check(begin == 0 && end == 0, "Output arrow split a combining character");
+            presenter.key(Rml::Input::KI_DELETE, true, 0);
+            presenter.key(Rml::Input::KI_DELETE, false, 0);
+            check(field->GetValue() == "b", "Output deletion split a combining character");
+        }
         presenter.navigate("next");
         if (output_context->GetFocusElement() != element("surface"))
             throw std::runtime_error("Output navigation focus is " +

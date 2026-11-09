@@ -43,6 +43,11 @@ Use a font containing the required script and the matching runtime kit for expor
 See [Shape game UI text](ui-text-shaping.md) for the example, language/direction,
 supported typography and current limits.
 
+Enable **Edit whole UI characters** independently to use whole Unicode character
+boundaries with plain Left, Right, Backspace and Delete in game UI text fields.
+Choose **Save Settings** and restart Play. See [Edit whole UI characters](ui-text-input.md)
+for a hands-on example, modified keys, input methods and export requirements.
+
 ## Choose the startup scene
 
 Save your current scene, then click **Use saved current scene as startup** and **Save Settings**. FORGE stores the scene's asset identity. Moving its file inside the project does not change that identity. Copying a scene file by hand can create duplicate identities and makes startup ambiguous; use the editor's Save scene As... workflow for an independent scene.

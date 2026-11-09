@@ -28,19 +28,21 @@ void display(const Json& value) {
     // by the platform host. It is not a persisted SDL display handle.
     number(value.at("display"), 0, 255, "display ordinal", true);
 }
-} // namespace
-bool ui_text_shaping_enabled(const Json& game) {
+bool ui_option(const Json& game, const char* name) {
     object(game, "game");
     if (!game.contains("ui"))
         return false;
     const auto& ui = game.at("ui");
     object(ui, "ui");
-    if (!ui.contains("text_shaping"))
+    if (!ui.contains(name))
         return false;
-    if (!ui.at("text_shaping").is_boolean())
-        throw std::runtime_error("game.settings: UI text_shaping must be boolean");
-    return ui.at("text_shaping").get<bool>();
+    if (!ui.at(name).is_boolean())
+        throw std::runtime_error(std::string("game.settings: UI ") + name + " must be boolean");
+    return ui.at(name).get<bool>();
 }
+} // namespace
+bool ui_text_shaping_enabled(const Json& game) { return ui_option(game, "text_shaping"); }
+bool ui_grapheme_editing_enabled(const Json& game) { return ui_option(game, "grapheme_editing"); }
 std::array<float, 3> audio_channel_volumes(const Json& audio) {
     object(audio, "audio");
     std::array<float, 3> result{1, 1, 1};
@@ -103,6 +105,7 @@ Json default_game_settings(std::string application_id, std::string title) {
 void validate_game_settings(const Json& data) {
     object(data, "game");
     (void)ui_text_shaping_enabled(data);
+    (void)ui_grapheme_editing_enabled(data);
     number(data.at("version"), 1, 1, "version", true);
     if (!valid_application_id(data.at("application_id").get<std::string>()))
         throw std::runtime_error("game.settings: Expected a lowercase application ID such as "

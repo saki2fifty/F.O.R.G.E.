@@ -153,6 +153,13 @@ class ProjectSettingsEditor {
                     game["ui"]["text_shaping"] = shape_text;
                 ui::help("Shape horizontal glyph runs for supported project fonts. Save Settings "
                          "and restart Play. Requires the matching runtime kit when exporting.");
+                bool grapheme_editing = ui_grapheme_editing_enabled(game);
+                if (ImGui::Checkbox("Edit whole UI characters", &grapheme_editing))
+                    game["ui"]["grapheme_editing"] = grapheme_editing;
+                ui::help("Move and delete whole Unicode characters with plain Left, Right, "
+                         "Backspace and Delete in UI text fields. Save Settings and restart Play. "
+                         "Modified keys and active IME composition use native behavior. "
+                         "Requires the matching runtime kit when exporting.");
                 auto text = [&](const char* label, Json& value, const char* help) {
                     char buffer[257]{};
                     SDL_strlcpy(buffer, value.get<std::string>().c_str(), sizeof(buffer));

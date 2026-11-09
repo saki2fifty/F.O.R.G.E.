@@ -9,6 +9,9 @@ The setting applies to the game's UI documents throughout the project.
 The example uses separate Latin and Arabic runs, a project font, native font
 effects and a local text field.
 
+The example also enables [Edit whole UI characters](ui-text-input.md), a separate
+option for plain arrow movement and deletion in its text field.
+
 ## Try the example
 
 1. Open the included **Examples/UiTextShaping** project with **File → Open project...**.
@@ -79,5 +82,5 @@ See [Export a game](runtime-content.md) for the normal export workflow.
 - Missing glyph boxes usually mean the selected font lacks those characters. Assign a font containing the script. Fallback chooses a face covering a whole run; arbitrary mixed-script fallback is unavailable.
 - Use horizontal text and font sizes from **1–512 px**. A single run supports **64 KiB** of UTF-8 and **16,384 glyphs**, within the normal document limits.
 - Font collections, variable axes, color glyphs and vertical text are unsupported.
-- Shaping does not provide full paragraph bidirectional layout, joining across separate elements, grapheme-aware selection/deletion, complete international input methods or accessibility. Check text entry on your target systems.
+- Shaping does not provide full paragraph bidirectional layout, joining across separate elements, complete international input methods or accessibility. Use the separate [Edit whole UI characters](ui-text-input.md) option for bounded plain-key movement/deletion. Check text entry on your target systems.
 - A failed reload keeps the last usable HUD and reports a diagnostic. If a font or glyph cache limit is reached, simplify the UI or stop and restart Play.

@@ -3,6 +3,7 @@
 #include "runtime_package.hpp"
 #include "ui_test_renderer.hpp"
 #include <RmlUi/Core/ElementText.h>
+#include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include <forge/authoring.hpp>
 #include <forge/game_settings.hpp>
 #include <forge/primitive_catalog.hpp>
@@ -31,7 +32,8 @@ RuntimeUiInspector inspector(const std::filesystem::path& root,
         UiTestRenderer renderer;
         const auto settings = ProjectSettings(root).document();
         UiPresenter presenter(renderer, root, font, {}, nullptr,
-                              ui_text_shaping_enabled(settings.at("game")));
+                              ui_text_shaping_enabled(settings.at("game")),
+                              ui_grapheme_editing_enabled(settings.at("game")));
         return presenter.inspect_static({id});
     };
 }
@@ -98,6 +100,7 @@ scrollbarvertical {width:12px;background-color:#101e2c;} scrollbarvertical slide
     candidate["game"] = default_game_settings("org.forge.examples.text-shaping", "UI Text Shaping");
     candidate["game"]["display"]["height"] = 800;
     candidate["game"]["ui"]["text_shaping"] = true;
+    candidate["game"]["ui"]["grapheme_editing"] = true;
     settings.save(std::move(candidate));
     ProjectLease lease(root);
     const std::array roots{record.id};
@@ -116,7 +119,8 @@ void exercise(const std::filesystem::path& root, const Json& source,
     UiTestRenderer renderer;
     {
         UiPresenter presenter(renderer, root, font, {}, nullptr,
-                              ui_text_shaping_enabled(settings.at("game")));
+                              ui_text_shaping_enabled(settings.at("game")),
+                              ui_grapheme_editing_enabled(settings.at("game")));
         presenter.reset("shaping-project", 1);
         const bool accepted = presenter.accept(ui->snapshot(scene, "shaping-project", 1, 41, true));
         check(accepted, presenter.diagnostic());
@@ -133,6 +137,18 @@ void exercise(const std::filesystem::path& root, const Json& source,
         check(renderer.draws && !renderer.textures.empty() && presenter.asset_snapshot() &&
                   presenter.asset_snapshot()->sources.size() == 3,
               "Shaped project did not admit its RML, stylesheet and project font");
+        check(ui_grapheme_editing_enabled(settings.at("game")),
+              "Example does not enable whole-character editing");
+        auto* field =
+            rmlui_dynamic_cast<Rml::ElementFormControlInput*>(document->GetElementById("field"));
+        check(field && field->Focus(), "Example text field did not focus");
+        field->SetValue("a\xcc\x81"
+                        "b");
+        field->SetSelectionRange(2, 2);
+        presenter.key(Rml::Input::KI_BACK, true, 0);
+        presenter.key(Rml::Input::KI_BACK, false, 0);
+        check(field->GetValue() == "b", "Saved/relocated example split a combining character");
+        presenter.release_input();
         const auto position = document->GetElementById("Resume")->GetAbsoluteOffset();
         presenter.mouse_move(int(position.x + 4), int(position.y + 4), 0);
         presenter.mouse_button(0, true, 0);

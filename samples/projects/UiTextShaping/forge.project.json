@@ -27,6 +27,7 @@
     "save_schema": 1,
     "title": "UI Text Shaping",
     "ui": {
+      "grapheme_editing": true,
       "text_shaping": true
     },
     "version": 1
