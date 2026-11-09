@@ -466,11 +466,17 @@ for legacy in selected_protocols:
                 assert 'forge_ui_source_reparent' not in visible
                 assert 'forge_ui_source_style' not in visible
                 assert 'forge_ui_source_style_read' in visible
+                assert 'forge_ui_source_rule_read' in visible
+                assert not {'forge_ui_source_rule_property', 'forge_ui_source_rule_selector',
+                            'forge_ui_source_rule_insert', 'forge_ui_source_rule_remove'} & visible
                 readonly_target = readonly.tool('forge_discover')['result']['target']
                 failed(readonly.tool('forge_ui_source_style_read', target=readonly_target,
                                      path='Assets/Hud.rml', session='00000000-0000-4000-8000-000000000001',
                                      revision=0, state='0' * 64, element=0, name='color'),
                        'source_closed')
+                failed(readonly.tool('forge_ui_source_rule_read', target=readonly_target,
+                                     path='Assets/Hud.rcss', session='00000000-0000-4000-8000-000000000001',
+                                     revision=0, state='0' * 64, rule=0, name='color'), 'source_closed')
                 assert 'forge_ui_source_replace' not in visible and 'forge_ui_source_save' not in visible
                 denied = readonly.request('tools/call', dict(name='forge_ui_source_open', arguments=dict(path='Assets/Hud.rml')))
                 assert 'error' in denied or denied['result']['isError'], denied

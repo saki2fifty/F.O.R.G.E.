@@ -2,6 +2,15 @@
 
 ## Native UI source authoring
 
+`manual/images/ui-source-rules.png` is an exact700×950 production UiSourceEditor/
+DocumentWorkspace capture after native RCSS selection and property editing.
+The Rules list, selector/add/remove actions and authored color controls are real,
+unretouched pixels. Reproduce with `forge_ui_source_editor_tests <output>`;
+`ui-source-rules-<width>.png` records1180/700/400pixel cases. The scoped stylesheet
+rule validation owner retains immutable originals and canonical SHA256. SDL
+software composition is component evidence, separate from full Main, Windows,
+physical GPU/input and display-density acceptance.
+
 `manual/images/ui-source-inline-style.png` is an unretouched700×950 capture of
 the production UiSourceEditor after actual selection and property read/set/remove
 controls. It shows the authored color, common-property selector and explicit

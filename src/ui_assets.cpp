@@ -50,7 +50,8 @@ struct TextProfile {
 };
 TextProfile validate_text_profile(std::string_view text, bool markup,
                                   std::vector<UiMarkupElement>* elements = nullptr,
-                                  std::vector<UiStyleDeclaration>* declarations = nullptr) {
+                                  std::vector<UiStyleDeclaration>* declarations = nullptr,
+                                  std::vector<UiStyleRule>* rules = nullptr) {
     require(text.size() <= 256 * 1024, "RML/RCSS exceeds 256 KiB");
     require(text.find('\0') == std::string_view::npos, "RML/RCSS contains NUL");
     (void)nlohmann::json(std::string(text)).dump();
@@ -67,6 +68,9 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
     std::string declaration_name;
     auto value_begin = std::string_view::npos;
     auto declaration_begin = std::string_view::npos;
+    auto rule_begin = std::string_view::npos;
+    auto rule_body = std::string_view::npos;
+    bool rule_flat = true;
     const auto finish_declaration = [&](std::size_t end) {
         if (value_begin != std::string_view::npos)
             declarations->push_back(
@@ -276,6 +280,28 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
         }
         if (!markup) {
             char c = text[i];
+            if (rules) {
+                if (!braces && rule_begin == text.npos && !space(c) && c != ';')
+                    rule_begin = i;
+                if (c == '{') {
+                    if (!braces) {
+                        require(rule_begin != text.npos && rule_begin < i,
+                                "A stylesheet rule needs a selector");
+                        rule_body = i + 1;
+                        rule_flat = text[rule_begin] != '@';
+                    } else
+                        rule_flat = false;
+                } else if (c == '}' && braces == 1) {
+                    require(rules->size() < 4096,
+                            "Stylesheet outline exceeds4096 blocks; use Source");
+                    rules->push_back({{rule_begin, rule_body - 1},
+                                      {rule_body, i},
+                                      {rule_begin, i + 1},
+                                      rule_flat});
+                    rule_begin = rule_body = text.npos;
+                } else if (c == ';' && !braces && !parens)
+                    rule_begin = text.npos;
+            }
             if (declarations) {
                 require(c != '{' && c != '}', "Inline style cannot contain blocks");
                 if (!parens && c == ';')
@@ -386,6 +412,8 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
     require(stack.empty() && !braces && !parens, "Truncated RML/RCSS structure");
     if (declarations)
         finish_declaration(text.size());
+    if (rules)
+        require(rule_begin == text.npos, "Incomplete stylesheet rule; edit in Source");
     if (markup)
         require(nodes > 0 && text.find("<rml") != text.npos && text.find("<body") != text.npos,
                 "RML requires rml and body elements");
@@ -403,6 +431,11 @@ std::vector<UiMarkupElement> inspect_ui_markup(std::string_view text) {
 std::vector<UiStyleDeclaration> inspect_ui_style(std::string_view text) {
     std::vector<UiStyleDeclaration> result;
     (void)validate_text_profile(text, false, nullptr, &result);
+    return result;
+}
+std::vector<UiStyleRule> inspect_ui_stylesheet(std::string_view text) {
+    std::vector<UiStyleRule> result;
+    (void)validate_text_profile(text, false, nullptr, nullptr, &result);
     return result;
 }
 void validate_ui_font(std::span<const std::byte> b) { (void)ui_font_detail::face_count(b); }

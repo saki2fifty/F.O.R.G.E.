@@ -1,5 +1,16 @@
 # 2026-11-09
 
+## Stylesheet rule authoring
+
+UI Source offers Rules for RCSS: navigate flat selectors, read/set/remove their
+properties, edit selectors and append/remove rules with one source Undo. The
+existing optional CSS scanner supplies ranges and declaration edits share inline
+style validation. At-rules/nested blocks remain Source, long values cannot be
+silently truncated, and native/MCP source ownership, permissions/revision/replay
+and explicit Save remain aligned. Five matching operations bring source tools
+to26. Linked styles are checked through the existing native cascade and package
+owners. No Gallery IDs, SDK, dependency pins or runtime profiles change.
+
 ## Inline UI styles and outline drag/drop
 
 Elements adds authored inline CSS property read/set/remove with common-property

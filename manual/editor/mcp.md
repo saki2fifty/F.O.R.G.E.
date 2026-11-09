@@ -41,6 +41,20 @@ means there is no matching inline declaration. It uses the same property reader
 as **Read inline**, without changing source, selection or history and without
 evaluating gameplay bindings or native computed styles.
 
+For RCSS, `forge_ui_source_read` returns top-level `rules`, their transient indices,
+selectors, byte ranges and `editable` flags. `forge_ui_source_rule_read` takes
+current source guards, `rule` and `name`; it needs `assets.read` and returns
+`{name,value}`, with null for an absent property. With `assets.write`, use
+`forge_ui_source_rule_property` with `rule/name/value` (null removes),
+`forge_ui_source_rule_selector` with `rule/selector`,
+`forge_ui_source_rule_insert` with `selector`, or
+`forge_ui_source_rule_remove` with `rule`. They share native Rules, one source
+Undo, guards and replay. Exact no-ops preserve history; property/selector changes
+retain the edited rule, insertion selects the appended rule and removal clears
+selection. At-rules/nested blocks stay in Source. Save remains separate, then
+refresh the linked RML preview or Reload UI to check the native cascade. See
+[stylesheet rules](ui-source.md) for source limits.
+
 For layout, use `forge_ui_source_preview` with current source guards and the desired
 viewport size. Read its element indices, editable flags, explanations and preview
 instance/revision. Pass those guards and all four pixel values to

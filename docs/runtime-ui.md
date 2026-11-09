@@ -25,7 +25,13 @@ Native RML/RCSS authoring uses `UiSourceEditor` in DocumentWorkspace. One source
 widget owns its draft/history; the Elements view derives byte ranges through the
 existing `validate_text_profile` parser's optional collector. Detached structured
 edits validate the whole result and preserve unrelated source bytes. Runtime
-admission calls do not allocate an authoring outline. RCSS remains source-only.
+admission calls do not allocate an authoring outline. RCSS Rules derives top-level
+selector/body/block ranges through that same optional scanner; at-rules/nested
+blocks remain Source. Flat declaration changes reuse inline CSS validation/ranges,
+while stylesheet quotes retain their distinct semantics. Selector edits and rule
+append/removal preserve unrelated source and use the same document/history. Native
+and MCP readers/mutations borrow these operations with ordinary grants/revision/
+replay/lock rules; there is no second stylesheet parser or computed-style owner.
 Save shares `ProjectTextSource` containment, UTF-8 validation, baseline checks and
 atomic replacement with raw automation, preserving uniform CRLF. It does not
 publish catalog metadata or reload presentation. Raw automation cannot overwrite

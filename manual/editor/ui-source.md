@@ -227,6 +227,34 @@ before that point cancel or fail the request; a queued copy finishes independent
 of later editing or source closure. Finish the current image task before saving
 another image. Stale previews and hosts without a rendered image cannot be saved.
 
+## Edit stylesheet rules
+
+1. Open a `.rcss` file from **Content** using **Edit UI source**.
+2. Choose **Rules**. Select a flat rule in **Stylesheet rules**; its selector appears in **Selector**.
+3. Expand **Rule properties**. Choose a **Common** property or enter its **Property** name. **Read property** loads that rule's authored value; absence leaves the field blank.
+4. Enter a **CSS value** and choose **Set property**, or choose **Remove property**. The selected rule stays selected after a property change.
+5. To rename the selected rule's selector, edit **Selector** and choose **Set selector**. To append an empty rule, enter a selector and choose **Add rule**. **Remove rule** removes the selected flat block.
+6. Each source change is one **Undo** step. Choose **Save source**, reopen the RML document and **Refresh preview**, or use **Reload UI** during Play.
+
+![Stylesheet Rules with the accent selector, authored color and rule/property controls](../images/ui-source-rules.png)
+
+The selected flat rule has a color override. Other blocks remain listed in source
+order; selecting a nested block or at-rule keeps it in Source.
+
+Rules edit the stylesheet source; they do not show computed CSS. Order, specificity,
+inline styles and bindings affect the result. Other rules, declarations and
+surrounding comments retain their bytes. Identical source results create no Undo
+step. After Undo/Redo or a structural source edit, select the rule again.
+
+At-rules, nested blocks and incomplete source stay in **Source**. The outline
+supports up to 4,096 top-level blocks. New selectors fit 1,024 UTF-8 bytes and do
+not contain at-rules, comments, escapes or additional blocks. Child selectors such
+as `.panel > button` are supported. Property names use
+the same lowercase 64-byte profile as inline styles; new values fit 8,192 bytes.
+Stylesheet values can use either CSS quote form because there is no surrounding
+markup attribute. Ambiguous matching declarations use Source. An existing value
+too long for the control disables its property buttons; use Source to edit it.
+
 ## Edit the source and styles
 
 ![UI Source text view with source editing and Save controls](../images/ui-source-text.png)
@@ -235,9 +263,10 @@ Use Source for RML text and RCSS styles. All views share the same draft and hist
 
 Open **hud.rcss** from Content to change the example's colors, spacing or sizes.
 Only one UI source is open at a time. Switching to another file asks you to save,
-discard or keep editing an unsaved draft. RCSS has no element outline.
+discard or keep editing an unsaved draft. RCSS offers Rules in place of the RML
+element outline; Source remains available for complete stylesheet editing.
 
-Incomplete markup may remain in the text draft. The Elements view explains why
+Incomplete source may remain in the text draft. The Elements or Rules view explains why
 it cannot inspect that draft. Save checks the bounded source structure and supported
 static profile; native styles, properties and resources are checked when loading
 the HUD. Correct source errors before saving and test the result in Play. Current admission limits include 256 KiB of source, 8,192 tags and

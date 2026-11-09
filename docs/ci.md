@@ -51,7 +51,7 @@ attribute/text/child/order/removal, history, CRLF, invalid drafts, conflicts,
 read-only state, close/cancel/discard, moves/deletion and long-text protection.
 The C++ history fixture checks the shared widget replacement helper.
 `sprite_atlas_source_editor` also verifies hook-only document entries are excluded
-from typed-source discovery and dispatch. `mcp_ui_source_stdio` exercises21 actual
+from typed-source discovery and dispatch. `mcp_ui_source_stdio` exercises26 actual
 native-owner tools through both MCP envelopes, grants, stale guards, source-owned
 raw-write rejection, history, conflicts, RCSS and dirty-source Play rejection.
 It includes native draft geometry, source/preview guards, unsupported layouts and
@@ -94,6 +94,16 @@ guarded set/remove/replay/no-op/atomic rejection and read-only discovery. Saved 
 source-hidden relocated native forms verify the authored background color as well
 as parents/label focus. ui_filter_profile and ui_draft_resources retain runtime
 no-collector profile/admission and immutable resource-scope regression coverage.
+
+Stylesheet source tests cover top-level rule ranges, quoted delimiters/comments,
+nested/at-rule eligibility, preserved values/rule order, selector/add/remove
+candidates, injection/size/duplicate rejection and optional outline caps without
+changing runtime admission. Native Rules at1180/700/400 checks read/set/remove,
+selector/add/remove, explicit Save, source history, locks, incomplete drafts and
+oversized-value protection. Both source MCP envelopes exercise rule discovery,
+read-only access, current guards, property replay/no-op, atomic invalid/unsupported
+rejection and one-step history. The scratch linked stylesheet authors a selector/
+color; native styling is checked after Save and source-hidden package relocation.
 
 `ui_draft_resources` covers immutable draft admission, correction of invalid saved
 bytes, scope/budgets and package rejection. `ui_source_preview` checks native

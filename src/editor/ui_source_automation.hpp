@@ -42,6 +42,18 @@ struct UiSourceAutomation {
                  {"attributes", std::move(attributes)}});
         }
         value["elements"] = std::move(nodes);
+        auto rules = Json::array();
+        const auto& text = value.at("text").get_ref<const std::string&>();
+        for (std::size_t i = 0; i < editor.rules().size(); ++i) {
+            const auto& rule = editor.rules()[i];
+            rules.push_back({{"index", i},
+                             {"selector", text.substr(rule.selector.begin,
+                                                      rule.selector.end - rule.selector.begin)},
+                             {"editable", rule.flat},
+                             {"source", range(rule.source)},
+                             {"content", range(rule.content)}});
+        }
+        value["rules"] = std::move(rules);
         return value;
     }
     static void observed(const ui::UiSourceEditor& editor, const SceneDocument& project,
@@ -72,8 +84,8 @@ struct UiSourceAutomation {
             "ui.source.read",
             "Read the native UI source draft/history and its source-derived element byte ranges. "
             "Indices are transient within this revision; no persisted DOM identity is created. "
-            "Incomplete RML retains its source and reports outline_error. RCSS has no element "
-            "outline.",
+            "Incomplete source reports outline_error. RCSS reports top-level rules, editable "
+            "flat blocks and transient rule_selection; at-rules/nested blocks use Source.",
             "assets.read", automation_object(), false,
             [&files, &editor](const Json&) { return state(editor, files.document); }));
         const auto ready = [&files, &editor, unavailable] {
@@ -90,29 +102,34 @@ struct UiSourceAutomation {
                          {"revision", automation_integer()},
                          {"state", automation_digest()}};
         const Json required{"path", "session", "revision", "state"};
-        auto style_read_properties = guard;
-        style_read_properties["element"] = automation_integer(0, 8191);
-        style_read_properties["name"] = automation_text(64, 1);
-        auto style_read_required = required;
-        style_read_required.push_back("element");
-        style_read_required.push_back("name");
-        result.push_back(automation_method(
-            "ui.source.style_read",
-            "Read one authored inline CSS property from the observed native source. Requires "
-            "assets.read and current path/session/revision/state plus element/name. Returns "
-            "name/value, with value:null when no inline override exists. Shares the editor's "
-            "plain quoted/non-entity style and unique literal matching-property profile; this "
-            "is not computed styling or binding evaluation. No native initialization, source "
-            "selection, history, Save or resource publication.",
-            "assets.read",
-            automation_object(std::move(style_read_properties), std::move(style_read_required)),
-            false, [&files, &editor](const Json& request) {
-                observed(editor, files.document, request);
-                const auto value = editor.read_style(request.at("element").get<std::size_t>(),
-                                                     request.at("name").get<std::string>());
-                return Json{{"name", request.at("name")},
-                            {"value", value ? Json(*value) : Json(nullptr)}};
-            }));
+        for (const bool sheet : {false, true}) {
+            const auto* index = sheet ? "rule" : "element";
+            auto properties = guard;
+            properties[index] = automation_integer(0, sheet ? 4095 : 8191);
+            properties["name"] = automation_text(64, 1);
+            auto fields = required;
+            fields.push_back(index);
+            fields.push_back("name");
+            result.push_back(automation_method(
+                sheet ? "ui.source.rule_read" : "ui.source.style_read",
+                std::string(
+                    sheet ? "Read an authored property from a flat RCSS rule. At-rules/"
+                            "nested blocks use Source. Needs current source guards and rule/name. "
+                          : "Read an authored inline CSS property. Needs current source guards and "
+                            "element/name; one plain quoted non-entity style is required. ") +
+                    "Requires assets.read; returns name/value, null when absent. Unique literal "
+                    "matching properties only, not computed styling/binding evaluation. No "
+                    "native initialization, selection/history mutation, Save or registration.",
+                "assets.read", automation_object(std::move(properties), std::move(fields)), false,
+                [&files, &editor, sheet, index](const Json& request) {
+                    observed(editor, files.document, request);
+                    const auto i = request.at(index).get<std::size_t>();
+                    const auto name = request.at("name").get<std::string>();
+                    const auto value =
+                        sheet ? editor.read_rule_property(i, name) : editor.read_style(i, name);
+                    return Json{{"name", name}, {"value", value ? Json(*value) : Json(nullptr)}};
+                }));
+        }
         auto preview_properties = guard;
         preview_properties["width"] = automation_integer(1, 2048);
         preview_properties["height"] = automation_integer(1, 2048);
@@ -227,7 +244,8 @@ struct UiSourceAutomation {
             }));
         for (const auto* operation :
              {"replace", "attribute", "style", "text", "insert", "duplicate", "reparent", "remove",
-              "remove_group", "move", "save", "undo", "redo", "reload", "close"}) {
+              "remove_group", "move", "save", "undo", "redo", "reload", "close", "rule_property",
+              "rule_selector", "rule_insert", "rule_remove"}) {
             const std::string action(operation);
             auto properties = guard;
             auto fields = required;
@@ -238,6 +256,10 @@ struct UiSourceAutomation {
             };
             if (action == "replace")
                 add("text", automation_text(256 * 1024 - 1));
+            if (action.starts_with("rule_") && action != "rule_insert")
+                add("rule", automation_integer(0, 4095));
+            if (action == "rule_selector" || action == "rule_insert")
+                add("selector", automation_text(1024, 1));
             if (action == "attribute" || action == "style" || action == "text" ||
                 action == "duplicate" || action == "remove" || action == "move")
                 add("element", automation_integer(0, 8191));
@@ -246,10 +268,10 @@ struct UiSourceAutomation {
             if (action == "remove_group" || action == "reparent")
                 add("elements",
                     automation_array(automation_integer(0, 8191), ui_source_selection_limit, 1));
-            if (action == "attribute" || action == "style") {
+            if (action == "attribute" || action == "style" || action == "rule_property") {
                 add("name", automation_text(64, 1));
                 add("value", {{"oneOf",
-                               {automation_text(action == "style" ? 8192 : 256 * 1024),
+                               {automation_text(action == "attribute" ? 256 * 1024 : 8192),
                                 Json{{"type", "null"}}}}});
             }
             if (action == "text" || action == "insert")
@@ -266,7 +288,20 @@ struct UiSourceAutomation {
                 add("discard", {{"type", "boolean"}}, false);
             result.push_back(automation_method(
                 "ui.source." + action,
-                action == "style"
+                action.starts_with("rule_")
+                    ? action +
+                          " in the observed RCSS source with current guards/assets.write. "
+                          "Flat ordinary rules only; at-rules/nested blocks use Source. Property "
+                          "name/value edits share literal declaration admission, null removes. "
+                          "Lowercase names up to64bytes, one value up to8192bytes, no duplicate "
+                          "matching property or extra declarations. Selector/insert takes one "
+                          "literal selector up to1024bytes, no "
+                          "at-rules/comments/escapes/injection. "
+                          "Insert appends; remove deletes that block. Preserve unrelated source, "
+                          "rule order and comments; one Undo, exact no-op retains history. No "
+                          "computed styling, Save or registration. Save then refresh RML Preview/"
+                          "Reload UI to test native cascade."
+                : action == "style"
                     ? "Set one literal inline CSS property or remove it with value:null. "
                       "Needs element/name/value and current source guards/assets.write. Preserve "
                       "unrelated source, declarations/comments and bindings in one Undo step; "
@@ -315,6 +350,20 @@ struct UiSourceAutomation {
                     observed(editor, files.document, request);
                     if (action == "replace")
                         editor.replace_text(request.at("text").get<std::string>());
+                    else if (action == "rule_property")
+                        editor.rule_property(
+                            request.at("rule").get<std::size_t>(),
+                            request.at("name").get<std::string>(),
+                            request.at("value").is_null()
+                                ? std::nullopt
+                                : std::optional(request.at("value").get<std::string>()));
+                    else if (action == "rule_selector")
+                        editor.rule_selector(request.at("rule").get<std::size_t>(),
+                                             request.at("selector").get<std::string>());
+                    else if (action == "rule_insert")
+                        editor.add_rule(request.at("selector").get<std::string>());
+                    else if (action == "rule_remove")
+                        editor.remove_rule(request.at("rule").get<std::size_t>());
                     else if (action == "attribute")
                         editor.attribute(
                             request.at("element").get<std::size_t>(),

@@ -563,6 +563,78 @@ void inline_properties() {
                                    "'" + std::string(200, 'x') + "'");
     });
 }
+void stylesheet_rules() {
+    const std::string source = "/* lead */\r\n.a:hover, #b { /* body */ color : red ; "
+                               "font-family: 'quoted;{}'; width:calc(10px + 2px) } /* gap */\r\n"
+                               "@media (min-width:20px) { .nested { color:blue; } }\r\n"
+                               "@decorator shine: linear-gradient { direction:vertical; }\r\n"
+                               ".last { color:green; } /* tail */";
+    const auto rules = forge::inspect_ui_stylesheet(source);
+    check(rules.size() == 4 && rules[0].flat && !rules[1].flat && !rules[2].flat && rules[3].flat &&
+              slice(source, rules[0].selector) == ".a:hover, #b " &&
+              slice(source, rules[3].source) == ".last { color:green; }",
+          "Stylesheet ranges confused comments, strings, pseudo selectors or nested/at-rules");
+    check(forge::read_ui_stylesheet_property(source, rules, 0, "color") == "red" &&
+              !forge::read_ui_stylesheet_property(source, rules, 0, "height"),
+          "Stylesheet property lookup lost authored/absent values");
+    auto expected = source;
+    expected.replace(expected.find(" red "), 5, " #123456 ");
+    check(forge::set_ui_stylesheet_property(source, 0, "color", "#123456") == expected &&
+              forge::set_ui_stylesheet_property(source, 0, "color", "red") == source,
+          "Stylesheet value edit rewrote unrelated declarations/rules/comments");
+    expected = source;
+    expected.erase(expected.find("color : red ;"), std::string_view("color : red ;").size());
+    check(forge::set_ui_stylesheet_property(source, 0, "color", {}) == expected &&
+              forge::set_ui_stylesheet_property(source, 0, "absent", {}) == source,
+          "Stylesheet property removal lost source or changed an absent property");
+    expected = source;
+    expected.insert(expected.find("} /* gap */"), ";height:20px;");
+    check(forge::set_ui_stylesheet_property(source, 0, "height", "20px") == expected,
+          "Stylesheet append lost an unterminated declaration separator");
+    check(forge::set_ui_stylesheet_property(".x{}", 0, "font-family", "\"Lato\"") ==
+              ".x{font-family:\"Lato\";}",
+          "Stylesheet values incorrectly inherited inline attribute quote restrictions");
+    expected = source;
+    expected.replace(expected.find(".a:hover, #b "), std::string_view(".a:hover, #b ").size(),
+                     ".new > button");
+    check(forge::set_ui_stylesheet_selector(source, 0, ".new > button") == expected,
+          "Selector edit changed the rule body or adjacent comments");
+    expected = source;
+    expected.erase(expected.find(".last { color:green; }"),
+                   std::string_view(".last { color:green; }").size());
+    check(forge::remove_ui_stylesheet_rule(source, 3) == expected &&
+              forge::insert_ui_stylesheet_rule(source, ".added") == source + "\n.added {}\n" &&
+              forge::insert_ui_stylesheet_rule("", ".first") == ".first {}\n",
+          "Rule insertion/removal changed unrelated source or its final separator");
+    for (const auto index : {1u, 2u, 4u}) {
+        rejects([&] { forge::read_ui_stylesheet_property(source, rules, index, "color"); });
+        rejects([&] { forge::set_ui_stylesheet_property(source, index, "color", "blue"); });
+        rejects([&] { forge::remove_ui_stylesheet_rule(source, index); });
+        rejects([&] { forge::set_ui_stylesheet_selector(source, index, ".renamed"); });
+    }
+    for (const auto* selector : {"", "@font-face", ".x{} .injected", ".x; .bad", "/* comment */ .x",
+                                 ".x\\31", "[name='unterminated]", "<x>"})
+        rejects([&] { forge::insert_ui_stylesheet_rule(source, selector); });
+    rejects([&] { forge::insert_ui_stylesheet_rule(source, std::string(1025, 'a')); });
+    rejects([&] { forge::set_ui_stylesheet_property(source, 0, "color", "red;opacity:0"); });
+    rejects([&] { forge::set_ui_stylesheet_property(source, 0, "font-size", "257px"); });
+    rejects([&] {
+        forge::set_ui_stylesheet_property(".a{color:red;COLOR:blue}", 0, "color", "green");
+    });
+    rejects([&] { forge::inspect_ui_stylesheet(".a{color:red"); });
+    rejects([&] { forge::inspect_ui_stylesheet(".a{} .incomplete"); });
+    check(!forge::inspect_ui_stylesheet(".outer { .inner {color:red;} }").front().flat &&
+              forge::inspect_ui_stylesheet("[name='{};'] {color:red;}").front().flat,
+          "Stylesheet collector confused nested blocks with quoted selector delimiters");
+    std::string many;
+    for (int i = 0; i < 4096; ++i)
+        many += ".a{}";
+    check(forge::inspect_ui_stylesheet(many).size() == 4096,
+          "Stylesheet block cap rejected its boundary");
+    rejects([&] { forge::inspect_ui_stylesheet(many + ".b{}"); });
+    forge::validate_ui_text(many + ".b{}", false);
+    rejects([&] { forge::insert_ui_stylesheet_rule(many, ".b"); });
+}
 } // namespace
 int main() {
     try {
@@ -576,6 +648,7 @@ int main() {
         subtree_duplication();
         hierarchy_moves();
         inline_properties();
+        stylesheet_rules();
         std::cout << "Source-preserving outline/attributes and shared validator errors passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

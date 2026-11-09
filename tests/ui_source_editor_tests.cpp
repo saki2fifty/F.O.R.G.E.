@@ -397,14 +397,144 @@ void exercise(const std::filesystem::path& output, int width) {
     editor.request_close();
     check(!editor.is_open(), "Clean source close retained a document");
 }
+void exercise_stylesheet(const std::filesystem::path& output, int width) {
+    using namespace forge;
+    const auto root = output / AssetId::generate().str();
+    SceneDocument::create_project(root, "Stylesheet source");
+    std::filesystem::create_directories(root / "Assets");
+    const auto file = root / "Assets/Hud.rcss";
+    const std::string source = "/* retained */\r\n.accent { color:red; }\r\n"
+                               "@media (min-width:20px) { .nested {color:blue;} }\r\n.tail{}\r\n";
+    asset_storage::replace(file, source);
+    EngineContext engine;
+    Scene scene(engine.world());
+    SceneDocument project(scene);
+    project.open_project(root);
+    const auto scene_before = scene.snapshot();
+    const auto catalog = asset_storage::read(root / "forge.assets.json");
+    test::ImGuiSoftwareCapture capture(width, 950);
+    ui::EditorUiContext context;
+    ui::ContextScope scope(context);
+    ui::UiSourceEditor editor;
+    ui::style(1);
+    auto& io = ImGui::GetIO();
+    io.ConfigInputTrickleEventQueue = false;
+    test::observe_ui = true;
+    bool locked = false;
+    ui::DocumentWorkspace workspace;
+    workspace.add(editor.workspace_document(project, context, [&] { return locked; }));
+    const auto frame = [&] {
+        test::ui_targets.clear();
+        capture.new_frame();
+        ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize({float(width), 950}, ImGuiCond_Always);
+        workspace.draw();
+        capture.render();
+    };
+    test::ImGuiInputDriver input(frame);
+    editor.open(project, "Assets/Hud.rcss");
+    frame();
+    frame();
+    const auto draft = editor.state().at("text").get<std::string>();
+    std::string expected_draft;
+    for (const auto c : source)
+        if (c != '\r')
+            expected_draft += c;
+    expected_draft += '\n';
+    check(draft == expected_draft, "Stylesheet draft lost the existing widget newline contract");
+    input.click("ui-source:elements-tab");
+    input.click("ui-source:rule:0");
+    input.click("ui-source:style-open");
+    input.type("ui-source:style-value", "#77bdf7");
+    input.click("ui-source:style-set");
+    auto styled = draft;
+    styled.replace(styled.find("color:red"), 9, "color:#77bdf7");
+    check(editor.state().at("text") == styled && editor.state().at("rule_selection") == 0 &&
+              editor.read_rule_property(0, "color") == "#77bdf7" &&
+              asset_storage::read(file) == source,
+          "Native rule property controls lost source, selected rule or explicit Save isolation");
+    const auto styled_state = editor.state();
+    input.type("ui-source:style-value", "scratch");
+    input.click("ui-source:style-read");
+    input.click("ui-source:style-set");
+    check(editor.state() == styled_state, "Stylesheet read/no-op changed source/history");
+    frame();
+    capture.save(output / ("ui-source-rules-" + std::to_string(width) + ".png"));
+    input.click("button:Undo");
+    check(editor.state().at("text") == draft, "Stylesheet property needed more than one Undo");
+    input.click("button:Redo");
+    input.click("ui-source:rule:0");
+    input.type("ui-source:rule-selector", ".renamed > button");
+    input.click("ui-source:rule-rename");
+    auto renamed = styled;
+    renamed.replace(renamed.find(".accent "), 8, ".renamed > button");
+    check(editor.state().at("text") == renamed, "Selector control changed the body or other rules");
+    input.click("button:Undo");
+    input.click("ui-source:rule:0");
+    input.click("ui-source:style-remove");
+    check(editor.state().at("text").get<std::string>().find(".accent {  }") != std::string::npos,
+          "Native rule property removal lost surrounding whitespace");
+    input.click("button:Undo");
+    input.click("ui-source:rule:0");
+    input.click("ui-source:rule-remove");
+    check(editor.rules().size() == 2 && editor.state().at("rule_selection").is_null(),
+          "Native rule removal retained stale selection or lost an adjacent block");
+    input.click("button:Undo");
+    check(editor.state().at("text") == styled, "Rule removal needed more than one Undo");
+    input.type("ui-source:rule-selector", ".added");
+    input.click("ui-source:rule-add");
+    check(editor.state().at("text") == styled + ".added {}\n" &&
+              editor.state().at("rule_selection") == 3,
+          "Native Add rule changed source order or failed to select the new block");
+    input.click("button:Undo");
+    check(editor.state().at("text") == styled, "Rule insertion needed more than one Undo");
+    input.click("ui-source:rule:1");
+    check(!test::ui_targets.contains("ui-source:rule-remove") &&
+              !test::ui_targets.contains("ui-source:style-set"),
+          "An at-rule exposed flat-rule property/removal controls");
+    const auto before_reject = editor.state();
+    rejects([&] { editor.rule_property(1, "color", "red"); });
+    rejects([&] { editor.rule_selector(1, ".bad"); });
+    rejects([&] { editor.remove_rule(1); });
+    check(editor.state() == before_reject, "Rejected at-rule edit changed history/selection");
+    locked = true;
+    frame();
+    rejects([&] { editor.add_rule(".locked"); });
+    locked = false;
+    frame();
+    editor.save(project);
+    auto stored = source;
+    stored.replace(stored.find("color:red"), 9, "color:#77bdf7");
+    stored += "\r\n";
+    check(asset_storage::read(file) == stored && !editor.dirty() &&
+              scene.snapshot() == scene_before &&
+              asset_storage::read(root / "forge.assets.json") == catalog,
+          "Stylesheet Save normalized bytes or changed Scene/registry ownership");
+    editor.replace_text(".incomplete {");
+    check(!editor.state().at("outline_error").get<std::string>().empty(),
+          "Incomplete stylesheet did not retain an editable Source with a clear outline error");
+    rejects([&] { editor.save(project); });
+    check(asset_storage::read(file) == stored, "Invalid stylesheet replaced the saved resource");
+    editor.reload(project, true);
+    editor.replace_text(".large{color:" + std::string(9000, 'a') + ";}");
+    frame();
+    input.click("ui-source:rule:0");
+    check(!test::ui_targets.at("ui-source:style-set").enabled,
+          "An oversized CSS value exposed a silently truncated native replacement");
+    editor.reload(project, true);
+    editor.request_close();
+    check(!editor.is_open() && editor.rules().empty(), "Close retained stylesheet ranges");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
         check(argc == 2, "Need capture/scratch directory");
         const auto output = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(output);
-        for (const auto width : {1180, 700, 400})
+        for (const auto width : {1180, 700, 400}) {
             exercise(output, width);
+            exercise_stylesheet(output, width);
+        }
         std::cout << "Native UI source controls/history/storage at1180/700/400 passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

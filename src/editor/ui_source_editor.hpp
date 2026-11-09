@@ -27,6 +27,9 @@ class UiSourceEditor {
     std::optional<std::filesystem::path> queued_;
     std::string disk_, saved_, session_, error_, outline_error_;
     std::vector<UiMarkupElement> outline_;
+    std::vector<UiStyleRule> rules_;
+    std::size_t selected_rule_ = UiMarkupElement::no_parent;
+    char rule_selector_[1025] = ".new-rule";
     std::vector<std::size_t> selected_;
     std::uint64_t revision_ = 0;
     bool dirty_ = false, close_ = false, focus_ = false, text_editable_ = false;
@@ -69,13 +72,16 @@ class UiSourceEditor {
         selected_.clear();
         hierarchy_parent_ = hierarchy_before_ = UiMarkupElement::no_parent;
         outline_.clear();
+        rules_.clear();
+        selected_rule_ = UiMarkupElement::no_parent;
         outline_error_.clear();
-        if (locator_.extension() == ".rml") {
-            try {
+        try {
+            if (locator_.extension() == ".rml")
                 outline_ = inspect_ui_markup(text);
-            } catch (const std::exception& error) {
-                outline_error_ = error.what();
-            }
+            else if (locator_.extension() == ".rcss")
+                rules_ = inspect_ui_stylesheet(text);
+        } catch (const std::exception& error) {
+            outline_error_ = error.what();
         }
     }
     void check_project(SceneDocument& project) const {
@@ -96,6 +102,8 @@ class UiSourceEditor {
         saved_.clear();
         session_.clear();
         outline_.clear();
+        rules_.clear();
+        selected_rule_ = UiMarkupElement::no_parent;
         error_.clear();
         outline_error_.clear();
         selected_.clear();
@@ -206,22 +214,31 @@ class UiSourceEditor {
     void read_style_controls() {
         style_error_.clear();
         style_value_[0] = 0;
-        if (selected_element() >= outline_.size())
+        const bool sheet = locator_.extension() == ".rcss";
+        if (sheet ? selected_rule_ >= rules_.size() : selected_element() >= outline_.size())
             return;
         try {
-            const auto value = read_style(selected_element(), style_name_);
-            if (value)
+            const auto value = sheet ? read_rule_property(selected_rule_, style_name_)
+                                     : read_style(selected_element(), style_name_);
+            if (value) {
+                if (value->size() >= sizeof(style_value_))
+                    throw AuthoringError(
+                        "source_capacity",
+                        "This CSS value exceeds the control's8192-byte capacity; use Source");
                 std::snprintf(style_value_, sizeof(style_value_), "%s", value->c_str());
+            }
         } catch (const std::exception& error) {
             style_error_ = error.what();
         }
     }
-    void style_controls(bool locked) {
-        const bool open = ImGui::CollapsingHeader("Inline style");
+    void style_controls(bool locked, bool sheet = false) {
+        const bool open = ImGui::CollapsingHeader(sheet ? "Rule properties" : "Inline style");
         FORGE_UI_PROBE("ui-source:style-open");
         if (!open)
             return;
-        ImGui::BeginDisabled(locked || !ui_markup_widget_editable(outline_.at(selected_element())));
+        ImGui::BeginDisabled(locked ||
+                             (sheet ? !rules_.at(selected_rule_).flat
+                                    : !ui_markup_widget_editable(outline_.at(selected_element()))));
         const bool choices = ImGui::BeginCombo("Common", style_name_);
         FORGE_UI_PROBE("ui-source:style-common");
         if (choices) {
@@ -244,25 +261,105 @@ class UiSourceEditor {
         ImGui::InputTextWithHint("CSS value", "e.g. #77bdf7 or 24px", style_value_,
                                  sizeof(style_value_));
         FORGE_UI_PROBE("ui-source:style-value");
-        if (button("Read inline",
+        if (button(sheet ? "Read property" : "Read inline",
                    "Read the authored value; an empty field means no inline override."))
             read_style_controls();
         FORGE_UI_PROBE("ui-source:style-read");
         if (!style_error_.empty())
             ImGui::TextWrapped("%s", style_error_.c_str());
         ImGui::BeginDisabled(!style_error_.empty());
-        if (button("Set property", "Replace only this inline CSS value as one source Undo step."))
-            attempt([&] { style(selected_element(), style_name_, std::string(style_value_)); });
+        if (button("Set property", "Replace only this CSS value as one source Undo step."))
+            attempt([&] {
+                if (sheet)
+                    rule_property(selected_rule_, style_name_, std::string(style_value_));
+                else
+                    style(selected_element(), style_name_, std::string(style_value_));
+            });
         FORGE_UI_PROBE("ui-source:style-set");
         ImGui::SameLine();
         if (button("Remove property", "Remove this declaration; preserve surrounding source."))
-            attempt([&] { style(selected_element(), style_name_, {}); });
+            attempt([&] {
+                if (sheet)
+                    rule_property(selected_rule_, style_name_, {});
+                else
+                    style(selected_element(), style_name_, {});
+            });
         FORGE_UI_PROBE("ui-source:style-remove");
         ImGui::EndDisabled();
         ImGui::EndDisabled();
         ImGui::TextWrapped(
-            "Authored inline CSS. Preview tests native styling; Play tests bindings. "
-            "Other styles and bindings can affect the displayed result.");
+            "%s", sheet ? "Authored stylesheet CSS. Save, then refresh an RML Preview or Reload UI "
+                          "in Play. "
+                          "Rule order, other styles and bindings affect the result."
+                        : "Authored inline CSS. Preview tests native styling; Play tests bindings. "
+                          "Other styles and bindings can affect the displayed result.");
+    }
+    void select_rule(std::size_t index) {
+        if (index >= rules_.size())
+            throw AuthoringError("source_rule", "Choose a current stylesheet rule");
+        selected_rule_ = index;
+        const auto text = editor_.GetText();
+        const auto range = rules_[index].selector;
+        const auto selector = text.substr(range.begin, range.end - range.begin);
+        std::snprintf(rule_selector_, sizeof(rule_selector_), "%s",
+                      selector.size() < sizeof(rule_selector_) ? selector.c_str() : "");
+        read_style_controls();
+    }
+    void rule_controls(bool locked) {
+        if (!outline_error_.empty()) {
+            ImGui::TextWrapped("Rules unavailable: %s. Continue in Source.",
+                               outline_error_.c_str());
+            return;
+        }
+        const auto snapshot = editor_.GetText();
+        if (ImGui::BeginListBox("Stylesheet rules", {0, 140})) {
+            for (std::size_t i = 0; i < rules_.size(); ++i) {
+                ImGui::PushID(static_cast<int>(i));
+                const auto range = rules_[i].selector;
+                const auto label = snapshot.substr(range.begin, range.end - range.begin);
+                if (ImGui::Selectable(label.c_str(), selected_rule_ == i))
+                    select_rule(i);
+                FORGE_UI_PROBE("ui-source:rule:" + std::to_string(i));
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("%s", label.c_str());
+                ImGui::PopID();
+            }
+            ImGui::EndListBox();
+        }
+        ImGui::BeginDisabled(locked);
+        ImGui::InputText("Selector", rule_selector_, sizeof(rule_selector_));
+        FORGE_UI_PROBE("ui-source:rule-selector");
+        if (button("Add rule", "Append an empty flat rule. Preserve existing order and source."))
+            attempt([&] { add_rule(rule_selector_); });
+        FORGE_UI_PROBE("ui-source:rule-add");
+        ImGui::EndDisabled();
+        if (selected_rule_ >= rules_.size()) {
+            ImGui::TextWrapped("Select a flat rule to edit its declarations, or add a selector.");
+            return;
+        }
+        if (!rules_[selected_rule_].flat) {
+            ImGui::TextWrapped("At-rules and nested blocks stay in Source.");
+            return;
+        }
+        const bool long_selector =
+            rules_[selected_rule_].selector.end - rules_[selected_rule_].selector.begin >=
+            sizeof(rule_selector_);
+        ImGui::BeginDisabled(locked || long_selector);
+        if (button("Set selector", "Replace this selector, preserving its rule body."))
+            attempt([&] { rule_selector(selected_rule_, rule_selector_); });
+        FORGE_UI_PROBE("ui-source:rule-rename");
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(locked);
+        if (button("Remove rule", "Remove this flat block as one source Undo step."))
+            attempt([&] { remove_rule(selected_rule_); });
+        FORGE_UI_PROBE("ui-source:rule-remove");
+        ImGui::EndDisabled();
+        if (long_selector)
+            ImGui::TextWrapped(
+                "This selector exceeds the control's1024-byte capacity; use Source.");
+        if (selected_rule_ < rules_.size())
+            style_controls(locked, true);
     }
     void selection_controls() {
         const auto index = selected_element();
@@ -977,12 +1074,15 @@ class UiSourceEditor {
                 {"dirty", dirty_},
                 {"gesture_active", gesture_active()},
                 {"selection", selected_},
+                {"rule_selection",
+                 selected_rule_ < rules_.size() ? Json(selected_rule_) : Json(nullptr)},
                 {"can_undo", can_undo()},
                 {"can_redo", can_redo()},
                 {"text", text},
                 {"outline_error", outline_error_}};
     }
     const std::vector<UiMarkupElement>& outline() const { return outline_; }
+    const std::vector<UiStyleRule>& rules() const { return rules_; }
     Json preview_state(SceneDocument& project, int width, int height, float density,
                        bool refresh = true) {
         check_project(project);
@@ -1128,6 +1228,41 @@ class UiSourceEditor {
     }
     std::optional<std::string> read_style(std::size_t index, std::string_view property) const {
         return read_ui_markup_style(editor_.GetText(), outline_, index, property);
+    }
+    std::optional<std::string> read_rule_property(std::size_t index,
+                                                  std::string_view property) const {
+        if (locator_.extension() != ".rcss")
+            throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        return read_ui_stylesheet_property(editor_.GetText(), rules_, index, property);
+    }
+    void rule_property(std::size_t index, std::string_view property,
+                       std::optional<std::string> value) {
+        if (locator_.extension() != ".rcss")
+            throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        const auto before = revision_;
+        replace_text(
+            set_ui_stylesheet_property(editor_.GetText(), index, property, std::move(value)));
+        if (revision_ != before)
+            select_rule(index);
+    }
+    void rule_selector(std::size_t index, std::string_view selector) {
+        if (locator_.extension() != ".rcss")
+            throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        const auto before = revision_;
+        replace_text(set_ui_stylesheet_selector(editor_.GetText(), index, selector));
+        if (revision_ != before)
+            select_rule(index);
+    }
+    void add_rule(std::string_view selector) {
+        if (locator_.extension() != ".rcss")
+            throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        replace_text(insert_ui_stylesheet_rule(editor_.GetText(), selector));
+        select_rule(rules_.size() - 1);
+    }
+    void remove_rule(std::size_t index) {
+        if (locator_.extension() != ".rcss")
+            throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        replace_text(remove_ui_stylesheet_rule(editor_.GetText(), index));
     }
     void style(std::size_t index, std::string_view property, std::optional<std::string> value) {
         const auto before = revision_;
@@ -1305,12 +1440,16 @@ class UiSourceEditor {
                         changed();
                     ImGui::EndTabItem();
                 }
-                const bool elements_tab = ImGui::BeginTabItem("Elements");
+                const bool stylesheet = locator_.extension() == ".rcss";
+                const bool elements_tab = ImGui::BeginTabItem(stylesheet ? "Rules" : "Elements");
                 FORGE_UI_PROBE("ui-source:elements-tab");
                 if (elements_tab) {
-                    elements_visible = true;
+                    elements_visible = !stylesheet;
                     gesture_.reset();
-                    element_controls(locked);
+                    if (stylesheet)
+                        rule_controls(locked);
+                    else
+                        element_controls(locked);
                     ImGui::EndTabItem();
                 }
                 const bool preview_tab = ImGui::BeginTabItem("Preview");

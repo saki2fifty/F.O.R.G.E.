@@ -124,6 +124,14 @@ the existing reparent operation with bounded immutable source/interaction guards
 gesture cancellation/locks and post-traversal publication. Neither workflow adds
 a parser, style/DOM database, identity service or native serialization boundary.
 
+Stylesheet Rules extends the existing optional admission scanner with top-level
+selector/content/source ranges and flat-block eligibility. The runtime path has
+no rule collector or authoring cap. Flat RCSS property edits share declaration
+matching/value validation/patch ranges with inline CSS; attribute quoting remains
+an inline-only restriction. Selector editing and rule insertion/removal remain
+source replacements under the same draft/history/guards. At-rules/nested blocks
+stay Source; native DOM parsing or serialization supplies no authoring identity.
+
 Source-preview image output borrows the same observed native image through
 ViewImageTask. A rendered input retains the source/preview identity and rechecks
 it before the existing nonblocking GPU copy is submitted. Pending observations

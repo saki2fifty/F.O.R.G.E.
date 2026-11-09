@@ -6,7 +6,8 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
-                 'duplicate', 'remove_group', 'reparent', 'style', 'style_read')}
+                 'duplicate', 'remove_group', 'reparent', 'style', 'style_read', 'rule_read',
+                 'rule_property', 'rule_selector', 'rule_insert', 'rule_remove')}
     assert required <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
@@ -275,8 +276,49 @@ body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
     style = 'Assets/Hud.rcss'
     ok('forge_source_text_write', path=style, state='missing', text='body { color: red; }')
     state = ok('forge_ui_source_open', path=style)
-    assert not state['elements'] and not state['outline_error']
-    state = edit('replace', text='body { color: blue; }')
+    assert not state['elements'] and not state['outline_error'] and len(state['rules']) == 1
+    baseline = 'body { color: red; }\n'
+    blue = 'body { color: blue; }\n'
+    assert state['text'] == baseline, 'Opened stylesheet lost the widget final-newline contract'
+    assert state['rules'][0]['selector'] == 'body ' and state['rules'][0]['editable']
+    rule_guard = guard()
+    assert read('forge_ui_source_rule_read', **rule_guard, rule=0, name='color') == dict(name='color', value='red')
+    assert read('forge_ui_source_rule_read', **rule_guard, rule=0, name='absent') == dict(name='absent', value=None)
+    assert read('forge_ui_source_read') == state, 'Rule read changed source/history/selection'
+    rule_args = arguments(**rule_guard, rule=0, name='color', value='blue')
+    once = client.tool('forge_ui_source_rule_property', **rule_args)
+    replay = client.tool('forge_ui_source_rule_property', **rule_args)
+    assert once['ok'] and replay['ok'] and once['result'] == replay['result']
+    state = read('forge_ui_source_read')
+    assert state['text'] == blue and state['rule_selection'] == 0, state
+    failed(mutate('forge_ui_source_rule_property', **rule_guard, rule=0, name='color', value='red'), 'stale_ui_source')
+    read_properties = advertised['forge_ui_source_rule_read']['inputSchema']['properties']
+    stale_read = {key: value for key, value in rule_args.items() if key in read_properties}
+    failed(client.tool('forge_ui_source_rule_read', **stale_read), 'stale_ui_source')
+    edit('rule_property', rule=0, name='color', value='blue')
+    assert read('forge_ui_source_read') == state, 'Exact rule property no-op changed history'
+    for extra in (dict(name='color', value='red;opacity:0'), dict(name='font-size', value='257px'),
+                  dict(name='Color', value='red')):
+        assert not mutate('forge_ui_source_rule_property', **guard(), rule=0, **extra)['ok']
+        assert read('forge_ui_source_read') == state, 'Rejected rule value partially changed source'
+    assert edit('rule_property', rule=0, name='color', value=None)['text'] == 'body {  }\n'
+    assert edit('undo')['text'] == state['text']
+    assert edit('rule_selector', rule=0, selector='.renamed > p')['text'] == '.renamed > p{ color: blue; }\n'
+    assert edit('undo')['text'] == state['text']
+    assert edit('rule_insert', selector='.added')['text'] == state['text'] + '.added {}\n'
+    assert edit('rule_remove', rule=1)['text'] == state['text'] + '\n'
+    edit('undo')
+    assert edit('undo')['text'] == state['text'], 'Rule insertion/removal did not share one-step history'
+    assert edit('undo')['text'] == baseline
+    state = edit('redo')
+    assert state['text'] == blue
+    unsupported = edit('replace', text='@media (min-width:20px) { .nested {color:red;} }')
+    assert len(unsupported['rules']) == 1 and not unsupported['rules'][0]['editable']
+    for operation, extra in (('rule_property', dict(name='color', value='red')),
+                             ('rule_selector', dict(selector='.bad')), ('rule_remove', {})):
+        assert not mutate('forge_ui_source_' + operation, **guard(), rule=0, **extra)['ok']
+        assert read('forge_ui_source_read') == unsupported
+    assert edit('undo')['text'] == state['text']
     edit('save')
     edit('close')
     assert 'blue' in (root / 'Game' / style).read_text()

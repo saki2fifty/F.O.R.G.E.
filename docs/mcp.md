@@ -1102,7 +1102,8 @@ including a clean open file. Use its native document operations or close it firs
 `forge_ui_source_read/open/replace/attribute/style/style_read/text/insert/duplicate/reparent/remove/remove_group/move/save/undo/redo/reload/close`
 borrow the actual UiSourceEditor. Read returns copied text, path, transient
 session, revision, content `state` digest, disk baseline, dirty/history status and
-derived element ranges. RCSS has no outline; incomplete RML reports
+derived element ranges. RCSS returns top-level `rules` with transient index,
+selector, source/content ranges and editable flags; incomplete source reports
 `outline_error` and retains its draft. Elements contain transient indices,
 parent indices (null at root), byte-exclusive source/content/attribute spans,
 self-closing state and `widget_editable` structural eligibility. These indices
@@ -1152,6 +1153,21 @@ validate before one TextEditor replacement. A source change reselects the same
 element (ordering cannot change); exact no-ops retain revision/history/selection.
 This authors CSS defaults, not native computed styling or Scene UiValues models.
 Bindings can replace the value in Play. Save/registration remain explicit.
+
+RCSS `forge_ui_source_rule_read` uses assets.read, source guards, `rule` and `name`;
+it returns the authored `{name,value}`, null when absent. Flat ordinary rules only;
+at-rules/nested blocks use Source. `forge_ui_source_rule_property` uses assets.write
+and `rule/name/value` (null removes). `forge_ui_source_rule_selector` replaces that
+rule's selector; `forge_ui_source_rule_insert` appends a selector/empty body;
+`forge_ui_source_rule_remove` removes that flat block. Selectors fit1024UTF-8bytes
+with no at-rules/comments/escapes/additional blocks. Property names/values share
+the inline literal profile, except stylesheet quotes have no attribute conflict.
+Unrelated source/comments/order retain original bytes. Complete-source validation
+precedes one Undo; exact no-ops retain history. Changed properties/selectors retain
+the edited transient index, insertion selects the last rule and removal clears
+selection. Save and native cascade evaluation remain separate. There are at most
+4096observed top-level blocks; the optional outline cap does not change runtime
+admission. Source read and rule read initialize no native presentation.
 
 `forge_ui_source_style_read` uses assets.read, source guards, `element` and `name`.
 It calls the editor's same property reader and returns `{name,value}`; null means

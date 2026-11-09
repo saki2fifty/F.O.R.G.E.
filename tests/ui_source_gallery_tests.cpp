@@ -243,6 +243,14 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
             ProjectLease lease(root);
             ProjectTextSource::validate(file, candidate);
             ProjectTextSource::write_validated(file, text, candidate);
+            const auto style_file = ProjectTextSource::path(root, "Assets/UI/Layout/layout.rcss");
+            const auto saved_style = ProjectTextSource::read(style_file);
+            check(saved_style.has_value(), "Gallery linked stylesheet missing");
+            auto styled = insert_ui_stylesheet_rule(*saved_style, "#copied-clone-label");
+            const auto rule = inspect_ui_stylesheet(styled).size() - 1;
+            styled = set_ui_stylesheet_property(styled, rule, "color", "#6ac98a");
+            ProjectTextSource::validate(style_file, styled);
+            ProjectTextSource::write_validated(style_file, saved_style, styled);
             text = candidate;
         }
         presenter.reset("layout-runtime", 1);
@@ -280,6 +288,9 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
         const auto* background = field_group->GetProperty("background-color");
         check(background && background->Get<Rml::Colourb>() == Rml::Colourb(37, 63, 89, 255),
               "Saved/exported inline style lost its authored native color");
+        const auto* label_color = copied_label->GetProperty("color");
+        check(label_color && label_color->Get<Rml::Colourb>() == Rml::Colourb(106, 201, 138, 255),
+              "Saved/exported linked stylesheet lost its authored selector/declaration color");
         const auto label_position = copied_label->GetAbsoluteOffset(Rml::BoxArea::Border);
         const auto label_size = copied_label->GetBox().GetSize(Rml::BoxArea::Border);
         check(label_size.x > 0 && label_size.y > 0, "Cloned runtime label has no native hit box");
