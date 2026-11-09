@@ -69,7 +69,7 @@ body {font-family:Lato;font-size:20px;} input,textarea {display:block;width:300p
         const auto initial = presenter.text_fields("fields");
         const auto revision = initial.at("presentation_revision").get<std::uint64_t>();
         check(initial.at("fields").size() == 8 && !initial.at("truncated").get<bool>() &&
-                  field(initial, "text").at("value") == "old" && initial.at("keys").size() == 10,
+                  field(initial, "text").at("value") == "old" && initial.at("keys").size() == 12,
               "Native field discovery differs from the actual controls");
         check(initial.dump().find("native-secret") == std::string::npos &&
                   !field(initial, "password").at("value_available").get<bool>(),
@@ -96,6 +96,24 @@ body {font-family:Lato;font-size:20px;} input,textarea {display:block;width:300p
         check(initial.at("limits").at("text_bytes") == ui_protocol::max_string &&
                   ui_protocol::max_string == 1024,
               "Native text admission/discovery differs from the selected owner");
+        act("text", "select_all");
+        act("text", "text",
+            "a\xcc\x81"
+            "b");
+        act("text", "home");
+        auto selected = field(act("text", "select_right"), "text");
+        check(selected.at("selection") == Json{{"begin", 0}, {"end", 2}} && selected.at("value") ==
+                                                                                "a\xcc\x81"
+                                                                                "b",
+              "Scoped Shift key split a whole character or changed its value");
+        selected = field(act("text", "select_right"), "text");
+        check(selected.at("selection") == Json{{"begin", 0}, {"end", 3}},
+              "Scoped repeated Shift key lost its native anchor");
+        selected = field(act("text", "select_left"), "text");
+        check(selected.at("selection") == Json{{"begin", 0}, {"end", 2}},
+              "Scoped reversed Shift key changed its native anchor");
+        check(field(act("text", "backspace"), "text").at("value") == "b",
+              "Scoped deletion did not consume the native whole-character selection");
         act("text", "select_all");
         const auto maximum = std::string(ui_protocol::max_string, 'x');
         check(field(act("text", "text", maximum), "text").at("value") == maximum,

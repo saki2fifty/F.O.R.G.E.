@@ -307,7 +307,11 @@ def until(fn, predicate, timeout=30):
     raise AssertionError(('Native owner timed out', value))
 
 
-for legacy in (False, True):
+protocol_case = os.environ.get('FORGE_MCP_TEST_PROTOCOL', 'both')
+protocol_cases = {'both': (False, True), 'current': (False,), 'legacy': (True,)}
+if protocol_case not in protocol_cases:
+    raise SystemExit('FORGE_MCP_TEST_PROTOCOL must be both, current or legacy')
+for legacy in protocol_cases[protocol_case]:
     with editor('application_states' if APPLICATION_STATES_ONLY else 'ui_localization' if UI_LOCALIZATION_ONLY else 'gamepads' if GAMEPADS_ONLY else 'clocked_audio' if FINITE_SOUND_CUES_ONLY else 'full') as (root, config), Client(config, legacy) as client:
         def discovery():
             value = client.tool('forge_discover')
@@ -2236,10 +2240,12 @@ for legacy in (False, True):
             assert ('forge_script_preview' in names) == (mode != 'read')
 
 write_capture(sys.argv[6])
-print('Both MCP protocols: collision collection discovery/validation/history/revisions/permissions, named profiles and actual Play route/step/live tuning verified' if NAVIGATION_COLLECTION_ONLY else
+summary = ('Both MCP protocols: collision collection discovery/validation/history/revisions/permissions, named profiles and actual Play route/step/live tuning verified' if NAVIGATION_COLLECTION_ONLY else
       'Both MCP protocols: authored navigation link discovery/history/revisions/validation, named-profile bake and actual Play traversal verified' if NAVIGATION_LINKS_ONLY else
       'Both MCP protocols: Decal Projector live tuning, validation, scope, paused clock and authored isolation verified' if DECALS_ONLY else
       'Both MCP protocols: current Light source live tuning, validation, scope, paused clock and authored isolation verified' if SOFT_SHADOWS_ONLY else
       'Both MCP protocols: animated UI source/reload, current Play guards and execution grant verified; Windows execution pending' if UI_ANIMATION_ONLY else
       'Both MCP protocols: navigation ownership, XY authoring and live controls verified; no export or Windows execution' if NAVIGATION_ONLY else
       'Both MCP protocols and independent runtime/output grants verified; no graphical Windows execution claimed')
+print(summary if protocol_case == 'both' else
+      summary.replace('Both MCP protocols', f'MCP {protocol_case} protocol', 1))

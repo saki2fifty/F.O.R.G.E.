@@ -72,4 +72,47 @@ std::optional<UiTextSelection> ui_text_key_selection(std::string_view text,
     }
     return next == selection ? std::optional<UiTextSelection>{} : next;
 }
+std::optional<UiTextOrientedSelection> ui_text_shift_selection(std::string_view text,
+                                                               UiTextSelection before,
+                                                               UiTextSelection after,
+                                                               UiTextKey key) {
+    const auto boundaries = ui_grapheme_boundaries(text);
+    const auto valid = [&](UiTextSelection value) {
+        return value.begin >= 0 && value.begin <= value.end && value.end <= boundaries.back();
+    };
+    if (!valid(before) || !valid(after))
+        throw std::runtime_error("UI text selection is outside the native scalar range");
+    int anchor = 0, caret = 0;
+    if (key == UiTextKey::Left && after.end == before.end && after.begin == before.begin - 1) {
+        anchor = before.end;
+        caret = after.begin;
+    } else if (key == UiTextKey::Left && after.begin == before.begin &&
+               after.end == before.end - 1) {
+        anchor = before.begin;
+        caret = after.end;
+    } else if (key == UiTextKey::Right && after.begin == before.begin &&
+               after.end == before.end + 1) {
+        anchor = before.begin;
+        caret = after.end;
+    } else if (key == UiTextKey::Right && after.end == before.end &&
+               after.begin == before.begin + 1) {
+        anchor = before.end;
+        caret = after.begin;
+    } else
+        return {}; // No proven one-scalar native movement; retain its current selection.
+    const auto ceiling = [&](int point) {
+        return std::lower_bound(boundaries.begin(), boundaries.end(), point);
+    };
+    const auto floor = [&](int point) {
+        const auto next = ceiling(point);
+        return *next == point ? next : std::prev(next);
+    };
+    const int next_caret = key == UiTextKey::Left ? *floor(caret) : *ceiling(caret);
+    const int next_anchor = anchor < next_caret   ? *floor(anchor)
+                            : anchor > next_caret ? *ceiling(anchor)
+                                                  : anchor;
+    if (next_anchor == anchor && next_caret == caret)
+        return {};
+    return UiTextOrientedSelection{next_anchor, next_caret};
+}
 } // namespace forge

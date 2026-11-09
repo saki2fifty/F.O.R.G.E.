@@ -64,6 +64,7 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
 <input id="limited" type="text" maxlength="3" value="ab"/>
 <input id="disabled" type="text" disabled="disabled" value="Locked"/>
 <input id="removable" type="text" value="abc"/>
+<input id="shift-removable" type="text" value="abc"/>
 <textarea id="area">abc</textarea></body></rml>)rml";
     const auto asset = register_ui_document(root, "input.rml");
     const auto entity = EntityId::generate();
@@ -106,6 +107,15 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
         press(Rml::Input::KI_BACK);
         check(text->GetValue() == (editing ? "b" : "ab"),
               "Optional plain Backspace did not preserve the selected policy");
+        text->SetValue(utf8(u8"a\u0301b"));
+        text->SetSelectionRange(0, 0);
+        press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
+        const auto initial_shift = selection(*text);
+        if (initial_shift != UiTextSelection{0, editing ? 2 : 1})
+            throw std::runtime_error("Optional Shift arrow: shaping=" + std::to_string(shaping) +
+                                     " editing=" + std::to_string(editing) +
+                                     " range=" + std::to_string(initial_shift.begin) + "," +
+                                     std::to_string(initial_shift.end));
         const std::pair<std::string, int> cases[]{{utf8(u8"a\u0301x"), 2},
                                                   {utf8(u8"\U0001f469\u200d\U0001f4bbx"), 3},
                                                   {utf8(u8"\U0001f1fa\U0001f1f8x"), 2},
@@ -141,6 +151,41 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
                     check(selection(*field) == UiTextSelection{expected, expected},
                           "Native arrow did not collapse an expanded selection");
                 }
+                field->SetValue(value);
+                field->SetSelectionRange(0, 0);
+                press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
+                check(selection(*field) == UiTextSelection{0, scalars},
+                      "Shift Right split a character");
+                press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
+                check(selection(*field) == UiTextSelection{0, scalars + 1},
+                      "Repeated Shift Right lost its native anchor");
+                press(Rml::Input::KI_LEFT, Rml::Input::KM_SHIFT);
+                check(selection(*field) == UiTextSelection{0, scalars},
+                      "Reversed Shift Left changed its anchor");
+                press(Rml::Input::KI_LEFT, Rml::Input::KM_SHIFT);
+                check(selection(*field) == UiTextSelection{0, 0},
+                      "Shift Left could not collapse at its native anchor");
+                field->SetSelectionRange(scalars + 1, scalars + 1);
+                press(Rml::Input::KI_LEFT, Rml::Input::KM_SHIFT);
+                press(Rml::Input::KI_LEFT, Rml::Input::KM_SHIFT);
+                check(selection(*field) == UiTextSelection{0, scalars + 1},
+                      "Repeated Shift Left split a character");
+                press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
+                check(selection(*field) == UiTextSelection{scalars, scalars + 1},
+                      "Reversed Shift Right lost the right native anchor");
+                press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
+                check(selection(*field) == UiTextSelection{scalars + 1, scalars + 1},
+                      "Shift Right could not collapse at the right native anchor");
+                for (const auto key : {Rml::Input::KI_LEFT, Rml::Input::KI_RIGHT}) {
+                    field->SetSelectionRange(1, 1);
+                    press(key, Rml::Input::KM_SHIFT);
+                    check(selection(*field) == UiTextSelection{0, scalars},
+                          "An interior native anchor produced a partial-character selection");
+                }
+                field->SetSelectionRange(scalars, 0);
+                press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
+                check(selection(*field) == UiTextSelection{scalars, scalars},
+                      "Native reverse selection orientation was not retained");
             }
         };
         if (editing) {
@@ -154,6 +199,16 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
             KeyListener listener;
             document->AddEventListener(Rml::EventId::Keydown, &listener, true);
             text->SetValue(utf8(u8"a\u0301b"));
+            unsigned delivered = 0;
+            text->SetSelectionRange(0, 0);
+            listener.action = [&](Rml::Event&) {
+                ++delivered;
+                check(selection(*text) == UiTextSelection{0, 0},
+                      "Shift selection changed before native event listeners");
+            };
+            press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
+            check(delivered == 1 && selection(*text) == UiTextSelection{0, 2},
+                  "Shift selection bypassed or duplicated native key dispatch");
             for (int modifier : {Rml::Input::KM_SHIFT, Rml::Input::KM_CTRL, Rml::Input::KM_ALT,
                                  Rml::Input::KM_META}) {
                 text->SetSelectionRange(2, 2);
@@ -167,6 +222,27 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
                 press(Rml::Input::KI_LEFT, modifier);
                 check(called, "Modified key bypassed native event dispatch");
             }
+            text->SetSelectionRange(0, 0);
+            listener.action = [&](Rml::Event& event) {
+                text->SetSelectionRange(1, 1);
+                event.StopImmediatePropagation();
+            };
+            press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
+            check(selection(*text) == UiTextSelection{1, 1},
+                  "Canceled Shift action overwrote callback-authored selection");
+            bool nested = false;
+            text->SetSelectionRange(0, 0);
+            listener.action = [&](Rml::Event& event) {
+                if (!nested) {
+                    nested = true;
+                    text->SetSelectionRange(2, 2);
+                    press(Rml::Input::KI_LEFT, Rml::Input::KM_SHIFT);
+                    event.StopImmediatePropagation();
+                }
+            };
+            press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
+            check(nested && selection(*text) == UiTextSelection{0, 2},
+                  "Outer Shift correction overwrote a reentrant native input operation");
             for (auto key : {Rml::Input::KI_LEFT, Rml::Input::KI_RIGHT, Rml::Input::KI_BACK,
                              Rml::Input::KI_DELETE}) {
                 text->SetSelectionRange(1, 1);
@@ -189,6 +265,10 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
             };
             press(Rml::Input::KI_BACK);
             check(composition_event, "Composition key did not reach native dispatch");
+            composition_event = false;
+            press(Rml::Input::KI_LEFT, Rml::Input::KM_SHIFT);
+            check(composition_event && selection(*text) == UiTextSelection{2, 2},
+                  "Shift preparation interfered with active native composition");
             handler.active->CommitComposition(utf8(u8"a\u0301"));
             check(text->GetValue() == utf8(u8"a\u0301b"),
                   "Public composition commit did not reach the native field");
@@ -204,6 +284,11 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
                 press(Rml::Input::KI_BACK);
                 check(text->GetValue() == "a" + std::string(ui_edit_text_characters, 'x'),
                       "Oversized native field was truncated instead of retaining native editing");
+                text->SetValue(utf8(u8"a\u0301") + std::string(ui_edit_text_characters, 'x'));
+                text->SetSelectionRange(0, 0);
+                press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
+                check(selection(*text) == UiTextSelection{0, 1},
+                      "Oversized Shift input did not retain native selection policy");
             }
             auto* removable = input("removable");
             check(removable->Focus() && handler.active, "Removal field did not activate");
@@ -217,6 +302,20 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
             press(Rml::Input::KI_BACK);
             document->RemoveEventListener(Rml::EventId::Keydown, &listener, true);
             check(!handler.active, "Removed field remained active in the delegate");
+            auto* shifted = input("shift-removable");
+            check(shifted->Focus() && handler.active, "Shift removal field did not activate");
+            shifted->SetValue(utf8(u8"a\u0301b"));
+            shifted->SetSelectionRange(0, 0);
+            bool removed = false;
+            listener.action = [&](Rml::Event& event) {
+                removed = true;
+                event.StopImmediatePropagation();
+                auto retired = shifted->GetParentNode()->RemoveChild(shifted);
+            };
+            shifted->AddEventListener(Rml::EventId::Keydown, &listener);
+            press(Rml::Input::KI_RIGHT, Rml::Input::KM_SHIFT);
+            check(removed && !handler.active,
+                  "Shift removal retained an active native field or skipped its callback");
         }
         auto* limited = input("limited");
         check(limited->Focus() && handler.active, "Limited field did not activate");

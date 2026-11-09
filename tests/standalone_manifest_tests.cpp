@@ -81,9 +81,16 @@ int main(int argc, char** argv) {
             validate_runtime_compatibility(features, Json::object(), &settings);
             settings["game"]["ui"][option] = true;
             reject([&] { validate_runtime_compatibility(features, Json::object(), &settings); });
-            for (const Json& invalid : {Json(), Json(true), Json(0), Json(1.), Json("1"), Json(2)})
+            for (const Json& invalid :
+                 {Json(), Json(true), Json(-1), Json(0), Json(double(version)),
+                  Json(std::to_string(version)), Json(version + 1)})
                 reject([&] {
                     validate_runtime_compatibility(features, {{capability, invalid}}, &settings);
+                });
+            if (version > 1)
+                reject([&] {
+                    validate_runtime_compatibility(features, {{capability, version - 1}},
+                                                   &settings);
                 });
             validate_runtime_compatibility(features, {{capability, version}}, &settings);
         }
@@ -823,6 +830,11 @@ int main(int argc, char** argv) {
             reject([&] { export_standalone_game(lease, request); });
             check(asset_storage::read(exported / "forge.standalone.json") == before_editing,
                   "A kit without whole-character editing replaced the last good distribution");
+            runtime["engine"]["runtime_ui_grapheme_editing"] = 1;
+            asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
+            reject([&] { export_standalone_game(lease, request); });
+            check(asset_storage::read(exported / "forge.standalone.json") == before_editing,
+                  "A plain-key-only kit replaced the distribution for Shift-aware editing");
             runtime["engine"]["runtime_ui_grapheme_editing"] = ui_grapheme_editing_profile_version;
             asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
             (void)export_standalone_game(lease, request);

@@ -61,6 +61,7 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
     assert 'native-secret' not in json.dumps(value)
     assert not field(value, 'password')['value_available'] and 'value' not in field(value, 'password')
     assert set(value['keys']) == set(advertised['forge_play_ui_key']['inputSchema']['properties']['key']['enum'])
+    assert {'select_left', 'select_right'} <= set(value['keys'])
     assert value['limits']['text_bytes'] == 1024
     assert advertised['forge_play_ui_text']['inputSchema']['properties']['text']['maxLength'] == value['limits']['text_bytes']
     assert advertised['forge_play_ui_command']['inputSchema']['properties']['value']['maxLength'] == value['limits']['text_bytes']
@@ -82,6 +83,17 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
     assert field(fields(), 'entry')['value'] == 'x'*1024
     action('forge_play_ui_key', key='select_all')
     action('forge_play_ui_text', text='áb')
+    action('forge_play_ui_key', key='home')
+    selected = field(action('forge_play_ui_key', key='select_right'), 'entry')
+    assert selected['selection'] == dict(begin=0, end=2) and selected['value'] == 'áb'
+    shift_args = arguments(**scope(), instance=instance, element='entry',
+                           presentation_revision=revision, key='select_right')
+    shift_first = client.tool('forge_play_ui_key', **shift_args)
+    shift_replay = client.tool('forge_play_ui_key', **shift_args)
+    assert shift_first['ok'] and shift_replay['ok'] and shift_first['result'] == shift_replay['result']
+    assert field(fields(), 'entry')['selection'] == dict(begin=0, end=3)
+    assert field(action('forge_play_ui_key', key='select_left'), 'entry')['selection'] == dict(begin=0, end=2)
+    assert field(action('forge_play_ui_key', key='select_left'), 'entry')['selection'] == dict(begin=0, end=0)
     action('forge_play_ui_key', element='entry', key='end')
     replay_args = arguments(**scope(), instance=instance, element='entry',
                             presentation_revision=revision, key='backspace')

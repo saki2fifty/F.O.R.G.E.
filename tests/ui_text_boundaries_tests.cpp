@@ -49,6 +49,26 @@ void policy() {
     range({1, 1}, UiTextKey::Left, {0, 1});
     range({1, 1}, UiTextKey::Right, {1, 3});
     range({1, 2}, UiTextKey::Delete, {0, 3});
+    const auto shifted = [&](UiTextSelection before, UiTextSelection after, UiTextKey key,
+                             UiTextOrientedSelection expected) {
+        check(ui_text_shift_selection(emoji, before, after, key) == expected,
+              "Native Shift movement lost complete-character boundaries or direction");
+    };
+    shifted({0, 0}, {0, 1}, UiTextKey::Right, {0, 3});
+    shifted({3, 3}, {2, 3}, UiTextKey::Left, {3, 0});
+    shifted({0, 3}, {0, 2}, UiTextKey::Left, {0, 0});
+    shifted({0, 3}, {1, 3}, UiTextKey::Right, {3, 3});
+    shifted({1, 1}, {1, 2}, UiTextKey::Right, {0, 3});
+    shifted({1, 1}, {0, 1}, UiTextKey::Left, {3, 0});
+    for (auto key : {UiTextKey::Left, UiTextKey::Right, UiTextKey::Backspace, UiTextKey::Delete}) {
+        check(!ui_text_shift_selection(emoji, {0, 3}, {0, 3}, key),
+              "Unchanged/canceled native selection was corrected");
+        check(!ui_text_shift_selection(emoji, {0, 0}, {0, 3}, key),
+              "Ambiguous native movement was assigned an invented anchor");
+    }
+    rejects([&] { ui_text_shift_selection(emoji, {-1, 0}, {0, 0}, UiTextKey::Right); });
+    rejects([&] { ui_text_shift_selection(emoji, {0, 0}, {2, 1}, UiTextKey::Right); });
+    rejects([&] { ui_text_shift_selection(emoji, {0, 0}, {0, 5}, UiTextKey::Right); });
     for (auto key : {UiTextKey::Left, UiTextKey::Right, UiTextKey::Backspace, UiTextKey::Delete}) {
         check(!ui_text_key_selection(emoji, {0, 3}, key),
               "Whole selection was needlessly replaced");

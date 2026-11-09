@@ -2962,3 +2962,9 @@ desktop editor, Windows/MSVC/D3D12, physical input, DPI or GPU acceptance claim.
 The local project-font-face-discovery gate records build inputs and validation.
 
 PNG SHA256: `d8ac4cf2823d2cdc0261f2cf4e0d3063f6094b92193f9be124e9aaafd3cd5620`.
+
+The whole-character Shift-selection guide reuses the existing UiTextShaping Game
+image above. Its initial document, field appearance and visible controls are
+unchanged; keyboard selection is taught by the guide's steps and verified through
+the native field owner. No new or retouched image, Windows keyboard, IME or
+physical display acceptance is implied by that reuse.

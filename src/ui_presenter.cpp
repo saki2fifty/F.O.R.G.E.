@@ -1581,6 +1581,14 @@ Json UiPresenter::text_field_action(const std::string& instance, const std::stri
             case ui_field::Key::Right:
                 code = Rml::Input::KI_RIGHT;
                 break;
+            case ui_field::Key::SelectLeft:
+                code = Rml::Input::KI_LEFT;
+                modifiers = Rml::Input::KM_SHIFT;
+                break;
+            case ui_field::Key::SelectRight:
+                code = Rml::Input::KI_RIGHT;
+                modifiers = Rml::Input::KM_SHIFT;
+                break;
             case ui_field::Key::Home:
                 code = Rml::Input::KI_HOME;
                 break;

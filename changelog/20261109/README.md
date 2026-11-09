@@ -1,5 +1,19 @@
 # 2026-11-09
 
+## Whole-character Shift selection
+
+The existing **Edit whole UI characters** option extends to logical horizontal
+Shift+Left/Right selection in native text, password and textarea controls.
+Selection extension, shrinking and reversal retain the native anchor; canceled
+or ambiguous transitions retain native behavior. Scoped field automation and
+MCP expose `select_left` and `select_right` through the same native key catalog,
+grants, validation and replay receipts.
+
+The source-derived whole-character runtime profile advances to 2. Export rejects
+an older plain-key-only kit before replacing a distribution; existing saved
+project booleans/defaults and Scene/asset identities remain valid. Other modified,
+word, vertical, pointer and full international editing remain outside this slice.
+
 ## Project font face discovery
 
 Registered project fonts expose bounded per-face family, style, full and

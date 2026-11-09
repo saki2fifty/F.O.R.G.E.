@@ -31,6 +31,18 @@ rolled back. A shared retirement token avoids dereferencing a control removed
 during dispatch. Native output-focus release, reload, reset, staged retirement
 and cold shutdown retain their existing ownership.
 
+Shift+Left/Right uses a transient observation of the same native field's
+one-scalar key transition. The pinned widget handles keys in a capture listener;
+a call-local listener on that field observes its selection afterwards. Ancestor
+cancellation prevents this observation. After dispatch, the same surviving focus,
+value and observed range must remain, with no reentrant public key dispatch.
+Only a proven movement of one endpoint by one scalar establishes the native
+anchor and moving caret. The helper aligns the oriented selection to complete
+grapheme boundaries using the public selection API; subsequent extension,
+shrinking and reversal retain the native anchor. Ambiguous transitions, changed
+values/focus, retired controls, later callback selection changes and active
+composition retain native behavior. There is no persistent cursor/anchor copy.
+
 The optional handler forwards the supplied platform handler through public
 context proxies. Native contexts remain borrowed until OnDestroy. Proxies
 observe composition calls without owning composition text, and forward all
@@ -55,7 +67,7 @@ The helper validates UTF-8, native scalar ranges, a64KiB byte limit and
 Font/glyph/document limits apply independently. The bounded full-field scan
 has no persistent invalidation cache and is not a physical performance claim.
 
-Modified keys, word navigation, vertical movement and pointer/Shift selection
+Other modified keys, word navigation, vertical movement and pointer selection
 remain native. Plain keys move in logical text order, without full paragraph
 bidirectional semantics. Complete IME, accessibility and general Unicode editor
 coverage are not implied. Native readonly is not available at this pin; supported
@@ -65,7 +77,8 @@ SetText, which bypasses native maximum length.
 ## Export, automation and validation
 
 Enabling the option requires exact runtime-kit capability
-`engine.runtime_ui_grapheme_editing: 1`. Missing/malformed/mismatched support is
+`engine.runtime_ui_grapheme_editing: 2`. This profile includes native Shift-arrow
+selection; the older plain-key profile is rejected. Missing/malformed/mismatched support is
 rejected before replacing a good distribution. Default projects preserve their
 existing kit compatibility. The standalone host reads the packaged setting with
 source files unavailable. No Scene/asset format, serialized identity, cook format
@@ -113,9 +126,10 @@ exact field/output still to hold native focus.
 
 Text uses the existing text/ProcessTextInput path. Named keys send a balanced
 native down/up pair; next/previous/accept reuse native navigation. Home/end and
-select-all retain native semantics. The private Rml-free key catalog drives both
-dispatch and automation schema discovery. The saved grapheme option affects only
-its four plain keys. Events, bindings, native restrictions and declared command
+select-all retain native semantics. `select_left` and `select_right` send paired
+Shift+Left/Right through that same key owner. The private Rml-free key catalog
+drives dispatch and automation schema discovery. The saved grapheme option affects
+its four plain keys and these two Shift arrows. Events, bindings, native restrictions and declared command
 queues retain their existing owners. Action results report delivered/consumed
 and fresh observations; they do not acknowledge gameplay or persist UI values.
 Native model/game updates may replace a field value between observations.

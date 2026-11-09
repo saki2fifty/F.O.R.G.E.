@@ -2307,6 +2307,13 @@ fixture shutdown requires every native MCP host to exit0; forced termination
 is failure cleanup. These are independent legacy-runtime and SDK Play results,
 not an external-client or full graphical editor acceptance claim.
 
+The workflow runner defaults to both protocol envelopes. For bounded individual
+jobs, set `FORGE_MCP_TEST_PROTOCOL=current` or `legacy`; invalid values fail
+before native work starts. Run both selections for each required Play profile
+before claiming equivalent coverage. Each selection retains the same actual
+workflow and graceful native shutdown checks. Separate capture files keep these
+executions attributable; splitting a job does not replace its missing envelope.
+
 The manual's MCP and input guides use the existing authentic native field capture
 with unchanged layout. Offline rendering verifies all local references/images;
 focused browser review checks the new tool steps/limits at desktop/narrow widths.

@@ -861,7 +861,8 @@ struct PlayAutomation {
                 (kind == "focus" ? "Focus the exact native text/password/textarea field. "
                  : kind == "text"
                      ? "Send UTF-8 text through the exact focused native field. "
-                     : "Send one paired native key through the exact focused field. ") +
+                     : "Send one paired native key through the exact focused field. "
+                       "select_left/select_right send Shift+Left/Right for native selection. ") +
                     std::string(
                         "Read play.ui.fields first and supply its presentation revision, "
                         "document instance and unique element ID. Native values, selection, "

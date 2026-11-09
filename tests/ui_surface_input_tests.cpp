@@ -210,6 +210,15 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
             int begin = -1, end = -1;
             field->GetSelection(&begin, &end, nullptr);
             check(begin == 0 && end == 0, "Output arrow split a combining character");
+            const auto selected = presenter.text_field_action(
+                "output", "entry", fields.at("presentation_revision"), "select_right");
+            field->GetSelection(&begin, &end, nullptr);
+            check(selected.at("delivered") && begin == 0 && end == 2,
+                  "Scoped output Shift arrow split a combining character");
+            presenter.text_field_action("output", "entry", fields.at("presentation_revision"),
+                                        "select_left");
+            field->GetSelection(&begin, &end, nullptr);
+            check(begin == 0 && end == 0, "Scoped output Shift reversal lost the native anchor");
             presenter.key(Rml::Input::KI_DELETE, true, 0);
             presenter.key(Rml::Input::KI_DELETE, false, 0);
             check(field->GetValue() == "b", "Output deletion split a combining character");

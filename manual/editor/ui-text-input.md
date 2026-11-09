@@ -29,6 +29,9 @@ RML value or modify the authored Scene.
 4. Press **End**, then **Backspace** to delete `b`. Press **Backspace** again: the accented `a` disappears together.
 5. Paste the same text again. Press **Home**, then **Right**: the caret moves past the accented `a` in one step. Press **Left** to return before it.
 6. From **Home**, press **Delete**: the accented `a` disappears and `b` remains.
+7. Paste `áb` again and press **Home**. Hold **Shift** and press **Right** once to select the accented `a` together. Press **Right** again while holding Shift to include `b`.
+8. Keep Shift held and press **Left** to shrink the selection back to the accented `a`. Release Shift, then press **Backspace** or **Delete** to remove that character together, leaving `b`.
+9. Paste `áb` again and press **Home**. **Shift+Right**, then **Shift+Left**, selects the accented character and collapses the selection at the original caret.
 
 Use a font containing the characters you test. Missing glyph boxes indicate font
 coverage, even when an emoji sequence is edited as one character.
@@ -37,13 +40,17 @@ coverage, even when an emoji sequence is edited as one character.
 
 - **Plain Left / Right:** move by a whole character in logical text order.
 - **Plain Backspace / Delete:** delete the adjacent whole character.
+- **Shift+Left / Shift+Right:** extend or shrink a selection by whole characters in logical text order. Reverse direction to move back toward where the selection started.
 - **Partially selected character + a plain key above:** expand to its whole character boundary before the native action.
-- **Shift, Ctrl, Alt or Meta modified keys:** existing native behavior.
+- **Other Shift combinations and Ctrl, Alt or Meta modified keys:** existing native behavior.
 - **Active IME composition:** existing platform/native behavior.
+
+When a Shift arrow moves a selection from inside a character, the selection
+expands to include that whole character.
 
 Text inputs, password inputs and textareas support the option. Native disabled
 controls and ordinary maximum-length restrictions still apply. Pointer selection,
-vertical movement, word navigation and modified selection retain native behavior;
+vertical movement, word navigation and other modified selection retain native behavior;
 their caret can be inside a multi-code-point character. The next plain key above
 uses the complete character boundary.
 
@@ -58,7 +65,8 @@ is unavailable; use supported disabled controls when editing must be blocked.
 
 Save the UI source, Scene and Project Settings, and test Play before exporting.
 Use the runtime kit packaged with the matching editor. A kit lacking the enabled
-whole-character editing profile is rejected. Players need no compiler or
+whole-character editing profile, including the current Shift-selection support,
+is rejected. Players need no compiler or
 machine-installed font. See [Export a game](runtime-content.md).
 
 ## Test fields with an AI agent
@@ -66,7 +74,8 @@ machine-installed font. See [Export a game](runtime-content.md).
 After [connecting through MCP](mcp.md) with **Allow C++ build and execution**,
 ask the agent to start Play and inspect the native fields in the game HUD.
 It can focus a uniquely named visible enabled field, type text, select all and
-send the supported native navigation/deletion keys. The UiTextShaping example's
+send the supported native navigation/deletion keys. The named keys
+`select_left` and `select_right` send Shift+Left and Shift+Right. The UiTextShaping example's
 input has the ID `field`. The agent reads the current document instance and
 presentation revision before acting; reloading the UI requires a fresh read.
 

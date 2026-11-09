@@ -19,4 +19,12 @@ std::vector<int> ui_grapheme_boundaries(std::string_view);
 // A temporary native selection consumed by its ordinary key action.
 // No result means that the existing native selection already has the desired behavior.
 std::optional<UiTextSelection> ui_text_key_selection(std::string_view, UiTextSelection, UiTextKey);
+// A call-local oriented range for the native selection API. Inputs are sorted
+// observations before/after its Shift arrow, not another stored cursor/anchor.
+struct UiTextOrientedSelection {
+    int anchor = 0, caret = 0;
+    bool operator==(const UiTextOrientedSelection&) const = default;
+};
+std::optional<UiTextOrientedSelection> ui_text_shift_selection(std::string_view, UiTextSelection,
+                                                               UiTextSelection, UiTextKey);
 } // namespace forge

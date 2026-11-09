@@ -3,7 +3,20 @@
 #include <string_view>
 
 namespace forge::ui_field {
-enum class Key { Left, Right, Home, End, Backspace, Delete, SelectAll, Accept, Next, Previous };
+enum class Key {
+    Left,
+    Right,
+    SelectLeft,
+    SelectRight,
+    Home,
+    End,
+    Backspace,
+    Delete,
+    SelectAll,
+    Accept,
+    Next,
+    Previous
+};
 struct NamedKey {
     std::string_view name;
     Key key;
@@ -11,6 +24,8 @@ struct NamedKey {
 // Shared native dispatch and automation discovery, independent of backend headers.
 inline constexpr std::array keys{NamedKey{"left", Key::Left},
                                  NamedKey{"right", Key::Right},
+                                 NamedKey{"select_left", Key::SelectLeft},
+                                 NamedKey{"select_right", Key::SelectRight},
                                  NamedKey{"home", Key::Home},
                                  NamedKey{"end", Key::End},
                                  NamedKey{"backspace", Key::Backspace},

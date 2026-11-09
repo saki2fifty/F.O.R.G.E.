@@ -2292,10 +2292,12 @@ other invalid text and absent surface mapping produce the native operation failu
 without a field edit. A native focus event can be canceled or retire a control;
 these are ordinary native events, not an authored transaction rollback.
 
-Names come from one native key catalog: `left`, `right`, `home`, `end`,
+Names come from one native key catalog: `left`, `right`, `select_left`, `select_right`, `home`, `end`,
 `backspace`, `delete`, `select_all`, `accept`, `next`, `previous`. The existing
 UiPresenter key/text/navigation methods perform them. Whole-character editing
-applies to its four plain keys when enabled; other native navigation/selection
+applies to its four plain keys and Shift+Left/Right selection when enabled.
+The two `select_` keys send Shift arrows through the existing native dispatcher,
+not a selection setter or separate anchor store. Other native navigation/selection
 semantics remain. No direct field setter, arbitrary DOM/script or IME context edit
 is exposed. Camera-output fields require an existing current native surface
 hit; ordinary native pointer/focus mapping and IME placement remain authoritative.
