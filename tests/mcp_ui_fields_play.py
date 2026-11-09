@@ -63,6 +63,11 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
     assert set(value['keys']) == set(advertised['forge_play_ui_key']['inputSchema']['properties']['key']['enum'])
     assert {'select_left', 'select_right'} <= set(value['keys'])
     assert {'word_left', 'word_right', 'select_word_left', 'select_word_right'} <= set(value['keys'])
+    native_keys = {'up', 'down', 'select_up', 'select_down', 'page_up', 'page_down',
+                   'select_page_up', 'select_page_down', 'select_home', 'select_end',
+                   'document_home', 'document_end', 'select_document_home',
+                   'select_document_end', 'word_backspace', 'word_delete'}
+    assert native_keys <= set(value['keys']) and len(value['keys']) == 32
     assert value['limits']['text_bytes'] == 1024
     assert advertised['forge_play_ui_text']['inputSchema']['properties']['text']['maxLength'] == value['limits']['text_bytes']
     assert advertised['forge_play_ui_command']['inputSchema']['properties']['value']['maxLength'] == value['limits']['text_bytes']
@@ -115,6 +120,21 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
     assert word_first['ok'] and word_replay['ok'] and word_first['result'] == word_replay['result']
     assert field(fields(), 'entry')['selection'] == dict(begin=2, end=8)
     action('forge_play_ui_key', key='select_all')
+    action('forge_play_ui_text', text='first second third')
+    action('forge_play_ui_key', key='document_end')
+    delete_args = arguments(**scope(), instance=instance, element='entry',
+                            presentation_revision=revision, key='word_backspace')
+    deleted = client.tool('forge_play_ui_key', **delete_args)
+    repeated = client.tool('forge_play_ui_key', **delete_args)
+    assert deleted['ok'] and repeated['ok'] and deleted['result'] == repeated['result']
+    assert field(fields(), 'entry')['value'] == 'first second '
+    action('forge_play_ui_key', key='document_home')
+    assert field(action('forge_play_ui_key', key='word_delete'), 'entry')['value'] == 'second '
+    action('forge_play_ui_key', key='document_end')
+    assert field(action('forge_play_ui_key', key='select_home'), 'entry')['selection'] == dict(begin=0, end=7)
+    action('forge_play_ui_key', key='document_home')
+    assert field(action('forge_play_ui_key', key='select_end'), 'entry')['selection'] == dict(begin=0, end=7)
+    action('forge_play_ui_key', key='select_all')
     action('forge_play_ui_text', text='áb')
     action('forge_play_ui_key', element='entry', key='end')
     replay_args = arguments(**scope(), instance=instance, element='entry',
@@ -145,6 +165,17 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
     action('forge_play_ui_focus', element='area')
     action('forge_play_ui_key', element='area', key='select_all')
     assert field(action('forge_play_ui_text', element='area', text='first\nsecond'), 'area')['value'] == 'first\nsecond'
+    multiline = 'first\nsecond\nthird'
+    action('forge_play_ui_key', element='area', key='select_all')
+    action('forge_play_ui_text', element='area', text=multiline)
+    # All aliases have raw-vs-named native coverage; RPC cases exercise each family.
+    for key in ('up', 'select_down', 'page_up', 'select_page_down'):
+        row = field(action('forge_play_ui_key', element='area', key=key), 'area')
+        assert row['value'] == multiline and 0 <= row['selection']['begin'] <= row['selection']['end'] <= len(multiline)
+    action('forge_play_ui_key', element='area', key='document_end')
+    assert field(action('forge_play_ui_key', element='area', key='select_document_home'), 'area')['selection'] == dict(begin=0, end=len(multiline))
+    action('forge_play_ui_key', element='area', key='document_home')
+    assert field(action('forge_play_ui_key', element='area', key='select_document_end'), 'area')['selection'] == dict(begin=0, end=len(multiline))
     assert control('forge_play_ui_reload')['reloaded']
     fresh = fields()
     assert fresh['presentation_revision'] != revision and field(fresh, 'entry')['value'] == 'áb'

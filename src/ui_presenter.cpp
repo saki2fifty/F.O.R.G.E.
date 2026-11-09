@@ -1604,16 +1604,64 @@ Json UiPresenter::text_field_action(const std::string& instance, const std::stri
                     modifiers |= Rml::Input::KM_SHIFT;
                 break;
             case ui_field::Key::Home:
+            case ui_field::Key::SelectHome:
+            case ui_field::Key::DocumentHome:
+            case ui_field::Key::SelectDocumentHome:
                 code = Rml::Input::KI_HOME;
+                if (named_key->key == ui_field::Key::SelectHome ||
+                    named_key->key == ui_field::Key::SelectDocumentHome)
+                    modifiers |= Rml::Input::KM_SHIFT;
+                if (named_key->key == ui_field::Key::DocumentHome ||
+                    named_key->key == ui_field::Key::SelectDocumentHome)
+                    modifiers |= Rml::Input::KM_CTRL;
                 break;
             case ui_field::Key::End:
+            case ui_field::Key::SelectEnd:
+            case ui_field::Key::DocumentEnd:
+            case ui_field::Key::SelectDocumentEnd:
                 code = Rml::Input::KI_END;
+                if (named_key->key == ui_field::Key::SelectEnd ||
+                    named_key->key == ui_field::Key::SelectDocumentEnd)
+                    modifiers |= Rml::Input::KM_SHIFT;
+                if (named_key->key == ui_field::Key::DocumentEnd ||
+                    named_key->key == ui_field::Key::SelectDocumentEnd)
+                    modifiers |= Rml::Input::KM_CTRL;
+                break;
+            case ui_field::Key::Up:
+            case ui_field::Key::SelectUp:
+                code = Rml::Input::KI_UP;
+                if (named_key->key == ui_field::Key::SelectUp)
+                    modifiers = Rml::Input::KM_SHIFT;
+                break;
+            case ui_field::Key::Down:
+            case ui_field::Key::SelectDown:
+                code = Rml::Input::KI_DOWN;
+                if (named_key->key == ui_field::Key::SelectDown)
+                    modifiers = Rml::Input::KM_SHIFT;
+                break;
+            case ui_field::Key::PageUp:
+            case ui_field::Key::SelectPageUp:
+                code = Rml::Input::KI_PRIOR;
+                if (named_key->key == ui_field::Key::SelectPageUp)
+                    modifiers = Rml::Input::KM_SHIFT;
+                break;
+            case ui_field::Key::PageDown:
+            case ui_field::Key::SelectPageDown:
+                code = Rml::Input::KI_NEXT;
+                if (named_key->key == ui_field::Key::SelectPageDown)
+                    modifiers = Rml::Input::KM_SHIFT;
                 break;
             case ui_field::Key::Backspace:
+            case ui_field::Key::WordBackspace:
                 code = Rml::Input::KI_BACK;
+                if (named_key->key == ui_field::Key::WordBackspace)
+                    modifiers = Rml::Input::KM_CTRL;
                 break;
             case ui_field::Key::Delete:
+            case ui_field::Key::WordDelete:
                 code = Rml::Input::KI_DELETE;
+                if (named_key->key == ui_field::Key::WordDelete)
+                    modifiers = Rml::Input::KM_CTRL;
                 break;
             case ui_field::Key::SelectAll:
                 code = Rml::Input::KI_A;

@@ -232,6 +232,16 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
                                         "select_word_right");
             field->GetSelection(&begin, &end, nullptr);
             check(begin == 0 && end == 2, "Scoped output word selection lost its native anchor");
+            presenter.text_field_action("output", "entry", fields.at("presentation_revision"),
+                                        "document_end");
+            presenter.text_field_action("output", "entry", fields.at("presentation_revision"),
+                                        "select_document_home");
+            field->GetSelection(&begin, &end, nullptr);
+            check(begin == 0 && end == 8, "Output document selection lost native focus/range");
+            presenter.text_field_action("output", "entry", fields.at("presentation_revision"),
+                                        "word_delete");
+            check(field->GetValue().empty(),
+                  "Output native word deletion did not consume selection");
             field->SetValue("a\xcc\x81"
                             "b");
             field->SetSelectionRange(0, 0);

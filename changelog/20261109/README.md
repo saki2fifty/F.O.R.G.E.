@@ -1,5 +1,14 @@
 # 2026-11-09
 
+## Native editing keys for agent workflows
+
+The shared native field catalog grows to32keys, adding vertical/page navigation,
+line/document selection and native Ctrl+Backspace/Delete. Automation and MCP
+schemas, descriptions, discovery and execution use the existing field/input owner,
+scopes and receipts. Existing keyboard semantics, runtime profiles and source
+history are unchanged. Whole-character word deletion and broader modified/vertical
+editing remain incomplete; native word deletion can split a combining sequence.
+
 ## Layered UI color glyphs
 
 The existing optional shaped-font adapter renders bounded COLRv0 vector layers

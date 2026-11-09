@@ -69,7 +69,7 @@ body {font-family:Lato;font-size:20px;} input,textarea {display:block;width:300p
         const auto initial = presenter.text_fields("fields");
         const auto revision = initial.at("presentation_revision").get<std::uint64_t>();
         check(initial.at("fields").size() == 8 && !initial.at("truncated").get<bool>() &&
-                  field(initial, "text").at("value") == "old" && initial.at("keys").size() == 16,
+                  field(initial, "text").at("value") == "old" && initial.at("keys").size() == 32,
               "Native field discovery differs from the actual controls");
         check(initial.dump().find("native-secret") == std::string::npos &&
                   !field(initial, "password").at("value_available").get<bool>(),
@@ -194,7 +194,7 @@ body {font-family:Lato;font-size:20px;} input,textarea {display:block;width:300p
         RemoveKey listener;
         listener.element = text;
         document->AddEventListener(Rml::EventId::Keydown, &listener, true);
-        const auto removed = act("text", "backspace");
+        const auto removed = act("text", "word_backspace");
         document->RemoveEventListener(Rml::EventId::Keydown, &listener, true);
         check(removed.at("delivered") && !document->GetElementById("text"),
               "Native callback removal was not observed safely");

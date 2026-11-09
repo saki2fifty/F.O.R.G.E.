@@ -2310,7 +2310,7 @@ graphical exported EXE and external-client review remain separate pending gates.
 
 `ui_field_automation` uses actual RmlUi input/password/textarea controls and both
 font modes. It checks bounded/unique/native observations, omitted password and
-oversized text, focus/text/ten named keys, native limits, hidden/disabled fields,
+oversized text, focus/text and the shared native key catalog, native limits, hidden/disabled fields,
 stale instances/presentation revisions, held-input rejection, callback removal,
 reload/reset and unchanged authored source. `ui_surface_grapheme_input` additionally
 rejects a fabricated absent surface mapping and reuses a real current native hit
@@ -2405,3 +2405,35 @@ This sample refresh retains its five prior asset IDs, Scene/settings and existin
 font/notice files, adding two original color-font assets. Enabled shaping uses
 matching source-derived profile3 and rejects earlier profiles before replacing
 a last-good export. Exact pins and native SDK ABI policy remain unchanged.
+
+
+`ui_native_edit_keys` compares all16additional aliases with actual paired native
+keys in text/password/textarea fields, both font modes and both saved editing
+modes. The192comparisons and192canceled actions check value, selection, focus,
+paired events, native change counts, password masking, unchanged source and cold
+retirement. Preparation uses actual select-all/text/Home/Right input plus native
+layout/rendering: bare SetValue/selection assignments do not establish identical
+native visual-caret state for this comparison. A fixture font/layout check prevents
+an empty unrendered control from counting as native navigation coverage.
+
+The current catalog contains32keys. Camera-surface checks also exercise document
+selection/native word deletion after a real current hit. Both MCP field workflows
+verify all new keys are discoverable and representative key families execute,
+multiline/document selection,
+destructive word-delete receipt replay, grants/revisions/focus, reload and authored
+isolation. Native word deletion can split a combined character. This batch exposes
+existing native keyboard behavior; whole-character word deletion, wider vertical/
+page/line grapheme semantics and full IME remain incomplete. Editing/shaping
+profiles and SDK ABI policy are unchanged. No new shader, physical input, full
+Main/MSVC/D3D12, external-client or graphical exported-executable result follows.
+Existing unmodified UI captures retain their recorded provenance.
+
+
+The fields-only workflow reuses its observed stable project/document target for
+read requests. Each mutation still performs fresh discovery for revision/sequence,
+and every fresh discovery asserts unchanged target identity. Other workflows keep
+their original boundary discovery. This avoids repeatedly serializing full method
+schemas during polling without caching permissions, revisions or Play/UI scopes.
+The native test host retains its240s lifetime guard; the expanded dual-protocol
+CTest cases have300s overall budgets. Sanitizer acceptance still requires fresh
+current/legacy envelopes in both Play profiles and clean native parent exits0.

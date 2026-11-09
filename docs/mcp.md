@@ -2294,14 +2294,21 @@ these are ordinary native events, not an authored transaction rollback.
 
 Names come from one native key catalog: `left`, `right`, `select_left`, `select_right`,
 `word_left`, `word_right`, `select_word_left`, `select_word_right`, `home`, `end`,
-`backspace`, `delete`, `select_all`, `accept`, `next`, `previous`. The existing
+`backspace`, `delete`, `select_all`, `accept`, `next`, `previous`, `up`, `down`,
+`select_up`, `select_down`, `page_up`, `page_down`, `select_page_up`,
+`select_page_down`, `select_home`, `select_end`, `document_home`, `document_end`,
+`select_document_home`, `select_document_end`, `word_backspace`, `word_delete`. The existing
 UiPresenter key/text/navigation methods perform them. Whole-character editing
 applies to its four plain keys, Shift+Left/Right selection and Ctrl-arrow word
 movement/selection when enabled. The four word keys send native Ctrl arrows,
 adding Shift for selection. Native word grouping, including the masked display
 policy in password fields, remains authoritative. The shared dispatcher uses
-paired native events and no separate anchor store. Other native navigation/selection
-semantics remain. No direct field setter, arbitrary DOM/script or IME context edit
+paired native events and no separate anchor store. The added vertical/page/line/
+document and word-deletion keys preserve native layout, events and boundaries;
+word deletion can split a grapheme. The32-entry catalog drives both schema and
+provider discovery; existing grants, held-key/focus/surface checks and receipt
+replay apply. Existing runtime editing profile3 remains unchanged because keyboard
+semantics are unchanged. Other native navigation/selection semantics remain. No direct field setter, arbitrary DOM/script or IME context edit
 is exposed. Camera-output fields require an existing current native surface
 hit; ordinary native pointer/focus mapping and IME placement remain authoritative.
 

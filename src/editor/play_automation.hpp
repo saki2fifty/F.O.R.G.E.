@@ -863,7 +863,11 @@ struct PlayAutomation {
                      ? "Send UTF-8 text through the exact focused native field. "
                      : "Send one paired native key through the exact focused field. "
                        "select_left/select_right send Shift+Left/Right for native selection. "
-                       "word_left/right send Ctrl arrows; select_word_left/right add Shift. ") +
+                       "word_left/right send Ctrl arrows; select_word_left/right add Shift. "
+                       "up/down and page_up/down retain native layout; select_ variants add Shift. "
+                       "select_home/end select to native line bounds; document_home/end add Ctrl. "
+                       "select_document_home/end add Ctrl+Shift. word_backspace/delete send native "
+                       "Ctrl+Backspace/Delete and can split a combined character. ") +
                     std::string(
                         "Read play.ui.fields first and supply its presentation revision, "
                         "document instance and unique element ID. Native values, selection, "

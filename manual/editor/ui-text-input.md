@@ -87,6 +87,13 @@ send the supported native navigation/deletion keys. The named keys
 input has the ID `field`. The agent reads the current document instance and
 presentation revision before acting; reloading the UI requires a fresh read.
 
+For native line/document, vertical/page navigation and word deletion, the agent
+can use the additional keys listed in [MCP game creation](mcp.md). `select_home`
+and `select_end` send Shift+Home/End; `document_home` and `document_end` send
+Ctrl+Home/End. `word_backspace` and `word_delete` send Ctrl+Backspace/Delete.
+These retain native boundaries and can split a combined character; the option
+above does not extend to them. Read the resulting selection and focus each time.
+
 These operations use the same native fields and saved editing option. Password
 plaintext is omitted from observations. Field text stays in the running UI;
 game models may replace it, and it is not saved into source or Scene Undo.

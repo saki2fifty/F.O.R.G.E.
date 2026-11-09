@@ -19,7 +19,23 @@ enum class Key {
     SelectAll,
     Accept,
     Next,
-    Previous
+    Previous,
+    Up,
+    Down,
+    SelectUp,
+    SelectDown,
+    PageUp,
+    PageDown,
+    SelectPageUp,
+    SelectPageDown,
+    SelectHome,
+    SelectEnd,
+    DocumentHome,
+    DocumentEnd,
+    SelectDocumentHome,
+    SelectDocumentEnd,
+    WordBackspace,
+    WordDelete
 };
 struct NamedKey {
     std::string_view name;
@@ -41,5 +57,21 @@ inline constexpr std::array keys{NamedKey{"left", Key::Left},
                                  NamedKey{"select_all", Key::SelectAll},
                                  NamedKey{"accept", Key::Accept},
                                  NamedKey{"next", Key::Next},
-                                 NamedKey{"previous", Key::Previous}};
+                                 NamedKey{"previous", Key::Previous},
+                                 NamedKey{"up", Key::Up},
+                                 NamedKey{"down", Key::Down},
+                                 NamedKey{"select_up", Key::SelectUp},
+                                 NamedKey{"select_down", Key::SelectDown},
+                                 NamedKey{"page_up", Key::PageUp},
+                                 NamedKey{"page_down", Key::PageDown},
+                                 NamedKey{"select_page_up", Key::SelectPageUp},
+                                 NamedKey{"select_page_down", Key::SelectPageDown},
+                                 NamedKey{"select_home", Key::SelectHome},
+                                 NamedKey{"select_end", Key::SelectEnd},
+                                 NamedKey{"document_home", Key::DocumentHome},
+                                 NamedKey{"document_end", Key::DocumentEnd},
+                                 NamedKey{"select_document_home", Key::SelectDocumentHome},
+                                 NamedKey{"select_document_end", Key::SelectDocumentEnd},
+                                 NamedKey{"word_backspace", Key::WordBackspace},
+                                 NamedKey{"word_delete", Key::WordDelete}};
 } // namespace forge::ui_field

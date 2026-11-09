@@ -313,13 +313,26 @@ if protocol_case not in protocol_cases:
     raise SystemExit('FORGE_MCP_TEST_PROTOCOL must be both, current or legacy')
 for legacy in protocol_cases[protocol_case]:
     with editor('application_states' if APPLICATION_STATES_ONLY else 'ui_localization' if UI_LOCALIZATION_ONLY else 'gamepads' if GAMEPADS_ONLY else 'clocked_audio' if FINITE_SOUND_CUES_ONLY else 'full') as (root, config), Client(config, legacy) as client:
+        # This focused workflow keeps one project/document target. Reuse that
+        # observed target for reads; every mutation still discovers fresh revision
+        # and sequence guards. Other workflows retain their boundary discovery.
+        field_read_target = {}
+
         def discovery():
             value = client.tool('forge_discover')
             assert value['ok'], value
+            if UI_FIELDS_ONLY:
+                target = value['result']['target']
+                assert 'value' not in field_read_target or field_read_target['value'] == target, \
+                    'UI field workflow changed target; refresh the read-target policy'
+                field_read_target['value'] = target
             return value
 
         def read(tool, **extra):
-            value = client.tool(tool, target=discovery()['result']['target'], **extra)
+            target = field_read_target.get('value') if UI_FIELDS_ONLY else None
+            if target is None:
+                target = discovery()['result']['target']
+            value = client.tool(tool, target=target, **extra)
             assert value['ok'], value
             return value['result']
 

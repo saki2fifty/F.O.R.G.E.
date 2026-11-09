@@ -235,6 +235,24 @@ example, use `select_all`, then send the replacement text.
 boundaries. Native maximum length, disabled controls, events and
 bindings remain active. Game models may change fields between calls.
 
+The same catalog also provides these native editing keys:
+
+- `up`, `down`: Up / Down.
+- `select_up`, `select_down`: Shift+Up / Down.
+- `page_up`, `page_down`: Page Up / Page Down.
+- `select_page_up`, `select_page_down`: Shift+Page Up / Page Down.
+- `select_home`, `select_end`: Shift+Home / End.
+- `document_home`, `document_end`: Ctrl+Home / End.
+- `select_document_home`, `select_document_end`: Ctrl+Shift+Home / End.
+- `word_backspace`, `word_delete`: Ctrl+Backspace / Delete.
+
+Line and page navigation follows the native control's layout. Read the returned
+selection and focus before continuing. These additional keys retain native
+behavior; **Edit whole UI characters** does not add whole-character boundaries
+to vertical/page/line selection or word deletion. Ctrl+Delete can leave a
+combining mark behind. Use the supported whole-character horizontal selection
+and plain deletion when you need those boundaries.
+
 The tools observe up to **64 fields** within **4,096 DOM nodes** per document.
 IDs must be unique, nonempty UTF-8 up to **256 bytes**. Duplicate IDs or a
 truncated observation prevent input. Text actions and returned values use a

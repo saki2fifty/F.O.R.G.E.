@@ -146,6 +146,15 @@ and these word keys. Native word grouping remains authoritative. Events,
 bindings, native restrictions and declared command
 queues retain their existing owners. Action results report delivered/consumed
 and fresh observations; they do not acknowledge gameplay or persist UI values.
+The same shared key catalog also admits native Up/Down, PageUp/PageDown,
+Shift variants, Shift+Home/End, Ctrl+Home/End, Ctrl+Shift+Home/End and native
+Ctrl+Backspace/Delete. These names map to the existing paired presenter input
+path without custom line or word segmentation, caret storage, text replacement
+or modified-delete interception. Native layout/events/cancellation/password policy
+remain authoritative. Word deletion can split a grapheme; full word-grapheme,
+vertical/page/line selection, pointer and broad IME editing remain gaps. No
+runtime-profile bump is required for adding aliases to existing keyboard behavior.
+
 Native model/game updates may replace a field value between observations.
 
 Play automation compares the actual shown session/world/presentation revision
