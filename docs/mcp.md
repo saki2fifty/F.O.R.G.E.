@@ -2319,8 +2319,14 @@ The normal reviewed digest, containment, ordinary-file, revision and no-overwrit
 rules apply. No font asset is published until explicit UI registration.
 
 Existing `forge_source_ui_register` also admits contained TTC/OTC collection
-fonts. `forge_asset_read` exposes their `forge.ui_source.faces` and
-`runtime_features.font_collections` metadata. Successful UI registration/example
+fonts. `forge_asset_read` exposes their `forge.ui_source.faces`, indexed
+`font_faces` and `runtime_features.font_collections` metadata. Each face row has
+its native zero-based `index` and available saved `family`, `style`, `full_name`,
+`postscript_name` and `weight`. Optional labels can be absent; select by index,
+not by assuming a family name or alias. Existing fonts acquire details through
+the same source registration/refresh operation, preserving their AssetIds and
+bytes. Informational discovery adds no permission or font-selection writer.
+Successful UI registration/example
 creation publishes the saved catalog to the existing import/read owner, so asset
 search and inspection can observe it without reopening the project. No separate
 agent catalog is maintained. Create/edit `@font-face` and zero-based

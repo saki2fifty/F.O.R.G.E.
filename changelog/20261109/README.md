@@ -1,5 +1,18 @@
 # 2026-11-09
 
+## Project font face discovery
+
+Registered project fonts expose bounded per-face family, style, full and
+PostScript names and recorded weight through the existing asset metadata.
+Content's Inspector lists face indices, families, styles and weights; ordinary
+asset reads expose the same information to automation and MCP. Unsupported or
+malformed optional labels remain unavailable without rejecting an otherwise
+admitted font. Refresh preserves file bytes and existing asset identities.
+
+The collection example and illustrated manual teach index selection and alias
+independence. This adds no system-font scan, variation controls, native font
+selection changes, dependency upgrades or runtime-kit requirements.
+
 ## Optional native UI text shaping
 
 Project Settings adds **Shape UI text**, an optional saved boolean which keeps

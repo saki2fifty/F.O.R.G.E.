@@ -111,6 +111,28 @@ are limited to **4 MiB** and **32 faces**; all selected faces must fit the norma
 font and UI budgets. Custom variation axes, named variation instances and color
 glyphs are outside this workflow.
 
+## Find a font's face index
+
+1. Register the project font using **Content → Create / Register → Runtime UI → Register / Refresh**.
+2. Select its `ui_font` asset in Content, then open **Inspector**.
+3. Under **Font faces**, read the **Face**, **Family**, **Style** and **Weight** columns. Use the zero-based **Face** number in `-rmlui-face-index`.
+
+![Font faces table showing Poppins and Cairo, each with its saved index, Regular style and weight 400](../images/ui-font-faces-inspector.png)
+
+The font detail controls show the registered collection's two faces. Face 1
+selects Cairo. A standalone font has face 0.
+
+These are names recorded inside the font; your RCSS `font-family` alias is your
+own choice. Weight is the recorded numeric weight, not a control that changes
+the font. Names or weight can be **Unavailable** when the file has no supported
+information. The face index remains usable. Labels are limited to 64 UTF-8
+bytes; an unsupported or oversized label is omitted rather than shortened.
+
+After replacing a font file, use **Register / Refresh** again to update these
+details. Older registered fonts can also need a refresh before the table appears.
+Registration preserves their asset IDs and source bytes. Restart Play after
+replacing a loaded font. Inspecting the table does not edit or save font data.
+
 ## Save and export
 
 Save the UI source, Scene and Project Settings. After a successful Play, use

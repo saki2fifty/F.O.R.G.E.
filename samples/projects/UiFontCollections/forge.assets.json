@@ -41,6 +41,24 @@
           "bytes": 252744,
           "digest": "c8945d2c5d0fee40afe51ff40617e292593eca47c99715da244860213eb68229",
           "faces": 2,
+          "font_faces": [
+            {
+              "family": "Poppins",
+              "full_name": "Poppins Regular",
+              "index": 0,
+              "postscript_name": "Poppins-Regular",
+              "style": "Regular",
+              "weight": 400
+            },
+            {
+              "family": "Cairo",
+              "full_name": "Cairo Regular",
+              "index": 1,
+              "postscript_name": "Cairo-Regular",
+              "style": "Regular",
+              "weight": 400
+            }
+          ],
           "format": "ttc",
           "runtime_features": {
             "font_collections": 1

@@ -116,6 +116,36 @@ collection resources retain their existing compatibility. Source registration,
 metadata inspection and RML/RCSS edits use existing editor/automation/MCP owners.
 See the [collection workflow](../manual/editor/ui-text-shaping.md).
 
+### Saved face discovery
+
+The same headless font admission owner derives `font_faces` alongside `faces`
+in `forge.ui_source` metadata. Every row has its zero-based `index`; optional
+`family`, `style`, `full_name`, `postscript_name` and numeric `weight` describe
+the saved bytes. Content's asset Inspector displays family/style/weight, and
+ordinary automation `asset.read` / MCP `forge_asset_read` returns the same rows.
+Existing source registration and resource refresh publish the metadata through
+the catalog owner, preserving source bytes and existing AssetIds. Old records
+remain readable and acquire rows on refresh. No new grants, mutation tools,
+history owner, font database, native font selection or runtime-kit capability is
+introduced by informational discovery.
+
+The independently authored reader uses the already-checked sfnt directories.
+It examines optional OpenType `name` versions 0/1, up to 512 records and 32
+language tags, and `OS/2.usWeightClass` in 1..1000. Typographic names 16/17 take
+precedence over legacy 1/2; names 4/6 supply full and PostScript labels. English
+Windows names, English language tags, Unicode names and other supported names
+have deterministic preference. Unicode and supported Windows Unicode encodings
+use strict UTF-16BE decoding; Macintosh Roman names use only their ASCII subset.
+Other legacy codepages are omitted. Labels are bounded to 64 UTF-8 bytes without
+truncation. Malformed, missing, duplicate or unsupported optional naming data
+omits labels without rejecting an otherwise admitted font or changing its index.
+These labels are informational: native FreeType/RmlUi still owns usable font
+faces, glyph coverage, style selection and rendering. Variation controls and
+system-font discovery remain outside the supported profile.
+
+The bounded name-table layout follows the primary
+[OpenType naming specification](https://learn.microsoft.com/en-us/typography/opentype/spec/name).
+
 The existing SourceImport controller admits font files as a reviewed copy-only
 batch, through both native Import files and the same asset.import automation/MCP
 operations. Its ordinary SourceCopy transaction owns bytes, destination checks,

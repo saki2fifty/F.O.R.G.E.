@@ -39,6 +39,9 @@ def check_ui_font_collections(root, read, ok, control, mutate, until, fixture):
           lambda page: any(row['asset'] == font['asset'] for row in page['assets']))
     metadata = read('forge_asset_read', asset=font['asset'])['metadata']['forge.ui_source']
     assert metadata['faces'] == 2 and metadata['runtime_features']['font_collections'] == 1
+    assert [(row['index'], row['family'], row['style'], row['weight'])
+            for row in metadata['font_faces']] == [(0, 'Poppins', 'Regular', 400),
+                                                   (1, 'Cairo', 'Regular', 400)]
     bad = project/'Assets/Bad.ttc'
     bad.write_bytes(original[:19])
     failed(mutate('forge_source_ui_register', path='Assets/Bad.ttc'), 'operation_failed')

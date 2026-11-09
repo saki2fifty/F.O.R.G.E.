@@ -4,7 +4,7 @@ Open this project in FORGE, open **Scenes/FontCollections.scene.json**, then
 start **Play** and select **Game**. A Camera is already included.
 
 Two styles select different faces from **Assets/Fonts/Menu.ttc**: face **0** is
-Lato and face **1** is Cairo. Compare the two Latin samples, the Arabic run and
+Poppins and face **1** is Cairo. Compare the two Latin samples, the Arabic run and
 the text field. The saved **Shape UI text** option enables script joining;
 **Edit whole UI characters** enables bounded plain-key character editing.
 
@@ -13,6 +13,12 @@ provides a family alias and uses `-rmlui-face-index` to select a zero-based face
 Change the source, choose **Save source**, stop and restart Play. Runtime field
 edits do not save to source. Existing scoped MCP UI field tools can exercise the
 same input through its native owner.
+
+Select **Assets/Fonts/Menu.ttc** in Content and open **Inspector**. Its **Font
+faces** table lists Poppins at index 0 and Cairo at index 1, both Regular with
+weight 400. If the table requests a refresh, register this relative font path
+through **Content → Create / Register → Runtime UI → Register / Refresh**.
+These recorded names help choose an index; the style's family alias is independent.
 
 Save source, Scene and Project Settings before export. Use the runtime kit
 packaged with this editor; collection fonts require matching kit support.

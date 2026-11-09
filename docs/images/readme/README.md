@@ -2945,3 +2945,20 @@ PNG SHA256: `f04cec5ac0a8cc638b94d3ef4bb83261ee8a9bb347fcb08a39476e7b0584897e` (
 PNG SHA256: `1ce15232cce34e03e6a6b5f0b19a3a1c470a9ad6dbaabb11035d9cf616783c87` (`prefab-variant-source.png`).
 
 PNG SHA256: `a5b3a4768b5d80cf646b2f84d41629403105cb516bec42daa83e1abfa7d5729e` (`prefab-component-suppression-source.png`).
+
+## Project font face details
+
+Captured on 2026-11-09 with `forge_ui_font_details_tests`, the actual font detail
+widget used by Content's asset Inspector. The fixture registers the unchanged
+UiFontCollections font through the existing catalog owner, renders its derived
+Poppins/Cairo rows through ImGui and SDL's software backend, and checks both
+700px and 400px widths. It also verifies read-only inspection, legacy metadata,
+optional-label fallbacks and stable identity/source bytes on refresh.
+
+The canonical [font detail image](../../../manual/images/ui-font-faces-inspector.png)
+is the exact, personally reviewed 400×330 output, without crop, resizing, retouch
+or invented controls. This is a source-built native widget capture, not a full
+desktop editor, Windows/MSVC/D3D12, physical input, DPI or GPU acceptance claim.
+The local project-font-face-discovery gate records build inputs and validation.
+
+PNG SHA256: `d8ac4cf2823d2cdc0261f2cf4e0d3063f6094b92193f9be124e9aaafd3cd5620`.

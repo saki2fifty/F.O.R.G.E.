@@ -9,6 +9,7 @@
 #include "help.hpp"
 #include "property_drawer.hpp"
 #include "search.hpp"
+#include "ui_font_details.hpp"
 #include <algorithm>
 #include <cctype>
 #include <forge/asset_discovery.hpp>
@@ -235,6 +236,8 @@ class ContentBrowser {
                          "shared watcher and the recorded source digest.");
             }
         }
+        if (asset->type == "ui_font")
+            ui::draw_ui_font_details(*asset);
         auto resolution = catalog_->resolve(asset->id, asset->type);
         if (resolution.state != AssetState::Available)
             ui::field_error(resolution.diagnostic);
@@ -502,8 +505,10 @@ class ContentBrowser {
             }
         };
         if (compact) {
-            if (ui::button("Actions", "Create/Register, Import files, Refresh, Source updates and Sound playlist. "
-                                      "Short Content panels reserve room for asset results."))
+            if (ui::button(
+                    "Actions",
+                    "Create/Register, Import files, Refresh, Source updates and Sound playlist. "
+                    "Short Content panels reserve room for asset results."))
                 ImGui::OpenPopup("content-actions");
             if (ImGui::BeginPopup("content-actions")) {
                 draw_actions();

@@ -86,7 +86,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Runtime UI: HUDs, interactive quad/animated-mesh surfaces, camera-image panels, menus, animation, filters, shadows, backdrops, gradients, alpha/luminance masks and static/animated panel shadows](editor/runtime-ui.md)
 - [Animate named UI values with a Scene sequence](editor/sequence-ui.md)
 - [Edit UI source, widgets and styles inside FORGE](editor/ui-source.md)
-- [Shape game UI text: ligatures, script runs and collection font faces](editor/ui-text-shaping.md)
+- [Shape game UI text: ligatures, script runs, collections and face discovery](editor/ui-text-shaping.md)
 - [Edit whole UI characters: arrows, deletion, agent testing and native input limits](editor/ui-text-input.md)
 - [Translate a game's menus and HUD](editor/ui-localization.md)
 - [Flecs Script](editor/flecs-script.md)
