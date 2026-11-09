@@ -95,6 +95,16 @@ boundaries. No new selection manager, layout solver, persisted data, runtime
 capability or gameplay SDK layout is introduced. Group resize and relative/flow
 layouts remain outside this bounded profile.
 
+Static subtree duplication and sibling-group removal extend these same source
+range, selection and history owners. Duplication retains original source/IDs and
+assigns collision-checked prefix IDs only to the new raw fragment. Literal internal
+label targets remap; unknown references, selectors and external targets are not
+rewritten. Unsupported bound/dynamic/ambiguous input rejects. Removal admits at
+most32distinct unprotected same-parent roots, validates disjoint ranges and the
+complete result, then replaces the draft once. Both native controls and borrowed
+automation use these helpers. No persisted source identity, native DOM writer,
+clipboard protocol, schema/SDK change or separate history is introduced.
+
 Source-preview image output borrows the same observed native image through
 ViewImageTask. A rendered input retains the source/preview identity and rechecks
 it before the existing nonblocking GPU copy is submitted. Pending observations

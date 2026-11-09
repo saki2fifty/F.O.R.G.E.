@@ -32,6 +32,20 @@ publish catalog metadata or reload presentation. Raw automation cannot overwrite
 an open native-owned source. MCP borrows the same editor; no agent-only authoring
 or runtime DOM writer exists. See [ADR048](decisions/048-ui-source-authoring.md).
 
+Static subtree duplication inserts one raw source fragment immediately after its
+original. The same parser ranges supply ID/label attribute replacements; no native
+DOM serialization is involved. Existing bytes and IDs stay unchanged. A validated
+explicit lowercase prefix or bounded copy/copy2..copy64 search creates unique new
+IDs; an anonymous root receives the prefix. Literal internal label targets remap,
+while external targets and stylesheet selectors stay unchanged. Dynamic ancestry,
+data/event attributes, expressions, script/template/protected declarations, fragment
+links, ambiguous IDs/targets and source/node budget overflow reject before one
+TextEditor replacement. Native lookup tokens cannot become copied IDs. Ordinary
+source removal also supports1..32distinct same-parent roots, validates the complete
+selection, removes disjoint ranges in descending order and publishes one Undo
+record. Elements and Preview controls plus automation borrow these same helpers.
+Neither operation saves or publishes resources; asset/Scene identity is unchanged.
+
 Text/attribute editing calls the pinned `Rml::StringUtilities::EncodeRml` API.
 Markup escapes do not suppress `{{model}}` bindings or attribute expressions;
 those retain ordinary RML source meaning. Leaf text containing child markup or

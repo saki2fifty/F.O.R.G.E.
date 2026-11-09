@@ -1,5 +1,19 @@
 # 2026-11-09
 
+## Static UI copies and atomic group removal
+
+UI Source can duplicate a static subtree beside itself using collision-checked
+prefix IDs, preserving every original ID and unrelated source byte. Internal
+literal label targets follow copied controls. Elements selects the new root;
+copied absolute layouts can then be repositioned through Preview. Dynamic or
+ambiguous source rejects instead of guessing references.
+
+Elements and Preview add one-step sibling-group removal. Shared source helpers
+also back ui.source.duplicate and ui.source.remove_group with normal permissions,
+guards, receipt replay and source history. The manual covers naming, CSS/reference
+limits, removal and Save. No Gallery identity, runtime profile, SDK, dependency or
+source format change is introduced. Windows/physical review remains queued.
+
 ## Atomic groups in the native UI canvas
 
 UI Source adds bounded same-parent multi-selection with Ctrl+click in Elements

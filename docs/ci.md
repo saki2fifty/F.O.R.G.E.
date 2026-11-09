@@ -51,7 +51,7 @@ attribute/text/child/order/removal, history, CRLF, invalid drafts, conflicts,
 read-only state, close/cancel/discard, moves/deletion and long-text protection.
 The C++ history fixture checks the shared widget replacement helper.
 `sprite_atlas_source_editor` also verifies hook-only document entries are excluded
-from typed-source discovery and dispatch. `mcp_ui_source_stdio` exercises16 actual
+from typed-source discovery and dispatch. `mcp_ui_source_stdio` exercises18 actual
 native-owner tools through both MCP envelopes, grants, stale guards, source-owned
 raw-write rejection, history, conflicts, RCSS and dirty-source Play rejection.
 It includes native draft geometry, source/preview guards, unsupported layouts and
@@ -59,6 +59,18 @@ atomic pixel/group receipt replay. Group movement, alignment and distribution us
 the actual native owner, with duplicate/unsupported/stale rejection, complete Undo/
 Redo, source/Scene isolation and grant discovery. The read-only grant includes
 preview metadata but excludes group writes.
+
+Static subtree coverage includes collision-checked prefix IDs, escaped internal
+label targets, anonymous roots, original-byte preservation, dynamic/protected/
+ambiguous rejection, bounded automatic naming and admitted source/tag overflow.
+Native controls exercise prefix input, duplication, copied selection, sibling
+removal and one-record Undo/Redo at all three widths. Preview group removal remains
+available when a two-member distribution is disabled. Both MCP envelopes exercise
+duplicate/remove_group guards, replay, atomic rejection, selection, full history
+and read-only discovery omission. `ui_layout_gallery` saves a cloned static form,
+clicks its label through the actual presenter to focus the copied input, then
+packages, relocates and repeats with the source project hidden. Canonical Gallery
+assets and IDs remain unchanged by that scratch fixture.
 
 `ui_draft_resources` covers immutable draft admission, correction of invalid saved
 bytes, scope/budgets and package rejection. `ui_source_preview` checks native

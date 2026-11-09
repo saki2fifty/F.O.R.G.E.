@@ -157,7 +157,7 @@ struct UiSourceAutomation {
         for (const auto& [key, label] : ui_layout_group_actions)
             group_actions.push_back(key);
         group_properties["elements"] =
-            automation_array(automation_integer(0, 8191), ui_layout_selection_limit, 2);
+            automation_array(automation_integer(0, 8191), ui_source_selection_limit, 2);
         group_properties["action"] = {{"type", "string"}, {"enum", std::move(group_actions)}};
         group_properties["preview_instance"] = automation_uuid();
         group_properties["preview_revision"] = automation_integer();
@@ -202,8 +202,9 @@ struct UiSourceAutomation {
                 editor.open(files.document, path_utf8(path));
                 return state(editor, files.document);
             }));
-        for (const auto* operation : {"replace", "attribute", "text", "insert", "remove", "move",
-                                      "save", "undo", "redo", "reload", "close"}) {
+        for (const auto* operation :
+             {"replace", "attribute", "text", "insert", "duplicate", "remove", "remove_group",
+              "move", "save", "undo", "redo", "reload", "close"}) {
             const std::string action(operation);
             auto properties = guard;
             auto fields = required;
@@ -214,8 +215,14 @@ struct UiSourceAutomation {
             };
             if (action == "replace")
                 add("text", automation_text(256 * 1024 - 1));
-            if (action == "attribute" || action == "text" || action == "remove" || action == "move")
+            if (action == "attribute" || action == "text" || action == "duplicate" ||
+                action == "remove" || action == "move")
                 add("element", automation_integer(0, 8191));
+            if (action == "duplicate")
+                add("prefix", automation_text(64), false);
+            if (action == "remove_group")
+                add("elements",
+                    automation_array(automation_integer(0, 8191), ui_source_selection_limit, 1));
             if (action == "attribute") {
                 add("name", automation_text(64, 1));
                 add("value", {{"oneOf", {automation_text(256 * 1024), Json{{"type", "null"}}}}});
@@ -233,15 +240,31 @@ struct UiSourceAutomation {
                 add("discard", {{"type", "boolean"}}, false);
             result.push_back(automation_method(
                 "ui.source." + action,
-                action +
-                    " the observed native UI source at its path/session/revision/content "
-                    "digest, sharing one widget Undo history. Text and attribute values escape "
-                    "markup characters; RML bindings retain their source meaning. A null "
-                    "attribute value removes it. Structured edits preserve "
-                    "unrelated source and validate the full candidate. Raw replace may retain "
-                    "incomplete markup; Save validates and checks the disk baseline. Reload/"
-                    "Close require explicit discard for an unsaved draft. Resource registration "
-                    "and Reload UI remain separate; no Scene history or OS clipboard write.",
+                action == "duplicate"
+                    ? "Copy one static source subtree as its next sibling in one Undo step. "
+                      "Existing bytes/IDs stay unchanged; copied IDs use prefix-oldID, and an "
+                      "anonymous root gains prefix. Empty/omitted prefix tries copy,copy2..copy64. "
+                      "Explicit prefixes are lowercase UI names up to64bytes; new IDs fit128bytes. "
+                      "Internal literal label targets remap; external references/CSS selectors "
+                      "stay unchanged. Bound/event-driven/expression/protected/ambiguous source "
+                      "rejects. Requires current source guards/assets.write; no Save/registration."
+                : action == "remove_group"
+                    ? "Remove1..32 distinct same-parent source subtrees as one Undo step. "
+                      "Protected, nested, duplicate, invalid or stale selections reject "
+                      "without partial changes. Requires current source guards/assets.write; "
+                      "no Save, registration or Scene history."
+                    : action +
+                          " the observed native UI source at its path/session/revision/content "
+                          "digest, sharing one widget Undo history. Text and attribute values "
+                          "escape "
+                          "markup characters; RML bindings retain their source meaning. A null "
+                          "attribute value removes it. Structured edits preserve "
+                          "unrelated source and validate the full candidate. Raw replace may "
+                          "retain "
+                          "incomplete markup; Save validates and checks the disk baseline. Reload/"
+                          "Close require explicit discard for an unsaved draft. Resource "
+                          "registration "
+                          "and Reload UI remain separate; no Scene history or OS clipboard write.",
                 "assets.write", automation_object(std::move(properties), std::move(fields)), true,
                 [&files, &editor, ready, action](const Json& request) {
                     ready();
@@ -265,8 +288,13 @@ struct UiSourceAutomation {
                                       request.contains("before")
                                           ? std::optional(request.at("before").get<std::size_t>())
                                           : std::nullopt);
+                    else if (action == "duplicate")
+                        editor.duplicate(request.at("element").get<std::size_t>(),
+                                         request.value("prefix", std::string{}));
                     else if (action == "remove")
                         editor.remove(request.at("element").get<std::size_t>());
+                    else if (action == "remove_group")
+                        editor.removes(request.at("elements").get<std::vector<std::size_t>>());
                     else if (action == "move")
                         editor.move(request.at("element").get<std::size_t>(),
                                     request.at("direction").get<int>());

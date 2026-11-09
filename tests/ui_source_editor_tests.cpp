@@ -64,6 +64,39 @@ void exercise(const std::filesystem::path& output, int width) {
     test::ImGuiInputDriver input(frame);
     input.click("ui-source:elements-tab");
     input.click("ui-source:element:2");
+    input.type("ui-source:duplicate-prefix", "second");
+    input.click("ui-source:element-duplicate");
+    auto duplicate_expected = original.get<std::string>();
+    const std::string opening = "<p>First</p>";
+    duplicate_expected.replace(duplicate_expected.find(opening), opening.size(),
+                               opening + "<p id=\"second\">First</p>");
+    check(editor.state().at("text") == duplicate_expected &&
+              editor.state().at("selection") == Json::array({3}),
+          "Actual duplication controls lost the copied source, ID prefix or new selection");
+    input.click("button:Undo");
+    check(editor.state().at("text") == original && !editor.dirty(),
+          "Native subtree duplication needed more than one Undo");
+    input.click("button:Redo");
+    check(editor.state().at("text") == duplicate_expected,
+          "Native subtree duplication Redo lost source");
+    input.click("ui-source:element:3");
+    io.AddKeyEvent(ImGuiMod_Ctrl, true);
+    frame();
+    input.click("ui-source:element:2");
+    io.AddKeyEvent(ImGuiMod_Ctrl, false);
+    frame();
+    check(editor.state().at("selection").size() == 2,
+          "Elements Ctrl selection did not retain both source siblings");
+    input.click("ui-source:selection-remove");
+    check(editor.outline().size() == 2 && editor.state().at("selection").empty(),
+          "Actual group removal left a source member or stale selection");
+    input.click("button:Undo");
+    check(editor.state().at("text") == duplicate_expected,
+          "Native source group removal needed more than one Undo");
+    input.click("button:Undo");
+    check(editor.state().at("text") == original,
+          "Copy/remove history did not restore its baseline");
+    input.click("ui-source:element:2");
     input.type("ui-source:literal", "New & <literal>");
     input.click("ui-source:text-set");
     check(editor.dirty() && editor.state().at("text").get<std::string>().find(

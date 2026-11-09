@@ -5,7 +5,8 @@ from mcp_test_client import failed
 def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments):
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
-                 'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange')}
+                 'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
+                 'duplicate', 'remove_group')}
     assert required <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
@@ -28,6 +29,31 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
     def index(tag):
         return next(node['index'] for node in read('forge_ui_source_read')['elements']
                     if node['tag'] == tag)
+
+    paragraph = index('p')
+    copy_args = arguments(**guard(), element=paragraph, prefix='second')
+    copied_once = client.tool('forge_ui_source_duplicate', **copy_args)
+    copied_replay = client.tool('forge_ui_source_duplicate', **copy_args)
+    assert copied_once['ok'] and copied_replay['ok'] and copied_once['result'] == copied_replay['result']
+    copied = read('forge_ui_source_read')
+    copied_text = original.replace('</p>', '</p><p id="second-caption">First</p>', 1)
+    assert copied['text'] == copied_text and len(copied['selection']) == 1
+    clone = copied['selection'][0]
+    assert clone != paragraph and copied['elements'][clone]['tag'] == 'p'
+    assert not mutate('forge_ui_source_duplicate', **guard(), element=paragraph, prefix='second')['ok']
+    assert read('forge_ui_source_read') == copied, 'Rejected duplicate partially changed the source'
+    assert not mutate('forge_ui_source_remove_group', **guard(), elements=[paragraph, index('body')])['ok']
+    assert read('forge_ui_source_read') == copied, 'Protected group removal partially changed the source'
+    delete_args = arguments(**guard(), elements=[clone, paragraph])
+    deleted_once = client.tool('forge_ui_source_remove_group', **delete_args)
+    deleted_replay = client.tool('forge_ui_source_remove_group', **delete_args)
+    assert deleted_once['ok'] and deleted_replay['ok'] and deleted_once['result'] == deleted_replay['result']
+    assert '<p' not in read('forge_ui_source_read')['text']
+    assert edit('undo')['text'] == copied_text, 'Group removal needed more than one Undo'
+    assert '<p' not in edit('redo')['text']
+    edit('undo')
+    assert edit('undo')['text'] == original, 'Duplication needed more than one Undo'
+    state = read('forge_ui_source_read')
 
     saved = read('forge_source_text_read', path=path)
     failed(mutate('forge_source_text_write', path=path, state=saved['state'], text=source), 'source_owned')

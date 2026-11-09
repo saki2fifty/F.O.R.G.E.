@@ -21,7 +21,7 @@ them from Content. Keep editable sources under **Assets**, **Sources**, **UI** o
 
 ## Edit widgets with Elements
 
-![UI Source Elements view with a selected paragraph and text controls](../images/ui-source-elements.png)
+![UI Source Elements view with a selected paragraph, ID prefix, duplication and text controls](../images/ui-source-elements.png)
 
 Select a widget in the source outline to change its attributes, text or position.
 
@@ -32,7 +32,8 @@ Select a widget in the source outline to change its attributes, text or position
 5. Select a widget and use **Move up**, **Move down** or **Remove element** to change its position among siblings or remove it.
 
 Each successful operation is one source Undo step. The outline is derived again
-after an edit; select the element again before another structured operation.
+after an edit; most operations clear the selection. Duplication selects the new
+root. Select an element again after Undo or Redo.
 Element positions describe the current source, rather than permanent widget IDs.
 Use an `id` attribute to name a widget for styles and bindings.
 
@@ -41,6 +42,37 @@ bindings keep their source meaning: `Tick {{tick}}` displays the runtime counter
 Use **Source** to write child markup, resource declarations or other RML syntax.
 The Elements controls protect document structure and style/resource declarations.
 Use **Preview** for native rendering and the supported pixel layout controls.
+
+## Duplicate a static control
+
+1. In **Elements**, select a static control or container.
+2. Leave **ID prefix** empty for an automatic name, or enter a name such as `settings`. Use a lowercase letter first, followed by lowercase letters, digits, `_` or `-`, up to 64 characters.
+3. Choose **Duplicate subtree**. The copy appears immediately after the original and becomes selected. Its source remains unsaved.
+4. Adjust the copy's text, attributes and layout. A copied absolute-positioned panel initially overlaps the original, so use **Preview** or Source to move it.
+5. Use **Undo** to remove the entire copy, or **Save source** when ready.
+
+The copy includes the selected element and its children. Existing source and IDs
+stay unchanged. A prefix of `settings` changes copied `id="panel"` to
+`id="settings-panel"`; a root without an ID receives `id="settings"`. With no
+prefix, FORGE tries `copy`, then `copy2` through `copy64`. Choose another prefix
+if those names collide. Copied IDs must fit within 128 UTF-8 bytes.
+
+A copied label whose `for` target is inside the subtree points to the copied
+control. External label targets, class names and stylesheet selectors remain
+unchanged. Review any ID-based styling and project-specific references yourself.
+Use Source for bound or event-driven controls, text expressions, script/template
+declarations, fragment links and document/resource structure. Duplication rejects
+ambiguous or duplicate IDs, unsupported references and a result exceeding the
+source limits; it leaves the draft unchanged.
+
+## Remove several siblings
+
+In **Elements**, hold **Ctrl** and select up to 32 elements with the same source
+parent, then choose **Remove selection**. In Preview, a selected group also offers
+**Remove group**. Removal uses source ranges and does not require an editable pixel
+layout. Protected document/resource elements, mixed parents or nested selections
+reject the whole operation. One **Undo** restores every removed subtree. Save
+remains explicit.
 
 ## Preview and adjust layout
 
@@ -108,7 +140,7 @@ stylesheet, open the RML that links it.
 5. For **Move group**, enter **Delta X / Y (px)**. Distribution needs at least three elements and spaces them in their native left-to-right or top-to-bottom order, regardless of selection order. Move the outer elements farther apart if there is insufficient room for non-overlapping gaps.
 6. Use **Undo** or **Redo** to restore the whole operation, then **Save source** when ready.
 
-![Three sibling panels selected with the group operation controls](../images/ui-source-group-layout.png)
+![Three sibling panels selected with group layout and Remove group controls](../images/ui-source-group-layout.png)
 
 Every member must satisfy the canvas limits above. One unsupported, stale,
 out-of-range or differently parented member rejects the whole operation. No

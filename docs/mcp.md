@@ -1099,7 +1099,7 @@ including a clean open file. Use its native document operations or close it firs
 
 ### Native UI source documents
 
-`forge_ui_source_read/open/replace/attribute/text/insert/remove/move/save/undo/redo/reload/close`
+`forge_ui_source_read/open/replace/attribute/text/insert/duplicate/remove/remove_group/move/save/undo/redo/reload/close`
 borrow the actual UiSourceEditor. Read returns copied text, path, transient
 session, revision, content `state` digest, disk baseline, dirty/history status and
 derived element ranges. RCSS has no outline; incomplete RML reports
@@ -1107,6 +1107,24 @@ derived element ranges. RCSS has no outline; incomplete RML reports
 parent indices (null at root), byte-exclusive source/content/attribute spans,
 self-closing state and `widget_editable` structural eligibility. These indices
 are not persisted widget IDs and must be refreshed after each edit.
+
+`forge_ui_source_duplicate` takes a current `element` index and optional `prefix`
+of at most64bytes. A nonempty prefix starts with a lowercase letter and uses only
+lowercase letters, digits, `_` and `-`. Empty/omitted prefix tries copy,copy2..copy64.
+It copies static source next to itself, selects the new root and creates one Undo
+record. Copied existing IDs become prefix-oldID; an anonymous root receives prefix.
+All existing IDs/bytes remain unchanged and all new IDs must fit128bytes. Internal
+literal label targets remap; external label targets/CSS selectors stay unchanged.
+Dynamic/bound/event-driven/protected/ambiguous subtrees and fragment links reject;
+all original IDs must be literal, unique and bounded. Source limits apply to the
+complete candidate. This is not arbitrary binding/reference cloning.
+
+`forge_ui_source_remove_group` takes1..32distinct same-parent source `elements`.
+It validates every root before one atomic source replacement/Undo; nested,
+protected, duplicate or invalid members cannot partly remove source. It needs no
+preview observation or pixel-layout eligibility. Both new tools use the ordinary
+source guards, mutation envelope, assets.write grant and receipt replay below;
+Save and registration remain separate.
 
 `forge_ui_source_preview` borrows that draft while Play is stopped. It needs
 `assets.read`, current `path/session/revision/state` guards, `width` and `height`

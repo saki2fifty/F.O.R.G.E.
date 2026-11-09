@@ -339,6 +339,21 @@ void exercise(const std::filesystem::path& output, const std::vector<std::byte>&
     editor.undo(false);
     check(editor.state().at("text") == group_source, "Distribution needed more than one Undo");
     frame();
+    toggle(365, 115);
+    toggle(520, 240);
+    check(!test::ui_targets.at("ui-source:group-apply").enabled &&
+              test::ui_targets.at("ui-source:group-remove").enabled,
+          "A distribution size limit disabled an otherwise valid source removal");
+    input.click("ui-source:group-remove");
+    const auto removed_group = editor.state().at("text").get<std::string>();
+    check(removed_group.find("id=\"first\"") == removed_group.npos &&
+              removed_group.find("id=\"second\"") == removed_group.npos &&
+              removed_group.find("id=\"panel\"") != removed_group.npos,
+          "Preview group removal left a member or removed unrelated source");
+    input.click("button:Undo");
+    check(editor.state().at("text") == group_source && !editor.gesture_active(),
+          "Preview source removal needed more than one Undo");
+    frame();
     const auto problems = context.problems.size();
     editor.replace_text("<rml>");
     frame();

@@ -10,7 +10,7 @@ its Gallery211 RML/RCSS with three sibling panels, actual single selection, pixe
 controls, outline and resize handle, with the Save preview image control.
 `manual/images/ui-source-group-layout.png` is another exact700×950 output from the
 same fixture: real Ctrl+clicks select all three sibling panels and expose the
-production group operation controls. Both group widths700/1180 were inspected;
+production group operation controls, including Remove group. Both group widths700/1180 were inspected;
 no source write or rendering overlay is baked into the native saved preview. The physical native preview is1000×700 and is fitted by the
 widget, as in the editor.
 
@@ -28,13 +28,16 @@ the complete Main shell, physical GPU/input, Windows or display-density acceptan
 No controls or image content are fabricated, cropped, resized after capture or
 retouched. The checked source/capture-input and canonical SHA256 receipts retain
 the original output provenance. Current captures follow the2026-11-09 source
-source-group-layout and preview-image checkpoint; see [CI profiles](../../ci.md#test-profiles).
+static-source-duplication and group-removal checkpoint; the unchanged single-preview
+image retains its earlier source-group provenance. See [CI profiles](../../ci.md#test-profiles).
 
 `manual/images/ui-source-elements.png` and `ui-source-text.png` are unretouched
 700×950 captures of the production UiSourceEditor, TextEditor and borrowed
 DocumentWorkspace adapter. Real mouse/text controls select a paragraph, replace
 its text, Undo/Redo and Save. The Elements image shows the selected source node
-and its attribute/text/child/order/removal controls. Source shows the same draft
+and its ID prefix/Duplicate subtree and attribute/text/child/order/removal controls.
+The Elements capture retains the prefix entered by the real duplication/history
+test. Source shows the same draft
 with escaped markup. These are task-window fixtures, not a complete editor-shell
 capture or a rendered game HUD. No controls or pixels are fabricated or retouched.
 

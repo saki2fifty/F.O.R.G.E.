@@ -236,7 +236,7 @@ void layout_group_edits() {
     invalid = changes;
     invalid[1].element = std::numeric_limits<std::size_t>::max();
     rejects([&] { forge::set_ui_markup_layouts(source, invalid); });
-    std::vector<forge::UiMarkupLayoutEdit> oversized(forge::ui_layout_selection_limit + 1,
+    std::vector<forge::UiMarkupLayoutEdit> oversized(forge::ui_source_selection_limit + 1,
                                                      original[0]);
     rejects([&] { forge::set_ui_markup_layouts(source, oversized); });
     check(forge::set_ui_markup_layouts(source, original) == source,
@@ -294,6 +294,106 @@ void layout_group_geometry() {
         item.bounds.left = 0;
     rejects([&] { forge::arrange_ui_markup_layouts(invalid, "distribute_horizontal"); });
 }
+void group_removals() {
+    const std::string source =
+        "<!-- keep -->\n<rml><body><div id='a'><p>A</p></div>"
+        "<!-- between --><button id='b'>B</button><p>Keep</p></body></rml>\n";
+    const auto panel = find(source, "div"), button = find(source, "button");
+    const std::array group{button, panel};
+    check(forge::remove_ui_markup_elements(source, group) ==
+              "<!-- keep -->\n<rml><body><!-- between --><p>Keep</p></body></rml>\n",
+          "Unordered group removal damaged retained source/comments or left a subtree");
+    check(forge::remove_ui_markup_element(source, panel) ==
+              "<!-- keep -->\n<rml><body><!-- between --><button id='b'>B</button>"
+              "<p>Keep</p></body></rml>\n",
+          "Single source removal changed its original range semantics");
+    rejects([&] { forge::remove_ui_markup_elements(source, {}); });
+    const std::array duplicates{panel, panel};
+    rejects([&] { forge::remove_ui_markup_elements(source, duplicates); });
+    const std::array nested{panel, find(source, "p")};
+    rejects([&] { forge::remove_ui_markup_elements(source, nested); });
+    const std::array protected_group{button, find(source, "body")};
+    rejects([&] { forge::remove_ui_markup_elements(source, protected_group); });
+    const std::array invalid{button, std::numeric_limits<std::size_t>::max()};
+    rejects([&] { forge::remove_ui_markup_elements(source, invalid); });
+    const std::vector<std::size_t> oversized(forge::ui_source_selection_limit + 1, button);
+    rejects([&] { forge::remove_ui_markup_elements(source, oversized); });
+}
+void subtree_duplication() {
+    const std::string source =
+        "<!-- preserve -->\n<rml><body><input id='external'/><div id='panel' class='shared'>"
+        "<!-- inside --><label for='entry'>Name &amp; label</label><input id=entry/>"
+        "<label for='external'>External</label></div><p>Keep</p></body></rml>\n";
+    const auto panel = find(source, "div");
+    const auto nodes = forge::inspect_ui_markup(source);
+    const auto range = nodes[panel].source;
+    const auto candidate = forge::duplicate_ui_markup_element(source, panel, "second");
+    const auto original = source.substr(range.begin, range.end - range.begin);
+    auto clone = original;
+    clone.replace(clone.find("id='panel'"), std::string_view("id='panel'").size(),
+                  "id=\"second-panel\"");
+    clone.replace(clone.find("id=entry"), std::string_view("id=entry").size(),
+                  "id=\"second-entry\"");
+    clone.replace(clone.find("for='entry'"), std::string_view("for='entry'").size(),
+                  "for=\"second-entry\"");
+    check(candidate == source.substr(0, range.end) + clone + source.substr(range.end),
+          "Subtree duplication changed old bytes/IDs, lost comments or miswired label targets");
+    const auto automatic = forge::duplicate_ui_markup_element(source, panel);
+    check(automatic.find("id=\"copy-panel\"") != automatic.npos &&
+              automatic.find("id=\"copy-entry\"") != automatic.npos,
+          "Automatic duplication did not give the entire subtree new IDs");
+    const auto repeated = forge::duplicate_ui_markup_element(automatic, panel);
+    check(repeated.find("id=\"copy2-panel\"") != repeated.npos &&
+              repeated.find("id=\"copy2-entry\"") != repeated.npos,
+          "Repeated duplication reused an existing generated ID");
+    const std::string escaped =
+        "<rml><body><div id='a&amp;b'><label for='a&amp;b'>Label</label></div></body></rml>";
+    const auto escaped_copy = forge::duplicate_ui_markup_element(escaped, find(escaped, "div"));
+    check(escaped_copy.find("id=\"copy-a&amp;b\"") != escaped_copy.npos &&
+              escaped_copy.find("for=\"copy-a&amp;b\"") != escaped_copy.npos,
+          "Copied escaped IDs or internal label targets were double encoded");
+    const std::string anonymous = "<rml><body><button class='same'>Go</button></body></rml>";
+    check(forge::duplicate_ui_markup_element(anonymous, find(anonymous, "button"), "new") ==
+              "<rml><body><button class='same'>Go</button><button class='same' "
+              "id=\"new\">Go</button></body></rml>",
+          "An anonymous duplicated root did not gain a selectable unique ID");
+    rejects([&] { forge::duplicate_ui_markup_element(candidate, panel, "second"); });
+    rejects([&] { forge::duplicate_ui_markup_element(source, panel, "Bad prefix"); });
+    rejects([&] { forge::duplicate_ui_markup_element(source, find(source, "body")); });
+    for (const auto* invalid :
+         {"<rml><body><div id='x'/><div id='x'/></body></rml>",
+          "<rml><body><div id='x' id='y'/></body></rml>",
+          "<rml><body><div id='x'><input id='#self'/></div></body></rml>",
+          "<rml><body data-model='live'><div id='x'/></body></rml>",
+          "<rml><body><div id='x'><button data-event-click='go'>Go</button></div></body></rml>",
+          "<rml><body><div id='x' onclick='go'>Go</div></body></rml>",
+          "<rml><body><div id='x'>{{ value }}</div></body></rml>",
+          "<rml><body><div id='x'><a href='#x'>Link</a></div></body></rml>",
+          "<rml><body><div id='x'><label for='x' for='x'>Label</label></div></body></rml>",
+          "<rml><body><div id='x'><style>p{color:red;}</style></div></body></rml>"})
+        rejects([&] { forge::duplicate_ui_markup_element(invalid, find(invalid, "div")); });
+    const std::string huge =
+        "<rml><body><div>" + std::string(140 * 1024, 'x') + "</div></body></rml>";
+    check(forge::inspect_ui_markup(huge).size() == 3,
+          "Byte-limit fixture is not initially admitted");
+    rejects([&] { forge::duplicate_ui_markup_element(huge, find(huge, "div")); });
+    std::string crowded = "<rml><body><div>";
+    for (int i = 0; i < 4095; ++i)
+        crowded += "<br/>";
+    crowded += "</div></body></rml>";
+    check(forge::inspect_ui_markup(crowded).size() == 4098,
+          "Node-limit fixture is not initially admitted");
+    rejects([&] { forge::duplicate_ui_markup_element(crowded, find(crowded, "div")); });
+    std::string collisions = "<rml><body><div id='panel'/>";
+    for (unsigned i = 1; i <= 64; ++i)
+        collisions += "<span id='" + (i == 1 ? std::string("copy") : "copy" + std::to_string(i)) +
+                      "-panel'/>";
+    collisions += "</body></rml>";
+    rejects([&] { forge::duplicate_ui_markup_element(collisions, find(collisions, "div")); });
+    check(forge::duplicate_ui_markup_element(collisions, find(collisions, "div"), "custom")
+                  .find("id=\"custom-panel\"") != std::string::npos,
+          "An explicit available prefix failed after the bounded automatic choices");
+}
 } // namespace
 int main() {
     try {
@@ -303,6 +403,8 @@ int main() {
         layout_edits();
         layout_group_edits();
         layout_group_geometry();
+        group_removals();
+        subtree_duplication();
         std::cout << "Source-preserving outline/attributes and shared validator errors passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

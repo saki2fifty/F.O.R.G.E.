@@ -49,9 +49,10 @@ for legacy in (False, True):
         discovery = client.tool('forge_discover')
         assert set(discovery['result']['methods']) == {
             'discover', 'scene.read', 'entity.query', 'scene.diagnostics',
-            'scene.apply', 'scene.replace', 'history.undo', 'history.redo'}
+            'scene.apply', 'scene.replace', 'history.undo', 'history.redo',
+            'test.numeric_map'}
         commands = discovery['result']['commands']
-        assert len(catalog) == len(commands) + 8
+        assert len(catalog) == len(commands) + 9
         for command in commands:
             tool_name = 'forge_' + command['id'].replace('.', '_')
             item = next(tool for tool in catalog if tool['name'] == tool_name)
@@ -63,6 +64,11 @@ for legacy in (False, True):
             assert isinstance(schema['required'], list)
             assert not schema['additionalProperties']
         target = discovery['result']['target']
+        numeric = client.tool('forge_test_numeric_map', target=target, values=dict(a=.5, b=1))
+        assert numeric['ok'] and numeric['result'] == dict(a=.5, b=1)
+        for values in ({}, dict(a=True), dict(oversize=1)):
+            failed(client.tool('forge_test_numeric_map', target=target, values=values),
+                   'invalid_arguments')
         args = dict(target=target, expected_revision=discovery['revision'],
                     sequence=discovery['next_sequence'],
                     arguments=dict(kind=0, name='Agent cube'))
@@ -176,7 +182,7 @@ for legacy in (False, True):
 with host('read') as (_, config), Client(config) as client:
     names = [item['name'] for item in client.request('tools/list')['result']['tools']]
     assert set(names) == {'forge_discover', 'forge_scene_read', 'forge_entity_query',
-                          'forge_scene_diagnostics'}
+                          'forge_scene_diagnostics', 'forge_test_numeric_map'}
     assert client.request('tools/call', dict(name='forge_entity_create', arguments={}))['error']['code'] == -32602
     assert not client.tool('forge_discover')['result']['mutation_available']
 

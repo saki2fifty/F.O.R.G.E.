@@ -210,7 +210,16 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
                 UiMarkupLayoutEdit{by_id(initial, "panel"), {175, 190, 250, 190}},
                 UiMarkupLayoutEdit{by_id(initial, "layout-b"), {455, 150, 220, 140}},
                 UiMarkupLayoutEdit{by_id(initial, "layout-c"), {745, 230, 220, 140}}};
-            const auto candidate = set_ui_markup_layouts(initial, group);
+            auto candidate = set_ui_markup_layouts(initial, group);
+            const auto panel_index = by_id(candidate, "panel");
+            const auto closing = inspect_ui_markup(candidate).at(panel_index).closing.begin;
+            candidate.insert(closing, "<label id='clone-label' for='clone-entry' "
+                                      "style='pointer-events:auto;'>Name</label>"
+                                      "<input id='clone-entry' type='text' value='sample' "
+                                      "style='pointer-events:auto;'/>");
+            candidate = duplicate_ui_markup_element(candidate, panel_index, "copied");
+            candidate = set_ui_markup_layout(candidate, by_id(candidate, "copied-panel"),
+                                             {20, 330, 250, 190});
             check(presenter.preview_document({asset}, layout_document, candidate, 800, 600),
                   "Gallery draft preview did not load");
             const auto view = presenter.preview_layout();
@@ -244,6 +253,22 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
             check(offset.x == expected[0] && offset.y == expected[1],
                   "Saved/exported sibling did not retain the atomic group change");
         }
+        auto* document = Rml::GetContext(0)->GetDocument(0);
+        auto* original_input = document->GetElementById("clone-entry");
+        auto* copied_input = document->GetElementById("copied-clone-entry");
+        auto* copied_label = document->GetElementById("copied-clone-label");
+        check(original_input && copied_input && copied_label &&
+                  copied_label->GetAttribute<Rml::String>("for", "") == "copied-clone-entry",
+              "Saved/exported clone lost original/new IDs or its internal label target");
+        const auto label_position = copied_label->GetAbsoluteOffset(Rml::BoxArea::Border);
+        const auto label_size = copied_label->GetBox().GetSize(Rml::BoxArea::Border);
+        check(label_size.x > 0 && label_size.y > 0, "Cloned runtime label has no native hit box");
+        presenter.mouse_move(int(label_position.x + label_size.x / 2),
+                             int(label_position.y + label_size.y / 2), 0);
+        presenter.mouse_button(0, true, 0);
+        presenter.mouse_button(0, false, 0);
+        check(Rml::GetContext(0)->GetFocusElement() == copied_input,
+              "Actual runtime label input did not focus its copied target");
     }
     check(scene.snapshot() == source && renderer.geometry.empty() && renderer.textures.empty(),
           "Layout workflow changed Scene data or leaked native resources");

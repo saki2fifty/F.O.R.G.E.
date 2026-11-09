@@ -11,7 +11,7 @@ struct UiPixelLayout {
     float left = 0, top = 0, width = 1, height = 1;
     bool operator==(const UiPixelLayout&) const = default;
 };
-inline constexpr std::size_t ui_layout_selection_limit = 32;
+inline constexpr std::size_t ui_source_selection_limit = 32;
 struct UiMarkupLayoutEdit {
     std::size_t element;
     UiPixelLayout pixels;
@@ -53,5 +53,9 @@ std::string insert_ui_markup_child(std::string_view, std::size_t parent, std::st
                                    std::string_view literal = {},
                                    std::optional<std::size_t> before = {});
 std::string remove_ui_markup_element(std::string_view, std::size_t element);
+std::string remove_ui_markup_elements(std::string_view, std::span<const std::size_t> elements);
+// Copy a static subtree next to itself; empty prefix chooses an available copy prefix.
+std::string duplicate_ui_markup_element(std::string_view, std::size_t element,
+                                        std::string_view prefix = {});
 std::string move_ui_markup_element(std::string_view, std::size_t element, int direction);
 } // namespace forge

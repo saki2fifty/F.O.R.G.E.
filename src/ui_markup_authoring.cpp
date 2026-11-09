@@ -6,7 +6,9 @@
 #include <cmath>
 #include <forge/ui_assets.hpp>
 #include <limits>
+#include <map>
 #include <numeric>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -46,6 +48,12 @@ std::string replaced(std::string_view source, UiSourceRange range, std::string_v
     result.replace(range.begin, range.end - range.begin, value);
     validate_ui_text(result, true);
     return result;
+}
+std::size_t attribute_insertion(std::string_view source, const UiMarkupElement& node) {
+    auto position = node.opening.end - 1;
+    if (source[position - 1] == '/')
+        --position;
+    return position;
 }
 struct LayoutSource {
     UiPixelLayout pixels;
@@ -124,7 +132,7 @@ LayoutSource layout_source(std::string_view source, std::span<const UiMarkupElem
 std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMarkupLayoutBox> boxes,
                                                           std::string_view action, float dx,
                                                           float dy) {
-    require(boxes.size() >= 2 && boxes.size() <= ui_layout_selection_limit,
+    require(boxes.size() >= 2 && boxes.size() <= ui_source_selection_limit,
             "Choose2..32 elements for a group layout operation");
     require(std::ranges::any_of(ui_layout_group_actions,
                                 [&](const auto& item) { return item.first == action; }),
@@ -221,7 +229,7 @@ std::string set_ui_markup_layout(std::string_view source, std::size_t index, UiP
 }
 std::string set_ui_markup_layouts(std::string_view source,
                                   std::span<const UiMarkupLayoutEdit> changes) {
-    require(!changes.empty() && changes.size() <= ui_layout_selection_limit,
+    require(!changes.empty() && changes.size() <= ui_source_selection_limit,
             "Choose1..32 elements for an atomic canvas layout edit");
     const auto nodes = inspect_ui_markup(source);
     std::vector<std::size_t> seen;
@@ -279,9 +287,7 @@ std::string set_ui_markup_attribute(std::string_view source, std::size_t index,
     const auto assignment = std::string(name) + "=\"" + escaped(*value) + '"';
     if (found)
         return replaced(source, found->source, assignment);
-    auto insertion = node.opening.end - 1;
-    if (source[insertion - 1] == '/')
-        --insertion;
+    const auto insertion = attribute_insertion(source, node);
     return replaced(source, {insertion, insertion}, " " + assignment);
 }
 std::string set_ui_markup_text(std::string_view source, std::size_t index,
@@ -324,10 +330,156 @@ std::string insert_ui_markup_child(std::string_view source, std::size_t parent,
     return replaced(source, {position, position}, markup);
 }
 std::string remove_ui_markup_element(std::string_view source, std::size_t index) {
+    const std::array indices{index};
+    return remove_ui_markup_elements(source, indices);
+}
+std::string remove_ui_markup_elements(std::string_view source,
+                                      std::span<const std::size_t> indices) {
+    require(!indices.empty() && indices.size() <= ui_source_selection_limit,
+            "Choose1..32 sibling source elements to remove");
     const auto nodes = inspect_ui_markup(source);
-    const auto& node = element(nodes, index);
-    editable(node);
-    return replaced(source, node.source, {});
+    std::optional<std::size_t> parent;
+    std::vector<UiSourceRange> ranges;
+    ranges.reserve(indices.size());
+    for (const auto index : indices) {
+        const auto& node = element(nodes, index);
+        editable(node);
+        if (parent)
+            require(*parent == node.parent, "Remove source siblings as one group");
+        parent = node.parent;
+        require(
+            std::ranges::none_of(ranges, [&](const auto& range) { return range == node.source; }),
+            "A source removal group cannot repeat an element");
+        ranges.push_back(node.source);
+    }
+    std::ranges::sort(ranges, [](const auto& a, const auto& b) { return a.begin > b.begin; });
+    std::string result(source);
+    std::size_t next = source.size();
+    for (const auto range : ranges) {
+        require(range.end <= next, "Source removal ranges overlap");
+        next = range.begin;
+        result.erase(range.begin, range.end - range.begin);
+    }
+    validate_ui_text(result, true);
+    return result;
+}
+std::string duplicate_ui_markup_element(std::string_view source, std::size_t index,
+                                        std::string_view prefix) {
+    const auto nodes = inspect_ui_markup(source);
+    const auto& root = element(nodes, index);
+    editable(root);
+    const auto static_attributes = [&](const UiMarkupElement& node) {
+        require(node.tag != "script" && node.tag != "template",
+                "Duplicate script/template declarations explicitly in Source");
+        for (const auto& attr : node.attributes)
+            require(!attr.name.starts_with("data-") && !attr.name.starts_with("on"),
+                    "Duplicate bound or event-driven UI explicitly in Source");
+    };
+    for (auto ancestor = index; ancestor != UiMarkupElement::no_parent;
+         ancestor = nodes[ancestor].parent)
+        static_attributes(nodes[ancestor]);
+    const auto inside = [&](const UiMarkupElement& node) {
+        return node.source.begin >= root.source.begin && node.source.end <= root.source.end;
+    };
+    const auto fragment = source.substr(root.source.begin, root.source.end - root.source.begin);
+    require(fragment.find("{{") == fragment.npos,
+            "Duplicate text expressions explicitly in Source");
+    std::set<std::string> existing;
+    std::map<std::string, UiSourceRange> copied;
+    bool root_has_id = false;
+    for (std::size_t i = 0; i < nodes.size(); ++i) {
+        const auto& node = nodes[i];
+        if (inside(node)) {
+            editable(node);
+            static_attributes(node);
+        }
+        bool has_id = false;
+        for (const auto& attr : node.attributes) {
+            if (attr.name == "id") {
+                require(!has_id && attr.has_value,
+                        "Resolve ambiguous source IDs before duplication");
+                has_id = true;
+                const auto id = Rml::StringUtilities::DecodeRml(std::string(
+                    source.substr(attr.value.begin, attr.value.end - attr.value.begin)));
+                require(!id.empty() && id.size() <= 128 && id.find_first_of("{}") == id.npos &&
+                            std::ranges::all_of(
+                                id, [](unsigned char c) { return c >= 32 && c != 127; }),
+                        "Use nonempty literal UI IDs of at most128 bytes before duplication");
+                require(existing.insert(id).second,
+                        "Resolve duplicate source IDs before duplication");
+                if (inside(node)) {
+                    require(id != "#self" && id != "#document" && id != "#parent",
+                            "Reserved native lookup tokens cannot be copied as UI IDs");
+                    copied.emplace(id, attr.source);
+                    root_has_id = root_has_id || i == index;
+                }
+            }
+            if (inside(node) && attr.name == "href" && attr.has_value) {
+                const auto href = Rml::StringUtilities::DecodeRml(std::string(
+                    source.substr(attr.value.begin, attr.value.end - attr.value.begin)));
+                require(!href.starts_with('#'),
+                        "Duplicate fragment references explicitly in Source");
+            }
+        }
+    }
+    std::map<std::string, std::string> renamed;
+    std::string chosen;
+    const auto choose = [&](std::string candidate) {
+        identifier(candidate);
+        renamed.clear();
+        if (!root_has_id && existing.contains(candidate))
+            return false;
+        for (const auto& [id, range] : copied) {
+            auto name = candidate + "-" + id;
+            require(name.size() <= 128, "Choose a shorter prefix or shorten the original UI IDs");
+            if (existing.contains(name))
+                return false;
+            renamed.emplace(id, std::move(name));
+        }
+        chosen = std::move(candidate);
+        return true;
+    };
+    bool available = false;
+    if (!prefix.empty())
+        available = choose(std::string(prefix));
+    else
+        for (unsigned attempt = 1; attempt <= 64 && !available; ++attempt)
+            available = choose(attempt == 1 ? "copy" : "copy" + std::to_string(attempt));
+    require(available, "Choose a prefix whose copied UI IDs are not already used");
+    std::vector<std::pair<UiSourceRange, std::string>> edits;
+    for (const auto& [id, range] : copied)
+        edits.emplace_back(range, "id=\"" + escaped(renamed.at(id)) + "\"");
+    if (!root_has_id) {
+        const auto position = attribute_insertion(source, root);
+        edits.emplace_back(UiSourceRange{position, position}, " id=\"" + escaped(chosen) + "\"");
+    }
+    for (const auto& node : nodes)
+        if (inside(node) && node.tag == "label") {
+            bool has_target = false;
+            for (const auto& attr : node.attributes)
+                if (attr.name == "for") {
+                    require(!has_target, "Resolve duplicate label targets before duplication");
+                    has_target = true;
+                    require(attr.has_value, "Use a literal label target before duplication");
+                    const auto target = Rml::StringUtilities::DecodeRml(std::string(
+                        source.substr(attr.value.begin, attr.value.end - attr.value.begin)));
+                    require(target.find("{{") == target.npos,
+                            "Duplicate label target expressions explicitly in Source");
+                    if (const auto found = renamed.find(target); found != renamed.end())
+                        edits.emplace_back(attr.source, "for=\"" + escaped(found->second) + "\"");
+                }
+        }
+    std::ranges::sort(edits,
+                      [](const auto& a, const auto& b) { return a.first.begin > b.first.begin; });
+    std::string clone(fragment);
+    std::size_t next = root.source.end;
+    for (const auto& [range, value] : edits) {
+        require(range.begin >= root.source.begin && range.end <= next,
+                "Copied UI attribute ranges overlap");
+        next = range.begin;
+        clone.replace(range.begin - root.source.begin, range.end - range.begin, value);
+    }
+    return replaced(source, {root.source.end, root.source.end}, clone);
 }
 std::string move_ui_markup_element(std::string_view source, std::size_t index, int direction) {
     require(direction == -1 || direction == 1, "Choose the previous or next sibling");

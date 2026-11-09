@@ -31,6 +31,7 @@ class UiSourceEditor {
     std::uint64_t revision_ = 0;
     bool dirty_ = false, close_ = false, focus_ = false, text_editable_ = false;
     char attribute_[65] = "id", value_[8193]{}, literal_[8193]{};
+    char duplicate_prefix_[65]{};
     int child_kind_ = 0;
     UiSourcePreviewFrame preview_frame_;
     int preview_width_ = 1000, preview_height_ = 700;
@@ -130,7 +131,7 @@ class UiSourceEditor {
         else if (const auto found = std::ranges::find(selected_, index); found != selected_.end())
             selected_.erase(found);
         else {
-            if (selected_.size() == ui_layout_selection_limit)
+            if (selected_.size() == ui_source_selection_limit)
                 throw AuthoringError("layout_selection", "Select at most32 elements");
             selected_.push_back(index);
         }
@@ -226,7 +227,7 @@ class UiSourceEditor {
         return nullptr;
     }
     std::vector<UiMarkupLayoutBox> layout_boxes(std::span<const std::size_t> indices) const {
-        if (indices.empty() || indices.size() > ui_layout_selection_limit)
+        if (indices.empty() || indices.size() > ui_source_selection_limit)
             throw AuthoringError("layout_selection", "Choose1..32 elements for layout");
         const auto source = editor_.GetText();
         std::optional<std::size_t> parent;
@@ -331,6 +332,12 @@ class UiSourceEditor {
                             preview_frame_.state.at("revision").get<std::uint64_t>());
                 });
             FORGE_UI_PROBE("ui-source:group-apply");
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(gesture_active());
+            if (button("Remove group", "Remove the selected source siblings as one Undo step."))
+                attempt([&] { removes(selected_); });
+            FORGE_UI_PROBE("ui-source:group-remove");
             ImGui::EndDisabled();
             ImGui::TextWrapped(
                 "Use sibling absolute-pixel elements. Drag a selected member to move "
@@ -585,6 +592,18 @@ class UiSourceEditor {
             ImGui::TextWrapped("Select a container or widget to edit its source.");
             return;
         }
+        if (selected_.size() > 1) {
+            ImGui::Separator();
+            ImGui::Text("%zu source elements selected", selected_.size());
+            ImGui::BeginDisabled(locked);
+            if (button("Remove selection", "Remove all selected siblings as one source Undo step."))
+                attempt([&] { removes(selected_); });
+            FORGE_UI_PROBE("ui-source:selection-remove");
+            ImGui::EndDisabled();
+            ImGui::TextWrapped("Use Preview for group layout. Select one element to edit its "
+                               "attributes or children.");
+            return;
+        }
         // Snapshot affordances before an edit can rebuild the derived outline.
         const auto index = selected_element();
         const auto& node = outline_[index];
@@ -600,6 +619,15 @@ class UiSourceEditor {
         ImGui::Separator();
         ImGui::Text("Selected: <%s>", tag.c_str());
         ImGui::BeginDisabled(locked);
+        ImGui::BeginDisabled(!widget_editable);
+        ImGui::InputTextWithHint("ID prefix", "Automatic", duplicate_prefix_,
+                                 sizeof(duplicate_prefix_));
+        FORGE_UI_PROBE("ui-source:duplicate-prefix");
+        if (button("Duplicate subtree",
+                   "Copy static markup with new IDs; existing IDs stay unchanged."))
+            attempt([&] { duplicate(index, duplicate_prefix_); });
+        FORGE_UI_PROBE("ui-source:element-duplicate");
+        ImGui::EndDisabled();
         ImGui::InputText("Attribute", attribute_, sizeof(attribute_));
         FORGE_UI_PROBE("ui-source:attribute-name");
         ImGui::InputText("Value", value_, sizeof(value_));
@@ -756,7 +784,7 @@ class UiSourceEditor {
     }
     void layouts(std::span<const UiMarkupLayoutEdit> changes, const std::string& instance,
                  std::uint64_t preview_revision) {
-        if (changes.empty() || changes.size() > ui_layout_selection_limit)
+        if (changes.empty() || changes.size() > ui_source_selection_limit)
             throw AuthoringError("layout_selection", "Choose1..32 elements for a layout edit");
         if (gesture_)
             throw AuthoringError("source_busy", "Finish or cancel the canvas gesture first");
@@ -798,7 +826,7 @@ class UiSourceEditor {
     void arrange(std::span<const std::size_t> indices, std::string_view action, float dx, float dy,
                  const std::string& instance, std::uint64_t preview_revision) {
         check_preview_observation(instance, preview_revision);
-        if (indices.size() < 2 || indices.size() > ui_layout_selection_limit)
+        if (indices.size() < 2 || indices.size() > ui_source_selection_limit)
             throw AuthoringError("layout_selection", "Choose2..32 elements for group layout");
         const auto boxes = layout_boxes(indices);
         layouts(arrange_ui_markup_layouts(boxes, action, dx, dy), instance, preview_revision);
@@ -863,7 +891,23 @@ class UiSourceEditor {
         replace_text(insert_ui_markup_child(editor_.GetText(), parent, tag, literal, before));
     }
     void remove(std::size_t index) {
-        replace_text(remove_ui_markup_element(editor_.GetText(), index));
+        const std::array indices{index};
+        removes(indices);
+    }
+    void removes(std::span<const std::size_t> indices) {
+        replace_text(remove_ui_markup_elements(editor_.GetText(), indices));
+    }
+    void duplicate(std::size_t index, std::string_view prefix = {}) {
+        if (index >= outline_.size())
+            throw AuthoringError("source_element", "Choose an element from the current UI outline");
+        const auto insertion = outline_.at(index).source.end;
+        const auto candidate = duplicate_ui_markup_element(editor_.GetText(), index, prefix);
+        replace_text(candidate);
+        for (std::size_t i = 0; i < outline_.size(); ++i)
+            if (outline_[i].source.begin == insertion) {
+                select(i);
+                break;
+            }
     }
     void move(std::size_t index, int direction) {
         replace_text(move_ui_markup_element(editor_.GetText(), index, direction));

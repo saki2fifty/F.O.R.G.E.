@@ -7,6 +7,15 @@ it, then use the existing UI registration and Play tools. Stop Play before sourc
 edits. Closing or reloading an unsaved draft requires explicit discard. See
 [UI source](ui-source.md) for the workflow and limits.
 
+Use `forge_ui_source_duplicate` with one current `element` index and an optional
+`prefix` to copy a static subtree beside itself. The returned selection identifies
+the new root; read fresh indices before the next operation. Copied IDs gain the
+prefix and internal label targets follow them; existing IDs and stylesheet selectors
+stay unchanged. Omit the prefix for automatic naming. Bound or ambiguous source
+rejects. `forge_ui_source_remove_group` takes 1–32 distinct sibling indices in
+`elements` and removes them in one Undo step. Both tools require source guards and
+`assets.write`, leave Save explicit and share the editor's limits and history.
+
 For layout, use `forge_ui_source_preview` with current source guards and the desired
 viewport size. Read its element indices, editable flags, explanations and preview
 instance/revision. Pass those guards and all four pixel values to
