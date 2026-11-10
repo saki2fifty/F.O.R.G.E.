@@ -355,6 +355,49 @@ void exercise(const std::filesystem::path& output, int width) {
     input.click("ui-source:element-remove");
     check(editor.outline().size() == 3 && !editor.dirty(),
           "Native structural controls did not restore the saved draft");
+    const auto control_baseline = editor.state().at("text");
+    for (const auto& [kind, markup] : std::array<std::pair<const char*, const char*>, 3>{
+             {{"checkbox", "<input type=\"checkbox\" value=\"Choice &amp; &lt;one&gt;\"/>"},
+              {"textarea", "<textarea>Choice &amp; &lt;one&gt;</textarea>"},
+              {"select", "<select><option value=\"Choice &amp; &lt;one&gt;\" "
+                         "selected=\"selected\">Choice &amp; &lt;one&gt;</option></select>"}}}) {
+        input.click("ui-source:element:1");
+        const auto before_creation = editor.state();
+        input.click("ui-source:child-kind");
+        input.select(("ui-source:child-choice:" + std::string(kind)).c_str());
+        input.type("ui-source:child-text", "Choice & <one>");
+        check(editor.state() == before_creation && asset_storage::read(file) == saved,
+              "Control kind/initial-value staging published source or saved the file");
+        if (std::string_view(kind) == "select") {
+            frame();
+            capture.save(output / ("ui-source-create-control-" + std::to_string(width) + ".png"));
+        }
+        input.click("ui-source:child-add");
+        auto expected = control_baseline.get<std::string>();
+        expected.insert(expected.find("</body>"), markup);
+        check(editor.state().at("text") == expected &&
+                  editor.state().at("selection") == Json::array({3}) &&
+                  asset_storage::read(file) == saved,
+              "Native control creation lost initial source, new-root selection or explicit Save");
+        if (std::string_view(kind) == "select") {
+            input.click("ui-source:child-kind");
+            input.select("ui-source:child-choice:option");
+            input.type("ui-source:child-text", "Next");
+            input.click("ui-source:child-add");
+            check(editor.outline().size() == 6 &&
+                      editor.state().at("selection") == Json::array({5}),
+                  "Native dropdown option creation lost its new selected root");
+            input.click("button:Undo");
+            check(editor.state().at("text") == expected,
+                  "Dropdown option needed more than one Undo");
+        }
+        input.click("button:Undo");
+        check(editor.state().at("text") == control_baseline,
+              "Common control creation needed more than one Undo");
+        input.click("button:Redo");
+        check(editor.state().at("text") == expected, "Common control creation Redo lost source");
+        input.click("button:Undo");
+    }
     editor.replace_text("<rml><body>");
     check(!editor.state().at("outline_error").get<std::string>().empty(),
           "Incomplete source did not remain editable with an explicit outline error");

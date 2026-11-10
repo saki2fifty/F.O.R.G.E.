@@ -769,6 +769,69 @@ void reusable_styles() {
         capped += ".a{}";
     rejects([&] { forge::duplicate_ui_stylesheet_rule(capped, 0); });
 }
+void common_controls() {
+    using namespace forge;
+    const std::string source = "<!-- keep --><rml><body><div><p>Tail</p></div>"
+                               "<div id='outside'></div></body></rml>";
+    const std::array<std::array<const char*, 3>, 15> cases{{
+        {"container", "A & <B>", "<div>A &amp; &lt;B&gt;</div>"},
+        {"inline-text", "A & <B>", "<span>A &amp; &lt;B&gt;</span>"},
+        {"paragraph", "A & <B>", "<p>A &amp; &lt;B&gt;</p>"},
+        {"button", "A & <B>", "<button>A &amp; &lt;B&gt;</button>"},
+        {"label", "A & <B>", "<label>A &amp; &lt;B&gt;</label>"},
+        {"text-input", "A & <B>", "<input type=\"text\" value=\"A &amp; &lt;B&gt;\"/>"},
+        {"password-input", "A & <B>", "<input type=\"password\" value=\"A &amp; &lt;B&gt;\"/>"},
+        {"checkbox", "A & <B>", "<input type=\"checkbox\" value=\"A &amp; &lt;B&gt;\"/>"},
+        {"radio", "A & <B>", "<input type=\"radio\" value=\"A &amp; &lt;B&gt;\"/>"},
+        {"textarea", "A & <B>", "<textarea>A &amp; &lt;B&gt;</textarea>"},
+        {"select", "A & <B>",
+         "<select><option value=\"A &amp; &lt;B&gt;\" selected=\"selected\">A &amp; "
+         "&lt;B&gt;</option></select>"},
+        {"progress", "", "<progress value=\"0\"></progress>"},
+        {"image", "", "<img/>"},
+        {"line-break", "", "<br/>"},
+        {"form", "A & <B>", "<form>A &amp; &lt;B&gt;</form>"},
+    }};
+    for (const auto& [kind, text, markup] : cases) {
+        const auto created = insert_ui_markup_control(source, 2, kind, text, 3);
+        auto expected = source;
+        expected.insert(expected.find("<p>"), markup);
+        const auto nodes = inspect_ui_markup(created.source);
+        check(created.source == expected && created.element == 3 && nodes[3].parent == 2,
+              "Common control creation lost source bytes, initial value or selected root");
+    }
+    const std::string select = "<rml><body><select></select></body></rml>";
+    const auto option = insert_ui_markup_control(select, 2, "option", "First & second");
+    check(option.source == "<rml><body><select><option value=\"First &amp; second\">First &amp; "
+                           "second</option></select></body></rml>" &&
+              option.element == 3,
+          "Dropdown option creation lost escaped label/value or root index");
+    const auto empty = insert_ui_markup_control(source, 2, "select");
+    check(empty.source.find("<select></select>") != std::string::npos && empty.element == 4,
+          "Empty dropdown unexpectedly created an option or lost append selection");
+    const auto quoted = insert_ui_markup_control(source, 2, "text-input", "\"/><p>Injected");
+    check(inspect_ui_markup(quoted.source).size() == inspect_ui_markup(source).size() + 1 &&
+              quoted.source.find("value=\"&quot;/&gt;&lt;p&gt;Injected\"") != std::string::npos,
+          "Initial control value escaped its quoted attribute");
+    rejects([&] { insert_ui_markup_control(source, 2, "unknown"); });
+    rejects([&] { insert_ui_markup_control(source, 99, "button"); });
+    rejects([&] { insert_ui_markup_control(source, 0, "button"); });
+    rejects([&] { insert_ui_markup_control(source, 2, "button", "", 4); });
+    rejects([&] { insert_ui_markup_control(source, 2, "option", "Option"); });
+    rejects([&] { insert_ui_markup_control(select, 2, "button", "Button"); });
+    for (const auto* tag : {"textarea", "option", "progress", "input"}) {
+        const std::string nested =
+            "<rml><body><" + std::string(tag) +
+            (std::string_view(tag) == "input" ? "/></body></rml>"
+                                              : "></" + std::string(tag) + "></body></rml>");
+        rejects([&] { insert_ui_markup_control(nested, 2, "button", "Button"); });
+    }
+    for (const auto* kind : {"image", "line-break", "progress"})
+        rejects([&] { insert_ui_markup_control(source, 2, kind, "unexpected"); });
+    check(insert_ui_markup_control(source, 2, "paragraph", std::string(8192, 'a')).element == 4,
+          "Maximum supported initial text was rejected");
+    rejects([&] { insert_ui_markup_control(source, 2, "paragraph", std::string(8193, 'a')); });
+}
 void style_value_literals() {
     using namespace forge;
     const std::array cases{
@@ -837,6 +900,7 @@ int main() {
         stylesheet_rules();
         reusable_styles();
         style_value_literals();
+        common_controls();
         std::cout << "Source-preserving outline/attributes and shared validator errors passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

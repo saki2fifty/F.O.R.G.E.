@@ -35,6 +35,19 @@ limits apply as the editor. Native outline drag/drop uses the existing guarded
 `forge_ui_source_reparent` behavior; an agent can call that operation directly.
 Source mutations wait until a native source gesture finishes or is cancelled.
 
+`forge_ui_source_control` creates a common control through the same source owner
+as **New child**. Pass current source guards, `parent`, a `kind` from its advertised
+enum, optional `text` and optional direct-child `before`. It requires `assets.write`,
+publishes one source Undo and selects the new root. Inputs use text as their value;
+a nonempty dropdown creates one selected option. Image, line-break and progress
+kinds take no text, and dropdown options require a dropdown parent. Initial text
+fits 8,192 bytes. Generic `forge_ui_source_insert`, attribute and text operations
+remain available. Save is explicit. See [common controls](ui-source.md).
+
+Play field observation/action tools retain their text, password and text-area
+scope. Creation of checkbox, radio, dropdown and progress controls does not add
+specialized Play state queries or actions for those controls.
+
 `forge_ui_source_style_read` needs only `assets.read`, current source guards,
 `element` and `name`. It returns the authored `name` and `value`; `value:null`
 means there is no matching inline declaration. It uses the same property reader

@@ -47,6 +47,7 @@ class UiSourceEditor {
     bool outline_drag_active_ = false, elements_active_ = false;
     static constexpr const char* source_drag_type = "FORGE_UI_SOURCE";
     int child_kind_ = 0;
+    char child_text_[8193]{};
     UiSourcePreviewFrame preview_frame_;
     int preview_width_ = 1000, preview_height_ = 700;
     float preview_density_ = 1;
@@ -114,6 +115,7 @@ class UiSourceEditor {
         style_error_.clear();
         style_control_error_.clear();
         classes_error_.clear();
+        child_text_[0] = 0;
         style_mixed_ = classes_mixed_ = false;
         hierarchy_parent_ = hierarchy_before_ = UiMarkupElement::no_parent;
         dirty_ = close_ = false;
@@ -307,7 +309,7 @@ class UiSourceEditor {
                 }
             } else {
                 ImGui::TextWrapped("Number control accepts unitless, px, dp or %% literals from "
-                                   "-65536 to65536. Keep other CSS forms as text.");
+                                   "-65536 to 65536. Keep other CSS forms as text.");
                 if (ImGui::Button("New number"))
                     stage(UiStyleNumber{});
                 FORGE_UI_PROBE("ui-source:style-new-number");
@@ -1178,12 +1180,36 @@ class UiSourceEditor {
             attempt([&] { text(index, literal_); });
         FORGE_UI_PROBE("ui-source:text-set");
         ImGui::EndDisabled();
-        const char* kinds[] = {"div", "span", "p", "button", "input", "img", "br"};
-        ImGui::BeginDisabled(!container);
-        ImGui::Combo("New child", &child_kind_, kinds, IM_ARRAYSIZE(kinds));
-        if (button("Add child", "Append a new element inside the selected container."))
-            attempt([&] { insert(index, kinds[child_kind_], {}); });
+        ImGui::BeginDisabled(!container || tag == "textarea" || tag == "option" ||
+                             tag == "progress");
+        const auto choices =
+            ImGui::BeginCombo("New child", ui_markup_control_kinds[child_kind_].label.data());
+        FORGE_UI_PROBE("ui-source:child-kind");
+        if (choices) {
+            for (std::size_t i = 0; i < ui_markup_control_kinds.size(); ++i) {
+                const auto& kind = ui_markup_control_kinds[i];
+                if (ImGui::Selectable(kind.label.data(), child_kind_ == static_cast<int>(i)))
+                    child_kind_ = static_cast<int>(i);
+                FORGE_UI_PROBE("ui-source:child-choice:" + std::string(kind.id));
+            }
+            ImGui::EndCombo();
+        }
+        const auto& kind = ui_markup_control_kinds[child_kind_];
+        ImGui::BeginDisabled(!kind.accepts_text());
+        ImGui::InputTextWithHint("Initial text/value", "Optional; escaped as source text",
+                                 child_text_, sizeof(child_text_));
+        FORGE_UI_PROBE("ui-source:child-text");
+        ImGui::EndDisabled();
+        const bool dropdown = (kind.tag == "option") == (tag == "select");
+        ImGui::BeginDisabled(!dropdown);
+        if (button("Add child",
+                   "Create the chosen control as one Undo and select it. Save remains separate."))
+            attempt([&] { control(index, kind.id, kind.accepts_text() ? child_text_ : ""); });
         FORGE_UI_PROBE("ui-source:child-add");
+        ImGui::EndDisabled();
+        if (!dropdown)
+            ImGui::TextWrapped("Create dropdown options inside a Dropdown; other controls use a "
+                               "different container.");
         ImGui::EndDisabled();
         ImGui::BeginDisabled(!widget_editable || !previous);
         if (button("Move up", "Swap with the previous sibling; surrounding source stays intact."))
@@ -1503,6 +1529,13 @@ class UiSourceEditor {
     void insert(std::size_t parent, std::string_view tag, std::string_view literal,
                 std::optional<std::size_t> before = {}) {
         replace_text(insert_ui_markup_child(editor_.GetText(), parent, tag, literal, before));
+    }
+    void control(std::size_t parent, std::string_view kind, std::string_view literal,
+                 std::optional<std::size_t> before = {}) {
+        const auto edit =
+            insert_ui_markup_control(editor_.GetText(), parent, kind, literal, before);
+        replace_text(edit.source);
+        select(edit.element);
     }
     void remove(std::size_t index) {
         const std::array indices{index};

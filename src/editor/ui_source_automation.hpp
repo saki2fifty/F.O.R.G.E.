@@ -292,7 +292,7 @@ struct UiSourceAutomation {
               "duplicate",     "reparent",      "remove",      "remove_group", "move",
               "save",          "undo",          "redo",        "reload",       "close",
               "rule_property", "rule_selector", "rule_insert", "rule_remove",  "rule_copy",
-              "rule_move",     "style_group",   "classes"}) {
+              "rule_move",     "style_group",   "classes",     "control"}) {
             const std::string action(operation);
             auto properties = guard;
             auto fields = required;
@@ -327,7 +327,14 @@ struct UiSourceAutomation {
                 add("value", {{"oneOf", {automation_text(1024, 1), Json{{"type", "null"}}}}});
             if (action == "text" || action == "insert")
                 add("text", automation_text(256 * 1024), action == "text");
-            if (action == "insert" || action == "reparent") {
+            if (action == "control") {
+                auto kinds = Json::array();
+                for (const auto& kind : ui_markup_control_kinds)
+                    kinds.push_back(kind.id);
+                add("kind", {{"type", "string"}, {"enum", std::move(kinds)}});
+                add("text", automation_text(8192), false);
+            }
+            if (action == "insert" || action == "reparent" || action == "control") {
                 add("parent", automation_integer(0, 8191));
                 if (action == "insert")
                     add("tag", automation_text(64, 1));
@@ -339,7 +346,23 @@ struct UiSourceAutomation {
                 add("discard", {{"type", "boolean"}}, false);
             result.push_back(automation_method(
                 "ui.source." + action,
-                action == "classes"
+                action == "control"
+                    ? "Create one common RML control with parent/kind, optional initial text/value "
+                      "and optional before-child index. Compose existing escaped source insert/"
+                      "attribute/text candidates, validate before one Undo and select the new "
+                      "root. "
+                      "Needs current source guards/assets.write. Initial text fits8192bytes; "
+                      "inputs "
+                      "use it as value, dropdowns create one selected option, ordinary controls "
+                      "use "
+                      "text. Image/break/progress accept no text; progress starts at0. Dropdowns "
+                      "contain only option controls; options require a dropdown. Text "
+                      "areas/options/"
+                      "progress cannot parent new controls. No automatic IDs/label targets, "
+                      "resource "
+                      "registration or runtime execution. Generic insert remains supported; Save "
+                      "stays explicit."
+                : action == "classes"
                     ? "Set literal class lists for1..32distinct editable RML siblings as one Undo. "
                       "Needs elements/value and current source guards/assets.write; null clears. "
                       "Space-separated ASCII classes,1..32distinct tokens/64bytes each/1024total, "
@@ -485,6 +508,13 @@ struct UiSourceAutomation {
                                       request.contains("before")
                                           ? std::optional(request.at("before").get<std::size_t>())
                                           : std::nullopt);
+                    else if (action == "control")
+                        editor.control(request.at("parent").get<std::size_t>(),
+                                       request.at("kind").get<std::string>(),
+                                       request.value("text", std::string{}),
+                                       request.contains("before")
+                                           ? std::optional(request.at("before").get<std::size_t>())
+                                           : std::nullopt);
                     else if (action == "duplicate")
                         editor.duplicate(request.at("element").get<std::size_t>(),
                                          request.value("prefix", std::string{}));

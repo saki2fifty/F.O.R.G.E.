@@ -93,6 +93,36 @@ std::string set_ui_markup_text(std::string_view, std::size_t element, std::strin
 std::string insert_ui_markup_child(std::string_view, std::size_t parent, std::string_view tag,
                                    std::string_view literal = {},
                                    std::optional<std::size_t> before = {});
+struct UiMarkupControlKind {
+    std::string_view id, label, tag, input_type;
+    bool accepts_text() const noexcept { return tag != "img" && tag != "br" && tag != "progress"; }
+};
+inline constexpr std::array<UiMarkupControlKind, 16> ui_markup_control_kinds{{
+    {"container", "Container", "div", ""},
+    {"inline-text", "Inline text", "span", ""},
+    {"paragraph", "Paragraph", "p", ""},
+    {"button", "Button", "button", ""},
+    {"label", "Label", "label", ""},
+    {"text-input", "Text input", "input", "text"},
+    {"password-input", "Password input", "input", "password"},
+    {"checkbox", "Checkbox", "input", "checkbox"},
+    {"radio", "Radio option", "input", "radio"},
+    {"textarea", "Text area", "textarea", ""},
+    {"select", "Dropdown", "select", ""},
+    {"option", "Dropdown option", "option", ""},
+    {"progress", "Progress", "progress", ""},
+    {"image", "Image", "img", ""},
+    {"line-break", "Line break", "br", ""},
+    {"form", "Form", "form", ""},
+}};
+struct UiMarkupControlEdit {
+    std::string source;
+    std::size_t element;
+};
+// Compose existing source candidates; the caller publishes one transaction.
+UiMarkupControlEdit insert_ui_markup_control(std::string_view, std::size_t parent,
+                                             std::string_view kind, std::string_view literal = {},
+                                             std::optional<std::size_t> before = {});
 std::string remove_ui_markup_element(std::string_view, std::size_t element);
 std::string remove_ui_markup_elements(std::string_view, std::span<const std::size_t> elements);
 // Move static source siblings into a container, retaining source order and IDs.

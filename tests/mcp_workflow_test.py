@@ -465,6 +465,7 @@ for legacy in selected_protocols:
                 assert 'forge_ui_source_duplicate' not in visible and 'forge_ui_source_remove_group' not in visible
                 assert 'forge_ui_source_reparent' not in visible
                 assert 'forge_ui_source_style' not in visible
+                assert 'forge_ui_source_control' not in visible
                 assert 'forge_ui_source_style_read' in visible
                 assert 'forge_ui_source_rule_read' in visible
                 assert {'forge_ui_source_style_group_read', 'forge_ui_source_classes_read'} <= visible

@@ -3,6 +3,11 @@
 #include "runtime_package.hpp"
 #include "ui_markup_authoring.hpp"
 #include "ui_test_renderer.hpp"
+#include <RmlUi/Core/Elements/ElementFormControlInput.h>
+#include <RmlUi/Core/Elements/ElementFormControlSelect.h>
+#include <RmlUi/Core/Elements/ElementFormControlTextArea.h>
+#include <RmlUi/Core/Elements/ElementProgress.h>
+#include <algorithm>
 #include <forge/authoring.hpp>
 #include <forge/runtime_ui.hpp>
 #include <fstream>
@@ -243,6 +248,37 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
                 set_ui_markup_styles(candidate, styled_fields, "width",
                                      format_ui_style_number({55, UiStyleUnit::DensityPixels}));
             candidate = set_ui_markup_classes(candidate, styled_fields, "shared-widget");
+            const auto nodes = inspect_ui_markup(candidate);
+            const auto body = static_cast<std::size_t>(
+                std::ranges::find(nodes, "body", &UiMarkupElement::tag) - nodes.begin());
+            auto controls = insert_ui_markup_control(candidate, body, "container");
+            candidate = set_ui_markup_attribute(controls.source, controls.element, "id",
+                                                "created-controls");
+            candidate = set_ui_markup_attribute(candidate, controls.element, "style",
+                                                "position:absolute;left:520px;top:20px;width:220px;"
+                                                "height:250px;pointer-events:auto;");
+            for (const auto& [kind, value, id] : std::array<std::array<const char*, 3>, 6>{
+                     {{"checkbox", "yes", "created-check"},
+                      {"radio", "red", "created-radio"},
+                      {"textarea", "Two\nrows", "created-area"},
+                      {"select", "First", "created-select"},
+                      {"progress", "", "created-progress"},
+                      {"label", "Native label", "created-label"}}}) {
+                const auto control = insert_ui_markup_control(
+                    candidate, by_id(candidate, "created-controls"), kind, value);
+                candidate =
+                    set_ui_markup_attribute(control.source, control.element, "id", std::string(id));
+                candidate = set_ui_markup_attribute(
+                    candidate, control.element, "style",
+                    "display:block;width:150px;height:32px;pointer-events:auto;");
+                if (std::string_view(kind) == "select") {
+                    const auto option =
+                        insert_ui_markup_control(candidate, control.element, "option", "Second");
+                    candidate = option.source;
+                }
+            }
+            candidate = set_ui_markup_attribute(candidate, by_id(candidate, "created-label"), "for",
+                                                "created-check");
             check(presenter.preview_document({asset}, layout_document, candidate, 800, 600),
                   "Gallery draft preview did not load");
             const auto view = presenter.preview_layout();
@@ -340,6 +376,37 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
                       opacity->unit == Rml::Unit::NUMBER && opacity->Get<float>() == .5f,
                   "Saved/exported typed density-pixel or unitless values changed native units");
         }
+        auto* check_input = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(
+            document->GetElementById("created-check"));
+        auto* radio = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(
+            document->GetElementById("created-radio"));
+        auto* area = rmlui_dynamic_cast<Rml::ElementFormControlTextArea*>(
+            document->GetElementById("created-area"));
+        auto* dropdown = rmlui_dynamic_cast<Rml::ElementFormControlSelect*>(
+            document->GetElementById("created-select"));
+        auto* progress =
+            rmlui_dynamic_cast<Rml::ElementProgress*>(document->GetElementById("created-progress"));
+        check(check_input && check_input->GetAttribute<Rml::String>("type", "") == "checkbox" &&
+                  check_input->GetValue() == "yes" && !check_input->HasAttribute("checked") &&
+                  radio && radio->GetAttribute<Rml::String>("type", "") == "radio" &&
+                  radio->GetValue() == "red" && !radio->HasAttribute("checked") && area &&
+                  area->GetValue() == "Two\nrows" && dropdown && dropdown->GetNumOptions() == 2 &&
+                  dropdown->GetSelection() == 0 && dropdown->GetValue() == "First" && progress &&
+                  progress->GetValue() == 0 && progress->GetMax() == 1,
+              "Saved/exported authored controls lost native type, initial value, selected option "
+              "or progress");
+        auto* new_label = document->GetElementById("created-label");
+        check(new_label && new_label->GetAttribute<Rml::String>("for", "") == "created-check",
+              "Created label lost its explicit target");
+        const auto new_label_position = new_label->GetAbsoluteOffset(Rml::BoxArea::Border);
+        const auto new_label_size = new_label->GetBox().GetSize(Rml::BoxArea::Border);
+        check(new_label_size.x > 0 && new_label_size.y > 0, "Created label has no native hit box");
+        presenter.mouse_move(int(new_label_position.x + new_label_size.x / 2),
+                             int(new_label_position.y + new_label_size.y / 2), 0);
+        presenter.mouse_button(0, true, 0);
+        presenter.mouse_button(0, false, 0);
+        check(check_input->HasAttribute("checked"),
+              "Native label input did not toggle its created checkbox");
         const auto label_position = copied_label->GetAbsoluteOffset(Rml::BoxArea::Border);
         const auto label_size = copied_label->GetBox().GetSize(Rml::BoxArea::Border);
         check(label_size.x > 0 && label_size.y > 0, "Cloned runtime label has no native hit box");

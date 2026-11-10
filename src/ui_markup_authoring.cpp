@@ -410,7 +410,7 @@ std::string format_ui_style_number(UiStyleNumber number) {
     const auto unit = static_cast<std::size_t>(number.unit);
     require(unit < ui_style_unit_suffixes.size() && std::isfinite(number.value) &&
                 std::abs(number.value) <= 65536,
-            "Use a finite style number between -65536 and65536 and a supported unit");
+            "Use a finite style number between -65536 and 65536 and a supported unit");
     std::array<char, 64> buffer{};
     const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), number.value);
     require(result.ec == std::errc{}, "Could not format the style number");
@@ -436,7 +436,7 @@ std::string format_ui_style_color(UiStyleColor color) {
     std::uint32_t packed = 0;
     for (const auto channel : color) {
         require(std::isfinite(channel) && channel >= 0 && channel <= 1,
-                "Color channels must be finite values between0 and1");
+                "Color channels must be finite values between 0 and 1");
         packed = (packed << 8) | static_cast<std::uint32_t>(std::lround(channel * 255));
     }
     const auto digits = (packed & 255) == 255 ? 6u : 8u;
@@ -757,6 +757,40 @@ std::string insert_ui_markup_child(std::string_view source, std::size_t parent,
 std::string remove_ui_markup_element(std::string_view source, std::size_t index) {
     const std::array indices{index};
     return remove_ui_markup_elements(source, indices);
+}
+UiMarkupControlEdit insert_ui_markup_control(std::string_view source, std::size_t parent,
+                                             std::string_view kind, std::string_view literal,
+                                             std::optional<std::size_t> before) {
+    const auto found = std::ranges::find(ui_markup_control_kinds, kind, &UiMarkupControlKind::id);
+    require(found != ui_markup_control_kinds.end(), "Choose a supported UI control kind");
+    require(literal.size() <= 8192, "Initial UI text/value is limited to 8192 bytes");
+    require(found->accepts_text() || literal.empty(), "This control has no initial text/value");
+    const auto nodes = inspect_ui_markup(source);
+    const auto& container = element(nodes, parent);
+    require(container.tag != "textarea" && container.tag != "option" && container.tag != "progress",
+            "Choose a container outside text areas, dropdown options and progress controls");
+    require((found->tag == "option") == (container.tag == "select"),
+            "Dropdowns contain dropdown options; insert an option inside a select element");
+    const auto position = before ? element(nodes, *before).source.begin : container.closing.begin;
+    const auto index = static_cast<std::size_t>(std::ranges::count_if(
+        nodes, [&](const auto& node) { return node.source.begin < position; }));
+    const bool input = found->tag == "input", select = found->tag == "select";
+    auto candidate = insert_ui_markup_child(source, parent, found->tag,
+                                            input || select ? std::string_view{} : literal, before);
+    if (input) {
+        candidate =
+            set_ui_markup_attribute(candidate, index, "type", std::string(found->input_type));
+        if (!literal.empty())
+            candidate = set_ui_markup_attribute(candidate, index, "value", std::string(literal));
+    } else if (select && !literal.empty()) {
+        candidate = insert_ui_markup_child(candidate, index, "option", literal);
+        candidate = set_ui_markup_attribute(candidate, index + 1, "value", std::string(literal));
+        candidate = set_ui_markup_attribute(candidate, index + 1, "selected", "selected");
+    } else if (found->tag == "option" && !literal.empty())
+        candidate = set_ui_markup_attribute(candidate, index, "value", std::string(literal));
+    else if (found->tag == "progress")
+        candidate = set_ui_markup_attribute(candidate, index, "value", "0");
+    return {std::move(candidate), index};
 }
 std::string remove_ui_markup_elements(std::string_view source,
                                       std::span<const std::size_t> indices) {

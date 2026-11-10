@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-11-10](20261110/README.md) — Shared authored UI color and numeric/unit controls with staged values, source Undo, existing automation/MCP access and illustrated instructions. Windows/full-editor/physical review remains queued.
+- [2026-11-10](20261110/README.md) — Common UI control creation with initial values and atomic native/MCP source history; shared authored color and numeric/unit controls, explicit saving and illustrated instructions. Windows/full-editor/physical review remains queued.
 
 - [2026-11-09](20261109/README.md) — Atomic native UI group layout; whole-character native navigation/selected deletion; native UI draft preview/pixel canvas, guarded preview-image capture and Gallery211; shared source/MCP/history/export workflows; optional native text shaping, font discovery and color glyphs. Source changes; Windows verification and delivery pending.
 

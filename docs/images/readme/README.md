@@ -2,6 +2,28 @@
 
 ## Native UI source authoring
 
+`ui-source-create-control.png` is an exact700×950 production UiSourceEditor/
+DocumentWorkspace capture after actual New child kind and initial-text input.
+Reproduce with `forge_ui_source_editor_tests <output>`; the raw
+`ui-source-create-control-<width>.png` covers1180/700/400pixel cases. The same
+fixture checks checkbox/text-area/dropdown/option creation, staging, selected new
+roots and one Undo/Redo without saving. The common-control-creation validation
+checkpoint retains original pixels, source/font/executable hashes and receipts.
+Refreshed Elements/other affected canonical captures show the current child controls.
+SDL software component captures are unretouched; Windows/full Main, physical
+input/GPU and display-density acceptance remain separate.
+
+- `ui-source-elements.png`: `0b6ed56d8c4b116ae43c067698aea82038fc243800c91087f22722d6fe81ebd9`.
+- `ui-source-inline-style.png`: `4e4590637c5542143482369b8e7f18ea68e1aa72b8482074c51b4134b57f964e`.
+- `ui-source-hierarchy.png`: `1f1c2e6d0b14a5ed6c6e83fdad73b9163f8f4cfb1b841aa9b9cea12094c9e881`.
+- `ui-source-rules.png`: `76e1ab67928a26913f2805b44f6b9f4df615d639b1222e3fe280472900a188e2`.
+- `ui-source-group-styling.png`: `eb8c75ad2d2277235e1796d13f76cdf820247ea8fa3dadb16ed574369b55bc40`.
+- `ui-source-classes.png`: `fabe4245437a5c067e51c298244852fa2bc9d8e7f49c1e9eff010270cb185d56`.
+- `ui-source-style-color.png`: `608edca1fbace6e739a98e5ffd1b24fd2e3b9b32aae29be9dd921b4022883c42`.
+- `ui-source-style-number.png`: `d9f7f28bd24b19177fc2a026bc3dd9dd224a4f1250d991a38f8a2f7d43417104`.
+- `ui-source-create-control.png`: `fa6e1203bd5f8c143756711ce0dc2f368ad84928e66e0f3c3a738362c4387b7d`.
+
+
 `ui-source-style-color.png` and `ui-source-style-number.png` are exact700×950
 production UiSourceEditor/DocumentWorkspace captures after actual RGBA hex and
 number/unit input, staging and one source Set property. Reproduce with
@@ -10,16 +32,10 @@ number/unit input, staging and one source Set property. Reproduce with
 at1180/700/400. The same source fixture checks invalid-number recovery, preserved
 untouched hex spelling, group/rule staging and source/disk isolation. Current
 Inline style, Group inline style and Rules captures show these controls too.
-The style-value-controls validation checkpoint retains original pixels, source,
-font/executable input hashes, native receipt and canonical SHA256. SDL software
-component captures are unretouched; Windows/full Main, physical input/GPU and
-display-density acceptance remain separate.
-
-- `ui-source-inline-style.png`: `d99ea6c79ff6ae43307e474bd58e4a23ef54bdbd2181d6eef9b8d76c93de3ba3`.
-- `ui-source-rules.png`: `76e1ab67928a26913f2805b44f6b9f4df615d639b1222e3fe280472900a188e2`.
-- `ui-source-group-styling.png`: `eb8c75ad2d2277235e1796d13f76cdf820247ea8fa3dadb16ed574369b55bc40`.
-- `ui-source-style-color.png`: `72a64e9c67b23bb1e529fab75c97984d00ed9fb0b48a3326732e75d29a73e10c`.
-- `ui-source-style-number.png`: `de30166481786be2de1c6c4cdd1d3df77ee0b0e97de35973cbce3195c9461952`.
+The current common-control-creation checkpoint above retains these original
+pixels and input hashes; earlier style-value captures remain attributable to their
+original checkpoint. SDL software composition is component evidence, separate from
+Windows/full Main, physical input/GPU and display-density acceptance.
 
 
 The current `ui-source-group-styling.png` and `ui-source-classes.png` manual images
@@ -29,7 +45,7 @@ with `forge_ui_source_editor_tests <output>`; raw files use
 `ui-source-group-styling-<width>.png` and `ui-source-classes-<width>.png` at1180/700/400.
 Elements/Inline style/Hierarchy captures include the collapsed Classes section; Rules shows
 its native Copy/Move controls. Immutable originals and exact canonical hashes
-belong to the style-value-controls validation checkpoint above. SDL software component pixels are
+belong to the common-control-creation validation checkpoint above. SDL software component pixels are
 unretouched and separate from full Main, Windows, physical input/GPU and display
 density acceptance. No controls or source/game screenshots are fabricated.
 
@@ -38,7 +54,7 @@ DocumentWorkspace capture after native RCSS selection and property editing.
 The Rules list, selector/add/remove actions and authored color controls are real,
 unretouched pixels. Reproduce with `forge_ui_source_editor_tests <output>`;
 `ui-source-rules-<width>.png` records1180/700/400pixel cases. The current refreshed
-originals and canonical SHA256 belong to the style-value-controls validation checkpoint above. SDL
+originals and canonical SHA256 belong to the common-control-creation validation checkpoint above. SDL
 software composition is component evidence, separate from full Main, Windows,
 physical GPU/input and display-density acceptance.
 

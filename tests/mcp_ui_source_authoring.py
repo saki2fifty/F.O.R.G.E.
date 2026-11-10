@@ -8,7 +8,7 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
                  'duplicate', 'remove_group', 'reparent', 'style', 'style_read', 'rule_read',
                  'rule_property', 'rule_selector', 'rule_insert', 'rule_remove',
-                 'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move')}
+                 'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control')}
     assert required <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
@@ -33,6 +33,35 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                     if node['tag'] == tag)
 
     paragraph = index('p')
+    kinds = advertised['forge_ui_source_control']['inputSchema']['properties']['kind']['enum']
+    assert len(kinds) == len(set(kinds)) == 16 and {'textarea', 'label', 'checkbox', 'radio', 'select', 'option', 'progress'} <= set(kinds)
+    creation_guard = guard()
+    creation_args = arguments(**creation_guard, parent=index('body'), kind='select', text='Choice & <one>')
+    once = client.tool('forge_ui_source_control', **creation_args)
+    replay = client.tool('forge_ui_source_control', **creation_args)
+    assert once['ok'] and replay['ok'] and once['result'] == replay['result']
+    created = read('forge_ui_source_read')
+    expected = original.replace('</body>', '<select><option value="Choice &amp; &lt;one&gt;" selected="selected">Choice &amp; &lt;one&gt;</option></select></body>')
+    assert created['text'] == expected and created['selection'] == [3]
+    failed(mutate('forge_ui_source_control', **creation_guard, parent=1, kind='button'), 'stale_ui_source')
+    option = edit('control', parent=3, kind='option', text='Next')
+    assert option['selection'] == [5] and '<option value="Next">Next</option>' in option['text']
+    assert edit('undo')['text'] == expected, 'New dropdown option needed more than one Undo'
+    assert edit('undo')['text'] == original, 'Atomic dropdown creation needed more than one Undo'
+    assert edit('redo')['text'] == expected
+    edit('undo')
+    for kind, text, fragment in (
+            ('textarea', 'Row & <two>', '<textarea>Row &amp; &lt;two&gt;</textarea>'),
+            ('checkbox', 'yes', '<input type="checkbox" value="yes"/>'),
+            ('progress', '', '<progress value="0"></progress>')):
+        control = edit('control', parent=index('body'), before=index('p'), kind=kind, text=text)
+        assert control['selection'] == [2] and fragment in control['text']
+        assert edit('undo')['text'] == original, 'Common control creation needed more than one Undo'
+    unchanged = read('forge_ui_source_read')
+    for extra in (dict(parent=1, kind='unknown'), dict(parent=9999, kind='button'),
+                  dict(parent=1, kind='option'), dict(parent=1, kind='progress', text='bad')):
+        assert not mutate('forge_ui_source_control', **guard(), **extra)['ok']
+        assert read('forge_ui_source_read') == unchanged, 'Rejected control creation partially changed source'
     copy_args = arguments(**guard(), element=paragraph, prefix='second')
     copied_once = client.tool('forge_ui_source_duplicate', **copy_args)
     copied_replay = client.tool('forge_ui_source_duplicate', **copy_args)

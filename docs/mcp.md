@@ -1140,6 +1140,19 @@ It uses source guards, assets.write, ordinary mutation receipts and one TextEdit
 replacement; no preview observation is required. A source change clears selection;
 an exact no-op changes no source revision or history. Save stays separate.
 
+`forge_ui_source_control` uses the same current source guards/assets.write and
+atomic source owner as native New child. Required `parent/kind`, optional `text`
+(8192bytes) and optional direct-child `before` create one of the advertised16kinds.
+The kind enum comes from the native metadata. Existing insert/attribute/text
+candidate helpers own source creation and escaping; the complete composed result
+publishes one Undo and selects its new root. Inputs use initial text as value;
+nonempty dropdowns create one selected option with matching label/value. Image,
+break and progress accept no text; progress starts at0. Options require a select
+parent, selects accept option controls, and textarea/option/progress parents reject.
+No automatic IDs/label targets, registration, execution or Save. Generic insert
+remains supported. Specialized Play field reads/actions retain text/password/
+textarea scope; this authoring operation adds no checkbox/radio/select state API.
+
 `forge_ui_source_style` takes current source guards, `element`, lowercase `name`
 and string-or-null `value`. Null removes the matching declaration; set edits only
 its value or appends a missing property/style attribute. One quoted non-entity

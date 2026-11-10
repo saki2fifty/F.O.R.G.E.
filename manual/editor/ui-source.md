@@ -28,12 +28,12 @@ Select a widget in the source outline to change its attributes, text or position
 1. Select **Elements**. Expand the body and select a paragraph, button or container.
 2. To change an attribute, enter its **Attribute** name and **Value**, then choose **Set attribute**. For example, use `style` and `color:#73d7bd;` to set text color. **Remove attribute** removes the named attribute.
 3. For a leaf containing text, edit **Text** and choose **Set text**. Containers with child widgets or comments protect their contents from this replacement.
-4. Select a container, choose **New child**, then **Add child** to append a div, span, paragraph, button, input, image or line break.
+4. Select a container, choose **New child**, enter optional **Initial text/value**, then **Add child**. The new control becomes selected. See the control choices below.
 5. Select a widget and use **Move up**, **Move down** or **Remove element** to change its position among siblings or remove it.
 
 Each successful operation is one source Undo step. The outline is derived again
 after an edit; most operations clear the selection. Duplication selects the new
-root, and inline style edits keep the edited element selected. Select an element
+root, creating a control selects its root, and inline style edits keep the edited element selected. Select an element
 again after Undo or Redo.
 Element positions describe the current source, rather than permanent widget IDs.
 Use an `id` attribute to name a widget for styles and bindings.
@@ -43,6 +43,36 @@ bindings keep their source meaning: `Tick {{tick}}` displays the runtime counter
 Use **Source** to write child markup, resource declarations or other RML syntax.
 The Elements controls protect document structure and style/resource declarations.
 Use **Preview** for native rendering and the supported pixel layout controls.
+
+## Create common controls
+
+1. In **Elements**, select the body or a container such as a div or form.
+2. Choose **New child**. The choices include Container, Inline text, Paragraph, Button, Label, Text input, Password input, Checkbox, Radio option, Text area, Dropdown, Dropdown option, Progress, Image, Line break and Form.
+3. Enter **Initial text/value** when enabled. Choose **Add child**. The new control is selected so you can assign its attributes and style.
+4. Use **Undo** or **Redo** for the whole creation. Choose **Save source** to write it to disk. **Preview** checks native appearance; use **Game** during Play to test interaction.
+
+![UI Source with the body selected, Dropdown creation kind, initial text and Add child controls](../images/ui-source-create-control.png)
+
+Choose a kind and initial value before Add child. A dropdown with initial text
+creates its first selected option in the same Undo step.
+
+Initial text is limited to 8,192 UTF-8 bytes. Markup characters are escaped; RML
+bindings keep their existing source semantics. Creation preserves the surrounding
+source and adds no automatic IDs, label targets, resource registration or event
+bindings. Complete source and opening-tag limits still apply.
+
+- Text input and Password input use the initial field as their `value`. Checkbox and Radio option use it as the submitted value, rather than a visible label. They start unchecked.
+- Text area uses the initial field as its content. Set its text or attributes after creation for additional content and constraints.
+- Dropdown with initial text creates one selected option using that text for its label and value. An empty field creates an empty dropdown. Select the dropdown and choose Dropdown option to add further options. A new option uses its initial text for label and value; it does not change an existing selection.
+- Dropdown option requires a dropdown parent. A dropdown accepts option children. Text areas, options and progress controls do not accept new controls through this menu.
+- Progress starts with `value="0"` and the native maximum of one. Use Set attribute to change its value. Progress, Image and Line break have no initial text field.
+- Image needs a `src` attribute, such as `badge.tga` for an image beside the RML file. Save, then Register / Refresh the document and its contained resources as described in [Runtime UI](runtime-ui.md).
+
+For a checkbox label, assign the input an `id`, create a Label and set its `for`
+attribute to that ID. Give radio options the same `name` to form a group. Use the
+normal attribute controls to set `checked`, `disabled`, option `selected` and other
+admitted attributes; remove an attribute to clear it. Author IDs and targets
+explicitly, then save and test native behavior in Game.
 
 ## Edit an inline style property
 

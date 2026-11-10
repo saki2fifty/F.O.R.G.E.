@@ -140,6 +140,15 @@ Literal class assignment retains binding/ID ownership and existing equal-value
 encoding; flat rule copy/order remains source manipulation under the same owner.
 No extracted theme, second stylesheet parser or persistent source identity follows.
 
+Common control creation has one kind metadata table beside the existing source
+authoring owner. It composes detached generic insert/attribute/text candidates,
+including input types and an initial selected dropdown option, before one document
+replacement. Existing escaping/full candidate admission remain authoritative;
+the result carries only the new snapshot's transient root index for selection.
+Native creation and its control automation/MCP method share that function, kind
+enum, guards/history and explicit Save. No persistent widget identity, native DOM
+serialization, second template tree or runtime field-state owner is introduced.
+
 Literal color/number controls are optional authored-value adapters in
 ui_markup_authoring, with no native initialization or computed-style reads.
 The color subset is six/eight hex digits with alpha last; normalized RGB channels
