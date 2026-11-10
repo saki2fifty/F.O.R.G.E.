@@ -591,8 +591,8 @@ the selection, then Ctrl+click it again to add it last.
 
 ## Align controls to a pixel grid
 
-1. Select an editable control in **Preview**. Set **Grid (px)** and choose **Snap positions to grid** below its layout fields.
-2. For a sibling group, choose **Snap positions to grid** under **Operation**, set **Grid (px)** and choose **Apply group**. The same canvas limits apply to every member.
+1. Select an editable control in **Preview**. Set **Grid (px)** in the Preview toolbar, then choose **Snap positions to grid** below the control's layout fields.
+2. For a sibling group, choose **Snap positions to grid** under **Operation**, use the toolbar's **Grid (px)** value and choose **Apply group**. The same canvas limits apply to every member.
 3. Inspect the result, then use **Undo** or **Redo** for the entire alignment. Choose **Save source** when ready.
 
 ![Preview group operation with Grid (px) set to eight and aligned panels](../images/ui-source-grid.png)
@@ -619,6 +619,37 @@ panel leaves the canvas unchanged. Pending keyboard movement cancels on Escape,
 source edits, task/Play locks, view changes, closing or leaving the source window.
 The same size, membership and source/preview validity limits apply as for mouse
 layout edits. Movement preserves each member's size and the selected group.
+
+## Snap and constrain a drag
+
+1. Select an editable control or sibling group in **Preview**. Set **Grid (px)** in the toolbar and enable **Snap dragging** when you want grid alignment during movement.
+2. Drag a selected control. A group keeps its spacing; the last-selected control supplies the border corner that snaps to the viewport grid. Clicking without moving does not snap anything.
+3. Hold **Shift** during movement to constrain it to the dominant horizontal or vertical axis. A tie chooses horizontal. The other coordinate stays unchanged, even if it began off-grid.
+4. Release the mouse to commit one source Undo step, or press **Escape** to cancel. Choose **Save source** when ready.
+
+![Selected sibling panels after dragging with Snap dragging enabled and the active corner aligned to the grid](../images/ui-source-drag-grid.png)
+
+Snap dragging is optional and initially off. It uses the same 1–1,024 pixel grid
+spacing as one-shot alignment. Moving a group with this option preserves spacing;
+one-shot **Snap positions to grid** aligns every member separately. Dragging
+clamps movement at the source coordinate bounds. If snapping would exceed those
+bounds, the candidate cannot commit; move back into range or cancel.
+
+## Keep visible aspect while resizing
+
+1. Select one editable control. Drag its bottom-right resize handle.
+2. Hold **Shift** to retain the visible border-box aspect ratio. Padding, borders and box-sizing remain accounted for; the control's top-left corner stays fixed.
+3. With **Snap dragging** enabled, the dominant size snaps to **Grid (px)** and the other size follows the aspect ratio. The relative width or height change determines the dominant size. The two dimensions need not both be grid multiples.
+4. Release to commit one Undo step, or press **Escape** to cancel. Save the source before registering updates or exporting.
+
+![One control after a Shift resize, with its visible width and height preserving the original aspect](../images/ui-source-drag-aspect.png)
+
+The source sizes remain within 1–65,536 pixels. Aspect locking takes priority over
+snapping, including at a source size limit. Without Shift or Snap dragging,
+resizing retains the ordinary independent width/height behavior. Group resize,
+relative layouts and the other canvas exclusions remain unavailable. Unsupported
+native sizing keeps the source unchanged; release or cancel and correct the
+layout before retrying.
 
 ## Save a preview image
 

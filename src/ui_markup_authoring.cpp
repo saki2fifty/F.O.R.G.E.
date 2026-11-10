@@ -591,6 +591,25 @@ std::string format_ui_style_color(UiStyleColor color) {
     const auto count = static_cast<std::size_t>(result.ptr - buffer.data());
     return "#" + std::string(digits - count, '0') + std::string(buffer.data(), result.ptr);
 }
+namespace {
+void valid_layout_boxes(std::span<const UiMarkupLayoutBox> boxes) {
+    require(!boxes.empty() && boxes.size() <= ui_source_selection_limit,
+            "Choose1..32 native layout members");
+    for (std::size_t i = 0; i < boxes.size(); ++i) {
+        const auto& box = boxes[i];
+        valid_layout(box.source.pixels);
+        for (const auto value :
+             {box.bounds.left, box.bounds.top, box.bounds.width, box.bounds.height})
+            require(std::isfinite(value), "Native group bounds must be finite");
+        require(box.bounds.width > 0 && box.bounds.height > 0,
+                "Native group bounds must have positive sizes");
+        require(std::ranges::none_of(
+                    boxes.first(i),
+                    [&](const auto& other) { return other.source.element == box.source.element; }),
+                "A layout group cannot repeat an element");
+    }
+}
+} // namespace
 std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMarkupLayoutBox> boxes,
                                                           std::string_view action, float dx,
                                                           float dy, float grid) {
@@ -606,20 +625,12 @@ std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMark
     require(std::isfinite(grid) && grid >= 1 && grid <= 1024,
             "Grid spacing must be finite and within1..1024 pixels");
     require(action == "snap_grid" || grid == 8, "Grid spacing applies only to grid alignment");
+    valid_layout_boxes(boxes);
     double left = std::numeric_limits<double>::max(), top = left;
     double right = std::numeric_limits<double>::lowest(), bottom = right;
     std::vector<UiMarkupLayoutEdit> result;
     result.reserve(boxes.size());
     for (const auto& box : boxes) {
-        valid_layout(box.source.pixels);
-        for (const auto value :
-             {box.bounds.left, box.bounds.top, box.bounds.width, box.bounds.height})
-            require(std::isfinite(value), "Native group bounds must be finite");
-        require(box.bounds.width > 0 && box.bounds.height > 0,
-                "Native group bounds must have positive sizes");
-        require(std::ranges::none_of(
-                    result, [&](const auto& item) { return item.element == box.source.element; }),
-                "A layout group cannot repeat an element");
         left = std::min(left, double(box.bounds.left));
         top = std::min(top, double(box.bounds.top));
         right = std::max(right, double(box.bounds.left) + box.bounds.width);
@@ -690,6 +701,87 @@ std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMark
     }
     for (const auto& change : result)
         valid_layout(change.pixels);
+    return result;
+}
+std::vector<UiMarkupLayoutBox> transform_ui_markup_layouts(std::span<const UiMarkupLayoutBox> boxes,
+                                                           std::string_view action, float dx,
+                                                           float dy, std::optional<float> grid) {
+    valid_layout_boxes(boxes);
+    require(std::ranges::any_of(ui_layout_transform_actions,
+                                [&](const auto& item) { return item.first == action; }),
+            "Unknown layout transform");
+    require(std::isfinite(dx) && std::isfinite(dy), "Layout deltas must be finite");
+    if (grid)
+        require(std::isfinite(*grid) && *grid >= 1 && *grid <= 1024,
+                "Grid spacing must be finite and within1..1024 pixels");
+    const bool resize = action == "resize" || action == "resize_aspect";
+    require(!resize || boxes.size() == 1, "Resize one native layout member at a time");
+    std::vector<UiMarkupLayoutBox> result(boxes.begin(), boxes.end());
+    if (!resize) {
+        const bool horizontal = std::abs(dx) >= std::abs(dy), axis = action == "move_axis";
+        if (axis) {
+            if (horizontal)
+                dy = 0;
+            else
+                dx = 0;
+        }
+        float min_x = -131072, max_x = 131072, min_y = -131072, max_y = 131072;
+        for (const auto& box : boxes) {
+            min_x = std::max(min_x, -65536 - box.source.pixels.left);
+            max_x = std::min(max_x, 65536 - box.source.pixels.left);
+            min_y = std::max(min_y, -65536 - box.source.pixels.top);
+            max_y = std::min(max_y, 65536 - box.source.pixels.top);
+        }
+        dx = std::clamp(dx, min_x, max_x);
+        dy = std::clamp(dy, min_y, max_y);
+        if (grid && (dx != 0 || dy != 0)) {
+            const auto& anchor = boxes.back().bounds;
+            if (!axis || horizontal)
+                dx = float(std::round((double(anchor.left) + dx) / *grid) * *grid - anchor.left);
+            if (!axis || !horizontal)
+                dy = float(std::round((double(anchor.top) + dy) / *grid) * *grid - anchor.top);
+        }
+        for (auto& box : result) {
+            box.source.pixels.left += dx;
+            box.source.pixels.top += dy;
+            box.bounds.left += dx;
+            box.bounds.top += dy;
+        }
+    } else {
+        const auto& before = boxes.front();
+        auto& target = result.front();
+        auto& pixels = target.source.pixels;
+        if (action == "resize_aspect") {
+            const double w = before.bounds.width, h = before.bounds.height;
+            const bool horizontal = std::abs(double(dx) / w) >= std::abs(double(dy) / h);
+            double scale = 1 + (horizontal ? double(dx) / w : double(dy) / h);
+            if (grid && (dx != 0 || dy != 0)) {
+                const double size = horizontal ? w : h;
+                scale = std::round(size * scale / *grid) * *grid / size;
+            }
+            const double minimum =
+                std::max(1 + (1 - double(pixels.width)) / w, 1 + (1 - double(pixels.height)) / h);
+            const double maximum = std::min(1 + (65536 - double(pixels.width)) / w,
+                                            1 + (65536 - double(pixels.height)) / h);
+            scale = std::clamp(scale, minimum, maximum);
+            pixels.width = float(double(pixels.width) + w * (scale - 1));
+            pixels.height = float(double(pixels.height) + h * (scale - 1));
+        } else {
+            pixels.width = std::clamp(pixels.width + dx, 1.f, 65536.f);
+            pixels.height = std::clamp(pixels.height + dy, 1.f, 65536.f);
+            if (grid && (dx != 0 || dy != 0)) {
+                const double w =
+                    double(before.bounds.width) + pixels.width - before.source.pixels.width;
+                const double h =
+                    double(before.bounds.height) + pixels.height - before.source.pixels.height;
+                pixels.width += float(std::round(w / *grid) * *grid - w);
+                pixels.height += float(std::round(h / *grid) * *grid - h);
+            }
+        }
+        target.bounds.width += pixels.width - before.source.pixels.width;
+        target.bounds.height += pixels.height - before.source.pixels.height;
+    }
+    valid_layout_boxes(result);
     return result;
 }
 UiPixelLayout read_ui_markup_layout(std::string_view source, std::size_t index) {

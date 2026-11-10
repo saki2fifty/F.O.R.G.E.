@@ -109,6 +109,18 @@ before the next image submission and share cancellation/source history. Native
 canvas focus and shortcut routing protect fields, Source text and other panels.
 Single layout and group movement already expose equivalent programmatic nudges.
 
+Mouse drag projections move to the existing source geometry owner, shared with
+the guarded source transform operation. Observed/expected native rectangles reuse
+the existing layout-box type. Optional grid anchoring, dominant-axis movement and
+single visible-aspect resizing preserve the established source bounds and transient
+gesture/history ownership. One native candidate validator serves gestures and
+atomic layouts. A gesture retains its newly borrowed frame before validation can
+refuse it, preserving image handover; projection validity and native candidate
+validity remain distinct so returning from an invalid projection can recover the
+last good candidate. Grid spacing has one Preview control, with no persisted
+settings or parallel coordinate authority. General group scaling remains outside
+the profile.
+
 Static subtree duplication and sibling-group removal extend these same source
 range, selection and history owners. Duplication retains original source/IDs and
 assigns collision-checked prefix IDs only to the new raw fragment. Literal internal

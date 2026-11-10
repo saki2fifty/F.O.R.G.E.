@@ -2,13 +2,13 @@
 from mcp_test_client import failed
 
 
-def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False, placement_only=False, sizing_only=False):
+def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False, placement_only=False, sizing_only=False, transforms_only=False):
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
                  'duplicate', 'remove_group', 'reparent', 'style', 'style_read', 'rule_read',
                  'rule_property', 'rule_selector', 'rule_insert', 'rule_remove',
-                 'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control', 'control_properties', 'control_values', 'style_profile', 'place_control')}
+                 'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control', 'control_properties', 'control_values', 'style_profile', 'place_control', 'transform')}
     assert required <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
@@ -33,7 +33,7 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                     if node['tag'] == tag)
 
     paragraph = index('p')
-    if sizing_only:
+    if sizing_only or transforms_only:
         edit('save')
         ok('forge_source_ui_register', path=path)
         catalog = (root/'Game/forge.assets.json').read_bytes()
@@ -49,6 +49,53 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
         initial = rows(preview())
         indices = [initial[name]['source_index'] for name in ('a', 'b', 'c')]
         assert [initial[name]['bounds'] for name in ('a', 'b', 'c')] == [[23, 33, 120, 80], [225, 75, 80, 90], [400, 130, 144, 104]]
+        if transforms_only:
+            schema = advertised['forge_ui_source_transform']['inputSchema']['properties']
+            assert set(schema['action']['enum']) == {'move', 'move_axis', 'resize', 'resize_aspect'}
+            assert schema['elements']['minItems'] == 1 and schema['elements']['maxItems'] == 32
+            cases = [
+                ('move_axis', indices, 3, 12, {}, [[23, 45, 120, 80], [225, 87, 80, 90], [400, 142, 144, 104]]),
+                ('move', indices, 5, -7, dict(grid=8), [[31, 23, 120, 80], [233, 65, 80, 90], [408, 120, 144, 104]]),
+                ('move', list(reversed(indices)), 5, -7, dict(grid=8), [[32, 24, 120, 80], [234, 66, 80, 90], [409, 121, 144, 104]]),
+                ('resize_aspect', indices[:1], 24, 0, {}, [[23, 33, 144, 96], [225, 75, 80, 90], [400, 130, 144, 104]]),
+                ('resize_aspect', indices[:1], 20, 0, dict(grid=8), [[23, 33, 144, 96], [225, 75, 80, 90], [400, 130, 144, 104]]),
+                ('resize', indices[1:2], 5, 1, dict(grid=8), [[23, 33, 120, 80], [225, 75, 88, 88], [400, 130, 144, 104]]),
+                ('resize_aspect', indices[:1], -100000, -100000, {}, [[23, 33, 31.5, 21], [225, 75, 80, 90], [400, 130, 144, 104]])]
+            for action, members, dx, dy, extra, expected in cases:
+                shown = preview()
+                old_guard = guard()
+                args = arguments(**old_guard, **observation(shown), elements=members, action=action, dx=dx, dy=dy, **extra)
+                first = client.tool('forge_ui_source_transform', **args)
+                replay = client.tool('forge_ui_source_transform', **args)
+                assert first['ok'] and replay['ok'] and first['result'] == replay['result']
+                changed = read('forge_ui_source_read')
+                after = rows(preview())
+                assert [after[name]['bounds'] for name in ('a', 'b', 'c')] == expected
+                assert changed['selection'] == members
+                failed(mutate('forge_ui_source_transform', **guard(), **observation(shown), elements=members, action=action, dx=dx, dy=dy, **extra), 'stale_ui_preview')
+                failed(mutate('forge_ui_source_transform', **old_guard, **observation(shown), elements=members, action=action, dx=dx, dy=dy, **extra), 'stale_ui_source')
+                assert edit('undo')['text'] == baseline
+                assert edit('redo')['text'] == changed['text']
+                assert edit('undo')['text'] == baseline
+            shown = preview()
+            before = read('forge_ui_source_read')
+            for extra in [dict(action='resize'), dict(action='resize_aspect'), dict(action='other'),
+                          dict(grid=0), dict(elements=[]), dict(elements=[indices[0], indices[0]]),
+                          dict(elements=[indices[0], initial['flow']['source_index']]),
+                          dict(preview_revision=900000)]:
+                args = dict(elements=indices, action='move', dx=5, dy=2) | observation(shown) | extra
+                assert not mutate('forge_ui_source_transform', **guard(), **args)['ok']
+                assert read('forge_ui_source_read') == before, 'Invalid transform published source'
+            failed(mutate('forge_ui_source_transform', **guard(), **observation(shown), elements=indices[1:2], action='resize', dx=-100, dy=-100), 'layout_unsupported')
+            assert read('forge_ui_source_read') == before, 'Native-clamped resize published source'
+            assert not preview()['stale']
+            zero = edit('transform', elements=indices, action='move', dx=0, dy=0, grid=8, **observation(preview()))
+            assert zero['text'] == baseline and zero['revision'] == before['revision'], 'Zero drag snapped source or added history'
+            edit('transform', elements=indices, action='move_axis', dx=3, dy=12, **observation(preview()))
+            assert (root/'Game'/path).read_bytes() == disk and (root/'Game/forge.assets.json').read_bytes() == catalog
+            edit('save')
+            assert not read('forge_ui_source_read')['dirty'] and read('forge_scene_read') == before_scene
+            return
         schema = advertised['forge_ui_source_arrange']['inputSchema']['properties']
         assert len(schema['action']['enum']) == 13 and {'match_width', 'match_height', 'match_size', 'snap_grid'} <= set(schema['action']['enum'])
         assert schema['grid']['minimum'] == 1 and schema['grid']['maximum'] == 1024 and schema['grid']['default'] == 8

@@ -100,7 +100,7 @@ struct UiMarkupLayoutEdit {
 };
 struct UiMarkupLayoutBox {
     UiMarkupLayoutEdit source;
-    UiPixelLayout bounds; // Borrowed native border box in the common preview coordinates.
+    UiPixelLayout bounds; // Observed or expected native border box in common preview coordinates.
 };
 inline constexpr std::array<std::pair<std::string_view, std::string_view>, 13>
     ui_layout_group_actions{{{"move", "Move group"},
@@ -120,6 +120,17 @@ inline constexpr std::array<std::pair<std::string_view, std::string_view>, 13>
 std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMarkupLayoutBox>,
                                                           std::string_view action, float dx = 0,
                                                           float dy = 0, float grid = 8);
+inline constexpr std::array<std::pair<std::string_view, std::string_view>, 4>
+    ui_layout_transform_actions{{{"move", "Move"},
+                                 {"move_axis", "Constrain movement axis"},
+                                 {"resize", "Resize"},
+                                 {"resize_aspect", "Keep visible aspect"}}};
+// Movement preserves group spacing; resize admits one member. Source bounds clamp
+// like a canvas drag. Optional grid snaps the active border anchor/dominant size.
+std::vector<UiMarkupLayoutBox> transform_ui_markup_layouts(std::span<const UiMarkupLayoutBox>,
+                                                           std::string_view action, float dx,
+                                                           float dy,
+                                                           std::optional<float> grid = {});
 // Bounded plain inline absolute-pixel subset. Native preview eligibility is an
 // additional guard supplied by the document owner, never inferred from source.
 UiPixelLayout read_ui_markup_layout(std::string_view, std::size_t element);

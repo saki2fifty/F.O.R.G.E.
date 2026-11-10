@@ -372,6 +372,106 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
     toggle(100, 130);
     toggle(470, 180);
     toggle(760, 260);
+    const auto drag_layout = [&](float start_x, float start_y, float dx, float dy, bool shift,
+                                 const char* capture_name, bool cancel = false) {
+        const auto before = editor.state();
+        const auto canvas = test::ui_targets.at("ui-source:canvas");
+        const float fitted = (canvas.maximum.x - canvas.minimum.x) / 1000;
+        io.AddMousePosEvent(canvas.minimum.x + start_x * fitted,
+                            canvas.minimum.y + start_y * fitted);
+        frame();
+        io.AddKeyEvent(ImGuiMod_Shift, shift);
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        const auto pressed = ImGui::GetMousePos();
+        io.AddMousePosEvent(pressed.x + dx * fitted, pressed.y + dy * fitted);
+        frame();
+        const auto moved = ImGui::GetMousePos();
+        require(editor.gesture_active() && editor.state().at("text") == before.at("text"),
+                "Mouse transform published source before release");
+        const std::array delta{(moved.x - pressed.x) / fitted, (moved.y - pressed.y) / fitted};
+        if (cancel) {
+            io.AddKeyEvent(ImGuiKey_Escape, true);
+            frame();
+            io.AddKeyEvent(ImGuiKey_Escape, false);
+        }
+        io.AddMouseButtonEvent(0, false);
+        frame(); // Keep Shift through the release frame's final projection.
+        io.AddKeyEvent(ImGuiMod_Shift, false);
+        frame();
+        frame();
+        require(!editor.gesture_active() && scene.snapshot() == authored,
+                "Mouse transform retained a gesture or changed Scene state");
+        if (capture_name && *capture_name)
+            surface.save(output / (std::string("ui-source-") + capture_name + "-" +
+                                   std::to_string(width) + ".png"));
+        return delta;
+    };
+    const auto plain_delta = drag_layout(100, 130, 12, 9, false, "");
+    const auto plain_bounds = border();
+    require(std::abs(plain_bounds.at(0).get<float>() - (60 + plain_delta[0])) < .02f &&
+                std::abs(plain_bounds.at(1).get<float>() - (90 + plain_delta[1])) < .02f &&
+                plain_bounds.at(2) == 300 && plain_bounds.at(3) == 220,
+            "Default unsnapped movement changed its source/native behavior");
+    input.click("button:Undo");
+    toggle(100, 130);
+    toggle(470, 180);
+    toggle(760, 260);
+    input.click("ui-source:snap-dragging");
+    drag_layout(100, 130, 17, 5, false, "drag-grid");
+    require(border() == Json::array({76, 94, 300, 220}) &&
+                editor.state().at("selection").size() == 3,
+            "Drag grid did not snap the active group anchor with spacing preserved");
+    input.click("button:Undo");
+    require(editor.state().at("text") == positioning_start.at("text"),
+            "Snapped group drag needed multiple Undo steps");
+    input.click("ui-source:snap-dragging");
+    toggle(100, 130);
+    toggle(470, 180);
+    toggle(760, 260);
+    const auto axis_delta = drag_layout(100, 130, 20, 50, true, "");
+    const auto axis_bounds = border();
+    require(axis_bounds.at(0) == 60 &&
+                std::abs(axis_bounds.at(1).get<float>() - (90 + axis_delta[1])) < .02f,
+            "Shift movement did not preserve its inactive axis");
+    input.click("button:Undo");
+    toggle(100, 130);
+    const auto plain_resize = drag_layout(360, 310, 30, 15, false, "");
+    const auto resized_bounds = border();
+    require(resized_bounds.at(0) == 60 && resized_bounds.at(1) == 90 &&
+                std::abs(resized_bounds.at(2).get<float>() - (300 + plain_resize[0])) < .02f &&
+                std::abs(resized_bounds.at(3).get<float>() - (220 + plain_resize[1])) < .02f,
+            "Default unsnapped resizing changed its source/native behavior");
+    input.click("button:Undo");
+    toggle(100, 130);
+    const auto aspect_delta = drag_layout(360, 310, 60, 5, true, "drag-aspect");
+    const auto aspect_bounds = border();
+    require(aspect_bounds.at(0) == 60 && aspect_bounds.at(1) == 90 &&
+                std::abs(aspect_bounds.at(2).get<float>() - (300 + aspect_delta[0])) < .02f &&
+                std::abs(aspect_bounds.at(2).get<float>() / aspect_bounds.at(3).get<float>() -
+                         300.f / 220.f) < .0001f,
+            "Shift resize did not retain native visible aspect and position");
+    input.click("button:Undo");
+    toggle(100, 130);
+    input.click("ui-source:snap-dragging");
+    drag_layout(360, 310, 54, 5, true, "");
+    const auto aspect_grid_bounds = border();
+    require(aspect_grid_bounds.at(2) == 352 &&
+                std::abs(aspect_grid_bounds.at(3).get<float>() - 352.f * 220 / 300) < .02f,
+            "Aspect/grid priority ignored the dominant snapped native size");
+    input.click("button:Undo");
+    toggle(100, 130);
+    drag_layout(100, 130, 24, 16, true, "", true);
+    require(editor.state().at("text") == positioning_start.at("text") && !editor.dirty(),
+            "Escape did not cancel a constrained snapped drag");
+    input.click("ui-source:snap-dragging");
+    drag_layout(360, 310, -1000, -1000, false, "");
+    require(editor.state().at("text") == positioning_start.at("text") && !editor.dirty(),
+            "Native-clamped resize published a source candidate");
+    toggle(470, 180);
+    toggle(760, 260);
+    require(editor.state().at("selection").size() == 3,
+            "Precision drag fixture did not restore the original group");
     input.click("ui-source:preview-save-image");
     const auto wait = [&] {
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);

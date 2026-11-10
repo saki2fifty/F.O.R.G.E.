@@ -398,6 +398,52 @@ struct UiSourceAutomation {
                                request.value("grid", 8.f));
                 return state(editor, files.document);
             }));
+        auto transform_properties = guard;
+        auto transform_actions = Json::array();
+        for (const auto& [key, label] : ui_layout_transform_actions)
+            transform_actions.push_back(key);
+        transform_properties["elements"] =
+            automation_array(automation_integer(0, 8191), ui_source_selection_limit, 1);
+        transform_properties["action"] = {{"type", "string"},
+                                          {"enum", std::move(transform_actions)}};
+        transform_properties["preview_instance"] = automation_uuid();
+        transform_properties["preview_revision"] = automation_integer();
+        for (const auto* name : {"dx", "dy"})
+            transform_properties[name] = {
+                {"type", "number"}, {"minimum", -131072}, {"maximum", 131072}};
+        transform_properties["grid"] = {{"type", "number"}, {"minimum", 1}, {"maximum", 1024}};
+        auto transform_required = required;
+        for (const auto* name :
+             {"elements", "action", "dx", "dy", "preview_instance", "preview_revision"})
+            transform_required.push_back(name);
+        result.push_back(automation_method(
+            "ui.source.transform",
+            "Apply the same native-pixel projections as canvas dragging to1..32 admitted siblings. "
+            "move preserves spacing; move_axis constrains the dominant delta (horizontal on ties). "
+            "resize and resize_aspect require exactly one member. Resize aspect uses the native "
+            "border ratio, accounting for source box-sizing/padding. Deltas clamp to source bounds "
+            "like dragging. Optional grid1..1024 snaps the last member's border anchor when "
+            "moving, "
+            "or sizes when resizing; aspect takes priority, snapping the dominant size. Zero delta "
+            "is a no-op; use arrange snap_grid for one-shot position alignment. Invalid snapped "
+            "source bounds reject. Requires exact source/preview guards and assets.write; the "
+            "complete native result must match before one Undo/selection. No Save, registration, "
+            "Scene history, runtime input, relative/flow layout or group resize.",
+            "assets.write",
+            automation_object(std::move(transform_properties), std::move(transform_required)), true,
+            [&files, &editor, ready](const Json& request) {
+                ready();
+                observed(editor, files.document, request);
+                editor.transform(request.at("elements").get<std::vector<std::size_t>>(),
+                                 request.at("action").get<std::string>(),
+                                 request.at("dx").get<float>(), request.at("dy").get<float>(),
+                                 request.contains("grid")
+                                     ? std::optional(request.at("grid").get<float>())
+                                     : std::nullopt,
+                                 request.at("preview_instance").get<std::string>(),
+                                 request.at("preview_revision").get<std::uint64_t>());
+                return state(editor, files.document);
+            }));
         result.push_back(automation_method(
             "ui.source.open",
             "Open a contained RML/RCSS source in the actual UI Source document. Reuses its draft. "

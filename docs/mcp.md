@@ -2747,7 +2747,7 @@ reads no computed state and changes no selection/history/source/registration.
 
 The same immutable metadata powers inline/group and stylesheet literal controls.
 Native source candidates and old mutation/query results are unchanged. Including
-this query and native-preview placement, there are37source operations. Style/preset staging
+this query and native-preview placement, there are38source operations. Style/preset staging
 publishes only through the original Set/Remove/Undo/Save and guarded MCP owners.
 
 Source control metadata includes an image profile: src/sprite/rect strings and
@@ -2760,19 +2760,19 @@ no new resource/URI/texture manager or live image mutation tool is introduced.
 Rect is empty or four space-separated finite bounded floats x/y/width/height with
 size at least0.000001 and distinct native-float crop edges. These finite source envelopes keep native aspect
 calculations within float range without duplicating their layout algorithm. Image tint uses the existing color profile and style mutation.
-Source operations total37 and creation kinds18; Commonmenu has53 properties.
+Source operations total38 and creation kinds18; Commonmenu has53 properties.
 
 style_profile includes responsive layout metadata: display, flex-direction/wrap,
 justify-content, align-content/items/self, flex-grow/shrink/basis, row/column-gap
 and min/max width/height. Keyword lists are a convenience subset of native CSS;
 number metadata accurately lists units and nonnegative bounds. Existing guarded
 style, style_group and rule_property operations author these values; the tool
-count is37, and control creation kinds stay18. Queries are source-only and
+count is38, and control creation kinds stay18. Queries are source-only and
 cannot establish computed geometry or initialize a renderer.
 
 Box style profiles extend the same query with position/box-sizing/axis overflow,
 side padding/margin and simple border width/color/radius controls. Common has53
-entries; source operations total37, control kinds18, grants/history/replay and
+entries; source operations total38, control kinds18, grants/history/replay and
 schema ownership unchanged. The Common search field has no programmatic authoring
 semantics: agents query profiles and use existing style/group/rule mutations.
 Raw multi-value source remains supported and is not normalized by the profiles.
@@ -2790,7 +2790,7 @@ Pixel setup refuses breaks/options, requires ID and rejects bound ancestors.
 It does not initialize a renderer, register assets, create a persistent identity
 or bypass native Preview eligibility. The selected new root, one Undo, explicit
 Save, grants/revisions/replay and Scene isolation retain existing owners. There
-are37 source operations/18creation kinds; the existing layout schema remains
+are38 source operations/18creation kinds; the existing layout schema remains
 unchanged. No separate creation path is maintained for MCP clients.
 
 ## Native-preview control placement
@@ -2815,3 +2815,27 @@ cannot append twice. Metadata-only native hosts remain supported. UI clicks queu
 the same owner operation before the next frame's image submission; Escape, source/
 view/close/lock/focus boundaries cancel it. No extra parser, layout solver, native
 DOM writer, persisted identity, SDK or runtime capability is introduced.
+
+## Native source drag transforms
+
+ui.source.transform/forge_ui_source_transform requires assets.write, the ordinary
+mutation envelope, current source guards and native preview instance/revision.
+Required elements1..32, action(move/move_axis/resize/resize_aspect), dx/dy within
+±131072; optionalgrid1..1024 defaults to no snapping. Resize actions require one
+member. The same source geometry helper projects native drag snapshots and API
+requests, preserving old default source-bound clamps. Move keeps group spacing;
+axis mode chooses the larger absolute delta (horizontal on ties), retaining the
+inactive coordinate. Grid snaps the last member's border anchor.
+
+Aspect mode uses the larger relative native width/height change, preserving the
+visible border ratio with source/native size deltas. Grid snaps that dominant size;
+uniform source-bound clamping takes priority. Plain resize independently clamps
+source width/height. Zero delta does not snap; arrange snap_grid remains the one-shot
+alignment operation. Invalid snapped source bounds reject before publication.
+
+The complete native result must match expected rectangles before one source Undo,
+selection update and explicit Save. Stale/retired/unsupported observations, bad
+membership and native clamping cannot partly publish. Receipt replay applies once.
+Native gestures use the same projection and candidate validator, retaining each
+new frame before geometry refusal. This adds no runtime input, Scene history,
+resource registration, general group resize, SDK/profile or persistence change.

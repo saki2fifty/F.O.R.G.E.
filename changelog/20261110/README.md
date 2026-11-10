@@ -1,5 +1,12 @@
 # 2026-11-10
 
+## Precise UI mouse layout gestures
+
+Preview adds optional drag-grid snapping, Shift movement-axis constraint and Shift
+visible-aspect resizing for one control. Grid spacing has one toolbar control;
+default dragging remains available. The same source geometry and native candidate
+validation serve the new guarded MCP transform operation, with one Undo and explicit Save.
+
 ## Precise UI canvas positioning
 
 Preview can snap native border corners to a bounded pixel grid and move focused

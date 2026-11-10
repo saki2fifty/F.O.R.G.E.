@@ -155,6 +155,15 @@ request envelope, shared with control placement, and commit before the next imag
 submission. Source/preview guards, cancellation, history and persistence retain
 their established owners; there is no additional dispatcher or persisted grid.
 
+Drag projection and programmatic source transforms share the source geometry
+module. Grid movement anchors the last selected/requested native border corner
+while retaining group spacing. Axis constraints preserve the inactive coordinate;
+single aspect resizing uses observed border dimensions and CSS deltas. Complete
+native rectangle targets validate both transient gestures and atomic source edits.
+The current gesture frame is retained before a native refusal, so a readback
+adapter cannot leave the UI drawing a replaced image. Source/profile/SDK and
+runtime presentation ownership remain unchanged.
+
 The same CSS admission scanner optionally records inline declaration value ranges.
 Four-value candidates preserve unrelated bytes. Numeric changes validate native
 candidate geometry before source publication; mouse gestures retain transient

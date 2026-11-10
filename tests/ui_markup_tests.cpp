@@ -2,6 +2,7 @@
 #include "ui_markup_authoring.hpp"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <forge/ui_assets.hpp>
 #include <iostream>
 #include <limits>
@@ -345,6 +346,73 @@ void layout_group_geometry() {
     for (auto& item : invalid)
         item.bounds.left = 0;
     rejects([&] { forge::arrange_ui_markup_layouts(invalid, "distribute_horizontal"); });
+}
+void layout_transform_geometry() {
+    using forge::UiMarkupLayoutBox;
+    const std::array boxes{UiMarkupLayoutBox{{4, {10, 20, 100, 40}}, {100, 200, 120, 60}},
+                           UiMarkupLayoutBox{{7, {210, 70, 50, 80}}, {300, 250, 70, 100}}};
+    const auto apply = [&](std::string_view action, float dx, float dy,
+                           std::optional<float> grid = {}) {
+        return forge::transform_ui_markup_layouts(boxes, action, dx, dy, grid);
+    };
+    const auto moved = apply("move", 5, -7);
+    check(moved[0].source.pixels.left == 15 && moved[0].source.pixels.top == 13 &&
+              moved[1].bounds.left == 305 && moved[1].bounds.top == 243 &&
+              moved[0].source.pixels.width == 100 && moved[1].source.pixels.height == 80,
+          "Transform movement changed sizes or ignored source/native offsets");
+    const auto snapped = apply("move", 5, -7, 8);
+    check(snapped[0].source.pixels.left == 14 && snapped[0].source.pixels.top == 10 &&
+              snapped[1].bounds.left == 304 && snapped[1].bounds.top == 240 &&
+              snapped[1].bounds.left - snapped[0].bounds.left == 200 &&
+              snapped[1].bounds.top - snapped[0].bounds.top == 50,
+          "Drag grid did not use the active anchor or preserve group spacing");
+    const auto axis = apply("move_axis", 3, 12, 8);
+    check(axis[0].source.pixels.left == 10 && axis[0].source.pixels.top == 34 &&
+              axis[1].bounds.left == 300 && axis[1].bounds.top == 264,
+          "Axis constraint snapped the inactive off-grid axis");
+    const auto tie = apply("move_axis", 5, 5);
+    check(tie[0].source.pixels.left == 15 && tie[0].source.pixels.top == 20,
+          "Movement-axis tie did not prefer horizontal");
+    const auto zero = apply("move", 0, 0, 8);
+    check(zero[0].source == boxes[0].source && zero[1].source == boxes[1].source,
+          "Clicking without a drag snapped an off-grid group");
+    const auto clamped = apply("move", 1000000, 0);
+    check(clamped[0].source.pixels.left == 65336 && clamped[1].source.pixels.left == 65536,
+          "Group drag clamp did not preserve spacing at source bounds");
+    const std::array one{boxes.front()};
+    const auto aspect = forge::transform_ui_markup_layouts(one, "resize_aspect", 24, 0);
+    check(aspect[0].source.pixels.width == 124 && aspect[0].source.pixels.height == 52 &&
+              aspect[0].bounds.width == 144 && aspect[0].bounds.height == 72 &&
+              aspect[0].bounds.left == 100 && aspect[0].bounds.top == 200,
+          "Aspect resize ignored native borders/padding or moved its corner");
+    auto asymmetric = one;
+    asymmetric[0].bounds.height = 70;
+    const auto aspect_grid =
+        forge::transform_ui_markup_layouts(asymmetric, "resize_aspect", 20, 0, 8);
+    check(aspect_grid[0].source.pixels.width == 124 && aspect_grid[0].source.pixels.height == 54 &&
+              aspect_grid[0].bounds.width == 144 && aspect_grid[0].bounds.height == 84,
+          "Grid did not snap the dominant size while retaining visible aspect");
+    const auto resize_grid = forge::transform_ui_markup_layouts(one, "resize", 5, 1, 8);
+    check(resize_grid[0].source.pixels.width == 108 && resize_grid[0].source.pixels.height == 44 &&
+              resize_grid[0].bounds.width == 128 && resize_grid[0].bounds.height == 64,
+          "Resize grid used CSS sizes instead of native border sizes");
+    const auto minimum =
+        forge::transform_ui_markup_layouts(one, "resize_aspect", -1000000, -1000000);
+    check(std::abs(minimum[0].source.pixels.width - 22) < .001f &&
+              minimum[0].source.pixels.height == 1,
+          "Aspect contraction lost its ratio or positive source dimensions");
+    auto edge = one;
+    edge[0].source.pixels.left = 65535;
+    rejects([&] { forge::transform_ui_markup_layouts(edge, "move", 1, 0, 8); });
+    rejects([&] { apply("resize", 1, 1); });
+    rejects([&] { apply("resize_aspect", 1, 1); });
+    rejects([&] { apply("other", 1, 1); });
+    rejects([&] { apply("move", std::numeric_limits<float>::infinity(), 0); });
+    rejects([&] { apply("move", 1, 1, 0); });
+    auto duplicate = boxes;
+    duplicate[1].source.element = duplicate[0].source.element;
+    rejects([&] { forge::transform_ui_markup_layouts(duplicate, "move", 1, 1); });
+    rejects([&] { forge::transform_ui_markup_layouts({}, "move", 1, 1); });
 }
 void group_removals() {
     const std::string source =
@@ -1441,6 +1509,7 @@ int main() {
         layout_edits();
         layout_group_edits();
         layout_group_geometry();
+        layout_transform_geometry();
         group_removals();
         subtree_duplication();
         hierarchy_moves();

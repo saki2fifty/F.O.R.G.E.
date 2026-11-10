@@ -184,6 +184,17 @@ one control through `forge_ui_source_layout`, retaining its width/height, or mov
 a group through `forge_ui_source_arrange` with `action:"move"` and `dx`/`dy`.
 These operations provide the same authored result without sending editor key events.
 
+Use `forge_ui_source_transform` for the same relative projections as mouse drags.
+Pass current source/preview guards, 1–32 sibling `elements`, an `action`, `dx` and
+`dy`, plus optional `grid` spacing of 1–1,024 pixels. Actions are `move`,
+`move_axis`, `resize` and `resize_aspect`; resize actions require one member.
+Movement preserves spacing and grid snapping uses the last member's border corner.
+Axis-constrained movement keeps its other coordinate unchanged. Resize aspect uses
+the native visible border ratio, with the dominant size taking grid priority.
+Deltas clamp at source bounds as with dragging; invalid snapped bounds refuse.
+Zero delta is a no-op. The complete native result validates before one Undo and
+selection update; Save remains explicit. See [mouse layout gestures](ui-source.md).
+
 To inspect the rendered draft, grant an output folder and call
 `forge_capture_ui_source`. Its `path` selects the output file inside that folder;
 its nested `source` contains the current source `path`, `session`, `revision`,
