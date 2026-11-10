@@ -3497,3 +3497,50 @@ Refreshed `ui-source-drag-aspect.png`: `c34aa845c2c104debdad5532eb9abfcea9e01fea
 Refreshed `ui-source-box-drag.png`: `2e9055a69c0fe680c7230d31a6b7a452548b14c11d440fb0377b3ab056d05188`.
 
 Refreshed `ui-source-box-selection.png`: `989fded9d58b8cd4192d3a80d62045b8f7b40f03977416d7becb48bd3fcd1e4b`.
+
+## UI Preview zoom and scrolling captures
+
+Earlier capture records retain their original checkpoint attribution and hashes.
+This section identifies the current refreshed Preview files. The preview-zoom
+image is an unretouched700×950 production SourceEditor output after actual2x
+zoom, native horizontal/vertical scrolling and picking the purple panel. Native
+viewport values remain720/220/220/140; the canvas shows a magnified crop.
+
+Capture source is development based ond308ef2 with Preview navigation. Native
+softwareVulkan pixels are read back into the actual SDL component surface. Input
+at1180/700 verifies1x/2x, typed zoom bounds, wheel travel/gesture lock, native-pixel
+drag/Undo, picking, full-native select-all and complete image export while zoomed.
+A displayed purple-pixel oracle and SDLerror check reject missing image content.
+Only the visible image quad is composed with matching UVs, avoiding the observed
+software textured-triangle overflow. Earlier failure/diagnostic captures are not
+accepted canonical evidence.
+
+Prior25Source CPU images keep frozen attribution. Current exact source/executable/
+raw image digests and native receipts belong to the local navigation owner. No
+full Main, Windows or physical-hardware acceptance is implied.
+
+- `ui-source-preview-zoom.png`: `4792943e85590bc8c5f92f3fc6766aaaf589331e80505d8492b0e7e8a9607fd0`.
+
+Refreshed `ui-source-preview.png`: `62d2750888e0aa96ca5551a3fc5ecf8e9456064115004b9a618ca410149852c0`.
+
+Refreshed `ui-source-group-layout.png`: `f544b06852f7f3c207e8a3a9dc1f7b524645270c7d7d7e1463bddfff256eeb26`.
+
+Refreshed `ui-source-place-control.png`: `795286f4c2d6281e3576564c768b03acf5dcfcb4c13beb1228b9a2e23453cd08`.
+
+Refreshed `ui-source-placed-control.png`: `6012f371a9fec73333bb84f103a55dc72d8beaf2e24d45050397335eabf7797a`.
+
+Refreshed `ui-source-group-sizing.png`: `92e32badaef19aba703c089389bafb76310739a952f05b0206e8075774eeab8d`.
+
+Refreshed `ui-source-grid.png`: `ae27e392f105f116895a7296ec3048f3a1865f3cdb51f1d0c9bc012a020d85e1`.
+
+Refreshed `ui-source-keyboard.png`: `872c27ceaba21a7cb5474e59a4807e31113921740992a426dca908745e357f1d`.
+
+Refreshed `ui-source-drag-grid.png`: `843af3651f16487527060950c2404851c77e3e23e9a4b3191b50e055b802c1ca`.
+
+Refreshed `ui-source-drag-aspect.png`: `6f632944fb2751b054e222c4d28e7cd2703ebf9ec93298021281a5883a47a8a2`.
+
+Refreshed `ui-source-box-drag.png`: `7b6477a05e374bae087d15052610ab5b59a5586d5b4f2582def2b419e3ccb81b`.
+
+Refreshed `ui-source-box-selection.png`: `42a3885f5e385100ffa3121da6a48fde094f953cc76003349e9988ea2e34785e`.
+
+Refreshed `ui-source-keyboard-duplicate.png`: `194ab49eeaf8a2366b2d28c42c3c228db7e8f242dafd0aae38994674d9958702`.

@@ -43,6 +43,18 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+Preview navigation extends the native canvas case at1180/700pixels with1:1/2x
+viewing, typed lower/upper zoom bounds, horizontal/vertical native wheel travel,
+unchanged source/selection/history/preview guards, zoomed drag/pick/Undo, gesture
+scroll lock, full-native select-all and complete image export while zoomed.
+An SDL backend error check and displayed purple-pixel oracle catch blank composed
+images independently of geometry/input assertions. Visible-quad UV composition
+avoids the observed software triangle-area bound; see [dependency limits](dependency-known-issues.md).
+Existing pixel-source MCP schemas remain unchanged, with focused current and
+sanitized source-host protocol checks. Full Main/Windows/physical review remains
+separate from softwareVulkan/SDL component evidence.
+
+
 The source canvas fixture also performs actual focused Ctrl+A/Escape/Ctrl+D/Delete
 at1180/700pixels. It verifies ordered selection without source history, unique
 copied native IDs/geometry, atomic group deletion, one-step Undo/Redo, queued

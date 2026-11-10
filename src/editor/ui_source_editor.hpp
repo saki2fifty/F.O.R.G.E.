@@ -91,6 +91,8 @@ class UiSourceEditor {
     UiSourcePreviewFrame preview_frame_;
     int preview_width_ = 1000, preview_height_ = 700;
     float preview_density_ = 1;
+    bool preview_fit_ = true, reset_preview_scroll_ = true;
+    float preview_zoom_ = 1;
     std::array<float, 4> layout_controls_{};
     std::string layout_controls_state_;
     std::size_t layout_controls_element_ = UiMarkupElement::no_parent;
@@ -159,6 +161,8 @@ class UiSourceEditor {
     void finish_close() {
         cancel_gesture();
         box_select_ = false;
+        preview_fit_ = reset_preview_scroll_ = true;
+        preview_zoom_ = 1;
         cancel_preview_edit();
         outline_drag_active_ = elements_active_ = false;
         ++drag_epoch_;
@@ -1097,6 +1101,28 @@ class UiSourceEditor {
         if (ImGui::Checkbox("Box select", &box_select_) && box_select_)
             cancel_placement();
         FORGE_UI_PROBE("ui-source:box-select");
+        if (button("Fit image", "Fit the native preview inside the canvas viewport.")) {
+            preview_fit_ = true;
+            reset_preview_scroll_ = true;
+        }
+        FORGE_UI_PROBE("ui-source:fit-image");
+        ImGui::SameLine();
+        if (button("1:1 pixels",
+                   "Show one native preview pixel per screen pixel; scroll to pan.")) {
+            preview_fit_ = false;
+            preview_zoom_ = 1;
+            reset_preview_scroll_ = true;
+        }
+        FORGE_UI_PROBE("ui-source:actual-pixels");
+        ImGui::SameLine();
+        ImGui::TextUnformatted(preview_fit_ ? "View: fit" : "View: manual zoom");
+        ImGui::SetNextItemWidth(160);
+        if (ImGui::SliderFloat("Image zoom", &preview_zoom_, .125f, 8.f, "%.3fx",
+                               ImGuiSliderFlags_AlwaysClamp)) {
+            preview_fit_ = false;
+            reset_preview_scroll_ = true;
+        }
+        FORGE_UI_PROBE("ui-source:image-zoom");
         ImGui::EndDisabled();
         if (gesture_ &&
             (gesture_->session != session_ || gesture_->revision != revision_ ||
@@ -1328,14 +1354,29 @@ class UiSourceEditor {
                            "Ctrl+D duplicates one control; Delete removes the selection.");
         if (!frame.state.contains("width") || !frame.state.contains("height"))
             return;
+        if (reset_preview_scroll_) {
+            ImGui::SetNextWindowScroll({0, 0});
+            reset_preview_scroll_ = false;
+        }
+        ImGuiWindowFlags flags = ImGuiWindowFlags_HorizontalScrollbar;
+        if (gesture_active())
+            flags |= ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
+                     ImGuiWindowFlags_NoNavInputs;
+        if (ImGui::BeginChild("ui-source-image-viewport", {0, 0}, ImGuiChildFlags_Borders, flags))
+            preview_canvas(frame, had_gesture, had_pending);
+        ImGui::EndChild();
+        FORGE_UI_PROBE("ui-source:image-viewport");
+    }
+    void preview_canvas(const UiSourcePreviewFrame& frame, bool had_gesture, bool had_pending) {
         const float width = frame.state.at("width").get<float>(),
                     height = frame.state.at("height").get<float>();
         const auto available = ImGui::GetContentRegionAvail();
-        const float scale = gesture_ ? gesture_->scale
-                            : marquee_
-                                ? marquee_->scale
-                                : std::max(.05f, std::min({1.f, available.x / width,
-                                                           std::max(120.f, available.y) / height}));
+        const float scale =
+            gesture_   ? gesture_->scale
+            : marquee_ ? marquee_->scale
+            : preview_fit_
+                ? std::max(.05f, std::min({1.f, available.x / width, available.y / height}))
+                : preview_zoom_;
         const ImVec2 origin = ImGui::GetCursorScreenPos(), size{width * scale, height * scale};
         ImGui::InvisibleButton("ui-source-canvas", size,
                                ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_EnableNav);
@@ -1345,7 +1386,7 @@ class UiSourceEditor {
                 session_, preview_frame_.state.at("instance").get<std::string>(), revision_,
                 preview_frame_.state.at("revision").get<std::uint64_t>(), std::move(action)};
         };
-        const bool focused_canvas = !locked && !gesture_active() && !had_gesture && !had_pending &&
+        const bool focused_canvas = !gesture_active() && !had_gesture && !had_pending &&
                                     !place_controls_ && preview_current() && frame.image &&
                                     ImGui::IsItemFocused() && !ImGui::IsAnyItemActive() &&
                                     !ImGui::GetIO().WantTextInput &&
@@ -1382,17 +1423,24 @@ class UiSourceEditor {
         }
         auto* draw = ImGui::GetWindowDrawList();
         const ImVec2 end{origin.x + size.x, origin.y + size.y};
-        if (frame.image)
-            draw->AddImage(frame.image, origin, end);
-        else {
-            draw->AddRectFilled(origin, end, IM_COL32(9, 12, 16, 255));
-            draw->AddText({origin.x + 8, origin.y + 8}, IM_COL32(220, 220, 220, 255),
-                          "Preview image unavailable");
+        const auto clip_min = draw->GetClipRectMin(), clip_max = draw->GetClipRectMax();
+        const ImVec2 visible_min{std::max(origin.x, clip_min.x), std::max(origin.y, clip_min.y)},
+            visible_max{std::min(end.x, clip_max.x), std::min(end.y, clip_max.y)};
+        if (visible_max.x > visible_min.x && visible_max.y > visible_min.y) {
+            if (frame.image)
+                draw->AddImage(
+                    frame.image, visible_min, visible_max,
+                    {(visible_min.x - origin.x) / size.x, (visible_min.y - origin.y) / size.y},
+                    {(visible_max.x - origin.x) / size.x, (visible_max.y - origin.y) / size.y});
+            else {
+                draw->AddRectFilled(visible_min, visible_max, IM_COL32(9, 12, 16, 255));
+                draw->AddText({visible_min.x + 8, visible_min.y + 8}, IM_COL32(220, 220, 220, 255),
+                              "Preview image unavailable");
+            }
         }
-        if (place_controls_ && !locked && preview_current() && ImGui::IsItemHovered())
+        if (place_controls_ && preview_current() && ImGui::IsItemHovered())
             ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-        if (place_controls_ && !locked && preview_current() &&
-            ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+        if (place_controls_ && preview_current() && ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
             const auto mouse = ImGui::GetMousePos();
             if (!child_id_[0])
                 error_ = "Enter a unique Element ID before placing the control";
@@ -1533,6 +1581,7 @@ class UiSourceEditor {
                 });
         }
     }
+
     Json drag_observation(const ImGuiPayload& payload) const {
         if (payload.DataSize < 2 || payload.DataSize > 1024 ||
             static_cast<const char*>(payload.Data)[payload.DataSize - 1] != 0)

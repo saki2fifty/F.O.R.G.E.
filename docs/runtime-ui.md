@@ -180,6 +180,17 @@ or runtime input behavior. Cancellation takes precedence over idle Escape clear.
 Existing automation/MCP operations expose each authored result; source selection,
 ID generation, history and Save retain their original ownership.
 
+The source editor's private canvas composes the same native preview image in a
+clipped child region. Fit, actual pixels and bounded manual zoom/scroll are
+presentation state; they do not change native viewport dimensions or ask the
+presenter to render another image. Existing pointer conversion uses the displayed
+origin/scale for picking, placement and drag deltas. Only the visible display
+quad is submitted, with matching normalized image UVs; offscreen zoomed area does
+not create oversized backend triangles. Standard view controls and
+child scroll/navigation are disabled during gestures. Source/history and full-image
+capture retain their existing contracts. The parent balances the child scope even
+when canvas input returns early.
+
 The same CSS admission scanner optionally records inline declaration value ranges.
 Four-value candidates preserve unrelated bytes. Numeric changes validate native
 candidate geometry before source publication; mouse gestures retain transient

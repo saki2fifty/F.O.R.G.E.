@@ -222,6 +222,13 @@ the selected sibling `elements` for Delete. Structural calls need current source
 guards and write permission, create one source Undo and leave Save explicit.
 No key injection or keyboard-specific agent tool is required.
 
+Preview's Fit image, actual-pixel view, image zoom and canvas scrolling affect
+editor presentation. Agent coordinates remain native viewport pixels from
+`forge_ui_source_preview`, regardless of that display mode. Source-image capture
+still returns the complete native image. Existing layout, transform, placement
+and selection tools retain their coordinate and guard contracts; agents can zoom
+or crop the returned image in their own viewer without changing authored data.
+
 To inspect the rendered draft, grant an output folder and call
 `forge_capture_ui_source`. Its `path` selects the output file inside that folder;
 its nested `source` contains the current source `path`, `session`, `revision`,

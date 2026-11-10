@@ -146,6 +146,17 @@ Existing guarded MCP selection/duplicate/remove operations already expose these
 authored results; no agent-specific editing implementation or input injection
 is introduced.
 
+Preview image navigation belongs to the existing source editor presentation.
+Fit remains the default; actual-pixel and bounded manual zoom use a native clipped
+child canvas with standard scrolling. Display scale/origin feed the existing
+pointer conversion; native document dimensions, source coordinates and presenter
+images remain authoritative. View controls/scroll navigation are disabled during
+source gestures. Canvas rendering/input is a private method in the same owner,
+letting the parent balance the child scope across every canvas early return.
+Full-image exports and existing automation/MCP geometry/editing contracts remain
+independent of the display crop; no extra layout or agent-authoring manager is
+introduced.
+
 Static subtree duplication and sibling-group removal extend these same source
 range, selection and history owners. Duplication retains original source/IDs and
 assigns collision-checked prefix IDs only to the new raw fragment. Literal internal

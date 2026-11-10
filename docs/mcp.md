@@ -2875,3 +2875,13 @@ These same guarded tools remain available with their existing grants, source
 revisions, identity rules, history and explicit Save. Tool count stays40. Agents
 send source operations rather than UI key events; cancelling a local queued key
 request is a local transient workflow, not a new persisted authoring operation.
+
+
+## Source Preview display navigation
+
+Fit/1:1/manual image zoom and child scrolling are local presentation controls.
+`ui.source.preview` still reports native viewport pixels; source layout/transform,
+placement and selection use those same coordinates and observations. Image capture
+still exports the full native image independently of the editor crop. There is
+no additional authored behavior requiring a new MCP binding; existing40source
+operations retain their schemas, grants, revision/replay/history and source owners.

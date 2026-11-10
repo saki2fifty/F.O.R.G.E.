@@ -483,7 +483,7 @@ inline pixel layout. Its teal and purple siblings provide a group-editing exampl
 ![UI Source Preview with the blue panel selected, pixel fields and its resize handle](../images/ui-source-preview.png)
 
 The selected panel shows its authored pixel values and a blue border with a
-bottom-right resize handle. The image fits the available editor area while
+bottom-right resize handle. The image initially fits the canvas region while
 **Size (px)** retains the preview's physical viewport dimensions.
 
 Canvas editing requires a quoted inline `style` with `position:absolute` and
@@ -522,6 +522,27 @@ data-bound ancestors use Source for layout editing. Sizes clamped by native box
 sizing also use Source. An RML draft must have a
 registered, contained source in the editable project. To preview an RCSS
 stylesheet, open the RML that links it.
+
+## Zoom and scroll the Preview image
+
+1. Open **Preview**. **Fit image** shows the native viewport inside the canvas region and returns scrolling to the top-left corner.
+2. Choose **1:1 pixels** to display one native preview pixel per canvas unit. Use the canvas scrollbars or mouse wheel to reach parts outside the visible area. A horizontal wheel scrolls sideways.
+3. Drag **Image zoom** to choose a scale from **0.125× to 8×**. Changing it switches from fit to manual zoom and returns scrolling to the top-left. Ctrl+click the slider to type a value; typed values clamp to the same limits.
+4. Select, move, resize or place controls using the normal canvas tools. FORGE converts the displayed pointer position and movement back to native viewport pixels, including scrolling and zoom.
+
+![Preview at twice its native scale, scrolled to the selected purple panel with its original source pixel values](../images/ui-source-preview-zoom.png)
+
+**View: fit** or **View: manual zoom** identifies the active display mode.
+**Size (px)** still defines the native viewport; **Density** retains its normal
+preview meaning. Image zoom and canvas scrolling leave source, selection, Undo
+and the native rendered image unchanged. **Save preview image** saves the complete
+native image, including areas outside the current canvas crop.
+
+**Ctrl+A** selects eligible named elements across the full native viewport,
+including elements outside a zoomed canvas crop. Box selection uses the rectangle
+you draw on the image. View controls and scrolling are disabled during a gesture;
+finish or cancel it before changing the view. **Fit image** restores an overview.
+RML scroll containers retain the canvas layout limits described above.
 
 ## Place a control in Preview
 

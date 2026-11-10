@@ -387,3 +387,19 @@ An empty-body textarea with an escaped value attribute decodes its initial value
 through the ordinary attribute parser. The same native and source-hidden fixture
 verifies value `Initial & <area>` in that form. It is an explicit source-authoring
 alternative, not a silent migration or body/attribute rewrite by the property panel.
+
+## SDL software triangle area bound
+
+SDL3.4.16 at `fa2c02bb6e21974a89ea9824bc53c9932abe5f9c`,
+`src/render/software/SDL_triangle.c`, checks textured interpolation coefficients
+against the native integer range and reports `triangle area overflow` when they
+do not fit. The actual source-canvas software fixture reaches this guard with
+large offscreen image quads after zooming. A scissor rectangle alone leaves the
+oversized triangle geometry submitted to the backend.
+
+Source Preview composes the visible image quad with matching normalized UVs,
+following the existing texture-view boundary. Native viewport data and full-image
+exports retain their source pixels. Actual SDL error checks and displayed-color
+oracles pass with input at1180/700windows and a1000×700native image. Larger software
+surfaces need independent coverage. No dependency patch or pin change is involved;
+Windows/full Main and physical-device acceptance remain separate.

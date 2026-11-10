@@ -1,5 +1,12 @@
 # 2026-11-10
 
+## UI Preview image navigation
+
+Preview adds fit, actual-pixel viewing, bounded image zoom and native canvas
+scrolling. Picking and edits retain native viewport coordinates when zoomed or
+scrolled. View navigation leaves source/history and full-image capture unchanged;
+existing guarded MCP operations retain their coordinate contracts.
+
 ## UI canvas editing shortcuts
 
 Focused Preview supports select-all, clear, single-subtree duplication and group

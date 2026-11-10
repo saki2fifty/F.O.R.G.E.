@@ -111,7 +111,9 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
             FORGE_UI_PROBE("fixture:other-text");
             ImGui::End();
         }
+        SDL_ClearError();
         surface.render();
+        require(!*SDL_GetError(), SDL_GetError());
         presentation.end_frame(graphics);
         graphics->Flush();
     };
@@ -669,6 +671,137 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
     require(editor.state().at("selection") == shortcut_start.at("selection") && !editor.dirty() &&
                 scene.snapshot() == authored,
             "Canvas shortcut fixture did not restore unchanged source and selection");
+    const auto navigation_start = editor.state();
+    const auto native_navigation_start = editor.image_source(project);
+    input.click("ui-source:actual-pixels");
+    frame();
+    frame();
+    const auto canvas_scale = [&] {
+        const auto canvas = test::ui_targets.at("ui-source:canvas");
+        return (canvas.maximum.x - canvas.minimum.x) / 1000;
+    };
+    require(std::abs(canvas_scale() - 1.f) < .0001f,
+            "Actual-pixel view did not preserve one native pixel per canvas unit");
+    const auto zoom_input = [&](const char* value) {
+        io.AddKeyEvent(ImGuiMod_Ctrl, true);
+        input.click("ui-source:image-zoom");
+        io.AddKeyEvent(ImGuiMod_Ctrl, false);
+        frame();
+        input.type("ui-source:image-zoom", value);
+        frame();
+        frame();
+    };
+    zoom_input("100");
+    require(std::abs(canvas_scale() - 8.f) < .0001f, "Typed zoom exceeded its upper bound");
+    zoom_input("0");
+    require(std::abs(canvas_scale() - .125f) < .0001f,
+            "Typed zoom bypassed its positive lower bound");
+    zoom_input("2");
+    require(std::abs(canvas_scale() - 2.f) < .0001f,
+            "Manual image zoom did not set the view scale");
+    const auto native_point = [&](float x, float y) {
+        const auto canvas = test::ui_targets.at("ui-source:canvas");
+        return ImVec2{canvas.minimum.x + x * canvas_scale(), canvas.minimum.y + y * canvas_scale()};
+    };
+    const auto unscrolled = test::ui_targets.at("ui-source:canvas").minimum;
+    for (const bool horizontal : {true, false}) {
+        bool visible = false;
+        for (int attempt = 0; attempt < 64; ++attempt) {
+            const auto viewport = test::ui_targets.at("ui-source:image-viewport");
+            const auto point = native_point(830, 290);
+            const auto coordinate = horizontal ? point.x : point.y,
+                       minimum = horizontal ? viewport.minimum.x : viewport.minimum.y,
+                       maximum = horizontal ? viewport.maximum.x : viewport.maximum.y;
+            visible = coordinate > minimum + 20 && coordinate < maximum - 20;
+            if (visible)
+                break;
+            io.AddMousePosEvent((viewport.minimum.x + viewport.maximum.x) / 2,
+                                (viewport.minimum.y + viewport.maximum.y) / 2);
+            frame();
+            const float step = coordinate < minimum + 20 ? 1.f : -1.f;
+            io.AddMouseWheelEvent(horizontal ? step : 0.f, horizontal ? 0.f : step);
+            frame();
+            frame();
+        }
+        if (!visible) {
+            surface.save(output /
+                         ("ui-source-navigation-refusal-" + std::to_string(width) + ".png"));
+            const auto canvas = test::ui_targets.at("ui-source:canvas"),
+                       viewport = test::ui_targets.at("ui-source:image-viewport");
+            throw std::runtime_error(
+                "Native canvas scrolling did not reveal the source panel: " +
+                Json{{"horizontal", horizontal},
+                     {"canvas",
+                      {canvas.minimum.x, canvas.minimum.y, canvas.maximum.x, canvas.maximum.y}},
+                     {"viewport",
+                      {viewport.minimum.x, viewport.minimum.y, viewport.maximum.x,
+                       viewport.maximum.y}},
+                     {"gesture", editor.gesture_active()}}
+                    .dump());
+        }
+    }
+    const auto scrolled = test::ui_targets.at("ui-source:canvas").minimum;
+    require(scrolled.x < unscrolled.x && scrolled.y < unscrolled.y &&
+                editor.state() == navigation_start &&
+                editor.image_source(project) == native_navigation_start,
+            "View navigation changed source/selection/history or native preview observation");
+    auto navigation_pointer = native_point(830, 290);
+    io.AddMousePosEvent(navigation_pointer.x, navigation_pointer.y);
+    frame();
+    io.AddMouseButtonEvent(0, true);
+    frame();
+    io.AddMousePosEvent(navigation_pointer.x + 20, navigation_pointer.y + 10);
+    frame();
+    require(editor.gesture_active() && editor.state().at("text") == navigation_start.at("text"),
+            "Zoomed/scrolled dragging published source before release");
+    require(!test::ui_targets.at("ui-source:actual-pixels").enabled &&
+                !test::ui_targets.at("ui-source:image-zoom").enabled,
+            "View controls remained active during source dragging");
+    const auto gesture_origin = test::ui_targets.at("ui-source:canvas").minimum;
+    io.AddMouseWheelEvent(-1, -1);
+    frame();
+    const auto after_gesture_wheel = test::ui_targets.at("ui-source:canvas").minimum;
+    require(after_gesture_wheel.x == gesture_origin.x && after_gesture_wheel.y == gesture_origin.y,
+            "Wheel navigation changed the active source gesture's coordinate frame");
+    io.AddMouseButtonEvent(0, false);
+    frame();
+    frame();
+    const auto zoomed_text = editor.state().at("text").get<std::string>();
+    require(read_ui_markup_layout(zoomed_text, members[2]) == UiPixelLayout{730, 225, 220, 140},
+            "Zoomed/scrolled screen motion did not map to the original native pixel coordinates");
+    input.click("button:Undo");
+    require(editor.state().at("text") == navigation_start.at("text"),
+            "Zoomed/scrolled group movement needed multiple Undo steps");
+    navigation_pointer = native_point(830, 290);
+    io.AddMousePosEvent(navigation_pointer.x, navigation_pointer.y);
+    io.AddKeyEvent(ImGuiMod_Ctrl, true);
+    frame();
+    io.AddMouseButtonEvent(0, true);
+    frame();
+    io.AddMouseButtonEvent(0, false);
+    frame();
+    io.AddKeyEvent(ImGuiMod_Ctrl, false);
+    frame();
+    require(editor.state().at("selection") == Json::array({members[2]}) && !editor.dirty(),
+            "Zoomed/scrolled picking did not use the original native hit owner");
+    const auto purple_point = native_point(728, 244);
+    const SDL_Rect sample_area{int(std::floor(purple_point.x)), int(std::floor(purple_point.y)), 1,
+                               1};
+    std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> visible_pixel(
+        SDL_RenderReadPixels(surface.native_renderer(), &sample_area), SDL_DestroySurface);
+    Uint8 red = 0, green = 0, blue = 0, alpha = 0;
+    require(visible_pixel &&
+                SDL_ReadSurfacePixel(visible_pixel.get(), 0, 0, &red, &green, &blue, &alpha),
+            "Cannot inspect the displayed zoomed source image");
+    require(std::abs(int(red) - 124) <= 2 && std::abs(int(green) - 58) <= 2 &&
+                std::abs(int(blue) - 237) <= 2 && alpha == 255,
+            ("Zoomed/scrolled canvas lost its native purple pixels: " +
+             Json::array({red, green, blue, alpha}).dump())
+                .c_str());
+    surface.save(output / ("ui-source-preview-zoom-" + std::to_string(width) + ".png"));
+    shortcut(ImGuiKey_A, true);
+    require(editor.state().at("selection") == navigation_start.at("selection"),
+            "Zoomed canvas crop incorrectly limited native select-all");
     input.click("ui-source:preview-save-image");
     const auto wait = [&] {
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
@@ -758,6 +891,9 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
     editor.undo(false);
     require(!editor.dirty() && scene.snapshot() == authored,
             "Image capture changed source or Scene state");
+    input.click("ui-source:fit-image");
+    frame();
+    frame();
     const auto click_canvas = [&](float x, float y) {
         const auto current = test::ui_targets.at("ui-source:canvas");
         const float fitted = (current.maximum.x - current.minimum.x) / 1000;
