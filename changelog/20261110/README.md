@@ -1,5 +1,12 @@
 # 2026-11-10
 
+## Configured UI control creation
+
+Add child and source MCP creation can assign a unique source ID and an explicit
+absolute pixel layout in one Undo step. The default remains flow layout. Shared
+ID/geometry/source validation preserves private candidates and explicit Save;
+native Preview remains authoritative for canvas editing eligibility.
+
 ## UI box styling and property search
 
 The shared source controls expose box sizing, position, overflow, side spacing

@@ -48,7 +48,7 @@ Use **Preview** for native rendering and the supported pixel layout controls.
 
 1. In **Elements**, select the body or a container such as a div or form.
 2. Choose **New child**. The choices include Container, Inline text, Paragraph, Button, Input button, Slider, Label, Text input, Password input, Checkbox, Radio option, Text area, Dropdown, Dropdown option, Progress, Image, Line break and Form.
-3. Enter **Initial text/value** when enabled. Choose **Add child**. The new control is selected so you can assign its attributes and style.
+3. Enter **Initial text/value** when enabled. Optionally enter a unique **Element ID**. Leave **Absolute pixel layout** off for normal flow layout, then choose **Add child**. The new control is selected so you can assign its attributes and style.
 4. Use **Undo** or **Redo** for the whole creation. Choose **Save source** to write it to disk. **Preview** checks native appearance; use **Game** during Play to test interaction.
 
 ![UI Source with the body selected, Dropdown creation kind, initial text and Add child controls](../images/ui-source-create-control.png)
@@ -83,6 +83,30 @@ attribute to that ID. Give radio options the same `name` to form a group. Use th
 normal attribute controls to set `checked`, `disabled`, option `selected` and other
 admitted attributes; remove an attribute to clear it. Author IDs and targets
 explicitly, then save and test native behavior in Game.
+
+## Create a control with a pixel layout
+
+1. In **Elements**, select a container and choose the **New child** kind.
+2. Enter a unique **Element ID**, such as `settings-panel`. Use literal source names up to128 UTF-8 bytes. The source check rejects duplicate or ambiguous IDs and ID literals containing dynamic expressions.
+3. Enable **Absolute pixel layout**. Set **Left (px)**, **Top (px)**, **Width (px)** and **Height (px)**. The initial proposal is `0, 0, 160, 40`. Positions can be negative; all values must be finite and within `-65536..65536`, with width/height at least `1`.
+4. Choose **Add child**. The new root is selected with its ID and explicit absolute pixel styles. Creation is one source Undo step; the file stays unsaved.
+5. Open **Preview**, refresh and inspect the new control. Native layout and the cascade determine whether it can be moved or resized on the canvas. Choose **Save source** when satisfied.
+
+![UI Source Add child with an ID and explicit pixel position and size](../images/ui-source-create-pixels.png)
+
+Pixel creation requires an Element ID; Add child is disabled while it is empty.
+Line breaks and dropdown options keep their native flow layout and cannot use
+this setup. Data-bound ancestors reject pixel setup. Invalid IDs or geometry
+leave source and history unchanged; correct the fields and try again.
+
+![Newly created source control selected in the Elements outline](../images/ui-source-created-control.png)
+
+Leaving **Absolute pixel layout** off preserves normal flow creation. An optional
+ID can also name a flow control without assigning layout. Existing source IDs and
+styles stay unchanged. Constraints, transforms, scrolling or stylesheet overrides
+can make a created control ineligible for canvas gestures; use the explanation
+in Preview and the existing Inline style/Source controls. Resource registration,
+Scene assignment and export retain their [runtime UI workflow](runtime-ui.md).
 
 ## Edit control properties
 

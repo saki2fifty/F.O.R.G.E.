@@ -13,15 +13,15 @@ Refreshed Elements/other affected canonical captures show the current child cont
 SDL software component captures are unretouched; Windows/full Main, physical
 input/GPU and display-density acceptance remain separate.
 
-- `ui-source-elements.png`: `0b6ed56d8c4b116ae43c067698aea82038fc243800c91087f22722d6fe81ebd9`.
-- `ui-source-inline-style.png`: `4e4590637c5542143482369b8e7f18ea68e1aa72b8482074c51b4134b57f964e`.
+- `ui-source-elements.png`: `19d54ef2d1a983c97c68d7576c59f30a7d3538468e48bc3cae19010871f6b953`.
+- `ui-source-inline-style.png`: `ddff453951d7584acea4242e19a968eddea998ee5b41752858a4773a64c2b192`.
 - `ui-source-hierarchy.png`: `1f1c2e6d0b14a5ed6c6e83fdad73b9163f8f4cfb1b841aa9b9cea12094c9e881`.
 - `ui-source-rules.png`: `76e1ab67928a26913f2805b44f6b9f4df615d639b1222e3fe280472900a188e2`.
 - `ui-source-group-styling.png`: `eb8c75ad2d2277235e1796d13f76cdf820247ea8fa3dadb16ed574369b55bc40`.
 - `ui-source-classes.png`: `fabe4245437a5c067e51c298244852fa2bc9d8e7f49c1e9eff010270cb185d56`.
-- `ui-source-style-color.png`: `608edca1fbace6e739a98e5ffd1b24fd2e3b9b32aae29be9dd921b4022883c42`.
-- `ui-source-style-number.png`: `d9f7f28bd24b19177fc2a026bc3dd9dd224a4f1250d991a38f8a2f7d43417104`.
-- `ui-source-create-control.png`: `fa6e1203bd5f8c143756711ce0dc2f368ad84928e66e0f3c3a738362c4387b7d`.
+- `ui-source-style-color.png`: `e680fd81a39f6d9d54856d4246a46367d4388517b4af182b1bdf1c65b9ece153`.
+- `ui-source-style-number.png`: `95506011c1dcd1605718319ac821bc606313234942c6b4e4bf913bba3c586248`.
+- `ui-source-create-control.png`: `3c951558388a3755620e4d4d66219b1fc33f8e628ead28931d398931443c00b4`.
 
 
 `ui-source-style-color.png` and `ui-source-style-number.png` are exact700×950
@@ -3143,7 +3143,7 @@ Nine prior canonical images reproduce exact bytes and remain unchanged. The
 SDL software component capture is unretouched; full Main, Windows, physical
 input/GPU and display-density acceptance remain separate.
 
-- `ui-source-input-button.png`: `aff3cb3d427ec2b05e76692f2531a482b5656851566b1b7e82700bbffec1a35b`.
+- `ui-source-input-button.png`: `a92fc0161c95e61195493c8e8c2ce72ef8141a0e7ddb1467f4d7a6914c99478a`.
 
 ## Native slider creation
 
@@ -3157,7 +3157,7 @@ source/font/executable hashes and passing native receipt; ten prior canonical
 images reproduce exact bytes. This SDL software component capture does not imply
 full Main, Windows, physical input/GPU or display-density acceptance.
 
-- `ui-source-slider.png`: `5f353808a01b221a758eb06eaf6bf2f32b727dca278df145d52313c30d854847`.
+- `ui-source-slider.png`: `f3e2af9ac7d90c6d30ee42ee1170276d8c599a0d399e7d29807c74c6e822c9b4`.
 
 ## Native widget keyboard guidance
 
@@ -3185,8 +3185,8 @@ component evidence does not establish full Main/Windows/physical input/GPU/DPI
 acceptance. Pre-review images with misleading baseline labels are retained only
 as local technical evidence; canonical images show the corrected staging status.
 
-- `ui-source-control-properties.png`: `927fe63f6c6a4a1a75d87964a484b4f8fb68eb75e00209397e4766dafa7602b1`.
-- `ui-source-control-flags.png`: `1bfb26e55fe048c7d3786ed98b7d0db3e91f97854ec707e2b5a49d0822305b5e`.
+- `ui-source-control-properties.png`: `312d1ac23f9e4b083efa30d3d36dfc6576b6c106af1aebb5d7f68520b65c75e7`.
+- `ui-source-control-flags.png`: `52f6a202ebccc5f4ea7d39084da5ac309fc8ec781deab5196cc4a8bcd79cb75e`.
 
 ## Text control source properties
 
@@ -3200,9 +3200,9 @@ Twelve raw captures retain exact source/font/executable provenance locally. Thes
 software SDL component captures do not establish full Main/Windows, physical
 input/GPU/DPI or external-client acceptance.
 
-- ui-source-text-input-properties.png: `7ad4dfe826cacb063d58f546a8cbfa58e442cf32bf4ee783c6dac57b9f1007c8`.
+- ui-source-text-input-properties.png: `05cf902c2e253109b8a1d2bb9828850df57377b6a090a609b2ac5f16ebf4dd0d`.
 
-- ui-source-textarea-properties.png: `f78af146e42b4001efd054ff6e2127691db87690cf8c67cfe3b42d3943be7a13`.
+- ui-source-textarea-properties.png: `7cd4ce352406c5a2188b8451dc0d29404fcb1253ae531f7fb5ae1b268b8adb1d`.
 
 ## Source typography literal controls
 
@@ -3217,7 +3217,7 @@ font/executable hashes and current receipt remain with local technical evidence.
 These are authentic source UI views, not rendered glyph/physical GPU/font acceptance.
 Native/source-hidden property and actual pinned font-resource checks are separate.
 
-- ui-source-typography-weight.png: `a1e45de11b8bafa4555f10a463fc33d80f688a52e438492e6eff7f39d509b15e`.
+- ui-source-typography-weight.png: `481db0e378de7cc8e27f11080efd5bdcf11d27a9f3ee00ec548fc76bf831a0eb`.
 
 - ui-source-typography-rule.png: `8abe12ba0c7f2f73504d5f36b38cfc631e34aa5c4e062adc4ffad62778cebfde`.
 
@@ -3233,9 +3233,9 @@ captures retain source/font/executable provenance. These softwareSDL source UI
 views do not establish fullMain/Windows/physicalGPU/DPI acceptance. Native image
 resource, crop/aspect/sprite/CSS/tint and source-hidden tests are separate.
 
-- ui-source-image-properties.png: `6b1660f4791b7ca9c7c134f9a94643ba5a331d763153057363e61e6019ce268a`.
+- ui-source-image-properties.png: `6eabbeaa70b515f6532d2d56231d119d24f13880028e096934c876bda7c6e5ac`.
 
-- ui-source-image-tint.png: `ba0a31f21ca4c428d110b38e5a1842499df7b81bac44d80fbb5bb6c0cfec50fe`.
+- ui-source-image-tint.png: `50333289609e0a38b6858641313eb64ae883f60e3e8e6aa612ca7b0a8f92969a`.
 
 ## Responsive UI source presets
 
@@ -3248,7 +3248,7 @@ percentage gap input. The twelve raw softwareSDL component images retain source,
 font and executable provenance. Native flex geometry/reflow/source-hidden tests
 are separate; these images do not establish full Main/Windows/physical acceptance.
 
-- ui-source-layout-direction.png: `0d86ea2879dd3addde7c79bfb4ee8e151b0336b667b4da0385785d9907d77861`.
+- ui-source-layout-direction.png: `bf45746396fa6ca70ffa77c6635f551c2a2ce7b92b5d0390dc3b4f87f28f9a6c`.
 
 - ui-source-layout-rule.png: `aecca9a4a1d87c13dbf5ecee57e64333936ab4450fb20cf8b587ce37b81c3a47`.
 
@@ -3263,6 +3263,59 @@ Eighteen raw softwareSDL component captures retain source/font/executable proven
 These views do not establish full Main/Windows/physicalGPU acceptance. Native box
 geometry/edges/style and source-hidden resource tests are separate.
 
-- ui-source-box-search.png: `bc656487082ab215106aed6394881e83664c746a5eabdf50547fcda33eeaf296`.
+- ui-source-box-search.png: `ff2316f0e7d296000fa248189933b35f88f096992b3cbcbe271ea41dfc775c56`.
 
-- ui-source-box-color.png: `2f4d7d4082a9584c3f1785e86f6a45852334d253a2a645d96b70120f6f94c73b`.
+- ui-source-box-color.png: `0e8e8373f45eef303816d6d166be36f37eca2f8876266ae747291aa9fe5fcc98`.
+
+## Configured UI control creation
+
+ui-source-create-pixels.png and ui-source-created-control.png are unaltered700×950
+production UiSourceEditor/DocumentWorkspace component captures from
+forge_ui_source_editor_tests --creation-setup-only (ui_source_creation_setup).
+The fixture drives actual Add child kind/text/ID/pixel inputs, verifies empty-ID
+blocking, selected root, one Undo/Redo, duplicate/invalid refusal and explicit Save
+at1180/700/400. Sixraw softwareSDL images retain source/font/executable provenance.
+These captures do not establish full Main/Windows/physicalGPU acceptance; native
+saved/source-hidden geometry and Preview eligibility are separate checks.
+
+- ui-source-create-pixels.png: `4dedaafeba4eb5df575dae008bd7878049896803cdc78f27d46475d82fa976ca`.
+
+- ui-source-created-control.png: `eb1ab566a9df4870b362888a14850de9680388b51ba41e0fe754ee2189d0b209`.
+
+Current creation-panel captures also include the optional Element ID and Absolute
+pixel layout controls. The existing fixture modes regenerate the following
+canonical images from the current editor without retouching:
+
+- ui-source-elements.png: `19d54ef2d1a983c97c68d7576c59f30a7d3538468e48bc3cae19010871f6b953`.
+
+- ui-source-inline-style.png: `ddff453951d7584acea4242e19a968eddea998ee5b41752858a4773a64c2b192`.
+
+- ui-source-style-color.png: `e680fd81a39f6d9d54856d4246a46367d4388517b4af182b1bdf1c65b9ece153`.
+
+- ui-source-style-number.png: `95506011c1dcd1605718319ac821bc606313234942c6b4e4bf913bba3c586248`.
+
+- ui-source-create-control.png: `3c951558388a3755620e4d4d66219b1fc33f8e628ead28931d398931443c00b4`.
+
+- ui-source-input-button.png: `a92fc0161c95e61195493c8e8c2ce72ef8141a0e7ddb1467f4d7a6914c99478a`.
+
+- ui-source-slider.png: `f3e2af9ac7d90c6d30ee42ee1170276d8c599a0d399e7d29807c74c6e822c9b4`.
+
+- ui-source-control-properties.png: `312d1ac23f9e4b083efa30d3d36dfc6576b6c106af1aebb5d7f68520b65c75e7`.
+
+- ui-source-control-flags.png: `52f6a202ebccc5f4ea7d39084da5ac309fc8ec781deab5196cc4a8bcd79cb75e`.
+
+- ui-source-text-input-properties.png: `05cf902c2e253109b8a1d2bb9828850df57377b6a090a609b2ac5f16ebf4dd0d`.
+
+- ui-source-textarea-properties.png: `7cd4ce352406c5a2188b8451dc0d29404fcb1253ae531f7fb5ae1b268b8adb1d`.
+
+- ui-source-typography-weight.png: `481db0e378de7cc8e27f11080efd5bdcf11d27a9f3ee00ec548fc76bf831a0eb`.
+
+- ui-source-image-properties.png: `6eabbeaa70b515f6532d2d56231d119d24f13880028e096934c876bda7c6e5ac`.
+
+- ui-source-image-tint.png: `50333289609e0a38b6858641313eb64ae883f60e3e8e6aa612ca7b0a8f92969a`.
+
+- ui-source-layout-direction.png: `bf45746396fa6ca70ffa77c6635f551c2a2ce7b92b5d0390dc3b4f87f28f9a6c`.
+
+- ui-source-box-search.png: `ff2316f0e7d296000fa248189933b35f88f096992b3cbcbe271ea41dfc775c56`.
+
+- ui-source-box-color.png: `0e8e8373f45eef303816d6d166be36f37eca2f8876266ae747291aa9fe5fcc98`.

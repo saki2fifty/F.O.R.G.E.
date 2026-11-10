@@ -49,6 +49,9 @@ class UiSourceEditor {
     static constexpr const char* source_drag_type = "FORGE_UI_SOURCE";
     int child_kind_ = 0;
     char child_text_[8193]{};
+    char child_id_[129]{};
+    bool child_pixel_layout_ = false;
+    std::array<float, 4> child_pixels_{0, 0, 160, 40};
     UiMarkupControlProperties control_property_view_;
     std::map<std::string, UiControlPropertyValue> control_property_values_, control_property_edits_;
     std::map<std::string, std::array<char, 8193>> control_property_text_;
@@ -1405,11 +1408,35 @@ class UiSourceEditor {
                                  child_text_, sizeof(child_text_));
         FORGE_UI_PROBE("ui-source:child-text");
         ImGui::EndDisabled();
+        ImGui::InputTextWithHint("Element ID", "Optional; unique source ID", child_id_,
+                                 sizeof(child_id_));
+        FORGE_UI_PROBE("ui-source:child-id");
+        const bool supports_pixels = kind.tag != "br" && kind.tag != "option";
+        ImGui::BeginDisabled(!supports_pixels);
+        ImGui::Checkbox("Absolute pixel layout", &child_pixel_layout_);
+        FORGE_UI_PROBE("ui-source:child-pixel-layout");
+        ImGui::EndDisabled();
+        const bool pixel_layout = supports_pixels && child_pixel_layout_;
+        if (pixel_layout) {
+            constexpr std::array labels{"Left (px)", "Top (px)", "Width (px)", "Height (px)"};
+            for (std::size_t i = 0; i < child_pixels_.size(); ++i) {
+                ImGui::InputFloat(labels[i], &child_pixels_[i]);
+                FORGE_UI_PROBE("ui-source:child-pixels:" + std::to_string(i));
+            }
+            ImGui::TextWrapped(
+                "Requires a unique Element ID. Preview checks native canvas eligibility.");
+        }
         const bool dropdown = (kind.tag == "option") == (tag == "select");
-        ImGui::BeginDisabled(!dropdown);
+        ImGui::BeginDisabled(!dropdown || (pixel_layout && !child_id_[0]));
         if (button("Add child",
                    "Create the chosen control as one Undo and select it. Save remains separate."))
-            attempt([&] { control(index, kind.id, kind.accepts_text() ? child_text_ : ""); });
+            attempt([&] {
+                control(index, kind.id, kind.accepts_text() ? child_text_ : "", {}, child_id_,
+                        pixel_layout
+                            ? std::optional(UiPixelLayout{child_pixels_[0], child_pixels_[1],
+                                                          child_pixels_[2], child_pixels_[3]})
+                            : std::nullopt);
+            });
         FORGE_UI_PROBE("ui-source:child-add");
         ImGui::EndDisabled();
         if (!dropdown)
@@ -1748,9 +1775,10 @@ class UiSourceEditor {
         replace_text(insert_ui_markup_child(editor_.GetText(), parent, tag, literal, before));
     }
     void control(std::size_t parent, std::string_view kind, std::string_view literal,
-                 std::optional<std::size_t> before = {}) {
+                 std::optional<std::size_t> before = {}, std::string_view id = {},
+                 std::optional<UiPixelLayout> pixels = {}) {
         const auto edit =
-            insert_ui_markup_control(editor_.GetText(), parent, kind, literal, before);
+            insert_ui_markup_control(editor_.GetText(), parent, kind, literal, before, id, pixels);
         replace_text(edit.source);
         select(edit.element);
     }

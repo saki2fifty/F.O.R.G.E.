@@ -903,7 +903,8 @@ std::string remove_ui_markup_element(std::string_view source, std::size_t index)
 }
 UiMarkupControlEdit insert_ui_markup_control(std::string_view source, std::size_t parent,
                                              std::string_view kind, std::string_view literal,
-                                             std::optional<std::size_t> before) {
+                                             std::optional<std::size_t> before, std::string_view id,
+                                             std::optional<UiPixelLayout> pixels) {
     const auto found = std::ranges::find(ui_markup_control_kinds, kind, &UiMarkupControlKind::id);
     require(found != ui_markup_control_kinds.end(), "Choose a supported UI control kind");
     require(literal.size() <= 8192, "Initial UI text/value is limited to 8192 bytes");
@@ -938,6 +939,24 @@ UiMarkupControlEdit insert_ui_markup_control(std::string_view source, std::size_
         candidate = set_ui_markup_attribute(candidate, index, "value", std::string(literal));
     else if (found->tag == "progress")
         candidate = set_ui_markup_attribute(candidate, index, "value", "0");
+    if (!id.empty()) {
+        candidate = set_ui_markup_attribute(candidate, index, "id", std::string(id));
+        (void)literal_ids(candidate, inspect_ui_markup(candidate));
+    }
+    if (pixels) {
+        require(!id.empty(), "Pixel control creation requires a unique source ID");
+        require(found->tag != "br" && found->tag != "option",
+                "Create breaks and dropdown options in their native flow layout");
+        valid_layout(*pixels);
+        candidate = set_ui_markup_style(candidate, index, "position", "absolute");
+        const std::array values{pixels->left, pixels->top, pixels->width, pixels->height};
+        constexpr std::array names{"left", "top", "width", "height"};
+        for (std::size_t i = 0; i < values.size(); ++i)
+            candidate =
+                set_ui_markup_style(candidate, index, names[i],
+                                    format_ui_style_number({values[i], UiStyleUnit::Pixels}));
+        (void)read_ui_markup_layout(candidate, index);
+    }
     return {std::move(candidate), index};
 }
 namespace {

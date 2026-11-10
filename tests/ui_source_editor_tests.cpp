@@ -24,7 +24,8 @@ enum class SourceControls {
     Typography,
     ImageProperties,
     ResponsiveLayout,
-    BoxStyling
+    BoxStyling,
+    CreationSetup
 };
 void exercise(const std::filesystem::path& output, int width,
               SourceControls mode = SourceControls::All) {
@@ -71,6 +72,56 @@ void exercise(const std::filesystem::path& output, int width,
     const auto old_clipboard = ImGui::GetPlatformIO().Platform_GetClipboardTextFn;
     const auto old_data = ImGui::GetPlatformIO().Platform_ClipboardUserData;
     test::ImGuiInputDriver input(frame);
+    if (mode == SourceControls::CreationSetup) {
+        input.click("ui-source:elements-tab");
+        input.click("ui-source:element:1");
+        input.click("ui-source:child-kind");
+        input.select("ui-source:child-choice:button");
+        input.type("ui-source:child-text", "Run & test");
+        input.click("ui-source:child-pixel-layout");
+        frame();
+        check(!test::ui_targets.at("ui-source:child-add").enabled,
+              "Pixel creation button enabled without a unique source ID");
+        input.type("ui-source:child-id", "play-button");
+        const std::array values{"24", "36", "160", "40"};
+        for (std::size_t i = 0; i < values.size(); ++i)
+            input.type(("ui-source:child-pixels:" + std::to_string(i)).c_str(), values[i]);
+        const auto staged = editor.state();
+        frame();
+        capture.save(output / ("ui-source-create-pixels-" + std::to_string(width) + ".png"));
+        input.click("ui-source:child-add");
+        const auto created = editor.state();
+        check(created.at("selection") == Json::array({3}) &&
+                  read_ui_markup_layout(created.at("text").get<std::string>(), 3) ==
+                      UiPixelLayout{24, 36, 160, 40} &&
+                  created.at("text").get<std::string>().find("play-button") != std::string::npos &&
+                  asset_storage::read(file) == source,
+              "Native configured creation lost its selected root, geometry or explicit Save");
+        frame();
+        capture.save(output / ("ui-source-created-control-" + std::to_string(width) + ".png"));
+        input.click("button:Undo");
+        check(editor.state().at("text") == staged.at("text"),
+              "Configured control creation needed multiple Undo steps");
+        input.click("button:Redo");
+        check(editor.state().at("text") == created.at("text"), "Configured control Redo differs");
+        input.click("ui-source:element:1");
+        const auto duplicate = editor.state();
+        input.click("ui-source:child-add");
+        check(editor.state().at("text") == duplicate.at("text") &&
+                  editor.state().at("revision") == duplicate.at("revision"),
+              "Duplicate creation ID partially changed the native source");
+        input.type("ui-source:child-id", "second-button");
+        input.type("ui-source:child-pixels:2", "0");
+        input.click("ui-source:child-add");
+        check(editor.state().at("text") == duplicate.at("text"),
+              "Invalid creation geometry partially changed the source");
+        editor.save(project);
+        check(!editor.dirty() && scene.snapshot() == authored && scene.revision() == revision &&
+                  asset_storage::read(root / "forge.assets.json") == catalog,
+              "Configured creation Save changed Scene/catalog ownership");
+        editor.request_close();
+        return;
+    }
     if (mode == SourceControls::ImageProperties) {
         editor.control(1, "image", "");
         frame();
@@ -1107,7 +1158,9 @@ int main(int argc, char** argv) {
         auto mode = SourceControls::All;
         if (argc == 3) {
             const auto flag = std::string_view(argv[2]);
-            if (flag == "--box-styling-only")
+            if (flag == "--creation-setup-only")
+                mode = SourceControls::CreationSetup;
+            else if (flag == "--box-styling-only")
                 mode = SourceControls::BoxStyling;
             else if (flag == "--responsive-layout-only")
                 mode = SourceControls::ResponsiveLayout;

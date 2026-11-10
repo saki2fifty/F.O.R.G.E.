@@ -239,3 +239,13 @@ editor's Common menu borrows ImGuiTextFilter, clears on opening, and filters onl
 its choices; no draft, metadata or authoritative search index is changed.
 Native box dimensions/edges/color/radius/overflow and percentage resize are tested
 before/after source-hidden relocation; renderer/clipping algorithms remain native.
+
+## Configured source control creation
+
+insert_ui_markup_control optionally names the new root and composes an explicit
+absolute pixel layout before the source owner publishes once. Existing ID,
+style, scalar formatting and source layout admission own the constraints. Old
+calls retain their source bytes and flow behavior. Native Add child and guarded
+MCP control creation share this candidate; Preview still observes native geometry
+and enforces its existing eligibility. No renderer/registry or stable widget-ID
+owner is introduced. Bounds/schema conversion are shared with source layout.

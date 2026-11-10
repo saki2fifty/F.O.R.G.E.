@@ -219,6 +219,11 @@ void exercise(const std::filesystem::path& root, const Json& source,
                            20) < .001f,
               "Native percentage padding did not follow the narrower containing width");
         presenter.update(0, 800, 600);
+        auto* configured = document->GetElementById("native-created-panel");
+        check(configured &&
+                  configured->GetBox().GetSize(Rml::BoxArea::Border) == Rml::Vector2f(160, 40) &&
+                  configured->GetAbsoluteOffset(Rml::BoxArea::Border) == Rml::Vector2f(24, 36),
+              "Configured source control lost its native pixel bounds after save/relocation");
         const auto initial_state = document->GetElementById("state")->GetInnerRML();
         if (initial_state != "Tick 41 / paused 1")
             throw std::runtime_error("Structured text binding result: " + initial_state);
@@ -355,8 +360,23 @@ void exercise(const std::filesystem::path& root, const Json& source,
                 throw std::runtime_error(presenter.diagnostic());
             presenter.update(.04, 800, 600);
             presenter.render();
+            const auto asset = presenter.asset_snapshot()->documents.begin()->first;
+            presenter.reset("ui-source-preview", 2);
+            if (!presenter.preview_document({asset}, document_path, *saved, 800, 600))
+                throw std::runtime_error(presenter.diagnostic());
+            const auto preview = presenter.preview_layout();
+            const auto& elements = preview.at("elements");
+            const auto configured =
+                std::find_if(elements.begin(), elements.end(), [](const auto& row) {
+                    return row.at("id") == "native-created-panel";
+                });
+            check(configured != elements.end() && configured->at("editable").get<bool>() &&
+                      configured->at("bounds") == Json::array({24, 36, 160, 40}) &&
+                      !presenter.asset_snapshot(),
+                  "Configured control lost actual native Preview eligibility or published "
+                  "observations");
         }
-        presenter.reset("ui-source-retired", 2);
+        presenter.reset("ui-source-retired", 3);
         check(Rml::GetNumContexts() == 0, "Retired source UI retained a native context");
     }
     check(renderer.geometry.empty() && renderer.textures.empty(),
@@ -909,6 +929,10 @@ int main(int argc, char** argv) {
                          {"overflow-y", "hidden"}})
                     text = set_ui_markup_style(text, by_id(text, id), name, value);
             }
+            created =
+                insert_ui_markup_control(text, by_id(text, "canvas"), "container", "", {},
+                                         "native-created-panel", UiPixelLayout{24, 36, 160, 40});
+            text = std::move(created.source);
             atomic_write(root / document_path, text);
             const auto published = register_ui_document(root, document_path);
             for (const auto& row : source.at("entities"))

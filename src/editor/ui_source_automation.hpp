@@ -8,6 +8,20 @@
 namespace forge {
 // Borrows the native widget's document/history; no agent-owned text or DOM state.
 struct UiSourceAutomation {
+    static Json pixel_properties() {
+        auto result = Json::object();
+        for (const auto* name : {"left", "top", "width", "height"})
+            result[name] = {
+                {"type", "number"},
+                {"minimum",
+                 std::string_view(name) == "left" || std::string_view(name) == "top" ? -65536 : 1},
+                {"maximum", 65536}};
+        return result;
+    }
+    static UiPixelLayout pixel_values(const Json& request) {
+        return {request.at("left").get<float>(), request.at("top").get<float>(),
+                request.at("width").get<float>(), request.at("height").get<float>()};
+    }
     static Json style_profile(std::string_view name) {
         auto common = Json::array();
         for (const auto property : ui_common_style_properties)
@@ -314,12 +328,7 @@ struct UiSourceAutomation {
         layout_properties["element"] = automation_integer(0, 8191);
         layout_properties["preview_instance"] = automation_uuid();
         layout_properties["preview_revision"] = automation_integer();
-        for (const auto* name : {"left", "top", "width", "height"})
-            layout_properties[name] = {
-                {"type", "number"},
-                {"minimum",
-                 std::string_view(name) == "left" || std::string_view(name) == "top" ? -65536 : 1},
-                {"maximum", 65536}};
+        layout_properties.update(pixel_properties());
         auto layout_required = required;
         for (const auto* name :
              {"element", "preview_instance", "preview_revision", "left", "top", "width", "height"})
@@ -338,9 +347,7 @@ struct UiSourceAutomation {
             [&files, &editor, ready](const Json& request) {
                 ready();
                 observed(editor, files.document, request);
-                editor.layout(request.at("element").get<std::size_t>(),
-                              {request.at("left").get<float>(), request.at("top").get<float>(),
-                               request.at("width").get<float>(), request.at("height").get<float>()},
+                editor.layout(request.at("element").get<std::size_t>(), pixel_values(request),
                               request.at("preview_instance").get<std::string>(),
                               request.at("preview_revision").get<std::uint64_t>());
                 return state(editor, files.document);
@@ -454,6 +461,10 @@ struct UiSourceAutomation {
                     kinds.push_back(kind.id);
                 add("kind", {{"type", "string"}, {"enum", std::move(kinds)}});
                 add("text", automation_text(8192), false);
+                add("id", automation_text(128), false);
+                add("pixels",
+                    automation_object(pixel_properties(), {"left", "top", "width", "height"}),
+                    false);
             }
             if (action == "insert" || action == "reparent" || action == "control") {
                 add("parent", automation_integer(0, 8191));
@@ -506,8 +517,14 @@ struct UiSourceAutomation {
                       "text. Image/break/progress accept no text; progress starts at0. Dropdowns "
                       "contain only option controls; options require a dropdown. Text "
                       "areas/options/"
-                      "progress cannot parent new controls. No automatic IDs/label targets, "
-                      "resource "
+                      "progress cannot parent new controls. Optional id assigns a unique literal "
+                      "source ID of at most128bytes. Optional pixels supplies finite "
+                      "left/top/width/height "
+                      "within+/-65536 with size>=1 and requires id; breaks/options keep flow "
+                      "layout. "
+                      "Pixel setup rejects bound ancestors. Old calls preserve flow/source bytes; "
+                      "Preview eligibility still follows native geometry/cascade. No automatic "
+                      "IDs/label targets or resource "
                       "registration or runtime execution. Generic insert remains supported; Save "
                       "stays explicit."
                 : action == "classes"
@@ -679,6 +696,10 @@ struct UiSourceAutomation {
                                        request.value("text", std::string{}),
                                        request.contains("before")
                                            ? std::optional(request.at("before").get<std::size_t>())
+                                           : std::nullopt,
+                                       request.value("id", std::string{}),
+                                       request.contains("pixels")
+                                           ? std::optional(pixel_values(request.at("pixels")))
                                            : std::nullopt);
                     else if (action == "duplicate")
                         editor.duplicate(request.at("element").get<std::size_t>(),

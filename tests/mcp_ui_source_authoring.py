@@ -147,6 +147,30 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
     assert edit('undo')['text'] == original
     assert read('forge_scene_read') == before_scene
     if properties_only:
+        schema = advertised['forge_ui_source_control']['inputSchema']['properties']
+        assert schema['id']['maxLength'] == 128
+        assert set(schema['pixels']['required']) == {'left', 'top', 'width', 'height'}
+        assert not schema['pixels']['additionalProperties']
+        for name in ('left', 'top', 'width', 'height'):
+            assert schema['pixels']['properties'][name] == advertised['forge_ui_source_layout']['inputSchema']['properties'][name]
+        pixels = dict(left=24, top=36, width=160, height=40)
+        creation_args = arguments(**guard(), parent=index('body'), kind='button', text='Run & test', id='configured', pixels=pixels)
+        once = client.tool('forge_ui_source_control', **creation_args)
+        replay = client.tool('forge_ui_source_control', **creation_args)
+        assert once['ok'] and replay['ok'] and once['result'] == replay['result']
+        configured = read('forge_ui_source_read')
+        selected = configured['selection'][0]
+        for name, value in [('position', 'absolute'), ('left', '24px'), ('top', '36px'), ('width', '160px'), ('height', '40px')]:
+            assert read('forge_ui_source_style_read', **guard(), element=selected, name=name) == dict(name=name, value=value)
+        for options in [dict(id='configured'), dict(id='new', pixels=dict(pixels, width=0)),
+                        dict(id='new', pixels=dict(pixels, top=65537)), dict(pixels=pixels),
+                        dict(id='new', pixels=dict(pixels, extra=1)), dict(id='bad{id}')]:
+            assert not mutate('forge_ui_source_control', **guard(), parent=index('body'), kind='button', **options)['ok']
+            assert read('forge_ui_source_read') == configured, 'Configured creation partially published'
+        assert edit('undo')['text'] == original
+        assert edit('redo')['text'] == configured['text']
+        assert edit('undo')['text'] == original
+        assert read('forge_scene_read') == before_scene
         image = edit('control', parent=index('body'), kind='image')
         selected = image['selection'][0]
         profile = read('forge_ui_source_control_properties', **guard(), element=selected)

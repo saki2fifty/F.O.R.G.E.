@@ -218,7 +218,9 @@ set_ui_markup_control_properties(std::string_view, std::size_t element,
 // Compose existing source candidates; the caller publishes one transaction.
 UiMarkupControlEdit insert_ui_markup_control(std::string_view, std::size_t parent,
                                              std::string_view kind, std::string_view literal = {},
-                                             std::optional<std::size_t> before = {});
+                                             std::optional<std::size_t> before = {},
+                                             std::string_view id = {},
+                                             std::optional<UiPixelLayout> pixels = {});
 std::string remove_ui_markup_element(std::string_view, std::size_t element);
 std::string remove_ui_markup_elements(std::string_view, std::span<const std::size_t> elements);
 // Move static source siblings into a container, retaining source order and IDs.

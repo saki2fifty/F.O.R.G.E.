@@ -2765,3 +2765,19 @@ entries; source operations remain36, control kinds18, grants/history/replay and
 schema ownership unchanged. The Common search field has no programmatic authoring
 semantics: agents query profiles and use existing style/group/rule mutations.
 Raw multi-value source remains supported and is not normalized by the profiles.
+
+## Configured source control creation
+
+ui.source.control/forge_ui_source_control accepts optional id and pixels in the
+same source-guarded assets.write method. The nested pixel object reuses the old
+layout operation's scalar schemas/conversion (left/top ±65536, sizes1..65536),
+while the existing source layout owner validates the complete private candidate.
+Literal source-ID admission is borrowed from duplication/hierarchy ownership;
+new explicit IDs must be unique, unambiguous, at most128 bytes and non-dynamic.
+Old calls emit the same flow source bytes; an ID alone assigns no geometry.
+Pixel setup refuses breaks/options, requires ID and rejects bound ancestors.
+It does not initialize a renderer, register assets, create a persistent identity
+or bypass native Preview eligibility. The selected new root, one Undo, explicit
+Save, grants/revisions/replay and Scene isolation retain existing owners. There
+are still36 source operations/18creation kinds; the existing layout schema remains
+unchanged. No separate creation path is maintained for MCP clients.

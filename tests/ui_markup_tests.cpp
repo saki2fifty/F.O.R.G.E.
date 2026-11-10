@@ -839,6 +839,45 @@ void common_controls() {
           "Maximum supported initial text was rejected");
     rejects([&] { insert_ui_markup_control(source, 2, "paragraph", std::string(8193, 'a')); });
 }
+void configured_control_creation() {
+    using namespace forge;
+    const std::string source =
+        "<!-- retain -->\r\n<rml><body><div id='taken'></div></body></rml>\r\n";
+    const auto old = insert_ui_markup_control(source, 1, "button", "Run & test");
+    check(old.source ==
+              insert_ui_markup_control(source, 1, "button", "Run & test", {}, "", {}).source,
+          "Empty creation options changed legacy source bytes");
+    const auto named = insert_ui_markup_control(source, 1, "button", "Run & test", {}, "action");
+    check(named.source.find("id=\"action\"") != named.source.npos &&
+              named.source.find("position:") == named.source.npos &&
+              named.source.starts_with("<!-- retain -->\r\n"),
+          "Named flow control acquired implicit layout or changed unrelated source");
+    const UiPixelLayout pixels{24, 36, 160, 40};
+    const auto ready =
+        insert_ui_markup_control(source, 1, "button", "Run & test", {}, "action", pixels);
+    check(read_ui_markup_layout(ready.source, ready.element) == pixels &&
+              ready.source.find("id='taken'") != ready.source.npos &&
+              ready.source.find("Run &amp; test") != ready.source.npos &&
+              ready.source.ends_with("</body></rml>\r\n"),
+          "Pixel creation lost shared source geometry, escaping or unrelated bytes");
+    rejects([&] { insert_ui_markup_control(source, 1, "button", "", {}, "taken"); });
+    rejects([&] { insert_ui_markup_control(source, 1, "button", "", {}, "", pixels); });
+    rejects([&] { insert_ui_markup_control(source, 1, "line-break", "", {}, "line", pixels); });
+    for (const auto* id : {"bad{id}", "bad\nid"})
+        rejects([&] { insert_ui_markup_control(source, 1, "button", "", {}, id); });
+    rejects([&] { insert_ui_markup_control(source, 1, "button", "", {}, std::string(129, 'a')); });
+    check(!insert_ui_markup_control(source, 1, "button", "", {}, std::string(128, 'a'))
+               .source.empty(),
+          "Maximum source ID length rejected");
+    for (const auto invalid : {UiPixelLayout{0, 0, 0, 40}, UiPixelLayout{65537, 0, 160, 40},
+                               UiPixelLayout{0, 0, 160, std::numeric_limits<float>::infinity()}})
+        rejects([&] { insert_ui_markup_control(source, 1, "button", "", {}, "action", invalid); });
+    const std::string bound = "<rml><body data-if='shown'></body></rml>";
+    rejects([&] { insert_ui_markup_control(bound, 1, "button", "", {}, "action", pixels); });
+    const std::string options = "<rml><body><select></select></body></rml>";
+    rejects(
+        [&] { insert_ui_markup_control(options, 2, "option", "Choice", {}, "choice", pixels); });
+}
 void typography_literals() {
     using namespace forge;
     for (const auto property : ui_common_style_properties)
@@ -1364,6 +1403,7 @@ int main() {
         responsive_layout_literals();
         box_style_literals();
         common_controls();
+        configured_control_creation();
         control_properties();
         text_control_properties();
         image_control_properties();

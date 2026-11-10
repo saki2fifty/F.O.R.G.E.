@@ -849,3 +849,12 @@ units, bounds and presets with the existing inline/group/rule operations. Border
 length controls use px/dp; side padding is nonnegative, and margins also allow
 negative values and auto. Common search is an editor convenience; agents can use
 these properties directly without opening or filtering a menu.
+
+To configure a control as it is created, pass optional `id` and `pixels` to
+`forge_ui_source_control`. `pixels` is an object with `left`, `top`, `width` and
+`height`: finite pixel values within ±65536, with sizes at least1. It requires a
+unique literal source ID up to128 UTF-8 bytes. Omit these options for normal flow
+creation, or provide only `id` to name a flow control. Breaks/options keep flow
+layout; bound ancestors reject pixel setup. The new root is selected and the
+whole creation uses one source Undo. Save remains explicit; Preview determines
+native canvas eligibility after loading resources and applying the cascade.
