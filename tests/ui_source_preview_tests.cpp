@@ -99,6 +99,23 @@ div {display:block;}
         check(presenter.preview_document({asset.id}, "layout.rml", draft, 800, 600, 2) &&
                   find(presenter.preview_layout(), "panel").at("bounds") == panel.at("bounds"),
               "Physical pixel layout scaled with density");
+        std::string image(21, '\0');
+        image[2] = 2;
+        image[12] = image[14] = 1;
+        image[16] = 24;
+        image[17] = 32;
+        std::ofstream(root / "badge.tga", std::ios::binary).write(image.data(), image.size());
+        check(!presenter.preview_document({asset.id}, "layout.rml",
+                                          "<rml><body><img src=\"badge.tga\"/></body></rml>", 800,
+                                          600) &&
+                  presenter.diagnostic() == "UI resource has no admitted document origin",
+              "Missing native document origin lost its first useful resource diagnostic");
+        check(presenter.preview_document(
+                  {asset.id}, "layout.rml",
+                  "<rml><head></head><body><img id=\"badge\" src=\"badge.tga\"/></body></rml>", 800,
+                  600) &&
+                  find(presenter.preview_layout(), "badge").at("visible").get<bool>(),
+              "Explicit native document header did not admit the relative image");
         rejects([&] { presenter.preview_document({asset.id}, "layout.rml", draft, 0, 600); });
         rejects([&] { presenter.accept(Json::object()); });
         rejects([&] { presenter.prepare(Json::object()); });

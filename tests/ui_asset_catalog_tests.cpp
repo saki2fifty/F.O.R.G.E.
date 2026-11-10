@@ -262,7 +262,47 @@ int main(int argc, char** argv) {
                       register_ui_source(writer, path).id == registered.id &&
                       registered.metadata.at("forge.ui_source").at("format") == extension,
                   "PNG/JPEG registration lost the common Texture identity or source format");
+            const auto reference = ui_image_reference(AssetCatalog::open_project(root),
+                                                      "Assets/Views/Hud.rml", registered.id);
+            check(reference.at("reference") == "../" + path.filename().string() &&
+                      reference.at("source") == path_utf8(path) &&
+                      reference.at("asset").get<AssetId>() == registered.id &&
+                      reference.at("details").at("width") ==
+                          registered.metadata.at("forge.ui_source").at("width"),
+                  "Image reference query lost document-relative source or actual image details");
         }
+        const auto unusual = std::filesystem::u8path("Assets/Badge & 'résumé'.PNG");
+        asset_storage::replace(root / unusual,
+                               {reinterpret_cast<const char*>(png.data()), png.size()});
+        const auto quoted = register_ui_source(writer, unusual);
+        catalog = AssetCatalog::open_project(root);
+        const auto query_catalog = asset_storage::read(root / "forge.assets.json");
+        const auto reference = ui_image_reference(catalog, "Assets/Views/Hud.rml", quoted.id);
+        check(reference.at("reference") == "../Badge & 'résumé'.PNG" &&
+                  ui_image_source_candidate(quoted) && !ui_image_source_candidate(document),
+              "Image selection changed Unicode/quotes or accepted a document");
+        rejects([&] { ui_image_reference(catalog, "../escape.rml", quoted.id); });
+        rejects([&] { ui_image_reference(catalog, "Assets/Hud.rml", document.id); });
+        rejects([&] { ui_image_reference(catalog, "Assets/Hud.rml", AssetId::generate()); });
+        auto duplicate = quoted;
+        duplicate.id = AssetId::generate();
+        auto ambiguous = catalog;
+        rejects([&] { ambiguous.add(duplicate); });
+        AssetCatalog incompatible(root);
+        auto wrong = quoted;
+        wrong.type = "mesh";
+        incompatible.add(wrong);
+        rejects([&] { ui_image_reference(incompatible, "Assets/Hud.rml", quoted.id); });
+        auto embedded = quoted;
+        embedded.subasset = AssetSubasset{AssetId::generate(), "embedded-image", false};
+        check(!ui_image_source_candidate(embedded),
+              "Embedded model image entered the source picker");
+        asset_storage::replace(root / unusual, "invalid image");
+        rejects([&] { ui_image_reference(catalog, "Assets/Hud.rml", quoted.id); });
+        std::filesystem::remove(root / unusual);
+        rejects([&] { ui_image_reference(catalog, "Assets/Hud.rml", quoted.id); });
+        check(asset_storage::read(root / "forge.assets.json") == query_catalog,
+              "Read-only image query or rejection changed the project catalog");
         asset_storage::replace(root / "Assets/source.flecs", "Example {}\n");
         const auto script = register_flecs_script(root, "Assets/source.flecs");
         asset_storage::replace(root / "Assets/source.flecs", "Changed {}\n");

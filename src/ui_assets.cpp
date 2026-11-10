@@ -5,6 +5,7 @@
 #include "ui_gradient_profile.hpp"
 #include "ui_localization_admission.hpp"
 #include "ui_markup.hpp"
+#include "ui_resource_rules.hpp"
 #include "ui_shadow_motion.hpp"
 #include <algorithm>
 #include <cctype>
@@ -19,11 +20,12 @@
 #include <limits>
 #include <utility>
 namespace forge {
-namespace {
-bool image_extension(std::string_view extension) {
+bool ui_resource_detail::image_extension(std::string_view extension) {
     return extension == ".tga" || extension == ".png" || extension == ".jpg" ||
            extension == ".jpeg";
 }
+namespace {
+using ui_resource_detail::image_extension;
 void require(bool b, const char* msg) {
     if (!b)
         throw std::runtime_error(msg);
@@ -521,7 +523,7 @@ std::pair<unsigned, unsigned> image_dimensions(std::span<const std::byte> bytes)
     return {pixels.width, pixels.height};
 }
 } // namespace
-std::string UiResources::join(const std::string& base, const std::string& resource) const {
+std::string ui_resource_detail::join(const std::string& base, const std::string& resource) {
     require(!resource.empty() && resource.size() <= 1024 &&
                 resource.find_first_of(":\\?#") == std::string::npos,
             "UI resources require project-relative local paths");
@@ -529,6 +531,9 @@ std::string UiResources::join(const std::string& base, const std::string& resour
     require(!p.is_absolute(), "Absolute UI resource path rejected");
     auto result = (std::filesystem::u8path(base).parent_path() / p).lexically_normal();
     return path_utf8(ProjectPaths::normalize(result));
+}
+std::string UiResources::join(const std::string& base, const std::string& resource) const {
+    return ui_resource_detail::join(base, resource);
 }
 const std::vector<std::byte>& UiResources::read(const std::string& name) {
     const auto locator = ProjectPaths::normalize(std::filesystem::u8path(name));

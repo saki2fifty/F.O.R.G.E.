@@ -798,9 +798,13 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             if (slash == base.npos)
                 throw std::runtime_error("UI resource has no admitted document origin");
             const auto prefix = base.substr(0, slash);
-            out = prefix + "/" + resources.at(prefix)->join(base.substr(slash + 1), path);
+            const auto resource = resources.find(prefix);
+            if (resource == resources.end())
+                throw std::runtime_error("UI resource has no active candidate origin");
+            out = prefix + "/" + resource->second->join(base.substr(slash + 1), path);
         } catch (const std::exception& e) {
-            error = e.what();
+            if (error.empty())
+                error = e.what();
             out = "invalid/blocked";
         }
     }
@@ -821,9 +825,12 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             auto slash = path.find('/');
             if (slash == path.npos)
                 throw std::runtime_error("UI resource has no candidate origin");
-            auto& bytes = resources.at(path.substr(0, slash))->read(path.substr(slash + 1));
+            const auto resource = resources.find(path.substr(0, slash));
+            if (resource == resources.end())
+                throw std::runtime_error("UI resource has no active candidate origin");
+            auto& bytes = resource->second->read(path.substr(slash + 1));
             if (!loading_prefix.empty() && (path.ends_with(".rcss") || font_source))
-                resources.at(path.substr(0, slash))->automatic(path.substr(slash + 1));
+                resource->second->automatic(path.substr(slash + 1));
             if (font_source) {
                 auto digest = asset_detail::content_digest(bytes);
                 if (!admitted_fonts.contains(digest)) {
@@ -841,7 +848,8 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             files.emplace(handle, std::move(f));
             return handle;
         } catch (const std::exception& e) {
-            error = e.what();
+            if (error.empty())
+                error = e.what();
             return 0;
         }
     }

@@ -2,6 +2,10 @@
 #include <forge/project_lease.hpp>
 #include <forge/ui_assets.hpp>
 namespace forge {
+// Choice filtering is cheap; the selected reference is re-admitted by UiResources.
+bool ui_image_source_candidate(const AssetRecord&);
+nlohmann::json ui_image_reference(const AssetCatalog&, const std::filesystem::path& document,
+                                  AssetId);
 // Explicit authoring operations. Never called by the presenter/runtime itself.
 AssetCatalog prepare_ui_asset_catalog(AssetCatalog, const std::filesystem::path&,
                                       const UiAssetSnapshot&);

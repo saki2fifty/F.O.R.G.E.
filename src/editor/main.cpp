@@ -1751,6 +1751,7 @@ int main(int argc, char** argv) {
                        {},
                        {},
                        [&] { return std::exchange(script_editor.close_cancelled, false); }});
+        ui_source.resource_catalog = [&] { return content.catalog(); };
         ui_source.preview = [&](const std::filesystem::path& source, std::string_view text,
                                 int width, int height, float density, bool refresh) {
             files.document.check_ownership();

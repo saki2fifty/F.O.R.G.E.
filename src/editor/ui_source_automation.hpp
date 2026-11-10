@@ -182,6 +182,34 @@ struct UiSourceAutomation {
         const Json required{"path", "session", "revision", "state"};
         {
             auto properties = guard;
+            properties["asset"] = automation_uuid();
+            auto fields = required;
+            fields.push_back("asset");
+            result.push_back(automation_method(
+                "ui.source.image_reference",
+                "Resolve one registered standalone project image to the current UI source's "
+                "document-relative reference. Requires current source guards/assets.read. Uses "
+                "the shared UI resource path, identity and image-byte admission owners; PNG, "
+                "JPEG and TGA source files only. Returns asset/source/reference/details. Rejects "
+                "foreign, missing, ambiguous, embedded or unsupported resources. No source "
+                "selection, staging, Undo, Save, registration, native context, GPU or gameplay "
+                "execution. Use control_values src to author the returned reference; a nonempty "
+                "sprite retains its existing precedence.",
+                "assets.read", automation_object(std::move(properties), std::move(fields)), false,
+                [&files, &editor](const Json& request) {
+                    observed(editor, files.document, request);
+                    try {
+                        return ui_image_reference(
+                            AssetCatalog::open_project(files.document.project()),
+                            std::filesystem::u8path(editor.state().at("path").get<std::string>()),
+                            request.at("asset").get<AssetId>());
+                    } catch (const std::exception& error) {
+                        throw AuthoringError("ui_image_reference", error.what());
+                    }
+                }));
+        }
+        {
+            auto properties = guard;
             properties["name"] = automation_text(64, 1);
             auto fields = required;
             fields.push_back("name");

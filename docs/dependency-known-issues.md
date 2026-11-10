@@ -403,3 +403,16 @@ exports retain their source pixels. Actual SDL error checks and displayed-color
 oracles pass with input at1180/700windows and a1000×700native image. Larger software
 surfaces need independent coverage. No dependency patch or pin change is involved;
 Windows/full Main and physical-device acceptance remain separate.
+
+
+## Native UI image origins require a document header
+
+At the pinned RmlUi6.3 revision, ElementDocument source_url is assigned by
+ProcessHeader when the head node closes (ElementDocument.cpp and
+XMLNodeHandlerHead.cpp). ElementImage resolves relative src through that document
+URL. Omitting head leaves an empty origin; FORGE keeps that contained-path
+rejection and its first useful diagnostic. Open does not overwrite it with a
+secondary missing-candidate map lookup. An explicit empty head suffices; no
+vendor patch, synthesized document header or alternate file scope is introduced.
+The source-preview fixture covers rejection/recovery with and without the header;
+the image-resource native fixture proves actual selected-file pixels.

@@ -2573,3 +2573,18 @@ schemas during polling without caching permissions, revisions or Play/UI scopes.
 The native test host retains its240s lifetime guard; the expanded dual-protocol
 CTest cases have300s overall budgets. Sanitizer acceptance still requires fresh
 current/legacy envelopes in both Play profiles and clean native parent exits0.
+
+
+UI image-resource authoring checks extend ui_asset_catalog with validated relative
+references, format/type/source identity and current-byte refusal cases.
+ui_source_image_properties drives the existing native picker and Content UUID
+drop payload, property staging, Clear, Undo/Redo and Save at1180/700/400 widths.
+The control-properties MCP workflow checks read-only image references and their
+ordinary src mutation in both protocols, including stale guards and invalid bytes.
+ui_source_preview checks missing native document origin and explicit-head recovery.
+The native source canvas fixture also accepts --image-resources-only to isolate
+the same image-selection/rendered-pixel workflow at1180/700 without repeating
+unrelated canvas edits. Its full mode retains the image workflow. Existing
+source-hidden Gallery/package tests cover raw image relocation and sprite
+precedence. These local software/native checks do not establish Windows, full
+Main or physical-device acceptance.

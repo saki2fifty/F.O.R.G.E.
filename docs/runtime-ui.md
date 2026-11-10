@@ -1018,3 +1018,16 @@ is queued; these local fixtures do not establish that acceptance.
 The saved **Shape UI text** project setting selects the bounded public-interface
 font backend. See [UI text shaping](ui-text-shaping.md) for language/direction,
 font coverage, limits, same-owner automation and runtime-kit compatibility.
+
+
+### UI source image selection
+
+The source inspector borrows Content's current catalog and existing asset picker/
+drop control. Only standalone project texture sources with supported UI image
+extensions appear. Selection re-admits current image bytes through UiResources
+and derives a contained document-relative literal. The existing property staging
+map and control-values owner perform Apply, Undo and explicit Save; Clear removes
+`src`. Sprite precedence and manual source references remain unchanged. No asset
+is registered, copied or republished by choosing it. The read-only guarded
+image-reference query shares this admission and translation; agents author its
+result through the existing control-values operation.

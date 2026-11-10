@@ -1,10 +1,13 @@
 #pragma once
 #include "../project_text_source.hpp"
+#include "../ui_asset_catalog.hpp"
 #include "../ui_markup_authoring.hpp"
+#include "../ui_resource_rules.hpp"
 #include "automation_schema.hpp"
 #include "document.hpp"
 #include "document_workspace.hpp"
 #include "editor_state.hpp"
+#include "property_drawer.hpp"
 #include "source_text_widget.hpp"
 #include "widgets.hpp"
 #include <RmlUi/Core/StringUtilities.h>
@@ -87,6 +90,62 @@ class UiSourceEditor {
     UiMarkupControlProperties control_property_view_;
     std::map<std::string, UiControlPropertyValue> control_property_values_, control_property_edits_;
     std::map<std::string, std::array<char, 8193>> control_property_text_;
+    std::shared_ptr<const AssetCatalog> image_catalog_;
+    std::set<AssetId> image_candidates_;
+
+    void image_resource_control(std::size_t index) {
+        const auto catalog = resource_catalog ? resource_catalog() : nullptr;
+        const ProjectPaths paths(root_);
+        if (!catalog || ProjectPaths(catalog->project_root()).root() != paths.root()) {
+            ImGui::TextDisabled("Refresh Content to choose a project image.");
+            return;
+        }
+        if (catalog != image_catalog_) {
+            image_catalog_ = catalog;
+            image_candidates_.clear();
+            for (const auto& [id, record] : catalog->records())
+                if (ui_image_source_candidate(record))
+                    image_candidates_.insert(id);
+        }
+        Json selected = nullptr;
+        const auto& text = control_property_text_.at("src");
+        try {
+            const auto source = ui_resource_detail::join(path_utf8(locator_), text.data());
+            for (const auto id : image_candidates_)
+                if (paths.same_locator(catalog->records().at(id).source,
+                                       std::filesystem::u8path(source))) {
+                    selected = id;
+                    break;
+                }
+        } catch (const std::exception&) {
+            // Literal source editing also supports references outside the picker candidates.
+        }
+        const auto target =
+            session_ + ":" + std::to_string(revision_) + ":" + std::to_string(index);
+        ImGui::PushID(target.c_str());
+        ImGui::SetNextItemWidth(std::max(1.f, ImGui::GetContentRegionAvail().x -
+                                                  ImGui::CalcTextSize("Project image").x -
+                                                  ImGui::GetStyle().ItemInnerSpacing.x));
+        if (asset_ref_picker(*catalog, selected, TextureAsset::type, "Project image", false, {},
+                             &image_candidates_)) {
+            attempt([&] {
+                if (selected.is_null())
+                    control_property_edits_["src"] = std::monostate{};
+                else {
+                    const auto result =
+                        ui_image_reference(*catalog, locator_, selected.get<AssetId>());
+                    const auto reference = result.at("reference").get<std::string>();
+                    control_property_values_["src"] = reference;
+                    auto& buffer = control_property_text_.at("src");
+                    std::snprintf(buffer.data(), buffer.size(), "%s", reference.c_str());
+                    control_property_edits_["src"] = reference;
+                }
+            });
+        }
+        ImGui::PopID();
+        ImGui::TextWrapped("Choose or drop a registered PNG, JPEG or TGA source from Content. "
+                           "Apply properties to write its document-relative reference.");
+    }
 
     UiSourcePreviewFrame preview_frame_;
     int preview_width_ = 1000, preview_height_ = 700;
@@ -767,6 +826,11 @@ class UiSourceEditor {
                 ImGui::EndDisabled();
                 if (edited)
                     control_property_edits_[row.name] = value;
+                if (control_property_view_.kind == "image" && row.name == "src") {
+                    ImGui::BeginDisabled(locked || reset);
+                    image_resource_control(index);
+                    ImGui::EndDisabled();
+                }
             }
             ImGui::BeginDisabled(locked || !row.editable ||
                                  (!row.authored && edit == control_property_edits_.end()));
@@ -1861,6 +1925,7 @@ class UiSourceEditor {
 
   public:
     bool close_cancelled = false;
+    std::function<std::shared_ptr<const AssetCatalog>()> resource_catalog;
     // Composition callbacks borrow the existing native presentation owner.
     // A metadata-only host may return image0; source history remains here.
     std::function<UiSourcePreviewFrame(const std::filesystem::path&, std::string_view, int, int,

@@ -484,6 +484,7 @@ for legacy in selected_protocols:
                     denied = readonly.request('tools/call', dict(name=name, arguments={}))
                     assert 'error' in denied or denied['result']['isError'], denied
                 assert 'forge_ui_source_style_profile' in visible
+                assert 'forge_ui_source_image_reference' in visible
                 assert 'forge_ui_source_control_properties' in visible
                 assert 'forge_ui_source_control_values' not in visible
                 denied_properties = readonly.request('tools/call', dict(name='forge_ui_source_control_values', arguments={}))

@@ -189,17 +189,25 @@ edits retain unrelated source, IDs and resource references. See
 
 ## Set an image source, crop and size
 
+Keep an explicit `<head></head>` before `<body>` in the RML document, even when no stylesheet is needed. The native UI loader uses the header to establish relative resource paths. If Preview reports **UI resource has no admitted document origin**, add the header and refresh Preview.
+
 1. Create an **Image** child, select it in **Elements**, and expand **Control properties**.
-2. Enter **Image source (document relative)**, such as `Badge.tga` for a file beside the RML document. Use the existing import and resource refresh controls to make that image available.
+2. Under **Image source (document relative)**, use **Project image** to search registered project PNG, JPEG or TGA sources, or drag a compatible image from **Content** onto that picker. You can also type a reference such as `Badge.tga` for a file beside the RML document. Import/register the source and refresh Content if it is absent from the picker.
 3. Leave **Sprite name (takes precedence)** empty for an ordinary image. To use a named sprite from an authored stylesheet, enter that name instead. Clear the sprite override to return to the source image.
 4. Optionally enter **Crop rectangle (x y width height)**: four space-separated finite texture-pixel numbers, such as `0 0 32 16`. Crop width and height must be within `0.000001..1000000`; each coordinate's magnitude is at most `1000000`. Crop edges must stay distinct at native float precision; increase a very small crop at a large coordinate if needed. Empty or Reset removes cropping; a named sprite supplies its own crop.
 5. Set positive **Width attribute** or **Height attribute** values to request native sizing. One positive value keeps the image/crop aspect ratio; two positive values set both dimensions. `0` leaves that attribute out of the size request. **Reset property** removes the attribute entirely.
 6. Choose **Apply properties** for one source Undo step, then **Save source**. Refresh the registered document and check **Preview** or **Game** before export.
 
+![A registered project image staged in the source inspector before Apply](../images/ui-source-image-resource.png)
+
+The chosen source stays staged until **Apply properties**.
+
 ![UI Source image properties with staged source, crop and size attributes](../images/ui-source-image-properties.png)
 
-Absent image dimensions show an unavailable intrinsic-size reason. The panel does
-not load the texture or guess its dimensions; a new dimension entry starts at `0`
+**Project image** stages a document-relative path after checking the current image file. It does not register, copy or save the resource. Embedded model textures and engine assets are excluded. **None / Clear** stages removal of `src`; use **Apply properties** to publish it. A nonempty sprite keeps its precedence, including after choosing an image.
+
+Absent image dimensions show an unavailable intrinsic-size reason. Dimension controls do
+not infer sizing attributes from the chosen image; a new dimension entry starts at `0`
 as an editing proposal. Another positive size attribute can still determine the
 other dimension through the native aspect ratio. Attribute numbers use native float precision: `0` or `0.000001..1000000`. CSS width/height can override these attributes, and display density
 can scale native dimensions. Source values are separate from the displayed size.

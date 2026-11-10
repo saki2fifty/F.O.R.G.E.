@@ -77,6 +77,8 @@ height at least `0.000001`. Dimension metadata includes `minimum_positive`; zero
 omits the request, and positive values must meet that minimum. The existing
 style/profile tools also expose `image-color` tint.
 
+Use `forge_ui_source_image_reference` with the current source guards and a registered project image UUID to obtain its document-relative `reference`, `source` and decoded image `details`. This read-only query accepts standalone PNG, JPEG and TGA sources. Apply the returned reference through `forge_ui_source_control_values` with `values: {"src": reference}`, then Save source. A nonempty sprite continues to take precedence. Missing, ambiguous, unsupported and embedded resources are rejected.
+
 `forge_ui_source_style_profile` reads the current source controls' literal helper
 metadata for one CSS property: presets, numeric units/ranges and the Common menu.
 Use the existing style, group-style and rule-property tools to apply its chosen

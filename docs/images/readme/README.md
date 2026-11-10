@@ -3544,3 +3544,24 @@ Refreshed `ui-source-box-drag.png`: `7b6477a05e374bae087d15052610ab5b59a5586d5b4
 Refreshed `ui-source-box-selection.png`: `42a3885f5e385100ffa3121da6a48fde094f953cc76003349e9988ea2e34785e`.
 
 Refreshed `ui-source-keyboard-duplicate.png`: `194ab49eeaf8a2366b2d28c42c3c228db7e8f242dafd0aae38994674d9958702`.
+
+
+## UI source project-image selection captures
+
+The image-resource capture shows a project source selected through the existing
+Content asset picker, staged before Apply properties. The image-properties and
+image-tint figures are refreshed for the same inspector. These unretouched700x950
+component captures come from the native SDL software source-editor fixture using
+actual input at1180/700/400 widths. They demonstrate staging and controls, not
+full Main, runtime output or Windows/physical acceptance. Earlier capture records
+retain their original provenance; unchanged figures keep their accepted hashes.
+
+The separate native softwareVulkan fixture verifies selected-file RGBA pixels at
+1180/700, one-step Undo/Redo and explicit Save. Its raw previews remain validation
+evidence. A document without a head element is rejected by the native resource-origin
+boundary; explicit empty head recovery is tested. No capture was retouched.
+Capture source is development based one9ca6d4 with image-reference authoring.
+
+- manual/images/ui-source-image-resource.png: `927c762946d8d3359b907f2d02814c3e5c3cf541a3163f01013167e3339311f0`.
+- manual/images/ui-source-image-properties.png: `8da3a6cfbc978f9d25dea3678f957b24dff67852414d0ca76d84a19b3eb950cb`.
+- manual/images/ui-source-image-tint.png: `3cc7e5ad38696d39cc18271fd9b8ca4351f125329bbb210793145f96f76b3fd1`.

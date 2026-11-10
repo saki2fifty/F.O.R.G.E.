@@ -1,5 +1,14 @@
 # 2026-11-10
 
+## UI image resource selection
+
+UI source image properties reuse the Content asset picker and drop payload to
+stage a validated document-relative source reference. Apply, Undo, Clear and
+Save retain the existing source owner. A read-only guarded MCP query resolves
+the same standalone PNG/JPEG/TGA resources for the existing property mutation.
+Typed references and sprite precedence remain available. Resource loading preserves
+the first useful path-origin diagnostic when a document lacks its native header.
+
 ## UI Preview image navigation
 
 Preview adds fit, actual-pixel viewing, bounded image zoom and native canvas

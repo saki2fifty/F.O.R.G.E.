@@ -2747,7 +2747,7 @@ reads no computed state and changes no selection/history/source/registration.
 
 The same immutable metadata powers inline/group and stylesheet literal controls.
 Native source candidates and old mutation/query results are unchanged. Including
-this query and native-preview placement, there are40source operations. Style/preset staging
+this query and native-preview placement, there are41source operations. Style/preset staging
 publishes only through the original Set/Remove/Undo/Save and guarded MCP owners.
 
 Source control metadata includes an image profile: src/sprite/rect strings and
@@ -2790,7 +2790,7 @@ Pixel setup refuses breaks/options, requires ID and rejects bound ancestors.
 It does not initialize a renderer, register assets, create a persistent identity
 or bypass native Preview eligibility. The selected new root, one Undo, explicit
 Save, grants/revisions/replay and Scene isolation retain existing owners. There
-are40 source operations/18creation kinds; the existing layout schema remains
+are41 source operations/18creation kinds; the existing layout schema remains
 unchanged. No separate creation path is maintained for MCP clients.
 
 ## Native-preview control placement
@@ -2862,7 +2862,7 @@ Both tools require assets.write, the ordinary mutation envelope and existing
 source-task/gesture locks. Receipt replay returns its original result without
 reapplying selection. They use the same source selection owner as Elements and
 Preview and leave source revision/digest/dirty/Undo/Save/catalog/Scene unchanged.
-There are40source operations. No runtime widget input or persisted selection is
+There are41source operations. No runtime widget input or persisted selection is
 introduced; selected elements still need each authoring operation's admission.
 
 
@@ -2883,5 +2883,23 @@ Fit/1:1/manual image zoom and child scrolling are local presentation controls.
 `ui.source.preview` still reports native viewport pixels; source layout/transform,
 placement and selection use those same coordinates and observations. Image capture
 still exports the full native image independently of the editor crop. There is
-no additional authored behavior requiring a new MCP binding; existing40source
+no additional authored behavior requiring a new MCP binding; existing41source
 operations retain their schemas, grants, revision/replay/history and source owners.
+
+
+## Source image resource references
+
+`ui.source.image_reference` / `forge_ui_source_image_reference` requires
+`assets.read`, current path/session/revision/state guards and `asset` UUID.
+It returns `asset`, project-relative `source`, document-relative `reference`,
+and `details` from the existing UiResources image admission. PNG, JPEG and
+TGA standalone project texture sources are supported. Current file bytes are
+re-admitted; missing/foreign, ambiguous source identities, embedded model members,
+wrong types and invalid bytes fail without changing draft, selection, history,
+disk or catalog. No native renderer or gameplay context is initialized.
+
+The native Project image picker/Content drop and this query share the catalog
+reference helper. Use the returned literal with the existing guarded
+`ui.source.control_values` src patch for one source Undo step; Save stays explicit.
+Sprite precedence and manual literal references remain unchanged. There are41
+source operations; no new mutation owner, serialized identity or resource format.

@@ -137,6 +137,66 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
             "Capture did not select an editable native panel without changing source");
     require(test::ui_targets.at("ui-source:preview-save-image").enabled,
             "Native preview image save is unavailable");
+    const auto image_resource_workflow = [&] {
+        std::string image_source(21, '\0');
+        image_source[2] = 2;
+        image_source[12] = image_source[14] = 1;
+        image_source[16] = 24;
+        image_source[17] = 32;
+        image_source[18] = char(180);
+        image_source[19] = 40;
+        image_source[20] = char(240);
+        const auto image_path = std::filesystem::path("Assets/UI/Layout/Resource image.tga");
+        asset_storage::replace(root / image_path, image_source);
+        const auto image = register_ui_source(*project.writer_guard(), image_path);
+        const auto catalog = std::make_shared<AssetCatalog>(AssetCatalog::open_project(root));
+        const auto catalog_bytes = asset_storage::read(root / "forge.assets.json");
+        editor.resource_catalog = [catalog] { return catalog; };
+        editor.replace_text(
+            "<rml><head></head><body style=\"display:block;width:100%;height:100%;\">"
+            "<img id=\"resource-image\" style=\"position:absolute;left:20px;top:30px;"
+            "width:80px;height:60px;\"/></body></rml>");
+        input.click("ui-source:elements-tab");
+        input.click("ui-source:element:3");
+        const auto before_resource = editor.state();
+        input.click("asset-picker:texture:Project image");
+        input.select(("picker-option:" + image.id.str()).c_str());
+        require(editor.state() == before_resource, "Native resource selection wrote before Apply");
+        input.click("ui-source:control-apply");
+        const auto with_resource = editor.state();
+        input.click("ui-source:preview-tab");
+        frame();
+        const auto resource_pixels = test::readback(device, graphics, native_image.get());
+        if (resource_pixels.at(50 * 1000 + 40) != std::array<unsigned char, 4>{240, 40, 180, 255}) {
+            surface.save(output / ("ui-image-resource-refusal-" + std::to_string(width) + ".png"));
+            throw std::runtime_error(
+                "Native image resource pixels: " +
+                Json{{"pixel", resource_pixels.at(50 * 1000 + 40)},
+                     {"source", editor.state()},
+                     {"preview", editor.preview_state(project, 1000, 700, 1, false)}}
+                    .dump());
+        }
+        require(resource_pixels.at(50 * 1000 + 40) ==
+                    std::array<unsigned char, 4>{240, 40, 180, 255},
+                "Selected project image did not render its decoded native pixels");
+        surface.save(output / ("ui-source-image-preview-" + std::to_string(width) + ".png"));
+        input.click("button:Undo");
+        require(editor.state().at("text") == before_resource.at("text"),
+                "Native image assignment needed multiple Undo steps");
+        input.click("button:Redo");
+        require(editor.state().at("text") == with_resource.at("text"),
+                "Native image assignment Redo changed source");
+        editor.save(project);
+        require(!editor.dirty() && scene.snapshot() == authored &&
+                    asset_storage::read(root / "forge.assets.json") == catalog_bytes,
+                "Native image Save changed Scene or catalog ownership");
+        editor.discard();
+        require(!presenter && !editor.is_open(), "Capture retained its source presentation owner");
+    };
+    if (server_mode == "--image-resources-only") {
+        image_resource_workflow();
+        return;
+    }
     if (!server_mode.empty()) {
         CaptureAutomationProviders providers;
         providers.source_image = image_input;
@@ -976,14 +1036,14 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
     editor.save(project);
     require(!editor.dirty() && scene.snapshot() == authored,
             "Preview placement Save changed Scene state");
-    editor.discard();
-    require(!presenter && !editor.is_open(), "Capture retained its source presentation owner");
+    image_resource_workflow();
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
         require(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--mcp" ||
-                                            std::string_view(argv[4]) == "--mcp-read")),
+                                            std::string_view(argv[4]) == "--mcp-read" ||
+                                            std::string_view(argv[4]) == "--image-resources-only")),
                 "Need output directory, font, Gallery and optional MCP mode");
         const auto output = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(output);
@@ -995,11 +1055,11 @@ int main(int argc, char** argv) {
         factory->CreateDeviceAndContextsVk(info, &device, &graphics);
         require(device && graphics, "Offscreen Vulkan device unavailable");
         const auto font = forge::asset_detail::read_bytes(argv[2], 4 * 1024 * 1024);
-        if (argc == 5)
+        if (argc == 5 && std::string_view(argv[4]) != "--image-resources-only")
             capture(device, graphics, output, argv[3], font, 700, argv[4]);
         else
             for (const int width : {1180, 700})
-                capture(device, graphics, output, argv[3], font, width);
+                capture(device, graphics, output, argv[3], font, width, argc == 5 ? argv[4] : "");
         graphics->WaitForIdle();
         std::cout << "Native-rendered source canvas component captures at1180/700 passed\n";
         return 0;

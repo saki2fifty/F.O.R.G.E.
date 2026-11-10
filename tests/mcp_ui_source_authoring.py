@@ -11,7 +11,9 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                  'rule_property', 'rule_selector', 'rule_insert', 'rule_remove',
                  'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control', 'control_properties', 'control_values', 'style_profile', 'place_control', 'transform')}
     assert required <= advertised.keys()
-    assert {'forge_ui_source_select', 'forge_ui_source_select_rectangle'} <= advertised.keys()
+    assert sum(name.startswith('forge_ui_source_') for name in advertised) == 41
+    assert {'forge_ui_source_select', 'forge_ui_source_select_rectangle',
+            'forge_ui_source_image_reference'} <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
         ok('forge_source_folder_create', path='Assets')
@@ -362,7 +364,28 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
         assert rows['width']['value'] is None and not rows['width']['available'] and rows['width']['editable']
         assert not rows['width']['authored'] and rows['width']['minimum'] == 0
         assert 0 < rows['width']['minimum_positive'] <= 0.000001
-        patch = dict(src='badge.tga', sprite='', rect='0 0 2 1', width=32.5)
+        image_path = "Assets/Badge & 'résumé'.tga"
+        tga = bytearray(21)
+        tga[2], tga[12], tga[14], tga[16], tga[17] = 2, 1, 1, 24, 32
+        (root/'Game'/image_path).write_bytes(tga)
+        resource = ok('forge_source_ui_register', path=image_path)
+        before_query = read('forge_ui_source_read')
+        before_catalog = (root/'Game/forge.assets.json').read_bytes()
+        image_reference = read('forge_ui_source_image_reference', **guard(), asset=resource['asset'])
+        assert image_reference['reference'] == "Badge & 'résumé'.tga"
+        assert image_reference['source'] == image_path and image_reference['details']['width'] == 1
+        assert advertised['forge_ui_source_image_reference']['annotations']['readOnlyHint']
+        failed(client.tool('forge_ui_source_image_reference', target=current_target,
+                           **before_properties, asset=resource['asset']), 'stale_ui_source')
+        failed(client.tool('forge_ui_source_image_reference', target=current_target,
+                           **guard(), asset='00000000-0000-4000-8000-000000000001'), 'ui_image_reference')
+        (root/'Game'/image_path).write_bytes(b'not an image')
+        failed(client.tool('forge_ui_source_image_reference', target=current_target,
+                           **guard(), asset=resource['asset']), 'ui_image_reference')
+        (root/'Game'/image_path).write_bytes(tga)
+        assert read('forge_ui_source_read') == before_query
+        assert (root/'Game/forge.assets.json').read_bytes() == before_catalog
+        patch = dict(src=image_reference['reference'], sprite='', rect='0 0 2 1', width=32.5)
         applied = edit('control_values', element=selected, values=patch)
         for invalid in [dict(src='other.tga', height=16, rect='0 0 0 1'), dict(rect='1000000 0 0.000001 1'), dict(width=-1), dict(height=1e-45), dict(height='2')]:
             assert not mutate('forge_ui_source_control_values', **guard(), element=selected, values=invalid)['ok']

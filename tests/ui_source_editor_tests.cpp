@@ -47,6 +47,10 @@ void exercise(const std::filesystem::path& output, int width,
     ui::EditorUiContext context;
     ui::ContextScope scope(context);
     ui::UiSourceEditor editor;
+    std::shared_ptr<const AssetCatalog> resource_catalog;
+    editor.resource_catalog = [&] { return resource_catalog; };
+    bool show_content = false;
+    AssetId dragged_image;
     ui::style(1);
     auto& io = ImGui::GetIO();
     io.ConfigInputTrickleEventQueue = false;
@@ -60,6 +64,20 @@ void exercise(const std::filesystem::path& output, int width,
         ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
         ImGui::SetNextWindowSize({float(width), 950}, ImGuiCond_Always);
         workspace.draw();
+        if (show_content) {
+            ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+            ImGui::SetNextWindowSize({200, 90}, ImGuiCond_Always);
+            ImGui::Begin("Content image fixture");
+            ImGui::Button("Project image source");
+            FORGE_UI_PROBE("test:image-source");
+            if (ImGui::BeginDragDropSource()) {
+                const auto payload = dragged_image.str();
+                ImGui::SetDragDropPayload("FORGE_ASSET", payload.c_str(), payload.size() + 1);
+                ImGui::TextUnformatted("Project image source");
+                ImGui::EndDragDropSource();
+            }
+            ImGui::End();
+        }
         capture.render();
     };
     editor.open(project, "Assets/Hud.rml");
@@ -123,16 +141,84 @@ void exercise(const std::filesystem::path& output, int width,
         return;
     }
     if (mode == SourceControls::ImageProperties) {
+        std::string tga(21, '\0');
+        tga[2] = 2;
+        tga[12] = tga[14] = 1;
+        tga[16] = 24;
+        tga[17] = 32;
+        const auto image_path = std::filesystem::u8path("Assets/Badge & 'résumé'.tga");
+        asset_storage::replace(root / image_path, tga);
+        const auto registered = register_ui_source(*project.writer_guard(), image_path);
+        dragged_image = registered.id;
+        resource_catalog = std::make_shared<AssetCatalog>(AssetCatalog::open_project(root));
+        const auto image_catalog = asset_storage::read(root / "forge.assets.json");
         editor.control(1, "image", "");
         frame();
         input.click("ui-source:elements-tab");
         input.click("ui-source:element:3");
         const auto before = editor.state();
+        input.click("asset-picker:texture:Project image");
+        input.select(("picker-option:" + registered.id.str()).c_str());
+        check(editor.state() == before && asset_storage::read(file) == source,
+              "Image picker wrote source before Apply");
+        frame();
+        capture.save(output / ("ui-source-image-resource-" + std::to_string(width) + ".png"));
+        input.click("ui-source:control-apply");
+        const auto picked = editor.state();
+        check(editor.control_properties(3).properties.at(0).value ==
+                  UiControlPropertyValue(std::string("Badge & 'résumé'.tga")),
+              "Image picker did not stage a document-relative decoded reference");
+        input.click("button:Undo");
+        check(editor.state().at("text") == before.at("text"),
+              "Image picker needed multiple Undo steps");
+        input.click("button:Redo");
+        check(editor.state().at("text") == picked.at("text"),
+              "Image picker Redo changed the reference");
+        input.click("button:Undo");
+        input.click("ui-source:element:3");
+        // Bring the existing picker target into view, then drive the Content UUID payload.
+        input.click("asset-picker:texture:Project image");
+        io.AddKeyEvent(ImGuiKey_Escape, true);
+        frame();
+        io.AddKeyEvent(ImGuiKey_Escape, false);
+        show_content = true;
+        frame();
+        const auto start = test::ui_targets.at("test:image-source");
+        const auto target = test::ui_targets.at("asset-picker:texture:Project image");
+        io.AddMousePosEvent((start.minimum.x + start.maximum.x) / 2,
+                            (start.minimum.y + start.maximum.y) / 2);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMousePosEvent((start.minimum.x + start.maximum.x) / 2 + 20,
+                            (start.minimum.y + start.maximum.y) / 2 + 10);
+        frame();
+        io.AddMousePosEvent((target.minimum.x + target.maximum.x) / 2,
+                            (target.minimum.y + target.maximum.y) / 2);
+        frame();
+        frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
+        show_content = false;
+        check(editor.state().at("text") == before.at("text"),
+              "Image drop wrote source before Apply");
+        input.click("ui-source:control-apply");
+        check(editor.state().at("text") == picked.at("text"),
+              "Image drop differs from picker assignment");
+        input.click("asset-picker:texture:Project image");
+        input.select("asset-clear:texture:Project image");
+        input.click("ui-source:control-apply");
+        check(!editor.control_properties(3).properties.at(0).authored,
+              "Image Clear did not remove the src override");
+        input.click("button:Undo");
+        input.click("button:Undo");
+        input.click("ui-source:element:3");
+        const auto before_properties = editor.state();
         input.type("ui-source:control-property:src", "Badge.tga");
         input.type("ui-source:control-property:rect", "0 0 2 1");
         input.type("ui-source:control-property:width", "32.5");
         input.type("ui-source:control-property:height", "16.25");
-        check(editor.state() == before && asset_storage::read(file) == source,
+        check(editor.state() == before_properties && asset_storage::read(file) == source,
               "Image property staging changed source/history/disk");
         frame();
         capture.save(output / ("ui-source-image-properties-" + std::to_string(width) + ".png"));
@@ -166,7 +252,7 @@ void exercise(const std::filesystem::path& output, int width,
         check(editor.state().at("text") == tinted.at("text"), "Image property/tint Redo differs");
         editor.save(project);
         check(!editor.dirty() && scene.snapshot() == authored && scene.revision() == revision &&
-                  asset_storage::read(root / "forge.assets.json") == catalog,
+                  asset_storage::read(root / "forge.assets.json") == image_catalog,
               "Image source Save changed Scene/catalog ownership");
         editor.request_close();
         return;

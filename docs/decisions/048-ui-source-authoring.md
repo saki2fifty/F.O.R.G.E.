@@ -232,3 +232,11 @@ cannot silently switch drafts; after submission the queued copy owns its pixels
 independently. Source Preview's Save preview image and the capture.ui_source
 operation reuse output grants, file conflicts, encoding, status and bounded PNG
 projection. No second capture owner, source history or gameplay execution is added.
+
+
+Image selection borrows the current immutable Content catalog. The existing asset
+picker/drop filters standalone project UI image sources and stages only `src` in
+the existing control-property map. Catalog/source identity and UiResources own
+reference translation and current image admission; their same read-only helper
+backs the guarded assets.read image-reference query. Apply/Undo/Save and sprite
+precedence remain with their existing owners. Literal editing remains available.

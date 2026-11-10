@@ -1,9 +1,61 @@
 #include "ui_asset_catalog.hpp"
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
+#include "ui_resource_rules.hpp"
 #include <algorithm>
+#include <cctype>
+#include <forge/texture_asset.hpp>
 #include <set>
 namespace forge {
+namespace {
+const AssetRecord* source_record(const std::map<AssetId, AssetRecord>& records,
+                                 const ProjectPaths& paths, const std::filesystem::path& source,
+                                 const std::string& type) {
+    const AssetRecord* result = nullptr;
+    for (const auto& [id, record] : records) {
+        if (record.subasset || !paths.same_locator(record.source, source))
+            continue;
+        if (result)
+            throw std::runtime_error("UI source has ambiguous catalog identities");
+        if (record.type != type)
+            throw std::runtime_error("UI source is already registered as another asset type");
+        result = &record;
+    }
+    return result;
+}
+} // namespace
+bool ui_image_source_candidate(const AssetRecord& record) {
+    auto extension = record.source.extension().string();
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+                   [](unsigned char c) { return char(std::tolower(c)); });
+    return record.type == TextureAsset::type && !record.subasset &&
+           ui_resource_detail::image_extension(extension);
+}
+nlohmann::json ui_image_reference(const AssetCatalog& catalog,
+                                  const std::filesystem::path& document, AssetId asset) {
+    const auto found = catalog.records().find(asset);
+    if (found == catalog.records().end() || !ui_image_source_candidate(found->second))
+        throw std::runtime_error("Choose a registered standalone project image source");
+    const auto resolved = catalog.resolve(asset, TextureAsset::type);
+    if (resolved.state != AssetState::Available)
+        throw std::runtime_error("The selected project image is unavailable");
+    const auto source = ProjectPaths::normalize(found->second.source);
+    const auto base = ProjectPaths::normalize(document);
+    const ProjectPaths paths(catalog.project_root());
+    if (const auto* unique = source_record(catalog.records(), paths, source, TextureAsset::type);
+        !unique || unique->id != asset)
+        throw std::runtime_error("UI image source has no unique project identity");
+    const auto reference = path_utf8(source.lexically_relative(base.parent_path()));
+    if (ui_resource_detail::join(path_utf8(base), reference) != path_utf8(source))
+        throw std::runtime_error("Image source has no contained document-relative reference");
+    UiResources admitted(catalog.project_root());
+    (void)admitted.read(path_utf8(source));
+    const auto info = admitted.snapshot().sources.at(0);
+    return {{"asset", asset},
+            {"source", path_utf8(source)},
+            {"reference", reference},
+            {"details", info.details}};
+}
 AssetCatalog prepare_ui_asset_catalog(AssetCatalog catalog, const std::filesystem::path& root,
                                       const UiAssetSnapshot& observed) {
     const ProjectPaths paths(root);
@@ -34,17 +86,12 @@ AssetCatalog prepare_ui_asset_catalog(AssetCatalog catalog, const std::filesyste
     auto records = catalog.records();
     std::map<std::filesystem::path, AssetId, ProjectLocatorLess> identities;
     for (const auto& source : current.sources) {
-        AssetRecord record{AssetId::generate(), source.type, source.source, 1, {}};
-        for (const auto& [id, existing] : records) {
-            if (existing.subasset || !paths.same_locator(existing.source, source.source))
-                continue;
-            if (identities.contains(source.source))
-                throw std::runtime_error("UI source has ambiguous catalog identities");
-            if (existing.type != source.type)
-                throw std::runtime_error("UI source is already registered as another asset type");
-            record = existing;
-            identities.emplace(source.source, id);
-        }
+        AssetRecord record;
+        record.id = AssetId::generate();
+        record.type = source.type;
+        record.source = source.source;
+        if (const auto* existing = source_record(records, paths, source.source, source.type))
+            record = *existing;
         identities[source.source] = record.id;
         // Preserve other importers' metadata and selection. Native RmlUi still
         // reads its supported source image, not an incompatible cooked texture.
