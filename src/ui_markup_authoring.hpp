@@ -102,7 +102,7 @@ struct UiMarkupLayoutBox {
     UiMarkupLayoutEdit source;
     UiPixelLayout bounds; // Borrowed native border box in the common preview coordinates.
 };
-inline constexpr std::array<std::pair<std::string_view, std::string_view>, 12>
+inline constexpr std::array<std::pair<std::string_view, std::string_view>, 13>
     ui_layout_group_actions{{{"move", "Move group"},
                              {"align_left", "Align left"},
                              {"align_horizontal_center", "Align horizontal centers"},
@@ -114,11 +114,12 @@ inline constexpr std::array<std::pair<std::string_view, std::string_view>, 12>
                              {"distribute_vertical", "Distribute vertical gaps"},
                              {"match_width", "Match active width"},
                              {"match_height", "Match active height"},
-                             {"match_size", "Match active size"}}};
+                             {"match_size", "Match active size"},
+                             {"snap_grid", "Snap positions to grid"}}};
 // The document owner supplies admitted same-parent source/native observations.
 std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMarkupLayoutBox>,
                                                           std::string_view action, float dx = 0,
-                                                          float dy = 0);
+                                                          float dy = 0, float grid = 8);
 // Bounded plain inline absolute-pixel subset. Native preview eligibility is an
 // additional guard supplied by the document owner, never inferred from source.
 UiPixelLayout read_ui_markup_layout(std::string_view, std::size_t element);

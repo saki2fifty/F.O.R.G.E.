@@ -15,6 +15,7 @@
 #include <map>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 namespace forge::ui {
 struct UiSourcePreviewFrame {
@@ -53,14 +54,24 @@ class UiSourceEditor {
     bool child_pixel_layout_ = false, place_controls_ = false;
     struct ControlPlacement {
         std::size_t parent;
-        std::string kind, text, id, session, instance;
-        std::uint64_t source_revision, preview_revision;
+        std::string kind, text, id;
         UiPixelLayout viewport;
     };
-    std::optional<ControlPlacement> pending_placement_;
+    struct PreviewEdit {
+        std::string session, instance;
+        std::uint64_t source_revision, preview_revision;
+        std::variant<ControlPlacement, std::vector<UiMarkupLayoutEdit>> action;
+    };
+    std::optional<PreviewEdit> pending_preview_edit_;
     void cancel_placement() {
         place_controls_ = false;
-        pending_placement_.reset();
+        if (pending_preview_edit_ &&
+            std::holds_alternative<ControlPlacement>(pending_preview_edit_->action))
+            pending_preview_edit_.reset();
+    }
+    void cancel_preview_edit() {
+        cancel_placement();
+        pending_preview_edit_.reset();
     }
     std::array<float, 4> child_pixels_{0, 0, 160, 40};
     UiMarkupControlProperties control_property_view_;
@@ -75,6 +86,7 @@ class UiSourceEditor {
     std::size_t layout_controls_element_ = UiMarkupElement::no_parent;
     int group_action_ = 1;
     std::array<float, 2> group_offsets_{};
+    float grid_spacing_ = 8;
     struct LayoutGesture {
         std::string source, session;
         std::uint64_t revision;
@@ -89,7 +101,7 @@ class UiSourceEditor {
 
     void changed() {
         gesture_.reset();
-        cancel_placement();
+        cancel_preview_edit();
         outline_drag_active_ = false;
         const auto text = editor_.GetText();
         dirty_ = text != saved_;
@@ -120,7 +132,7 @@ class UiSourceEditor {
     }
     void finish_close() {
         gesture_.reset();
-        cancel_placement();
+        cancel_preview_edit();
         outline_drag_active_ = elements_active_ = false;
         ++drag_epoch_;
         preview_frame_ = {};
@@ -934,21 +946,36 @@ class UiSourceEditor {
         }
         return result;
     }
+    void grid_field() {
+        ImGui::InputFloat("Grid (px)", &grid_spacing_);
+        FORGE_UI_PROBE("ui-source:grid-spacing");
+    }
     void preview_controls(SceneDocument& project, bool locked) {
-        if (locked || ImGui::GetIO().AppFocusLost || ImGui::IsKeyPressed(ImGuiKey_Escape, false))
-            cancel_placement();
-        if (pending_placement_) {
-            auto request = std::move(*pending_placement_);
-            pending_placement_.reset();
+        if (locked || ImGui::GetIO().AppFocusLost || ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
+            (pending_preview_edit_ &&
+             !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)))
+            cancel_preview_edit();
+        if (pending_preview_edit_) {
+            auto request = std::move(*pending_preview_edit_);
+            pending_preview_edit_.reset();
             if (request.session == session_ && request.source_revision == revision_)
                 attempt([&] {
-                    place_control(request.parent, request.kind, request.text, request.id,
-                                  request.viewport, request.instance, request.preview_revision);
-                    child_id_[0] = 0;
-                    cancel_placement();
+                    std::visit(
+                        [&](const auto& action) {
+                            if constexpr (std::is_same_v<std::decay_t<decltype(action)>,
+                                                         ControlPlacement>) {
+                                place_control(action.parent, action.kind, action.text, action.id,
+                                              action.viewport, request.instance,
+                                              request.preview_revision);
+                                child_id_[0] = 0;
+                            } else
+                                layouts(action, request.instance, request.preview_revision);
+                        },
+                        request.action);
+                    cancel_preview_edit();
                 });
             else
-                cancel_placement();
+                cancel_preview_edit();
         }
         if (locked) {
             gesture_.reset();
@@ -1031,7 +1058,7 @@ class UiSourceEditor {
                 ImGui::TextWrapped(
                     "Select an editable absolute-pixel container to place controls in Preview.");
         }
-        ImGui::BeginChild("ui-source-preview-properties", {0, selected_.size() > 1 ? 200.f : 116.f},
+        ImGui::BeginChild("ui-source-preview-properties", {0, selected_.size() > 1 ? 200.f : 176.f},
                           ImGuiChildFlags_Borders);
         const auto* selected = preview_element(selected_element());
         if (selected_.size() > 1 && preview_current()) {
@@ -1053,6 +1080,8 @@ class UiSourceEditor {
                 ImGui::InputFloat2("Delta X / Y (px)", group_offsets_.data());
                 FORGE_UI_PROBE("ui-source:group-offsets");
             }
+            if (key == "snap_grid")
+                grid_field();
             if (key.starts_with("match_") && selected)
                 ImGui::Text("Reference: %s (last selected)",
                             selected->at("id").get_ref<const std::string&>().c_str());
@@ -1064,7 +1093,8 @@ class UiSourceEditor {
                     arrange(indices, key, key == "move" ? group_offsets_[0] : 0,
                             key == "move" ? group_offsets_[1] : 0,
                             preview_frame_.state.at("instance").get<std::string>(),
-                            preview_frame_.state.at("revision").get<std::uint64_t>());
+                            preview_frame_.state.at("revision").get<std::uint64_t>(),
+                            key == "snap_grid" ? grid_spacing_ : 8);
                 });
             FORGE_UI_PROBE("ui-source:group-apply");
             ImGui::EndDisabled();
@@ -1104,6 +1134,17 @@ class UiSourceEditor {
                                preview_frame_.state.at("revision").get<std::uint64_t>());
                     });
                 FORGE_UI_PROBE("ui-source:layout-apply");
+                grid_field();
+                if (button("Snap positions to grid",
+                           "Align the visible border corner without changing size."))
+                    attempt([&] {
+                        const auto indices = selected_;
+                        arrange(indices, "snap_grid", 0, 0,
+                                preview_frame_.state.at("instance").get<std::string>(),
+                                preview_frame_.state.at("revision").get<std::uint64_t>(),
+                                grid_spacing_);
+                    });
+                FORGE_UI_PROBE("ui-source:grid-apply");
                 ImGui::EndDisabled();
             } else
                 ImGui::TextWrapped("%s", selected->at("reason").get<std::string>().c_str());
@@ -1198,8 +1239,35 @@ class UiSourceEditor {
                                 : std::max(.05f, std::min({1.f, available.x / width,
                                                            std::max(120.f, available.y) / height}));
         const ImVec2 origin = ImGui::GetCursorScreenPos(), size{width * scale, height * scale};
-        ImGui::InvisibleButton("ui-source-canvas", size, ImGuiButtonFlags_MouseButtonLeft);
+        ImGui::InvisibleButton("ui-source-canvas", size,
+                               ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_EnableNav);
         FORGE_UI_PROBE("ui-source:canvas");
+        if (!locked && !gesture_active() && !place_controls_ && preview_current() && frame.image &&
+            !selected_.empty() && ImGui::IsItemFocused() && !ImGui::IsAnyItemActive() &&
+            !ImGui::GetIO().WantTextInput &&
+            ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
+            const auto step = [](ImGuiKey key) {
+                const bool pressed = ImGui::Shortcut(key);
+                const bool shifted = ImGui::Shortcut(ImGuiMod_Shift | key);
+                return shifted ? 10.f : pressed ? 1.f : 0.f;
+            };
+            const float dx = step(ImGuiKey_RightArrow) - step(ImGuiKey_LeftArrow),
+                        dy = step(ImGuiKey_DownArrow) - step(ImGuiKey_UpArrow);
+            if (dx != 0 || dy != 0)
+                attempt([&] {
+                    std::vector<UiMarkupLayoutEdit> changes;
+                    for (const auto& box : layout_boxes(selected_)) {
+                        auto change = box.source;
+                        change.pixels.left += dx;
+                        change.pixels.top += dy;
+                        changes.push_back(change);
+                    }
+                    pending_preview_edit_ = PreviewEdit{
+                        session_, preview_frame_.state.at("instance").get<std::string>(), revision_,
+                        preview_frame_.state.at("revision").get<std::uint64_t>(),
+                        std::move(changes)};
+                });
+        }
         auto* draw = ImGui::GetWindowDrawList();
         const ImVec2 end{origin.x + size.x, origin.y + size.y};
         if (frame.image)
@@ -1218,17 +1286,15 @@ class UiSourceEditor {
                 error_ = "Enter a unique Element ID before placing the control";
             else if (selected_.size() == 1) {
                 const auto& kind = ui_markup_control_kinds[child_kind_];
-                pending_placement_ =
+                pending_preview_edit_ = PreviewEdit{
+                    session_, preview_frame_.state.at("instance").get<std::string>(), revision_,
+                    preview_frame_.state.at("revision").get<std::uint64_t>(),
                     ControlPlacement{selected_element(),
                                      std::string(kind.id),
                                      kind.accepts_text() ? child_text_ : "",
                                      child_id_,
-                                     session_,
-                                     preview_frame_.state.at("instance").get<std::string>(),
-                                     revision_,
-                                     preview_frame_.state.at("revision").get<std::uint64_t>(),
                                      {(mouse.x - origin.x) / scale, (mouse.y - origin.y) / scale,
-                                      child_pixels_[2], child_pixels_[3]}};
+                                      child_pixels_[2], child_pixels_[3]}}};
             }
             return; // Apply next frame, before queuing any preview image for drawing.
         }
@@ -1690,16 +1756,18 @@ class UiSourceEditor {
         layouts(changes, instance, preview_revision);
     }
     void layouts(std::span<const UiMarkupLayoutEdit> changes, const std::string& instance,
-                 std::uint64_t preview_revision, std::optional<float> border_width = {},
-                 std::optional<float> border_height = {}) {
+                 std::uint64_t preview_revision,
+                 std::span<const UiPixelLayout> expected_bounds = {}) {
         if (changes.empty() || changes.size() > ui_source_selection_limit)
             throw AuthoringError("layout_selection", "Choose1..32 elements for a layout edit");
+        if (!expected_bounds.empty() && expected_bounds.size() != changes.size())
+            throw AuthoringError("layout_selection", "Every layout target needs native bounds");
         reborrow_preview_observation(instance, preview_revision);
         std::vector<std::size_t> indices;
         indices.reserve(changes.size());
         for (const auto& change : changes)
             indices.push_back(change.element);
-        const auto before = layout_boxes(indices);
+        layout_boxes(indices);
         const auto candidate = set_ui_markup_layouts(editor_.GetText(), changes);
         try {
             preview_frame_ = request_preview(candidate, inspect_ui_markup(candidate), false);
@@ -1717,17 +1785,16 @@ class UiSourceEditor {
                                      element ? element->at("reason").get<std::string>()
                                              : "Candidate has no editable preview geometry");
             }
-            if (border_width || border_height) {
+            if (!expected_bounds.empty()) {
                 const auto& bounds = element->at("bounds");
-                if ((border_width && std::abs(bounds.at(2).get<float>() - *border_width) > .01f) ||
-                    (border_height &&
-                     std::abs(bounds.at(3).get<float>() - *border_height) > .01f) ||
-                    std::abs(bounds.at(0).get<float>() - before[i].bounds.left) > .01f ||
-                    std::abs(bounds.at(1).get<float>() - before[i].bounds.top) > .01f) {
+                const auto& expected = expected_bounds[i];
+                if (std::abs(bounds.at(0).get<float>() - expected.left) > .01f ||
+                    std::abs(bounds.at(1).get<float>() - expected.top) > .01f ||
+                    std::abs(bounds.at(2).get<float>() - expected.width) > .01f ||
+                    std::abs(bounds.at(3).get<float>() - expected.height) > .01f) {
                     preview_frame_.state["stale"] = true;
                     throw AuthoringError("layout_unsupported",
-                                         "Native layout does not match the requested group size "
-                                         "and unchanged positions");
+                                         "Native layout does not match the requested rectangles");
                 }
             }
         }
@@ -1735,17 +1802,30 @@ class UiSourceEditor {
         select_layouts(changes);
     }
     void arrange(std::span<const std::size_t> indices, std::string_view action, float dx, float dy,
-                 const std::string& instance, std::uint64_t preview_revision) {
+                 const std::string& instance, std::uint64_t preview_revision, float grid = 8) {
         check_preview_observation(instance, preview_revision);
-        if (indices.size() < 2 || indices.size() > ui_source_selection_limit)
-            throw AuthoringError("layout_selection", "Choose2..32 elements for group layout");
+        if (indices.size() < (action == "snap_grid" ? 1u : 2u) ||
+            indices.size() > ui_source_selection_limit)
+            throw AuthoringError("layout_selection",
+                                 "Choose2..32 group elements, or1..32 for grid alignment");
         const auto boxes = layout_boxes(indices);
-        const bool matching = action.starts_with("match_");
-        layouts(arrange_ui_markup_layouts(boxes, action, dx, dy), instance, preview_revision,
-                matching && action != "match_height" ? std::optional(boxes.back().bounds.width)
-                                                     : std::nullopt,
-                matching && action != "match_width" ? std::optional(boxes.back().bounds.height)
-                                                    : std::nullopt);
+        const auto changes = arrange_ui_markup_layouts(boxes, action, dx, dy, grid);
+        std::vector<UiPixelLayout> expected;
+        if (action.starts_with("match_") || action == "snap_grid")
+            for (const auto& box : boxes) {
+                auto bounds = box.bounds;
+                if (action == "snap_grid") {
+                    bounds.left = float(std::round(double(bounds.left) / grid) * grid);
+                    bounds.top = float(std::round(double(bounds.top) / grid) * grid);
+                } else {
+                    if (action != "match_height")
+                        bounds.width = boxes.back().bounds.width;
+                    if (action != "match_width")
+                        bounds.height = boxes.back().bounds.height;
+                }
+                expected.push_back(bounds);
+            }
+        layouts(changes, instance, preview_revision, expected);
     }
     void open(SceneDocument& project, const std::string& locator) {
         project.check_ownership();
@@ -2017,7 +2097,7 @@ class UiSourceEditor {
     }
     void request_close() {
         gesture_.reset();
-        cancel_placement();
+        cancel_preview_edit();
         queued_.reset();
         if (dirty_)
             close_ = true;
@@ -2055,7 +2135,7 @@ class UiSourceEditor {
         locked = locked || root_ != project.project();
         if (locked) {
             gesture_.reset();
-            cancel_placement();
+            cancel_preview_edit();
         }
         editor_.SetReadOnly(locked);
         if (focus_) {
@@ -2113,7 +2193,7 @@ class UiSourceEditor {
                 FORGE_UI_PROBE("ui-source:source-tab");
                 if (source_tab) {
                     gesture_.reset();
-                    cancel_placement();
+                    cancel_preview_edit();
                     editor_.Render("ui-source-text", ImGui::GetContentRegionAvail());
                     if (editor_.IsTextChanged())
                         changed();
@@ -2125,7 +2205,7 @@ class UiSourceEditor {
                 if (elements_tab) {
                     elements_visible = !stylesheet;
                     gesture_.reset();
-                    cancel_placement();
+                    cancel_preview_edit();
                     if (stylesheet)
                         rule_controls(locked);
                     else

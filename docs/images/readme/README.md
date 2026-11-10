@@ -3336,10 +3336,10 @@ The existing25Source component images remain byte-identical. Exact input/executa
 and raw capture digests are in the local preview-placement evidence owner.
 No full Main, Windows, physical GPU/input or display-density acceptance is implied.
 
-- `ui-source-preview.png`: `df2abbea12fd366e329ba4c5a2475e543eb3ae68786e7c79567a44e0ce06d3e7`.
+- `ui-source-preview.png`: `d1f727428c820f025fb69479f327bfb2fab8168d959bd1b75eb929d2e662e160`.
 - `ui-source-group-layout.png`: `7d60d6740ebac675776186a554c874d043bc5ccf16ebcc7814b407505104a88f`.
-- `ui-source-place-control.png`: `e9e5f527f5575590db579ddd25044513042a1cad1b0126f3c86d74a568582bc2`.
-- `ui-source-placed-control.png`: `eee065c6a04f6ca36457d1491b13ed928059eee4d5156081ee16491bf76b1ff6`.
+- `ui-source-place-control.png`: `5fc7beb06a91341c44189b2022f6cbbba492e6bd0026330216112d89366b1508`.
+- `ui-source-placed-control.png`: `d191023cccb00a08c5b21c2c0969ccf54fc47b70556ede2481f7d786ac751524`.
 
 ## Native Preview group sizing capture
 
@@ -3358,3 +3358,30 @@ protocols. Input/executable/raw image digests belong to the local group-sizing
 evidence owner. No full Main/Windows/physical-device acceptance is implied.
 
 PNG SHA256: `2cb2153a45b496bb8366910dcec7e4c9dd260b3cfe3912cdca503923c228d70c`.
+
+## Precise UI canvas positioning captures
+
+The grid and keyboard images are unretouched700×950 outputs of the production
+SourceEditor with actual native software-Vulkan rendering and SDL composition.
+Grid uses eight physical pixels from the viewport origin. The keyboard image
+shows the blue panel at Left61 after one right-arrow press; its size is unchanged.
+Actual tests cover single/group movement, Shift ten-pixel steps, deferred source
+publication, Escape/task/source cancellation and field/Source/other-panel input
+ownership. A native text callback verifies the other panel receives its caret
+arrow. That temporary test panel does not appear in these screenshots.
+
+Capture source is local development based on e810bf4 with positioning. Both1180/700
+widths pass. Current native render/canvas/MCP-image tests pass; the expanded layout
+controls also refresh affected existing Preview images. Prior25Source CPU captures
+retain their frozen attribution. Exact input/executable/raw image digests belong
+to the local pixel-positioning evidence owner. No full Main, Windows, physical
+input/GPU or density acceptance is implied.
+
+- `ui-source-grid.png`: `d0d6cf466051cba45cd1426223cf6776b543498ae0e54b0f1c61df9522376bc2`.
+- `ui-source-keyboard.png`: `5778dffa1e1580ffb7ab0dd05ed44db05996181f2d4d76c0415b25a0bd1e29d2`.
+
+Refreshed `ui-source-preview.png`: `d1f727428c820f025fb69479f327bfb2fab8168d959bd1b75eb929d2e662e160`.
+
+Refreshed `ui-source-place-control.png`: `5fc7beb06a91341c44189b2022f6cbbba492e6bd0026330216112d89366b1508`.
+
+Refreshed `ui-source-placed-control.png`: `d191023cccb00a08c5b21c2c0969ccf54fc47b70556ede2481f7d786ac751524`.

@@ -170,6 +170,20 @@ borders or box-sizing can require different source CSS sizes. The native result
 must attain the requested dimensions for every member before publication. A
 refused candidate leaves source/history unchanged; refresh Preview before retrying.
 
+For grid alignment, call the same `forge_ui_source_arrange` tool with
+`action:"snap_grid"`, one to 32 sibling element indices and optional `grid`
+spacing from 1 to 1,024 physical preview pixels (default `8`). Border corners
+round to the nearest grid position measured from the viewport's top-left corner,
+with halfway values rounding away from zero. Sizes stay unchanged. Other arrange
+actions still require at least two members and accept only the default grid value.
+Use the current source and preview guards; the complete native candidate must
+match the target rectangles before one Undo. Save remains explicit.
+
+The editor's keyboard nudges use those same pixel-layout owners. Agents can move
+one control through `forge_ui_source_layout`, retaining its width/height, or move
+a group through `forge_ui_source_arrange` with `action:"move"` and `dx`/`dy`.
+These operations provide the same authored result without sending editor key events.
+
 To inspect the rendered draft, grant an output folder and call
 `forge_capture_ui_source`. Its `path` selects the output file inside that folder;
 its nested `source` contains the current source `path`, `session`, `revision`,

@@ -1273,7 +1273,13 @@ guards and observed `preview_instance`/`preview_revision`. The action catalog dr
 both native controls and discovery: `move`, `align_left`,
 `align_horizontal_center`, `align_right`, `align_top`, `align_vertical_center`,
 `align_bottom`, `distribute_horizontal`, `distribute_vertical`, `match_width`,
-`match_height`, `match_size`. Only movement accepts
+`match_height`, `match_size`, `snap_grid`. Grid alignment admits1..32members;
+other actions retain2..32. Optional `grid` is finite1..1024physical pixels,
+default8; nondefault values require snap_grid. Native border corners round to
+nearest viewport-grid positions (halfway away from zero), retaining sizes.
+The complete native candidate must reproduce the expected rectangles before
+publication. Keyboard nudges have existing single layout/group move equivalence;
+no editor-key injection API is added. Only movement accepts
 nonzero `dx`/`dy`; each offset is bounded to-131072..131072. Output positions/sizes
 retain the existing pixel limits. Distribution needs3members and a nonnegative gap
 within source/native admission precision. Spatial ordering uses native border

@@ -303,6 +303,27 @@ void layout_group_geometry() {
     too_large.back().bounds.height = 70000;
     rejects([&] { forge::arrange_ui_markup_layouts(too_large, "match_height"); });
     rejects([&] { forge::arrange_ui_markup_layouts(sizing, "match_size", 1, 0); });
+    const auto snapped = forge::arrange_ui_markup_layouts(boxes, "snap_grid");
+    check(snapped[0].pixels.left == 14 && snapped[0].pixels.top == 20 &&
+              snapped[1].pixels.left == 214 && snapped[1].pixels.top == 68 &&
+              snapped[2].pixels.left == 414 && snapped[2].pixels.top == 220,
+          "Grid alignment ignored native corners or source coordinate offsets");
+    auto negative = boxes[0];
+    negative.bounds.left = -12;
+    negative.bounds.top = -4;
+    const std::array singleton{negative};
+    const auto rounded = forge::arrange_ui_markup_layouts(singleton, "snap_grid", 0, 0, 8);
+    check(rounded[0].pixels.left == 6 && rounded[0].pixels.top == 16 &&
+              rounded[0].pixels.width == negative.source.pixels.width &&
+              rounded[0].pixels.height == negative.source.pixels.height,
+          "Grid ties did not round away from zero or changed dimensions");
+    rejects([&] { forge::arrange_ui_markup_layouts(boxes, "snap_grid", 0, 0, 0); });
+    rejects([&] { forge::arrange_ui_markup_layouts(boxes, "snap_grid", 0, 0, 1025); });
+    rejects([&] {
+        forge::arrange_ui_markup_layouts(boxes, "snap_grid", 0, 0,
+                                         std::numeric_limits<float>::quiet_NaN());
+    });
+    rejects([&] { forge::arrange_ui_markup_layouts(boxes, "align_left", 0, 0, 16); });
     rejects([&] { forge::arrange_ui_markup_layouts({}, "move"); });
     rejects([&] { forge::arrange_ui_markup_layouts(std::span(boxes).first(1), "move"); });
     rejects([&] {

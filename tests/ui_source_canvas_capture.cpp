@@ -85,8 +85,11 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
     ui::style(1);
     ImGui::GetIO().ConfigInputTrickleEventQueue = false;
     test::observe_ui = true;
+    bool source_locked = false, other_panel = false;
+    char other_text[64] = "Other panel text";
+    int other_cursor = -1;
     ui::DocumentWorkspace workspace;
-    workspace.add(editor.workspace_document(project, context, [] { return false; }));
+    workspace.add(editor.workspace_document(project, context, [&] { return source_locked; }));
     const auto frame = [&] {
         images.poll(presentation, graphics, root, scene.asset_id(), message);
         test::ui_targets.clear();
@@ -94,6 +97,20 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
         ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
         ImGui::SetNextWindowSize({float(width), 950}, ImGuiCond_Always);
         workspace.draw();
+        if (other_panel) {
+            ImGui::SetNextWindowPos({40, 40}, ImGuiCond_Always);
+            ImGui::SetNextWindowSize({300, 160}, ImGuiCond_Always);
+            ImGui::Begin("Other focused panel");
+            ImGui::InputText(
+                "Text", other_text, sizeof(other_text), ImGuiInputTextFlags_CallbackAlways,
+                [](ImGuiInputTextCallbackData* data) {
+                    *static_cast<int*>(data->UserData) = data->CursorPos;
+                    return 0;
+                },
+                &other_cursor);
+            FORGE_UI_PROBE("fixture:other-text");
+            ImGui::End();
+        }
         surface.render();
         presentation.end_frame(graphics);
         graphics->Flush();
@@ -210,6 +227,151 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
     toggle(760, 260);
     frame();
     require(!editor.dirty(), "Group sizing fixture did not restore original source");
+    const auto positioning_start = editor.state();
+    input.click("ui-source:group-action");
+    input.click("ui-source:group-choice:snap_grid");
+    input.type("ui-source:grid-spacing", "8");
+    input.click("ui-source:group-apply");
+    const auto snapped = editor.state();
+    const auto snapped_preview = editor.preview_state(project, 1000, 700, 1, false);
+    const std::array grid_x{64.f, 432.f, 720.f}, grid_y{88.f, 144.f, 224.f};
+    for (std::size_t i = 0; i < ids.size(); ++i) {
+        const auto& rows = snapped_preview.at("elements");
+        const auto found = std::find_if(rows.begin(), rows.end(),
+                                        [&](const auto& row) { return row.at("id") == ids[i]; });
+        require(found != rows.end() &&
+                    found->at("bounds") ==
+                        Json::array({grid_x[i], grid_y[i], i == 0 ? 300 : 220, i == 0 ? 220 : 140}),
+                "Native grid alignment ignored viewport coordinates or changed sizes");
+    }
+    frame();
+    surface.save(output / ("ui-source-grid-" + std::to_string(width) + ".png"));
+    input.click("button:Undo");
+    require(editor.state().at("text") == positioning_start.at("text"),
+            "Grid alignment needed multiple Undo steps");
+    input.click("button:Redo");
+    require(editor.state().at("text") == snapped.at("text"), "Grid alignment Redo differs");
+    input.click("button:Undo");
+    toggle(100, 130);
+    frame(); // Register canvas keyboard routing before a key press.
+    const auto before_nudge = editor.state();
+    io.AddKeyEvent(ImGuiKey_RightArrow, true);
+    frame();
+    require(editor.state().at("text") == before_nudge.at("text"),
+            "Keyboard positioning changed source after image submission");
+    io.AddKeyEvent(ImGuiKey_RightArrow, false);
+    frame();
+    frame();
+    const auto nudged = editor.state();
+    const auto border = [&] {
+        const auto shown = editor.preview_state(project, 1000, 700, 1, false);
+        for (const auto& row : shown.at("elements"))
+            if (row.at("id") == "panel")
+                return row.at("bounds");
+        throw std::runtime_error("Keyboard fixture panel has no native bounds");
+    };
+    require(nudged.at("text") != before_nudge.at("text") &&
+                border() == Json::array({61, 90, 300, 220}),
+            "Focused canvas arrow did not move one physical pixel");
+    surface.save(output / ("ui-source-keyboard-" + std::to_string(width) + ".png"));
+    input.click("button:Undo");
+    require(editor.state().at("text") == before_nudge.at("text"),
+            "Keyboard positioning needed multiple Undo steps");
+    toggle(100, 130);
+    frame();
+    io.AddKeyEvent(ImGuiMod_Shift, true);
+    io.AddKeyEvent(ImGuiKey_DownArrow, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_DownArrow, false);
+    io.AddKeyEvent(ImGuiMod_Shift, false);
+    frame();
+    frame();
+    require(border() == Json::array({60, 100, 300, 220}),
+            "Shift canvas arrow did not move ten physical pixels");
+    input.click("button:Undo");
+    toggle(100, 130);
+    frame();
+    io.AddKeyEvent(ImGuiKey_RightArrow, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_RightArrow, false);
+    io.AddKeyEvent(ImGuiKey_Escape, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Escape, false);
+    frame();
+    require(editor.state().at("text") == before_nudge.at("text"),
+            "Escape did not cancel a queued keyboard edit");
+    io.AddKeyEvent(ImGuiKey_RightArrow, true);
+    frame();
+    source_locked = true;
+    io.AddKeyEvent(ImGuiKey_RightArrow, false);
+    frame();
+    require(editor.state().at("text") == before_nudge.at("text"),
+            "Task lock did not cancel a queued keyboard edit");
+    source_locked = false;
+    frame();
+    io.AddKeyEvent(ImGuiKey_RightArrow, true);
+    frame();
+    const auto keyboard_parent = editor.state().at("selection").at(0).get<std::size_t>();
+    editor.style(keyboard_parent, "background-color", "#285d88");
+    const auto keyboard_intervening = editor.state();
+    io.AddKeyEvent(ImGuiKey_RightArrow, false);
+    frame();
+    require(editor.state().at("text") == keyboard_intervening.at("text"),
+            "A source edit did not cancel queued keyboard positioning");
+    input.click("button:Undo");
+    toggle(100, 130);
+    input.click("ui-source:grid-spacing");
+    io.AddKeyEvent(ImGuiKey_LeftArrow, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_LeftArrow, false);
+    frame();
+    require(editor.state().at("text") == before_nudge.at("text"),
+            "Canvas shortcut stole an arrow from an active numeric field");
+    input.click("ui-source:source-tab");
+    io.AddKeyEvent(ImGuiKey_RightArrow, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_RightArrow, false);
+    frame();
+    require(editor.state().at("text") == before_nudge.at("text"),
+            "Canvas shortcut changed source from the Source text view");
+    input.click("ui-source:preview-tab");
+    other_panel = true;
+    frame();
+    input.click("fixture:other-text");
+    io.AddKeyEvent(ImGuiKey_End, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_End, false);
+    frame();
+    const auto cursor_before = other_cursor;
+    io.AddKeyEvent(ImGuiKey_LeftArrow, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_LeftArrow, false);
+    frame();
+    require(cursor_before > 0 && other_cursor == cursor_before - 1 &&
+                editor.state().at("text") == before_nudge.at("text"),
+            "Another focused panel did not receive its native text-caret arrow");
+    other_panel = false;
+    frame();
+    frame();
+    toggle(470, 180);
+    toggle(760, 260);
+    require(editor.state().at("selection").size() == 3 && !editor.dirty(),
+            "Positioning fixture did not restore original source/group");
+    frame();
+    io.AddKeyEvent(ImGuiKey_LeftArrow, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_LeftArrow, false);
+    frame();
+    frame();
+    require(border() == Json::array({59, 90, 300, 220}) &&
+                editor.state().at("selection").size() == 3,
+            "Canvas keyboard positioning did not preserve its group selection");
+    input.click("button:Undo");
+    require(editor.state().at("text") == positioning_start.at("text"),
+            "Group keyboard positioning needed multiple Undo steps");
+    toggle(100, 130);
+    toggle(470, 180);
+    toggle(760, 260);
     input.click("ui-source:preview-save-image");
     const auto wait = [&] {
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);

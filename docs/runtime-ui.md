@@ -146,6 +146,15 @@ queues placement for the next frame, before image submission, preserving the
 renderer/readback image handover. Automation/MCP borrow the identical method and
 source/preview guards. This adds no runtime input, model or UI transport capability.
 
+Source grid alignment uses native border positions and the existing source pixel
+delta owner. The bounded viewport grid supports single/sibling selections; full
+native rectangle targets validate before publication. Canvas keyboard nudges are
+editor layout actions, not runtime widget input. Native item focus/shortcut routing
+protects text fields and other panels. They borrow the existing deferred Preview
+request envelope, shared with control placement, and commit before the next image
+submission. Source/preview guards, cancellation, history and persistence retain
+their established owners; there is no additional dispatcher or persisted grid.
+
 The same CSS admission scanner optionally records inline declaration value ranges.
 Four-value candidates preserve unrelated bytes. Numeric changes validate native
 candidate geometry before source publication; mouse gestures retain transient

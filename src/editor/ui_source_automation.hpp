@@ -357,10 +357,12 @@ struct UiSourceAutomation {
         for (const auto& [key, label] : ui_layout_group_actions)
             group_actions.push_back(key);
         group_properties["elements"] =
-            automation_array(automation_integer(0, 8191), ui_source_selection_limit, 2);
+            automation_array(automation_integer(0, 8191), ui_source_selection_limit, 1);
         group_properties["action"] = {{"type", "string"}, {"enum", std::move(group_actions)}};
         group_properties["preview_instance"] = automation_uuid();
         group_properties["preview_revision"] = automation_integer();
+        group_properties["grid"] = {
+            {"type", "number"}, {"minimum", 1}, {"maximum", 1024}, {"default", 8}};
         for (const auto* name : {"dx", "dy"})
             group_properties[name] = {
                 {"type", "number"}, {"minimum", -131072}, {"maximum", 131072}};
@@ -374,7 +376,10 @@ struct UiSourceAutomation {
             "same-parent native-admitted source elements. Distribution needs3elements. Native "
             "bounds choose geometry. match_width/height/size use the last requested member as "
             "reference, preserve positions and validate actual native target dimensions. Other "
-            "actions preserve source sizes. Unrelated text remains unchanged. dx/dy "
+            "actions preserve source sizes. snap_grid accepts1..32members and grid spacing1..1024 "
+            "pixels (default8), aligning native border corners to the viewport grid; sizes stay "
+            "unchanged. Other actions require2members; only snap_grid accepts nondefault grid. "
+            "Unrelated text remains unchanged. dx/dy "
             "are optional pixel offsets for move only. Rechecks exact source/native preview "
             "guards and the complete candidate before one source Undo record. Unsupported, "
             "duplicate, out-of-range or stale members reject the whole operation. No Save, "
@@ -389,7 +394,8 @@ struct UiSourceAutomation {
                                request.at("action").get<std::string>(), request.value("dx", 0.f),
                                request.value("dy", 0.f),
                                request.at("preview_instance").get<std::string>(),
-                               request.at("preview_revision").get<std::uint64_t>());
+                               request.at("preview_revision").get<std::uint64_t>(),
+                               request.value("grid", 8.f));
                 return state(editor, files.document);
             }));
         result.push_back(automation_method(

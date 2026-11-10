@@ -589,6 +589,37 @@ operation is refused. Source and history stay unchanged; refresh Preview after
 a rejected native candidate. To use a different reference, Ctrl+click it out of
 the selection, then Ctrl+click it again to add it last.
 
+## Align controls to a pixel grid
+
+1. Select an editable control in **Preview**. Set **Grid (px)** and choose **Snap positions to grid** below its layout fields.
+2. For a sibling group, choose **Snap positions to grid** under **Operation**, set **Grid (px)** and choose **Apply group**. The same canvas limits apply to every member.
+3. Inspect the result, then use **Undo** or **Redo** for the entire alignment. Choose **Save source** when ready.
+
+![Preview group operation with Grid (px) set to eight and aligned panels](../images/ui-source-grid.png)
+
+Grid spacing defaults to eight physical preview pixels and accepts finite values
+from 1 to 1,024. The grid starts at the preview image's top-left corner. Each
+visible border corner rounds to the nearest grid position; exact halfway values
+round away from zero. For example, positions `12` and `-12` on an eight-pixel grid
+become `16` and `-16`. Padding, borders and parent offsets remain accounted for
+by native layout. Widths and heights stay unchanged. Already aligned controls
+create no extra source Undo step. Invalid or unsupported members reject the
+whole operation without changing source or history.
+
+## Move controls with the keyboard
+
+1. Click an editable control on the **Preview** image. Ctrl+click adds siblings; the canvas must have focus.
+2. Press an arrow key to move the selection one physical preview pixel. Hold **Shift** while pressing an arrow for ten pixels. Each press is one source Undo step; holding an arrow does not repeat the movement.
+3. Use **Undo** or **Redo** and **Save source** as with mouse layout edits.
+
+![Preview with the blue panel moved one pixel to the right using the focused canvas](../images/ui-source-keyboard.png)
+
+Typing or moving the caret in a numeric field, Source view or another focused
+panel leaves the canvas unchanged. Pending keyboard movement cancels on Escape,
+source edits, task/Play locks, view changes, closing or leaving the source window.
+The same size, membership and source/preview validity limits apply as for mouse
+layout edits. Movement preserves each member's size and the selected group.
+
 ## Save a preview image
 
 1. Open **Preview** and check that the current draft has rendered successfully.

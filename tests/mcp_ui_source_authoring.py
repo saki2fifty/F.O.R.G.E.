@@ -50,7 +50,8 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
         indices = [initial[name]['source_index'] for name in ('a', 'b', 'c')]
         assert [initial[name]['bounds'] for name in ('a', 'b', 'c')] == [[23, 33, 120, 80], [225, 75, 80, 90], [400, 130, 144, 104]]
         schema = advertised['forge_ui_source_arrange']['inputSchema']['properties']
-        assert len(schema['action']['enum']) == 12 and {'match_width', 'match_height', 'match_size'} <= set(schema['action']['enum'])
+        assert len(schema['action']['enum']) == 13 and {'match_width', 'match_height', 'match_size', 'snap_grid'} <= set(schema['action']['enum'])
+        assert schema['grid']['minimum'] == 1 and schema['grid']['maximum'] == 1024 and schema['grid']['default'] == 8
         for action in ('match_width', 'match_height', 'match_size'):
             shown = preview()
             old_guard = guard()
@@ -73,6 +74,32 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
             assert edit('undo')['text'] == baseline, 'Matching needed more than one Undo'
             assert edit('redo')['text'] == changed['text']
             assert edit('undo')['text'] == baseline
+        for members, extra, positions in [
+                (indices[:1], {}, {'a': [24, 32]}),
+                (indices, dict(grid=5), {'a': [25, 35], 'b': [225, 75], 'c': [400, 130]}),
+                (indices, {}, {'a': [24, 32], 'b': [224, 72], 'c': [400, 128]})]:
+            args = arguments(**guard(), **observation(preview()), elements=members, action='snap_grid', **extra)
+            first = client.tool('forge_ui_source_arrange', **args)
+            replay = client.tool('forge_ui_source_arrange', **args)
+            assert first['ok'] and replay['ok'] and first['result'] == replay['result']
+            changed = read('forge_ui_source_read')
+            after = rows(preview())
+            for name in ('a', 'b', 'c'):
+                assert after[name]['bounds'][:2] == positions.get(name, initial[name]['bounds'][:2])
+                assert after[name]['bounds'][2:] == initial[name]['bounds'][2:]
+            assert changed['selection'] == members
+            same = edit('arrange', elements=members, action='snap_grid', **observation(preview()), **extra)
+            assert same['revision'] == changed['revision'], 'Already aligned grid created history'
+            assert edit('undo')['text'] == baseline
+            assert edit('redo')['text'] == changed['text']
+            assert edit('undo')['text'] == baseline
+        shown = preview()
+        before = read('forge_ui_source_read')
+        for extra in [dict(grid=0), dict(grid=1025), dict(dx=1), dict(elements=[]),
+                      dict(action='move', elements=indices[:1]), dict(action='match_size', grid=16)]:
+            args = dict(elements=indices, action='snap_grid') | observation(shown) | extra
+            assert not mutate('forge_ui_source_arrange', **guard(), **args)['ok']
+            assert read('forge_ui_source_read') == before, 'Invalid grid request published source'
         shown = preview()
         before = read('forge_ui_source_read')
         for invalid in [dict(elements=[indices[0], indices[0]]), dict(elements=[indices[0], initial['flow']['source_index']]), dict(dx=1), dict(preview_revision=900000)]:
@@ -649,8 +676,8 @@ body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
     indices = [next(item['source_index'] for item in shown['elements'] if item['id'] == key)
                for key in ('second', 'panel', 'first')]
     group_schema = advertised['forge_ui_source_arrange']['inputSchema']['properties']
-    assert group_schema['elements']['minItems'] == 2 and group_schema['elements']['maxItems'] == 32
-    assert len(group_schema['action']['enum']) == 12
+    assert group_schema['elements']['minItems'] == 1 and group_schema['elements']['maxItems'] == 32
+    assert len(group_schema['action']['enum']) == 13
     failed(mutate('forge_ui_source_arrange', **guard(), elements=indices, action='move',
                   **(layout_guard(shown) | dict(preview_revision=900000))), 'stale_ui_preview')
     failed(mutate('forge_ui_source_arrange', **guard(), elements=[indices[0], indices[0]],

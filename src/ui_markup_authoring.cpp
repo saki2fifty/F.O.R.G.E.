@@ -593,15 +593,19 @@ std::string format_ui_style_color(UiStyleColor color) {
 }
 std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMarkupLayoutBox> boxes,
                                                           std::string_view action, float dx,
-                                                          float dy) {
-    require(boxes.size() >= 2 && boxes.size() <= ui_source_selection_limit,
-            "Choose2..32 elements for a group layout operation");
+                                                          float dy, float grid) {
+    require(boxes.size() >= (action == "snap_grid" ? 1u : 2u) &&
+                boxes.size() <= ui_source_selection_limit,
+            "Choose2..32 group elements, or1..32 elements for grid alignment");
     require(std::ranges::any_of(ui_layout_group_actions,
                                 [&](const auto& item) { return item.first == action; }),
             "Unknown group layout operation");
     require(std::isfinite(dx) && std::isfinite(dy), "Group movement must use finite pixels");
     require(action == "move" || (dx == 0 && dy == 0),
             "Only group movement accepts horizontal/vertical offsets");
+    require(std::isfinite(grid) && grid >= 1 && grid <= 1024,
+            "Grid spacing must be finite and within1..1024 pixels");
+    require(action == "snap_grid" || grid == 8, "Grid spacing applies only to grid alignment");
     double left = std::numeric_limits<double>::max(), top = left;
     double right = std::numeric_limits<double>::lowest(), bottom = right;
     std::vector<UiMarkupLayoutEdit> result;
@@ -658,6 +662,9 @@ std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMark
                 pixels.left += dx;
                 pixels.top += dy;
                 continue;
+            } else if (action == "snap_grid") {
+                x = std::round(double(native.left) / grid) * grid;
+                y = std::round(double(native.top) / grid) * grid;
             } else if (action.starts_with("match_")) {
                 const auto& reference = boxes.back().bounds;
                 if (action != "match_height")

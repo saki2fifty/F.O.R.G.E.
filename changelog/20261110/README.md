@@ -1,5 +1,13 @@
 # 2026-11-10
 
+## Precise UI canvas positioning
+
+Preview can snap native border corners to a bounded pixel grid and move focused
+selections with arrows or Shift-arrows. Layout edits retain one Undo and explicit
+Save; keyboard requests share the deferred placement boundary and cancellation.
+The existing guarded arrange operation exposes the same grid workflow to agents.
+Native focus routing preserves text-field and other-panel arrow input.
+
 ## Match UI group dimensions
 
 Preview group operations match visible width, height or both to the last-selected

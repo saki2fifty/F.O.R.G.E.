@@ -99,6 +99,16 @@ No new selection manager, layout solver, persisted data, runtime capability or
 gameplay SDK layout is introduced. General group scaling/resize gestures and
 relative/flow layouts remain outside this bounded profile.
 
+Grid alignment extends the same action/geometry owner for1..32admitted siblings.
+Native border corners round through standard numeric operations to a bounded
+viewport grid; the source owner converts those deltas into existing pixel literals.
+An optional expected native-rectangle span validates grid and matching candidates
+without another layout authority. The existing Preview deferred request evolves
+to one guarded envelope with placement or keyboard-layout payloads. Both dispatch
+before the next image submission and share cancellation/source history. Native
+canvas focus and shortcut routing protect fields, Source text and other panels.
+Single layout and group movement already expose equivalent programmatic nudges.
+
 Static subtree duplication and sibling-group removal extend these same source
 range, selection and history owners. Duplication retains original source/IDs and
 assigns collision-checked prefix IDs only to the new raw fragment. Literal internal
