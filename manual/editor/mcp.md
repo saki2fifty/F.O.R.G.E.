@@ -157,11 +157,18 @@ unsupported geometry cannot authorize source edits.
 
 For groups, use `forge_ui_source_arrange` with 2–32 distinct sibling element
 indices, the current source/preview guards and an `action`. It provides movement,
-edge/center alignment and horizontal/vertical gap distribution. `move` accepts
+edge/center alignment, horizontal/vertical gap distribution and native-size matching. `move` accepts
 optional `dx`/`dy` pixel offsets; distribution needs at least three elements and
 space for non-overlapping gaps. Every member must satisfy the pixel-canvas limits.
 The full candidate is checked before one source Undo step; a bad member rejects
 all changes. Save remains explicit. See [group layout](ui-source.md).
+
+Use `match_width`, `match_height` or `match_size` to match visible border-box
+dimensions to the **last index in `elements`**. List order selects the reference;
+it is independent of source order. Positions remain unchanged. Different padding,
+borders or box-sizing can require different source CSS sizes. The native result
+must attain the requested dimensions for every member before publication. A
+refused candidate leaves source/history unchanged; refresh Preview before retrying.
 
 To inspect the rendered draft, grant an output folder and call
 `forge_capture_ui_source`. Its `path` selects the output file inside that folder;

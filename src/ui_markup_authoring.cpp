@@ -658,6 +658,13 @@ std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMark
                 pixels.left += dx;
                 pixels.top += dy;
                 continue;
+            } else if (action.starts_with("match_")) {
+                const auto& reference = boxes.back().bounds;
+                if (action != "match_height")
+                    pixels.width = float(double(pixels.width) + reference.width - native.width);
+                if (action != "match_width")
+                    pixels.height = float(double(pixels.height) + reference.height - native.height);
+                continue;
             } else if (action == "align_left")
                 x = left;
             else if (action == "align_horizontal_center")

@@ -57,7 +57,8 @@ INPUT_RECORDING_ONLY = sys.argv[7:] == ['--input-recording-only']
 UI_CONTROL_PROPERTIES_ONLY = sys.argv[7:] == ['--ui-control-properties-only']
 UI_TYPOGRAPHY_ONLY = sys.argv[7:] == ['--ui-typography-only']
 UI_PLACEMENT_ONLY = sys.argv[7:] == ['--ui-placement-only']
-UI_SOURCE_ONLY = sys.argv[7:] == ['--ui-source-only'] or UI_CONTROL_PROPERTIES_ONLY or UI_TYPOGRAPHY_ONLY or UI_PLACEMENT_ONLY
+UI_SIZING_ONLY = sys.argv[7:] == ['--ui-sizing-only']
+UI_SOURCE_ONLY = sys.argv[7:] == ['--ui-source-only'] or UI_CONTROL_PROPERTIES_ONLY or UI_TYPOGRAPHY_ONLY or UI_PLACEMENT_ONLY or UI_SIZING_ONLY
 UI_TEXT_SHAPING_ONLY = sys.argv[7:] == ['--ui-text-shaping-only']
 UI_FIELDS_SDK = sys.argv[7:] in (['--ui-fields-sdk-only'], ['--ui-forms-sdk-only'])
 UI_FORMS_ONLY = sys.argv[7:] in (['--ui-forms-only'], ['--ui-forms-sdk-only'])
@@ -464,7 +465,7 @@ for legacy in selected_protocols:
                   'stale digest, Save/discard, Scene isolation and grant discovery passed')
             continue
         if UI_SOURCE_ONLY:
-            check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=UI_CONTROL_PROPERTIES_ONLY, typography_only=UI_TYPOGRAPHY_ONLY, placement_only=UI_PLACEMENT_ONLY)
+            check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=UI_CONTROL_PROPERTIES_ONLY, typography_only=UI_TYPOGRAPHY_ONLY, placement_only=UI_PLACEMENT_ONLY, sizing_only=UI_SIZING_ONLY)
             with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
                 visible = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
                 assert 'forge_ui_source_read' in visible and 'forge_ui_source_open' not in visible

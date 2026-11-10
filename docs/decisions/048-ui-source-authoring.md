@@ -91,9 +91,13 @@ movement/alignment/distribution geometry; source sizes and unrelated bytes remai
 unchanged. The single-element path delegates to the batch source-range owner.
 Selection is one transient ordered set whose last entry is active; source changes
 clear it. Group moves retain one transient candidate and the existing cancellation
-boundaries. No new selection manager, layout solver, persisted data, runtime
-capability or gameplay SDK layout is introduced. Group resize and relative/flow
-layouts remain outside this bounded profile.
+boundaries. Matching width/height/both extends this same group candidate owner:
+the last member supplies native border dimensions, source sizes change by native
+size deltas and the complete native result must attain those dimensions without
+moving members. Shared action metadata supplies native controls and automation.
+No new selection manager, layout solver, persisted data, runtime capability or
+gameplay SDK layout is introduced. General group scaling/resize gestures and
+relative/flow layouts remain outside this bounded profile.
 
 Static subtree duplication and sibling-group removal extend these same source
 range, selection and history owners. Duplication retains original source/IDs and

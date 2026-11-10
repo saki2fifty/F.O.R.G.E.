@@ -177,6 +177,39 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
                 test::ui_targets.at("ui-source:group-apply").enabled && !editor.dirty(),
             "Native group capture did not select the three unchanged source panels");
     surface.save(output / ("ui-source-group-layout-" + std::to_string(width) + ".png"));
+    const auto sizing_start = editor.state();
+    input.click("ui-source:group-action");
+    input.click("ui-source:group-choice:match_size");
+    input.click("ui-source:group-apply");
+    const auto sized = editor.state();
+    const auto sized_preview = editor.preview_state(project, 1000, 700, 1, false);
+    const std::array ids{"panel", "layout-b", "layout-c"};
+    const std::array x{60.f, 430.f, 720.f}, y{90.f, 140.f, 220.f};
+    for (std::size_t i = 0; i < ids.size(); ++i) {
+        const auto& rows = sized_preview.at("elements");
+        const auto found = std::find_if(rows.begin(), rows.end(),
+                                        [&](const auto& row) { return row.at("id") == ids[i]; });
+        require(found != rows.end() && found->at("editable").get<bool>() &&
+                    found->at("bounds") == Json::array({x[i], y[i], 220, 140}),
+                "Native group sizing moved a member or ignored the active reference size");
+    }
+    require(sized.at("text") != sizing_start.at("text") &&
+                sized.at("selection") == sizing_start.at("selection") &&
+                scene.snapshot() == authored,
+            "Group sizing lost selection or changed Scene state");
+    frame();
+    surface.save(output / ("ui-source-group-sizing-" + std::to_string(width) + ".png"));
+    input.click("button:Undo");
+    require(editor.state().at("text") == sizing_start.at("text"),
+            "Group sizing needed multiple Undo steps");
+    input.click("button:Redo");
+    require(editor.state().at("text") == sized.at("text"), "Group sizing Redo differs");
+    input.click("button:Undo");
+    toggle(100, 130);
+    toggle(470, 180);
+    toggle(760, 260);
+    frame();
+    require(!editor.dirty(), "Group sizing fixture did not restore original source");
     input.click("ui-source:preview-save-image");
     const auto wait = [&] {
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);

@@ -275,6 +275,34 @@ void layout_group_geometry() {
     check(spaced[0].element == 9 && spaced[0].pixels.left == 410 && spaced[1].element == 4 &&
               spaced[1].pixels.left == 10 && spaced[2].element == 7 && spaced[2].pixels.left == 235,
           "Distribution used selection order instead of native spatial order");
+    auto sizing = boxes;
+    sizing[1].bounds.width = 82;
+    sizing[1].bounds.height = 109;
+    for (const std::string_view action : {"match_width", "match_height", "match_size"}) {
+        const auto changes = forge::arrange_ui_markup_layouts(sizing, action);
+        const std::array widths{70.f, 58.f, 70.f}, heights{40.f, 31.f, 40.f};
+        for (std::size_t i = 0; i < changes.size(); ++i)
+            check(changes[i].pixels.left == sizing[i].source.pixels.left &&
+                      changes[i].pixels.top == sizing[i].source.pixels.top &&
+                      changes[i].pixels.width ==
+                          (action == "match_height" ? sizing[i].source.pixels.width : widths[i]) &&
+                      changes[i].pixels.height ==
+                          (action == "match_width" ? sizing[i].source.pixels.height : heights[i]),
+                  "Matching copied source sizes instead of native dimensions or moved a member");
+    }
+    const std::array reversed{sizing[2], sizing[1], sizing[0]};
+    const auto matched = forge::arrange_ui_markup_layouts(reversed, "match_size");
+    check(matched[0].pixels.width == 100 && matched[0].pixels.height == 40 &&
+              matched[1].pixels.width == 88 && matched[1].pixels.height == 31 &&
+              matched[2] == sizing[0].source,
+          "Group matching ignored the last requested reference member");
+    auto too_small = sizing;
+    too_small.back().bounds.width = 1;
+    rejects([&] { forge::arrange_ui_markup_layouts(too_small, "match_width"); });
+    auto too_large = sizing;
+    too_large.back().bounds.height = 70000;
+    rejects([&] { forge::arrange_ui_markup_layouts(too_large, "match_height"); });
+    rejects([&] { forge::arrange_ui_markup_layouts(sizing, "match_size", 1, 0); });
     rejects([&] { forge::arrange_ui_markup_layouts({}, "move"); });
     rejects([&] { forge::arrange_ui_markup_layouts(std::span(boxes).first(1), "move"); });
     rejects([&] {

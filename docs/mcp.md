@@ -1272,11 +1272,16 @@ requires 2..32 distinct `elements` with a common source parent, `action`, source
 guards and observed `preview_instance`/`preview_revision`. The action catalog drives
 both native controls and discovery: `move`, `align_left`,
 `align_horizontal_center`, `align_right`, `align_top`, `align_vertical_center`,
-`align_bottom`, `distribute_horizontal`, `distribute_vertical`. Only movement accepts
+`align_bottom`, `distribute_horizontal`, `distribute_vertical`, `match_width`,
+`match_height`, `match_size`. Only movement accepts
 nonzero `dx`/`dy`; each offset is bounded to-131072..131072. Output positions/sizes
 retain the existing pixel limits. Distribution needs3members and a nonnegative gap
 within source/native admission precision. Spatial ordering uses native border
-bounds, not the input list; authored dimensions are unchanged. Native/source
+bounds, not the input list. Matching uses the last requested member's native
+border size as reference; source dimensions change by the difference between
+target and current native size, retaining individual CSS box-sizing semantics.
+Positions remain unchanged and every native target dimension is checked before
+publication. Move/alignment/distribution retain authored dimensions. Native/source
 eligibility, source range replacement and complete candidate validation precede
 one TextEditor replacement. No invalid/stale member can partially publish.
 `layout_selection` covers invalid membership; existing stale/unsupported errors,

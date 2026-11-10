@@ -1053,6 +1053,9 @@ class UiSourceEditor {
                 ImGui::InputFloat2("Delta X / Y (px)", group_offsets_.data());
                 FORGE_UI_PROBE("ui-source:group-offsets");
             }
+            if (key.starts_with("match_") && selected)
+                ImGui::Text("Reference: %s (last selected)",
+                            selected->at("id").get_ref<const std::string&>().c_str());
             ImGui::BeginDisabled(gesture_active() ||
                                  (key.starts_with("distribute_") && selected_.size() < 3));
             if (button("Apply group", "Validate all rectangles, then make one source Undo step."))
@@ -1687,7 +1690,8 @@ class UiSourceEditor {
         layouts(changes, instance, preview_revision);
     }
     void layouts(std::span<const UiMarkupLayoutEdit> changes, const std::string& instance,
-                 std::uint64_t preview_revision) {
+                 std::uint64_t preview_revision, std::optional<float> border_width = {},
+                 std::optional<float> border_height = {}) {
         if (changes.empty() || changes.size() > ui_source_selection_limit)
             throw AuthoringError("layout_selection", "Choose1..32 elements for a layout edit");
         reborrow_preview_observation(instance, preview_revision);
@@ -1695,7 +1699,7 @@ class UiSourceEditor {
         indices.reserve(changes.size());
         for (const auto& change : changes)
             indices.push_back(change.element);
-        layout_boxes(indices);
+        const auto before = layout_boxes(indices);
         const auto candidate = set_ui_markup_layouts(editor_.GetText(), changes);
         try {
             preview_frame_ = request_preview(candidate, inspect_ui_markup(candidate), false);
@@ -1703,7 +1707,8 @@ class UiSourceEditor {
             preview_frame_.state["stale"] = true;
             throw;
         }
-        for (const auto& change : changes) {
+        for (std::size_t i = 0; i < changes.size(); ++i) {
+            const auto& change = changes[i];
             const auto* element = preview_element(change.element);
             if (preview_frame_.state.value("stale", true) || !element ||
                 !element->at("editable").get<bool>()) {
@@ -1711,6 +1716,19 @@ class UiSourceEditor {
                 throw AuthoringError("layout_unsupported",
                                      element ? element->at("reason").get<std::string>()
                                              : "Candidate has no editable preview geometry");
+            }
+            if (border_width || border_height) {
+                const auto& bounds = element->at("bounds");
+                if ((border_width && std::abs(bounds.at(2).get<float>() - *border_width) > .01f) ||
+                    (border_height &&
+                     std::abs(bounds.at(3).get<float>() - *border_height) > .01f) ||
+                    std::abs(bounds.at(0).get<float>() - before[i].bounds.left) > .01f ||
+                    std::abs(bounds.at(1).get<float>() - before[i].bounds.top) > .01f) {
+                    preview_frame_.state["stale"] = true;
+                    throw AuthoringError("layout_unsupported",
+                                         "Native layout does not match the requested group size "
+                                         "and unchanged positions");
+                }
             }
         }
         replace_text(candidate);
@@ -1722,7 +1740,12 @@ class UiSourceEditor {
         if (indices.size() < 2 || indices.size() > ui_source_selection_limit)
             throw AuthoringError("layout_selection", "Choose2..32 elements for group layout");
         const auto boxes = layout_boxes(indices);
-        layouts(arrange_ui_markup_layouts(boxes, action, dx, dy), instance, preview_revision);
+        const bool matching = action.starts_with("match_");
+        layouts(arrange_ui_markup_layouts(boxes, action, dx, dy), instance, preview_revision,
+                matching && action != "match_height" ? std::optional(boxes.back().bounds.width)
+                                                     : std::nullopt,
+                matching && action != "match_width" ? std::optional(boxes.back().bounds.height)
+                                                    : std::nullopt);
     }
     void open(SceneDocument& project, const std::string& locator) {
         project.check_ownership();

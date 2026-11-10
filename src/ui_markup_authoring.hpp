@@ -102,7 +102,7 @@ struct UiMarkupLayoutBox {
     UiMarkupLayoutEdit source;
     UiPixelLayout bounds; // Borrowed native border box in the common preview coordinates.
 };
-inline constexpr std::array<std::pair<std::string_view, std::string_view>, 9>
+inline constexpr std::array<std::pair<std::string_view, std::string_view>, 12>
     ui_layout_group_actions{{{"move", "Move group"},
                              {"align_left", "Align left"},
                              {"align_horizontal_center", "Align horizontal centers"},
@@ -111,7 +111,10 @@ inline constexpr std::array<std::pair<std::string_view, std::string_view>, 9>
                              {"align_vertical_center", "Align vertical centers"},
                              {"align_bottom", "Align bottom"},
                              {"distribute_horizontal", "Distribute horizontal gaps"},
-                             {"distribute_vertical", "Distribute vertical gaps"}}};
+                             {"distribute_vertical", "Distribute vertical gaps"},
+                             {"match_width", "Match active width"},
+                             {"match_height", "Match active height"},
+                             {"match_size", "Match active size"}}};
 // The document owner supplies admitted same-parent source/native observations.
 std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMarkupLayoutBox>,
                                                           std::string_view action, float dx = 0,

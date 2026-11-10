@@ -1,5 +1,13 @@
 # 2026-11-10
 
+## Match UI group dimensions
+
+Preview group operations match visible width, height or both to the last-selected
+control. Source CSS sizing accounts for each member's existing padding, borders
+and box-sizing; native candidates must attain the target without moving members.
+The shared arrange metadata exposes the same actions through MCP, with one source
+Undo, unchanged-source refusal and explicit Save.
+
 ## Place UI controls in native Preview
 
 Create controls offers named control placement inside an editable absolute-pixel

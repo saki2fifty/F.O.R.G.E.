@@ -2,7 +2,7 @@
 from mcp_test_client import failed
 
 
-def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False, placement_only=False):
+def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False, placement_only=False, sizing_only=False):
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
@@ -33,6 +33,64 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                     if node['tag'] == tag)
 
     paragraph = index('p')
+    if sizing_only:
+        edit('save')
+        ok('forge_source_ui_register', path=path)
+        catalog = (root/'Game/forge.assets.json').read_bytes()
+        disk = (root/'Game'/path).read_bytes()
+        canvas = '<rml><head><style>body{display:block;width:100%;height:100%;font-family:Lato;}</style></head><body><div id="a" style="position:absolute;left:20px;top:30px;width:100px;height:60px;padding:8px;border-width:2px;margin:3px;"></div><div id="b" style="position:absolute;left:220px;top:70px;width:80px;height:90px;padding:3px;border-width:1px;margin:5px;box-sizing:border-box;"></div><div id="c" style="position:absolute;left:400px;top:130px;width:140px;height:100px;padding:1px;border-width:1px;"></div><div id="tiny" style="position:absolute;left:630px;top:20px;width:4px;height:4px;"></div><div id="flow" style="position:relative;width:20px;height:20px;"></div></body></rml>'
+        baseline = edit('replace', text=canvas)['text']
+        def preview():
+            return read('forge_ui_source_preview', **guard(), width=800, height=600, density=1)
+        def observation(value):
+            return dict(preview_instance=value['instance'], preview_revision=value['revision'])
+        def rows(shown):
+            return {row['id']: row for row in shown['elements']}
+        initial = rows(preview())
+        indices = [initial[name]['source_index'] for name in ('a', 'b', 'c')]
+        assert [initial[name]['bounds'] for name in ('a', 'b', 'c')] == [[23, 33, 120, 80], [225, 75, 80, 90], [400, 130, 144, 104]]
+        schema = advertised['forge_ui_source_arrange']['inputSchema']['properties']
+        assert len(schema['action']['enum']) == 12 and {'match_width', 'match_height', 'match_size'} <= set(schema['action']['enum'])
+        for action in ('match_width', 'match_height', 'match_size'):
+            shown = preview()
+            old_guard = guard()
+            args = arguments(**old_guard, **observation(shown), elements=indices, action=action)
+            first = client.tool('forge_ui_source_arrange', **args)
+            replay = client.tool('forge_ui_source_arrange', **args)
+            assert first['ok'] and replay['ok'] and first['result'] == replay['result']
+            changed = read('forge_ui_source_read')
+            after = rows(preview())
+            assert changed['selection'] == indices
+            for name in ('a', 'b', 'c'):
+                assert after[name]['bounds'][:2] == initial[name]['bounds'][:2]
+                assert after[name]['bounds'][2] == (initial[name]['bounds'][2] if action == 'match_height' else 144)
+                assert after[name]['bounds'][3] == (initial[name]['bounds'][3] if action == 'match_width' else 104)
+            assert after['a']['pixels']['width'] == (100 if action == 'match_height' else 124)
+            assert after['b']['pixels']['width'] == (80 if action == 'match_height' else 144)
+            failed(mutate('forge_ui_source_arrange', **old_guard, **observation(shown), elements=indices, action=action), 'stale_ui_source')
+            same = edit('arrange', elements=indices, action=action, **observation(preview()))
+            assert same['revision'] == changed['revision'] and same['text'] == changed['text'], 'Already matched group created source history'
+            assert edit('undo')['text'] == baseline, 'Matching needed more than one Undo'
+            assert edit('redo')['text'] == changed['text']
+            assert edit('undo')['text'] == baseline
+        shown = preview()
+        before = read('forge_ui_source_read')
+        for invalid in [dict(elements=[indices[0], indices[0]]), dict(elements=[indices[0], initial['flow']['source_index']]), dict(dx=1), dict(preview_revision=900000)]:
+            args = dict(elements=indices, action='match_size') | observation(shown) | invalid
+            assert not mutate('forge_ui_source_arrange', **guard(), **args)['ok']
+            assert read('forge_ui_source_read') == before, 'Invalid sizing partially published'
+        failed(mutate('forge_ui_source_arrange', **guard(), **observation(shown), elements=[indices[1], initial['tiny']['source_index']], action='match_size'), 'layout_unsupported')
+        assert read('forge_ui_source_read') == before, 'Clamped border-box candidate published'
+        shown = preview()
+        assert not shown['stale'], 'Refused sizing did not recover original preview'
+        edit('arrange', elements=list(reversed(indices)), action='match_size', **observation(shown))
+        after = rows(preview())
+        assert all(after[name]['bounds'][2:] == [120, 80] for name in ('a', 'b', 'c'))
+        assert read('forge_ui_source_read')['selection'] == list(reversed(indices))
+        assert (root/'Game'/path).read_bytes() == disk and (root/'Game/forge.assets.json').read_bytes() == catalog
+        edit('save')
+        assert not read('forge_ui_source_read')['dirty'] and read('forge_scene_read') == before_scene
+        return
     if placement_only:
         edit('save')
         ok('forge_source_ui_register', path=path)
@@ -592,7 +650,7 @@ body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
                for key in ('second', 'panel', 'first')]
     group_schema = advertised['forge_ui_source_arrange']['inputSchema']['properties']
     assert group_schema['elements']['minItems'] == 2 and group_schema['elements']['maxItems'] == 32
-    assert len(group_schema['action']['enum']) == 9
+    assert len(group_schema['action']['enum']) == 12
     failed(mutate('forge_ui_source_arrange', **guard(), elements=indices, action='move',
                   **(layout_guard(shown) | dict(preview_revision=900000))), 'stale_ui_preview')
     failed(mutate('forge_ui_source_arrange', **guard(), elements=[indices[0], indices[0]],

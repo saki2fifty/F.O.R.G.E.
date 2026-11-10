@@ -3340,3 +3340,21 @@ No full Main, Windows, physical GPU/input or display-density acceptance is impli
 - `ui-source-group-layout.png`: `7d60d6740ebac675776186a554c874d043bc5ccf16ebcc7814b407505104a88f`.
 - `ui-source-place-control.png`: `e9e5f527f5575590db579ddd25044513042a1cad1b0126f3c86d74a568582bc2`.
 - `ui-source-placed-control.png`: `eee065c6a04f6ca36457d1491b13ed928059eee4d5156081ee16491bf76b1ff6`.
+
+## Native Preview group sizing capture
+
+`manual/images/ui-source-group-sizing.png` is an unretouched700×950 capture of
+the production SourceEditor after actual group selection and Match active size.
+The last-selected purple panel supplies220×140 border dimensions to all three
+controls, with positions unchanged. The fixture verifies native boxes, selection,
+Undo/Redo and restoration before exercising the existing source-image and control
+placement workflows. The native image uses actual software-Vulkan readback and
+SDL composition. Both1180/700 widths pass.
+
+Capture source is local development based on3a1c426 with group sizing. The existing
+Source controls retain their342capture provenance; their workflow is unchanged.
+Current graphical gate covers native rendering, actual controls and both MCP image
+protocols. Input/executable/raw image digests belong to the local group-sizing
+evidence owner. No full Main/Windows/physical-device acceptance is implied.
+
+PNG SHA256: `2cb2153a45b496bb8366910dcec7e4c9dd260b3cfe3912cdca503923c228d70c`.

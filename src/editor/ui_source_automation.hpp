@@ -369,13 +369,17 @@ struct UiSourceAutomation {
             group_required.push_back(name);
         result.push_back(automation_method(
             "ui.source.arrange",
-            "Move, align border edges/centers or distribute equal gaps for2..32 distinct "
+            "Move, align border edges/centers, distribute equal gaps or match border dimensions "
+            "for2..32 distinct "
             "same-parent native-admitted source elements. Distribution needs3elements. Native "
-            "bounds choose geometry; source sizes and unrelated text remain unchanged. dx/dy "
+            "bounds choose geometry. match_width/height/size use the last requested member as "
+            "reference, preserve positions and validate actual native target dimensions. Other "
+            "actions preserve source sizes. Unrelated text remains unchanged. dx/dy "
             "are optional pixel offsets for move only. Rechecks exact source/native preview "
             "guards and the complete candidate before one source Undo record. Unsupported, "
             "duplicate, out-of-range or stale members reject the whole operation. No Save, "
-            "resource registration, Scene history or relative/flow/group-resize support.",
+            "resource registration, Scene history, relative/flow layout or general group-scaling "
+            "gestures.",
             "assets.write",
             automation_object(std::move(group_properties), std::move(group_required)), true,
             [&files, &editor, ready](const Json& request) {

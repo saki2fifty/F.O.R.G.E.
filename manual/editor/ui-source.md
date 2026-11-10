@@ -568,8 +568,26 @@ problem, refresh Preview and try again.
 Every member must satisfy the canvas limits above. One unsupported, stale,
 out-of-range or differently parented member rejects the whole operation. No
 source changes during a drag; cancellation keeps the original source. Single
-selection retains its numeric layout fields and resize handle. Groups do not
-support resizing, flow/relative units or reparenting.
+selection retains its numeric layout fields and resize handle. Use the matching
+operations below for group dimensions. Group scale gestures, flow/relative units
+and canvas reparenting are unavailable.
+
+## Match a group's width or height
+
+1. Select between 2 and 32 editable sibling controls in Preview. Add the reference control **last** with Ctrl+click. The last-selected control is active.
+2. Choose **Match active width**, **Match active height** or **Match active size** under **Operation**. The **Reference** line identifies the control whose size will be used.
+3. Choose **Apply group**. Every selected member takes the reference's visible border-box dimension on the chosen axes. Positions stay unchanged; the other dimension stays unchanged when matching only one axis.
+4. Use **Undo** or **Redo** for the entire match, then choose **Save source** when ready. Applying an already-matched size creates no extra source Undo step.
+
+![Preview group controls with Match active size and the last-selected reference, showing equally sized panels](../images/ui-source-group-sizing.png)
+
+Visible dimensions include padding and borders. Controls with different
+box-sizing or padding can therefore receive different CSS width/height values
+while displaying the same size. Native layout validates the complete result.
+If a member cannot attain the target size within the canvas limits, the whole
+operation is refused. Source and history stay unchanged; refresh Preview after
+a rejected native candidate. To use a different reference, Ctrl+click it out of
+the selection, then Ctrl+click it again to add it last.
 
 ## Save a preview image
 
