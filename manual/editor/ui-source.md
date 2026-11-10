@@ -198,7 +198,7 @@ to save the document. Reading or opening a control does not rewrite source.
 
 - For `color` and `background-color`, a **Color** field appears for `#RRGGBB` and `#RRGGBBAA` values. The last two digits are alpha: `00` is transparent, `ff` is opaque. Edit the hex field or open its swatch to choose a color.
 - For common numeric properties, use **Number** and **Unit**. **Unitless** leaves the value without a suffix; `px` means pixels, `dp` means density-scaled pixels and `%` means a percentage relative to the property's CSS reference. Changing the unit keeps the number; it does not convert physical sizes.
-- If the authored value is absent, mixed or uses another CSS form, no color or number is guessed. **New color** stages opaque white; **New number** stages unitless zero. These explicit replacements do not publish source until you choose **Set property**. A group change applies the value to every selected sibling.
+- If the authored value is absent, mixed or uses another CSS form, no color or number is guessed. **New color** stages opaque white; **New number** stages a supported starting value for the selected property. These explicit replacements do not publish source until you choose **Set property**. A group change applies the value to every selected sibling.
 
 ![Inline style color controls with a staged eight-digit RGBA hex value and alpha swatch](../images/ui-source-style-color.png)
 
@@ -221,6 +221,39 @@ multi-value declarations and other supported CSS syntax. Unsupported forms stay
 as text. Opening a color control preserves the existing spelling and precision;
 an edited color is rounded to eight bits per channel. An invalid numeric entry
 keeps the previous CSS value and disables property publication until corrected.
+
+## Style text with presets
+
+1. Select one text control in **Elements** and expand **Inline style**. For several siblings, select them together and use **Group inline style**. A stylesheet rule uses the same controls in **Rule properties**.
+2. Choose `font-weight`, `font-style`, `text-align`, `text-decoration`, `text-transform` or `white-space` from **Common**.
+3. Choose a **Preset**. The **CSS value** changes; your source stays unchanged until you choose **Set property**.
+4. Choose **Set property**, check the result in **Preview**, then **Save source**. A group or rule edit is one source Undo step.
+
+![UI Source inline font-weight with a staged bold preset and explicit Set property](../images/ui-source-typography-weight.png)
+
+- `font-weight`: `normal`, `bold`, or a whole unitless Number from `1..1000`.
+- `font-style`: `normal`, `italic`.
+- `text-align`: `left`, `right`, `center`, `justify`.
+- `text-decoration`: `none`, `underline`, `overline`, `line-through`.
+- `text-transform`: `none`, `capitalize`, `uppercase`, `lowercase`.
+- `white-space`: `normal`, `pre`, `nowrap`, `pre-wrap`, `pre-line`.
+- `line-height`: A nonnegative Number, `px`, `dp` or `%`, up to `65536`.
+- `letter-spacing`: `normal`, or a Number in `px`/`dp` from `-65536..65536`.
+
+![UI Source stylesheet rule with a staged center text-alignment preset](../images/ui-source-typography-rule.png)
+
+Choose **New number** to stage a supported numeric value, then edit **Number** and
+**Unit**. Line height starts at `1.2`; letter spacing starts at `0px`; a numeric
+weight starts at `400`. The Unit menu lists the literal helper's supported units.
+For example, `120%` line height follows the current font size.
+
+**Custom / unset** keeps an absent or unsupported preset value explicit. You can
+keep custom CSS in **CSS value**, or choose a replacement preset/number. Reading
+or opening the controls does not normalize an existing value. Use **Remove
+property** to restore stylesheet/inherited behavior. Other properties and comments
+retain their source bytes. Native CSS validation and the fonts available to your
+project determine the rendered result; choosing a weight/style does not load a
+new font face. See [UI text shaping](ui-text-shaping.md) for font resources.
 
 ## Style several controls together
 

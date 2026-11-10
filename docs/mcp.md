@@ -2713,8 +2713,7 @@ normalization stays native rather than changing the authored value.
 One native source transaction/Undo retains the target selection, unrelated bytes,
 IDs, resource references and bindings. Equal native-float numbers retain spelling.
 Save, resource refresh, Scene history, content cooking and Play keep their owners.
-Replay uses the existing source receipt. These two operations bring source tools
-to35 while preserving the existing33operations and18sourcekind strings.
+Replay uses the existing source receipt. These operations retain the previous33operations and18sourcekind strings.
 
 Source control profiles also include text/password inputs, textarea and label.
 Each numeric row reports minimum/maximum and integer; absent bounds are null.
@@ -2723,4 +2722,19 @@ Text dimensions (size/rows/cols) require integers1..4096; maxlength allows integ
 Textarea settings retain the body; use the existing source text operation to
 edit it. Label for updates only its target attribute. Password initial values
 are source content under assets.read/write, not a live secret observation or
-input grant. The existing35tools and18sourcekind strings remain unchanged.
+input grant. The previous source tools and18sourcekind strings remain supported.
+
+## Source literal style profiles
+
+forge_ui_source_style_profile requires assets.read, current path/session/revision/
+state and name. It returns known/kind, keyword presets, optional numeric units/
+minimum/maximum/integer/initial_literal and the shared20Common properties. Profiles
+are optional bounded input conveniences, not native CSS admission/cascade/defaults
+or font-face availability. Unknown properties report knownfalse; raw style APIs
+retain their existing source validation. The query initializes no native renderer,
+reads no computed state and changes no selection/history/source/registration.
+
+The same immutable metadata powers inline/group and stylesheet literal controls.
+Native source candidates and old mutation/query results are unchanged. Existing
+35source operations plus this read-only query make36; native-style/preset staging
+publishes only through the original Set/Remove/Undo/Save and guarded MCP owners.

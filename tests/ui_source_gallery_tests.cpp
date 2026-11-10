@@ -7,6 +7,7 @@
 #include <RmlUi/Core/Elements/ElementFormControlSelect.h>
 #include <RmlUi/Core/Elements/ElementFormControlTextArea.h>
 #include <RmlUi/Core/Elements/ElementProgress.h>
+#include <RmlUi/Core/StyleTypes.h>
 #include <algorithm>
 #include <cmath>
 #include <forge/authoring.hpp>
@@ -122,18 +123,34 @@ void exercise(const std::filesystem::path& root, const Json& source,
         UiPresenter presenter(renderer, root, font);
         presenter.reset("ui-source", 1);
         auto snapshot = ui->snapshot(scene, "ui-source", 1, 41, true);
-        check(presenter.accept(snapshot), presenter.diagnostic().c_str());
+        if (!presenter.accept(snapshot))
+            throw std::runtime_error(presenter.diagnostic());
         presenter.update(0, 800, 600);
         presenter.render();
         auto* document = Rml::GetContext(0)->GetDocument(0);
         check(document->GetElementById("message")->GetInnerRML().find("&lt;your own HUD&gt;") !=
                   std::string::npos,
               "Escaped source text was parsed as child markup");
+        auto* typography = document->GetElementById("native-typography");
+        check(typography && typography->GetProperty<int>("font-weight") == 700 &&
+                  typography->GetProperty<Rml::Style::FontStyle>("font-style") ==
+                      Rml::Style::FontStyle::Italic &&
+                  typography->GetProperty<Rml::Style::TextAlign>("text-align") ==
+                      Rml::Style::TextAlign::Center &&
+                  typography->GetProperty<Rml::Style::TextDecoration>("text-decoration") ==
+                      Rml::Style::TextDecoration::Underline &&
+                  typography->GetProperty<Rml::Style::TextTransform>("text-transform") ==
+                      Rml::Style::TextTransform::Uppercase &&
+                  typography->GetProperty<Rml::Style::WhiteSpace>("white-space") ==
+                      Rml::Style::WhiteSpace::Prewrap &&
+                  typography->GetProperty<float>("line-height") == 120 &&
+                  typography->GetProperty<float>("letter-spacing") == .5f,
+              "Saved/source-hidden typography literals lost actual native property values");
         const auto initial_state = document->GetElementById("state")->GetInnerRML();
         if (initial_state != "Tick 41 / paused 1")
             throw std::runtime_error("Structured text binding result: " + initial_state);
         check(renderer.draws && !renderer.textures.empty() && presenter.asset_snapshot() &&
-                  presenter.asset_snapshot()->sources.size() == 2,
+                  presenter.asset_snapshot()->sources.size() == 3,
               "UI source example lost text draw resources or linked stylesheet");
         check(document->GetElementById("heading")->GetProperty<float>("font-size") == 28,
               "Linked stylesheet layout was not applied");
@@ -248,7 +265,8 @@ void exercise(const std::filesystem::path& root, const Json& source,
         presenter.press_button(instance, "Pause", presenter.presentation_revision());
         acknowledge("Pause");
         snapshot = ui->snapshot(scene, "ui-source", 1, 42, false);
-        check(presenter.accept(snapshot), presenter.diagnostic().c_str());
+        if (!presenter.accept(snapshot))
+            throw std::runtime_error(presenter.diagnostic());
         presenter.update(.02, 800, 600);
         check(document->GetElementById("state")->GetInnerRML() == "Tick 42 / paused 0",
               "Play model update did not reach the authored source");
@@ -260,7 +278,8 @@ void exercise(const std::filesystem::path& root, const Json& source,
             check(!presenter.reload() && presenter.document_count() == 1,
                   "Invalid external source discarded last-good UI");
             atomic_write(path, *saved);
-            check(presenter.reload(), presenter.diagnostic().c_str());
+            if (!presenter.reload())
+                throw std::runtime_error(presenter.diagnostic());
             presenter.update(.04, 800, 600);
             presenter.render();
         }
@@ -556,7 +575,8 @@ void exercise_forms(const std::filesystem::path& root, const Json& source,
         UiPresenter presenter(renderer, root, font);
         presenter.reset("form-gallery", 1);
         auto state = ui->snapshot(scene, "form-gallery", 1, 1, true);
-        check(presenter.accept(state), presenter.diagnostic().c_str());
+        if (!presenter.accept(state))
+            throw std::runtime_error(presenter.diagnostic());
         presenter.update(0, 800, 900);
         const auto instance = state.at("documents")[0].at("instance").get<std::string>();
         const auto initial = presenter.form_controls(instance);
@@ -623,6 +643,17 @@ int main(int argc, char** argv) {
                                               : layout_only ? layout_scene
                                                             : scene_path));
         if (!forms_only && !layout_only) {
+            // Exact pinned dependency font data retains its original Lato ownership/OFL notice.
+            // Use the real face through ordinary project resources, not a synthetic style alias.
+            const auto face_path =
+                std::filesystem::path("Assets/UI/SourceAuthoring/Typography.ttf");
+            std::filesystem::copy_file(FORGE_TEST_UI_BOLD_ITALIC_FONT, root / face_path,
+                                       std::filesystem::copy_options::overwrite_existing);
+            const auto style = ProjectTextSource::read(root / stylesheet_path);
+            check(style.has_value(), "Source typography stylesheet missing");
+            atomic_write(root / stylesheet_path,
+                         "@font-face {font-family:Lato;src:\"" + path_utf8(face_path) +
+                             "\";font-style:italic;font-weight:700;}\n" + *style);
             const auto saved = ProjectTextSource::read(root / document_path);
             check(saved.has_value(), "Source example document missing");
             auto created = insert_ui_markup_control(*saved, by_id(*saved, "panel"), "input-button",
@@ -675,6 +706,24 @@ int main(int argc, char** argv) {
             text = set_ui_markup_attribute(created.source, created.element, "id",
                                            "native-attribute-area");
             text = set_ui_markup_attribute(text, created.element, "value", "Initial & <area>");
+            created = insert_ui_markup_control(text, by_id(text, "panel"), "paragraph",
+                                               "Styled & native");
+            text =
+                set_ui_markup_attribute(created.source, created.element, "id", "native-typography");
+            for (const auto& [name, value] : std::array<std::pair<const char*, const char*>, 6>{
+                     {{"font-weight", "bold"},
+                      {"font-style", "italic"},
+                      {"text-align", "center"},
+                      {"text-decoration", "underline"},
+                      {"text-transform", "uppercase"},
+                      {"white-space", "pre-wrap"}}})
+                text = set_ui_markup_style(text, created.element, name, value);
+            text = set_ui_markup_style(
+                text, created.element, "line-height",
+                format_ui_style_literal_number("line-height", {120, UiStyleUnit::Percent}));
+            text = set_ui_markup_style(
+                text, created.element, "letter-spacing",
+                format_ui_style_literal_number("letter-spacing", {.5, UiStyleUnit::DensityPixels}));
             atomic_write(root / document_path, text);
             const auto published = register_ui_document(root, document_path);
             for (const auto& row : source.at("entities"))
@@ -701,7 +750,8 @@ int main(int argc, char** argv) {
         const auto moved = scratch / "relocated";
         std::filesystem::rename(scratch / "export", moved);
         const auto catalog = open_runtime_content(moved, {"windows", "d3d12"});
-        check(catalog.records().size() == 3, "UI source package lost/duplicated its closure");
+        check(catalog.records().size() == (forms_only || layout_only ? 3 : 4),
+              "UI source package lost/duplicated its closure, including the typography font");
         std::filesystem::rename(root, scratch / "source-offline");
         const auto exported = read_json(moved / catalog.records().at(roots[0]).source);
         if (forms_only)

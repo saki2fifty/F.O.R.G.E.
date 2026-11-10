@@ -8,6 +8,35 @@
 namespace forge {
 // Borrows the native widget's document/history; no agent-owned text or DOM state.
 struct UiSourceAutomation {
+    static Json style_profile(std::string_view name) {
+        auto common = Json::array();
+        for (const auto property : ui_common_style_properties)
+            common.push_back(property);
+        Json result{{"name", name},       {"known", false},
+                    {"kind", "text"},     {"keywords", Json::array()},
+                    {"numeric", nullptr}, {"common_properties", std::move(common)}};
+        if (const auto profile = ui_style_literal_profile(name)) {
+            result["known"] = true;
+            result["kind"] = profile->color               ? "color"
+                             : !profile->units.empty()    ? "number"
+                             : !profile->keywords.empty() ? "keyword"
+                                                          : "text";
+            for (const auto keyword : profile->keywords)
+                result["keywords"].push_back(keyword);
+            if (!profile->units.empty()) {
+                auto units = Json::array();
+                for (const auto unit : profile->units)
+                    units.push_back(ui_style_unit_suffixes[static_cast<std::size_t>(unit)]);
+                result["numeric"] = {
+                    {"units", std::move(units)},
+                    {"minimum", profile->minimum},
+                    {"maximum", profile->maximum},
+                    {"integer", profile->integer},
+                    {"initial_literal", format_ui_style_literal_number(name, profile->initial)}};
+            }
+        }
+        return result;
+    }
     static Json document_state(const ui::UiSourceEditor& editor, const SceneDocument& project) {
         project.check_ownership();
         if (editor.project() != project.project())
@@ -135,6 +164,26 @@ struct UiSourceAutomation {
                          {"revision", automation_integer()},
                          {"state", automation_digest()}};
         const Json required{"path", "session", "revision", "state"};
+        {
+            auto properties = guard;
+            properties["name"] = automation_text(64, 1);
+            auto fields = required;
+            fields.push_back("name");
+            result.push_back(automation_method(
+                "ui.source.style_profile",
+                "Read optional literal input controls for a CSS property using current source "
+                "guards/assets.read. Returns known/kind, keyword presets, numeric units/bounds/"
+                "integer/initial_literal where available, and the shared Common property menu. "
+                "These are source control conveniences, not native CSS admission, defaults, "
+                "computed styling or loaded font-face guarantees. Unsupported/custom values "
+                "remain in CSS value/Source. No source/selection/history/Save/registration or "
+                "native initialization. Existing style_read/rule_read results remain unchanged.",
+                "assets.read", automation_object(std::move(properties), std::move(fields)), false,
+                [&files, &editor](const Json& request) {
+                    observed(editor, files.document, request);
+                    return style_profile(request.at("name").get<std::string>());
+                }));
+        }
         {
             auto properties = guard;
             auto fields = required;

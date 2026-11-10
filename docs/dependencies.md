@@ -180,6 +180,14 @@ Recast and Detour use the zlib license. FORGE compiles their source libraries pr
 
 RmlUi 6.3 is the audited stable release (2026-08-22); FreeType 2.14.3 is the selected current font backend. The exact commits above are used together. RmlUi uses MIT, FreeType its FTL option, and packaged Lato Latin uses SIL OFL 1.1. Preserve all three notices. FreeType zlib/bzip2/PNG/HarfBuzz/Brotli dependencies are disabled. RmlUi Lua, SVG, Lottie and samples are disabled; its sample shaping backend is not adopted. The independent opt-in backend is described below; the upstream debugger library may build but is not linked into FORGE. C++17 upstream is compatible with FORGE C++20.
 
+The native source typography fixture also reads unmodified
+`Samples/assets/LatoLatin-BoldItalic.ttf` from that exact RmlUi revision
+(SHA-256 `116bd3f939070d9df8c73acb76faa8f6b582bcce3c391eb6b3695f40e5ae404a`).
+It is third-party Lato font data under the existing SIL OFL1.1 notice, used through
+ordinary private project font resources and source-hidden content. No sample
+implementation or additional product font resource is integrated. Keep the native
+font byte/notice provenance with the fixture evidence; RmlUi samples stay disabled.
+
 See [Runtime UI](runtime-ui.md) for adopted vs deferred features, source references, memory limits, thread/ownership and lifetime rules. The renderer target and presenter are independent of ImGui; the headless runtime does not link either. Existing world rendering and all dependency pins outside these two additions remain unchanged.
 
 ### Optional UI shaping — selected 2026-11-08

@@ -18,7 +18,8 @@ template <class F> void rejects(F&& operation) {
     }
     check(rejected, "Invalid source owner operation accepted");
 }
-void exercise(const std::filesystem::path& output, int width, bool text_properties_only = false) {
+void exercise(const std::filesystem::path& output, int width, bool text_properties_only = false,
+              bool typography_only = false) {
     using namespace forge;
     const auto root = output / AssetId::generate().str();
     SceneDocument::create_project(root, "UI source editor");
@@ -62,6 +63,100 @@ void exercise(const std::filesystem::path& output, int width, bool text_properti
     const auto old_clipboard = ImGui::GetPlatformIO().Platform_GetClipboardTextFn;
     const auto old_data = ImGui::GetPlatformIO().Platform_ClipboardUserData;
     test::ImGuiInputDriver input(frame);
+    if (typography_only) {
+        input.click("ui-source:elements-tab");
+        input.click("ui-source:element:2");
+        const auto open_style = [&] {
+            frame();
+            if (!test::ui_targets.contains("ui-source:style-common"))
+                input.click("ui-source:style-open");
+        };
+        const auto choose_property = [&](const char* name) {
+            open_style();
+            input.click("ui-source:style-common");
+            input.select(("ui-source:style-choice:" + std::string(name)).c_str());
+        };
+        const auto preset = [&](const char* name, const char* keyword, const char* label) {
+            choose_property(name);
+            const auto before = editor.state();
+            const auto disk = asset_storage::read(file);
+            input.click("ui-source:style-preset");
+            input.select(("ui-source:style-preset:" + std::string(keyword)).c_str());
+            check(editor.state() == before && asset_storage::read(file) == disk,
+                  "Typography preset wrote source before Set property");
+            frame();
+            capture.save(output / ("ui-source-" + std::string(label) + "-" + std::to_string(width) +
+                                   ".png"));
+            input.click("ui-source:style-set");
+            const auto after = editor.state();
+            check(after.at("text") != before.at("text") && asset_storage::read(file) == disk,
+                  "Typography preset did not publish or saved implicitly");
+            input.click("button:Undo");
+            check(editor.state().at("text") == before.at("text"),
+                  "Typography preset needed multiple Undo steps");
+            input.click("button:Redo");
+            check(editor.state().at("text") == after.at("text"), "Typography preset Redo differs");
+            // Native source Undo/Redo invalidates transient outline selections.
+            if (before.at("path").get<std::string>().ends_with(".rcss")) {
+                input.click(("ui-source:rule:" +
+                             std::to_string(before.at("rule_selection").get<std::size_t>()))
+                                .c_str());
+            } else {
+                const auto selected = before.at("selection").get<std::vector<std::size_t>>();
+                for (std::size_t i = 0; i < selected.size(); ++i) {
+                    io.AddKeyEvent(ImGuiMod_Ctrl, i != 0);
+                    frame();
+                    input.click(("ui-source:element:" + std::to_string(selected[i])).c_str());
+                }
+                io.AddKeyEvent(ImGuiMod_Ctrl, false);
+                frame();
+            }
+        };
+        preset("font-weight", "bold", "typography-weight");
+        preset("font-style", "italic", "typography-style");
+        editor.control(1, "paragraph", "Second");
+        frame();
+        io.AddKeyEvent(ImGuiMod_Ctrl, true);
+        frame();
+        input.click("ui-source:element:2");
+        io.AddKeyEvent(ImGuiMod_Ctrl, false);
+        frame();
+        check(editor.state().at("selection").size() == 2, "Typography group selection missing");
+        preset("font-style", "italic", "typography-group");
+        const std::array<std::size_t, 2> members{2, 3};
+        const auto values = editor.read_styles(members, "font-style");
+        check(values.size() == 2 && values[0] == "italic" && values[1] == "italic",
+              "Group preset did not use the shared complete source candidate");
+        editor.save(project);
+        const auto sheet = root / "Assets/Typography.rcss";
+        const std::string sheet_source = "/* retain */\r\n.caption { color:red; }\r\n";
+        asset_storage::replace(sheet, sheet_source);
+        editor.open(project, "Assets/Typography.rcss");
+        frame();
+        frame();
+        input.click("ui-source:elements-tab");
+        input.click("ui-source:rule:0");
+        preset("text-align", "center", "typography-rule");
+        check(editor.read_rule_property(0, "text-align") == "center",
+              "Rule preset missing authored alignment");
+        choose_property("line-height");
+        const auto before_spacing = editor.state();
+        input.click("ui-source:style-new-number");
+        input.type("ui-source:style-number", "120");
+        input.click("ui-source:style-unit");
+        input.select("ui-source:style-unit:3");
+        check(editor.state() == before_spacing,
+              "Line spacing numeric controls published before Set property");
+        input.click("ui-source:style-set");
+        check(editor.read_rule_property(0, "line-height") == "120%",
+              "Rule spacing staged the wrong unit/value");
+        editor.save(project);
+        check(scene.snapshot() == authored && scene.revision() == revision &&
+                  asset_storage::read(root / "forge.assets.json") == catalog,
+              "Typography source edits changed Scene/catalog ownership");
+        editor.request_close();
+        return;
+    }
     if (text_properties_only) {
         input.click("ui-source:elements-tab");
         for (const auto* kind : {"text-input", "password-input", "textarea", "label"}) {
@@ -899,12 +994,14 @@ void exercise_stylesheet(const std::filesystem::path& output, int width) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2 || (argc == 3 && std::string_view(argv[2]) == "--text-properties-only"),
-              "Need capture/scratch directory and optional text property mode");
+        const bool typography = argc == 3 && std::string_view(argv[2]) == "--typography-only";
+        check(argc == 2 || (argc == 3 &&
+                            (typography || std::string_view(argv[2]) == "--text-properties-only")),
+              "Need capture/scratch directory and optional source control mode");
         const auto output = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(output);
         for (const auto width : {1180, 700, 400}) {
-            exercise(output, width, argc == 3);
+            exercise(output, width, argc == 3 && !typography, typography);
             if (argc == 2)
                 exercise_stylesheet(output, width);
         }

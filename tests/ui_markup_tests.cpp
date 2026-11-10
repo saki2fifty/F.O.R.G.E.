@@ -839,6 +839,57 @@ void common_controls() {
           "Maximum supported initial text was rejected");
     rejects([&] { insert_ui_markup_control(source, 2, "paragraph", std::string(8193, 'a')); });
 }
+void typography_literals() {
+    using namespace forge;
+    for (const auto property : ui_common_style_properties)
+        check(ui_style_literal_profile(property).has_value(),
+              "Common CSS menu lacks a literal profile");
+    check(!ui_style_literal_profile("custom-property"),
+          "Unknown CSS property acquired a fabricated profile");
+    const auto weight = *ui_style_literal_profile("font-weight");
+    check(weight.integer && weight.minimum == 1 && weight.maximum == 1000 &&
+              weight.units.size() == 1 && weight.units.front() == UiStyleUnit::Number &&
+              weight.keywords.size() == 2 && weight.keywords[1] == "bold" &&
+              format_ui_style_literal_number("font-weight", weight.initial) == "400",
+          "Font-weight literal profile differs from its bounded source controls");
+    for (const auto* text : {"0", "1001", "700.25", "700px", "700%", "bold"})
+        check(!read_ui_style_literal_number("font-weight", text),
+              "Unsupported weight became a typed number");
+    for (const auto text : {"1", "400", "700", "1000"})
+        check(read_ui_style_literal_number("font-weight", text).has_value(),
+              "Whole-number weight rejected");
+    rejects([&] { format_ui_style_literal_number("font-weight", {700.25, UiStyleUnit::Number}); });
+    rejects([&] { format_ui_style_literal_number("font-weight", {700, UiStyleUnit::Pixels}); });
+    check(read_ui_style_literal_number("letter-spacing", "-1.25dp").has_value() &&
+              !read_ui_style_literal_number("letter-spacing", "10%") &&
+              !read_ui_style_literal_number("letter-spacing", "1em") &&
+              read_ui_style_literal_number("line-height", "120%").has_value() &&
+              !read_ui_style_literal_number("line-height", "-1px"),
+          "Spacing controls guessed unsupported units or changed the bounded profile");
+    for (const auto name :
+         {"text-align", "font-style", "text-decoration", "text-transform", "white-space"}) {
+        const auto profile = *ui_style_literal_profile(name);
+        check(!profile.keywords.empty() && profile.units.empty(),
+              "Typography keyword control is missing");
+        check(!read_ui_style_literal_number(name, "1"),
+              "Keyword property advertised a numeric helper");
+    }
+    for (const auto property : {"opacity", "font-size", "width", "height", "padding", "margin",
+                                "left", "top", "right", "bottom"}) {
+        const auto profile = *ui_style_literal_profile(property);
+        check(profile.units.size() == 4 && profile.minimum == -65536 && profile.maximum == 65536 &&
+                  read_ui_style_literal_number(property, "-12.5dp") ==
+                      read_ui_style_number("-12.5dp"),
+              "Existing numeric literal controls changed their supported envelope");
+    }
+    const std::string original = "<!-- keep --><rml><body><p id='text' "
+                                 "style='font-weight:400;color:#ffffff'>Caption</p></body></rml>";
+    const auto changed = set_ui_markup_style(original, 2, "font-weight", "bold");
+    check(changed.find("font-weight:bold;color:#ffffff") != changed.npos &&
+              changed.find("id='text'") != changed.npos &&
+              changed.ends_with(">Caption</p></body></rml>"),
+          "Typography preset source write replaced unrelated source");
+}
 void style_value_literals() {
     using namespace forge;
     const std::array cases{
@@ -1157,6 +1208,7 @@ int main() {
         stylesheet_rules();
         reusable_styles();
         style_value_literals();
+        typography_literals();
         common_controls();
         control_properties();
         text_control_properties();

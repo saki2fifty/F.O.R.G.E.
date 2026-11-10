@@ -19,6 +19,39 @@ struct UiStyleNumber {
 };
 std::optional<UiStyleNumber> read_ui_style_number(std::string_view);
 std::string format_ui_style_number(UiStyleNumber);
+inline constexpr std::array<std::string_view, 20> ui_common_style_properties{"color",
+                                                                             "background-color",
+                                                                             "opacity",
+                                                                             "font-size",
+                                                                             "font-family",
+                                                                             "width",
+                                                                             "height",
+                                                                             "padding",
+                                                                             "margin",
+                                                                             "left",
+                                                                             "top",
+                                                                             "display",
+                                                                             "text-align",
+                                                                             "font-weight",
+                                                                             "font-style",
+                                                                             "text-decoration",
+                                                                             "text-transform",
+                                                                             "white-space",
+                                                                             "line-height",
+                                                                             "letter-spacing"};
+// Optional literal input controls, not a native CSS admission/cascade contract.
+// Spans borrow immutable metadata; reading a profile allocates no storage.
+struct UiStyleLiteralProfile {
+    std::span<const std::string_view> keywords;
+    std::span<const UiStyleUnit> units;
+    bool color = false, integer = false;
+    double minimum = -65536, maximum = 65536;
+    UiStyleNumber initial;
+};
+std::optional<UiStyleLiteralProfile> ui_style_literal_profile(std::string_view property);
+std::optional<UiStyleNumber> read_ui_style_literal_number(std::string_view property,
+                                                          std::string_view literal);
+std::string format_ui_style_literal_number(std::string_view property, UiStyleNumber);
 using UiStyleColor = std::array<float, 4>;
 std::optional<UiStyleColor> read_ui_style_color(std::string_view);
 std::string format_ui_style_color(UiStyleColor);

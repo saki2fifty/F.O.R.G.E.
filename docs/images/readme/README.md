@@ -3203,3 +3203,20 @@ input/GPU/DPI or external-client acceptance.
 - ui-source-text-input-properties.png: `7ad4dfe826cacb063d58f546a8cbfa58e442cf32bf4ee783c6dac57b9f1007c8`.
 
 - ui-source-textarea-properties.png: `f78af146e42b4001efd054ff6e2127691db87690cf8c67cfe3b42d3943be7a13`.
+
+## Source typography literal controls
+
+ui-source-typography-weight.png and ui-source-typography-rule.png are exact700×950
+UiSourceEditor/DocumentWorkspace software SDL captures from
+forge_ui_source_editor_tests --typography-only (ui_source_typography). Actual Common
+and Preset controls stage bold inline and center rule alignment before Set property.
+The fixture also drives grouped presets, numeric line spacing, explicit Save and
+one Undo/Redo at1180/700/400, retaining12raw captures. Native selection is reselected
+after Undo/Redo through real controls because source indices are transient. Source/
+font/executable hashes and current receipt remain with local technical evidence.
+These are authentic source UI views, not rendered glyph/physical GPU/font acceptance.
+Native/source-hidden property and actual pinned font-resource checks are separate.
+
+- ui-source-typography-weight.png: `a1e45de11b8bafa4555f10a463fc33d80f688a52e438492e6eff7f39d509b15e`.
+
+- ui-source-typography-rule.png: `8abe12ba0c7f2f73504d5f36b38cfc631e34aa5c4e062adc4ffad62778cebfde`.

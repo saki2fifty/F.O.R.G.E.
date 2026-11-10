@@ -69,6 +69,12 @@ dimensions. Text/password initial values are source settings; live passwords sta
 redacted. Textarea settings preserve its initial body, and Label changes only its
 target ID.
 
+`forge_ui_source_style_profile` reads the current source controls' literal helper
+metadata for one CSS property: presets, numeric units/ranges and the Common menu.
+Use the existing style, group-style and rule-property tools to apply its chosen
+value, then Save. These helper choices do not describe computed CSS or guarantee
+a loaded font. Existing source read tools retain their value results.
+
 `forge_play_ui_widget_focus` and `forge_play_ui_widget_key` test ordinary native
 keyboard input on non-text controls using their observed kind and current scope.
 Read `focusable` and `tab_stop` facts, focus the exact control, then send a paired

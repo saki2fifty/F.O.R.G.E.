@@ -55,7 +55,8 @@ TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 INPUT_RECORDING_ONLY = sys.argv[7:] == ['--input-recording-only']
 UI_CONTROL_PROPERTIES_ONLY = sys.argv[7:] == ['--ui-control-properties-only']
-UI_SOURCE_ONLY = sys.argv[7:] == ['--ui-source-only'] or UI_CONTROL_PROPERTIES_ONLY
+UI_TYPOGRAPHY_ONLY = sys.argv[7:] == ['--ui-typography-only']
+UI_SOURCE_ONLY = sys.argv[7:] == ['--ui-source-only'] or UI_CONTROL_PROPERTIES_ONLY or UI_TYPOGRAPHY_ONLY
 UI_TEXT_SHAPING_ONLY = sys.argv[7:] == ['--ui-text-shaping-only']
 UI_FIELDS_SDK = sys.argv[7:] in (['--ui-fields-sdk-only'], ['--ui-forms-sdk-only'])
 UI_FORMS_ONLY = sys.argv[7:] in (['--ui-forms-only'], ['--ui-forms-sdk-only'])
@@ -462,7 +463,7 @@ for legacy in selected_protocols:
                   'stale digest, Save/discard, Scene isolation and grant discovery passed')
             continue
         if UI_SOURCE_ONLY:
-            check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=UI_CONTROL_PROPERTIES_ONLY)
+            check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=UI_CONTROL_PROPERTIES_ONLY, typography_only=UI_TYPOGRAPHY_ONLY)
             with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
                 visible = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
                 assert 'forge_ui_source_read' in visible and 'forge_ui_source_open' not in visible
@@ -472,6 +473,7 @@ for legacy in selected_protocols:
                 assert 'forge_ui_source_reparent' not in visible
                 assert 'forge_ui_source_style' not in visible
                 assert 'forge_ui_source_control' not in visible
+                assert 'forge_ui_source_style_profile' in visible
                 assert 'forge_ui_source_control_properties' in visible
                 assert 'forge_ui_source_control_values' not in visible
                 denied_properties = readonly.request('tools/call', dict(name='forge_ui_source_control_values', arguments={}))

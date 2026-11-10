@@ -417,6 +417,79 @@ std::string format_ui_style_number(UiStyleNumber number) {
     require(result.ec == std::errc{}, "Could not format the style number");
     return std::string(buffer.data(), result.ptr) + std::string(ui_style_unit_suffixes[unit]);
 }
+std::optional<UiStyleLiteralProfile> ui_style_literal_profile(std::string_view property) {
+    static constexpr std::array all_units{UiStyleUnit::Number, UiStyleUnit::Pixels,
+                                          UiStyleUnit::DensityPixels, UiStyleUnit::Percent};
+    static constexpr std::array lengths{UiStyleUnit::Pixels, UiStyleUnit::DensityPixels};
+    static constexpr std::array unitless{UiStyleUnit::Number};
+    static constexpr std::array<std::string_view, 2> weights{"normal", "bold"};
+    static constexpr std::array<std::string_view, 2> styles{"normal", "italic"};
+    static constexpr std::array<std::string_view, 4> alignment{"left", "right", "center",
+                                                               "justify"};
+    static constexpr std::array<std::string_view, 4> decoration{"none", "underline", "overline",
+                                                                "line-through"};
+    static constexpr std::array<std::string_view, 4> transform{"none", "capitalize", "uppercase",
+                                                               "lowercase"};
+    static constexpr std::array<std::string_view, 5> whitespace{"normal", "pre", "nowrap",
+                                                                "pre-wrap", "pre-line"};
+    static constexpr std::array<std::string_view, 1> normal{"normal"};
+    UiStyleLiteralProfile profile;
+    if (property == "color" || property == "background-color")
+        profile.color = true;
+    else if (std::ranges::any_of(std::array{"opacity", "font-size", "width", "height", "padding",
+                                            "margin", "left", "top", "right", "bottom"},
+                                 [&](const auto* name) { return property == name; })) {
+        profile.units = all_units;
+    } else if (property == "font-weight") {
+        profile.keywords = weights;
+        profile.units = unitless;
+        profile.minimum = 1;
+        profile.maximum = 1000;
+        profile.integer = true;
+        profile.initial = {400, UiStyleUnit::Number};
+    } else if (property == "font-style")
+        profile.keywords = styles;
+    else if (property == "text-align")
+        profile.keywords = alignment;
+    else if (property == "text-decoration")
+        profile.keywords = decoration;
+    else if (property == "text-transform")
+        profile.keywords = transform;
+    else if (property == "white-space")
+        profile.keywords = whitespace;
+    else if (property == "letter-spacing") {
+        profile.keywords = normal;
+        profile.units = lengths;
+        profile.initial = {0, UiStyleUnit::Pixels};
+    } else if (property == "line-height") {
+        profile.units = all_units;
+        profile.minimum = 0;
+        profile.initial = {1.2, UiStyleUnit::Number};
+    } else if (property != "font-family" && property != "display")
+        return {};
+    return profile;
+}
+namespace {
+bool style_number_in_profile(const UiStyleLiteralProfile& profile, UiStyleNumber number) {
+    return std::isfinite(number.value) && number.value >= profile.minimum &&
+           number.value <= profile.maximum &&
+           (!profile.integer || std::trunc(number.value) == number.value) &&
+           std::ranges::find(profile.units, number.unit) != profile.units.end();
+}
+} // namespace
+std::optional<UiStyleNumber> read_ui_style_literal_number(std::string_view property,
+                                                          std::string_view literal) {
+    const auto profile = ui_style_literal_profile(property);
+    const auto number = read_ui_style_number(literal);
+    return profile && number && style_number_in_profile(*profile, *number) ? number : std::nullopt;
+}
+std::string format_ui_style_literal_number(std::string_view property, UiStyleNumber number) {
+    const auto profile = ui_style_literal_profile(property);
+    require(
+        profile && style_number_in_profile(*profile, number),
+        "Use a supported literal number, unit and range for this property; other CSS uses Value");
+    return format_ui_style_number(number);
+}
 std::optional<UiStyleColor> read_ui_style_color(std::string_view text) {
     const auto range = trimmed(text, {0, text.size()});
     text = text.substr(range.begin, range.end - range.begin);

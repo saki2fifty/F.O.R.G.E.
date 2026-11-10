@@ -1,5 +1,14 @@
 # 2026-11-10
 
+## Source typography literal controls
+
+Inline/group and stylesheet controls share keyword presets for text weight/style,
+alignment, decoration, case and wrapping, with numeric line/letter spacing helpers.
+A bounded immutable metadata profile also powers read-only source MCP discovery.
+Raw CSS and old source mutations/results remain supported; presets stage the value
+before one Set/Undo and explicit Save. Font loading and native styling keep their
+existing owners.
+
 ## Text control source settings
 
 The shared source property panel and typed automation expose text/password initial

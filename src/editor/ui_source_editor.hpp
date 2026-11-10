@@ -268,7 +268,7 @@ class UiSourceEditor {
             try {
                 const auto text = [&] {
                     if constexpr (std::is_same_v<std::decay_t<decltype(value)>, UiStyleNumber>)
-                        return format_ui_style_number(value);
+                        return format_ui_style_literal_number(style_name_, value);
                     else
                         return format_ui_style_color(value);
                 }();
@@ -279,7 +279,25 @@ class UiSourceEditor {
             }
         };
         const std::string_view property(style_name_);
-        if (property == "color" || property == "background-color") {
+        const auto profile = ui_style_literal_profile(property);
+        if (profile && !profile->keywords.empty()) {
+            const auto current = std::string_view(style_value_);
+            const bool known =
+                std::ranges::find(profile->keywords, current) != profile->keywords.end();
+            const bool open = ImGui::BeginCombo("Preset", known ? style_value_ : "Custom / unset");
+            FORGE_UI_PROBE("ui-source:style-preset");
+            if (open) {
+                for (const auto keyword : profile->keywords) {
+                    if (ImGui::Selectable(keyword.data(), current == keyword)) {
+                        std::snprintf(style_value_, sizeof(style_value_), "%s", keyword.data());
+                        style_control_error_.clear();
+                    }
+                    FORGE_UI_PROBE("ui-source:style-preset:" + std::string(keyword));
+                }
+                ImGui::EndCombo();
+            }
+        }
+        if (profile && profile->color) {
             if (auto color = read_ui_style_color(style_value_)) {
                 if (ImGui::ColorEdit4("Color", color->data(),
                                       ImGuiColorEditFlags_DisplayHex |
@@ -294,11 +312,8 @@ class UiSourceEditor {
                     stage(UiStyleColor{1, 1, 1, 1});
                 FORGE_UI_PROBE("ui-source:style-new-color");
             }
-        } else if (std::ranges::any_of(std::array{"opacity", "font-size", "width", "height",
-                                                  "padding", "margin", "left", "top", "right",
-                                                  "bottom"},
-                                       [&](const auto* name) { return property == name; })) {
-            if (auto number = read_ui_style_number(style_value_)) {
+        } else if (profile && !profile->units.empty()) {
+            if (auto number = read_ui_style_literal_number(property, style_value_)) {
                 if (ImGui::InputDouble("Number", &number->value, 0, 0, "%.17g"))
                     stage(*number);
                 FORGE_UI_PROBE("ui-source:style-number");
@@ -307,7 +322,8 @@ class UiSourceEditor {
                     "Unit", unit == 0 ? "Unitless" : ui_style_unit_suffixes[unit].data());
                 FORGE_UI_PROBE("ui-source:style-unit");
                 if (units) {
-                    for (std::size_t i = 0; i < ui_style_unit_suffixes.size(); ++i) {
+                    for (const auto allowed_unit : profile->units) {
+                        const auto i = static_cast<std::size_t>(allowed_unit);
                         if (ImGui::Selectable(i == 0 ? "Unitless"
                                                      : ui_style_unit_suffixes[i].data(),
                                               unit == i) &&
@@ -320,10 +336,9 @@ class UiSourceEditor {
                     ImGui::EndCombo();
                 }
             } else {
-                ImGui::TextWrapped("Number control accepts unitless, px, dp or %% literals from "
-                                   "-65536 to 65536. Keep other CSS forms as text.");
+                ImGui::TextWrapped("Keep custom CSS in CSS value, or stage a supported number.");
                 if (ImGui::Button("New number"))
-                    stage(UiStyleNumber{});
+                    stage(profile->initial);
                 FORGE_UI_PROBE("ui-source:style-new-number");
             }
         }
@@ -343,9 +358,8 @@ class UiSourceEditor {
         const bool choices = ImGui::BeginCombo("Common", style_name_);
         FORGE_UI_PROBE("ui-source:style-common");
         if (choices) {
-            for (const auto* name :
-                 {"color", "background-color", "opacity", "font-size", "font-family", "width",
-                  "height", "padding", "margin", "left", "top", "display", "text-align"}) {
+            for (const auto property : ui_common_style_properties) {
+                const auto* name = property.data();
                 if (ImGui::Selectable(name, std::string_view(style_name_) == name)) {
                     std::snprintf(style_name_, sizeof(style_name_), "%s", name);
                     read_style_controls();

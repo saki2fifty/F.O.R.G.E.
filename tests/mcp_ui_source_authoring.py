@@ -2,13 +2,13 @@
 from mcp_test_client import failed
 
 
-def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False):
+def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False):
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
                  'duplicate', 'remove_group', 'reparent', 'style', 'style_read', 'rule_read',
                  'rule_property', 'rule_selector', 'rule_insert', 'rule_remove',
-                 'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control', 'control_properties', 'control_values')}
+                 'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control', 'control_properties', 'control_values', 'style_profile')}
     assert required <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
@@ -33,6 +33,52 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                     if node['tag'] == tag)
 
     paragraph = index('p')
+    if typography_only:
+        before = read('forge_ui_source_read')
+        profile = read('forge_ui_source_style_profile', **guard(), name='font-weight')
+        assert profile['known'] and profile['kind'] == 'number' and profile['keywords'] == ['normal', 'bold']
+        assert profile['numeric'] == dict(units=[''], minimum=1, maximum=1000, integer=True, initial_literal='400')
+        assert len(profile['common_properties']) == len(set(profile['common_properties'])) == 20
+        assert read('forge_ui_source_read') == before, 'Literal profile query changed the draft'
+        unknown = read('forge_ui_source_style_profile', **guard(), name='custom-property')
+        assert not unknown['known'] and unknown['numeric'] is None
+        old = guard()
+        args = arguments(**old, element=paragraph, name='font-weight', value='bold')
+        once = client.tool('forge_ui_source_style', **args)
+        replay = client.tool('forge_ui_source_style', **args)
+        assert once['ok'] and replay['ok'] and once['result'] == replay['result']
+        bold = read('forge_ui_source_read')
+        assert read('forge_ui_source_style_read', **guard(), element=paragraph, name='font-weight') == dict(name='font-weight', value='bold')
+        current = client.tool('forge_discover')['result']['target']
+        failed(client.tool('forge_ui_source_style_profile', target=current, **old, name='font-style'), 'stale_ui_source')
+        assert edit('undo')['text'] == original
+        assert edit('redo')['text'] == bold['text']
+        child = edit('control', parent=index('body'), kind='paragraph', text='Second')
+        members = [paragraph, child['selection'][0]]
+        group = edit('style_group', elements=members, name='font-style', value='italic')
+        assert read('forge_ui_source_style_group_read', **guard(), elements=members, name='font-style')['value'] == 'italic'
+        assert edit('undo')['text'] == child['text']
+        assert edit('redo')['text'] == group['text']
+        edit('save')
+        assert not read('forge_ui_source_read')['dirty'] and read('forge_scene_read') == before_scene
+        edit('close')
+        sheet_path = 'Assets/Typography.rcss'
+        sheet_source = '/* keep */\r\n.caption { color:red; }\r\n'
+        ok('forge_source_text_write', path=sheet_path, state='missing', text=sheet_source)
+        ok('forge_ui_source_open', path=sheet_path)
+        sheet_before = read('forge_ui_source_read')
+        for name, value in [('text-align', 'center'), ('line-height', '120%'), ('letter-spacing', '0.5dp'),
+                            ('text-decoration', 'underline'), ('white-space', 'pre-wrap'), ('text-transform', 'uppercase')]:
+            profile = read('forge_ui_source_style_profile', **guard(), name=name)
+            assert profile['known']
+            edit('rule_property', rule=0, name=name, value=value)
+            assert read('forge_ui_source_rule_read', **guard(), rule=0, name=name) == dict(name=name, value=value)
+        patched = read('forge_ui_source_read')
+        assert (root/'Game'/sheet_path).read_bytes() == sheet_source.encode('utf-8')
+        assert patched['text'].startswith('/* keep */')
+        edit('save')
+        assert not read('forge_ui_source_read')['dirty'] and read('forge_scene_read') == before_scene
+        return
     kinds = advertised['forge_ui_source_control']['inputSchema']['properties']['kind']['enum']
     assert len(kinds) == len(set(kinds)) == 18 and {'textarea', 'label', 'checkbox', 'radio', 'select', 'option', 'progress', 'input-button'} <= set(kinds)
     assert not advertised['forge_ui_source_control_properties']['annotations']['openWorldHint']

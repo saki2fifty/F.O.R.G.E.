@@ -181,3 +181,24 @@ ambiguous attributes still refuse, without changing native password observations
 UI history, runtime state or source text normalization. Native widgets alone apply
 length restrictions and label focus; textarea body/attribute precedence remains
 with the exact native parser and existing Text/source controls.
+
+## Literal typography styling
+
+UiStyleLiteralProfile borrows immutable keyword/unit spans for optional source
+input controls. The shared20Common names/profile back inline/group/rule staging
+and the read-only style_profile query. Existing color/number formatters and native
+source writers remain authoritative; the helper is not a CSS parser or cascade.
+Ten existing numeric helpers keep all four units and their prior finite envelope.
+Typography keywords follow the exact native registration. New numeric helpers
+admit whole unitless weights1..1000, nonnegative line height in supported units,
+and px/dp letter spacing. Unsupported/mixed/custom CSS stays in the old text field;
+opening/reading controls makes no normalization or source change. Set/Remove,
+selected-root/group history, explicit Save and current source guards retain their
+owners. Existing style_read/rule_read JSON results are unchanged.
+
+Choosing bold/italic requires a matching loaded face. The native source-hidden
+fixture imports actual Lato BoldItalic font data from the unchanged dependency
+pin through a project-relative @font-face, without altering fallback or aliasing a
+regular font. Native parsing/rendering checks all adopted style values; no physical
+typography/Windows acceptance is implied. See dependency provenance and the user
+source guide for controls, units, custom values and font prerequisites.

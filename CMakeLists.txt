@@ -2640,6 +2640,7 @@ if(BUILD_TESTING AND TARGET imgui)
  endif()
  add_test(NAME ui_source_editor COMMAND forge_ui_source_editor_tests "${CMAKE_BINARY_DIR}/ui-source-captures")
  add_test(NAME ui_source_text_properties COMMAND forge_ui_source_editor_tests "${CMAKE_BINARY_DIR}/ui-source-text-property-captures" --text-properties-only)
+ add_test(NAME ui_source_typography COMMAND forge_ui_source_editor_tests "${CMAKE_BINARY_DIR}/ui-source-typography-captures" --typography-only)
  endif()
  set_tests_properties(audio_mix_editor PROPERTIES TIMEOUT 60)
  # The complete four-scale Inspector takes about100s in the selected sanitizer profile.
