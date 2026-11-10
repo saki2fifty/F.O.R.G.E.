@@ -1,5 +1,12 @@
 # 2026-11-10
 
+## Document stylesheet link authoring
+
+UI Source Elements stages registered RCSS links with explicit header creation,
+relative references, replacement/removal and adjacent ordering. Existing source
+selection, history, metadata barriers and Save remain authoritative. Five matching
+guarded MCP operations share the resource and source owners.
+
 ## Guided font fallback participation
 
 The existing font declaration form stages fallback participation with explicit

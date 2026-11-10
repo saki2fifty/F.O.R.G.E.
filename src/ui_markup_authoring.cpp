@@ -943,6 +943,133 @@ std::string insert_ui_stylesheet_rule(std::string_view source, std::string_view 
                     (newline ? "\n" : "") + std::string(selector) + " {}\n", false);
 }
 namespace {
+struct StylesheetHead {
+    std::vector<UiMarkupElement> nodes;
+    std::optional<std::size_t> head;
+};
+StylesheetHead stylesheet_head(std::string_view source) {
+    StylesheetHead result{inspect_ui_markup(source), {}};
+    require(!result.nodes.empty() && result.nodes[0].tag == "rml" &&
+                result.nodes[0].parent == UiMarkupElement::no_parent &&
+                !result.nodes[0].self_closing,
+            "Use one complete RML root for stylesheet links; other forms use Source");
+    for (std::size_t i = 1; i < result.nodes.size(); ++i) {
+        const auto& node = result.nodes[i];
+        require(node.parent != UiMarkupElement::no_parent, "Multiple document roots use Source");
+        if (node.tag == "head") {
+            require(node.parent == 0 && !result.head,
+                    "Use one direct document head; nested/duplicate heads use Source");
+            result.head = i;
+        }
+    }
+    return result;
+}
+std::optional<UiMarkupStylesheetLink>
+stylesheet_link(std::string_view source, const StylesheetHead& context, std::size_t index) {
+    const auto& node = element(context.nodes, index);
+    if (node.tag != "link" || !context.head || node.parent != *context.head)
+        return {};
+    const auto literal = [&](std::string_view name) {
+        const auto* attribute = markup_attribute(node, name);
+        require(attribute && attribute->has_value,
+                "Stylesheet links need literal type/href attributes; complete them in Source");
+        auto text = Rml::StringUtilities::DecodeRml(std::string(
+            source.substr(attribute->value.begin, attribute->value.end - attribute->value.begin)));
+        require(text.find("{{") == text.npos && text.find("}}") == text.npos,
+                "Bound stylesheet attributes use Source");
+        return text;
+    };
+    const auto* type_attribute = markup_attribute(node, "type");
+    if (!type_attribute || !type_attribute->has_value)
+        return {};
+    auto type = literal("type");
+    const auto lower = Rml::StringUtilities::ToLower(type);
+    if (lower != "text/rcss" && lower != "text/css")
+        return {};
+    require(std::ranges::none_of(
+                node.attributes,
+                [](const auto& attribute) { return attribute.name.starts_with("data-"); }),
+            "Bound stylesheet links use Source");
+    return UiMarkupStylesheetLink{index, literal("href"), std::move(type)};
+}
+std::vector<UiMarkupStylesheetLink> stylesheet_links(std::string_view source,
+                                                     const StylesheetHead& context) {
+    std::vector<UiMarkupStylesheetLink> result;
+    for (std::size_t i = 0; i < context.nodes.size(); ++i)
+        if (auto link = stylesheet_link(source, context, i)) {
+            require(result.size() < 32, "Guided stylesheet links support at most32 entries");
+            result.push_back(std::move(*link));
+        }
+    return result;
+}
+} // namespace
+std::vector<UiMarkupStylesheetLink> read_ui_markup_stylesheet_links(std::string_view source) {
+    const auto context = stylesheet_head(source);
+    return stylesheet_links(source, context);
+}
+std::string set_ui_markup_stylesheet_link(std::string_view source, std::optional<std::size_t> index,
+                                          std::string_view reference) {
+    require(!reference.empty() && reference.size() <= 1024 &&
+                reference.find_first_of(":\r\n?#") == reference.npos &&
+                reference.find("{{") == reference.npos && reference.find("}}") == reference.npos &&
+                std::filesystem::u8path(reference).is_relative(),
+            "Use one literal document-relative RCSS reference");
+    const auto path = std::filesystem::u8path(reference);
+    require(Rml::StringUtilities::ToLower(path.extension().string()) == ".rcss",
+            "Choose an RCSS stylesheet");
+    const auto context = stylesheet_head(source);
+    const auto links = stylesheet_links(source, context);
+    if (index) {
+        const auto found = std::ranges::find(links, *index, &UiMarkupStylesheetLink::element);
+        require(found != links.end(), "Choose a literal stylesheet link in the document head");
+        if (found->reference == reference)
+            return std::string(source);
+        const auto* attribute = markup_attribute(context.nodes[*index], "href");
+        return replaced(source, attribute->source, "href=\"" + escaped(reference) + '"');
+    }
+    require(links.size() < 32, "Guided stylesheet links support at most32 entries");
+    const auto link = "<link type=\"text/rcss\" href=\"" + escaped(reference) + "\" />";
+    if (!context.head) {
+        const auto position = context.nodes[0].content.begin;
+        return replaced(source, {position, position}, "<head>\n" + link + "\n</head>");
+    }
+    const auto& head = context.nodes[*context.head];
+    if (head.self_closing)
+        return replaced(source, {head.opening.end - 2, head.opening.end},
+                        ">\n" + link + "\n</head>");
+    return replaced(source, {head.content.end, head.content.end}, "\n" + link + "\n");
+}
+std::string remove_ui_markup_stylesheet_link(std::string_view source, std::size_t index) {
+    const auto context = stylesheet_head(source);
+    require(stylesheet_link(source, context, index).has_value(),
+            "Choose a literal stylesheet link in the document head");
+    return replaced(source, context.nodes[index].source, {});
+}
+std::string move_ui_markup_stylesheet_link(std::string_view source, std::size_t index,
+                                           int direction) {
+    require(direction == -1 || direction == 1, "Move a stylesheet link up or down");
+    const auto context = stylesheet_head(source);
+    require(stylesheet_link(source, context, index).has_value(),
+            "Choose a literal stylesheet link in the document head");
+    std::vector<std::size_t> siblings;
+    for (std::size_t i = 0; i < context.nodes.size(); ++i)
+        if (context.nodes[i].parent == *context.head)
+            siblings.push_back(i);
+    const auto found = std::ranges::find(siblings, index);
+    const auto position = std::size_t(found - siblings.begin());
+    require(direction < 0 ? position > 0 : position + 1 < siblings.size(),
+            "The stylesheet link is already at this head boundary");
+    const auto other = siblings[direction < 0 ? position - 1 : position + 1];
+    require(stylesheet_link(source, context, other).has_value(),
+            "Move across other head content in Source");
+    const auto first = context.nodes[std::min(index, other)].source;
+    const auto last = context.nodes[std::max(index, other)].source;
+    const auto text = std::string(source.substr(last.begin, last.end - last.begin)) +
+                      std::string(source.substr(first.end, last.begin - first.end)) +
+                      std::string(source.substr(first.begin, first.end - first.begin));
+    return replaced(source, {first.begin, last.end}, text);
+}
+namespace {
 const UiStyleRule& font_face_rule(std::string_view source, std::span<const UiStyleRule> rules,
                                   std::size_t index) {
     require(index < rules.size(), "Choose a font face in the current stylesheet");

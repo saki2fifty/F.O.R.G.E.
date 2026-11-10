@@ -41,6 +41,19 @@ UiSourceInfo source_info(const AssetCatalog& catalog, AssetId asset, const std::
         throw std::runtime_error("UI resource source format does not match its registered type");
     return info;
 }
+nlohmann::json source_reference(const AssetCatalog& catalog, const std::filesystem::path& document,
+                                AssetId asset, const std::string& type) {
+    const auto info = source_info(catalog, asset, type);
+    const auto source = ProjectPaths::normalize(info.source);
+    const auto base = ProjectPaths::normalize(document);
+    const auto reference = path_utf8(source.lexically_relative(base.parent_path()));
+    if (ui_resource_detail::join(path_utf8(base), reference) != path_utf8(source))
+        throw std::runtime_error("UI resource has no contained document-relative reference");
+    return {{"asset", asset},
+            {"source", path_utf8(source)},
+            {"reference", reference},
+            {"details", info.details}};
+}
 } // namespace
 bool ui_image_source_candidate(const AssetRecord& record) {
     auto extension = record.source.extension().string();
@@ -54,16 +67,11 @@ nlohmann::json ui_image_reference(const AssetCatalog& catalog,
     const auto found = catalog.records().find(asset);
     if (found == catalog.records().end() || !ui_image_source_candidate(found->second))
         throw std::runtime_error("Choose a registered standalone project image source");
-    const auto source = ProjectPaths::normalize(found->second.source);
-    const auto base = ProjectPaths::normalize(document);
-    const auto reference = path_utf8(source.lexically_relative(base.parent_path()));
-    if (ui_resource_detail::join(path_utf8(base), reference) != path_utf8(source))
-        throw std::runtime_error("Image source has no contained document-relative reference");
-    const auto info = source_info(catalog, asset, TextureAsset::type);
-    return {{"asset", asset},
-            {"source", path_utf8(source)},
-            {"reference", reference},
-            {"details", info.details}};
+    return source_reference(catalog, document, asset, TextureAsset::type);
+}
+nlohmann::json ui_stylesheet_reference(const AssetCatalog& catalog,
+                                       const std::filesystem::path& document, AssetId asset) {
+    return source_reference(catalog, document, asset, "ui_stylesheet");
 }
 nlohmann::json ui_font_reference(const AssetCatalog& catalog, AssetId asset, unsigned face_index) {
     const auto info = source_info(catalog, asset, "ui_font");

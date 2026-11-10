@@ -3611,3 +3611,46 @@ text modes and after source-hidden relocation; the image alone proves no script
 coverage or font rendering quality.
 
 Current manual/images/ui-source-font-face.png SHA256: 382b567b00fdd90665da0575acb430ce7c875df0727ffcce8f13a4be034b14ee.
+
+
+## Guided document stylesheet links
+
+The new stylesheet-link figure is the unretouched700x950 native SourceEditor form
+from the passing1180/700/400 workflow on2026-11-10, development based onc316af9.
+It shows a registered RCSS asset staged before Apply. The400/700forms were
+personally reviewed. The affected native Elements/text/typography/layout/creation/
+image workflows and complete SourceEditor/Rules regression refresh their visible
+Stylesheets heading; only current-execution raw PNGs are eligible. Unchanged
+Preview/Rules/font figures retain exact prior attribution. This is SDL software
+component output, not a full desktop editor or Windows/physical acceptance.
+
+Native source-hidden tests separately verify explicit head creation, relative
+links and original/reordered input color in both text modes; images alone do not
+establish native cascade/export behavior.
+
+- manual/images/ui-source-elements.png: 1b6b207dfd69e2307729a4582bf97cfc8e7b45cc5a7f0a3e3c70f9feca447773.
+- manual/images/ui-source-inline-style.png: a7f2ba8fb41cccb8f1149e610fccbfe5f381fc1c3f33f53d5122d869c6edf33d.
+- manual/images/ui-source-hierarchy.png: 494366f4c9c0706d6317d341d035beeedd79a241af4dc845211a730993415f02.
+- manual/images/ui-source-group-styling.png: fb1c00907af78a94ab52eb6e501a3d9984ab11d0f436da780b623751b4ae89df.
+- manual/images/ui-source-classes.png: f1b75238174b072bb0aa5b5f7d5c2aeb7465e63cccc6a3af679e8fe3e035aa4f.
+- manual/images/ui-source-style-color.png: c7143d223c20c475683664465a031b34dc630441a39c06682c238e36f794826e.
+- manual/images/ui-source-style-number.png: d9e5359d8583ace0622315d320456cc34e5ebc9b32a23fd292b0692a6cde0cee.
+- manual/images/ui-source-create-control.png: 9d15b26187a601f6e66e984504243bf89897dd62c61c51253a6d50befc7e0c27.
+- manual/images/ui-source-input-button.png: 3f28ef41e3024549de0e1e5e6dbef8e71152a826d429f60c6cd234f2901d8ae9.
+- manual/images/ui-source-slider.png: 3fc5812daaa3128d0e695e5a0ff0e05b7ee93c00f14ee6aed282b208924bf364.
+- manual/images/ui-source-control-properties.png: eafff63026fcdaaa4954968fa0c57ffead9eb1f3a6f5cf38efd77fe26cae70fc.
+- manual/images/ui-source-control-flags.png: 72eadfff10c9a5770a05a81ec32950a9e9cd5e568e30f9a7d630b1f6b3289ae8.
+- manual/images/ui-source-text-input-properties.png: 2dfb2449201c4fd385ff64a5a6de897b96a1e4ce1b902977b0eac5a014842d40.
+- manual/images/ui-source-textarea-properties.png: 13de54f3479c3ea780c4dbc87ae098a6d4e56506d35cf5c8caf3d18620099f6d.
+- manual/images/ui-source-typography-weight.png: a54bf29c93106f55d3d9294529dda2e089fe27fe4439c442dcf71f1b4f0be806.
+- manual/images/ui-source-typography-rule.png: 9e9ea266539bdc240d80fc549f31e3c9db2c1265f7fac51f9cb453ee311b459d.
+- manual/images/ui-source-image-properties.png: 457219501a57a0bb5bb55ba36692675ecdfcfd391d33b64ff6105acfafb2dc8d.
+- manual/images/ui-source-image-tint.png: 0b79ffc76021420559bc0ae086339896bdc5575ffe09398989f9d2bb3874e9c9.
+- manual/images/ui-source-layout-direction.png: 2195a69e36a108febef1092ca03f0ca4bc381cc068605f791c85c390c69ac2aa.
+- manual/images/ui-source-layout-rule.png: bcb76940e4f2635cb326bc59562b790f07828064e5d80e32875dc7923ca3ed5a.
+- manual/images/ui-source-box-search.png: dd2dfa5e2c1eec0cfca960ba09865ff0de3e3f6281280f463842946207b24728.
+- manual/images/ui-source-box-color.png: 426160d902628c0f611207bb438dd484f12fced385d80aaf30bb179072e8cd03.
+- manual/images/ui-source-create-pixels.png: e9c353eabb32b075b4973fd085514495adfdaa69b778d68d3a5f99b06dfe8bac.
+- manual/images/ui-source-created-control.png: b94dd80ff2a2ce3631fa7f1c6cf53086eabddbf05e690eb168eb2eaff108d1b9.
+- manual/images/ui-source-image-resource.png: 9f4622c200327b5b620388def1f9c438b3f9201370245c0f6a94b747ef669566.
+- manual/images/ui-source-stylesheet-link.png: b8d1272484c0f56a9ef6d2c922abf43de9921b414a1271986ebecbaa02d9da51.

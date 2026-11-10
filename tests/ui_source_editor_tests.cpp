@@ -26,7 +26,8 @@ enum class SourceControls {
     ResponsiveLayout,
     BoxStyling,
     CreationSetup,
-    FontFaces
+    FontFaces,
+    StylesheetLinks
 };
 void exercise(const std::filesystem::path& output, int width,
               SourceControls mode = SourceControls::All,
@@ -139,6 +140,71 @@ void exercise(const std::filesystem::path& output, int width,
         check(!editor.dirty() && scene.snapshot() == authored && scene.revision() == revision &&
                   asset_storage::read(root / "forge.assets.json") == catalog,
               "Configured creation Save changed Scene/catalog ownership");
+        editor.request_close();
+        return;
+    }
+    if (mode == SourceControls::StylesheetLinks) {
+        std::filesystem::create_directories(root / "Assets/Styles");
+        asset_storage::replace(root / "Assets/Styles/base.rcss", "p{color:red;}");
+        asset_storage::replace(root / "Assets/Styles/override.rcss", "p{color:blue;}");
+        const auto base = register_ui_source(*project.writer_guard(), "Assets/Styles/base.rcss");
+        const auto overlay =
+            register_ui_source(*project.writer_guard(), "Assets/Styles/override.rcss");
+        resource_catalog = std::make_shared<AssetCatalog>(AssetCatalog::open_project(root));
+        const auto link_catalog = asset_storage::read(root / "forge.assets.json");
+        input.click("ui-source:elements-tab");
+        input.click("ui-source:stylesheets");
+        const auto before = editor.state();
+        input.click("ui-source:stylesheet-new");
+        input.click("asset-picker:ui_stylesheet:Stylesheet source");
+        input.select(("picker-option:" + base.id.str()).c_str());
+        check(editor.state() == before && asset_storage::read(file) == source,
+              "Stylesheet staging changed source/history/disk");
+        frame();
+        capture.save(output / ("ui-source-stylesheet-link-" + std::to_string(width) + ".png"));
+        input.click("ui-source:stylesheet-apply");
+        const auto created = editor.state();
+        check(editor.stylesheet_links().size() == 1 &&
+                  editor.stylesheet_links()[0].reference == "Styles/base.rcss" &&
+                  created.at("selection") == Json::array({2}),
+              "Stylesheet append lost explicit header, relative reference or selection");
+        input.click("button:Undo");
+        check(editor.state().at("text") == before.at("text"),
+              "Stylesheet append needed multiple Undo steps");
+        input.click("button:Redo");
+        check(editor.state().at("text") == created.at("text"), "Stylesheet Redo differs");
+        input.click("ui-source:stylesheet-new");
+        input.click("asset-picker:ui_stylesheet:Stylesheet source");
+        input.select(("picker-option:" + overlay.id.str()).c_str());
+        const auto staged = editor.state();
+        asset_storage::replace(root / "Assets/Styles/override.rcss", "@import 'bad.rcss';");
+        input.click("ui-source:stylesheet-apply");
+        check(editor.state() == staged, "Invalid current RCSS bytes partially changed source");
+        asset_storage::replace(root / "Assets/Styles/override.rcss", "p{color:blue;}");
+        input.click("ui-source:stylesheet-apply");
+        const auto appended = editor.state();
+        input.click("ui-source:stylesheet-up");
+        const auto reordered = editor.state();
+        check(editor.stylesheet_links()[0].reference == "Styles/override.rcss" &&
+                  reordered.at("selection") == Json::array({2}),
+              "Native stylesheet reorder lost source order/selection");
+        input.click("button:Undo");
+        check(editor.state().at("text") == appended.at("text"),
+              "Stylesheet order needed multiple Undo steps");
+        input.click("button:Redo");
+        check(editor.state().at("text") == reordered.at("text"), "Stylesheet order Redo differs");
+        input.select("ui-source:stylesheet:2");
+        rejects([&] { editor.attribute(2, "href", "other.rcss"); });
+        input.click("ui-source:stylesheet-remove");
+        check(editor.stylesheet_links().size() == 1, "Stylesheet removal retained its link");
+        input.click("button:Undo");
+        check(editor.state().at("text") == reordered.at("text"),
+              "Stylesheet removal needed multiple Undo steps");
+        check(asset_storage::read(file) == source, "Stylesheet source saved implicitly");
+        editor.save(project);
+        check(!editor.dirty() && scene.snapshot() == authored && scene.revision() == revision &&
+                  asset_storage::read(root / "forge.assets.json") == link_catalog,
+              "Stylesheet Save changed Scene/catalog ownership");
         editor.request_close();
         return;
     }
@@ -1355,7 +1421,9 @@ int main(int argc, char** argv) {
         auto mode = SourceControls::All;
         if (argc >= 3) {
             const auto flag = std::string_view(argv[2]);
-            if (flag == "--font-faces-only") {
+            if (flag == "--stylesheet-links-only")
+                mode = SourceControls::StylesheetLinks;
+            else if (flag == "--font-faces-only") {
                 check(argc == 4, "Font face controls need the font fixture path");
                 mode = SourceControls::FontFaces;
             } else if (flag == "--creation-setup-only")

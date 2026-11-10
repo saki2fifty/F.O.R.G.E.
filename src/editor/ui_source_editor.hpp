@@ -149,6 +149,113 @@ class UiSourceEditor {
                            "Apply properties to write its document-relative reference.");
     }
 
+    bool new_stylesheet_ = false;
+    std::string stylesheet_controls_key_, stylesheet_controls_error_;
+    Json stylesheet_asset_ = nullptr;
+    bool stylesheet_controls(bool locked) {
+        const bool open = ImGui::CollapsingHeader("Stylesheets");
+        FORGE_UI_PROBE("ui-source:stylesheets");
+        if (!open)
+            return false;
+        std::vector<UiMarkupStylesheetLink> links;
+        try {
+            links = stylesheet_links();
+        } catch (const std::exception& error) {
+            ImGui::TextWrapped("%s. Continue in Source.", error.what());
+            return false;
+        }
+        const auto catalog = resource_catalog ? resource_catalog() : nullptr;
+        if (!catalog || ProjectPaths(catalog->project_root()).root() != root_) {
+            ImGui::TextWrapped("Refresh Content to choose a registered project stylesheet.");
+            return false;
+        }
+        ImGui::BeginDisabled(locked);
+        for (const auto& link : links) {
+            ImGui::PushID(int(link.element));
+            if (ImGui::Selectable(link.reference.empty() ? "(empty href)" : link.reference.c_str(),
+                                  selected_element() == link.element))
+                select(link.element);
+            FORGE_UI_PROBE("ui-source:stylesheet:" + std::to_string(link.element));
+            ImGui::PopID();
+        }
+        if (button("New stylesheet link", "Stage a registered RCSS resource for this document.")) {
+            set_selection({});
+            new_stylesheet_ = true;
+            stylesheet_controls_key_.clear();
+        }
+        FORGE_UI_PROBE("ui-source:stylesheet-new");
+        const auto selected =
+            std::ranges::find(links, selected_element(), &UiMarkupStylesheetLink::element);
+        const auto index = !new_stylesheet_ && selected != links.end()
+                               ? std::optional(selected->element)
+                               : std::nullopt;
+        bool apply = false, remove = false;
+        int move = 0;
+        if (new_stylesheet_ || index) {
+            const auto key = session_ + ":" + std::to_string(revision_) + ":" +
+                             (index ? std::to_string(*index) : "new");
+            if (stylesheet_controls_key_ != key) {
+                stylesheet_controls_key_ = key;
+                stylesheet_controls_error_.clear();
+                stylesheet_asset_ = nullptr;
+                if (index) {
+                    try {
+                        const auto source =
+                            ui_resource_detail::join(path_utf8(locator_), selected->reference);
+                        for (const auto& [id, record] : catalog->records())
+                            if (record.type == "ui_stylesheet" && !record.subasset &&
+                                path_utf8(ProjectPaths::normalize(record.source)) == source) {
+                                stylesheet_asset_ = id;
+                                break;
+                            }
+                    } catch (const std::exception& error) {
+                        stylesheet_controls_error_ = error.what();
+                    }
+                }
+            }
+            asset_ref_picker(*catalog, stylesheet_asset_, "ui_stylesheet", "Stylesheet source",
+                             false);
+            ImGui::TextWrapped("Apply link writes a document-relative reference in one source "
+                               "Undo step. A missing or empty head is created explicitly. "
+                               "Save source, refresh UI resources and refresh Preview separately.");
+            if (!stylesheet_controls_error_.empty())
+                ImGui::TextWrapped("%s", stylesheet_controls_error_.c_str());
+            ImGui::BeginDisabled(stylesheet_asset_.is_null());
+            apply =
+                button("Apply stylesheet link", "Check current RCSS bytes, then edit this source.");
+            FORGE_UI_PROBE("ui-source:stylesheet-apply");
+            ImGui::EndDisabled();
+            if (index) {
+                if (button("Move stylesheet up", "Swap with the adjacent stylesheet link."))
+                    move = -1;
+                FORGE_UI_PROBE("ui-source:stylesheet-up");
+                if (button("Move stylesheet down", "Swap with the adjacent stylesheet link."))
+                    move = 1;
+                FORGE_UI_PROBE("ui-source:stylesheet-down");
+                remove =
+                    button("Remove stylesheet link", "Remove only this source link in one Undo.");
+                FORGE_UI_PROBE("ui-source:stylesheet-remove");
+                ImGui::TextWrapped("Inline styles and other head nodes form ordering boundaries. "
+                                   "Use Source to move across them.");
+            }
+            if (button("Discard staged stylesheet",
+                       "Restore source values without adding history.")) {
+                stylesheet_controls_key_.clear();
+                new_stylesheet_ = false;
+            }
+            FORGE_UI_PROBE("ui-source:stylesheet-discard");
+        }
+        ImGui::EndDisabled();
+        const auto before = revision_;
+        if (apply)
+            attempt([&] { stylesheet_link(index, stylesheet_asset_.get<AssetId>()); });
+        else if (remove)
+            attempt([&] { remove_stylesheet_link(*index); });
+        else if (move)
+            attempt([&] { move_stylesheet_link(*index, move); });
+        return revision_ != before;
+    }
+
     bool new_font_face_ = false;
     std::string font_controls_key_, font_controls_error_;
     char font_family_[65]{};
@@ -374,6 +481,7 @@ class UiSourceEditor {
 
     void changed() {
         new_font_face_ = false;
+        new_stylesheet_ = false;
         cancel_gesture();
         cancel_preview_edit();
         outline_drag_active_ = false;
@@ -414,6 +522,9 @@ class UiSourceEditor {
         ++drag_epoch_;
         new_font_face_ = false;
         font_controls_key_.clear();
+        new_stylesheet_ = false;
+        stylesheet_controls_key_.clear();
+        stylesheet_asset_ = nullptr;
         font_asset_ = font_face_details_ = nullptr;
         preview_frame_ = {};
         if (close_preview)
@@ -1124,6 +1235,7 @@ class UiSourceEditor {
                 throw AuthoringError("layout_selection", "Select distinct source elements");
         }
         auto candidate = std::vector<std::size_t>(indices.begin(), indices.end());
+        new_stylesheet_ = false;
         hierarchy_parent_ = hierarchy_before_ = UiMarkupElement::no_parent;
         selected_ = std::move(candidate);
         selection_controls();
@@ -1927,6 +2039,8 @@ class UiSourceEditor {
                                outline_error_.c_str());
             return;
         }
+        if (stylesheet_controls(locked))
+            return;
         const auto snapshot = editor_.GetText();
         std::optional<Json> dropped;
         const auto draw_node = [&](auto&& self, std::size_t& cursor) -> void {
@@ -2019,6 +2133,11 @@ class UiSourceEditor {
         }
         if (selected_element() >= outline_.size()) {
             ImGui::TextWrapped("Select a container or widget to edit its source.");
+            return;
+        }
+        if (outline_[selected_element()].tag == "link") {
+            ImGui::TextWrapped("Edit this resource link under Stylesheets. General metadata "
+                               "attributes remain in Source.");
             return;
         }
         hierarchy_controls(locked);
@@ -2454,6 +2573,40 @@ class UiSourceEditor {
         replace_text(set_ui_stylesheet_selector(editor_.GetText(), index, selector));
         if (revision_ != before)
             select_rule(index);
+    }
+    std::vector<UiMarkupStylesheetLink> stylesheet_links() const {
+        if (locator_.extension() != ".rml")
+            throw AuthoringError("source_scope", "Open an RML document first");
+        return read_ui_markup_stylesheet_links(editor_.GetText());
+    }
+    Json stylesheet_reference(AssetId asset) const {
+        if (locator_.extension() != ".rml")
+            throw AuthoringError("source_scope", "Open an RML document first");
+        return ui_stylesheet_reference(AssetCatalog::open_project(root_), locator_, asset);
+    }
+    void stylesheet_link(std::optional<std::size_t> index, AssetId asset) {
+        const auto reference = stylesheet_reference(asset);
+        const auto before = revision_;
+        replace_text(set_ui_markup_stylesheet_link(editor_.GetText(), index,
+                                                   reference.at("reference").get<std::string>()));
+        if (revision_ != before)
+            select(index.value_or(stylesheet_links().back().element));
+    }
+    void remove_stylesheet_link(std::size_t index) {
+        (void)stylesheet_links();
+        replace_text(remove_ui_markup_stylesheet_link(editor_.GetText(), index));
+    }
+    void move_stylesheet_link(std::size_t index, int direction) {
+        const auto links = stylesheet_links();
+        const auto found = std::ranges::find(links, index, &UiMarkupStylesheetLink::element);
+        if (found == links.end() || (direction != -1 && direction != 1))
+            throw AuthoringError("source_link", "Choose a stylesheet link and direction");
+        const auto position = std::size_t(found - links.begin());
+        if (direction < 0 ? position == 0 : position + 1 == links.size())
+            throw AuthoringError("source_link", "The stylesheet link is at this boundary");
+        const auto retained = links[direction < 0 ? position - 1 : position + 1].element;
+        replace_text(move_ui_markup_stylesheet_link(editor_.GetText(), index, direction));
+        select(retained);
     }
     std::map<std::string, std::string> font_face_properties(std::size_t rule) const {
         if (locator_.extension() != ".rcss")

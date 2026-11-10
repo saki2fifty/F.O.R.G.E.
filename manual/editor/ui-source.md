@@ -40,8 +40,8 @@ Use an `id` attribute to name a widget for styles and bindings.
 
 Text and attribute values escape markup characters such as `<` and `&`. RML
 bindings keep their source meaning: `Tick {{tick}}` displays the runtime counter.
-Use **Source** to write child markup, resource declarations or other RML syntax.
-The Elements controls protect document structure and style/resource declarations.
+Use **Source** for other RML syntax. The Elements controls protect general document
+structure and metadata; **Stylesheets** provides the guided stylesheet-link workflow.
 Use **Preview** for native rendering and the supported pixel layout controls.
 
 ## Create common controls
@@ -747,6 +747,42 @@ before that point cancel or fail the request; a queued copy finishes independent
 of later editing or source closure. Finish the current image task before saving
 another image. Stale previews and hosts without a rendered image cannot be saved.
 
+## Link a stylesheet to a document
+
+Use a registered project RCSS file to share appearance and layout rules.
+
+1. Register the RCSS file through **Content → Create / Register → Runtime UI → Register / Refresh**. Keep the source in your project.
+2. Open the RML document with **Edit UI source**, choose **Elements**, then expand **Stylesheets**.
+3. Choose **New stylesheet link**. Select **Stylesheet source**, or drop the registered stylesheet from Content onto that picker.
+4. Choose **Apply stylesheet link**. A missing document head is created; an empty self-closing head is expanded. The link becomes selected and the source changes in one Undo step.
+5. Choose **Save source**, register / refresh the document and resources, then refresh **Preview** or restart Play. Export uses the saved document and its linked resources.
+
+![UI Source Stylesheets with a registered RCSS file staged before Apply](../images/ui-source-stylesheet-link.png)
+
+The picker shows the project source path. The authored reference is relative to
+the RML document: a document at **Assets/UI/hud.rml** can link
+**Assets/Themes/menu.rcss** as **../Themes/menu.rcss**. Font declarations inside
+RCSS continue to use project-relative font paths.
+
+Select an existing link in **Stylesheets** to replace its file. **Move stylesheet
+up** and **Move stylesheet down** swap adjacent link nodes; comments remain
+between them. Later equally specific rules can override earlier rules. Inline
+styles and other head nodes form ordering boundaries; use **Source** to move
+across them. **Remove stylesheet link** removes the link, keeping the stylesheet
+asset and other document content. Each operation is one Undo step; select a link
+again after Undo or Redo.
+
+**Discard staged stylesheet** restores the source values or closes a new proposal
+without adding history. Picking a resource does not write the source. Apply checks
+the current RCSS file and its unique project identity again; invalid or missing
+resources leave the draft unchanged.
+
+Guided links require one complete RML root and body, at most one direct head and
+up to 32 literal stylesheet links. Duplicate, bound or ambiguous header forms use
+**Source**. Existing text/rcss and text/css link types are recognized; the selected
+file must be RCSS. General metadata editing remains protected. RCSS imports are
+unavailable; link each stylesheet from the document.
+
 ## Declare a project font
 
 Use a registered project `.ttf`, `.otf`, `.ttc` or `.otc` font and a `.rcss`
@@ -789,9 +825,8 @@ changing a loaded font declaration. Export uses the saved declaration.
 
 Font `src` values are **project relative**, such as `Assets/Fonts/Menu.ttf`, even
 when the stylesheet is in another folder. Stylesheet links and image references
-remain document relative. The RML document needs an explicit `<head>` containing
-its stylesheet link. The font controls do not create that link or assign styles
-to widgets automatically.
+remain document relative. Use **Elements → Stylesheets** to create the explicit document head and link.
+The font controls do not assign styles to widgets automatically.
 
 To edit a declaration, select its literal `@font-face` block in **Stylesheet rules**.
 **Discard staged font** restores its source values. **Remove font face** removes

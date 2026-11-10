@@ -112,7 +112,9 @@ ownership remains in the source document; there is no new persistent drag protoc
 Text/attribute editing calls the pinned `Rml::StringUtilities::EncodeRml` API.
 Markup escapes do not suppress `{{model}}` bindings or attribute expressions;
 those retain ordinary RML source meaning. Leaf text containing child markup or
-comments and document/resource structural changes use Source instead. Native
+comments and general document/resource structural changes use Source instead.
+Literal stylesheet links have a dedicated source-owned adapter; generic metadata
+attribute/structural barriers remain. Native
 fields hold at most8192bytes; larger leaf text stays available in Source and
 disables compact text replacement. Existing admission caps the entire opening
 tag at8192bytes, keeping valid attributes within the field capacity. The runtime source
@@ -1060,3 +1062,12 @@ and resource registration remain explicit. Both native text modes retain their
 existing fallback selection; shaped fallback requires whole-run coverage. Restart
 Play to replace previously loaded participation. The current-byte/face checks,
 source history and same guarded MCP operation own this flag alongside appearance.
+
+Guided stylesheet links reuse the optional markup scanner/ranges, current
+ui_stylesheet admission and shared contained document-relative resource references.
+One complete RML root/body, unique direct head and at most32literal links are
+supported. Missing heads are inserted; self-closing heads expand explicitly.
+Link set/remove and adjacent order changes compose source replacements with one
+Undo/Save and existing element selection. Other head nodes are order barriers;
+comments stay between swapped links. Native external and inline styles retain
+encounter order. No DOM serialization or additional document/resource database.

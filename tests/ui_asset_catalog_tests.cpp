@@ -71,6 +71,26 @@ int main(int argc, char** argv) {
               "Font referrer missing");
         check(catalog.dependency_graph().source_referrers("Assets/hud.rcss").size() == 2,
               "UI source invalidation index");
+        const auto stylesheet =
+            std::find_if(catalog.records().begin(), catalog.records().end(),
+                         [](const auto& row) { return row.second.source == "Assets/hud.rcss"; });
+        check(stylesheet != catalog.records().end(), "Stylesheet has no catalog identity");
+        const auto link_index = asset_storage::read(root / "forge.assets.json");
+        const auto stylesheet_reference =
+            ui_stylesheet_reference(catalog, "Assets/Views/Menu.rml", stylesheet->first);
+        check(stylesheet_reference.at("source") == "Assets/hud.rcss" &&
+                  stylesheet_reference.at("reference") == "../hud.rcss" &&
+                  stylesheet_reference.at("details").at("format") == "rcss",
+              "Stylesheet reference lost current source admission or document-relative scope");
+        rejects([&] { ui_stylesheet_reference(catalog, "Assets/hud.rml", document.id); });
+        rejects([&] { ui_stylesheet_reference(catalog, "Assets/hud.rml", font.id); });
+        rejects([&] { ui_stylesheet_reference(catalog, "../escape.rml", stylesheet->first); });
+        const auto saved_stylesheet = asset_storage::read(root / "Assets/hud.rcss");
+        asset_storage::replace(root / "Assets/hud.rcss", "@import 'other.rcss';");
+        rejects([&] { ui_stylesheet_reference(catalog, "Assets/hud.rml", stylesheet->first); });
+        asset_storage::replace(root / "Assets/hud.rcss", *saved_stylesheet);
+        check(asset_storage::read(root / "forge.assets.json") == link_index,
+              "Stylesheet query/rejection changed the catalog");
         SourceSnapshot sources;
         for (const auto& s : snapshot.sources)
             sources.files[s.source] = {s.source, s.digest, s.bytes, {}, "ui", {}};

@@ -2747,7 +2747,7 @@ reads no computed state and changes no selection/history/source/registration.
 
 The same immutable metadata powers inline/group and stylesheet literal controls.
 Native source candidates and old mutation/query results are unchanged. Including
-this query and native-preview placement, there are45source operations. Style/preset staging
+this query and native-preview placement, there are50source operations. Style/preset staging
 publishes only through the original Set/Remove/Undo/Save and guarded MCP owners.
 
 Source control metadata includes an image profile: src/sprite/rect strings and
@@ -2790,7 +2790,7 @@ Pixel setup refuses breaks/options, requires ID and rejects bound ancestors.
 It does not initialize a renderer, register assets, create a persistent identity
 or bypass native Preview eligibility. The selected new root, one Undo, explicit
 Save, grants/revisions/replay and Scene isolation retain existing owners. There
-are45 source operations/18creation kinds; the existing layout schema remains
+are50 source operations/18creation kinds; the existing layout schema remains
 unchanged. No separate creation path is maintained for MCP clients.
 
 ## Native-preview control placement
@@ -2862,7 +2862,7 @@ Both tools require assets.write, the ordinary mutation envelope and existing
 source-task/gesture locks. Receipt replay returns its original result without
 reapplying selection. They use the same source selection owner as Elements and
 Preview and leave source revision/digest/dirty/Undo/Save/catalog/Scene unchanged.
-There are45source operations. No runtime widget input or persisted selection is
+There are50source operations. No runtime widget input or persisted selection is
 introduced; selected elements still need each authoring operation's admission.
 
 
@@ -2872,7 +2872,7 @@ The native canvas shortcuts use existing source operations: Ctrl+A is a replacem
 select_rectangle over the current viewport, Escape's idle clear is select with an
 empty list, Ctrl+D is single-subtree duplicate, and Delete is atomic remove_group.
 These same guarded tools remain available with their existing grants, source
-revisions, identity rules, history and explicit Save. Tool count stays40. Agents
+revisions, identity rules, history and explicit Save. These shortcuts add no separate tool; there are50source operations. Agents
 send source operations rather than UI key events; cancelling a local queued key
 request is a local transient workflow, not a new persisted authoring operation.
 
@@ -2907,7 +2907,7 @@ source operations; no new mutation owner, serialized identity or resource format
 
 ## Source font declarations
 
-Four source operations extend the shared source owner (45total):
+Four font source operations share the existing source owner (50combined source operations):
 
 - `ui.source.font_reference` / `forge_ui_source_font_reference`: assets.read plus
   current source guards, font `asset` and optional `face_index`(0default,0..31).
@@ -2942,3 +2942,22 @@ Native and MCP mutations share the same methods rather than a separate font or
 source registry. Collection/variable/color/shaping and byte/resource limits retain
 the existing profile owners. No font cache, runtime profile, persisted identity or
 SDK change is introduced.
+
+
+## Document stylesheet links
+
+Five guarded source operations extend the same document/history/resource owners:
+
+- ui.source.stylesheet_reference: assets.read, current source guards, open RML and registered RCSS asset. Returns asset/source/document-relative reference/details from current bytes.
+- ui.source.stylesheet_links: assets.read/current guards/RML. Returns links with transient element indices, decoded reference and literal type, in source order. No selection/history/native initialization.
+- ui.source.stylesheet_link: assets.write/current guards/replay/RML, asset and optional element. Omit element to append; explicit missing head insertion or empty-head expansion. Re-admit current bytes/unique identity/contained relative path before one source publication; retain created/edited element selection. Equal decoded references retain original attribute spelling.
+- ui.source.stylesheet_link_move: assets.write/current guards/replay, element and direction -1 or1. Adjacent head link swap, other head nodes are barriers; comments stay between. Source selection follows the moved link.
+- ui.source.stylesheet_link_remove: assets.write/current guards/replay and element. Remove only the link; other metadata/body/catalog stay unchanged.
+
+One complete RML root/body, at most one direct head and32literal CSS links; bound,
+duplicate or ambiguous header forms stay Source. Existing text/rcss and text/css
+types recognized, selected files RCSS. Source indices are revision-bound, not
+persisted identity. Generic metadata guards stay intact. Mutations use one Undo
+and explicit Save; registration/preview/native loading remain separate. Factory
+excludes the three writers without asset-write grants; both queries remain
+discoverable. Existing45source operations remain available, now50total.

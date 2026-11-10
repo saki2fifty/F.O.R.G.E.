@@ -209,6 +209,102 @@ struct UiSourceAutomation {
                 }));
         }
         for (const std::string action :
+             {"stylesheet_reference", "stylesheet_links", "stylesheet_link",
+              "stylesheet_link_remove", "stylesheet_link_move"}) {
+            const bool reference = action == "stylesheet_reference";
+            const bool read_links = action == "stylesheet_links";
+            const bool write = action == "stylesheet_link";
+            const bool move = action == "stylesheet_link_move";
+            const bool mutating = !reference && !read_links;
+            if (mutating && !permissions.assets)
+                continue;
+            auto properties = guard;
+            auto fields = required;
+            if (reference || write) {
+                properties["asset"] = automation_uuid();
+                fields.push_back("asset");
+            }
+            if (mutating) {
+                properties["element"] = automation_integer(0, 8191);
+                if (!write)
+                    fields.push_back("element");
+            }
+            if (move) {
+                properties["direction"] = {{"type", "integer"}, {"enum", {-1, 1}}};
+                fields.push_back("direction");
+            }
+            std::string description;
+            if (reference)
+                description =
+                    "Read a registered project RCSS resource's current document-relative "
+                    "reference/source/details for the open RML draft. Current source guards "
+                    "and assets.read required. Uses shared catalog/path/current-byte admission; "
+                    "no source/history/selection/registration/native/GPU mutation.";
+            else if (read_links)
+                description =
+                    "Read up to32 literal direct-head RCSS/CSS links in the open RML draft, "
+                    "in source order: transient element index, decoded reference and literal type. "
+                    "Current guards/assets.read required. No mutation. Duplicate/bound/ambiguous "
+                    "header forms require Source. Indices belong to the observed draft revision.";
+            else if (write)
+                description =
+                    "Append or replace a literal head stylesheet link using a registered RCSS "
+                    "asset UUID. Optional element selects an existing link; omit to append. "
+                    "Re-admits current bytes and a contained document-relative reference. "
+                    "Creates a missing head or expands an empty self-closing head explicitly. "
+                    "Requires one complete RML root/current guards/assets.write/replay; one Undo, "
+                    "retained source selection and explicit Save. Other metadata/comments/body "
+                    "remain; unchanged decoded references retain source spelling. Generic "
+                    "metadata editing barriers remain; no native load/registration/Scene edit.";
+            else if (move)
+                description =
+                    "Move a literal RML stylesheet link to the adjacent head link: direction "
+                    "-1(up) or1(down). Other head nodes, including inline styles, are barriers. "
+                    "Current source guards/assets.write/replay; one Undo, retained selection, "
+                    "explicit Save. Comments stay between links; native cascade follows order.";
+            else
+                description =
+                    "Remove one literal direct-head RML stylesheet link by observed element "
+                    "index. Current source guards/assets.write/replay; one source Undo and "
+                    "explicit Save. Other head content/body remain; registration is separate.";
+            result.push_back(automation_method(
+                "ui.source." + action, description, mutating ? "assets.write" : "assets.read",
+                automation_object(std::move(properties), std::move(fields)), mutating,
+                [&files, &editor, ready, reference, read_links, write, move,
+                 mutating](const Json& request) -> Json {
+                    if (mutating)
+                        ready();
+                    observed(editor, files.document, request);
+                    if (reference) {
+                        try {
+                            return editor.stylesheet_reference(request.at("asset").get<AssetId>());
+                        } catch (const std::exception& error) {
+                            throw AuthoringError("ui_stylesheet_reference", error.what());
+                        }
+                    }
+                    if (read_links) {
+                        auto links = Json::array();
+                        for (const auto& link : editor.stylesheet_links())
+                            links.push_back({{"element", link.element},
+                                             {"reference", link.reference},
+                                             {"type", link.type}});
+                        return Json{{"links", std::move(links)}};
+                    }
+                    if (write)
+                        editor.stylesheet_link(
+                            request.contains("element")
+                                ? std::optional(request.at("element").get<std::size_t>())
+                                : std::nullopt,
+                            request.at("asset").get<AssetId>());
+                    else if (move)
+                        editor.move_stylesheet_link(request.at("element").get<std::size_t>(),
+                                                    request.at("direction").get<int>());
+                    else
+                        editor.remove_stylesheet_link(request.at("element").get<std::size_t>());
+                    return state(editor, files.document);
+                }));
+        }
+        for (const std::string action :
              {"font_reference", "font_face_read", "font_face", "font_face_remove"}) {
             auto properties = guard;
             auto fields = required;

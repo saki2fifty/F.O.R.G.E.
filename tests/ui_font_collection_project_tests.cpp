@@ -141,12 +141,36 @@ AssetId author_font_selection(const std::filesystem::path& root,
     text = set_ui_stylesheet_property(text, std::size_t(input - rules.begin()), "font-style",
                                       "italic");
     asset_storage::replace(path, text);
+    auto markup = *asset_storage::read(root / hud_path);
+    const auto nodes = inspect_ui_markup(markup);
+    const auto head = std::find_if(nodes.begin(), nodes.end(),
+                                   [](const auto& node) { return node.tag == "head"; });
+    check(head != nodes.end(), "Native stylesheet fixture lacks its original head");
+    markup.erase(head->source.begin, head->source.end - head->source.begin);
+    const auto stylesheet =
+        std::find_if(catalog.records().begin(), catalog.records().end(),
+                     [](const auto& row) { return row.second.source == "Assets/UI/hud.rcss"; });
+    check(stylesheet != catalog.records().end(), "Original stylesheet has no asset identity");
+    const auto original_link = ui_stylesheet_reference(catalog, hud_path, stylesheet->first);
+    markup =
+        set_ui_markup_stylesheet_link(markup, {}, original_link.at("reference").get<std::string>());
+    std::filesystem::create_directories(root / "Assets/Themes");
+    for (const auto& [name, color] :
+         {std::pair{"base", "#117733"}, std::pair{"override", "#3355bb"}}) {
+        const auto source = std::filesystem::path("Assets/Themes") / (std::string(name) + ".rcss");
+        asset_storage::replace(root / source, std::string("#field{color:") + color + ";}");
+        const auto asset = register_ui_source(lease, source);
+        const auto link =
+            ui_stylesheet_reference(AssetCatalog::open_project(root), hud_path, asset.id);
+        markup = set_ui_markup_stylesheet_link(markup, {}, link.at("reference").get<std::string>());
+    }
+    asset_storage::replace(root / hud_path, markup);
     refresh_ui_asset_catalog(lease, inspect(root, font)(document->first, {}));
     return document->first;
 }
 void present(const std::filesystem::path& root, const std::vector<std::byte>& font,
              const std::filesystem::path& scene_source = scene_path, bool shaped = true,
-             bool fallback = false) {
+             bool fallback = false, bool overlay_last = true) {
     Json saved;
     std::ifstream(root / scene_source) >> saved;
     EngineContext engine(WorldRole::Runtime, false, {ui_module(root)});
@@ -206,6 +230,11 @@ void present(const std::filesystem::path& root, const std::vector<std::byte>& fo
         check((fonts->GetStringWidth(regular, "سلام", rtl) ==
                fonts->GetStringWidth(arabic, "سلام", rtl)) == fallback,
               "Authored fallback flag did not control actual missing-glyph native metrics");
+        const auto color = input->GetProperty<Rml::Colourb>("color");
+        const auto expected = overlay_last ? Rml::Colourb{0x33, 0x55, 0xbb, 255}
+                                           : Rml::Colourb{0x11, 0x77, 0x33, 255};
+        check(color == expected,
+              "Authored stylesheet link order did not control saved/exported native cascade");
         check(scene.snapshot() == saved, "Native collection rendering mutated the saved Scene");
     }
     check(renderer.geometry.empty() && renderer.textures.empty(), "Example resources leaked");
@@ -253,10 +282,15 @@ int main(int argc, char** argv) {
             asset_storage::replace(
                 css, set_ui_stylesheet_font_face_style(text, inspect_ui_stylesheet(text).size() - 1,
                                                        {{"-rmlui-fallback-face", "true"}}));
+            const auto document_file = source / hud_path;
+            const auto markup = *asset_storage::read(document_file);
+            const auto links = read_ui_markup_stylesheet_links(markup);
+            asset_storage::replace(
+                document_file, move_ui_markup_stylesheet_link(markup, links.back().element, -1));
             refresh_ui_asset_catalog(lease, inspect(source, font)(hud, {}));
         }
         for (bool shaped : {false, true})
-            present(source, font, scene_path, shaped, true);
+            present(source, font, scene_path, shaped, true, false);
         const auto catalog = AssetCatalog::open_project(source);
         ProjectSettings settings(source);
         const std::array roots{settings.document().at("startup_scene").at("asset").get<AssetId>()};
@@ -272,8 +306,9 @@ int main(int argc, char** argv) {
                   "Collection asset ID changed during export");
         std::filesystem::rename(source, scratch / "source-offline");
         for (bool shaped : {false, true})
-            present(relocated, font, runtime_catalog.records().at(roots[0]).source, shaped, true);
-        std::cout << "Collection example and source-hidden relocated native font content passed\n";
+            present(relocated, font, runtime_catalog.records().at(roots[0]).source, shaped, true,
+                    false);
+        std::cout << "Font and ordered stylesheet source-hidden relocated native content passed\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

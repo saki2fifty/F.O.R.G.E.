@@ -265,3 +265,11 @@ The fixed native fallback declaration shares that same closed property whitelist
 private value patch, staged choices and optional guarded MCP writer. It is not
 admitted as a general CSS identifier. Default removal preserves nativefalse and
 existing loaded-font fallback order; no source/runtime font registry is added.
+
+Literal direct-head stylesheet links extend that source adapter through a closed
+metadata workflow. Generic metadata/attribute/structural barriers stay intact.
+Optional scanner ranges, existing markup escaping/patching and the source element
+selection/history owner handle append/update/remove/adjacent order, including
+explicit missing-head insertion/self-closing expansion. Current registered RCSS
+references share the existing source-info/path admission with images. No native
+DOM serialization, persisted link identity or parallel document/resource owner.

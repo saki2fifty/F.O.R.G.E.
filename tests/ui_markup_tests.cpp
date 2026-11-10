@@ -753,6 +753,70 @@ void stylesheet_rules() {
     forge::validate_ui_text(many + ".b{}", false);
     rejects([&] { forge::insert_ui_stylesheet_rule(many, ".b"); });
 }
+void stylesheet_link_sources() {
+    const std::string source = "<!--keep--><rml><head><title>Menu</title>"
+                               "<link type='TEXT/CSS' href='base&amp;old.rcss' id='sheet'/>"
+                               "<!--gap--><link type=\"text/rcss\" href=\"other.rcss\"/>"
+                               "<style>p{color:red;}</style></head><body><p>Keep</p></body></rml>";
+    const auto links = forge::read_ui_markup_stylesheet_links(source);
+    check(links.size() == 2 && links[0].element == 3 && links[0].reference == "base&old.rcss" &&
+              links[0].type == "TEXT/CSS",
+          "Stylesheet link read lost source indices, decoded values or literal type");
+    check(forge::set_ui_markup_stylesheet_link(source, 3, "base&old.rcss") == source,
+          "Equal stylesheet reference changed quotes or encoded source spelling");
+    const auto changed = forge::set_ui_markup_stylesheet_link(source, 3, "../Styles/a&b.rcss");
+    check(
+        changed.find("type='TEXT/CSS' href=\"../Styles/a&amp;b.rcss\" id='sheet'") !=
+                std::string::npos &&
+            changed.ends_with("<style>p{color:red;}</style></head><body><p>Keep</p></body></rml>"),
+        "Stylesheet replacement changed other metadata/body/style source");
+    const auto appended = forge::set_ui_markup_stylesheet_link(source, {}, "third.rcss");
+    const auto rows = forge::read_ui_markup_stylesheet_links(appended);
+    check(rows.size() == 3 && rows.back().reference == "third.rcss",
+          "Stylesheet append lost its source order");
+    const auto reordered = forge::move_ui_markup_stylesheet_link(source, 3, 1);
+    const auto order = forge::read_ui_markup_stylesheet_links(reordered);
+    check(order[0].reference == "other.rcss" && order[1].reference == "base&old.rcss" &&
+              reordered.find("href=\"other.rcss\"/><!--gap--><link") != std::string::npos,
+          "Stylesheet ordering changed comments or failed to swap adjacent links");
+    check(forge::move_ui_markup_stylesheet_link(reordered, order[1].element, -1) == source,
+          "Stylesheet reorder did not preserve exact reversible source bytes");
+    const auto removed = forge::remove_ui_markup_stylesheet_link(source, 3);
+    check(forge::read_ui_markup_stylesheet_links(removed).size() == 1 &&
+              removed.find("<title>Menu</title><!--gap-->") != std::string::npos,
+          "Stylesheet removal changed adjacent head content");
+    for (const auto* empty :
+         {"<rml><body>Keep</body></rml>", "<rml><head/><body>Keep</body></rml>"}) {
+        const auto inserted = forge::set_ui_markup_stylesheet_link(empty, {}, "theme.rcss");
+        check(
+            forge::read_ui_markup_stylesheet_links(inserted).size() == 1 &&
+                inserted.find("<head>\n<link type=\"text/rcss\" href=\"theme.rcss\" />\n</head>") !=
+                    std::string::npos,
+            "Stylesheet insertion did not create or expand an explicit head");
+    }
+    rejects([&] { forge::move_ui_markup_stylesheet_link(source, 3, -1); });
+    rejects([&] { forge::move_ui_markup_stylesheet_link(source, 4, 1); });
+    rejects([&] { forge::move_ui_markup_stylesheet_link(source, 3, 0); });
+    rejects([&] { forge::remove_ui_markup_stylesheet_link(source, 2); });
+    rejects([&] { forge::set_ui_markup_stylesheet_link(source, 6, "theme.rcss"); });
+    for (const auto* reference : {"/outside.rcss", "https://host/theme.rcss", "a.css", "x.rcss?q",
+                                  "a{{x}}.rcss", "a}}.rcss", "line\nbreak.rcss"})
+        rejects([&] { forge::set_ui_markup_stylesheet_link(source, 3, reference); });
+    for (const auto* invalid :
+         {"<rml><head/><head/><body/></rml>", "<rml><body/></rml><rml><body/></rml>",
+          "<rml><head><link type='text/rcss' href='a.rcss' href='b.rcss'/></head><body/></rml>",
+          "<rml><head><link type='text/rcss' href='{{file}}'/></head><body/></rml>",
+          "<rml><head><link type='text/rcss' href='a.rcss' "
+          "data-attr-href='file'/></head><body/></rml>"})
+        rejects([&] { forge::read_ui_markup_stylesheet_links(invalid); });
+    std::string full = "<rml><head>";
+    for (unsigned i = 0; i < 32; ++i)
+        full += "<link type='text/rcss' href='theme.rcss'/>";
+    full += "</head><body/></rml>";
+    check(forge::read_ui_markup_stylesheet_links(full).size() == 32,
+          "Guided stylesheet link boundary refused its last entry");
+    rejects([&] { forge::set_ui_markup_stylesheet_link(full, {}, "extra.rcss"); });
+}
 void font_face_sources() {
     const std::string original =
         "/* header */\n@font-face { /* keep */ font-family:Old;src:'Assets/old.ttf';"
@@ -1614,6 +1678,7 @@ int main() {
         hierarchy_moves();
         inline_properties();
         stylesheet_rules();
+        stylesheet_link_sources();
         font_face_sources();
         font_face_style_sources();
         reusable_styles();
