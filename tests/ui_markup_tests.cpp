@@ -890,6 +890,52 @@ void typography_literals() {
               changed.ends_with(">Caption</p></body></rml>"),
           "Typography preset source write replaced unrelated source");
 }
+void responsive_layout_literals() {
+    using namespace forge;
+    check(ui_common_style_properties.size() == 36,
+          "Responsive layout controls changed the shared menu unexpectedly");
+    for (const auto* name : {"display", "flex-direction", "flex-wrap", "justify-content",
+                             "align-content", "align-items", "align-self"}) {
+        const auto profile = ui_style_literal_profile(name);
+        check(profile && !profile->keywords.empty() && profile->units.empty(),
+              "Native layout keyword presets missing");
+    }
+    const auto self = *ui_style_literal_profile("align-self");
+    const auto items = *ui_style_literal_profile("align-items");
+    check(self.keywords.front() == "auto" && items.keywords.front() == "flex-start" &&
+              ui_style_literal_profile("justify-content")->keywords.back() == "space-evenly" &&
+              ui_style_literal_profile("align-content")->keywords.back() == "stretch",
+          "Alignment helpers mixed native property keyword domains");
+    for (const auto* name : {"flex-grow", "flex-shrink"}) {
+        check(read_ui_style_literal_number(name, "1.5").has_value() &&
+                  !read_ui_style_literal_number(name, "-1") &&
+                  !read_ui_style_literal_number(name, "1px") &&
+                  !read_ui_style_literal_number(name, "1%") &&
+                  !read_ui_style_literal_number(name, "NaN"),
+              "Flex factors guessed units or admitted unsupported negative values");
+        rejects([&] { format_ui_style_literal_number(name, {1, UiStyleUnit::Pixels}); });
+    }
+    for (const auto* name : {"flex-basis", "row-gap", "column-gap", "min-width", "max-width",
+                             "min-height", "max-height"}) {
+        check(read_ui_style_literal_number(name, "0px").has_value() &&
+                  read_ui_style_literal_number(name, "12.5dp").has_value() &&
+                  read_ui_style_literal_number(name, "50%").has_value() &&
+                  !read_ui_style_literal_number(name, "12") &&
+                  !read_ui_style_literal_number(name, "-1px") &&
+                  !read_ui_style_literal_number(name, "65537px"),
+              "Responsive dimensions lost their bounded length/percentage profile");
+        rejects([&] { format_ui_style_literal_number(name, {-1, UiStyleUnit::Pixels}); });
+    }
+    check(ui_style_literal_profile("flex-basis")->keywords.front() == "auto" &&
+              ui_style_literal_profile("max-width")->keywords.front() == "none" &&
+              ui_style_literal_profile("min-width")->keywords.empty(),
+          "Native dimension reset presets were fabricated");
+    // Raw source stays broader than the optional controls, including compound shorthands.
+    const std::string source = "<rml><body><div style='color:red'></div></body></rml>";
+    const auto custom = set_ui_markup_style(source, 2, "flex", "1 0 auto");
+    check(custom.find("flex:1 0 auto") != custom.npos && custom.find("color:red") != custom.npos,
+          "Literal profiles restricted the existing raw source owner");
+}
 void style_value_literals() {
     using namespace forge;
     const std::array cases{
@@ -1283,6 +1329,7 @@ int main() {
         reusable_styles();
         style_value_literals();
         typography_literals();
+        responsive_layout_literals();
         common_controls();
         control_properties();
         text_control_properties();

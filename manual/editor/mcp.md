@@ -836,3 +836,9 @@ each dab must retain at least one candidate. Spacing applies within each dab
 only. There is no collision clearance or live surface link in this workflow.
 Recheck after published surface changes. Both tools use the same preparation,
 validation and Scene history owners as the editor.
+
+For responsive UI, read `forge_ui_source_style_profile` for `display`,
+`flex-direction`, wrapping, alignment, gaps or sizing. Choose a returned preset
+or a number in its advertised units/range, then use the existing inline, sibling
+group or rule property tools. The shared Common list has36 entries. These are
+authored values; check native Preview or the game for the resulting layout.

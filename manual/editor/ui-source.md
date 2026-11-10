@@ -281,6 +281,38 @@ retain their source bytes. Native CSS validation and the fonts available to your
 project determine the rendered result; choosing a weight/style does not load a
 new font face. See [UI text shaping](ui-text-shaping.md) for font resources.
 
+## Build a responsive flex layout
+
+1. Create or select a **Container** in **Elements** and expand **Inline style**.
+2. Choose `display` from **Common**, choose the `flex` **Preset**, then **Set property**.
+3. Set `flex-direction` to `row` for horizontal children or `column` for vertical children. The reverse presets reverse their visual order while source order stays unchanged.
+4. Set `flex-wrap` to `wrap` when children should flow onto another line. Choose `nowrap` for one line, or `wrap-reverse` to reverse the line direction.
+5. Use `justify-content` for spacing along the main direction, `align-items` across it, and `align-content` for multiple wrapped lines. A child's `align-self` can override its parent's cross-direction alignment; `auto` follows the parent.
+6. Choose `row-gap` or `column-gap`, then **New number**, **Number**, **Unit** and **Set property** to space rows or columns. Check **Preview** at the intended game size, then **Save source**.
+
+![UI Source inline style with a staged flex-direction column preset](../images/ui-source-layout-direction.png)
+
+The same presets work in **Group inline style** for selected siblings and in a
+stylesheet's **Rule properties**. Each Set property is one source Undo step;
+Save source writes the file. Reading or staging a preset does not change it.
+
+- `display` presets include `none`, `block`, `inline`, `inline-block`, `flow-root`, `flex` and `inline-flex`. Other native display values remain available in **CSS value**.
+- `justify-content` offers `flex-start`, `flex-end`, `center`, `space-between`, `space-around` and `space-evenly`. `align-content` also offers `stretch`.
+- `align-items` offers `flex-start`, `flex-end`, `center`, `baseline` and `stretch`; `align-self` also offers `auto`.
+- `flex-grow` and `flex-shrink` take nonnegative unitless numbers up to `65536`. They divide spare space or shrink demand among children; zero disables that contribution.
+- `flex-basis` accepts `auto` or a nonnegative `px`, `dp` or `%` number up to `65536` to request the starting size along the main direction.
+- `row-gap`, `column-gap`, `min-width`, `min-height`, `max-width` and `max-height` accept nonnegative `px`, `dp` or `%` numbers up to `65536`. The maximum-size properties also offer `none`.
+
+![UI Source rule with a staged justify-content center preset](../images/ui-source-layout-rule.png)
+
+Use **CSS value** for compound values: set **Property** to `flex` and
+**CSS value** to `1 0 auto`. Other supported units can also be entered directly. Presets are convenient literal inputs; the native layout and
+cascade determine the result. A percentage uses the native property's containing
+size rules. Wrapped line alignment needs cross-direction space, and growth needs
+spare main-direction space. Size limits can constrain growth. **Remove property**
+restores the applicable stylesheet or native behavior. Flex controls do not make
+relative or flow-based elements eligible for absolute-pixel Preview dragging.
+
 ## Style several controls together
 
 1. In **Elements**, select a widget and **Ctrl**-click its siblings. Choose up to 32 widgets with the same parent.

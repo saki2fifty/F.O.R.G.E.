@@ -158,6 +158,36 @@ void exercise(const std::filesystem::path& root, const Json& source,
                   "Saved/source-hidden image lost native crop/sprite precedence/aspect/CSS "
                   "sizing/tint");
         }
+        const auto size = [&](const char* id) {
+            auto* element = document->GetElementById(id);
+            check(element, "Native flex fixture missing");
+            return element->GetBox().GetSize(Rml::BoxArea::Content);
+        };
+        const auto relative = [&](const char* child, const char* parent) {
+            return document->GetElementById(child)->GetAbsoluteOffset(Rml::BoxArea::Content) -
+                   document->GetElementById(parent)->GetAbsoluteOffset(Rml::BoxArea::Content);
+        };
+        check(size("native-flex-row-0") == Rml::Vector2f(120, 20) &&
+                  size("native-flex-row-1") == Rml::Vector2f(170, 20) &&
+                  relative("native-flex-row-1", "native-flex-row") == Rml::Vector2f(130, 40),
+              "Native flex growth, min/max clamp, gap or cross-axis alignment differs");
+        check(size("native-flex-column-0") == Rml::Vector2f(100, 60) &&
+                  size("native-flex-column-1") == Rml::Vector2f(100, 60) &&
+                  relative("native-flex-column-1", "native-flex-column") == Rml::Vector2f(0, 80),
+              "Native column basis/growth/row gap differs");
+        const auto wrap_size = size("native-flex-wrap");
+        const auto wrap_second = relative("native-flex-wrap-1", "native-flex-wrap");
+        const auto wrap_third = relative("native-flex-wrap-2", "native-flex-wrap");
+        // Leave room above the exact two-child threshold at native percentage precision.
+        check(wrap_size == Rml::Vector2f(220, 100) && wrap_second == Rml::Vector2f(110, 0) &&
+                  wrap_third == Rml::Vector2f(0, 30),
+              "Native flex wrap/line spacing differs");
+        presenter.update(0, 400, 600);
+        check(size("native-flex-wrap") == Rml::Vector2f(110, 100) &&
+                  relative("native-flex-wrap-1", "native-flex-wrap") == Rml::Vector2f(0, 30) &&
+                  relative("native-flex-wrap-2", "native-flex-wrap") == Rml::Vector2f(0, 60),
+              "Percentage flex container did not reflow at a narrower viewport");
+        presenter.update(0, 800, 600);
         const auto initial_state = document->GetElementById("state")->GetInnerRML();
         if (initial_state != "Tick 41 / paused 1")
             throw std::runtime_error("Structured text binding result: " + initial_state);
@@ -778,6 +808,51 @@ int main(int argc, char** argv) {
                     text = set_ui_markup_style(text, created.element, "height", "12px");
                 }
                 text = set_ui_markup_style(text, created.element, "image-color", "#80ff40ff");
+            }
+            for (const auto* layout : {"row", "column", "wrap"}) {
+                const auto id = "native-flex-" + std::string(layout);
+                const bool column = std::string_view(layout) == "column";
+                const bool wrap = std::string_view(layout) == "wrap";
+                created = insert_ui_markup_control(text, by_id(text, "canvas"), "container");
+                text = set_ui_markup_attribute(created.source, created.element, "id", id);
+                for (const auto& [name, value] :
+                     std::initializer_list<std::pair<const char*, const char*>>{
+                         {"display", "flex"},
+                         {"position", "absolute"},
+                         {"left", "0px"},
+                         {"top", "0px"},
+                         {"width", column ? "100px"
+                                   : wrap ? "27.5%"
+                                          : "300px"},
+                         {"height", column ? "140px" : "100px"},
+                         {"flex-direction", column ? "column" : "row"},
+                         {"flex-wrap", wrap ? "wrap" : "nowrap"},
+                         {"justify-content", "flex-start"},
+                         {"align-content", "flex-start"},
+                         {"align-items", wrap || column ? "flex-start" : "center"},
+                         {"row-gap", column ? "20px" : "10px"},
+                         {"column-gap", "10px"}})
+                    text = set_ui_markup_style(text, by_id(text, id), name, value);
+                for (int i = 0; i < (wrap ? 3 : 2); ++i) {
+                    created = insert_ui_markup_control(text, by_id(text, id), "container");
+                    text = set_ui_markup_attribute(created.source, created.element, "id",
+                                                   id + "-" + std::to_string(i));
+                    for (const auto& [name, value] :
+                         std::initializer_list<std::pair<const char*, const char*>>{
+                             {"width", "100px"},
+                             {"height", "20px"},
+                             {"flex-basis", column ? "40px" : "100px"},
+                             {"flex-grow", wrap               ? "0"
+                                           : column || i == 0 ? "1"
+                                                              : "2"},
+                             {"flex-shrink", "0"},
+                             {"align-self", "auto"},
+                             {"min-width", wrap || column ? "0px" : "100px"},
+                             {"max-width", !wrap && !column && i == 0 ? "120px" : "none"},
+                             {"min-height", "0px"},
+                             {"max-height", "none"}})
+                        text = set_ui_markup_style(text, created.element, name, value);
+                }
             }
             atomic_write(root / document_path, text);
             const auto published = register_ui_document(root, document_path);

@@ -435,6 +435,19 @@ std::optional<UiStyleLiteralProfile> ui_style_literal_profile(std::string_view p
     static constexpr std::array<std::string_view, 5> whitespace{"normal", "pre", "nowrap",
                                                                 "pre-wrap", "pre-line"};
     static constexpr std::array<std::string_view, 1> normal{"normal"};
+    static constexpr std::array dimensions{UiStyleUnit::Pixels, UiStyleUnit::DensityPixels,
+                                           UiStyleUnit::Percent};
+    static constexpr std::array<std::string_view, 7> display{
+        "none", "block", "inline", "inline-block", "flow-root", "flex", "inline-flex"};
+    static constexpr std::array<std::string_view, 4> directions{"row", "row-reverse", "column",
+                                                                "column-reverse"};
+    static constexpr std::array<std::string_view, 3> wrapping{"nowrap", "wrap", "wrap-reverse"};
+    static constexpr std::array<std::string_view, 7> content{
+        "flex-start",   "flex-end",     "center", "space-between",
+        "space-around", "space-evenly", "stretch"};
+    static constexpr std::array<std::string_view, 6> items{"auto",   "flex-start", "flex-end",
+                                                           "center", "baseline",   "stretch"};
+    static constexpr std::array<std::string_view, 1> automatic{"auto"}, none{"none"};
     UiStyleLiteralProfile profile;
     if (property == "color" || property == "background-color" || property == "image-color")
         profile.color = true;
@@ -467,7 +480,35 @@ std::optional<UiStyleLiteralProfile> ui_style_literal_profile(std::string_view p
         profile.units = all_units;
         profile.minimum = 0;
         profile.initial = {1.2, UiStyleUnit::Number};
-    } else if (property != "font-family" && property != "display")
+    } else if (property == "display")
+        profile.keywords = display;
+    else if (property == "flex-direction")
+        profile.keywords = directions;
+    else if (property == "flex-wrap")
+        profile.keywords = wrapping;
+    else if (property == "justify-content")
+        profile.keywords = std::span(content).first(6);
+    else if (property == "align-content")
+        profile.keywords = content;
+    else if (property == "align-items")
+        profile.keywords = std::span(items).subspan(1);
+    else if (property == "align-self")
+        profile.keywords = items;
+    else if (property == "flex-grow" || property == "flex-shrink") {
+        profile.units = unitless;
+        profile.minimum = 0;
+        profile.initial = {property == "flex-shrink" ? 1.0 : 0.0, UiStyleUnit::Number};
+    } else if (property == "flex-basis" || property == "row-gap" || property == "column-gap" ||
+               property == "min-width" || property == "max-width" || property == "min-height" ||
+               property == "max-height") {
+        profile.units = dimensions;
+        profile.minimum = 0;
+        profile.initial = {0, UiStyleUnit::Pixels};
+        if (property == "flex-basis")
+            profile.keywords = automatic;
+        else if (property == "max-width" || property == "max-height")
+            profile.keywords = none;
+    } else if (property != "font-family")
         return {};
     return profile;
 }

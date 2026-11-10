@@ -38,8 +38,18 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
         profile = read('forge_ui_source_style_profile', **guard(), name='font-weight')
         assert profile['known'] and profile['kind'] == 'number' and profile['keywords'] == ['normal', 'bold']
         assert profile['numeric'] == dict(units=[''], minimum=1, maximum=1000, integer=True, initial_literal='400')
-        assert len(profile['common_properties']) == len(set(profile['common_properties'])) == 21
+        assert len(profile['common_properties']) == len(set(profile['common_properties'])) == 36
         assert read('forge_ui_source_read') == before, 'Literal profile query changed the draft'
+        for name, keywords in [('display', ['none', 'block', 'inline', 'inline-block', 'flow-root', 'flex', 'inline-flex']),
+                               ('flex-direction', ['row', 'row-reverse', 'column', 'column-reverse']),
+                               ('flex-wrap', ['nowrap', 'wrap', 'wrap-reverse'])]:
+            responsive = read('forge_ui_source_style_profile', **guard(), name=name)
+            assert responsive['known'] and responsive['keywords'] == keywords and responsive['numeric'] is None
+        for name in ('flex-grow', 'flex-shrink', 'flex-basis', 'row-gap', 'column-gap', 'min-width', 'max-width', 'min-height', 'max-height'):
+            responsive = read('forge_ui_source_style_profile', **guard(), name=name)
+            assert responsive['known'] and responsive['numeric']['minimum'] == 0
+            assert responsive['numeric']['units'] == ([''] if name in ('flex-grow', 'flex-shrink') else ['px', 'dp', '%'])
+        assert read('forge_ui_source_read') == before, 'Responsive metadata changed source'
         unknown = read('forge_ui_source_style_profile', **guard(), name='custom-property')
         assert not unknown['known'] and unknown['numeric'] is None
         old = guard()
@@ -68,7 +78,12 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
         ok('forge_ui_source_open', path=sheet_path)
         sheet_before = read('forge_ui_source_read')
         for name, value in [('text-align', 'center'), ('line-height', '120%'), ('letter-spacing', '0.5dp'),
-                            ('text-decoration', 'underline'), ('white-space', 'pre-wrap'), ('text-transform', 'uppercase')]:
+                            ('text-decoration', 'underline'), ('white-space', 'pre-wrap'), ('text-transform', 'uppercase'),
+                            ('display', 'flex'), ('flex-direction', 'column'), ('flex-wrap', 'wrap'),
+                            ('justify-content', 'space-between'), ('align-content', 'center'), ('align-items', 'stretch'),
+                            ('align-self', 'auto'), ('flex-grow', '1.5'), ('flex-shrink', '0'),
+                            ('flex-basis', '50%'), ('row-gap', '4dp'), ('column-gap', '8px'),
+                            ('min-width', '20px'), ('max-width', '80%'), ('min-height', '10dp'), ('max-height', 'none')]:
             profile = read('forge_ui_source_style_profile', **guard(), name=name)
             assert profile['known']
             edit('rule_property', rule=0, name=name, value=value)

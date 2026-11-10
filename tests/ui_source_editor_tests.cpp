@@ -18,7 +18,7 @@ template <class F> void rejects(F&& operation) {
     }
     check(rejected, "Invalid source owner operation accepted");
 }
-enum class SourceControls { All, TextProperties, Typography, ImageProperties };
+enum class SourceControls { All, TextProperties, Typography, ImageProperties, ResponsiveLayout };
 void exercise(const std::filesystem::path& output, int width,
               SourceControls mode = SourceControls::All) {
     using namespace forge;
@@ -113,7 +113,8 @@ void exercise(const std::filesystem::path& output, int width,
         editor.request_close();
         return;
     }
-    if (mode == SourceControls::Typography) {
+    if (mode == SourceControls::Typography || mode == SourceControls::ResponsiveLayout) {
+        const bool responsive = mode == SourceControls::ResponsiveLayout;
         input.click("ui-source:elements-tab");
         input.click("ui-source:element:2");
         const auto open_style = [&] {
@@ -162,8 +163,13 @@ void exercise(const std::filesystem::path& output, int width,
                 frame();
             }
         };
-        preset("font-weight", "bold", "typography-weight");
-        preset("font-style", "italic", "typography-style");
+        if (responsive) {
+            preset("display", "flex", "layout-display");
+            preset("flex-direction", "column", "layout-direction");
+        } else {
+            preset("font-weight", "bold", "typography-weight");
+            preset("font-style", "italic", "typography-style");
+        }
         editor.control(1, "paragraph", "Second");
         frame();
         io.AddKeyEvent(ImGuiMod_Ctrl, true);
@@ -172,10 +178,12 @@ void exercise(const std::filesystem::path& output, int width,
         io.AddKeyEvent(ImGuiMod_Ctrl, false);
         frame();
         check(editor.state().at("selection").size() == 2, "Typography group selection missing");
-        preset("font-style", "italic", "typography-group");
+        const auto* group_property = responsive ? "align-self" : "font-style";
+        const auto* group_value = responsive ? "center" : "italic";
+        preset(group_property, group_value, responsive ? "layout-group" : "typography-group");
         const std::array<std::size_t, 2> members{2, 3};
-        const auto values = editor.read_styles(members, "font-style");
-        check(values.size() == 2 && values[0] == "italic" && values[1] == "italic",
+        const auto values = editor.read_styles(members, group_property);
+        check(values.size() == 2 && values[0] == group_value && values[1] == group_value,
               "Group preset did not use the shared complete source candidate");
         editor.save(project);
         const auto sheet = root / "Assets/Typography.rcss";
@@ -186,19 +194,21 @@ void exercise(const std::filesystem::path& output, int width,
         frame();
         input.click("ui-source:elements-tab");
         input.click("ui-source:rule:0");
-        preset("text-align", "center", "typography-rule");
-        check(editor.read_rule_property(0, "text-align") == "center",
+        const auto* rule_property = responsive ? "justify-content" : "text-align";
+        preset(rule_property, "center", responsive ? "layout-rule" : "typography-rule");
+        check(editor.read_rule_property(0, rule_property) == "center",
               "Rule preset missing authored alignment");
-        choose_property("line-height");
+        const auto* numeric_property = responsive ? "column-gap" : "line-height";
+        choose_property(numeric_property);
         const auto before_spacing = editor.state();
         input.click("ui-source:style-new-number");
-        input.type("ui-source:style-number", "120");
+        input.type("ui-source:style-number", responsive ? "5" : "120");
         input.click("ui-source:style-unit");
         input.select("ui-source:style-unit:3");
         check(editor.state() == before_spacing,
               "Line spacing numeric controls published before Set property");
         input.click("ui-source:style-set");
-        check(editor.read_rule_property(0, "line-height") == "120%",
+        check(editor.read_rule_property(0, numeric_property) == (responsive ? "5%" : "120%"),
               "Rule spacing staged the wrong unit/value");
         editor.save(project);
         check(scene.snapshot() == authored && scene.revision() == revision &&
@@ -1048,7 +1058,9 @@ int main(int argc, char** argv) {
         auto mode = SourceControls::All;
         if (argc == 3) {
             const auto flag = std::string_view(argv[2]);
-            if (flag == "--typography-only")
+            if (flag == "--responsive-layout-only")
+                mode = SourceControls::ResponsiveLayout;
+            else if (flag == "--typography-only")
                 mode = SourceControls::Typography;
             else if (flag == "--text-properties-only")
                 mode = SourceControls::TextProperties;

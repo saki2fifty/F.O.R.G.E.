@@ -1,5 +1,11 @@
 # 2026-11-10
 
+## Responsive UI source controls
+
+Source styles offer flex direction, wrapping, alignment, gap, factor, basis and
+size-limit controls through the existing native staging and guarded MCP owners.
+Raw CSS, one Undo and explicit Save remain available; native layout owns reflow.
+
 ## Image source properties and tint
 
 The shared source panel and MCP properties expose image sources, sprite names,

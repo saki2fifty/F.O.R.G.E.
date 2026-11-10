@@ -3236,3 +3236,18 @@ resource, crop/aspect/sprite/CSS/tint and source-hidden tests are separate.
 - ui-source-image-properties.png: `6b1660f4791b7ca9c7c134f9a94643ba5a331d763153057363e61e6019ce268a`.
 
 - ui-source-image-tint.png: `ba0a31f21ca4c428d110b38e5a1842499df7b81bac44d80fbb5bb6c0cfec50fe`.
+
+## Responsive UI source presets
+
+ui-source-layout-direction.png and ui-source-layout-rule.png are unaltered700×950
+production UiSourceEditor/DocumentWorkspace component captures from
+forge_ui_source_editor_tests --responsive-layout-only (ui_source_responsive_layout).
+Actual inline/group/rule preset controls stage the existing CSS field before Set
+property; tests exercise one Undo/Redo and explicit Save at1180/700/400, including
+percentage gap input. The twelve raw softwareSDL component images retain source,
+font and executable provenance. Native flex geometry/reflow/source-hidden tests
+are separate; these images do not establish full Main/Windows/physical acceptance.
+
+- ui-source-layout-direction.png: `0d86ea2879dd3addde7c79bfb4ee8e151b0336b667b4da0385785d9907d77861`.
+
+- ui-source-layout-rule.png: `aecca9a4a1d87c13dbf5ecee57e64333936ab4450fb20cf8b587ce37b81c3a47`.

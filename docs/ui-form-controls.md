@@ -185,7 +185,7 @@ with the exact native parser and existing Text/source controls.
 ## Literal typography styling
 
 UiStyleLiteralProfile borrows immutable keyword/unit spans for optional source
-input controls. The shared21Common names/profile back inline/group/rule staging
+input controls. The shared36Common names/profile back inline/group/rule staging
 and the read-only style_profile query. Existing color/number formatters and native
 source writers remain authoritative; the helper is not a CSS parser or cascade.
 Ten existing numeric helpers keep all four units and their prior finite envelope.
@@ -217,3 +217,13 @@ and hints. This bounds native float aspect calculations without copying them. Th
 precision; UV generation and layout stay in the renderer.
 Data bindings/duplicates/source/current guards and explicit reset/Save apply as
 for other profiles. image-color reuses the original color literal/staging owner.
+
+## Responsive source layout controls
+
+The existing immutable UiStyleLiteralProfile also supplies display/flex/alignment
+presets and bounded growth, basis, row/column gap and min/max dimension inputs.
+There are36 Common properties. Grow/shrink use nonnegative unitless factors;
+basis/gaps/size limits use nonnegative px/dp/% values up to65536, with native auto
+or none presets where applicable. These helpers stage the original text field;
+raw shorthand/custom values retain the same source writer/admission. No native
+layout math, resource owner or preview geometry eligibility is replaced.
