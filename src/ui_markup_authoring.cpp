@@ -312,25 +312,30 @@ std::pair<UiSourceRange, std::string> style_edit(std::string_view text,
     identifier(property);
     return style_value_edit(text, declarations, property, value);
 }
-SourceEdit markup_style_edit(std::string_view source, const UiMarkupElement& node,
-                             std::string_view property, const std::optional<std::string>& value) {
+SourceEdit
+markup_style_values(std::string_view source, const UiMarkupElement& node,
+                    const std::map<std::string, std::optional<std::string>>& properties) {
     const auto style = inline_style_source(source, node);
-    require(!value || value->find('&') == value->npos, "Entity-encoded inline styles use Source");
-    const auto edit = style_edit(style.text, style.declarations, property, value);
+    std::string body(style.text);
+    for (const auto& [property, value] : properties) {
+        require(!value || value->find('&') == value->npos,
+                "Entity-encoded inline styles use Source");
+        require(!style.attribute || !value || value->find(style.attribute->quote) == value->npos,
+                "Use CSS quotes different from the inline attribute quotes, or edit in Source");
+        const auto declarations = inspect_ui_style(body);
+        const auto edit = style_edit(body, declarations, property, value);
+        body.replace(edit.first.begin, edit.first.end - edit.first.begin, edit.second);
+    }
     if (!style.attribute) {
         const auto position = attribute_insertion(source, node);
-        if (!value)
+        if (body.empty())
             return {{position, position}, {}};
-        const auto& declaration = edit.second;
-        const char quote = declaration.find('"') == declaration.npos ? '"' : '\'';
-        require(declaration.find(quote) == declaration.npos,
+        const char quote = body.find('"') == body.npos ? '"' : '\'';
+        require(body.find(quote) == body.npos,
                 "Values requiring both attribute quote forms use Source");
-        return {{position, position}, " style=" + std::string(1, quote) + declaration + quote};
+        return {{position, position}, " style=" + std::string(1, quote) + body + quote};
     }
-    require(!value || value->find(style.attribute->quote) == value->npos,
-            "Use CSS quotes different from the inline attribute quotes, or edit in Source");
-    const auto offset = style.attribute->value.begin;
-    return {{offset + edit.first.begin, offset + edit.first.end}, edit.second};
+    return {style.attribute->value, std::move(body)};
 }
 const UiStyleRule& stylesheet_rule(std::span<const UiStyleRule> rules, std::size_t index) {
     require(index < rules.size(), "Choose a rule from the current stylesheet outline");
@@ -868,14 +873,62 @@ read_ui_markup_styles(std::string_view source, std::span<const UiMarkupElement> 
 }
 std::string set_ui_markup_styles(std::string_view source, std::span<const std::size_t> indices,
                                  std::string_view property, std::optional<std::string> value) {
-    identifier(property);
+    return set_ui_markup_style_values(source, indices, {{std::string(property), std::move(value)}});
+}
+std::string
+set_ui_markup_style_values(std::string_view source, std::span<const std::size_t> indices,
+                           const std::map<std::string, std::optional<std::string>>& properties) {
+    require(!properties.empty() && properties.size() <= 32, "Choose between1 and32 properties");
     const auto nodes = inspect_ui_markup(source);
     (void)sibling_ranges(nodes, indices);
     std::vector<SourceEdit> edits;
     edits.reserve(indices.size());
     for (const auto index : indices)
-        edits.push_back(markup_style_edit(source, nodes[index], property, value));
+        edits.push_back(markup_style_values(source, nodes[index], properties));
     return markup_edits(source, std::move(edits));
+}
+std::string set_ui_markup_layout_preset(std::string_view source, std::size_t index,
+                                        std::string_view preset, float width, float height,
+                                        float horizontal_offset, float vertical_offset) {
+    valid_layout({horizontal_offset, vertical_offset, width, height});
+    const auto found = std::ranges::find(ui_responsive_layout_presets, preset,
+                                         [](const auto& value) { return value.first; });
+    require(found != ui_responsive_layout_presets.end(), "Choose a supported layout preset");
+    const auto nodes = inspect_ui_markup(source);
+    editable(element(nodes, index));
+    static_ancestry(nodes, index);
+    for (auto parent = index; parent != UiMarkupElement::no_parent;
+         parent = element(nodes, parent).parent) {
+        const auto style = inline_style_source(source, nodes[parent]);
+        for (const auto property : {"transform", "perspective", "animation", "transition"})
+            if (const auto* declaration =
+                    style_property(style.text, style.declarations, property)) {
+                const auto range = trimmed(style.text, declaration->value);
+                require(style.text.substr(range.begin, range.end - range.begin) == "none",
+                        "Transformed or animated elements and ancestors use Source for presets");
+            }
+    }
+    const auto ordinal = std::size_t(found - ui_responsive_layout_presets.begin());
+    const auto horizontal = ordinal % 4, vertical = ordinal / 4;
+    const auto px = [](float value) {
+        return format_ui_style_number({value, UiStyleUnit::Pixels});
+    };
+    std::map<std::string, std::optional<std::string>> properties{
+        {"position", "absolute"},
+        {"width", horizontal == 3 ? "auto" : px(width)},
+        {"height", vertical == 3 ? "auto" : px(height)},
+        {"margin", {}}};
+    const auto axis = [&](std::size_t mode, float offset, const char* near_edge,
+                          const char* far_edge, const char* near_margin, const char* far_margin) {
+        properties[near_edge] = mode == 2 ? "auto" : px(offset);
+        properties[far_edge] = mode == 0 ? "auto" : px(mode == 1 ? -offset : offset);
+        properties[near_margin] = mode == 1 ? "auto" : "0px";
+        properties[far_margin] = mode == 1 ? "auto" : "0px";
+    };
+    axis(horizontal, horizontal_offset, "left", "right", "margin-left", "margin-right");
+    axis(vertical, vertical_offset, "top", "bottom", "margin-top", "margin-bottom");
+    const std::array indices{index};
+    return set_ui_markup_style_values(source, indices, properties);
 }
 std::vector<std::optional<std::string>>
 read_ui_markup_classes(std::string_view source, std::span<const UiMarkupElement> nodes,

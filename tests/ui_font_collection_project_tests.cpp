@@ -164,6 +164,16 @@ AssetId author_font_selection(const std::filesystem::path& root,
             ui_stylesheet_reference(AssetCatalog::open_project(root), hud_path, asset.id);
         markup = set_ui_markup_stylesheet_link(markup, {}, link.at("reference").get<std::string>());
     }
+    for (const auto& [preset, id] :
+         {std::pair{"center", "preset-center"}, std::pair{"stretch_all", "preset-stretch"}}) {
+        const auto current = inspect_ui_markup(markup);
+        const auto body =
+            std::ranges::find(current, std::string_view("body"), &UiMarkupElement::tag);
+        check(body != current.end(), "Layout export fixture lacks a body");
+        const auto added = insert_ui_markup_control(markup, std::size_t(body - current.begin()),
+                                                    "container", {}, {}, id);
+        markup = set_ui_markup_layout_preset(added.source, added.element, preset, 120, 40, 8, 6);
+    }
     asset_storage::replace(root / hud_path, markup);
     refresh_ui_asset_catalog(lease, inspect(root, font)(document->first, {}));
     return document->first;
@@ -235,6 +245,24 @@ void present(const std::filesystem::path& root, const std::vector<std::byte>& fo
                                            : Rml::Colourb{0x11, 0x77, 0x33, 255};
         check(color == expected,
               "Authored stylesheet link order did not control saved/exported native cascade");
+        for (const auto size : {Rml::Vector2i{1000, 720}, Rml::Vector2i{600, 400}}) {
+            presenter.update(0, size.x, size.y);
+            auto* document = Rml::GetContext(0)->GetDocument(0);
+            const auto containing = document->GetElementById("preset-center")->GetContainingBlock();
+            auto* centered = document->GetElementById("preset-center");
+            auto* stretched = document->GetElementById("preset-stretch");
+            const auto center_offset = centered->GetAbsoluteOffset(Rml::BoxArea::Border);
+            const auto stretch_offset = stretched->GetAbsoluteOffset(Rml::BoxArea::Border);
+            const auto center_size = centered->GetBox().GetSize(Rml::BoxArea::Border);
+            const auto stretch_size = stretched->GetBox().GetSize(Rml::BoxArea::Border);
+            check(containing == Rml::Vector2f{float(size.x), float(size.y)} &&
+                      center_size == Rml::Vector2f{120, 40} &&
+                      center_offset ==
+                          Rml::Vector2f{containing.x / 2 - 60 + 8, containing.y / 2 - 20 + 6} &&
+                      stretch_size == Rml::Vector2f{containing.x - 16, containing.y - 12} &&
+                      stretch_offset == Rml::Vector2f{8, 6},
+                  "Saved/exported native responsive layouts lost viewport behavior");
+        }
         check(scene.snapshot() == saved, "Native collection rendering mutated the saved Scene");
     }
     check(renderer.geometry.empty() && renderer.textures.empty(), "Example resources leaked");

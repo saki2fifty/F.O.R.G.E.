@@ -3654,3 +3654,41 @@ establish native cascade/export behavior.
 - manual/images/ui-source-created-control.png: b94dd80ff2a2ce3631fa7f1c6cf53086eabddbf05e690eb168eb2eaff108d1b9.
 - manual/images/ui-source-image-resource.png: 9f4622c200327b5b620388def1f9c438b3f9201370245c0f6a94b747ef669566.
 - manual/images/ui-source-stylesheet-link.png: b8d1272484c0f56a9ef6d2c922abf43de9921b414a1271986ebecbaa02d9da51.
+
+## Responsive layout presets
+
+The Layout presets figure is an unretouched700x950 native SourceEditor capture
+from the passing1180/700/400 workflow on2026-11-10, development based on85ee660.
+It shows an explicit Center proposal before Apply. Both400/700forms were reviewed.
+The passing affected source gate refreshes25Elements workflow figures to include
+the Layout presets heading;16unchanged Preview/Rules/font/stylesheet figures retain
+exact prior attribution. These are SDL software component captures, separate from
+full-editor, Windows and physical-device acceptance. Native layout and saved/
+source-hidden export tests establish geometry independently of the screenshots.
+
+- manual/images/ui-source-elements.png: 6f864a4dbe52da02aa152c18cca070a5093640ca170345f2d042da106f824edd.
+- manual/images/ui-source-inline-style.png: 2a6ba47324cdd273767de2f2afeb1c3cb87a4f2282c02a6da260304ae037ccb9.
+- manual/images/ui-source-hierarchy.png: 494366f4c9c0706d6317d341d035beeedd79a241af4dc845211a730993415f02.
+- manual/images/ui-source-group-styling.png: fb1c00907af78a94ab52eb6e501a3d9984ab11d0f436da780b623751b4ae89df.
+- manual/images/ui-source-classes.png: f1b75238174b072bb0aa5b5f7d5c2aeb7465e63cccc6a3af679e8fe3e035aa4f.
+- manual/images/ui-source-style-color.png: 90cc58895dc1089c3737690095fd9d900106f5fae319b85e207cc805ee399cf2.
+- manual/images/ui-source-style-number.png: b4f00e924bd0355c12dbf2768c56857c1fb7c07f888d685de99e23d80932911d.
+- manual/images/ui-source-create-control.png: 9d15b26187a601f6e66e984504243bf89897dd62c61c51253a6d50befc7e0c27.
+- manual/images/ui-source-input-button.png: 3f28ef41e3024549de0e1e5e6dbef8e71152a826d429f60c6cd234f2901d8ae9.
+- manual/images/ui-source-slider.png: 3fc5812daaa3128d0e695e5a0ff0e05b7ee93c00f14ee6aed282b208924bf364.
+- manual/images/ui-source-control-properties.png: f09ca2ce5c145282868370477e74cb853c2896571a7162d5ae88356fee94b6d7.
+- manual/images/ui-source-control-flags.png: 183c2425cf7d0b14c3afa88e2b822bb6df73f4e0efc8f7354238df4333deb306.
+- manual/images/ui-source-text-input-properties.png: 0a39da1a8ea80aa121bb7070159f754bfaf2083ff0050fa120b27130de05658b.
+- manual/images/ui-source-textarea-properties.png: 6e2af191cad06998a2e24ba1f18079ad62f66348a43bceab6a1e22638ab26119.
+- manual/images/ui-source-typography-weight.png: ebf36213165dba04fe3f4c0ffa946ced808a80b3e26d48c9e44fb2992816c69c.
+- manual/images/ui-source-typography-rule.png: 9e9ea266539bdc240d80fc549f31e3c9db2c1265f7fac51f9cb453ee311b459d.
+- manual/images/ui-source-image-properties.png: 3426d23c9c42dfe9781074a8eb581a6a17f489e43ae3ce329c55c47d9409c3a3.
+- manual/images/ui-source-image-tint.png: 0fb7fae4edeca28a616f7712cd68393c0cd7390f2a26bca4ea8f33bc2be1277e.
+- manual/images/ui-source-layout-direction.png: 67f8d488eafd67f6884d0e05aab9fbaf120fcfb30b588456f64377246d9e73e1.
+- manual/images/ui-source-layout-rule.png: bcb76940e4f2635cb326bc59562b790f07828064e5d80e32875dc7923ca3ed5a.
+- manual/images/ui-source-box-search.png: 623162a54ebeb6c64bf4398bb6ddc971c28ce3c657d1272ad746b744b414258a.
+- manual/images/ui-source-box-color.png: fc1b948c22483d8558c6266f3c3ee085c70d3b11816a898e8376b9d7a3757f22.
+- manual/images/ui-source-create-pixels.png: e9c353eabb32b075b4973fd085514495adfdaa69b778d68d3a5f99b06dfe8bac.
+- manual/images/ui-source-created-control.png: 37680236759564594791d016fc833c549af6ad056705a861bfbd97e88fefccc2.
+- manual/images/ui-source-image-resource.png: b0f71686283de25bcc1b436e5a966d996ce1f3c397b8a05cfe7596f5016d9d13.
+- manual/images/ui-source-layout-presets.png: 66f4f68fa770ed8d8660e887cee6b701ccaf26ae2016de7f76a9ea49d7bdb199.

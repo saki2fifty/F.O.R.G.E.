@@ -156,6 +156,31 @@ std::vector<std::optional<std::string>> read_ui_markup_styles(std::string_view,
                                                               std::string_view property);
 std::string set_ui_markup_styles(std::string_view, std::span<const std::size_t>,
                                  std::string_view property, std::optional<std::string> value);
+std::string
+set_ui_markup_style_values(std::string_view, std::span<const std::size_t>,
+                           const std::map<std::string, std::optional<std::string>>& properties);
+inline constexpr std::array<std::pair<std::string_view, std::string_view>, 16>
+    ui_responsive_layout_presets{{{"top_left", "Top left"},
+                                  {"top_center", "Top center"},
+                                  {"top_right", "Top right"},
+                                  {"stretch_h_top", "Stretch horizontally, top"},
+                                  {"middle_left", "Middle left"},
+                                  {"center", "Center"},
+                                  {"middle_right", "Middle right"},
+                                  {"stretch_h_middle", "Stretch horizontally, middle"},
+                                  {"bottom_left", "Bottom left"},
+                                  {"bottom_center", "Bottom center"},
+                                  {"bottom_right", "Bottom right"},
+                                  {"stretch_h_bottom", "Stretch horizontally, bottom"},
+                                  {"stretch_v_left", "Stretch vertically, left"},
+                                  {"stretch_v_center", "Stretch vertically, center"},
+                                  {"stretch_v_right", "Stretch vertically, right"},
+                                  {"stretch_all", "Stretch both"}}};
+// Native absolute layout in the positioned ancestor's padding box. Fixed axes
+// use pixel sizes; stretched axes use opposite pixel insets and automatic size.
+std::string set_ui_markup_layout_preset(std::string_view, std::size_t element,
+                                        std::string_view preset, float width, float height,
+                                        float horizontal_offset = 0, float vertical_offset = 0);
 std::vector<std::optional<std::string>> read_ui_markup_classes(std::string_view,
                                                                std::span<const UiMarkupElement>,
                                                                std::span<const std::size_t>);

@@ -624,6 +624,46 @@ struct UiSourceAutomation {
                     return state(editor, files.document);
                 }));
         }
+        auto preset_properties = guard;
+        auto presets = Json::array();
+        for (const auto& [key, label] : ui_responsive_layout_presets)
+            presets.push_back(key);
+        preset_properties["element"] = automation_integer(0, 8191);
+        preset_properties["preset"] = {{"type", "string"}, {"enum", std::move(presets)}};
+        for (const auto* name : {"width", "height", "horizontal_offset", "vertical_offset"})
+            preset_properties[name] = {
+                {"type", "number"},
+                {"minimum", std::string_view(name).ends_with("offset") ? -65536 : 1},
+                {"maximum", 65536}};
+        auto preset_required = required;
+        for (const auto* name : {"element", "preset", "width", "height"})
+            preset_required.push_back(name);
+        result.push_back(automation_method(
+            "ui.source.layout_preset",
+            "Apply one of16 native CSS layout presets as one source Undo record. Requires current "
+            "source guards and assets.write/replay. Static RML widget only; bound/event-driven or "
+            "inline transformed/animated ancestry refuses. Replaces inline position, edges, size "
+            "and margins, preserving other source. Absolute positioning uses the nearest "
+            "positioned "
+            "ancestor's padding box; fixed axes use width/height pixels, stretched axes use auto "
+            "size. Offsets default0: positive edge inset, centered right/down displacement, or "
+            "both "
+            "stretch insets. Custom styles/constraints still affect native layout; inspect "
+            "Preview. "
+            "No preview observation required, native drag eligibility extension, Save or Scene "
+            "write.",
+            "assets.write",
+            automation_object(std::move(preset_properties), std::move(preset_required)), true,
+            [&files, &editor, ready](const Json& request) {
+                ready();
+                observed(editor, files.document, request);
+                editor.layout_preset(
+                    request.at("element").get<std::size_t>(),
+                    request.at("preset").get<std::string>(), request.at("width").get<float>(),
+                    request.at("height").get<float>(), request.value("horizontal_offset", 0.f),
+                    request.value("vertical_offset", 0.f));
+                return state(editor, files.document);
+            }));
         auto layout_properties = guard;
         layout_properties["element"] = automation_integer(0, 8191);
         layout_properties["preview_instance"] = automation_uuid();

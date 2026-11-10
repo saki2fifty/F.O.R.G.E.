@@ -139,6 +139,16 @@ clamping, duplicate properties, entity-encoded styles and data-bound source ance
 reject canvas edits. Source remains available for those layouts; this is a bounded
 pixel canvas rather than an unrestricted responsive designer.
 
+Elements also offers source-owned Layout presets for16 fixed-edge, centered or
+stretched axis combinations. They author ordinary absolute CSS edges, explicit
+or automatic sizes and margins in one source history record. The positioned
+ancestor's native padding box is the containing block; no separate anchor data
+or layout calculation is persisted. They require no preview observation, preserve
+unrelated source and leave custom constraints with native CSS. Responsive presets
+do not widen the pixel-canvas eligibility above. Both text modes verify all16
+combinations at two viewport sizes inside a padded/bordered parent. Saved and
+source-hidden relocated runtime tests additionally verify center/stretch geometry.
+
 Preview observations also expose native padding boxes. SourceEditor uses that
 origin to place a new named control inside an eligible absolute-pixel parent,
 through the same configured source creation candidate and history owner. New

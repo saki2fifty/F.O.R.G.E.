@@ -681,6 +681,67 @@ void inline_properties() {
                                    "'" + std::string(200, 'x') + "'");
     });
 }
+void responsive_layout_presets() {
+    using namespace forge;
+    const std::string source = "<!--keep-->\r\n<rml><body><div id='parent'><p id='target' "
+                               "class='keep' style='/*keep*/ color : red ; margin:12px; "
+                               "left:30%;width:80%;'>Text</p></div></body></rml>";
+    const auto index = find(source, "p");
+    const auto value = [&](const std::string& text, std::string_view property) {
+        return read_ui_markup_style(text, inspect_ui_markup(text), index, property);
+    };
+    const auto centered = set_ui_markup_layout_preset(source, index, "center", 120, 40, 8, -6);
+    check(value(centered, "position") == "absolute" && value(centered, "width") == "120px" &&
+              value(centered, "height") == "40px" && value(centered, "left") == "8px" &&
+              value(centered, "right") == "-8px" && value(centered, "top") == "-6px" &&
+              value(centered, "bottom") == "6px" && value(centered, "margin-left") == "auto" &&
+              value(centered, "margin-top") == "auto" && !value(centered, "margin"),
+          "Centered preset did not author fixed size, opposing offsets and automatic margins");
+    check(centered.starts_with("<!--keep-->\r\n") &&
+              centered.find("id='target' class='keep' style='/*keep*/ color : red ;") !=
+                  centered.npos &&
+              centered.ends_with("'>Text</p></div></body></rml>") &&
+              set_ui_markup_layout_preset(centered, index, "center", 120, 40, 8, -6) == centered,
+          "Preset damaged unrelated bytes, attribute quotes or repeated no-op spelling");
+    for (std::size_t i = 0; i < ui_responsive_layout_presets.size(); ++i) {
+        const auto text = set_ui_markup_layout_preset(
+            source, index, ui_responsive_layout_presets[i].first, 120, 40, 8, 6);
+        check(value(text, "width") == (i % 4 == 3 ? "auto" : "120px") &&
+                  value(text, "height") == (i / 4 == 3 ? "auto" : "40px") &&
+                  value(text, "left") == (i % 4 == 2 ? "auto" : "8px") &&
+                  value(text, "right") == (i % 4 == 0   ? "auto"
+                                           : i % 4 == 1 ? "-8px"
+                                                        : "8px") &&
+                  value(text, "top") == (i / 4 == 2 ? "auto" : "6px") &&
+                  value(text, "bottom") == (i / 4 == 0   ? "auto"
+                                            : i / 4 == 1 ? "-6px"
+                                                         : "6px"),
+              "Preset axis mapping disagrees with its fixed/centered/stretched mode");
+    }
+    const std::array indices{index};
+    const auto composed =
+        set_ui_markup_style_values(source, indices, {{"color", "blue"}, {"width", "32px"}});
+    check(value(composed, "color") == "blue" && value(composed, "width") == "32px",
+          "Atomic property composition lost one of its values");
+    rejects([&] { set_ui_markup_style_values(source, indices, {}); });
+    rejects([&] {
+        set_ui_markup_style_values(source, indices, {{"color", "blue"}, {"width", "bad;css"}});
+    });
+    rejects([&] { set_ui_markup_layout_preset(source, index, "unknown", 120, 40); });
+    for (const auto width : {0.0f, -1.0f, 65537.0f, std::numeric_limits<float>::infinity(),
+                             std::numeric_limits<float>::quiet_NaN()})
+        rejects([&] { set_ui_markup_layout_preset(source, index, "center", width, 40); });
+    rejects([&] { set_ui_markup_layout_preset(source, index, "center", 120, 40, 65537); });
+    for (const auto* attributes :
+         {"data-model='state'", "onclick='handler'", "style='transform:translateX(1px);'",
+          "style='transition:all 1s;'"}) {
+        const std::string text =
+            std::string("<rml><body><div ") + attributes + "><p>Text</p></div></body></rml>";
+        rejects([&] { set_ui_markup_layout_preset(text, find(text, "p"), "center", 120, 40); });
+    }
+    const std::string encoded = "<rml><body><p style='width:1&#48;px;'>Text</p></body></rml>";
+    rejects([&] { set_ui_markup_layout_preset(encoded, find(encoded, "p"), "center", 120, 40); });
+}
 void stylesheet_rules() {
     const std::string source = "/* lead */\r\n.a:hover, #b { /* body */ color : red ; "
                                "font-family: 'quoted;{}'; width:calc(10px + 2px) } /* gap */\r\n"
@@ -1677,6 +1738,7 @@ int main() {
         subtree_duplication();
         hierarchy_moves();
         inline_properties();
+        responsive_layout_presets();
         stylesheet_rules();
         stylesheet_link_sources();
         font_face_sources();

@@ -1,5 +1,7 @@
 #include "asset_bytes.hpp"
+#include "ui_markup_authoring.hpp"
 #include "ui_test_renderer.hpp"
+#include <cmath>
 #include <fstream>
 #include <iostream>
 
@@ -23,6 +25,50 @@ Json find(const Json& layout, const char* id) {
         if (element.at("id") == id)
             return element;
     throw std::runtime_error("Missing preview element");
+}
+void presets(UiPresenter& presenter, AssetId asset) {
+    const std::string source = R"rml(<rml><head><style>
+body {display:block;position:relative;width:100%;height:100%;font-family:Lato;}
+div {display:block;}
+#parent {position:absolute;left:40px;top:30px;width:75%;height:70%;padding:10px;border:4px #fff;}
+</style></head><body><div id="parent"><div id="target" style="box-sizing:border-box;padding:3px;border:2px #fff;"></div></div></body></rml>)rml";
+    const auto nodes = inspect_ui_markup(source);
+    const auto target = nodes.size() - 1;
+    for (const auto& [preset, label] : ui_responsive_layout_presets) {
+        const auto candidate = set_ui_markup_layout_preset(source, target, preset, 120, 40, 8, 6);
+        for (const auto size : {Rml::Vector2i{800, 600}, Rml::Vector2i{480, 360}}) {
+            check(presenter.preview_document({asset}, "layout.rml", candidate, size.x, size.y),
+                  "Responsive preset did not load in the native preview");
+            auto* document = Rml::GetContext(0)->GetDocument(0);
+            auto* parent = document->GetElementById("parent");
+            auto* child = document->GetElementById("target");
+            const auto containing = parent->GetBox().GetSize(Rml::BoxArea::Padding);
+            const auto origin = parent->GetAbsoluteOffset(Rml::BoxArea::Padding);
+            const auto offset = child->GetAbsoluteOffset(Rml::BoxArea::Border);
+            const auto extent = child->GetBox().GetSize(Rml::BoxArea::Border);
+            const auto selected = std::ranges::find(ui_responsive_layout_presets, preset,
+                                                    [](const auto& row) { return row.first; });
+            const auto number = std::size_t(selected - ui_responsive_layout_presets.begin());
+            const auto x = number % 4, y = number / 4;
+            const auto expected_width = x == 3 ? containing.x - 16 : 120;
+            const auto expected_height = y == 3 ? containing.y - 12 : 40;
+            const auto expected_left = x == 1   ? (containing.x - expected_width) / 2 + 8
+                                       : x == 2 ? containing.x - expected_width - 8
+                                                : 8;
+            const auto expected_top = y == 1   ? (containing.y - expected_height) / 2 + 6
+                                      : y == 2 ? containing.y - expected_height - 6
+                                               : 6;
+            check(std::abs(extent.x - expected_width) < .6f &&
+                      std::abs(extent.y - expected_height) < .6f &&
+                      std::abs(offset.x - origin.x - expected_left) < .6f &&
+                      std::abs(offset.y - origin.y - expected_top) < .6f,
+                  (std::string("Native responsive bounds disagree for ") + std::string(preset))
+                      .c_str());
+            if (x != 0 || y != 0)
+                check(!find(presenter.preview_layout(), "target").at("editable").get<bool>(),
+                      "Responsive preset incorrectly enabled the plain-pixel drag adapter");
+        }
+    }
 }
 void exercise(const std::filesystem::path& root, const std::vector<std::byte>& font, bool shaping) {
     std::filesystem::create_directories(root);
@@ -119,6 +165,7 @@ div {display:block;}
         rejects([&] { presenter.preview_document({asset.id}, "layout.rml", draft, 0, 600); });
         rejects([&] { presenter.accept(Json::object()); });
         rejects([&] { presenter.prepare(Json::object()); });
+        presets(presenter, asset.id);
         presenter.reset("runtime", 1);
         check(presenter.preview_layout().is_null() && Rml::GetNumContexts() == 0,
               "Reset retained preview context");

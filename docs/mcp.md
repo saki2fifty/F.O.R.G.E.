@@ -2747,7 +2747,7 @@ reads no computed state and changes no selection/history/source/registration.
 
 The same immutable metadata powers inline/group and stylesheet literal controls.
 Native source candidates and old mutation/query results are unchanged. Including
-this query and native-preview placement, there are50source operations. Style/preset staging
+this query and native-preview placement, there are51source operations. Style/preset staging
 publishes only through the original Set/Remove/Undo/Save and guarded MCP owners.
 
 Source control metadata includes an image profile: src/sprite/rect strings and
@@ -2760,19 +2760,19 @@ no new resource/URI/texture manager or live image mutation tool is introduced.
 Rect is empty or four space-separated finite bounded floats x/y/width/height with
 size at least0.000001 and distinct native-float crop edges. These finite source envelopes keep native aspect
 calculations within float range without duplicating their layout algorithm. Image tint uses the existing color profile and style mutation.
-Source operations total40 and creation kinds18; Commonmenu has53 properties.
+Source operations total51 and creation kinds18; Commonmenu has53 properties.
 
 style_profile includes responsive layout metadata: display, flex-direction/wrap,
 justify-content, align-content/items/self, flex-grow/shrink/basis, row/column-gap
 and min/max width/height. Keyword lists are a convenience subset of native CSS;
 number metadata accurately lists units and nonnegative bounds. Existing guarded
 style, style_group and rule_property operations author these values; the tool
-count is40, and control creation kinds stay18. Queries are source-only and
+count is51, and control creation kinds stay18. Queries are source-only and
 cannot establish computed geometry or initialize a renderer.
 
 Box style profiles extend the same query with position/box-sizing/axis overflow,
 side padding/margin and simple border width/color/radius controls. Common has53
-entries; source operations total40, control kinds18, grants/history/replay and
+entries; source operations total51, control kinds18, grants/history/replay and
 schema ownership unchanged. The Common search field has no programmatic authoring
 semantics: agents query profiles and use existing style/group/rule mutations.
 Raw multi-value source remains supported and is not normalized by the profiles.
@@ -2790,7 +2790,7 @@ Pixel setup refuses breaks/options, requires ID and rejects bound ancestors.
 It does not initialize a renderer, register assets, create a persistent identity
 or bypass native Preview eligibility. The selected new root, one Undo, explicit
 Save, grants/revisions/replay and Scene isolation retain existing owners. There
-are50 source operations/18creation kinds; the existing layout schema remains
+are51 source operations/18creation kinds; the existing layout schema remains
 unchanged. No separate creation path is maintained for MCP clients.
 
 ## Native-preview control placement
@@ -2862,7 +2862,7 @@ Both tools require assets.write, the ordinary mutation envelope and existing
 source-task/gesture locks. Receipt replay returns its original result without
 reapplying selection. They use the same source selection owner as Elements and
 Preview and leave source revision/digest/dirty/Undo/Save/catalog/Scene unchanged.
-There are50source operations. No runtime widget input or persisted selection is
+There are51source operations. No runtime widget input or persisted selection is
 introduced; selected elements still need each authoring operation's admission.
 
 
@@ -2872,7 +2872,7 @@ The native canvas shortcuts use existing source operations: Ctrl+A is a replacem
 select_rectangle over the current viewport, Escape's idle clear is select with an
 empty list, Ctrl+D is single-subtree duplicate, and Delete is atomic remove_group.
 These same guarded tools remain available with their existing grants, source
-revisions, identity rules, history and explicit Save. These shortcuts add no separate tool; there are50source operations. Agents
+revisions, identity rules, history and explicit Save. These shortcuts add no separate tool; there are51source operations. Agents
 send source operations rather than UI key events; cancelling a local queued key
 request is a local transient workflow, not a new persisted authoring operation.
 
@@ -2907,7 +2907,7 @@ source operations; no new mutation owner, serialized identity or resource format
 
 ## Source font declarations
 
-Four font source operations share the existing source owner (50combined source operations):
+Four font source operations share the existing source owner (51combined source operations):
 
 - `ui.source.font_reference` / `forge_ui_source_font_reference`: assets.read plus
   current source guards, font `asset` and optional `face_index`(0default,0..31).
@@ -2944,6 +2944,24 @@ the existing profile owners. No font cache, runtime profile, persisted identity 
 SDK change is introduced.
 
 
+## Source layout presets
+
+ui.source.layout_preset / forge_ui_source_layout_preset adds one assets.write
+operation, bringing the source family to51. Current source guards, Edit ownership,
+ordinary mutation envelope and replay apply. Required element, preset, width and
+height describe an explicit proposal. Sixteen preset IDs are advertised by the
+schema from the same immutable metadata used by Elements. Width/height1..65536
+and optional horizontal_offset/vertical_offset±65536 are finite pixels; offsets
+default0. Stretch uses auto size on its axis. Positive offsets inset edge/stretch
+axes or displace centered axes right/down. The shared source owner authors native
+absolute edges, sizes and margins once, retains unrelated bytes/selection, and
+creates one Undo record. Equal candidates are no-ops. Source-only admission rejects
+bound/event ancestry, entity styles, duplicates and inline transforms/animation.
+Native computed CSS constraints remain active. No renderer/preview guard is needed
+for this explicit source proposal; Preview inspects its result. Save is explicit;
+there is no Scene/catalog write or widened canvas manipulation eligibility.
+Read-only grants omit the operation and direct calls remain denied.
+
 ## Document stylesheet links
 
 Five guarded source operations extend the same document/history/resource owners:
@@ -2960,4 +2978,4 @@ types recognized, selected files RCSS. Source indices are revision-bound, not
 persisted identity. Generic metadata guards stay intact. Mutations use one Undo
 and explicit Save; registration/preview/native loading remain separate. Factory
 excludes the three writers without asset-write grants; both queries remain
-discoverable. Existing45source operations remain available, now50total.
+discoverable. Existing stylesheet-link operations remain available; the source family totals51 including layout presets.

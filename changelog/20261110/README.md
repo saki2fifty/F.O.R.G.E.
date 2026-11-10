@@ -1,5 +1,16 @@
 # 2026-11-10
 
+## Responsive UI layout presets
+
+Elements offers16 fixed-edge, centered and stretched layout presets with explicit
+pixel size/offset proposals. Apply authors ordinary native CSS in one source
+Undo step, retaining other properties and explicit Save. Native controls and the
+guarded ui.source.layout_preset operation share the same declaration/source owner;
+the source tool family totals51. Source admission and existing pixel-canvas limits
+remain explicit. Local checks cover native viewport/parent geometry, staging,
+history, permissions/replay and saved/source-hidden runtime behavior. Windows,
+full-editor and physical-device review remain pending.
+
 ## Document stylesheet link authoring
 
 UI Source Elements stages registered RCSS links with explicit header creation,

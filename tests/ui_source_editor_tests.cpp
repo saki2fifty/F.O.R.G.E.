@@ -27,7 +27,8 @@ enum class SourceControls {
     BoxStyling,
     CreationSetup,
     FontFaces,
-    StylesheetLinks
+    StylesheetLinks,
+    LayoutPresets
 };
 void exercise(const std::filesystem::path& output, int width,
               SourceControls mode = SourceControls::All,
@@ -93,6 +94,58 @@ void exercise(const std::filesystem::path& output, int width,
     const auto old_clipboard = ImGui::GetPlatformIO().Platform_GetClipboardTextFn;
     const auto old_data = ImGui::GetPlatformIO().Platform_ClipboardUserData;
     test::ImGuiInputDriver input(frame);
+    if (mode == SourceControls::LayoutPresets) {
+        input.click("ui-source:elements-tab");
+        input.click("ui-source:element:2");
+        input.click("ui-source:layout-presets");
+        const std::array values{"160", "48", "12", "-8"};
+        for (std::size_t i = 0; i < values.size(); ++i)
+            input.type(("ui-source:layout-preset-value:" + std::to_string(i)).c_str(), values[i]);
+        const auto staged = editor.state();
+        check(staged.at("text") == original && !editor.dirty(),
+              "Layout proposal changed source before Apply");
+        frame();
+        capture.save(output / ("ui-source-layout-presets-" + std::to_string(width) + ".png"));
+        input.click("ui-source:layout-preset-apply");
+        const auto applied = editor.state();
+        check(applied.at("selection") == Json::array({2}) &&
+                  applied.at("text") == set_ui_markup_layout_preset(original.get<std::string>(), 2,
+                                                                    "center", 160, 48, 12, -8) &&
+                  asset_storage::read(file) == source,
+              "Native layout preset differed from the shared owner or wrote before Save");
+        input.click("ui-source:layout-preset-apply");
+        check(editor.state() == applied, "Repeated layout preset created a history record");
+        input.click("button:Undo");
+        check(editor.state().at("text") == original, "Layout preset needed multiple Undo steps");
+        input.click("button:Redo");
+        check(editor.state().at("text") == applied.at("text"), "Layout preset Redo differs");
+        input.click("ui-source:element:2");
+        input.click("ui-source:layout-preset");
+        input.select("ui-source:layout-preset-choice:stretch_all");
+        const auto selected = editor.state();
+        check(!test::ui_targets.at("ui-source:layout-preset-value:0").enabled &&
+                  !test::ui_targets.at("ui-source:layout-preset-value:1").enabled &&
+                  selected.at("text") == applied.at("text"),
+              "Stretch staging changed source or left its ignored sizes editable");
+        locked = true;
+        frame();
+        check(!test::ui_targets.at("ui-source:layout-preset-apply").enabled,
+              "Locked source enabled layout preset publication");
+        locked = false;
+        frame();
+        input.click("ui-source:layout-preset-apply");
+        const auto stretched = editor.state();
+        check(stretched.at("text") ==
+                  set_ui_markup_layout_preset(applied.at("text").get<std::string>(), 2,
+                                              "stretch_all", 160, 48, 12, -8),
+              "Native stretch selection did not publish the shared layout candidate");
+        editor.save(project);
+        check(!editor.dirty() && scene.snapshot() == authored && scene.revision() == revision &&
+                  asset_storage::read(root / "forge.assets.json") == catalog,
+              "Layout preset Save changed Scene/catalog ownership");
+        editor.request_close();
+        return;
+    }
     if (mode == SourceControls::CreationSetup) {
         input.click("ui-source:elements-tab");
         input.click("ui-source:element:1");
@@ -1421,7 +1474,9 @@ int main(int argc, char** argv) {
         auto mode = SourceControls::All;
         if (argc >= 3) {
             const auto flag = std::string_view(argv[2]);
-            if (flag == "--stylesheet-links-only")
+            if (flag == "--layout-presets-only")
+                mode = SourceControls::LayoutPresets;
+            else if (flag == "--stylesheet-links-only")
                 mode = SourceControls::StylesheetLinks;
             else if (flag == "--font-faces-only") {
                 check(argc == 4, "Font face controls need the font fixture path");

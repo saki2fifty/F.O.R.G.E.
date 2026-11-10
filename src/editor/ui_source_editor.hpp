@@ -448,6 +448,61 @@ class UiSourceEditor {
     std::array<float, 4> layout_controls_{};
     std::string layout_controls_state_;
     std::size_t layout_controls_element_ = UiMarkupElement::no_parent;
+    int responsive_preset_ = 5;
+    std::array<float, 4> responsive_values_{120, 40, 0, 0};
+    bool responsive_controls(bool locked) {
+        if (selected_.size() != 1 || selected_element() >= outline_.size() ||
+            !ui_markup_widget_editable(outline_[selected_element()]))
+            return false;
+        const bool open = ImGui::CollapsingHeader("Layout presets");
+        FORGE_UI_PROBE("ui-source:layout-presets");
+        if (!open)
+            return false;
+        ImGui::TextWrapped("Place within the nearest positioned ancestor's padding box. "
+                           "This replaces position, edges, size and margins in the inline style.");
+        ImGui::BeginDisabled(locked);
+        const bool preset_open = ImGui::BeginCombo(
+            "Preset", ui_responsive_layout_presets[responsive_preset_].second.data());
+        FORGE_UI_PROBE("ui-source:layout-preset");
+        if (preset_open) {
+            for (std::size_t i = 0; i < ui_responsive_layout_presets.size(); ++i) {
+                if (ImGui::Selectable(ui_responsive_layout_presets[i].second.data(),
+                                      std::size_t(responsive_preset_) == i))
+                    responsive_preset_ = int(i);
+                FORGE_UI_PROBE("ui-source:layout-preset-choice:" +
+                               std::string(ui_responsive_layout_presets[i].first));
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::TextUnformatted("Proposed size and offsets");
+        constexpr std::array labels{"Width (px)", "Height (px)", "Horizontal offset (px)",
+                                    "Vertical offset (px)"};
+        for (std::size_t i = 0; i < responsive_values_.size(); ++i) {
+            ImGui::BeginDisabled((i == 0 && responsive_preset_ % 4 == 3) ||
+                                 (i == 1 && responsive_preset_ / 4 == 3));
+            ImGui::TextUnformatted(labels[i]);
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+            ImGui::InputFloat(("##layout-preset-value-" + std::to_string(i)).c_str(),
+                              &responsive_values_[i]);
+            FORGE_UI_PROBE("ui-source:layout-preset-value:" + std::to_string(i));
+            ImGui::EndDisabled();
+        }
+        ImGui::TextWrapped(
+            "Positive offsets inset from an edge, shift a centered axis right/down, "
+            "or inset both edges of a stretched axis. Stretched sizes are automatic. "
+            "Custom styles and size limits can constrain the result. Check Preview.");
+        const auto before = revision_;
+        if (button("Apply layout preset", "One source Undo step; Save source to write the file."))
+            attempt([&] {
+                layout_preset(selected_element(),
+                              ui_responsive_layout_presets[responsive_preset_].first,
+                              responsive_values_[0], responsive_values_[1], responsive_values_[2],
+                              responsive_values_[3]);
+            });
+        FORGE_UI_PROBE("ui-source:layout-preset-apply");
+        ImGui::EndDisabled();
+        return revision_ != before;
+    }
     int group_action_ = 1;
     std::array<float, 2> group_offsets_{};
     float grid_spacing_ = 8;
@@ -2147,6 +2202,8 @@ class UiSourceEditor {
         style_controls(locked);
         if (selected_element() >= outline_.size())
             return;
+        if (responsive_controls(locked))
+            return;
         if (selected_.size() > 1) {
             ImGui::Separator();
             ImGui::Text("%zu source elements selected", selected_.size());
@@ -2542,6 +2599,14 @@ class UiSourceEditor {
         if (locator_.extension() != ".rml")
             throw AuthoringError("source_scope", "Open an RML document first");
         replace_selected(set_ui_markup_control_properties(editor_.GetText(), index, values),
+                         {index});
+    }
+    void layout_preset(std::size_t index, std::string_view preset, float width, float height,
+                       float horizontal_offset = 0, float vertical_offset = 0) {
+        if (locator_.extension() != ".rml")
+            throw AuthoringError("source_scope", "Open an RML document first");
+        replace_selected(set_ui_markup_layout_preset(editor_.GetText(), index, preset, width,
+                                                     height, horizontal_offset, vertical_offset),
                          {index});
     }
     void attribute(std::size_t index, std::string_view name, std::optional<std::string> value) {

@@ -228,6 +228,18 @@ or none presets where applicable. These helpers stage the original text field;
 raw shorthand/custom values retain the same source writer/admission. No native
 layout math, resource owner or preview geometry eligibility is replaced.
 
+The shared set_ui_markup_layout_preset source operation provides16 explicit
+fixed-edge/center/stretch combinations. set_ui_markup_style_values composes the
+position, edges, dimensions and margins in one candidate through the existing
+declaration patches and source validator. UiSourceEditor publishes it once through
+its existing source history and preserves element selection. Native Elements and
+ui.source.layout_preset use that identical method. Source ancestry guards reject
+bound/event-driven forms and inline transforms/animation; this does not inspect
+or flatten computed stylesheet layout. The native CSS engine owns containing
+blocks, auto margins, constraints and final geometry. Centered/far-edge/stretch
+results retain existing plain-pixel canvas refusal. Proposal dimensions1..65536
+and offsets±65536 are finite pixel values; stretched dimensions use auto size.
+
 ## Source box styling and property search
 
 The same literal profile owner supplies position/box sizing/overflow presets,

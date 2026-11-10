@@ -940,6 +940,18 @@ only. There is no collision clearance or live surface link in this workflow.
 Recheck after published surface changes. Both tools use the same preparation,
 validation and Scene history owners as the editor.
 
+For a centered, edge-aligned or stretched control, use
+`forge_ui_source_layout_preset` with the current source guards, `element`, one
+advertised `preset`, and valid pixel `width`/`height`. Optional
+`horizontal_offset`/`vertical_offset` default to zero. Positive offsets inset
+edge/stretch axes or shift centered axes right/down. This explicit proposal
+replaces inline position, edges, size and margins in one Undo step. It preserves
+other source and selection. It requires assets.write and the normal mutation
+envelope; it does not require a Preview observation. Static-source restrictions
+and native stylesheet constraints still apply. Inspect Preview at multiple
+sizes, then save. See **Center, anchor or stretch a control** in
+[UI source](ui-source.md).
+
 For responsive UI, read `forge_ui_source_style_profile` for `display`,
 `flex-direction`, wrapping, alignment, gaps or sizing. Choose a returned preset
 or a number in its advertised units/range, then use the existing inline, sibling

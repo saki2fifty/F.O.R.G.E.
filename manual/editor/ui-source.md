@@ -474,6 +474,28 @@ change or switching views cancels or invalidates the drag. Finish or cancel a dr
 before Save or source Undo/Redo. The explicit **New parent / Placement** controls
 remain available when you need a precise destination.
 
+## Center, anchor or stretch a control
+
+1. Select one static control in **Elements** and expand **Layout presets**, below the inline style controls.
+2. Choose a **Preset**. The nine edge/center positions keep a fixed size. The remaining choices stretch horizontally, vertically or in both directions.
+3. Enter the **Proposed size and offsets** in pixels. **Width (px)** and **Height (px)** must be from `1..65536`; a stretched axis uses automatic size and disables its size field. Offsets support `-65536..65536`.
+4. Choose **Apply layout preset**, then open **Preview**. Check at more than one viewport size. Use **Undo** to return to the previous source layout, or **Save source** to keep it for Play and export.
+
+![Layout presets with Center selected and proposed pixel size and offsets](../images/ui-source-layout-presets.png)
+
+The preset is a proposal, separate from the current source values. Choosing a preset or entering numbers does not change the file. Apply replaces the selected control's inline position, four edges, width, height and margins as one source Undo step. Other properties, IDs and text remain unchanged.
+
+Placement follows the nearest positioned ancestor's padding box, or the document viewport when no ancestor establishes one. For a parent container, set `position:relative` or `position:absolute` using **Inline style** or **Source**. The fixed size follows the control's existing `box-sizing`, padding and borders.
+
+- **Left or top:** a positive offset moves inward from that edge.
+- **Right or bottom:** a positive offset moves inward from that edge.
+- **Center:** a positive offset shifts right or down from the center.
+- **Stretch:** a positive offset insets both opposite edges by that amount.
+
+Negative offsets move in the opposite direction. Width and height remain valid proposed numbers even when the selected preset ignores a stretched dimension. To change the preset's size or offsets later, enter the desired values and apply it again.
+
+The controls support static widgets with plain quoted inline styles. Bound/event-driven ancestry, entity-encoded styles, duplicate layout declarations and inline transforms or animation require **Source**. Existing stylesheet rules, size limits, transforms, scrolling and other custom styles can still affect native layout; presets do not flatten or remove them. Check **Preview** for the actual result. Centered, far-edge and stretched forms retain their layout through Save and export, but do not satisfy the plain-pixel requirements for Preview dragging below.
+
 ## Preview and adjust layout
 
 For a ready-to-edit example, open **Scenes/211-ui-layout-preview.scene.json** in
