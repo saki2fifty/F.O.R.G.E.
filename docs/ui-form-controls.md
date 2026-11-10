@@ -84,3 +84,37 @@ text classes and rejection. The existing conservative password field redaction
 remains unchanged. Semantic press delegates Click without moving the pointer or
 inventing mouse coordinates; source/Scene state and native command queues retain
 their existing owners.
+
+## Native slider access
+
+The shared source kind table adds range (Slider) through the existing source
+insert/attribute/history owner. UiPresenter::range_controls and set_range_value
+reuse ui_control_access, its bounded non-DOM walker, current-control lookup,
+field routing, native focus and call-local observers. Range discovery has an
+independent 64-control count and the existing 4096-node limit. No second widget
+state, slider math, event generator or source writer is introduced.
+
+At the pinned native revision, ElementFormControlInput::GetValue for range reads
+the widget and formats it with six decimal places. Raw value attributes can
+differ. Native SetValue owns quantization, clamping and Change. A fresh repeated
+out-of-range request can emit Change without changing returned value text.
+Consequently every fresh semantic request calls the native setter once; only the
+existing mutation receipt suppresses replay. delivered reports invocation;
+value_text_changed is a nullable comparison of native formatted text, not private
+float precision or gameplay acknowledgement. Detachment/kind retirement prevents
+value confirmation. Native callback lifetime limits above still apply.
+
+A private standard-library helper admits finite request/min/max magnitudes up to
+1000000 and step from 0.000001 to 1000000. These bounds keep the native float
+quantization intermediates representable. Public native Variant conversion reads
+attributes using native float semantics; no private widget access is used.
+Unsupported configurations remain observable with parameters_available:false,
+parameters:null and editable:false. Native equal/reversed bounds remain native;
+zero/negative/tiny steps cannot authorize semantic setters. This is an action
+admission profile, not a new source format or claim of all possible native ranges.
+
+The Play read/range_value providers, RuntimeUiHost and MCP use these same methods,
+with existing input release, execute permissions, revision guards and receipts.
+Source creation supplies a finite initial numeric value (default 0); min/max/step
+attributes retain their existing source authoring owner. No SDK, dependency,
+serialized schema or runtime capability profile changes are required.

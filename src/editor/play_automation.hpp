@@ -4,6 +4,7 @@
 #include "../input_recording_files.hpp"
 #include "../ui_control_access.hpp"
 #include "../ui_field_keys.hpp"
+#include "../ui_range_numeric.hpp"
 #include "animation_playback.hpp"
 #include "audio_source.hpp"
 #include "automation_permissions.hpp"
@@ -43,6 +44,9 @@ struct PlayAutomationProviders {
     std::function<Json(const std::string&, const std::string&, std::uint64_t, const std::string&,
                        bool, std::size_t, const std::string&)>
         ui_control_action;
+    std::function<Json(const std::string&)> ui_ranges;
+    std::function<Json(const std::string&, const std::string&, std::uint64_t, double)>
+        ui_range_value;
     std::function<Json(const std::string&)> ui_buttons;
     std::function<Json(const std::string&, const std::string&, std::uint64_t)> ui_press;
 };
@@ -219,6 +223,20 @@ struct PlayAutomation {
                 auto result = state(play);
                 result["value"] =
                     play.ready() && buttons ? buttons(request.at("instance")) : Json{};
+                return result;
+            }));
+        methods.push_back(automation_method(
+            "play.ui.ranges",
+            "Read native input type=range sliders in one current UI instance. Independent "
+            "64-slider/4096-node budget; unique IDs, focus/visibility/disabled and numeric "
+            "admission facts. Value is the native six-decimal string, not the authored attribute "
+            "or private float precision. Admitted min/max/step and native orientation are exposed. "
+            "No focus, events or source/Scene writes; null without a ready presenter.",
+            "play.read", automation_object({{"instance", automation_text(256, 1)}}, {"instance"}),
+            false, [&files, &play, ranges = providers.ui_ranges](const Json& request) {
+                files.document.check_ownership();
+                auto result = state(play);
+                result["value"] = play.ready() && ranges ? ranges(request.at("instance")) : Json{};
                 return result;
             }));
         for (const auto* kind : {"schema", "diagnostics", "physics", "input", "ui", "audio",
@@ -1031,6 +1049,39 @@ struct PlayAutomation {
                 },
                 true));
         }
+        auto range_properties = field_properties;
+        range_properties["value"] = {
+            {"type", "number"}, {"minimum", -ui_range_magnitude}, {"maximum", ui_range_magnitude}};
+        auto range_required = field_required;
+        range_required.push_back("value");
+        methods.push_back(automation_method(
+            "play.ui.range_value",
+            "Set one native slider through current Play/session/world, instance, unique ID and "
+            "presentation revision. Finite value/min/max magnitudes <=1000000 and step >=0.000001 "
+            "are required. Revalidate native type/configuration after focus. Native SetValue owns "
+            "clamping, quantization and Change; repeated out-of-range requests may emit Change "
+            "even when returned value text stays equal. Returns delivered:true and nullable "
+            "value_text_changed plus fresh observations, not gameplay acknowledgement or private "
+            "float change. Each fresh request delivers; receipt replay never sets twice. Held UI "
+            "input rejects and camera outputs require a current surface hit. No arbitrary DOM, "
+            "password, source/Scene/history mutation; native callback lifetime rules apply.",
+            "play.execute", automation_object(range_properties, range_required), true,
+            [&files, &play, providers](const Json& request) {
+                current(play, files, providers, request);
+                if (!play.ready())
+                    throw AuthoringError("not_ready", "Wait for the current Play world");
+                if (!providers.ui_ranges || !providers.ui_range_value)
+                    throw AuthoringError("ui_unavailable", "Native slider input is unavailable");
+                const auto shown = providers.ui_ranges(request.at("instance"));
+                if (!shown.is_object() || shown.at("session") != play.session() ||
+                    shown.at("generation") != play.world_generation() ||
+                    shown.at("presentation_revision") != request.at("presentation_revision"))
+                    throw AuthoringError("stale_ui", "Read the current native sliders first");
+                return providers.ui_range_value(request.at("instance"), request.at("element"),
+                                                request.at("presentation_revision"),
+                                                request.at("value"));
+            },
+            true));
         methods.push_back(automation_method(
             "play.ui.press",
             "Activate one exact native button through current Play scope and "

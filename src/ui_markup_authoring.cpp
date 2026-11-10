@@ -1,4 +1,5 @@
 #include "ui_markup_authoring.hpp"
+#include "ui_range_numeric.hpp"
 #include <RmlUi/Core/StringUtilities.h>
 #include <algorithm>
 #include <array>
@@ -765,6 +766,11 @@ UiMarkupControlEdit insert_ui_markup_control(std::string_view source, std::size_
     require(found != ui_markup_control_kinds.end(), "Choose a supported UI control kind");
     require(literal.size() <= 8192, "Initial UI text/value is limited to 8192 bytes");
     require(found->accepts_text() || literal.empty(), "This control has no initial text/value");
+    if (found->input_type == "range") {
+        if (literal.empty())
+            literal = "0";
+        (void)parse_ui_range_number(literal);
+    }
     const auto nodes = inspect_ui_markup(source);
     const auto& container = element(nodes, parent);
     require(container.tag != "textarea" && container.tag != "option" && container.tag != "progress",

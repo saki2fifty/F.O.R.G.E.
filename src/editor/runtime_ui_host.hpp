@@ -218,6 +218,15 @@ class RuntimeUiHost {
     Json form_controls(const std::string& instance) const {
         return presenter_ && !suspended_ ? presenter_->form_controls(instance) : Json{};
     }
+    Json range_controls(const std::string& instance) const {
+        return presenter_ && !suspended_ ? presenter_->range_controls(instance) : Json{};
+    }
+    Json set_range_value(const std::string& instance, const std::string& element,
+                         std::uint64_t revision, double value) {
+        if (!presenter_ || suspended_ || prepared_ticket_)
+            throw std::runtime_error("Runtime UI is unavailable or preparing a scene");
+        return presenter_->set_range_value(instance, element, revision, value);
+    }
     Json buttons(const std::string& instance) const {
         return presenter_ && !suspended_ ? presenter_->buttons(instance) : Json{};
     }

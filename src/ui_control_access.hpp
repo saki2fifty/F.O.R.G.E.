@@ -45,10 +45,19 @@ UiFormControlScan scan_ui_form_controls(Rml::ElementDocument&);
 // Literal button elements and native input type=button, with an independent count.
 std::optional<Rml::Element*> ui_button(Rml::Element*);
 std::string_view ui_button_kind(Rml::Element*);
-bool ui_button_focusable(Rml::Element*);
+bool ui_control_focusable(Rml::Element*);
 bool ui_button_pressable(Rml::Element*);
 using UiButtonScan = UiControlScan<Rml::Element*>;
 UiButtonScan scan_ui_buttons(Rml::ElementDocument&);
+std::optional<Rml::ElementFormControlInput*> ui_range(Rml::Element*);
+using UiRangeScan = UiControlScan<Rml::ElementFormControlInput*>;
+UiRangeScan scan_ui_ranges(Rml::ElementDocument&);
+struct UiRangeParameters {
+    float minimum = 0, maximum = 100, step = 1;
+    bool admitted = false, vertical = false;
+};
+UiRangeParameters ui_range_parameters(Rml::ElementFormControlInput*);
+bool ui_range_editable(Rml::ElementFormControlInput*);
 // Bounded native text leaves; no DOM serialization or nested control values.
 std::optional<std::string> ui_form_option_text(Rml::Element&, std::size_t maximum_bytes);
 } // namespace forge

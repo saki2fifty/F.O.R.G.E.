@@ -1,7 +1,7 @@
 # Form controls
 
 Use buttons for actions, checkboxes for independent choices, radio buttons for one choice in a group,
-dropdowns for a list of options, and progress for a read-only numeric display.
+dropdowns for a list of options, sliders for bounded numbers, and progress for a read-only numeric display.
 These are native controls in the running game HUD. The source editor creates and
 styles them; use Play to interact with them.
 
@@ -70,6 +70,23 @@ buttons with an `input` selector or a class you assign. Neither kind automatical
 saves game settings or adds a command; the `data-event-click` binding supplies the
 action. Save source before Play and export.
 
+## Create a slider
+
+1. Open an RML document with **Edit UI source** and select its parent in **Elements**.
+2. Choose **New child → Slider**. Enter a number, such as `12.5`, under **Initial text/value**, then choose **Add child**. Leaving the value empty starts at `0`.
+3. Give the input a unique `id`. Add `min`, `max` and `step` attributes, for example `0`, `100` and `5`. The native defaults are `0`, `100` and `1`.
+4. Use `orientation="vertical"` for a vertical slider; otherwise it is horizontal. Style its input and native slider parts in your stylesheet.
+5. Choose **Save source**, start **Play** and capture Game input. Drag the slider or focus it and use its native keyboard controls. The native control rounds to its step and clamps to its bounds.
+6. Add an appropriate `data-event-change` binding when changes should affect your game. The slider alone does not save settings or assign a gameplay property.
+
+![UI source editor with Slider selected and a numeric initial value staged](../images/ui-source-slider.png)
+
+Creation selects the new input and makes one source Undo step. Initial values must
+be finite numbers within `-1000000` to `1000000`. Save source before export.
+For example, in the Gallery's source-authoring HUD, give the slider
+`data-event-change="command('Step')"`; pause that HUD before changing the slider to
+see each change advance its tick. Choose bounds and step that suit your game.
+
 ## Test controls with an AI agent
 
 Connect through [MCP](mcp.md), enable **Allow C++ build and execution**, then ask
@@ -91,7 +108,19 @@ revision. Generic captions appear as `text`; input button captions appear as
 the original result without clicking twice. Native event cancellation remains in
 effect. Semantic press keeps the current pointer position. Delivery does not confirm that gameplay accepted a command.
 
-Already-satisfied actions do not focus or activate the control. Native events and
+For sliders, the agent reads `forge_play_ui_ranges`, then calls
+`forge_play_ui_range_value` with the current scope, instance, unique ID,
+presentation revision and numeric `value`. Read the returned native `value`
+string: the authored attribute can differ after native rounding. The value string
+has six decimal places and does not expose the control's full private precision.
+Numeric values and bounds must be finite within `-1000000..1000000`, with a
+positive step of at least `0.000001`. Unsupported configurations are visible but
+cannot be edited through this action. Each fresh request reaches the native
+setter. Repeated requests outside the bounds can trigger another native change
+event even if the displayed value stays the same; receipt replay does not set it
+twice. `value_text_changed` describes the returned text, not gameplay acceptance.
+
+Already-satisfied checkbox, radio and dropdown actions do not focus or activate the control. Native events and
 gameplay callbacks can change the result, so the agent reads the returned state.
 Text/password/text-area fields have their own [field tools](ui-text-input.md).
 Password plaintext is omitted from observations.
@@ -112,7 +141,7 @@ Agent actions require unique visible enabled targets, current Play and
 presentation scope, and ordinary native focus/input routing. Camera-output input
 also needs a current surface hit. Duplicate IDs, missing controls or incomplete
 scans cannot authorize changes. Discovery is limited to 4,096 native nodes and
-64 form controls. Dropdown pages contain at most 32 options; text/value reads are
+64 form controls. Buttons and sliders each have their own 64-control counter. Dropdown pages contain at most 32 options; text/value reads are
 bounded and can report unavailable data without truncating it. If a dropdown page
 has no state token for an option, that option cannot be selected through MCP.
 If a page is not ready, allow a native UI update and read again. Arbitrary DOM/script edits,

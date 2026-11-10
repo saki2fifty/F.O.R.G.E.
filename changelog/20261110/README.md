@@ -1,5 +1,17 @@
 # 2026-11-10
 
+## Native slider creation and values
+
+Elements and source MCP share a Slider kind with finite numeric initialization,
+atomic source history and explicit Save. Independent range observations and a
+semantic native value action share existing presenter/input/focus/Play owners.
+Native GetValue/SetValue retain quantization, bounds and events; observations use
+native formatted text rather than the potentially different value attribute.
+Fresh out-of-range requests retain native repeated-change behavior while mutation
+receipts prevent duplicate replay. Numeric admission and post-focus identity/type
+checks bound supported actions without another widget state or event generator.
+The manual covers creation, bindings, agent input, saving and current limits.
+
 ## Native button creation and activation
 
 Elements and source MCP share an additional Input button kind with a literal

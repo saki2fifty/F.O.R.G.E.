@@ -773,12 +773,13 @@ void common_controls() {
     using namespace forge;
     const std::string source = "<!-- keep --><rml><body><div><p>Tail</p></div>"
                                "<div id='outside'></div></body></rml>";
-    const std::array<std::array<const char*, 3>, 16> cases{{
+    const std::array<std::array<const char*, 3>, 17> cases{{
         {"container", "A & <B>", "<div>A &amp; &lt;B&gt;</div>"},
         {"inline-text", "A & <B>", "<span>A &amp; &lt;B&gt;</span>"},
         {"paragraph", "A & <B>", "<p>A &amp; &lt;B&gt;</p>"},
         {"button", "A & <B>", "<button>A &amp; &lt;B&gt;</button>"},
         {"input-button", "A & <B>", "<input type=\"button\" value=\"A &amp; &lt;B&gt;\"/>"},
+        {"range", "12.5", "<input type=\"range\" value=\"12.5\"/>"},
         {"label", "A & <B>", "<label>A &amp; &lt;B&gt;</label>"},
         {"text-input", "A & <B>", "<input type=\"text\" value=\"A &amp; &lt;B&gt;\"/>"},
         {"password-input", "A & <B>", "<input type=\"password\" value=\"A &amp; &lt;B&gt;\"/>"},
@@ -801,6 +802,11 @@ void common_controls() {
         check(created.source == expected && created.element == 3 && nodes[3].parent == 2,
               "Common control creation lost source bytes, initial value or selected root");
     }
+    check(insert_ui_markup_control(source, 2, "range")
+                  .source.find("<input type=\"range\" value=\"0\"/>") != std::string::npos,
+          "Slider creation lost its numeric default");
+    for (const auto* value : {"nan", "inf", "1000001", "1oops", "1 2", "<input/>"})
+        rejects([&] { insert_ui_markup_control(source, 2, "range", value); });
     const std::string select = "<rml><body><select></select></body></rml>";
     const auto option = insert_ui_markup_control(select, 2, "option", "First & second");
     check(option.source == "<rml><body><select><option value=\"First &amp; second\">First &amp; "

@@ -1142,7 +1142,7 @@ an exact no-op changes no source revision or history. Save stays separate.
 
 `forge_ui_source_control` uses the same current source guards/assets.write and
 atomic source owner as native New child. Required `parent/kind`, optional `text`
-(8192bytes) and optional direct-child `before` create one of the 17 advertised kinds.
+(8192bytes) and optional direct-child `before` create one of the 18 advertised kinds.
 The kind enum comes from the native metadata. Existing insert/attribute/text
 candidate helpers own source creation and escaping; the complete composed result
 publishes one Undo and selects its new root. Inputs use initial text as value;
@@ -2629,3 +2629,35 @@ from authored RML, Scene Undo, source history and saving. Starting Play and
 native execution retain their existing user grant; read access alone does not
 grant input. See [the native field contract](ui-text-input.md#native-field-automation)
 and [the guide](../manual/editor/mcp.md).
+
+## Native UI slider tools
+
+`forge_play_ui_ranges` requires `play.read` and a document instance. It returns
+ranges, current presentation scope, unique-ID/addressable, visibility, enabled,
+focusable/focused/editable and native horizontal/vertical orientation facts.
+The scan visits at most 4096 native nodes and independently returns up to 64
+sliders; existing text/form/button budgets are preserved. value is an admitted
+native six-decimal string (1024-byte limit), not the raw attribute or complete
+private float precision. Admitted native-converted min/max/step appear under
+parameters; unsupported configurations have parameters_available:false and
+parameters:null. Read calls do not focus, update, emit events or write source.
+No ready presenter returns null under value; unrelated/password values are absent.
+
+`forge_play_ui_range_value` requires play.execute, the ordinary mutation envelope,
+current Play launch/session/generation, instance, unique element,
+presentation_revision and numeric value. Finite request/min/max magnitudes are
+bounded to 1000000; step must be within 0.000001..1000000. Current native identity,
+type, visibility, disabled state, focus and numeric admission are checked again
+after focus callbacks. Held input and output-surface requirements retain their
+existing owner. Native SetValue is invoked once: it owns quantization, clamping,
+attribute effects and Change. Each fresh out-of-range request may emit another
+Change even if the value text is equal. Mutation receipt replay does not set twice.
+The result includes fresh range observations, delivered:true and nullable
+value_text_changed. These indicate invocation and public text comparison only,
+not gameplay acknowledgement. Native lifetime limits still apply; no arbitrary
+DOM/script, source/Scene/history mutation or standalone-game server is exposed.
+
+The additive source kind range creates input type=range through the existing
+source control candidate. Empty initial text becomes 0; other initial text must
+parse completely as a finite native float within the same magnitude limit.
+Attributes, Undo, Save, resource registration and packaging keep their owners.

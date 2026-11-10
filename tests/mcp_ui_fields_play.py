@@ -7,7 +7,7 @@ from mcp_test_client import failed
 def check_ui_fields_play(root, client, read, ok, control, mutate, arguments, until, advertised, forms_only=False):
     names = {'forge_play_ui_fields', 'forge_play_ui_focus', 'forge_play_ui_text', 'forge_play_ui_key',
              'forge_play_ui_controls', 'forge_play_ui_options', 'forge_play_ui_check',
-             'forge_play_ui_choose', 'forge_play_ui_select', 'forge_play_ui_buttons', 'forge_play_ui_press'}
+             'forge_play_ui_choose', 'forge_play_ui_select', 'forge_play_ui_buttons', 'forge_play_ui_press', 'forge_play_ui_ranges', 'forge_play_ui_range_value'}
     assert names <= set(advertised)
     assert not advertised['forge_play_ui_fields']['annotations']['openWorldHint']
     assert advertised['forge_play_ui_text']['annotations']['openWorldHint']
@@ -17,6 +17,8 @@ def check_ui_fields_play(root, client, read, ok, control, mutate, arguments, unt
     assert advertised['forge_play_ui_press']['annotations']['openWorldHint']
     assert all(advertised[name]['annotations']['openWorldHint'] for name in
                ('forge_play_ui_check', 'forge_play_ui_choose', 'forge_play_ui_select'))
+    assert not advertised['forge_play_ui_ranges']['annotations']['openWorldHint']
+    assert advertised['forge_play_ui_range_value']['annotations']['openWorldHint']
     hud = ok('forge_source_ui_example')
     saved = read('forge_source_text_read', path=hud['path'])
     markup = saved['text'].replace('</head>', '''<style>
@@ -40,6 +42,8 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
 <input id="agent-locked" type="checkbox" disabled="disabled"/>
 <input id="agent-hidden" type="checkbox" style="visibility:hidden;"/>
 <input id="agent-ambiguous" type="checkbox"/><p id="agent-ambiguous">Other element</p>
+<input id="agent-range-locked" type="range" disabled="disabled"/>
+<input id="agent-range-hidden" type="range" style="visibility:hidden;"/>
 <button id="agent-button" data-event-click="command('Step')">Agent step</button>
 <input id="agent-button-locked" type="button" value="Locked" disabled="disabled"/>
 <button id="agent-button-hidden" style="visibility:hidden;">Hidden</button>
@@ -58,13 +62,19 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
         return source_state
 
     kinds = advertised['forge_ui_source_control']['inputSchema']['properties']['kind']['enum']
-    assert len(kinds) == len(set(kinds)) == 17 and 'input-button' in kinds
+    assert len(kinds) == len(set(kinds)) == 18 and 'input-button' in kinds
     parent = next(row['index'] for row in source_state['elements'] if row['tag'] == 'body')
     created = source_edit('control', parent=parent, kind='input-button', text='Agent & <safe>')
     selected = created['selection'][0]
     assert '<input type="button" value="Agent &amp; &lt;safe&gt;"/>' in created['text']
     source_edit('attribute', element=selected, name='id', value='agent-input-button')
     source_edit('attribute', element=selected, name='data-event-click', value="command('Step')")
+    created = source_edit('control', parent=parent, kind='range', text='1')
+    selected = created['selection'][0]
+    assert '<input type="range" value="1"/>' in created['text']
+    for name, value in (('id', 'agent-range'), ('min', '-2'), ('max', '8'), ('step', '2'),
+                        ('data-event-change', "command('Step')")):
+        source_edit('attribute', element=selected, name=name, value=value)
     source_edit('save')
     source_edit('close')
     ok('forge_source_ui_register', path=hud['path'])
@@ -265,6 +275,38 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
     for element in ('agent-button-locked', 'agent-button-hidden', 'agent-button-no-focus', 'password'):
         assert not mutate('forge_play_ui_press', **scope(), instance=instance, element=element,
                           presentation_revision=buttons()['presentation_revision'])['ok']
+    def ranges():
+        return read('forge_play_ui_ranges', instance=instance)['value']
+
+    def range_row(snapshot, element='agent-range'):
+        return next(row for row in snapshot['ranges'] if row['id'] == element)
+
+    range_state = ranges()
+    range_revision = range_state['presentation_revision']
+    assert range_row(range_state)['value'] == '2.000000'
+    assert range_row(range_state)['parameters'] == dict(min=-2, max=8, step=2)
+    assert not range_row(range_state, 'agent-range-locked')['editable']
+    assert 'native-secret' not in json.dumps(range_state)
+    before_tick = tick()
+    range_args = arguments(**scope(), instance=instance, element='agent-range',
+                           presentation_revision=range_revision, value=100)
+    once = client.tool('forge_play_ui_range_value', **range_args)
+    replay = client.tool('forge_play_ui_range_value', **range_args)
+    assert once['ok'] and replay['ok'] and once['result'] == replay['result']
+    assert once['result']['delivered'] and once['result']['value_text_changed']
+    assert range_row(once['result'])['value'] == '8.000000'
+    until(tick, lambda value: value == before_tick + 1)
+    assert tick() == before_tick + 1, 'Receipt replay set slider twice'
+    fresh = control('forge_play_ui_range_value', instance=instance, element='agent-range',
+                    presentation_revision=range_revision, value=100)
+    assert fresh['delivered'] and fresh['value_text_changed'] is False
+    until(tick, lambda value: value == before_tick + 2)
+    for element in ('agent-range-locked', 'agent-range-hidden', 'password', 'agent-button'):
+        assert not mutate('forge_play_ui_range_value', **scope(), instance=instance, element=element,
+                          presentation_revision=range_revision, value=1)['ok']
+    for value in ('1', 1000001, -1000001):
+        failed(mutate('forge_play_ui_range_value', **scope(), instance=instance, element='agent-range',
+                      presentation_revision=range_revision, value=value), 'invalid_arguments')
     def forms():
         return read('forge_play_ui_controls', instance=instance)['value']
 
@@ -333,11 +375,14 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
                   presentation_revision=form_revision, checked=True), 'stale_ui')
     failed(mutate('forge_play_ui_press', **scope(), instance=instance, element='agent-button',
                   presentation_revision=button_revision), 'stale_ui')
+    failed(mutate('forge_play_ui_range_value', **scope(), instance=instance, element='agent-range',
+                  presentation_revision=range_revision, value=1), 'stale_ui')
     assert not form_field(forms(), 'agent-check')['checked'] and form_field(forms(), 'agent-choice')['value'] == 'easy'
     control('forge_play_stop')
     assert read('forge_play_ui_fields', instance=instance)['value'] is None
     assert read('forge_play_ui_controls', instance=instance)['value'] is None
     assert read('forge_play_ui_buttons', instance=instance)['value'] is None
+    assert read('forge_play_ui_ranges', instance=instance)['value'] is None
     assert read('forge_play_ui_options', instance=instance, element='agent-choice')['value'] is None
     assert read('forge_scene_read') == authored
     assert (root/'Game'/hud['path']).read_bytes() == source

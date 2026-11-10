@@ -1,4 +1,5 @@
 #include "ui_control_access.hpp"
+#include "ui_range_numeric.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/ComputedValues.h>
 #include <RmlUi/Core/ElementText.h>
@@ -142,17 +143,52 @@ std::string_view ui_button_kind(Rml::Element* element) {
         return "unsupported";
     return rmlui_dynamic_cast<Rml::ElementFormControlInput*>(element) ? "input-button" : "button";
 }
-bool ui_button_focusable(Rml::Element* element) {
+bool ui_control_focusable(Rml::Element* element) {
     return element && element->GetComputedValues().focus() != Rml::Style::Focus::None;
 }
 bool ui_button_pressable(Rml::Element* element) {
-    if (!ui_button(element) || !visible_control(element) || !ui_button_focusable(element))
+    if (!ui_button(element) || !visible_control(element) || !ui_control_focusable(element))
         return false;
     const auto* control = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(element);
     return !control || !control->IsDisabled();
 }
 UiButtonScan scan_ui_buttons(Rml::ElementDocument& document) {
     return scan_controls<UiButtonScan>(document, ui_button, true);
+}
+std::optional<Rml::ElementFormControlInput*> ui_range(Rml::Element* element) {
+    auto* input = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(element);
+    if (input && input->GetAttribute<Rml::String>("type", "text") == "range")
+        return input;
+    return {};
+}
+UiRangeScan scan_ui_ranges(Rml::ElementDocument& document) {
+    return scan_controls<UiRangeScan>(document, ui_range, true);
+}
+UiRangeParameters ui_range_parameters(Rml::ElementFormControlInput* input) {
+    UiRangeParameters result;
+    if (!ui_range(input))
+        return result;
+    const auto read = [&](const char* name, float& value) {
+        const auto* attribute = input->GetAttribute(name);
+        return !attribute || attribute->GetInto(value);
+    };
+    result.vertical = input->GetAttribute<Rml::String>("orientation", "horizontal") == "vertical";
+    result.admitted = read("min", result.minimum) && read("max", result.maximum) &&
+                      read("step", result.step) && ui_range_number(result.minimum) &&
+                      ui_range_number(result.maximum) && ui_range_number(result.step) &&
+                      result.step >= ui_range_minimum_step;
+    return result;
+}
+bool ui_range_editable(Rml::ElementFormControlInput* input) {
+    if (!ui_range(input) || !editable_control(input) || !ui_control_focusable(input) ||
+        !ui_range_parameters(input).admitted)
+        return false;
+    try {
+        (void)parse_ui_range_number(input->GetValue());
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
 }
 std::optional<std::string> ui_form_option_text(Rml::Element& option, std::size_t maximum_bytes) {
     if (maximum_bytes > ui_protocol::max_string)

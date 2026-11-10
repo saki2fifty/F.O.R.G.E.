@@ -356,9 +356,10 @@ void exercise(const std::filesystem::path& output, int width) {
     check(editor.outline().size() == 3 && !editor.dirty(),
           "Native structural controls did not restore the saved draft");
     const auto control_baseline = editor.state().at("text");
-    for (const auto& [kind, markup] : std::array<std::pair<const char*, const char*>, 4>{
+    for (const auto& [kind, markup] : std::array<std::pair<const char*, const char*>, 5>{
              {{"checkbox", "<input type=\"checkbox\" value=\"Choice &amp; &lt;one&gt;\"/>"},
               {"input-button", "<input type=\"button\" value=\"Choice &amp; &lt;one&gt;\"/>"},
+              {"range", "<input type=\"range\" value=\"12.5\"/>"},
               {"textarea", "<textarea>Choice &amp; &lt;one&gt;</textarea>"},
               {"select", "<select><option value=\"Choice &amp; &lt;one&gt;\" "
                          "selected=\"selected\">Choice &amp; &lt;one&gt;</option></select>"}}}) {
@@ -366,12 +367,17 @@ void exercise(const std::filesystem::path& output, int width) {
         const auto before_creation = editor.state();
         input.click("ui-source:child-kind");
         input.select(("ui-source:child-choice:" + std::string(kind)).c_str());
-        input.type("ui-source:child-text", "Choice & <one>");
+        input.type("ui-source:child-text",
+                   std::string_view(kind) == "range" ? "12.5" : "Choice & <one>");
         check(editor.state() == before_creation && asset_storage::read(file) == saved,
               "Control kind/initial-value staging published source or saved the file");
         if (std::string_view(kind) == "input-button") {
             frame();
             capture.save(output / ("ui-source-input-button-" + std::to_string(width) + ".png"));
+        }
+        if (std::string_view(kind) == "range") {
+            frame();
+            capture.save(output / ("ui-source-slider-" + std::to_string(width) + ".png"));
         }
         if (std::string_view(kind) == "select") {
             frame();
@@ -384,6 +390,10 @@ void exercise(const std::filesystem::path& output, int width) {
                   editor.state().at("selection") == Json::array({3}) &&
                   asset_storage::read(file) == saved,
               "Native control creation lost initial source, new-root selection or explicit Save");
+        if (std::string_view(kind) == "range") {
+            frame();
+            capture.save(output / ("ui-source-slider-created-" + std::to_string(width) + ".png"));
+        }
         if (std::string_view(kind) == "select") {
             input.click("ui-source:child-kind");
             input.select("ui-source:child-choice:option");

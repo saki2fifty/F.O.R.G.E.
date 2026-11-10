@@ -4,6 +4,7 @@
 #include "ui_filter_profile.hpp"
 #include "ui_font_profile.hpp"
 #include "ui_luminance_mask.hpp"
+#include "ui_range_numeric.hpp"
 #include "ui_shadow_motion.hpp"
 #include "ui_shaped_font.hpp"
 #include "ui_text_input.hpp"
@@ -390,6 +391,11 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         return current_control(
             doc, element, scan_ui_buttons, [](Rml::Element* button) { return button; },
             "Choose a native button or input type=button control");
+    }
+    Rml::ElementFormControlInput* current_range(const Doc& doc, const std::string& element) const {
+        return current_control(
+            doc, element, scan_ui_ranges, [](Rml::ElementFormControlInput* range) { return range; },
+            "Choose a native input type=range control");
     }
     std::pair<AssetId, std::optional<UiSurfaceHit>> field_route(const Doc& doc) {
         if (!held_keys.empty() || !held_buttons.empty())
@@ -1731,6 +1737,95 @@ bool UiPresenter::wants_text() const {
     auto* element = context->GetFocusElement();
     return element && (element->GetTagName() == "input" || element->GetTagName() == "textarea");
 }
+Json UiPresenter::range_controls(const std::string& instance) const {
+    auto& s = *impl_;
+    s.check();
+    const auto& doc = s.field_document(instance);
+    const auto scan = scan_ui_ranges(*doc.document);
+    auto result = s.control_observation(doc);
+    result["visited_nodes"] = scan.visited;
+    result["truncated"] = scan.truncated;
+    result["limits"] = {{"nodes", ui_control_nodes},
+                        {"ranges", ui_control_count},
+                        {"value_bytes", ui_protocol::max_string},
+                        {"number_magnitude", ui_range_magnitude},
+                        {"minimum_step", ui_range_minimum_step},
+                        {"element_id_bytes", 256}};
+    result["ranges"] = Json::array();
+    for (auto* range : scan.fields) {
+        const auto& id = range->GetId();
+        const auto at = scan.ids.find(id);
+        const bool addressable = !scan.truncated && at != scan.ids.end() && at->second == 1;
+        const auto parameters = ui_range_parameters(range);
+        Json row{{"id", ui_control_id(id) ? Json(id) : Json()},
+                 {"addressable", addressable},
+                 {"visible", doc.document->IsVisible() && range->IsVisible(true)},
+                 {"enabled", !range->IsDisabled()},
+                 {"focusable", ui_control_focusable(range)},
+                 {"editable", addressable && ui_range_editable(range)},
+                 {"focused", doc.context == s.input_context(s.focus_output) &&
+                                 doc.context->GetFocusElement() == range},
+                 {"parameters_available", parameters.admitted},
+                 {"parameters", Json()},
+                 {"orientation", parameters.vertical ? "vertical" : "horizontal"}};
+        if (parameters.admitted)
+            row["parameters"] = {{"min", parameters.minimum},
+                                 {"max", parameters.maximum},
+                                 {"step", parameters.step}};
+        s.control_value(row, range->GetValue());
+        result["ranges"].push_back(std::move(row));
+    }
+    return result;
+}
+Json UiPresenter::set_range_value(const std::string& instance, const std::string& element,
+                                  std::uint64_t revision, double value) {
+    auto& s = *impl_;
+    s.check();
+    const auto encoded = format_ui_range_number(value);
+    if (revision != s.presentation_revision)
+        throw std::runtime_error("UI presentation changed; read its sliders again");
+    const auto& doc = s.field_document(instance);
+    auto* range = s.current_range(doc, element);
+    if (!ui_range_editable(range))
+        throw std::runtime_error(
+            "Choose a visible enabled focusable slider within its numeric limits");
+    const auto [output, surface] = s.field_route(doc);
+    const auto observer = range->GetObserverPtr();
+    const auto document_observer = doc.document->GetObserverPtr();
+    auto* document = doc.document;
+    auto* context = doc.context;
+    const auto before = range->GetValue();
+    const auto current = [&] {
+        if (!observer || !document_observer || revision != s.presentation_revision)
+            throw std::runtime_error("The native slider retired or its presentation changed");
+        const auto& now = s.field_document(instance);
+        auto* found = s.current_range(now, element);
+        if (now.document != document || now.context != context || found != observer.get() ||
+            observer->GetOwnerDocument() != document || !ui_range_editable(found))
+            throw std::runtime_error("The native slider changed during focus");
+        return found;
+    };
+    s.focus_target(output, surface);
+    (void)current();
+    if (!observer->Focus())
+        throw std::runtime_error("The native slider could not receive focus");
+    auto* focused = current();
+    if (context->GetFocusElement() != observer.get())
+        throw std::runtime_error("The native slider did not retain focus");
+    // The native owner supplies clamping, quantization, attribute updates and events.
+    focused->SetValue(encoded);
+    Json changed;
+    if (observer && document_observer && revision == s.presentation_revision &&
+        observer->GetOwnerDocument() == document && document->Contains(observer.get()) &&
+        observer->GetId() == element) {
+        if (const auto survived = ui_range(observer.get()))
+            changed = before != (*survived)->GetValue();
+    }
+    auto result = range_controls(instance);
+    result["delivered"] = true;
+    result["value_text_changed"] = std::move(changed);
+    return result;
+}
 Json UiPresenter::buttons(const std::string& instance) const {
     auto& s = *impl_;
     s.check();
@@ -1756,7 +1851,7 @@ Json UiPresenter::buttons(const std::string& instance) const {
                  {"visible", doc.document->IsVisible() && button->IsVisible(true)},
                  {"enabled", input ? Json(!input->IsDisabled()) : Json()},
                  {"disabled_attribute", button->HasAttribute("disabled")},
-                 {"focusable", ui_button_focusable(button)},
+                 {"focusable", ui_control_focusable(button)},
                  {"pressable", addressable && ui_button_pressable(button)},
                  {"focused", doc.context == s.input_context(s.focus_output) &&
                                  doc.context->GetFocusElement() == button},

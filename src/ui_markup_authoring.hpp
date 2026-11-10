@@ -97,12 +97,13 @@ struct UiMarkupControlKind {
     std::string_view id, label, tag, input_type;
     bool accepts_text() const noexcept { return tag != "img" && tag != "br" && tag != "progress"; }
 };
-inline constexpr std::array<UiMarkupControlKind, 17> ui_markup_control_kinds{{
+inline constexpr std::array<UiMarkupControlKind, 18> ui_markup_control_kinds{{
     {"container", "Container", "div", ""},
     {"inline-text", "Inline text", "span", ""},
     {"paragraph", "Paragraph", "p", ""},
     {"button", "Button", "button", ""},
     {"input-button", "Input button", "input", "button"},
+    {"range", "Slider", "input", "range"},
     {"label", "Label", "label", ""},
     {"text-input", "Text input", "input", "text"},
     {"password-input", "Password input", "input", "password"},

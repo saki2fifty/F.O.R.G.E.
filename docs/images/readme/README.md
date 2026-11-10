@@ -3144,3 +3144,17 @@ SDL software component capture is unretouched; full Main, Windows, physical
 input/GPU and display-density acceptance remain separate.
 
 - `ui-source-input-button.png`: `aff3cb3d427ec2b05e76692f2531a482b5656851566b1b7e82700bbffec1a35b`.
+
+## Native slider creation
+
+`ui-source-slider.png` is an unretouched700×950 production UiSourceEditor/
+DocumentWorkspace capture after selecting Slider and staging numeric value12.5,
+before Add child. Reproduce with `forge_ui_source_editor_tests <output>` or the
+ui_source_editor CTest case. The fixture also captures the selected created input
+under a separate name and verifies new-root selection, one Undo/Redo and explicit
+Save. The native-range-controls checkpoint records39raw captures at1180/700/400,
+source/font/executable hashes and passing native receipt; ten prior canonical
+images reproduce exact bytes. This SDL software component capture does not imply
+full Main, Windows, physical input/GPU or display-density acceptance.
+
+- `ui-source-slider.png`: `5f353808a01b221a758eb06eaf6bf2f32b727dca278df145d52313c30d854847`.

@@ -163,6 +163,18 @@ void exercise(const std::filesystem::path& root, const Json& source,
               "Saved/exported Input button lost native type or literal caption");
         presenter.press_button(instance, "native-press", presenter.presentation_revision());
         acknowledge("Step");
+        const auto ranges = presenter.range_controls(instance);
+        check(ranges.at("ranges").size() == 1 && ranges.at("ranges")[0].at("value") == "1.000000",
+              "Saved/exported slider lost its native value or range discovery");
+        presenter.set_range_value(instance, "native-range", presenter.presentation_revision(), 7);
+        acknowledge("Step");
+        presenter.set_range_value(instance, "native-range", presenter.presentation_revision(), 200);
+        acknowledge("Step");
+        const auto repeated = presenter.set_range_value(instance, "native-range",
+                                                        presenter.presentation_revision(), 200);
+        check(repeated.at("value_text_changed") == false,
+              "Native out-of-range repeat changed returned slider text");
+        acknowledge("Step");
         presenter.press_button(instance, "Pause", presenter.presentation_revision());
         acknowledge("Pause");
         snapshot = ui->snapshot(scene, "ui-source", 1, 42, false);
@@ -548,6 +560,10 @@ int main(int argc, char** argv) {
             auto text =
                 set_ui_markup_attribute(created.source, created.element, "id", "native-press");
             text = set_ui_markup_attribute(text, created.element, "data-event-click",
+                                           "command('Step')");
+            created = insert_ui_markup_control(text, by_id(text, "panel"), "range", "1");
+            text = set_ui_markup_attribute(created.source, created.element, "id", "native-range");
+            text = set_ui_markup_attribute(text, created.element, "data-event-change",
                                            "command('Step')");
             atomic_write(root / document_path, text);
             const auto published = register_ui_document(root, document_path);

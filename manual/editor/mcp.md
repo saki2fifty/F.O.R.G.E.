@@ -50,6 +50,14 @@ read-only progress. `forge_play_ui_options` pages through a named dropdown.
 The agent can set a checkbox with `forge_play_ui_check`, choose a radio with
 `forge_play_ui_choose`, or choose a dropdown option with `forge_play_ui_select`.
 
+`forge_play_ui_ranges` observes native sliders without changing focus or values.
+`forge_play_ui_range_value` sets a finite number using the current scope, unique
+ID and presentation revision. Native bounds, step and events remain authoritative.
+Read the returned value; repeated requests outside the bounds may emit changes
+even when its text stays equal. Read-only connections cannot set values. See
+[Form controls](ui-form-controls.md) for creation, numeric limits,
+saving and export.
+
 `forge_play_ui_buttons` observes exact buttons and native input buttons;
 `forge_play_ui_press` activates one through native focus/click events. Fresh presses
 can activate again; replay returns the saved receipt. Read-only connections can
