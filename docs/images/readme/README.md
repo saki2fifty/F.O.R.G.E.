@@ -3251,3 +3251,18 @@ are separate; these images do not establish full Main/Windows/physical acceptanc
 - ui-source-layout-direction.png: `0d86ea2879dd3addde7c79bfb4ee8e151b0336b667b4da0385785d9907d77861`.
 
 - ui-source-layout-rule.png: `aecca9a4a1d87c13dbf5ecee57e64333936ab4450fb20cf8b587ce37b81c3a47`.
+
+## UI box styling and property search
+
+ui-source-box-search.png and ui-source-box-color.png are unaltered700×950 production
+UiSourceEditor/DocumentWorkspace component captures from forge_ui_source_editor_tests
+--box-styling-only (ui_source_box_styling). Actual Common popup input tests unmatched
+and case-insensitive search, then stages border color; shared inline/group/rule
+presets, percentage padding, one Undo/Redo and explicit Save run at1180/700/400.
+Eighteen raw softwareSDL component captures retain source/font/executable provenance.
+These views do not establish full Main/Windows/physicalGPU acceptance. Native box
+geometry/edges/style and source-hidden resource tests are separate.
+
+- ui-source-box-search.png: `bc656487082ab215106aed6394881e83664c746a5eabdf50547fcda33eeaf296`.
+
+- ui-source-box-color.png: `2f4d7d4082a9584c3f1785e86f6a45852334d253a2a645d96b70120f6f94c73b`.

@@ -185,7 +185,7 @@ with the exact native parser and existing Text/source controls.
 ## Literal typography styling
 
 UiStyleLiteralProfile borrows immutable keyword/unit spans for optional source
-input controls. The shared36Common names/profile back inline/group/rule staging
+input controls. The shared53Common names/profile back inline/group/rule staging
 and the read-only style_profile query. Existing color/number formatters and native
 source writers remain authoritative; the helper is not a CSS parser or cascade.
 Ten existing numeric helpers keep all four units and their prior finite envelope.
@@ -222,8 +222,20 @@ for other profiles. image-color reuses the original color literal/staging owner.
 
 The existing immutable UiStyleLiteralProfile also supplies display/flex/alignment
 presets and bounded growth, basis, row/column gap and min/max dimension inputs.
-There are36 Common properties. Grow/shrink use nonnegative unitless factors;
+There are53 Common properties. Grow/shrink use nonnegative unitless factors;
 basis/gaps/size limits use nonnegative px/dp/% values up to65536, with native auto
 or none presets where applicable. These helpers stage the original text field;
 raw shorthand/custom values retain the same source writer/admission. No native
 layout math, resource owner or preview geometry eligibility is replaced.
+
+## Source box styling and property search
+
+The same literal profile owner supplies position/box sizing/overflow presets,
+nonnegative side padding and border widths/radii, negative/auto margins and
+border color. Individual padding/margins support px/dp/%; simple border lengths
+support px/dp, retaining native shorthand/raw compound source behavior. Right and
+bottom join the53 Common entries using their existing numeric helper. The native
+editor's Common menu borrows ImGuiTextFilter, clears on opening, and filters only
+its choices; no draft, metadata or authoritative search index is changed.
+Native box dimensions/edges/color/radius/overflow and percentage resize are tested
+before/after source-hidden relocation; renderer/clipping algorithms remain native.

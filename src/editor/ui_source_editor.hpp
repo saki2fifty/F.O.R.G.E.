@@ -37,6 +37,7 @@ class UiSourceEditor {
     char attribute_[65] = "id", value_[8193]{}, literal_[8193]{};
     char duplicate_prefix_[65]{};
     char style_name_[65] = "color", style_value_[8193]{};
+    ImGuiTextFilter style_filter_;
     std::string style_error_, style_control_error_;
     bool style_mixed_ = false, classes_mixed_ = false;
     char classes_[1025]{};
@@ -358,14 +359,26 @@ class UiSourceEditor {
         const bool choices = ImGui::BeginCombo("Common", style_name_);
         FORGE_UI_PROBE("ui-source:style-common");
         if (choices) {
+            if (ImGui::IsWindowAppearing()) {
+                style_filter_.Clear();
+                ImGui::SetKeyboardFocusHere();
+            }
+            style_filter_.Draw("Search properties");
+            FORGE_UI_PROBE("ui-source:style-filter");
+            bool matched = false;
             for (const auto property : ui_common_style_properties) {
                 const auto* name = property.data();
+                if (!style_filter_.PassFilter(name))
+                    continue;
+                matched = true;
                 if (ImGui::Selectable(name, std::string_view(style_name_) == name)) {
                     std::snprintf(style_name_, sizeof(style_name_), "%s", name);
                     read_style_controls();
                 }
                 FORGE_UI_PROBE("ui-source:style-choice:" + std::string(name));
             }
+            if (!matched)
+                ImGui::TextDisabled("No matching properties");
             ImGui::EndCombo();
         }
         if (ImGui::InputText("Property", style_name_, sizeof(style_name_))) {

@@ -182,11 +182,42 @@ void exercise(const std::filesystem::path& root, const Json& source,
         check(wrap_size == Rml::Vector2f(220, 100) && wrap_second == Rml::Vector2f(110, 0) &&
                   wrap_third == Rml::Vector2f(0, 30),
               "Native flex wrap/line spacing differs");
+        // Native percentage arithmetic carries float rounding below a thousandth of a pixel.
+        const auto near = [](Rml::Vector2f actual, Rml::Vector2f expected) {
+            return std::abs(actual.x - expected.x) < .001f &&
+                   std::abs(actual.y - expected.y) < .001f;
+        };
+        for (const auto* id : {"native-box-border", "native-box-content"}) {
+            auto* element = document->GetElementById(id);
+            check(element, "Native box style fixture missing");
+            const bool border = std::string_view(id) == "native-box-border";
+            const auto border_size = element->GetBox().GetSize(Rml::BoxArea::Border);
+            const auto content_size = size(id);
+            check(
+                near(border_size, border ? Rml::Vector2f(200, 100) : Rml::Vector2f(254, 114)) &&
+                    near(content_size, border ? Rml::Vector2f(146, 86) : Rml::Vector2f(200, 100)) &&
+                    std::abs(element->GetBox().GetEdge(Rml::BoxArea::Padding, Rml::BoxEdge::Right) -
+                             40) < .001f &&
+                    element->GetBox().GetEdge(Rml::BoxArea::Margin, Rml::BoxEdge::Left) == -3 &&
+                    element->GetProperty<Rml::Colourb>("border-top-color") ==
+                        Rml::Colourb(204, 136, 68, 255) &&
+                    element->GetProperty<float>("border-top-left-radius") == 4 &&
+                    element->GetProperty<Rml::Style::Overflow>("overflow-x") ==
+                        (border ? Rml::Style::Overflow::Hidden : Rml::Style::Overflow::Visible),
+                "Native box sizing, percentage padding, negative margin, border or overflow "
+                "differs");
+        }
         presenter.update(0, 400, 600);
         check(size("native-flex-wrap") == Rml::Vector2f(110, 100) &&
                   relative("native-flex-wrap-1", "native-flex-wrap") == Rml::Vector2f(0, 30) &&
                   relative("native-flex-wrap-2", "native-flex-wrap") == Rml::Vector2f(0, 60),
               "Percentage flex container did not reflow at a narrower viewport");
+        check(near(size("native-box-border"), Rml::Vector2f(166, 86)) &&
+                  std::abs(document->GetElementById("native-box-border")
+                               ->GetBox()
+                               .GetEdge(Rml::BoxArea::Padding, Rml::BoxEdge::Right) -
+                           20) < .001f,
+              "Native percentage padding did not follow the narrower containing width");
         presenter.update(0, 800, 600);
         const auto initial_state = document->GetElementById("state")->GetInnerRML();
         if (initial_state != "Tick 41 / paused 1")
@@ -853,6 +884,30 @@ int main(int argc, char** argv) {
                              {"max-height", "none"}})
                         text = set_ui_markup_style(text, created.element, name, value);
                 }
+            }
+            for (const auto* id : {"native-box-border", "native-box-content"}) {
+                const bool border = std::string_view(id) == "native-box-border";
+                created = insert_ui_markup_control(text, by_id(text, "canvas"), "container");
+                text = set_ui_markup_attribute(created.source, created.element, "id", id);
+                for (const auto& [name, value] :
+                     std::initializer_list<std::pair<const char*, const char*>>{
+                         {"position", "absolute"},
+                         {"left", "400px"},
+                         {"top", "200px"},
+                         {"width", "200px"},
+                         {"height", "100px"},
+                         {"box-sizing", border ? "border-box" : "content-box"},
+                         {"padding-top", "4px"},
+                         {"padding-right", "5%"},
+                         {"padding-bottom", "6px"},
+                         {"padding-left", "10px"},
+                         {"margin-left", "-3px"},
+                         {"border-width", "2px"},
+                         {"border-radius", "4dp"},
+                         {"border-color", "#cc8844"},
+                         {"overflow-x", border ? "hidden" : "visible"},
+                         {"overflow-y", "hidden"}})
+                    text = set_ui_markup_style(text, by_id(text, id), name, value);
             }
             atomic_write(root / document_path, text);
             const auto published = register_ui_document(root, document_path);

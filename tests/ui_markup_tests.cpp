@@ -892,7 +892,7 @@ void typography_literals() {
 }
 void responsive_layout_literals() {
     using namespace forge;
-    check(ui_common_style_properties.size() == 36,
+    check(ui_common_style_properties.size() == 53,
           "Responsive layout controls changed the shared menu unexpectedly");
     for (const auto* name : {"display", "flex-direction", "flex-wrap", "justify-content",
                              "align-content", "align-items", "align-self"}) {
@@ -935,6 +935,38 @@ void responsive_layout_literals() {
     const auto custom = set_ui_markup_style(source, 2, "flex", "1 0 auto");
     check(custom.find("flex:1 0 auto") != custom.npos && custom.find("color:red") != custom.npos,
           "Literal profiles restricted the existing raw source owner");
+}
+void box_style_literals() {
+    using namespace forge;
+    check(ui_style_literal_profile("position")->keywords.size() == 4 &&
+              ui_style_literal_profile("box-sizing")->keywords.front() == "content-box" &&
+              ui_style_literal_profile("overflow-x")->keywords.back() == "scroll" &&
+              ui_style_literal_profile("overflow-y")->keywords.front() == "visible" &&
+              ui_style_literal_profile("border-color")->color,
+          "Box presets and color controls differ from supported native literal domains");
+    for (const auto* name : {"padding-top", "padding-right", "padding-bottom", "padding-left"})
+        check(read_ui_style_literal_number(name, "5%").has_value() &&
+                  read_ui_style_literal_number(name, "1dp").has_value() &&
+                  !read_ui_style_literal_number(name, "-1px") &&
+                  !read_ui_style_literal_number(name, "1"),
+              "Padding helper admitted negative or unitless source numbers");
+    for (const auto* name : {"margin-top", "margin-right", "margin-bottom", "margin-left"})
+        check(read_ui_style_literal_number(name, "-5%").has_value() &&
+                  ui_style_literal_profile(name)->keywords.front() == "auto",
+              "Margin helper lost native negative values or auto preset");
+    for (const auto* name : {"border-width", "border-radius"}) {
+        check(read_ui_style_literal_number(name, "4dp").has_value() &&
+                  !read_ui_style_literal_number(name, "4%") &&
+                  !read_ui_style_literal_number(name, "-1px") &&
+                  !read_ui_style_literal_number(name, "4"),
+              "Border helper invented percentage/unitless or negative support");
+        rejects([&] { format_ui_style_literal_number(name, {4, UiStyleUnit::Percent}); });
+    }
+    const std::string source = "<rml><body><div style='padding:1px 2px'></div></body></rml>";
+    const auto text = set_ui_markup_style(source, 2, "border-width", "1px 2px 3px 4px");
+    check(text.find("padding:1px 2px") != text.npos &&
+              text.find("border-width:1px 2px 3px 4px") != text.npos,
+          "Simple border profile removed raw compound source values");
 }
 void style_value_literals() {
     using namespace forge;
@@ -1330,6 +1362,7 @@ int main() {
         style_value_literals();
         typography_literals();
         responsive_layout_literals();
+        box_style_literals();
         common_controls();
         control_properties();
         text_control_properties();

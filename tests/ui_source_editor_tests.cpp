@@ -18,7 +18,14 @@ template <class F> void rejects(F&& operation) {
     }
     check(rejected, "Invalid source owner operation accepted");
 }
-enum class SourceControls { All, TextProperties, Typography, ImageProperties, ResponsiveLayout };
+enum class SourceControls {
+    All,
+    TextProperties,
+    Typography,
+    ImageProperties,
+    ResponsiveLayout,
+    BoxStyling
+};
 void exercise(const std::filesystem::path& output, int width,
               SourceControls mode = SourceControls::All) {
     using namespace forge;
@@ -113,7 +120,9 @@ void exercise(const std::filesystem::path& output, int width,
         editor.request_close();
         return;
     }
-    if (mode == SourceControls::Typography || mode == SourceControls::ResponsiveLayout) {
+    if (mode == SourceControls::Typography || mode == SourceControls::ResponsiveLayout ||
+        mode == SourceControls::BoxStyling) {
+        const bool box = mode == SourceControls::BoxStyling;
         const bool responsive = mode == SourceControls::ResponsiveLayout;
         input.click("ui-source:elements-tab");
         input.click("ui-source:element:2");
@@ -163,7 +172,36 @@ void exercise(const std::filesystem::path& output, int width,
                 frame();
             }
         };
-        if (responsive) {
+        if (box) {
+            open_style();
+            const auto before_search = editor.state();
+            input.click("ui-source:style-common");
+            input.type("ui-source:style-filter", "no-such-property");
+            check(!test::ui_targets.contains("ui-source:style-choice:border-color") &&
+                      editor.state() == before_search,
+                  "Property search retained unrelated choices or changed source");
+            input.type("ui-source:style-filter", "BoRdEr");
+            frame();
+            capture.save(output / ("ui-source-box-search-" + std::to_string(width) + ".png"));
+            input.select("ui-source:style-choice:border-color");
+            input.click("ui-source:style-new-color");
+            input.type("ui-source:style-color", "CC8844FF");
+            frame();
+            capture.save(output / ("ui-source-box-color-" + std::to_string(width) + ".png"));
+            check(editor.state() == before_search, "Box color published before Set property");
+            input.click("ui-source:style-set");
+            const auto colored = editor.state();
+            check(editor.read_style(2, "border-color") == "#cc8844",
+                  "Border color did not use the shared color owner");
+            input.click("button:Undo");
+            check(editor.state().at("text") == before_search.at("text"),
+                  "Border color needed multiple Undo steps");
+            input.click("button:Redo");
+            check(editor.state().at("text") == colored.at("text"), "Border color Redo differs");
+            input.click("ui-source:element:2");
+            preset("position", "relative", "box-position");
+            preset("box-sizing", "border-box", "box-sizing");
+        } else if (responsive) {
             preset("display", "flex", "layout-display");
             preset("flex-direction", "column", "layout-direction");
         } else {
@@ -178,9 +216,12 @@ void exercise(const std::filesystem::path& output, int width,
         io.AddKeyEvent(ImGuiMod_Ctrl, false);
         frame();
         check(editor.state().at("selection").size() == 2, "Typography group selection missing");
-        const auto* group_property = responsive ? "align-self" : "font-style";
-        const auto* group_value = responsive ? "center" : "italic";
-        preset(group_property, group_value, responsive ? "layout-group" : "typography-group");
+        const auto* group_property = box ? "overflow-x" : responsive ? "align-self" : "font-style";
+        const auto* group_value = box ? "hidden" : responsive ? "center" : "italic";
+        preset(group_property, group_value,
+               box          ? "box-group"
+               : responsive ? "layout-group"
+                            : "typography-group");
         const std::array<std::size_t, 2> members{2, 3};
         const auto values = editor.read_styles(members, group_property);
         check(values.size() == 2 && values[0] == group_value && values[1] == group_value,
@@ -194,21 +235,29 @@ void exercise(const std::filesystem::path& output, int width,
         frame();
         input.click("ui-source:elements-tab");
         input.click("ui-source:rule:0");
-        const auto* rule_property = responsive ? "justify-content" : "text-align";
-        preset(rule_property, "center", responsive ? "layout-rule" : "typography-rule");
-        check(editor.read_rule_property(0, rule_property) == "center",
+        const auto* rule_property = box          ? "overflow-y"
+                                    : responsive ? "justify-content"
+                                                 : "text-align";
+        preset(rule_property, box ? "auto" : "center",
+               box          ? "box-rule"
+               : responsive ? "layout-rule"
+                            : "typography-rule");
+        check(editor.read_rule_property(0, rule_property) == (box ? "auto" : "center"),
               "Rule preset missing authored alignment");
-        const auto* numeric_property = responsive ? "column-gap" : "line-height";
+        const auto* numeric_property = box          ? "padding-right"
+                                       : responsive ? "column-gap"
+                                                    : "line-height";
         choose_property(numeric_property);
         const auto before_spacing = editor.state();
         input.click("ui-source:style-new-number");
-        input.type("ui-source:style-number", responsive ? "5" : "120");
+        input.type("ui-source:style-number", (box || responsive) ? "5" : "120");
         input.click("ui-source:style-unit");
         input.select("ui-source:style-unit:3");
         check(editor.state() == before_spacing,
               "Line spacing numeric controls published before Set property");
         input.click("ui-source:style-set");
-        check(editor.read_rule_property(0, numeric_property) == (responsive ? "5%" : "120%"),
+        check(editor.read_rule_property(0, numeric_property) ==
+                  ((box || responsive) ? "5%" : "120%"),
               "Rule spacing staged the wrong unit/value");
         editor.save(project);
         check(scene.snapshot() == authored && scene.revision() == revision &&
@@ -1058,7 +1107,9 @@ int main(int argc, char** argv) {
         auto mode = SourceControls::All;
         if (argc == 3) {
             const auto flag = std::string_view(argv[2]);
-            if (flag == "--responsive-layout-only")
+            if (flag == "--box-styling-only")
+                mode = SourceControls::BoxStyling;
+            else if (flag == "--responsive-layout-only")
                 mode = SourceControls::ResponsiveLayout;
             else if (flag == "--typography-only")
                 mode = SourceControls::Typography;

@@ -313,6 +313,34 @@ spare main-direction space. Size limits can constrain growth. **Remove property*
 restores the applicable stylesheet or native behavior. Flex controls do not make
 relative or flow-based elements eligible for absolute-pixel Preview dragging.
 
+## Set padding, margins, borders and overflow
+
+1. Select a widget in **Elements**, expand **Inline style** and open **Common**. For siblings use **Group inline style**; stylesheet rules use **Rule properties**.
+2. Type part of the property name in **Search properties**, such as `border` or `padding`. Search ignores letter case. If nothing matches, change the search. Opening Common again starts with the full list.
+3. Choose a property. Use **Preset**, **New number** with **Number / Unit**, or **New color** with **Color**, as appropriate. These controls only stage **CSS value**.
+4. Choose **Set property**, check **Preview**, then **Save source**. Each Set property is one source Undo step; **Remove property** restores the applicable stylesheet or native value.
+
+![UI Source Common property menu filtered to border properties](../images/ui-source-box-search.png)
+
+- `position`: `static`, `relative`, `absolute` or `fixed`. The position mode changes how native layout uses offsets; it does not change source parentage.
+- `box-sizing`: `content-box` makes width/height describe the content; `border-box` includes padding and borders within the requested width/height.
+- `overflow-x` and `overflow-y`: `visible`, `hidden`, `auto` or `scroll`. Hidden clips overflow; auto shows native scrolling when needed. Choose the appropriate axis and check the game UI input behavior.
+- `padding-top`, `padding-right`, `padding-bottom`, `padding-left`: nonnegative `px`, `dp` or `%` values up to `65536`.
+- `margin-top`, `margin-right`, `margin-bottom`, `margin-left`: `auto`, or `px`, `dp` or `%` values from `-65536..65536`. Negative margins can overlap neighboring content.
+- `border-width` and `border-radius`: nonnegative `px` or `dp` values up to `65536`. The simple controls set the same width or radius on all sides/corners.
+- `border-color`: the existing RGBA color control, with alpha as the last byte; a simple value applies to all sides.
+- `right` and `bottom`: the existing offset number/unit controls, alongside `left` and `top`.
+
+![UI Source border-color field with a staged warm color](../images/ui-source-box-color.png)
+
+Percentage side padding and margins use the native containing width, including
+vertical sides. Padding and borders reduce the content area of a border-box.
+For different sides/corners or compound values, enter the native CSS in
+**Property** and **CSS value**, for example `border-width` with `1px 2px 3px 4px`.
+Existing multi-value declarations stay text until you explicitly replace them.
+Opening a simple control does not flatten a compound value. Box styling does not
+expand the separate eligibility rules for dragging in Preview.
+
 ## Style several controls together
 
 1. In **Elements**, select a widget and **Ctrl**-click its siblings. Choose up to 32 widgets with the same parent.

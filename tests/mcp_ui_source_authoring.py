@@ -38,7 +38,7 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
         profile = read('forge_ui_source_style_profile', **guard(), name='font-weight')
         assert profile['known'] and profile['kind'] == 'number' and profile['keywords'] == ['normal', 'bold']
         assert profile['numeric'] == dict(units=[''], minimum=1, maximum=1000, integer=True, initial_literal='400')
-        assert len(profile['common_properties']) == len(set(profile['common_properties'])) == 36
+        assert len(profile['common_properties']) == len(set(profile['common_properties'])) == 53
         assert read('forge_ui_source_read') == before, 'Literal profile query changed the draft'
         for name, keywords in [('display', ['none', 'block', 'inline', 'inline-block', 'flow-root', 'flex', 'inline-flex']),
                                ('flex-direction', ['row', 'row-reverse', 'column', 'column-reverse']),
@@ -50,6 +50,16 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
             assert responsive['known'] and responsive['numeric']['minimum'] == 0
             assert responsive['numeric']['units'] == ([''] if name in ('flex-grow', 'flex-shrink') else ['px', 'dp', '%'])
         assert read('forge_ui_source_read') == before, 'Responsive metadata changed source'
+        assert read('forge_ui_source_style_profile', **guard(), name='border-color')['kind'] == 'color'
+        for name in ('border-width', 'border-radius'):
+            profile = read('forge_ui_source_style_profile', **guard(), name=name)
+            assert profile['numeric']['units'] == ['px', 'dp'] and profile['numeric']['minimum'] == 0
+        for side in ('top', 'right', 'bottom', 'left'):
+            padding = read('forge_ui_source_style_profile', **guard(), name='padding-' + side)
+            margin = read('forge_ui_source_style_profile', **guard(), name='margin-' + side)
+            assert padding['numeric']['minimum'] == 0 and padding['numeric']['units'] == ['px', 'dp', '%']
+            assert margin['numeric']['minimum'] == -65536 and margin['keywords'] == ['auto']
+        assert read('forge_ui_source_read') == before, 'Box metadata changed source'
         unknown = read('forge_ui_source_style_profile', **guard(), name='custom-property')
         assert not unknown['known'] and unknown['numeric'] is None
         old = guard()
@@ -83,7 +93,11 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                             ('justify-content', 'space-between'), ('align-content', 'center'), ('align-items', 'stretch'),
                             ('align-self', 'auto'), ('flex-grow', '1.5'), ('flex-shrink', '0'),
                             ('flex-basis', '50%'), ('row-gap', '4dp'), ('column-gap', '8px'),
-                            ('min-width', '20px'), ('max-width', '80%'), ('min-height', '10dp'), ('max-height', 'none')]:
+                            ('min-width', '20px'), ('max-width', '80%'), ('min-height', '10dp'), ('max-height', 'none'),
+                            ('position', 'relative'), ('box-sizing', 'border-box'), ('overflow-x', 'hidden'), ('overflow-y', 'auto'),
+                            ('padding-top', '1dp'), ('padding-right', '2%'), ('padding-bottom', '3px'), ('padding-left', '4px'),
+                            ('margin-top', '-1dp'), ('margin-right', 'auto'), ('margin-bottom', '3%'), ('margin-left', '4px'),
+                            ('border-width', '2px'), ('border-radius', '4dp'), ('border-color', '#cc8844')]:
             profile = read('forge_ui_source_style_profile', **guard(), name=name)
             assert profile['known']
             edit('rule_property', rule=0, name=name, value=value)

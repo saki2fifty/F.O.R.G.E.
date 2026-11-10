@@ -448,8 +448,14 @@ std::optional<UiStyleLiteralProfile> ui_style_literal_profile(std::string_view p
     static constexpr std::array<std::string_view, 6> items{"auto",   "flex-start", "flex-end",
                                                            "center", "baseline",   "stretch"};
     static constexpr std::array<std::string_view, 1> automatic{"auto"}, none{"none"};
+    static constexpr std::array<std::string_view, 4> positioning{"static", "relative", "absolute",
+                                                                 "fixed"};
+    static constexpr std::array<std::string_view, 2> sizing{"content-box", "border-box"};
+    static constexpr std::array<std::string_view, 4> overflow{"visible", "hidden", "auto",
+                                                              "scroll"};
     UiStyleLiteralProfile profile;
-    if (property == "color" || property == "background-color" || property == "image-color")
+    if (property == "color" || property == "background-color" || property == "image-color" ||
+        property == "border-color")
         profile.color = true;
     else if (std::ranges::any_of(std::array{"opacity", "font-size", "width", "height", "padding",
                                             "margin", "left", "top", "right", "bottom"},
@@ -508,6 +514,26 @@ std::optional<UiStyleLiteralProfile> ui_style_literal_profile(std::string_view p
             profile.keywords = automatic;
         else if (property == "max-width" || property == "max-height")
             profile.keywords = none;
+    } else if (property == "position")
+        profile.keywords = positioning;
+    else if (property == "box-sizing")
+        profile.keywords = sizing;
+    else if (property == "overflow-x" || property == "overflow-y")
+        profile.keywords = overflow;
+    else if (property == "border-width" || property == "border-radius") {
+        profile.units = lengths;
+        profile.minimum = 0;
+        profile.initial = {0, UiStyleUnit::Pixels};
+    } else if (property == "padding-top" || property == "padding-right" ||
+               property == "padding-bottom" || property == "padding-left" ||
+               property == "margin-top" || property == "margin-right" ||
+               property == "margin-bottom" || property == "margin-left") {
+        profile.units = dimensions;
+        profile.initial = {0, UiStyleUnit::Pixels};
+        if (property.starts_with("padding-"))
+            profile.minimum = 0;
+        else
+            profile.keywords = automatic;
     } else if (property != "font-family")
         return {};
     return profile;

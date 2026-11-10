@@ -2728,7 +2728,7 @@ input grant. The previous source tools and18sourcekind strings remain supported.
 
 forge_ui_source_style_profile requires assets.read, current path/session/revision/
 state and name. It returns known/kind, keyword presets, optional numeric units/
-minimum/maximum/integer/initial_literal and the shared36Common properties. Profiles
+minimum/maximum/integer/initial_literal and the shared53Common properties. Profiles
 are optional bounded input conveniences, not native CSS admission/cascade/defaults
 or font-face availability. Unknown properties report knownfalse; raw style APIs
 retain their existing source validation. The query initializes no native renderer,
@@ -2749,7 +2749,7 @@ no new resource/URI/texture manager or live image mutation tool is introduced.
 Rect is empty or four space-separated finite bounded floats x/y/width/height with
 size at least0.000001 and distinct native-float crop edges. These finite source envelopes keep native aspect
 calculations within float range without duplicating their layout algorithm. Image tint uses the existing color profile and style mutation.
-Source operations remain36 and creation kinds18; Commonmenu has36 properties.
+Source operations remain36 and creation kinds18; Commonmenu has53 properties.
 
 style_profile includes responsive layout metadata: display, flex-direction/wrap,
 justify-content, align-content/items/self, flex-grow/shrink/basis, row/column-gap
@@ -2758,3 +2758,10 @@ number metadata accurately lists units and nonnegative bounds. Existing guarded
 style, style_group and rule_property operations author these values; the tool
 count stays36, and control creation kinds stay18. Queries are source-only and
 cannot establish computed geometry or initialize a renderer.
+
+Box style profiles extend the same query with position/box-sizing/axis overflow,
+side padding/margin and simple border width/color/radius controls. Common has53
+entries; source operations remain36, control kinds18, grants/history/replay and
+schema ownership unchanged. The Common search field has no programmatic authoring
+semantics: agents query profiles and use existing style/group/rule mutations.
+Raw multi-value source remains supported and is not normalized by the profiles.

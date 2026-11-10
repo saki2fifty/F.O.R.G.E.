@@ -19,7 +19,7 @@ struct UiStyleNumber {
 };
 std::optional<UiStyleNumber> read_ui_style_number(std::string_view);
 std::string format_ui_style_number(UiStyleNumber);
-inline constexpr std::array<std::string_view, 36> ui_common_style_properties{"color",
+inline constexpr std::array<std::string_view, 53> ui_common_style_properties{"color",
                                                                              "background-color",
                                                                              "opacity",
                                                                              "font-size",
@@ -54,7 +54,24 @@ inline constexpr std::array<std::string_view, 36> ui_common_style_properties{"co
                                                                              "min-width",
                                                                              "max-width",
                                                                              "min-height",
-                                                                             "max-height"};
+                                                                             "max-height",
+                                                                             "position",
+                                                                             "box-sizing",
+                                                                             "overflow-x",
+                                                                             "overflow-y",
+                                                                             "padding-top",
+                                                                             "padding-right",
+                                                                             "padding-bottom",
+                                                                             "padding-left",
+                                                                             "margin-top",
+                                                                             "margin-right",
+                                                                             "margin-bottom",
+                                                                             "margin-left",
+                                                                             "border-width",
+                                                                             "border-color",
+                                                                             "border-radius",
+                                                                             "right",
+                                                                             "bottom"};
 // Optional literal input controls, not a native CSS admission/cascade contract.
 // Spans borrow immutable metadata; reading a profile allocates no storage.
 struct UiStyleLiteralProfile {

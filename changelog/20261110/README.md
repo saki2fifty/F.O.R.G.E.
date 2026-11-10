@@ -1,5 +1,12 @@
 # 2026-11-10
 
+## UI box styling and property search
+
+The shared source controls expose box sizing, position, overflow, side spacing
+and simple borders. Common can be filtered by name through the native UI filter.
+Source staging, one Undo, explicit Save and guarded MCP use the existing owners;
+raw compound styles and native layout retain their behavior.
+
 ## Responsive UI source controls
 
 Source styles offer flex direction, wrapping, alignment, gap, factor, basis and
