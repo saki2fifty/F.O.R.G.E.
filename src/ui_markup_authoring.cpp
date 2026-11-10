@@ -1,4 +1,5 @@
 #include "ui_markup_authoring.hpp"
+#include "ui_font_profile.hpp"
 #include "ui_range_numeric.hpp"
 #include <RmlUi/Core/Rectangle.h>
 #include <RmlUi/Core/StringUtilities.h>
@@ -8,6 +9,7 @@
 #include <charconv>
 #include <cmath>
 #include <cstdint>
+#include <forge/project_paths.hpp>
 #include <forge/ui_assets.hpp>
 #include <limits>
 #include <map>
@@ -280,11 +282,9 @@ const UiStyleDeclaration* style_property(std::string_view text,
         }
     return found;
 }
-std::pair<UiSourceRange, std::string> style_edit(std::string_view text,
-                                                 std::span<const UiStyleDeclaration> declarations,
-                                                 std::string_view property,
-                                                 const std::optional<std::string>& value) {
-    identifier(property);
+std::pair<UiSourceRange, std::string>
+style_value_edit(std::string_view text, std::span<const UiStyleDeclaration> declarations,
+                 std::string_view property, const std::optional<std::string>& value) {
     const auto* found = style_property(text, declarations, property);
     if (!value)
         return {found ? found->source : UiSourceRange{text.size(), text.size()}, {}};
@@ -304,6 +304,13 @@ std::pair<UiSourceRange, std::string> style_edit(std::string_view text,
     const bool separator =
         !declarations.empty() && declarations.back().source.end == declarations.back().value.end;
     return {{text.size(), text.size()}, (separator ? ";" : "") + declaration};
+}
+std::pair<UiSourceRange, std::string> style_edit(std::string_view text,
+                                                 std::span<const UiStyleDeclaration> declarations,
+                                                 std::string_view property,
+                                                 const std::optional<std::string>& value) {
+    identifier(property);
+    return style_value_edit(text, declarations, property, value);
 }
 SourceEdit markup_style_edit(std::string_view source, const UiMarkupElement& node,
                              std::string_view property, const std::optional<std::string>& value) {
@@ -935,9 +942,101 @@ std::string insert_ui_stylesheet_rule(std::string_view source, std::string_view 
     return replaced(source, {source.size(), source.size()},
                     (newline ? "\n" : "") + std::string(selector) + " {}\n", false);
 }
+namespace {
+const UiStyleRule& font_face_rule(std::string_view source, std::span<const UiStyleRule> rules,
+                                  std::size_t index) {
+    require(index < rules.size(), "Choose a font face in the current stylesheet");
+    const auto& rule = rules[index];
+    const auto selector = trimmed(source, rule.selector);
+    require(source.substr(selector.begin, selector.end - selector.begin) == "@font-face",
+            "Choose a literal top-level @font-face declaration; other at-rules use Source");
+    return rule;
+}
+} // namespace
+std::map<std::string, std::string> read_ui_stylesheet_font_face(std::string_view source,
+                                                                std::size_t index) {
+    const auto rules = inspect_ui_stylesheet(source);
+    const auto& rule = font_face_rule(source, rules, index);
+    const auto text = source.substr(rule.content.begin, rule.content.end - rule.content.begin);
+    const auto declarations = inspect_ui_style(text);
+    std::map<std::string, std::string> result;
+    for (const auto* name : {"font-family", "src", "-rmlui-face-index"})
+        if (const auto* found = style_property(text, declarations, name)) {
+            const auto range = trimmed(text, found->value);
+            result[name] = std::string(text.substr(range.begin, range.end - range.begin));
+        }
+    return result;
+}
+std::string set_ui_stylesheet_font_face(std::string_view source, std::optional<std::size_t> index,
+                                        std::string_view family, std::string_view font_source,
+                                        unsigned face_index) {
+    const auto letter = [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); };
+    require(!family.empty() && family.size() <= 64 &&
+                (letter(family.front()) || family.front() == '_') &&
+                std::ranges::all_of(family,
+                                    [&](char c) {
+                                        return letter(c) || (c >= '0' && c <= '9') || c == '_' ||
+                                               c == '-';
+                                    }),
+            "Use a plain family alias up to64 letters/digits/_/-, starting with a letter or _");
+    const auto path = ProjectPaths::normalize(std::filesystem::u8path(font_source));
+    require(ui_font_detail::extension(Rml::StringUtilities::ToLower(path.extension().string())),
+            "Choose a project TTF, OTF, TTC or OTC font source");
+    require(face_index < ui_font_detail::face_limit, "Use a zero-based font face index below32");
+    const auto rules = inspect_ui_stylesheet(source);
+    std::string body;
+    UiSourceRange range{source.size(), source.size()};
+    if (index) {
+        range = font_face_rule(source, rules, *index).content;
+        body = source.substr(range.begin, range.end - range.begin);
+    } else
+        require(rules.size() < 4096, "Stylesheet outline exceeds4096 blocks");
+    const auto source_path = path_utf8(path);
+    const std::array<std::pair<std::string, std::string>, 3> values{
+        {{"font-family", std::string(family)},
+         {"src", "\"" + source_path + "\""},
+         {"-rmlui-face-index", std::to_string(face_index)}}};
+    const auto same_literal = [](std::string_view raw, std::string_view literal) {
+        return raw == literal ||
+               (raw.size() == literal.size() + 2 && (raw.front() == '\'' || raw.front() == '"') &&
+                raw.back() == raw.front() && raw.substr(1, raw.size() - 2) == literal);
+    };
+    for (const auto& [name, value] : values) {
+        const auto declarations = inspect_ui_style(body);
+        if (const auto* existing = style_property(body, declarations, name)) {
+            const auto range = trimmed(body, existing->value);
+            const std::string_view raw =
+                std::string_view(body).substr(range.begin, range.end - range.begin);
+            if ((name == "font-family" && same_literal(raw, family)) ||
+                (name == "src" && same_literal(raw, source_path) &&
+                 (raw != source_path ||
+                  source_path.find_first_of(" \t\r\n,()'\"\\") == source_path.npos)))
+                continue;
+            if (name == "-rmlui-face-index") {
+                int previous = -1;
+                const auto parsed = std::from_chars(raw.data(), raw.data() + raw.size(), previous);
+                if (parsed.ec == std::errc{} && parsed.ptr == raw.data() + raw.size() &&
+                    previous >= 0 && unsigned(previous) == face_index)
+                    continue;
+            }
+        } else if (index && name == "-rmlui-face-index" && face_index == 0)
+            continue; // Preserve the existing omitted native default.
+        const auto edit = style_value_edit(body, declarations, name, value);
+        body.replace(edit.first.begin, edit.first.end - edit.first.begin, edit.second);
+    }
+    if (index)
+        return replaced(source, range, body, false);
+    const bool newline = !source.empty() && source.back() != '\n';
+    return replaced(source, range,
+                    (newline ? "\n" : "") + std::string("@font-face {") + body + "}\n", false);
+}
 std::string remove_ui_stylesheet_rule(std::string_view source, std::size_t index) {
     const auto rules = inspect_ui_stylesheet(source);
     return replaced(source, stylesheet_rule(rules, index).source, {}, false);
+}
+std::string remove_ui_stylesheet_font_face(std::string_view source, std::size_t index) {
+    const auto rules = inspect_ui_stylesheet(source);
+    return replaced(source, font_face_rule(source, rules, index).source, {}, false);
 }
 std::string duplicate_ui_stylesheet_rule(std::string_view source, std::size_t index) {
     const auto rules = inspect_ui_stylesheet(source);

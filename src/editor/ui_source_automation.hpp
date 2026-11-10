@@ -208,6 +208,98 @@ struct UiSourceAutomation {
                     }
                 }));
         }
+        for (const std::string action :
+             {"font_reference", "font_face_read", "font_face", "font_face_remove"}) {
+            auto properties = guard;
+            auto fields = required;
+            const bool reference = action == "font_reference";
+            const bool read_face = action == "font_face_read";
+            const bool write_face = action == "font_face";
+            const bool mutating = write_face || action == "font_face_remove";
+            if (mutating && !permissions.assets)
+                continue;
+            if (reference || write_face) {
+                properties["asset"] = automation_uuid();
+                fields.push_back("asset");
+                properties["face_index"] = automation_integer(0, 31);
+            }
+            if (!reference) {
+                properties["rule"] = automation_integer(0, 4095);
+                if (!write_face)
+                    fields.push_back("rule");
+            }
+            if (write_face) {
+                properties["family"] = automation_text(64, 1);
+                fields.push_back("family");
+            }
+            const std::string description =
+                reference   ? "Read a registered standalone project UI font's current source and "
+                              "face metadata. "
+                              "Requires current source guards/assets.read. Optional zero-based "
+                              "face_index defaults to0. "
+                              "Returns asset/source/face_index/selected_face/details through shared "
+                              "actual-byte font admission. "
+                              "Font sources are project relative. Recorded family names are "
+                              "informational, not authored aliases "
+                              "or loaded availability. No native/GPU/gameplay initialization or "
+                              "source/catalog/history mutation."
+                : read_face ? "Read literal font-family/src/-rmlui-face-index values from a "
+                              "current top-level literal @font-face "
+                              "in an RCSS draft. Current source guards/assets.read required. Uses "
+                              "the existing stylesheet "
+                              "source ranges/declaration owner; no selection/history/source or "
+                              "font-load changes."
+                : write_face
+                    ? "Add or update one literal RCSS @font-face with an explicit plain family "
+                      "alias, registered project "
+                      "font UUID and optional face_index(default0). Omit rule to append. Re-admits "
+                      "actual font bytes/face; "
+                      "writes a project-relative src, preserving other "
+                      "declarations/comments/rules. Plain aliases are "
+                      "1..64 ASCII letters/digits/_/-, starting with a letter or _. Uses existing "
+                      "source owner: one Undo, "
+                      "retained rule selection, explicit Save, current guards/assets.write/replay. "
+                      "No registration, "
+                      "automatic font-family assignment, native font load or Scene history."
+                    : "Remove one literal top-level RCSS @font-face through the existing source "
+                      "owner. Requires current "
+                      "source guards/assets.write; one Undo and explicit Save. Other source "
+                      "remains unchanged; styles "
+                      "that use its alias may fall back. Other at-rules retain Source editing.";
+            result.push_back(automation_method(
+                "ui.source." + action, description, mutating ? "assets.write" : "assets.read",
+                automation_object(std::move(properties), std::move(fields)), mutating,
+                [&files, &editor, ready, reference, read_face, write_face,
+                 mutating](const Json& request) -> Json {
+                    if (mutating)
+                        ready();
+                    observed(editor, files.document, request);
+                    if (reference) {
+                        try {
+                            return ui_font_reference(
+                                AssetCatalog::open_project(files.document.project()),
+                                request.at("asset").get<AssetId>(),
+                                request.value("face_index", 0u));
+                        } catch (const std::exception& error) {
+                            throw AuthoringError("ui_font_reference", error.what());
+                        }
+                    }
+                    if (read_face)
+                        return Json{{"rule", request.at("rule")},
+                                    {"values", editor.font_face_properties(
+                                                   request.at("rule").get<std::size_t>())}};
+                    if (write_face)
+                        editor.font_face(request.contains("rule")
+                                             ? std::optional(request.at("rule").get<std::size_t>())
+                                             : std::nullopt,
+                                         request.at("asset").get<AssetId>(),
+                                         request.value("face_index", 0u),
+                                         request.at("family").get<std::string>());
+                    else
+                        editor.remove_font_face(request.at("rule").get<std::size_t>());
+                    return state(editor, files.document);
+                }));
+        }
         {
             auto properties = guard;
             properties["name"] = automation_text(64, 1);

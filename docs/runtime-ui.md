@@ -1031,3 +1031,16 @@ map and control-values owner perform Apply, Undo and explicit Save; Clear remove
 is registered, copied or republished by choosing it. The read-only guarded
 image-reference query shares this admission and translation; agents author its
 result through the existing control-values operation.
+
+
+### Guided font declaration source authoring
+
+RCSS Rules can author literal top-level font-face declarations using registered
+project font assets, explicit plain aliases and zero-based face indices. Current
+font bytes/metadata and unique source identity are checked through the same
+UiResources/catalog owners as other references. Source paths remain project
+relative; imported family names do not determine aliases or loaded availability.
+The source range/value patch owner supplies read/set/remove and one Undo/Save,
+with unrelated declarations preserved. The existing face-details UI also accepts
+read-only current metadata directly, avoiding a second table or metadata cache.
+Other at-rules/nested blocks and unsupported alias forms remain raw Source.

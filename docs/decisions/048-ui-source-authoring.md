@@ -191,8 +191,9 @@ selector/content/source ranges and flat-block eligibility. The runtime path has
 no rule collector or authoring cap. Flat RCSS property edits share declaration
 matching/value validation/patch ranges with inline CSS; attribute quoting remains
 an inline-only restriction. Selector editing and rule insertion/removal remain
-source replacements under the same draft/history/guards. At-rules/nested blocks
-stay Source; native DOM parsing or serialization supplies no authoring identity.
+source replacements under the same draft/history/guards. Other at-rules/nested
+blocks stay Source; literal top-level font-face declarations use the same scanner
+and value patches for guided read/set/remove, with no general at-rule editor; native DOM parsing or serialization supplies no authoring identity.
 
 Sibling style/class operations borrow the existing sibling admission and source
 patch composer, sharing value/attribute validation and one complete replacement.
@@ -240,3 +241,14 @@ the existing control-property map. Catalog/source identity and UiResources own
 reference translation and current image admission; their same read-only helper
 backs the guarded assets.read image-reference query. Apply/Undo/Save and sprite
 precedence remain with their existing owners. Literal editing remains available.
+
+
+Guided font declarations borrow current project font admission/face metadata from
+UiResources and the existing catalog. A private shared source-info helper serves
+font/image references; recorded names remain independent of authored aliases.
+Native font controls reuse the existing face-details drawer through a const JSON
+overload, with no metadata copy or second UI data owner. Font source paths keep
+the existing project-relative convention. RCSS font-face changes and their MCP
+bindings share one source replacement/history, guards, grants, explicit Save and
+source range ownership. Generic flat-rule operations retain their at-rule barriers.
+The Add rule event returns after publication before new range observations.

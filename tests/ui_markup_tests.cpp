@@ -753,6 +753,57 @@ void stylesheet_rules() {
     forge::validate_ui_text(many + ".b{}", false);
     rejects([&] { forge::insert_ui_stylesheet_rule(many, ".b"); });
 }
+void font_face_sources() {
+    const std::string original =
+        "/* header */\n@font-face { /* keep */ font-family:Old;src:'Assets/old.ttf';"
+        "font-weight:700;font-style:italic;-rmlui-face-index:0;}\n.keep{font-family:Old;}";
+    const auto changed =
+        forge::set_ui_stylesheet_font_face(original, 0, "MenuFace", "Assets/Font's.TTC", 1);
+    check(
+        changed ==
+            "/* header */\n@font-face { /* keep */ font-family:MenuFace;src:\"Assets/Font's.TTC\";"
+            "font-weight:700;font-style:italic;-rmlui-face-index:1;}\n.keep{font-family:Old;}",
+        "Font declaration edit lost comments, native overrides or unrelated selectors");
+    check(forge::remove_ui_stylesheet_font_face(original, 0) ==
+              "/* header */\n\n.keep{font-family:Old;}",
+          "Font removal rewrote adjacent source or alias uses");
+    rejects([&] { forge::remove_ui_stylesheet_font_face(original, 1); });
+    const auto values = forge::read_ui_stylesheet_font_face(changed, 0);
+    check(values.at("font-family") == "MenuFace" && values.at("src") == "\"Assets/Font's.TTC\"" &&
+              values.at("-rmlui-face-index") == "1" &&
+              forge::set_ui_stylesheet_font_face(changed, 0, "MenuFace", "Assets/Font's.TTC", 1) ==
+                  changed,
+          "Font declaration read/no-op changed authored literals");
+    const auto added =
+        forge::set_ui_stylesheet_font_face(".keep{}", {}, "MenuFace", "Assets/font.ttf", 0);
+    check(added.starts_with(".keep{}\n@font-face {") &&
+              forge::inspect_ui_stylesheet(added).size() == 2,
+          "Font face append changed existing blocks or lost its separator");
+    const std::string unchanged = "@font-face {font-family:'MenuFace';src:'Assets/font.ttf';}";
+    check(forge::set_ui_stylesheet_font_face(unchanged, 0, "MenuFace", "Assets/font.ttf", 0) ==
+              unchanged,
+          "Unchanged font controls rewrote quoted literals or introduced a default override");
+    check(forge::read_ui_stylesheet_font_face(
+              forge::set_ui_stylesheet_font_face(
+                  "@font-face{font-family:Menu;src:Assets/font,one.ttf;}", 0, "Menu",
+                  "Assets/font,one.ttf", 0),
+              0)
+                  .at("src") == "\"Assets/font,one.ttf\"",
+          "Unquoted source-list separators were mistaken for one unchanged font path");
+    for (const auto* family : {"", "Menu Face", "9Menu", "Menu;bad", "Menu\"bad"})
+        rejects([&] { forge::set_ui_stylesheet_font_face(original, 0, family, "font.ttf", 0); });
+    for (const auto* path : {"../escape.ttf", "/font.ttf", "font.png"})
+        rejects([&] { forge::set_ui_stylesheet_font_face(original, 0, "Menu", path, 0); });
+    rejects([&] { forge::set_ui_stylesheet_font_face(original, 0, "Menu", "font.ttf", 32); });
+    rejects([&] { forge::set_ui_stylesheet_font_face(original, 1, "Menu", "font.ttf", 0); });
+    rejects([&] {
+        forge::set_ui_stylesheet_font_face("@font-face{font-family:A;font-family:B;}", 0, "Menu",
+                                           "font.ttf", 0);
+    });
+    rejects([&] {
+        forge::set_ui_stylesheet_font_face("@font-face{.nested{}}", 0, "Menu", "font.ttf", 0);
+    });
+}
 void reusable_styles() {
     const std::string source =
         "<rml><body data-model='demo'><p id='a' class='old' "
@@ -1515,6 +1566,7 @@ int main() {
         hierarchy_moves();
         inline_properties();
         stylesheet_rules();
+        font_face_sources();
         reusable_styles();
         style_value_literals();
         typography_literals();

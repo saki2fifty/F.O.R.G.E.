@@ -2588,3 +2588,22 @@ unrelated canvas edits. Its full mode retains the image workflow. Existing
 source-hidden Gallery/package tests cover raw image relocation and sprite
 precedence. These local software/native checks do not establish Windows, full
 Main or physical-device acceptance.
+
+
+Guided font source checks use ui_markup for preserved ranges/comments/other
+declarations, unchanged quoted/numeric/default spelling, source-list quoting,
+invalid aliases/paths/faces and targeted declaration removal. ui_asset_catalog
+and ui_font_collections check current file/face admission and actual generated
+collection declarations. ui_source_font_faces drives real native controls at
+1180/700/400, invalid-alias recovery, one-step history/removal/Save and existing
+flat-rule insertion. ui_font_details covers the reused metadata drawer.
+mcp_ui_font_faces_stdio checks current/legacy guards, replay, read-only discovery
+and denied writers, current file corruption/face refusal and source/Scene/catalog
+isolation. ui_font_collection_project authors a collection alias and input style
+through the same helpers, refreshes through the UI resource owner and verifies
+actual native alias loading after source-hidden relocated content export, with
+existing asset IDs preserved. The complete source editor also covers the changed
+Rules consumer and supplies its current authentic capture.
+
+Selected CPU sanitizer scope and exact unchanged evidence are reported locally;
+software component/native checks do not imply full Main/Windows/physical review.

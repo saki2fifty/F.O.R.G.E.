@@ -169,6 +169,12 @@ std::string set_ui_stylesheet_property(std::string_view, std::size_t rule,
 std::string set_ui_stylesheet_selector(std::string_view, std::size_t rule,
                                        std::string_view selector);
 std::string insert_ui_stylesheet_rule(std::string_view, std::string_view selector);
+// Guided font declarations use one plain alias and a project-relative source.
+std::map<std::string, std::string> read_ui_stylesheet_font_face(std::string_view, std::size_t rule);
+std::string set_ui_stylesheet_font_face(std::string_view, std::optional<std::size_t> rule,
+                                        std::string_view family, std::string_view source,
+                                        unsigned face_index);
+std::string remove_ui_stylesheet_font_face(std::string_view, std::size_t rule);
 std::string remove_ui_stylesheet_rule(std::string_view, std::size_t rule);
 std::string duplicate_ui_stylesheet_rule(std::string_view, std::size_t rule);
 std::string move_ui_stylesheet_rule(std::string_view, std::size_t rule, int direction);

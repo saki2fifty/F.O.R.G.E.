@@ -747,6 +747,47 @@ before that point cancel or fail the request; a queued copy finishes independent
 of later editing or source closure. Finish the current image task before saving
 another image. Stale previews and hosts without a rendered image cannot be saved.
 
+## Declare a project font
+
+Use a registered project `.ttf`, `.otf`, `.ttc` or `.otc` font and a `.rcss`
+stylesheet linked by your RML document. Font files are selected from the project;
+registering a file does not load its family into a document.
+
+1. Register the font with **Content → Create / Register → Runtime UI → Register / Refresh**. [Font collections](ui-text-shaping.md) explains face indices and supported formats.
+2. Open the linked `.rcss` file using **Edit UI source** and choose **Rules**.
+3. Choose **New font face...**. Enter a **Family alias**, such as `MenuFace`. This is your authored name; it is independent of the file's recorded family name.
+4. Choose **Font source**, or drop its registered font from Content onto that picker. Read **Font faces** to find its family, style, weight and zero-based index, then set **Face index**. A standalone font normally uses `0`; a collection can expose more faces. **Last read** describes the last inspected file; Apply checks the current bytes and available index again.
+5. Choose **Apply font face**. The declaration becomes selected and the source changes in one Undo step. Choose **Save source** to write the stylesheet.
+6. Assign that alias using `font-family` in an existing selector or the RML widget's **Inline style** controls, then save that source. For example, use `font-family:MenuFace` and `font-size:28px` on the text you want to style.
+7. Return to the linked RML document and **Refresh preview**, or restart Play after replacing an already loaded font family. Register / refresh the UI resources before exporting the saved project.
+
+![A staged font declaration with an explicit alias, source, face index and the recorded face details](../images/ui-source-font-face.png)
+
+The alias and font selection stay staged until **Apply font face**.
+
+Font `src` values are **project relative**, such as `Assets/Fonts/Menu.ttf`, even
+when the stylesheet is in another folder. Stylesheet links and image references
+remain document relative. The RML document needs an explicit `<head>` containing
+its stylesheet link. The font controls do not create that link or assign styles
+to widgets automatically.
+
+To edit a declaration, select its literal `@font-face` block in **Stylesheet rules**.
+**Discard staged font** restores its source values. **Remove font face** removes
+that declaration in one Undo step; styles using its alias may fall back. Save is
+still explicit. **Cancel font face** closes a new, unapplied proposal. Choosing or
+reading a font, staging values and discarding a proposal do not change the source,
+Scene or asset catalog.
+
+Guided aliases use 1–64 ASCII letters, digits, `_` or `-`, beginning with a letter
+or `_`. Use **Source** for other alias forms, escaped declarations or ambiguous
+matching properties. Other declarations, including authored weight/style
+settings, and surrounding comments remain intact. Unchanged supported quoted
+literals, numeric index spelling and an omitted default face index stay unchanged.
+The face index must be below the file's face count and below 32. Face names, color
+and axis details are informational; [text shaping limits](ui-text-shaping.md)
+describe native font support. Other at-rules and nested stylesheet blocks use
+**Source**.
+
 ## Edit stylesheet rules
 
 1. Open a `.rcss` file from **Content** using **Edit UI source**.
@@ -759,7 +800,7 @@ another image. Stale previews and hosts without a rendered image cannot be saved
 ![Stylesheet Rules with the accent selector, authored color and rule/property controls](../images/ui-source-rules.png)
 
 The selected flat rule has a color override. Other blocks remain listed in source
-order; selecting a nested block or at-rule keeps it in Source.
+order. Literal `@font-face` blocks open the font controls; other at-rules and nested blocks use Source.
 
 Rules edit the stylesheet source; they do not show computed CSS. Order, specificity,
 inline styles and bindings affect the result. Other rules, declarations and
@@ -775,7 +816,7 @@ blocks remain between them. Copy and each changed move use one Undo step. Bounda
 or identical-source moves create no history. Save, then refresh native UI to check
 the cascade.
 
-At-rules, nested blocks and incomplete source stay in **Source**. The outline
+Other at-rules, nested blocks and incomplete source stay in **Source**. Literal top-level `@font-face` declarations have the guided controls above. The outline
 supports up to 4,096 top-level blocks. New selectors fit 1,024 UTF-8 bytes and do
 not contain at-rules, comments, escapes or additional blocks. Child selectors such
 as `.panel > button` are supported. Property names use

@@ -83,6 +83,8 @@ automatic import with defaults.
 
 ## Use a font collection
 
+You can [declare a registered font in UI Source → Rules](ui-source.md), choose its face index and provide your own family alias. The source and collection limits below also apply to those controls.
+
 A collection stores multiple faces in one file. Put the `.ttc` or `.otc` inside
 your project, then give each face a family alias in your RCSS:
 

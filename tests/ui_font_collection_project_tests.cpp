@@ -1,7 +1,13 @@
 #include "asset_bytes.hpp"
+#include "asset_storage.hpp"
 #include "fixtures/ui_font_collection.hpp"
 #include "runtime_package.hpp"
+#include "ui_asset_catalog.hpp"
+#include "ui_markup_authoring.hpp"
 #include "ui_test_renderer.hpp"
+#include <RmlUi/Core.h>
+#include <RmlUi/Core/FontEngineInterface.h>
+#include <algorithm>
 #include <forge/authoring.hpp>
 #include <forge/game_settings.hpp>
 #include <forge/primitive_catalog.hpp>
@@ -97,6 +103,35 @@ scrollbarvertical sliderbar {background-color:#477e9a;}
         inspect(root, asset_detail::read_bytes(fonts / "LatoLatin-Regular.ttf", 4 * 1024 * 1024)),
         scene.schema());
 }
+void author_font_selection(const std::filesystem::path& root, const std::vector<std::byte>& font) {
+    ProjectLease lease(root);
+    const auto catalog = AssetCatalog::open_project(root);
+    const auto selected =
+        std::find_if(catalog.records().begin(), catalog.records().end(),
+                     [](const auto& row) { return row.second.type == "ui_font"; });
+    const auto document =
+        std::find_if(catalog.records().begin(), catalog.records().end(),
+                     [](const auto& row) { return row.second.source == hud_path; });
+    check(selected != catalog.records().end() && document != catalog.records().end(),
+          "Font authoring fixture lacks its registered resources");
+    const auto reference = ui_font_reference(catalog, selected->first, 1);
+    const auto path = root / "Assets/UI/hud.rcss";
+    auto text = *asset_storage::read(path);
+    text = set_ui_stylesheet_font_face(text, {}, "AuthoredCollectionFace",
+                                       reference.at("source").get<std::string>(), 1);
+    const auto rules = inspect_ui_stylesheet(text);
+    const auto input = std::find_if(rules.begin(), rules.end(), [&](const auto& rule) {
+        return rule.flat &&
+               std::string_view(text)
+                   .substr(rule.selector.begin, rule.selector.end - rule.selector.begin)
+                   .starts_with("input ");
+    });
+    check(input != rules.end(), "Font authoring fixture lacks its input selector");
+    text = set_ui_stylesheet_property(text, std::size_t(input - rules.begin()), "font-family",
+                                      "AuthoredCollectionFace");
+    asset_storage::replace(path, text);
+    refresh_ui_asset_catalog(lease, inspect(root, font)(document->first, {}));
+}
 void present(const std::filesystem::path& root, const std::vector<std::byte>& font,
              const std::filesystem::path& scene_source = scene_path) {
     Json saved;
@@ -117,6 +152,14 @@ void present(const std::filesystem::path& root, const std::vector<std::byte>& fo
               "Collection example native rendering failed");
         const auto fields = presenter.text_fields(snapshot.at("documents")[0].at("instance"));
         check(!fields.at("fields").empty(), "Collection example text field missing");
+        auto* input = Rml::GetContext(0)->GetDocument(0)->GetElementById("field");
+        check(input &&
+                  Rml::StringUtilities::ToLower(input->GetProperty<Rml::String>("font-family")) ==
+                      "authoredcollectionface" &&
+                  Rml::GetFontEngineInterface()->GetFontFaceHandle(
+                      "authoredcollectionface", Rml::Style::FontStyle::Normal,
+                      Rml::Style::FontWeight::Normal, 32),
+              "Authored collection face alias did not survive saved/source-hidden native loading");
         check(scene.snapshot() == saved, "Native collection rendering mutated the saved Scene");
     }
     check(renderer.geometry.empty() && renderer.textures.empty(), "Example resources leaked");
@@ -154,6 +197,7 @@ int main(int argc, char** argv) {
         std::filesystem::copy(argv[1], source, std::filesystem::copy_options::recursive);
         const auto font = asset_detail::read_bytes(
             std::filesystem::path(argv[3]) / "LatoLatin-Regular.ttf", 4 * 1024 * 1024);
+        author_font_selection(source, font);
         present(source, font);
         const auto catalog = AssetCatalog::open_project(source);
         ProjectSettings settings(source);

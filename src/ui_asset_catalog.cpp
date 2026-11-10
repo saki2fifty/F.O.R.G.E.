@@ -23,6 +23,24 @@ const AssetRecord* source_record(const std::map<AssetId, AssetRecord>& records,
     }
     return result;
 }
+UiSourceInfo source_info(const AssetCatalog& catalog, AssetId asset, const std::string& type) {
+    const auto found = catalog.records().find(asset);
+    if (found == catalog.records().end() || found->second.type != type || found->second.subasset)
+        throw std::runtime_error("Choose a registered standalone project UI resource");
+    if (catalog.resolve(asset, type).state != AssetState::Available)
+        throw std::runtime_error("The selected project UI resource is unavailable");
+    const ProjectPaths paths(catalog.project_root());
+    const auto source = ProjectPaths::normalize(found->second.source);
+    if (const auto* unique = source_record(catalog.records(), paths, source, type);
+        !unique || unique->id != asset)
+        throw std::runtime_error("UI resource source has no unique project identity");
+    UiResources admitted(catalog.project_root());
+    (void)admitted.read(path_utf8(source));
+    auto info = admitted.snapshot().sources.at(0);
+    if (info.type != type)
+        throw std::runtime_error("UI resource source format does not match its registered type");
+    return info;
+}
 } // namespace
 bool ui_image_source_candidate(const AssetRecord& record) {
     auto extension = record.source.extension().string();
@@ -36,24 +54,25 @@ nlohmann::json ui_image_reference(const AssetCatalog& catalog,
     const auto found = catalog.records().find(asset);
     if (found == catalog.records().end() || !ui_image_source_candidate(found->second))
         throw std::runtime_error("Choose a registered standalone project image source");
-    const auto resolved = catalog.resolve(asset, TextureAsset::type);
-    if (resolved.state != AssetState::Available)
-        throw std::runtime_error("The selected project image is unavailable");
     const auto source = ProjectPaths::normalize(found->second.source);
     const auto base = ProjectPaths::normalize(document);
-    const ProjectPaths paths(catalog.project_root());
-    if (const auto* unique = source_record(catalog.records(), paths, source, TextureAsset::type);
-        !unique || unique->id != asset)
-        throw std::runtime_error("UI image source has no unique project identity");
     const auto reference = path_utf8(source.lexically_relative(base.parent_path()));
     if (ui_resource_detail::join(path_utf8(base), reference) != path_utf8(source))
         throw std::runtime_error("Image source has no contained document-relative reference");
-    UiResources admitted(catalog.project_root());
-    (void)admitted.read(path_utf8(source));
-    const auto info = admitted.snapshot().sources.at(0);
+    const auto info = source_info(catalog, asset, TextureAsset::type);
     return {{"asset", asset},
             {"source", path_utf8(source)},
             {"reference", reference},
+            {"details", info.details}};
+}
+nlohmann::json ui_font_reference(const AssetCatalog& catalog, AssetId asset, unsigned face_index) {
+    const auto info = source_info(catalog, asset, "ui_font");
+    if (face_index >= info.details.at("faces").get<unsigned>())
+        throw std::runtime_error("Choose an available zero-based face index in this UI font");
+    return {{"asset", asset},
+            {"source", path_utf8(info.source)},
+            {"face_index", face_index},
+            {"selected_face", info.details.at("font_faces").at(face_index)},
             {"details", info.details}};
 }
 AssetCatalog prepare_ui_asset_catalog(AssetCatalog catalog, const std::filesystem::path& root,

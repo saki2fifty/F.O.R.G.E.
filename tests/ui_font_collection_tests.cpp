@@ -2,6 +2,7 @@
 #include "fixtures/ui_font_collection.hpp"
 #include "ui_asset_catalog.hpp"
 #include "ui_font_profile.hpp"
+#include "ui_markup_authoring.hpp"
 #include "ui_test_renderer.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/FontEngineInterface.h>
@@ -86,9 +87,11 @@ void native(const std::filesystem::path& root, const std::vector<std::byte>& lat
     padded.resize(ui_font_detail::file_byte_limit);
     write(root / "Assets/Faces.TTC", collection);
     write(root / "Assets/Faces.otc", collection);
-    std::ofstream(root / "Assets/Hud.rml") << R"rml(<rml><head><style>
-@font-face {font-family:CollectionLatin;src:"Assets/Faces.TTC";-rmlui-face-index:0;}
-@font-face {font-family:CollectionArabic;src:"Assets/Faces.TTC";-rmlui-face-index:1;}
+    auto declarations =
+        set_ui_stylesheet_font_face("", {}, "CollectionLatin", "Assets/Faces.TTC", 0);
+    declarations =
+        set_ui_stylesheet_font_face(declarations, {}, "CollectionArabic", "Assets/Faces.TTC", 1);
+    std::ofstream(root / "Assets/Hud.rml") << "<rml><head><style>" << declarations << R"rml(
 body {font-family:CollectionLatin;font-size:32px;color:#fff;}
 p {display:block;} #arabic {font-family:CollectionArabic;-rmlui-direction:rtl;-rmlui-language:ar;}
 </style></head><body><p>office</p><p id="arabic">سلام</p></body></rml>)rml";
@@ -108,6 +111,16 @@ p {display:block;} #arabic {font-family:CollectionArabic;-rmlui-direction:rtl;-r
               "Collection face count/kit requirement missing");
         ProjectLease lease(root);
         const auto catalog = refresh_ui_asset_catalog(lease, observed);
+        const auto registered_font =
+            std::find_if(catalog.records().begin(), catalog.records().end(),
+                         [](const auto& row) { return row.second.type == "ui_font"; });
+        check(registered_font != catalog.records().end(), "Collection has no UI font identity");
+        const auto selected_face = ui_font_reference(catalog, registered_font->first, 1);
+        check(selected_face.at("source") == "Assets/Faces.TTC" &&
+                  selected_face.at("face_index") == 1 &&
+                  selected_face.at("selected_face").at("index") == 1 &&
+                  selected_face.at("details").at("faces") == 2,
+              "Font resource selection lost its project-relative collection/face index");
         check(catalog.dependency_graph().source_referrers("Assets/Faces.TTC").size() == 2,
               "Collection file missing source dependency edges");
         const auto entity = EntityId::generate();

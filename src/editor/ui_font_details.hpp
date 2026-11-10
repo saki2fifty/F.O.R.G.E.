@@ -7,14 +7,11 @@
 #include <string_view>
 
 namespace forge::ui {
-inline void draw_ui_font_details(const AssetRecord& asset) {
+inline void draw_ui_font_details(const nlohmann::json& source) {
     heading("Font faces", "Recorded names from the saved font. Use its zero-based face index "
                           "in @font-face; the family alias in your style is independent.");
-    const auto source = asset.metadata.find("forge.ui_source");
     const auto* faces =
-        source != asset.metadata.end() && source->is_object() && source->contains("font_faces")
-            ? &source->at("font_faces")
-            : nullptr;
+        source.is_object() && source.contains("font_faces") ? &source.at("font_faces") : nullptr;
     if (!faces || !faces->is_array() || faces->empty() || faces->size() > 32) {
         ImGui::TextWrapped("Register / Refresh this font in Runtime UI to list its face details.");
         return;
@@ -129,5 +126,12 @@ inline void draw_ui_font_details(const AssetRecord& asset) {
          "Play after replacing a loaded font. Shape UI text uses an admitted wght axis with "
          "ordinary font-weight; other axes stay at their defaults. Color layer and axis details "
          "are read-only; recorded metadata does not guarantee native font admission.");
+}
+inline void draw_ui_font_details(const AssetRecord& asset) {
+    const auto source = asset.metadata.find("forge.ui_source");
+    if (source == asset.metadata.end())
+        draw_ui_font_details(nlohmann::json());
+    else
+        draw_ui_font_details(*source);
 }
 } // namespace forge::ui

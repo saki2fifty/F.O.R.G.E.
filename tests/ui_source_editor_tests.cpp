@@ -25,10 +25,12 @@ enum class SourceControls {
     ImageProperties,
     ResponsiveLayout,
     BoxStyling,
-    CreationSetup
+    CreationSetup,
+    FontFaces
 };
 void exercise(const std::filesystem::path& output, int width,
-              SourceControls mode = SourceControls::All) {
+              SourceControls mode = SourceControls::All,
+              const std::filesystem::path& font_path = {}) {
     using namespace forge;
     const auto root = output / AssetId::generate().str();
     SceneDocument::create_project(root, "UI source editor");
@@ -137,6 +139,75 @@ void exercise(const std::filesystem::path& output, int width,
         check(!editor.dirty() && scene.snapshot() == authored && scene.revision() == revision &&
                   asset_storage::read(root / "forge.assets.json") == catalog,
               "Configured creation Save changed Scene/catalog ownership");
+        editor.request_close();
+        return;
+    }
+    if (mode == SourceControls::FontFaces) {
+        editor.request_close();
+        std::filesystem::create_directories(root / "Assets/Fonts");
+        std::filesystem::copy_file(font_path, root / "Assets/Fonts/Menu.ttf");
+        const auto font = register_ui_source(*project.writer_guard(), "Assets/Fonts/Menu.ttf");
+        resource_catalog = std::make_shared<AssetCatalog>(AssetCatalog::open_project(root));
+        const auto font_catalog = asset_storage::read(root / "forge.assets.json");
+        const std::string stylesheet = "/* saved */\r\n.heading {color:red;}\r\n";
+        const auto css = root / "Assets/Fonts.rcss";
+        asset_storage::replace(css, stylesheet);
+        editor.open(project, "Assets/Fonts.rcss");
+        frame();
+        frame();
+        input.click("ui-source:elements-tab");
+        const auto before = editor.state();
+        input.click("ui-source:font-new");
+        input.type("ui-source:font-family", "MenuFace");
+        input.click("asset-picker:ui_font:Font source");
+        input.select(("picker-option:" + font.id.str()).c_str());
+        input.type("ui-source:font-face-index", "0");
+        check(editor.state() == before && asset_storage::read(css) == stylesheet,
+              "Font controls changed source/history/disk before Apply");
+        frame();
+        capture.save(output / ("ui-source-font-face-" + std::to_string(width) + ".png"));
+        input.click("ui-source:font-apply");
+        const auto created = editor.state();
+        const auto values = editor.font_face_properties(1);
+        check(created.at("rule_selection") == 1 && values.at("font-family") == "MenuFace" &&
+                  values.at("src") == "\"Assets/Fonts/Menu.ttf\"" &&
+                  values.at("-rmlui-face-index") == "0" && asset_storage::read(css) == stylesheet,
+              "Font declaration lost source scope, alias, face or explicit Save");
+        input.click("button:Undo");
+        check(editor.state().at("text") == before.at("text"),
+              "Font append needed multiple Undo steps");
+        input.click("button:Redo");
+        check(editor.state().at("text") == created.at("text"), "Font append Redo differs");
+        input.select("ui-source:rule:1");
+        input.type("ui-source:font-family", "bad family");
+        const auto before_invalid = editor.state();
+        input.click("ui-source:font-apply");
+        check(editor.state() == before_invalid, "Invalid font alias partially changed source");
+        input.type("ui-source:font-family", "MenuUpdated");
+        input.click("ui-source:font-apply");
+        const auto updated = editor.state();
+        check(editor.font_face_properties(1).at("font-family") == "MenuUpdated",
+              "Font declaration did not recover after invalid alias");
+        rejects([&] { editor.font_face(1, font.id, 1, "MenuUpdated"); });
+        check(editor.state() == updated, "Unavailable actual font face changed source/history");
+        input.click("ui-source:font-remove");
+        check(editor.state().at("text").get<std::string>().find("@font-face") == std::string::npos,
+              "Font removal retained its declaration");
+        input.click("button:Undo");
+        check(editor.state().at("text") == updated.at("text"),
+              "Font removal needed multiple Undo steps");
+        input.type("ui-source:rule-selector", ".footer");
+        input.click("ui-source:rule-add");
+        check(editor.state().at("rule_selection") == 2,
+              "Flat-rule creation did not coexist with font declarations");
+        input.click("button:Undo");
+        check(editor.state().at("text") == updated.at("text"),
+              "Flat-rule append used stale source ranges or needed multiple Undo steps");
+        editor.save(project);
+        check(!editor.dirty() && scene.snapshot() == authored && scene.revision() == revision &&
+                  asset_storage::read(root / "forge.assets.json") == font_catalog &&
+                  asset_storage::read(css)->find("MenuUpdated") != std::string::npos,
+              "Font Save changed Scene/catalog ownership or lost its authored alias");
         editor.request_close();
         return;
     }
@@ -1240,11 +1311,15 @@ void exercise_stylesheet(const std::filesystem::path& output, int width) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2 || argc == 3, "Need capture/scratch directory and optional control mode");
+        check(argc == 2 || argc == 3 || argc == 4,
+              "Need capture/scratch directory and optional control mode");
         auto mode = SourceControls::All;
-        if (argc == 3) {
+        if (argc >= 3) {
             const auto flag = std::string_view(argv[2]);
-            if (flag == "--creation-setup-only")
+            if (flag == "--font-faces-only") {
+                check(argc == 4, "Font face controls need the font fixture path");
+                mode = SourceControls::FontFaces;
+            } else if (flag == "--creation-setup-only")
                 mode = SourceControls::CreationSetup;
             else if (flag == "--box-styling-only")
                 mode = SourceControls::BoxStyling;
@@ -1262,7 +1337,8 @@ int main(int argc, char** argv) {
         const auto output = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(output);
         for (const auto width : {1180, 700, 400}) {
-            exercise(output, width, mode);
+            exercise(output, width, mode,
+                     argc == 4 ? std::filesystem::path(argv[3]) : std::filesystem::path{});
             if (mode == SourceControls::All)
                 exercise_stylesheet(output, width);
         }

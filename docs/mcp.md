@@ -2747,7 +2747,7 @@ reads no computed state and changes no selection/history/source/registration.
 
 The same immutable metadata powers inline/group and stylesheet literal controls.
 Native source candidates and old mutation/query results are unchanged. Including
-this query and native-preview placement, there are41source operations. Style/preset staging
+this query and native-preview placement, there are45source operations. Style/preset staging
 publishes only through the original Set/Remove/Undo/Save and guarded MCP owners.
 
 Source control metadata includes an image profile: src/sprite/rect strings and
@@ -2790,7 +2790,7 @@ Pixel setup refuses breaks/options, requires ID and rejects bound ancestors.
 It does not initialize a renderer, register assets, create a persistent identity
 or bypass native Preview eligibility. The selected new root, one Undo, explicit
 Save, grants/revisions/replay and Scene isolation retain existing owners. There
-are41 source operations/18creation kinds; the existing layout schema remains
+are45 source operations/18creation kinds; the existing layout schema remains
 unchanged. No separate creation path is maintained for MCP clients.
 
 ## Native-preview control placement
@@ -2862,7 +2862,7 @@ Both tools require assets.write, the ordinary mutation envelope and existing
 source-task/gesture locks. Receipt replay returns its original result without
 reapplying selection. They use the same source selection owner as Elements and
 Preview and leave source revision/digest/dirty/Undo/Save/catalog/Scene unchanged.
-There are41source operations. No runtime widget input or persisted selection is
+There are45source operations. No runtime widget input or persisted selection is
 introduced; selected elements still need each authoring operation's admission.
 
 
@@ -2883,7 +2883,7 @@ Fit/1:1/manual image zoom and child scrolling are local presentation controls.
 `ui.source.preview` still reports native viewport pixels; source layout/transform,
 placement and selection use those same coordinates and observations. Image capture
 still exports the full native image independently of the editor crop. There is
-no additional authored behavior requiring a new MCP binding; existing41source
+no additional authored behavior requiring a new MCP binding; existing45source
 operations retain their schemas, grants, revision/replay/history and source owners.
 
 
@@ -2903,3 +2903,32 @@ reference helper. Use the returned literal with the existing guarded
 `ui.source.control_values` src patch for one source Undo step; Save stays explicit.
 Sprite precedence and manual literal references remain unchanged. There are41
 source operations; no new mutation owner, serialized identity or resource format.
+
+
+## Source font declarations
+
+Four source operations extend the shared source owner (45total):
+
+- `ui.source.font_reference` / `forge_ui_source_font_reference`: assets.read plus
+  current source guards, font `asset` and optional `face_index`(0default,0..31).
+  Returns asset/source/face_index/selected_face/details from current bytes. Font
+  source is project relative, face availability re-admitted; names are metadata,
+  not authored aliases or native loaded state. No native/GPU initialization.
+- `ui.source.font_face_read`: assets.read/current guards/RCSS/rule; returns
+  `{rule,values}` for raw literal font-family/src/-rmlui-face-index. No mutation.
+- `ui.source.font_face`: assets.write/current guards/RCSS, asset, family and optional
+  face_index/rule. Omit rule to append. Plain aliases are1..64ASCII letters/digits/
+  underscore/hyphen, first letter/underscore. Current file/index are validated;
+  source ranges/value patches preserve unrelated declarations, comments, supported
+  unchanged quoted literals/index spelling and omitted native index0 defaults.
+  One Undo; edited/created rule retained; Save/registration/assignment separate.
+- `ui.source.font_face_remove`: assets.write/current guards/RCSS/rule; removes the
+  literal top-level declaration in one Undo, with explicit Save. Other at-rules
+  retain their existing Source-only behavior. Styles using its alias may fall back.
+
+The operation factory excludes writers without the existing asset-write grant,
+matching other source operations. Both read-only queries stay discoverable.
+Native and MCP mutations share the same methods rather than a separate font or
+source registry. Collection/variable/color/shaping and byte/resource limits retain
+the existing profile owners. No font cache, runtime profile, persisted identity or
+SDK change is introduced.

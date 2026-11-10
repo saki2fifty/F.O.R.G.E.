@@ -45,6 +45,19 @@ int main(int argc, char** argv) {
         check(document.type == "ui_document" && font.type == "ui_font" &&
                   register_ui_source(writer, "Assets/font.ttf").id == font.id,
               "UI source identity/type");
+        const auto font_catalog = AssetCatalog::open_project(root);
+        const auto font_index = asset_storage::read(root / "forge.assets.json");
+        const auto font_reference = ui_font_reference(font_catalog, font.id, 0);
+        check(font_reference.at("source") == "Assets/font.ttf" &&
+                  font_reference.at("face_index") == 0 &&
+                  font_reference.at("selected_face").at("index") == 0 &&
+                  !font_reference.contains("alias"),
+              "Font reference lost its project-relative source/face or invented an alias");
+        rejects([&] { ui_font_reference(font_catalog, font.id, 32); });
+        rejects([&] { ui_font_reference(font_catalog, document.id, 0); });
+        rejects([&] { ui_font_reference(font_catalog, AssetId::generate(), 0); });
+        check(asset_storage::read(root / "forge.assets.json") == font_index,
+              "Font reference query changed registration");
         UiResources admitted(root);
         admitted.document({document.id});
         admitted.read("Assets/hud.rcss");
@@ -225,6 +238,7 @@ int main(int argc, char** argv) {
         rejects([&] { refresh_ui_asset_catalog(writer, snapshot); });
         asset_storage::replace(root / "Assets/font.ttf", "bad font");
         rejects([&] { register_ui_source(writer, "Assets/font.ttf"); });
+        rejects([&] { ui_font_reference(font_catalog, font.id, 0); });
         rejects([&] { register_ui_source(writer, "../escape.rml"); });
         check(asset_storage::read(root / "forge.assets.json") == index,
               "Rejected UI source changed prior catalog");

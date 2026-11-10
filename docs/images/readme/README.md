@@ -3565,3 +3565,20 @@ Capture source is development based one9ca6d4 with image-reference authoring.
 - manual/images/ui-source-image-resource.png: `927c762946d8d3359b907f2d02814c3e5c3cf541a3163f01013167e3339311f0`.
 - manual/images/ui-source-image-properties.png: `8da3a6cfbc978f9d25dea3678f957b24dff67852414d0ca76d84a19b3eb950cb`.
 - manual/images/ui-source-image-tint.png: `3cc7e5ad38696d39cc18271fd9b8ca4351f125329bbb210793145f96f76b3fd1`.
+
+
+## Guided font declaration captures
+
+The font-face figure is an unretouched700x950 SourceEditor component capture
+after actual selection of a registered project font and explicit alias/face,
+before Apply. The existing metadata table shows the actual last-read file
+family/style/weight. Native source controls/history/Save pass at1180/700/400.
+The complete SourceEditor regression refreshes affected existing figures; only
+files written during its current execution are candidates for promotion. Other
+canonical images retain their prior exact attribution. Source is development
+based on34e3b4a with guided font declarations. No full Main/Windows/physical or
+GPU font-pixel acceptance is implied. Separate source-hidden project proof checks
+the authored collection alias, input assignment and actual native font handle.
+
+- manual/images/ui-source-font-face.png: `c54ec78b1144f7aa9e75b7a68922656cdb2314bbd49e3cf9e556e4c683cf7caf`.
+- manual/images/ui-source-rules.png: `c90358515b1fed036002b6d6c121fdb1694ddb4f3ba006a913dc828d0069b7b0`.

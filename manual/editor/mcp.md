@@ -79,6 +79,19 @@ style/profile tools also expose `image-color` tint.
 
 Use `forge_ui_source_image_reference` with the current source guards and a registered project image UUID to obtain its document-relative `reference`, `source` and decoded image `details`. This read-only query accepts standalone PNG, JPEG and TGA sources. Apply the returned reference through `forge_ui_source_control_values` with `values: {"src": reference}`, then Save source. A nonempty sprite continues to take precedence. Missing, ambiguous, unsupported and embedded resources are rejected.
 
+For project fonts, `forge_ui_source_font_reference` reads current file metadata and
+an available zero-based face index using the current source guards and font UUID.
+Its source path is project relative; recorded family names are not authored aliases
+or evidence that a font is loaded. In an RCSS draft, use
+`forge_ui_source_font_face` with `asset`, `family` and optional `face_index` to
+append a declaration, or add `rule` to update one. Use
+`forge_ui_source_font_face_read` to inspect its three literal source properties,
+and `forge_ui_source_font_face_remove` to remove it. Write operations need
+`assets.write`, preserve the existing source owner/history and still require Save.
+Read-only connections can discover the two queries, and cannot invoke the writers.
+See [Declare a project font](ui-source.md) for alias limits,
+linking, assignment and refreshing the document.
+
 `forge_ui_source_style_profile` reads the current source controls' literal helper
 metadata for one CSS property: presets, numeric units/ranges and the Common menu.
 Use the existing style, group-style and rule-property tools to apply its chosen

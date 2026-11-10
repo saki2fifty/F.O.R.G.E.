@@ -1,5 +1,14 @@
 # 2026-11-10
 
+## Project font declaration authoring
+
+RCSS Rules adds font declaration creation, editing and removal through registered
+project fonts and collection faces, with explicit family aliases, current-byte
+admission, staged controls and one source Undo/Save. The existing face-details
+table is shared with Source. Four matching guarded MCP operations include two
+read-only queries and asset-write-gated mutations. Saved/source-hidden project
+checks exercise an authored collection alias and its input-field assignment.
+
 ## UI image resource selection
 
 UI source image properties reuse the Content asset picker and drop payload to

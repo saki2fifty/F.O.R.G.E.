@@ -9,10 +9,12 @@
 #include "editor_state.hpp"
 #include "property_drawer.hpp"
 #include "source_text_widget.hpp"
+#include "ui_font_details.hpp"
 #include "widgets.hpp"
 #include <RmlUi/Core/StringUtilities.h>
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <map>
@@ -147,6 +149,132 @@ class UiSourceEditor {
                            "Apply properties to write its document-relative reference.");
     }
 
+    bool new_font_face_ = false;
+    std::string font_controls_key_, font_controls_error_;
+    char font_family_[65]{};
+    Json font_asset_ = nullptr, font_face_details_;
+    int font_face_index_ = 0;
+
+    void font_face_controls(std::optional<std::size_t> rule, bool locked) {
+        const auto key = session_ + ":" + std::to_string(revision_) + ":" +
+                         (rule ? std::to_string(*rule) : "new");
+        const auto catalog = resource_catalog ? resource_catalog() : nullptr;
+        if (!catalog || ProjectPaths(catalog->project_root()).root() != root_) {
+            ImGui::TextWrapped("Refresh Content to choose a registered project font.");
+            return;
+        }
+        const auto load_face = [&] {
+            font_face_details_ =
+                ui_font_reference(*catalog, font_asset_.get<AssetId>(), 0).at("details");
+        };
+        if (font_controls_key_ != key) {
+            font_controls_key_ = key;
+            font_controls_error_.clear();
+            font_family_[0] = '\0';
+            font_asset_ = nullptr;
+            font_face_details_ = nullptr;
+            font_face_index_ = 0;
+            if (rule) {
+                try {
+                    const auto values = read_ui_stylesheet_font_face(editor_.GetText(), *rule);
+                    if (const auto family = values.find("font-family"); family != values.end()) {
+                        auto text = family->second;
+                        if (text.size() >= 2 && (text.front() == '\'' || text.front() == '"') &&
+                            text.back() == text.front() && text.find('\\') == text.npos)
+                            text = text.substr(1, text.size() - 2);
+                        if (text.size() >= sizeof(font_family_))
+                            throw std::runtime_error(
+                                "This family alias exceeds this control; use Source.");
+                        std::snprintf(font_family_, sizeof(font_family_), "%s", text.c_str());
+                    }
+                    if (const auto face = values.find("-rmlui-face-index"); face != values.end()) {
+                        const auto parsed = std::from_chars(
+                            face->second.data(), face->second.data() + face->second.size(),
+                            font_face_index_);
+                        if (parsed.ec != std::errc{} ||
+                            parsed.ptr != face->second.data() + face->second.size())
+                            throw std::runtime_error(
+                                "This face index uses a custom source form; choose a replacement.");
+                    }
+                    if (const auto source = values.find("src"); source != values.end())
+                        for (const auto& [id, record] : catalog->records()) {
+                            const auto path = path_utf8(record.source);
+                            if (record.type == "ui_font" && !record.subasset &&
+                                (source->second == "\"" + path + "\"" ||
+                                 source->second == "'" + path + "'" || source->second == path)) {
+                                font_asset_ = id;
+                                load_face();
+                                break;
+                            }
+                        }
+                } catch (const std::exception& error) {
+                    font_controls_error_ = error.what();
+                }
+            }
+        }
+        ImGui::PushID(key.c_str());
+        ImGui::TextUnformatted(rule ? "Font face" : "New font face");
+        ImGui::TextWrapped("Stage an explicit family alias, project font and zero-based face. "
+                           "Apply font face creates one source Undo step; Save source is separate. "
+                           "Other declarations and comments stay unchanged.");
+        ImGui::BeginDisabled(locked);
+        ImGui::InputText("Family alias", font_family_, sizeof(font_family_));
+        FORGE_UI_PROBE("ui-source:font-family");
+        ImGui::TextWrapped("Use up to64 letters/digits/_/-, starting with a letter or _. "
+                           "The alias is independent of the font file's recorded family.");
+        if (asset_ref_picker(*catalog, font_asset_, "ui_font", "Font source", false)) {
+            font_controls_error_.clear();
+            font_face_details_ = nullptr;
+            font_face_index_ = 0;
+            if (!font_asset_.is_null())
+                try {
+                    load_face();
+                } catch (const std::exception& error) {
+                    font_controls_error_ = error.what();
+                }
+        }
+        ImGui::InputInt("Face index", &font_face_index_);
+        FORGE_UI_PROBE("ui-source:font-face-index");
+        if (font_face_details_.is_object()) {
+            ImGui::TextWrapped("Last read: %u face(s). Apply checks the current file.",
+                               font_face_details_.at("faces").get<unsigned>());
+            draw_ui_font_details(font_face_details_);
+        }
+        if (!font_controls_error_.empty())
+            ImGui::TextWrapped("%s", font_controls_error_.c_str());
+        ImGui::BeginDisabled(font_asset_.is_null() || !font_family_[0]);
+        const bool apply =
+            button("Apply font face",
+                   "Re-admit the current font file, then publish one source replacement.");
+        FORGE_UI_PROBE("ui-source:font-apply");
+        ImGui::EndDisabled();
+        const bool discard =
+            button("Discard staged font", "Restore source values without adding Undo history.");
+        FORGE_UI_PROBE("ui-source:font-discard");
+        const bool remove =
+            rule &&
+            button(
+                "Remove font face",
+                "Remove this declaration in one Undo step. Styles using its alias may fall back.");
+        FORGE_UI_PROBE("ui-source:font-remove");
+        if (new_font_face_ &&
+            button("Cancel font face", "Close this staged declaration without changing source."))
+            new_font_face_ = false;
+        ImGui::EndDisabled();
+        ImGui::PopID();
+        if (discard)
+            font_controls_key_.clear();
+        if (apply)
+            attempt([&] {
+                if (font_face_index_ < 0)
+                    throw AuthoringError("font_face", "Choose an available zero-based face index");
+                font_face(rule, font_asset_.get<AssetId>(), unsigned(font_face_index_),
+                          font_family_);
+            });
+        else if (remove)
+            attempt([&] { remove_font_face(*rule); });
+    }
+
     UiSourcePreviewFrame preview_frame_;
     int preview_width_ = 1000, preview_height_ = 700;
     float preview_density_ = 1;
@@ -187,6 +315,7 @@ class UiSourceEditor {
     }
 
     void changed() {
+        new_font_face_ = false;
         cancel_gesture();
         cancel_preview_edit();
         outline_drag_active_ = false;
@@ -225,6 +354,9 @@ class UiSourceEditor {
         cancel_preview_edit();
         outline_drag_active_ = elements_active_ = false;
         ++drag_epoch_;
+        new_font_face_ = false;
+        font_controls_key_.clear();
+        font_asset_ = font_face_details_ = nullptr;
         preview_frame_ = {};
         if (close_preview)
             close_preview();
@@ -623,6 +755,7 @@ class UiSourceEditor {
         if (index >= rules_.size())
             throw AuthoringError("source_rule", "Choose a current stylesheet rule");
         selected_rule_ = index;
+        new_font_face_ = false;
         const auto text = editor_.GetText();
         const auto range = rules_[index].selector;
         const auto selector = text.substr(range.begin, range.end - range.begin);
@@ -654,10 +787,37 @@ class UiSourceEditor {
         ImGui::BeginDisabled(locked);
         ImGui::InputText("Selector", rule_selector_, sizeof(rule_selector_));
         FORGE_UI_PROBE("ui-source:rule-selector");
-        if (button("Add rule", "Append an empty flat rule. Preserve existing order and source."))
-            attempt([&] { add_rule(rule_selector_); });
+        const bool add =
+            button("Add rule", "Append an empty flat rule. Preserve existing order and source.");
         FORGE_UI_PROBE("ui-source:rule-add");
         ImGui::EndDisabled();
+        if (add) {
+            attempt([&] { add_rule(rule_selector_); });
+            return;
+        }
+        ImGui::BeginDisabled(locked);
+        const bool new_font =
+            button("New font face...",
+                   "Declare a registered project font using an explicit family alias.");
+        FORGE_UI_PROBE("ui-source:font-new");
+        ImGui::EndDisabled();
+        if (new_font) {
+            new_font_face_ = true;
+            font_controls_key_.clear();
+        }
+        if (new_font_face_) {
+            font_face_controls({}, locked);
+            return;
+        }
+        if (selected_rule_ < rules_.size()) {
+            const auto range = rules_[selected_rule_].selector;
+            const auto selector = snapshot.substr(range.begin, range.end - range.begin);
+            if (selector.find("@font-face") == 0 &&
+                selector.find_first_not_of(" \t\r\n", 10) == selector.npos) {
+                font_face_controls(selected_rule_, locked);
+                return;
+            }
+        }
         if (selected_rule_ >= rules_.size()) {
             ImGui::TextWrapped("Select a flat rule to edit its declarations, or add a selector.");
             return;
@@ -2236,6 +2396,29 @@ class UiSourceEditor {
         replace_text(set_ui_stylesheet_selector(editor_.GetText(), index, selector));
         if (revision_ != before)
             select_rule(index);
+    }
+    std::map<std::string, std::string> font_face_properties(std::size_t rule) const {
+        if (locator_.extension() != ".rcss")
+            throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        return read_ui_stylesheet_font_face(editor_.GetText(), rule);
+    }
+    void remove_font_face(std::size_t rule) {
+        if (locator_.extension() != ".rcss")
+            throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        replace_text(remove_ui_stylesheet_font_face(editor_.GetText(), rule));
+    }
+    void font_face(std::optional<std::size_t> rule, AssetId font, unsigned face_index,
+                   std::string_view family) {
+        if (locator_.extension() != ".rcss")
+            throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        const auto reference =
+            ui_font_reference(AssetCatalog::open_project(root_), font, face_index);
+        const auto before = revision_;
+        replace_text(set_ui_stylesheet_font_face(editor_.GetText(), rule, family,
+                                                 reference.at("source").get<std::string>(),
+                                                 face_index));
+        if (revision_ != before)
+            select_rule(rule.value_or(rules_.size() - 1));
     }
     void add_rule(std::string_view selector) {
         if (locator_.extension() != ".rcss")
