@@ -365,20 +365,31 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             // Unrepresentable native text stays unavailable, never truncated.
         }
     }
-    UiFormControl current_form(const Doc& doc, const std::string& element) const {
+    template <class Read, class ElementOf>
+    auto current_control(const Doc& doc, const std::string& element, Read read,
+                         ElementOf element_of, const char* choose) const {
         if (!ui_control_id(element))
             throw std::runtime_error("Use a nonempty native UI element ID up to 256 UTF-8 bytes");
-        const auto scan = scan_ui_form_controls(*doc.document);
+        const auto scan = read(*doc.document);
         if (scan.truncated)
             throw std::runtime_error(
-                "Native form access requires at most 4096 nodes and 64 controls");
+                "Native control access requires at most 4096 nodes and 64 controls");
         const auto count = scan.ids.find(element);
         if (count == scan.ids.end() || count->second != 1)
             throw std::runtime_error("Choose a unique current native UI element ID");
         for (const auto& control : scan.fields)
-            if (ui_form_control_element(control)->GetId() == element)
+            if (element_of(control)->GetId() == element)
                 return control;
-        throw std::runtime_error("Choose a native checkbox, radio, dropdown or progress control");
+        throw std::runtime_error(choose);
+    }
+    UiFormControl current_form(const Doc& doc, const std::string& element) const {
+        return current_control(doc, element, scan_ui_form_controls, ui_form_control_element,
+                               "Choose a native checkbox, radio, dropdown or progress control");
+    }
+    Rml::Element* current_button(const Doc& doc, const std::string& element) const {
+        return current_control(
+            doc, element, scan_ui_buttons, [](Rml::Element* button) { return button; },
+            "Choose a native button or input type=button control");
     }
     std::pair<AssetId, std::optional<UiSurfaceHit>> field_route(const Doc& doc) {
         if (!held_keys.empty() || !held_buttons.empty())
@@ -1719,6 +1730,85 @@ bool UiPresenter::wants_text() const {
         return false;
     auto* element = context->GetFocusElement();
     return element && (element->GetTagName() == "input" || element->GetTagName() == "textarea");
+}
+Json UiPresenter::buttons(const std::string& instance) const {
+    auto& s = *impl_;
+    s.check();
+    const auto& doc = s.field_document(instance);
+    const auto scan = scan_ui_buttons(*doc.document);
+    auto result = s.control_observation(doc);
+    result["visited_nodes"] = scan.visited;
+    result["truncated"] = scan.truncated;
+    result["limits"] = {{"nodes", ui_control_nodes},
+                        {"buttons", ui_control_count},
+                        {"text_bytes", ui_protocol::max_string},
+                        {"text_nodes", ui_form_option_text_nodes},
+                        {"element_id_bytes", 256}};
+    result["buttons"] = Json::array();
+    for (auto* button : scan.fields) {
+        const auto& id = button->GetId();
+        const auto at = scan.ids.find(id);
+        const bool addressable = !scan.truncated && at != scan.ids.end() && at->second == 1;
+        auto* input = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(button);
+        Json row{{"id", ui_control_id(id) ? Json(id) : Json()},
+                 {"kind", ui_button_kind(button)},
+                 {"addressable", addressable},
+                 {"visible", doc.document->IsVisible() && button->IsVisible(true)},
+                 {"enabled", input ? Json(!input->IsDisabled()) : Json()},
+                 {"disabled_attribute", button->HasAttribute("disabled")},
+                 {"focusable", ui_button_focusable(button)},
+                 {"pressable", addressable && ui_button_pressable(button)},
+                 {"focused", doc.context == s.input_context(s.focus_output) &&
+                                 doc.context->GetFocusElement() == button},
+                 {"text_available", false},
+                 {"value_available", false}};
+        if (input)
+            s.control_value(row, input->GetValue());
+        else if (const auto text = ui_form_option_text(*button, ui_protocol::max_string)) {
+            row["text"] = *text;
+            row["text_available"] = true;
+        }
+        result["buttons"].push_back(std::move(row));
+    }
+    return result;
+}
+Json UiPresenter::press_button(const std::string& instance, const std::string& element,
+                               std::uint64_t revision) {
+    auto& s = *impl_;
+    s.check();
+    if (revision != s.presentation_revision)
+        throw std::runtime_error("UI presentation changed; read its buttons again");
+    const auto& doc = s.field_document(instance);
+    auto* button = s.current_button(doc, element);
+    if (!ui_button_pressable(button))
+        throw std::runtime_error("Choose a visible enabled focusable native button");
+    const auto [output, surface] = s.field_route(doc);
+    const auto observer = button->GetObserverPtr();
+    const auto document_observer = doc.document->GetObserverPtr();
+    auto* document = doc.document;
+    auto* context = doc.context;
+    const std::string kind(ui_button_kind(button));
+    const auto current = [&] {
+        if (!observer || !document_observer || revision != s.presentation_revision)
+            throw std::runtime_error("The native button retired or its presentation changed");
+        const auto& now = s.field_document(instance);
+        auto* found = s.current_button(now, element);
+        if (now.document != document || now.context != context || found != observer.get() ||
+            observer->GetOwnerDocument() != document || ui_button_kind(found) != kind ||
+            !ui_button_pressable(found))
+            throw std::runtime_error("The native button changed during focus");
+    };
+    s.focus_target(output, surface);
+    current();
+    if (!observer->Focus())
+        throw std::runtime_error("The native button could not receive focus");
+    current();
+    if (context->GetFocusElement() != observer.get())
+        throw std::runtime_error("The native button did not retain focus");
+    observer->Click();
+    auto result = buttons(instance);
+    result["delivered"] = true;
+    return result;
 }
 Json UiPresenter::form_controls(const std::string& instance) const {
     auto& s = *impl_;

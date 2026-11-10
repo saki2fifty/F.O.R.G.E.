@@ -1,5 +1,19 @@
 # 2026-11-10
 
+## Native button creation and activation
+
+Elements and source MCP share an additional Input button kind with a literal
+value caption and native disabled state. The existing Button kind remains.
+Independent bounded native button observations and semantic press use the
+existing presenter/input/focus/Play owners; fresh presses can activate again and
+receipt replay never activates twice. Read state distinguishes generic focus
+facts from native input enabled state and excludes nested field/password values.
+Non-text type matching follows the case-sensitive native pin. Native, source-
+hidden command/ACK, normal/SDK MCP tick/replay and source-editor creation/history
+checks cover the workflow. The manual includes an authentic Input button staging
+capture. Gallery identities/bytes, SDK, pins, formats and runtime profiles remain
+unchanged; full Main/Windows/physical review remains queued.
+
 ## Native form observations and actions
 
 Editor Play exposes native checkbox/radio/dropdown state and read-only progress

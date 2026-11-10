@@ -43,6 +43,8 @@ struct PlayAutomationProviders {
     std::function<Json(const std::string&, const std::string&, std::uint64_t, const std::string&,
                        bool, std::size_t, const std::string&)>
         ui_control_action;
+    std::function<Json(const std::string&)> ui_buttons;
+    std::function<Json(const std::string&, const std::string&, std::uint64_t)> ui_press;
 };
 struct PlayAutomation {
     static Json state(const PlaySession& play) {
@@ -201,6 +203,22 @@ struct PlayAutomation {
                                                 request.value("offset", std::size_t{}),
                                                 request.value("limit", std::size_t(16)))
                                       : Json{};
+                return result;
+            }));
+        methods.push_back(automation_method(
+            "play.ui.buttons",
+            "Read current native literal buttons and input type=button in one UI instance. "
+            "Independent 64-button/4096-node scan preserves text/form counters. Reports scope, "
+            "unique IDs, visibility, focus and pressable facts. Generic buttons have enabled:null; "
+            "input buttons expose native disabled state. Generic captions/native input values "
+            "are bounded to 1024 UTF-8 bytes; nested form/password values are not read. No focus, "
+            "callback, source or Scene mutation; null without a ready presenter.",
+            "play.read", automation_object({{"instance", automation_text(256, 1)}}, {"instance"}),
+            false, [&files, &play, buttons = providers.ui_buttons](const Json& request) {
+                files.document.check_ownership();
+                auto result = state(play);
+                result["value"] =
+                    play.ready() && buttons ? buttons(request.at("instance")) : Json{};
                 return result;
             }));
         for (const auto* kind : {"schema", "diagnostics", "physics", "input", "ui", "audio",
@@ -1013,6 +1031,33 @@ struct PlayAutomation {
                 },
                 true));
         }
+        methods.push_back(automation_method(
+            "play.ui.press",
+            "Activate one exact native button through current Play scope and "
+            "instance/unique element/presentation revision. Native focus and Click own events; "
+            "validate kind, visibility, enabled/focus eligibility and identity again after focus "
+            "callbacks. Held UI input rejects and camera outputs require a current surface hit. "
+            "Returns delivered:true when Click was invoked and fresh button observations, not "
+            "a gameplay acknowledgement. Each fresh request can activate; receipt replay never "
+            "clicks twice. Generic button enabled is unavailable; focus:none blocks activation. "
+            "Input type=button supports native disabled. No arbitrary DOM/script, submit/reset, "
+            "password access or source/Scene/history writes; native callback lifetime rules apply.",
+            "play.execute", automation_object(field_properties, field_required), true,
+            [&files, &play, providers](const Json& request) {
+                current(play, files, providers, request);
+                if (!play.ready())
+                    throw AuthoringError("not_ready", "Wait for the current Play world");
+                if (!providers.ui_buttons || !providers.ui_press)
+                    throw AuthoringError("ui_unavailable", "Native button input is unavailable");
+                const auto shown = providers.ui_buttons(request.at("instance"));
+                if (!shown.is_object() || shown.at("session") != play.session() ||
+                    shown.at("generation") != play.world_generation() ||
+                    shown.at("presentation_revision") != request.at("presentation_revision"))
+                    throw AuthoringError("stale_ui", "Read the current native buttons first");
+                return providers.ui_press(request.at("instance"), request.at("element"),
+                                          request.at("presentation_revision"));
+            },
+            true));
     }
     static void append_tuning_controls(std::vector<LiveAuthoringMethod>& methods, Scene& scene,
                                        EditorFiles& files, PlaySession& play,

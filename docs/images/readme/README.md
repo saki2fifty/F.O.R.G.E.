@@ -3129,3 +3129,18 @@ physical-device/display-density acceptance remain separate.
 
 - `ui-form-controls.png`: `0e1ea0215b78d5ab7d47d2c03bdf229ca4b50497aed388ba5fa00fef8afc45d3`.
 - `ui-form-options.png`: `761ab2c342689a71a2a030591ec6df0e8b70167c25b2addd63338a3b0fb77fe5`.
+
+## Native Input button creation
+
+`ui-source-input-button.png` is an exact700×950 production UiSourceEditor/
+DocumentWorkspace capture after choosing Input button and entering a literal
+caption through actual native controls. Reproduce through
+`forge_ui_source_editor_tests <output>` or the `ui_source_editor` CTest case.
+The fixture checks staged text/kind, selected new input root, one Undo/Redo and
+explicit Save. The native-button-access checkpoint retains30raw PNGs at
+1180/700/400pixels, source/font/executable hashes and the native receipt.
+Nine prior canonical images reproduce exact bytes and remain unchanged. The
+SDL software component capture is unretouched; full Main, Windows, physical
+input/GPU and display-density acceptance remain separate.
+
+- `ui-source-input-button.png`: `aff3cb3d427ec2b05e76692f2531a482b5656851566b1b7e82700bbffec1a35b`.

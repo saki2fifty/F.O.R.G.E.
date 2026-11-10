@@ -88,7 +88,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Create UI controls, edit classes/colors/numeric styles, reuse stylesheet rules, drag controls and align groups](editor/ui-source.md)
 - [Shape game UI text: ligatures, script runs, collections, weights and layered color glyphs](editor/ui-text-shaping.md)
 - [Edit and select whole UI characters: arrows, words, lines/pages, deletion, agent testing and native input limits](editor/ui-text-input.md)
-- [Form controls: checkboxes, radio groups, dropdowns, progress and agent testing](editor/ui-form-controls.md)
+- [Form controls: buttons, checkboxes, radio groups, dropdowns, progress and agent testing](editor/ui-form-controls.md)
 - [Translate a game's menus and HUD](editor/ui-localization.md)
 - [Flecs Script](editor/flecs-script.md)
 

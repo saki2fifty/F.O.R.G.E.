@@ -773,11 +773,12 @@ void common_controls() {
     using namespace forge;
     const std::string source = "<!-- keep --><rml><body><div><p>Tail</p></div>"
                                "<div id='outside'></div></body></rml>";
-    const std::array<std::array<const char*, 3>, 15> cases{{
+    const std::array<std::array<const char*, 3>, 16> cases{{
         {"container", "A & <B>", "<div>A &amp; &lt;B&gt;</div>"},
         {"inline-text", "A & <B>", "<span>A &amp; &lt;B&gt;</span>"},
         {"paragraph", "A & <B>", "<p>A &amp; &lt;B&gt;</p>"},
         {"button", "A & <B>", "<button>A &amp; &lt;B&gt;</button>"},
+        {"input-button", "A & <B>", "<input type=\"button\" value=\"A &amp; &lt;B&gt;\"/>"},
         {"label", "A & <B>", "<label>A &amp; &lt;B&gt;</label>"},
         {"text-input", "A & <B>", "<input type=\"text\" value=\"A &amp; &lt;B&gt;\"/>"},
         {"password-input", "A & <B>", "<input type=\"password\" value=\"A &amp; &lt;B&gt;\"/>"},

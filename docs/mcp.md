@@ -1142,13 +1142,15 @@ an exact no-op changes no source revision or history. Save stays separate.
 
 `forge_ui_source_control` uses the same current source guards/assets.write and
 atomic source owner as native New child. Required `parent/kind`, optional `text`
-(8192bytes) and optional direct-child `before` create one of the advertised16kinds.
+(8192bytes) and optional direct-child `before` create one of the 17 advertised kinds.
 The kind enum comes from the native metadata. Existing insert/attribute/text
 candidate helpers own source creation and escaping; the complete composed result
 publishes one Undo and selects its new root. Inputs use initial text as value;
 nonempty dropdowns create one selected option with matching label/value. Image,
 break and progress accept no text; progress starts at0. Options require a select
 parent, selects accept option controls, and textarea/option/progress parents reject.
+The additional input-button kind creates input type=button, with a literal value
+caption and native disabled state; the existing generic button kind remains.
 No automatic IDs/label targets, registration, execution or Save. Generic insert
 remains supported. In Play, use the native field tools for text/password/textarea
 and the native form tools below for checkbox/radio/dropdown state and actions.
@@ -2550,6 +2552,38 @@ Missing, hidden, disabled or inappropriate native targets
 fail without activation. Receipt replay returns the original action result.
 State is transient in the running UI; no Source/Scene/Undo writer is added, and
 these tools do not attach to exported game processes.
+
+## Native UI button tools
+
+`forge_play_ui_buttons` requires `play.read` and one document `instance`. It reads
+literal button elements and input type=button through the same presenter/control
+owner, with an independent 64-button counter over at most 4,096 native nodes.
+Text/form counters retain their existing contracts. The usual native scope,
+ID/ambiguity and truncation facts accompany `buttons`. Generic button `enabled`
+is null, with cached native `focusable`, `visible`, `disabled_attribute` and
+`pressable` facts. Input buttons expose native enabled state and `value`; generic
+buttons expose bounded raw `text`. String admission is 1,024 UTF-8 bytes; caption
+traversal uses the existing 256-node budget and refuses nested form values. No
+password plaintext, DOM serialization, focus/callback or native update occurs.
+Absent presenters return null under `value`.
+
+`forge_play_ui_press` requires `play.execute`, the current ordinary mutation
+scope/envelope and Play launch/session/generation, instance, unique element and
+observed presentation_revision. The provider and presenter recheck scope,
+visibility, native enabled/focus eligibility, kind and identity after focus.
+Held native input and output-surface routing retain the existing owner. Native
+Click dispatches once. Fresh requests may fire again; receipt replay returns the
+original observations without another activation. `delivered:true` means dispatch
+was invoked, even when a native listener cancels propagation; no command/gameplay
+acknowledgement is implied. There is no persistent desired button value or
+synthetic changed flag. Returned button observations are fresh.
+
+Generic button disabled attributes do not create native disabled state. Use its
+focus:none style, or input type=button with disabled. Submit/reset, arbitrary DOM
+activation/scripts and source/Scene/history writes are outside this operation.
+Native callback ownership limits remain in effect. Current/stale/permission/error
+handling shares the existing Play and native control owners. The same methods
+serve normal and SDK Play; exported game processes have no MCP attachment here.
 
 Use the existing reviewed `forge_asset_import_prepare`/`commit` workflow to copy
 TTF/OTF/TTC/OTC files from the project or explicitly granted import root. A review

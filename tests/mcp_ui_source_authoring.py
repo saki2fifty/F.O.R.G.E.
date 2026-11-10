@@ -34,7 +34,7 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
 
     paragraph = index('p')
     kinds = advertised['forge_ui_source_control']['inputSchema']['properties']['kind']['enum']
-    assert len(kinds) == len(set(kinds)) == 16 and {'textarea', 'label', 'checkbox', 'radio', 'select', 'option', 'progress'} <= set(kinds)
+    assert len(kinds) == len(set(kinds)) == 17 and {'textarea', 'label', 'checkbox', 'radio', 'select', 'option', 'progress', 'input-button'} <= set(kinds)
     creation_guard = guard()
     creation_args = arguments(**creation_guard, parent=index('body'), kind='select', text='Choice & <one>')
     once = client.tool('forge_ui_source_control', **creation_args)

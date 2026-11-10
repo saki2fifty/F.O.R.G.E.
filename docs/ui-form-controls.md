@@ -52,3 +52,35 @@ Focus callbacks also have a native retained-pointer limit. Defer focused-element
 removal; deliberate early detach requires the native caller to retain the owner,
 restore attached native focus after dispatch and release the owner afterwards.
 See [focus callback removal](dependency-known-issues.md#native-ui-focus-callback-removal).
+
+## Native button access
+
+Literal button elements use the native generic Element instancer; input
+type=button uses ElementFormControlInput and its native disabled/value authority.
+The shared source kind table adds input-button through the existing atomic
+insert/attribute candidate owner, without replacing the generic button kind.
+The same kind enum reaches native Elements and source MCP creation.
+
+ui_control_access classifies buttons and reuses its walker with an independent
+64-button scan including native non-DOM nodes. Existing text/form counters are
+unchanged. UiPresenter::buttons reports native scope/ID/visibility/focus/pressable
+facts, nullable enabled for generic buttons, admitted native input values and
+bounded generic text through the existing raw text helper. Nested form values
+are refused. This read never dispatches, focuses, updates or writes.
+
+press_button reuses document/ID lookup, held-input/output routing and weak native
+observers. Identity/kind/eligibility are checked after blur and focus before one
+native Click. Buttons have no desired-state no-op: each fresh request can dispatch,
+while existing Play mutation receipts provide exactly-once replay. Delivery is not
+a gameplay acknowledgement. Native command queues, callbacks and their documented
+ownership limits remain authoritative. RuntimeUiHost/Main/MCP providers share
+these methods and the existing gameplay input release. The new buttons/press
+metadata generate MCP bindings; no second command or widget state is maintained.
+
+Non-text input classification uses the native case-sensitive lowercase type
+values. Unsupported uppercase BUTTON/CHECKBOX/RADIO inputs use the native text
+fallback and cannot authorize button/form actions. Focused tests verify native
+text classes and rejection. The existing conservative password field redaction
+remains unchanged. Semantic press delegates Click without moving the pointer or
+inventing mouse coordinates; source/Scene state and native command queues retain
+their existing owners.

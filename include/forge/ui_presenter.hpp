@@ -101,6 +101,9 @@ class UiPresenter {
                                        const std::string& action, bool checked = false,
                                        std::size_t option = 0,
                                        const std::string& option_state = {});
+    nlohmann::json buttons(const std::string& instance) const;
+    nlohmann::json press_button(const std::string& instance, const std::string& element,
+                                std::uint64_t presentation_revision);
     // Semantic action routed by RuntimeInput; delegates to native RmlUi focus.
     void navigate(const std::string& direction);
     void release_input();

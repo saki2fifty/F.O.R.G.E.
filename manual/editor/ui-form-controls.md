@@ -1,6 +1,6 @@
 # Form controls
 
-Use checkboxes for independent choices, radio buttons for one choice in a group,
+Use buttons for actions, checkboxes for independent choices, radio buttons for one choice in a group,
 dropdowns for a list of options, and progress for a read-only numeric display.
 These are native controls in the running game HUD. The source editor creates and
 styles them; use Play to interact with them.
@@ -46,6 +46,30 @@ Appearance is authored: controls do not acquire an editor theme automatically.
 For progress, `value="0.35" max="1"` displays 35%. Change the source or connect
 appropriate gameplay bindings to drive a display from your game.
 
+## Create an action button
+
+1. Open the Gallery's `Scenes/210-ui-source-authoring.scene.json`.
+2. In Content, open `Assets/UI/SourceAuthoring/hud.rml` with **Edit UI source**.
+3. In **Elements**, select the `panel` container. Choose **New child → Input button**, enter `Step` under **Initial text/value**, then choose **Add child**.
+4. Give the selected new input the `id` attribute `native-step`. Add `data-event-click` with the value `command('Step')`.
+5. Choose **Save source**, press **Play**, capture Game input, then click the existing **Pause** button.
+6. Click your new **Step** button. The tick advances once for each click.
+7. Stop Play. Set the input's `disabled` attribute to `disabled`, save and restart Play. The input button is disabled. Remove the attribute to enable it again.
+
+![UI source editor with Input button selected under New child and a literal caption staged under Initial text/value](../images/ui-source-input-button.png)
+
+Choose the kind and caption before **Add child**. Creation makes one source Undo
+step and selects the new input. Initial text is a literal `value` caption; characters
+such as `<` and `&` are escaped in the source. Use the existing attribute fields to
+name the button and assign its supported command binding.
+
+The **Button** kind creates a button with child content. Use its `focus:none`
+inline style to block activation. Its `disabled` attribute has no native disabled
+state. **Input button** supports the native `disabled` attribute. Style Input
+buttons with an `input` selector or a class you assign. Neither kind automatically
+saves game settings or adds a command; the `data-event-click` binding supplies the
+action. Save source before Play and export.
+
 ## Test controls with an AI agent
 
 Connect through [MCP](mcp.md), enable **Allow C++ build and execution**, then ask
@@ -58,6 +82,14 @@ a checkbox it calls `forge_play_ui_check` with the desired checked state. To cho
 a radio it calls `forge_play_ui_choose`. For a dropdown it reads
 `forge_play_ui_options`, then uses the selected row's index and state token with
 `forge_play_ui_select`. A changed presentation or option requires a fresh read.
+
+For buttons, the agent reads `forge_play_ui_buttons`, then calls
+`forge_play_ui_press` with the current instance, unique element ID and presentation
+revision. Generic captions appear as `text`; input button captions appear as
+`value`. Generic `enabled` is unavailable; the view reports native focus and
+`pressable` eligibility. A fresh press can fire again, while receipt replay uses
+the original result without clicking twice. Native event cancellation remains in
+effect. Semantic press keeps the current pointer position. Delivery does not confirm that gameplay accepted a command.
 
 Already-satisfied actions do not focus or activate the control. Native events and
 gameplay callbacks can change the result, so the agent reads the returned state.

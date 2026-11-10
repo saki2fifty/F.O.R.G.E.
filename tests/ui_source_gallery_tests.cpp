@@ -141,14 +141,30 @@ void exercise(const std::filesystem::path& root, const Json& source,
         presenter.mouse_move(int(position.x + 5), int(position.y + 5), 0);
         presenter.mouse_button(0, true, 0);
         presenter.mouse_button(0, false, 0);
-        const auto command = presenter.pending_command();
-        check(command.has_value(), "Native example button did not enqueue a command");
-        std::string operation;
-        ui->command(scene, *command, [&](const std::string& name) { operation = name; });
-        check(operation == "Resume", "Native command did not reach the current UiRuntime");
-        auto ack = *command;
-        ack["ok"] = true;
-        presenter.acknowledge(ack);
+        const auto acknowledge = [&](const char* expected) {
+            const auto command = presenter.pending_command();
+            check(command.has_value(), "Native example button did not enqueue a command");
+            std::string operation;
+            ui->command(scene, *command, [&](const std::string& name) { operation = name; });
+            check(operation == expected, "Native command did not reach the current UiRuntime");
+            auto ack = *command;
+            ack["ok"] = true;
+            presenter.acknowledge(ack);
+            check(!presenter.pending_command(), "Native button queued more than one command");
+        };
+        acknowledge("Resume");
+        const auto instance = snapshot.at("documents")[0].at("instance").get<std::string>();
+        const auto buttons = presenter.buttons(instance);
+        check(buttons.at("buttons").size() == 4 && !buttons.at("truncated").get<bool>(),
+              "Saved/exported buttons lost native discovery");
+        auto* native = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(
+            document->GetElementById("native-press"));
+        check(native && native->GetValue() == "Step & <native>",
+              "Saved/exported Input button lost native type or literal caption");
+        presenter.press_button(instance, "native-press", presenter.presentation_revision());
+        acknowledge("Step");
+        presenter.press_button(instance, "Pause", presenter.presentation_revision());
+        acknowledge("Pause");
         snapshot = ui->snapshot(scene, "ui-source", 1, 42, false);
         check(presenter.accept(snapshot), presenter.diagnostic().c_str());
         presenter.update(.02, 800, 600);
@@ -524,6 +540,25 @@ int main(int argc, char** argv) {
         const auto source = read_json(root / (forms_only    ? forms_scene
                                               : layout_only ? layout_scene
                                                             : scene_path));
+        if (!forms_only && !layout_only) {
+            const auto saved = ProjectTextSource::read(root / document_path);
+            check(saved.has_value(), "Source example document missing");
+            auto created = insert_ui_markup_control(*saved, by_id(*saved, "panel"), "input-button",
+                                                    "Step & <native>");
+            auto text =
+                set_ui_markup_attribute(created.source, created.element, "id", "native-press");
+            text = set_ui_markup_attribute(text, created.element, "data-event-click",
+                                           "command('Step')");
+            atomic_write(root / document_path, text);
+            const auto published = register_ui_document(root, document_path);
+            for (const auto& row : source.at("entities"))
+                if (row.at("components").contains("forge.ui_document"))
+                    check(row.at("components")
+                                  .at("forge.ui_document")
+                                  .at("document")
+                                  .get<AssetId>() == published.id,
+                          "Cloned source Input button changed the existing document AssetId");
+        }
         if (forms_only)
             exercise_forms(root, source, font);
         else if (layout_only)

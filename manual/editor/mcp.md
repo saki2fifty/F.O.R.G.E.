@@ -49,6 +49,14 @@ Use `forge_play_ui_controls` for checkbox/radio state, dropdown selection and
 read-only progress. `forge_play_ui_options` pages through a named dropdown.
 The agent can set a checkbox with `forge_play_ui_check`, choose a radio with
 `forge_play_ui_choose`, or choose a dropdown option with `forge_play_ui_select`.
+
+`forge_play_ui_buttons` observes exact buttons and native input buttons;
+`forge_play_ui_press` activates one through native focus/click events. Fresh presses
+can activate again; replay returns the saved receipt. Read-only connections can
+observe buttons. Input button creation uses `forge_ui_source_control` with
+`kind:"input-button"` and its literal `text` caption, then ordinary attributes for
+ID, disabled state and command bindings. Save stays explicit.
+
 Each action requires the current Play scope and presentation revision; dropdown
 selection also uses the option's observed state token. Read-only connections
 can inspect these controls but cannot change them. See

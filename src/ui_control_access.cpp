@@ -1,5 +1,6 @@
 #include "ui_control_access.hpp"
 #include <RmlUi/Core.h>
+#include <RmlUi/Core/ComputedValues.h>
 #include <RmlUi/Core/ElementText.h>
 #include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include <RmlUi/Core/Elements/ElementFormControlSelect.h>
@@ -11,9 +12,12 @@
 
 namespace forge {
 namespace {
-bool editable_control(Rml::ElementFormControl* control) {
+bool visible_control(Rml::Element* control) {
     const auto* document = control->GetOwnerDocument();
-    return document && document->IsVisible() && control->IsVisible(true) && !control->IsDisabled();
+    return document && document->IsVisible() && control->IsVisible(true);
+}
+bool editable_control(Rml::ElementFormControl* control) {
+    return visible_control(control) && !control->IsDisabled();
 }
 } // namespace
 std::optional<UiTextField> ui_text_field(Rml::Element* element) {
@@ -81,8 +85,8 @@ UiTextFieldScan scan_ui_text_fields(Rml::ElementDocument& document) {
 }
 std::optional<UiFormControl> ui_form_control(Rml::Element* element) {
     if (auto* input = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(element)) {
-        const auto type =
-            Rml::StringUtilities::ToLower(input->GetAttribute<Rml::String>("type", "text"));
+        // Native non-text type selection is case-sensitive at the selected pin.
+        const auto type = input->GetAttribute<Rml::String>("type", "text");
         if (type == "checkbox" || type == "radio")
             return input;
     } else if (auto* select = rmlui_dynamic_cast<Rml::ElementFormControlSelect*>(element))
@@ -99,8 +103,7 @@ std::string_view ui_form_control_kind(const UiFormControl& control) {
         return "select";
     if (std::holds_alternative<Rml::ElementProgress*>(control))
         return "progress";
-    const auto type = Rml::StringUtilities::ToLower(
-        ui_form_control_element(control)->GetAttribute<Rml::String>("type", "text"));
+    const auto type = ui_form_control_element(control)->GetAttribute<Rml::String>("type", "text");
     if (type == "checkbox")
         return "checkbox";
     return type == "radio" ? "radio" : "unsupported";
@@ -121,6 +124,35 @@ UiFormControlScan scan_ui_form_controls(Rml::ElementDocument& document) {
     // Native dropdown options live below non-DOM widget children after Update.
     // Preserve the text scanner's original DOM-only scope/count policy above.
     return scan_controls<UiFormControlScan>(document, ui_form_control, true);
+}
+std::optional<Rml::Element*> ui_button(Rml::Element* element) {
+    if (!element)
+        return {};
+    if (auto* input = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(element)) {
+        const auto type = input->GetAttribute<Rml::String>("type", "text");
+        if (type == "button")
+            return element;
+    } else if (element->GetTagName() == "button" &&
+               !rmlui_dynamic_cast<Rml::ElementFormControl*>(element))
+        return element;
+    return {};
+}
+std::string_view ui_button_kind(Rml::Element* element) {
+    if (!ui_button(element))
+        return "unsupported";
+    return rmlui_dynamic_cast<Rml::ElementFormControlInput*>(element) ? "input-button" : "button";
+}
+bool ui_button_focusable(Rml::Element* element) {
+    return element && element->GetComputedValues().focus() != Rml::Style::Focus::None;
+}
+bool ui_button_pressable(Rml::Element* element) {
+    if (!ui_button(element) || !visible_control(element) || !ui_button_focusable(element))
+        return false;
+    const auto* control = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(element);
+    return !control || !control->IsDisabled();
+}
+UiButtonScan scan_ui_buttons(Rml::ElementDocument& document) {
+    return scan_controls<UiButtonScan>(document, ui_button, true);
 }
 std::optional<std::string> ui_form_option_text(Rml::Element& option, std::size_t maximum_bytes) {
     if (maximum_bytes > ui_protocol::max_string)

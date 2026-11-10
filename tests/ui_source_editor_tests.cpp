@@ -356,8 +356,9 @@ void exercise(const std::filesystem::path& output, int width) {
     check(editor.outline().size() == 3 && !editor.dirty(),
           "Native structural controls did not restore the saved draft");
     const auto control_baseline = editor.state().at("text");
-    for (const auto& [kind, markup] : std::array<std::pair<const char*, const char*>, 3>{
+    for (const auto& [kind, markup] : std::array<std::pair<const char*, const char*>, 4>{
              {{"checkbox", "<input type=\"checkbox\" value=\"Choice &amp; &lt;one&gt;\"/>"},
+              {"input-button", "<input type=\"button\" value=\"Choice &amp; &lt;one&gt;\"/>"},
               {"textarea", "<textarea>Choice &amp; &lt;one&gt;</textarea>"},
               {"select", "<select><option value=\"Choice &amp; &lt;one&gt;\" "
                          "selected=\"selected\">Choice &amp; &lt;one&gt;</option></select>"}}}) {
@@ -368,6 +369,10 @@ void exercise(const std::filesystem::path& output, int width) {
         input.type("ui-source:child-text", "Choice & <one>");
         check(editor.state() == before_creation && asset_storage::read(file) == saved,
               "Control kind/initial-value staging published source or saved the file");
+        if (std::string_view(kind) == "input-button") {
+            frame();
+            capture.save(output / ("ui-source-input-button-" + std::to_string(width) + ".png"));
+        }
         if (std::string_view(kind) == "select") {
             frame();
             capture.save(output / ("ui-source-create-control-" + std::to_string(width) + ".png"));

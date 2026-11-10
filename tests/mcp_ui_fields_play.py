@@ -7,12 +7,14 @@ from mcp_test_client import failed
 def check_ui_fields_play(root, client, read, ok, control, mutate, arguments, until, advertised, forms_only=False):
     names = {'forge_play_ui_fields', 'forge_play_ui_focus', 'forge_play_ui_text', 'forge_play_ui_key',
              'forge_play_ui_controls', 'forge_play_ui_options', 'forge_play_ui_check',
-             'forge_play_ui_choose', 'forge_play_ui_select'}
+             'forge_play_ui_choose', 'forge_play_ui_select', 'forge_play_ui_buttons', 'forge_play_ui_press'}
     assert names <= set(advertised)
     assert not advertised['forge_play_ui_fields']['annotations']['openWorldHint']
     assert advertised['forge_play_ui_text']['annotations']['openWorldHint']
     assert not advertised['forge_play_ui_controls']['annotations']['openWorldHint']
     assert not advertised['forge_play_ui_options']['annotations']['openWorldHint']
+    assert not advertised['forge_play_ui_buttons']['annotations']['openWorldHint']
+    assert advertised['forge_play_ui_press']['annotations']['openWorldHint']
     assert all(advertised[name]['annotations']['openWorldHint'] for name in
                ('forge_play_ui_check', 'forge_play_ui_choose', 'forge_play_ui_select'))
     hud = ok('forge_source_ui_example')
@@ -38,9 +40,33 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
 <input id="agent-locked" type="checkbox" disabled="disabled"/>
 <input id="agent-hidden" type="checkbox" style="visibility:hidden;"/>
 <input id="agent-ambiguous" type="checkbox"/><p id="agent-ambiguous">Other element</p>
+<button id="agent-button" data-event-click="command('Step')">Agent step</button>
+<input id="agent-button-locked" type="button" value="Locked" disabled="disabled"/>
+<button id="agent-button-hidden" style="visibility:hidden;">Hidden</button>
+<button id="agent-button-no-focus" style="focus:none;">No focus</button>
 </div></body>''')
     assert markup != saved['text']
     ok('forge_source_text_write', path=hud['path'], state=saved['state'], text=markup)
+    ok('forge_source_ui_register', path=hud['path'])
+    # The same shared source operation creates native input buttons, not raw test-only markup.
+    source_state = ok('forge_ui_source_open', path=hud['path'])
+
+    def source_edit(operation, **extra):
+        nonlocal source_state
+        guards = {key: source_state[key] for key in ('path', 'session', 'revision', 'state')}
+        source_state = ok('forge_ui_source_' + operation, **guards, **extra)
+        return source_state
+
+    kinds = advertised['forge_ui_source_control']['inputSchema']['properties']['kind']['enum']
+    assert len(kinds) == len(set(kinds)) == 17 and 'input-button' in kinds
+    parent = next(row['index'] for row in source_state['elements'] if row['tag'] == 'body')
+    created = source_edit('control', parent=parent, kind='input-button', text='Agent & <safe>')
+    selected = created['selection'][0]
+    assert '<input type="button" value="Agent &amp; &lt;safe&gt;"/>' in created['text']
+    source_edit('attribute', element=selected, name='id', value='agent-input-button')
+    source_edit('attribute', element=selected, name='data-event-click', value="command('Step')")
+    source_edit('save')
+    source_edit('close')
     ok('forge_source_ui_register', path=hud['path'])
     ok('forge_project_settings_game_defaults', state=read('forge_project_settings_read')['state'])
     ok('forge_project_settings_edit', state=read('forge_project_settings_read')['state'], patch=[
@@ -205,6 +231,40 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
         assert field(action('forge_play_ui_key', element='area', key='select_document_home'), 'area')['selection'] == dict(begin=0, end=len(multiline))
         action('forge_play_ui_key', element='area', key='document_home')
         assert field(action('forge_play_ui_key', element='area', key='select_document_end'), 'area')['selection'] == dict(begin=0, end=len(multiline))
+    def buttons():
+        return read('forge_play_ui_buttons', instance=instance)['value']
+
+    def native_button(row, element):
+        return next(item for item in row['buttons'] if item['id'] == element)
+
+    observed_buttons = buttons()
+    button_revision = observed_buttons['presentation_revision']
+    assert native_button(observed_buttons, 'agent-button')['text'] == 'Agent step'
+    assert native_button(observed_buttons, 'agent-button')['enabled'] is None
+    assert native_button(observed_buttons, 'agent-input-button')['value'] == 'Agent & <safe>'
+    assert native_button(observed_buttons, 'agent-input-button')['enabled']
+    assert not native_button(observed_buttons, 'agent-button-locked')['pressable']
+
+    def tick():
+        return read('forge_play_ui')['value']['documents'][0]['model']['tick']
+
+    before_tick = tick()
+    press_args = arguments(**scope(), instance=instance, element='agent-input-button',
+                           presentation_revision=button_revision)
+    once = client.tool('forge_play_ui_press', **press_args)
+    replay = client.tool('forge_play_ui_press', **press_args)
+    assert once['ok'] and replay['ok'] and once['result'] == replay['result'] and once['result']['delivered']
+    until(tick, lambda value: value == before_tick + 1)
+    assert tick() == before_tick + 1, 'Receipt replay clicked twice'
+    for element in ('agent-input-button', 'agent-button'):
+        current_buttons = buttons()
+        assert control('forge_play_ui_press', instance=instance, element=element,
+                       presentation_revision=current_buttons['presentation_revision'])['delivered']
+        before_tick += 1
+        until(tick, lambda value: value == before_tick + 1)
+    for element in ('agent-button-locked', 'agent-button-hidden', 'agent-button-no-focus', 'password'):
+        assert not mutate('forge_play_ui_press', **scope(), instance=instance, element=element,
+                          presentation_revision=buttons()['presentation_revision'])['ok']
     def forms():
         return read('forge_play_ui_controls', instance=instance)['value']
 
@@ -271,10 +331,13 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
                   presentation_revision=revision), 'stale_ui')
     failed(mutate('forge_play_ui_check', **scope(), instance=instance, element='agent-check',
                   presentation_revision=form_revision, checked=True), 'stale_ui')
+    failed(mutate('forge_play_ui_press', **scope(), instance=instance, element='agent-button',
+                  presentation_revision=button_revision), 'stale_ui')
     assert not form_field(forms(), 'agent-check')['checked'] and form_field(forms(), 'agent-choice')['value'] == 'easy'
     control('forge_play_stop')
     assert read('forge_play_ui_fields', instance=instance)['value'] is None
     assert read('forge_play_ui_controls', instance=instance)['value'] is None
+    assert read('forge_play_ui_buttons', instance=instance)['value'] is None
     assert read('forge_play_ui_options', instance=instance, element='agent-choice')['value'] is None
     assert read('forge_scene_read') == authored
     assert (root/'Game'/hud['path']).read_bytes() == source

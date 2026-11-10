@@ -2800,6 +2800,15 @@ int main(int argc, char** argv) {
                                             std::size_t offset, std::size_t limit) {
                 return runtime_ui.form_options(instance, element, offset, limit);
             };
+            play_providers.ui_buttons = [&](const std::string& instance) {
+                return runtime_ui.buttons(instance);
+            };
+            play_providers.ui_press = [&, prepare_ui_action](const std::string& instance,
+                                                             const std::string& element,
+                                                             std::uint64_t revision) {
+                prepare_ui_action();
+                return runtime_ui.press_button(instance, element, revision);
+            };
             play_providers.ui_control_action =
                 [&, prepare_ui_action](const std::string& instance, const std::string& element,
                                        std::uint64_t revision, const std::string& action,

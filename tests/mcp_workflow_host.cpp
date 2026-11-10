@@ -321,6 +321,15 @@ int main(int argc, char** argv) {
                 return presenter ? presenter->form_options(instance, element, offset, limit)
                                  : forge::Json{};
             };
+            controls.ui_buttons = [&](const std::string& instance) {
+                return presenter ? presenter->buttons(instance) : forge::Json{};
+            };
+            controls.ui_press = [&, prepare_ui_action](const std::string& instance,
+                                                       const std::string& element,
+                                                       std::uint64_t revision) {
+                prepare_ui_action();
+                return presenter->press_button(instance, element, revision);
+            };
             controls.ui_control_action =
                 [&, prepare_ui_action](const std::string& instance, const std::string& element,
                                        std::uint64_t revision, const std::string& action,

@@ -47,7 +47,7 @@ Use **Preview** for native rendering and the supported pixel layout controls.
 ## Create common controls
 
 1. In **Elements**, select the body or a container such as a div or form.
-2. Choose **New child**. The choices include Container, Inline text, Paragraph, Button, Label, Text input, Password input, Checkbox, Radio option, Text area, Dropdown, Dropdown option, Progress, Image, Line break and Form.
+2. Choose **New child**. The choices include Container, Inline text, Paragraph, Button, Input button, Label, Text input, Password input, Checkbox, Radio option, Text area, Dropdown, Dropdown option, Progress, Image, Line break and Form.
 3. Enter **Initial text/value** when enabled. Choose **Add child**. The new control is selected so you can assign its attributes and style.
 4. Use **Undo** or **Redo** for the whole creation. Choose **Save source** to write it to disk. **Preview** checks native appearance; use **Game** during Play to test interaction.
 
@@ -55,6 +55,12 @@ Use **Preview** for native rendering and the supported pixel layout controls.
 
 Choose a kind and initial value before Add child. A dropdown with initial text
 creates its first selected option in the same Undo step.
+
+**Input button** stores its caption in `value` and supports the native `disabled`
+attribute. **Button** has child text and uses its native focus style for activation;
+use `focus:none` to block it. See [Form controls](ui-form-controls.md) for creating
+an action button and testing it through Play or an agent.
+When editing an input type manually, use the lowercase values written by this menu.
 
 Initial text is limited to 8,192 UTF-8 bytes. Markup characters are escaped; RML
 bindings keep their existing source semantics. Creation preserves the surrounding
