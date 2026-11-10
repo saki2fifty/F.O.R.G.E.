@@ -44,6 +44,9 @@ struct PlayAutomationProviders {
     std::function<Json(const std::string&, const std::string&, std::uint64_t, const std::string&,
                        bool, std::size_t, const std::string&)>
         ui_control_action;
+    std::function<Json(const std::string&, const std::string&, std::uint64_t, const std::string&,
+                       const std::string&)>
+        ui_widget_keyboard;
     std::function<Json(const std::string&)> ui_ranges;
     std::function<Json(const std::string&, const std::string&, std::uint64_t, double)>
         ui_range_value;
@@ -1046,6 +1049,67 @@ struct PlayAutomation {
                         request.at("presentation_revision"), action,
                         request.value("checked", false), request.value("index", std::size_t{}),
                         request.value("option_state", std::string{}));
+                },
+                true));
+        }
+        Json widget_kinds = Json::array(), widget_keys = Json::array();
+        for (const auto kind : ui_field::widget_kinds)
+            widget_kinds.push_back(kind);
+        for (const auto& key : ui_field::widget_keys)
+            widget_keys.push_back(key.name);
+        for (const auto* operation : {"focus", "key"}) {
+            const bool focus = std::string_view(operation) == "focus";
+            auto values = field_properties;
+            auto keys = field_required;
+            values["kind"] = {{"type", "string"}, {"enum", widget_kinds}};
+            keys.push_back("kind");
+            if (!focus) {
+                values["key"] = {{"type", "string"}, {"enum", widget_keys}};
+                keys.push_back("key");
+            }
+            methods.push_back(automation_method(
+                std::string("play.ui.widget_") + operation,
+                focus
+                    ? "Focus a current native checkbox/radio/select/button/input-button/range. "
+                      "Use controls/buttons/ranges observations and exact observed kind, instance, "
+                      "unique ID and presentation revision. Native eligibility, routing and "
+                      "identity/configuration are rechecked after focus callbacks. No keyboard "
+                      "action or source/Scene/history writes; native lifetime rules apply. "
+                      "Text/password/textarea retain the existing field tools."
+                    : "Send one paired native key to an already exact-focused non-text widget. "
+                      "Current Play/instance/unique ID/kind/revision/input/surface guards apply. "
+                      "Native keys, cancellation, Tab order and default actions remain native: "
+                      "generic button tab-index:none does not gain Enter/Space activation. "
+                      "Fresh requests can repeat native events even for an already-selected radio; "
+                      "receipt replay delivers once. Fresh family observations include delivered "
+                      "and consumed, neither confirms value change/gameplay acceptance. "
+                      "No text/IME/script, synthetic Click or source/Scene/history writes; "
+                      "native callback lifetime rules apply.",
+                "play.execute", automation_object(values, keys), true,
+                [&files, &play, providers, focus](const Json& request) {
+                    current(play, files, providers, request);
+                    if (!play.ready())
+                        throw AuthoringError("not_ready", "Wait for the current Play world");
+                    if (!providers.ui_widget_keyboard)
+                        throw AuthoringError("ui_unavailable",
+                                             "Native widget keyboard input is unavailable");
+                    const auto kind = request.at("kind").get<std::string>();
+                    const auto read = kind == "range" ? providers.ui_ranges
+                                      : (kind == "button" || kind == "input-button")
+                                          ? providers.ui_buttons
+                                          : providers.ui_controls;
+                    if (!read)
+                        throw AuthoringError("ui_unavailable",
+                                             "Native widget observations are unavailable");
+                    const auto shown = read(request.at("instance"));
+                    if (!shown.is_object() || shown.at("session") != play.session() ||
+                        shown.at("generation") != play.world_generation() ||
+                        shown.at("presentation_revision") != request.at("presentation_revision"))
+                        throw AuthoringError("stale_ui", "Read the current native widgets first");
+                    return providers.ui_widget_keyboard(
+                        request.at("instance"), request.at("element"),
+                        request.at("presentation_revision"), kind,
+                        focus ? "focus" : request.at("key").get<std::string>());
                 },
                 true));
         }

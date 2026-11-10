@@ -58,6 +58,12 @@ even when its text stays equal. Read-only connections cannot set values. See
 [Form controls](ui-form-controls.md) for creation, numeric limits,
 saving and export.
 
+`forge_play_ui_widget_focus` and `forge_play_ui_widget_key` test ordinary native
+keyboard input on non-text controls using their observed kind and current scope.
+Read `focusable` and `tab_stop` facts, focus the exact control, then send a paired
+key. Native focus order, cancellation and default actions determine the result.
+See [Form controls](ui-form-controls.md) for supported keys and button tab stops.
+
 `forge_play_ui_buttons` observes exact buttons and native input buttons;
 `forge_play_ui_press` activates one through native focus/click events. Fresh presses
 can activate again; replay returns the saved receipt. Read-only connections can

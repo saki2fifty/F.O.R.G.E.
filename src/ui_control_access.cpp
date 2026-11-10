@@ -146,6 +146,32 @@ std::string_view ui_button_kind(Rml::Element* element) {
 bool ui_control_focusable(Rml::Element* element) {
     return element && element->GetComputedValues().focus() != Rml::Style::Focus::None;
 }
+bool ui_control_tab_stop(Rml::Element* element) {
+    return element && element->GetComputedValues().tab_index() == Rml::Style::TabIndex::Auto;
+}
+std::string_view ui_widget_kind(Rml::Element* element) {
+    if (ui_button(element))
+        return ui_button_kind(element);
+    if (ui_range(element))
+        return "range";
+    if (auto control = ui_form_control(element)) {
+        const auto kind = ui_form_control_kind(*control);
+        if (kind != "progress")
+            return kind;
+    }
+    return "unsupported";
+}
+bool ui_widget_keyboard_editable(Rml::Element* element) {
+    if (!ui_control_focusable(element))
+        return false;
+    if (ui_button(element))
+        return ui_button_pressable(element);
+    if (auto range = ui_range(element))
+        return ui_range_editable(*range);
+    if (auto control = ui_form_control(element))
+        return ui_form_control_kind(*control) != "progress" && ui_form_control_editable(*control);
+    return false;
+}
 bool ui_button_pressable(Rml::Element* element) {
     if (!ui_button(element) || !visible_control(element) || !ui_control_focusable(element))
         return false;

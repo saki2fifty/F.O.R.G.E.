@@ -107,6 +107,14 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
             }
             check(refused, "Output field automation invented a missing native surface hit");
         }
+        bool widget_refused = false;
+        try {
+            presenter.widget_keyboard_action("output", "surface", presenter.presentation_revision(),
+                                             "button", "focus");
+        } catch (const std::exception&) {
+            widget_refused = true;
+        }
+        check(widget_refused, "Output widget keyboard invented a missing native surface hit");
         bool rejected = false;
         try {
             presenter.surface_input({callbacks.pick, {}});
@@ -184,6 +192,14 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
         check(presenter.mouse_move(100, 80, 0) && retained > 0, "Drag lost its captured surface");
         check(presenter.mouse_button(0, false, 0) && !presenter.pending_command(),
               "Release outside surface clicked or lost its owned release");
+        presenter.mouse_move(220, 120, 0);
+        presenter.widget_keyboard_action("output", "surface", presenter.presentation_revision(),
+                                         "button", "focus");
+        check(output_context->GetFocusElement() == element("surface"),
+              "Scoped widget focus selected the wrong native output context");
+        presenter.widget_keyboard_action("output", "surface", presenter.presentation_revision(),
+                                         "button", "accept");
+        command("output");
         click(220, 160);
         check(presenter.wants_text(), "Output input did not own text focus");
         check(ime[0] >= 200 && ime[0] < 360 && ime[1] >= 100 && ime[1] < 200 && ime[2] > 0,
@@ -278,6 +294,14 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
         presenter.mouse_button(0, false, 0);
         check(!presenter.pending_command() && !presenter.wants_text(),
               "Disappearing surface retained input or clicked on cancellation");
+        widget_refused = false;
+        try {
+            presenter.widget_keyboard_action("output", "surface", presenter.presentation_revision(),
+                                             "button", "focus");
+        } catch (const std::exception&) {
+            widget_refused = true;
+        }
+        check(widget_refused, "Retired surface still authorized scoped widget keyboard focus");
         alive = true;
         click(220, 160);
         check(presenter.wants_text(), "Surface focus did not recover");
@@ -285,6 +309,14 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
         presenter.update(.35, 480, 300);
         check(!presenter.wants_text() && output_context->GetFocusElement() != element("entry"),
               "A disappearing surface retained focus without pointer motion");
+        widget_refused = false;
+        try {
+            presenter.widget_keyboard_action("output", "surface", presenter.presentation_revision(),
+                                             "button", "focus");
+        } catch (const std::exception&) {
+            widget_refused = true;
+        }
+        check(widget_refused, "Retired surface still authorized scoped widget keyboard focus");
         alive = true;
         click(220, 160);
         presenter.update(.4, 640, 400);

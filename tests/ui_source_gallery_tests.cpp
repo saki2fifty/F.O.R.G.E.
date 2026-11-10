@@ -163,8 +163,18 @@ void exercise(const std::filesystem::path& root, const Json& source,
               "Saved/exported Input button lost native type or literal caption");
         presenter.press_button(instance, "native-press", presenter.presentation_revision());
         acknowledge("Step");
+        presenter.widget_keyboard_action(
+            instance, "native-press", presenter.presentation_revision(), "input-button", "focus");
+        presenter.widget_keyboard_action(
+            instance, "native-press", presenter.presentation_revision(), "input-button", "accept");
+        acknowledge("Step");
+        presenter.widget_keyboard_action(instance, "native-range",
+                                         presenter.presentation_revision(), "range", "focus");
+        presenter.widget_keyboard_action(instance, "native-range",
+                                         presenter.presentation_revision(), "range", "right");
+        acknowledge("Step");
         const auto ranges = presenter.range_controls(instance);
-        check(ranges.at("ranges").size() == 1 && ranges.at("ranges")[0].at("value") == "1.000000",
+        check(ranges.at("ranges").size() == 1 && ranges.at("ranges")[0].at("value") == "2.000000",
               "Saved/exported slider lost its native value or range discovery");
         presenter.set_range_value(instance, "native-range", presenter.presentation_revision(), 7);
         acknowledge("Step");
@@ -175,6 +185,12 @@ void exercise(const std::filesystem::path& root, const Json& source,
         check(repeated.at("value_text_changed") == false,
               "Native out-of-range repeat changed returned slider text");
         acknowledge("Step");
+        presenter.widget_keyboard_action(instance, "Pause", presenter.presentation_revision(),
+                                         "button", "focus");
+        presenter.widget_keyboard_action(instance, "Pause", presenter.presentation_revision(),
+                                         "button", "accept");
+        check(!presenter.pending_command(),
+              "Native generic button Return fabricated a command without tab-index:auto");
         presenter.press_button(instance, "Pause", presenter.presentation_revision());
         acknowledge("Pause");
         snapshot = ui->snapshot(scene, "ui-source", 1, 42, false);

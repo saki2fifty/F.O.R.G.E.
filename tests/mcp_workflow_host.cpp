@@ -321,6 +321,13 @@ int main(int argc, char** argv) {
                 return presenter ? presenter->form_options(instance, element, offset, limit)
                                  : forge::Json{};
             };
+            controls.ui_widget_keyboard = [&, prepare_ui_action](
+                                              const std::string& instance,
+                                              const std::string& element, std::uint64_t revision,
+                                              const std::string& kind, const std::string& action) {
+                prepare_ui_action();
+                return presenter->widget_keyboard_action(instance, element, revision, kind, action);
+            };
             controls.ui_ranges = [&](const std::string& instance) {
                 return presenter ? presenter->range_controls(instance) : forge::Json{};
             };

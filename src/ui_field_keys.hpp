@@ -35,7 +35,9 @@ enum class Key {
     SelectDocumentHome,
     SelectDocumentEnd,
     WordBackspace,
-    WordDelete
+    WordDelete,
+    Space,
+    Escape
 };
 struct NamedKey {
     std::string_view name;
@@ -74,4 +76,23 @@ inline constexpr std::array keys{NamedKey{"left", Key::Left},
                                  NamedKey{"select_document_end", Key::SelectDocumentEnd},
                                  NamedKey{"word_backspace", Key::WordBackspace},
                                  NamedKey{"word_delete", Key::WordDelete}};
+} // namespace forge::ui_field
+
+namespace forge::ui_field {
+// Native non-text widgets share key identifiers; text editing keeps its own menu.
+inline constexpr std::array widget_keys{NamedKey{"left", Key::Left},
+                                        NamedKey{"right", Key::Right},
+                                        NamedKey{"up", Key::Up},
+                                        NamedKey{"down", Key::Down},
+                                        NamedKey{"home", Key::Home},
+                                        NamedKey{"end", Key::End},
+                                        NamedKey{"page_up", Key::PageUp},
+                                        NamedKey{"page_down", Key::PageDown},
+                                        NamedKey{"space", Key::Space},
+                                        NamedKey{"accept", Key::Accept},
+                                        NamedKey{"escape", Key::Escape},
+                                        NamedKey{"next", Key::Next},
+                                        NamedKey{"previous", Key::Previous}};
+inline constexpr std::array<std::string_view, 6> widget_kinds{"checkbox", "radio",        "select",
+                                                              "button",   "input-button", "range"};
 } // namespace forge::ui_field

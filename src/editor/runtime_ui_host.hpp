@@ -218,6 +218,13 @@ class RuntimeUiHost {
     Json form_controls(const std::string& instance) const {
         return presenter_ && !suspended_ ? presenter_->form_controls(instance) : Json{};
     }
+    Json widget_keyboard_action(const std::string& instance, const std::string& element,
+                                std::uint64_t revision, const std::string& kind,
+                                const std::string& action) {
+        if (!presenter_ || suspended_ || prepared_ticket_)
+            throw std::runtime_error("Runtime UI is unavailable or preparing a scene");
+        return presenter_->widget_keyboard_action(instance, element, revision, kind, action);
+    }
     Json range_controls(const std::string& instance) const {
         return presenter_ && !suspended_ ? presenter_->range_controls(instance) : Json{};
     }

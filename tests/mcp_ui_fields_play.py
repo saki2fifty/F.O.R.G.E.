@@ -7,7 +7,7 @@ from mcp_test_client import failed
 def check_ui_fields_play(root, client, read, ok, control, mutate, arguments, until, advertised, forms_only=False):
     names = {'forge_play_ui_fields', 'forge_play_ui_focus', 'forge_play_ui_text', 'forge_play_ui_key',
              'forge_play_ui_controls', 'forge_play_ui_options', 'forge_play_ui_check',
-             'forge_play_ui_choose', 'forge_play_ui_select', 'forge_play_ui_buttons', 'forge_play_ui_press', 'forge_play_ui_ranges', 'forge_play_ui_range_value'}
+             'forge_play_ui_choose', 'forge_play_ui_select', 'forge_play_ui_buttons', 'forge_play_ui_press', 'forge_play_ui_ranges', 'forge_play_ui_range_value', 'forge_play_ui_widget_focus', 'forge_play_ui_widget_key'}
     assert names <= set(advertised)
     assert not advertised['forge_play_ui_fields']['annotations']['openWorldHint']
     assert advertised['forge_play_ui_text']['annotations']['openWorldHint']
@@ -19,6 +19,13 @@ def check_ui_fields_play(root, client, read, ok, control, mutate, arguments, unt
                ('forge_play_ui_check', 'forge_play_ui_choose', 'forge_play_ui_select'))
     assert not advertised['forge_play_ui_ranges']['annotations']['openWorldHint']
     assert advertised['forge_play_ui_range_value']['annotations']['openWorldHint']
+    for tool in ('forge_play_ui_widget_focus', 'forge_play_ui_widget_key'):
+        assert advertised[tool]['annotations']['openWorldHint']
+        assert set(advertised[tool]['inputSchema']['properties']['kind']['enum']) == {
+            'checkbox', 'radio', 'select', 'button', 'input-button', 'range'}
+    assert set(advertised['forge_play_ui_widget_key']['inputSchema']['properties']['key']['enum']) == {
+        'left', 'right', 'up', 'down', 'home', 'end', 'page_up', 'page_down',
+        'space', 'accept', 'escape', 'next', 'previous'}
     hud = ok('forge_source_ui_example')
     saved = read('forge_source_text_read', path=hud['path'])
     markup = saved['text'].replace('</head>', '''<style>
@@ -307,6 +314,45 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
     for value in ('1', 1000001, -1000001):
         failed(mutate('forge_play_ui_range_value', **scope(), instance=instance, element='agent-range',
                       presentation_revision=range_revision, value=value), 'invalid_arguments')
+    def widget_focus(element, kind):
+        return control('forge_play_ui_widget_focus', instance=instance, element=element,
+                       presentation_revision=range_revision, kind=kind)
+
+    def widget_key(element, kind, key):
+        return control('forge_play_ui_widget_key', instance=instance, element=element,
+                       presentation_revision=range_revision, kind=kind, key=key)
+
+    widget_focus('agent-input-button', 'input-button')
+    assert not mutate('forge_play_ui_widget_key', **scope(), instance=instance, element='agent-range',
+                      presentation_revision=range_revision, kind='range', key='left')['ok']
+    widget_focus('agent-range', 'range')
+    before_tick = tick()
+    key_args = arguments(**scope(), instance=instance, element='agent-range',
+                         presentation_revision=range_revision, kind='range', key='left')
+    once = client.tool('forge_play_ui_widget_key', **key_args)
+    replay = client.tool('forge_play_ui_widget_key', **key_args)
+    assert once['ok'] and replay['ok'] and once['result'] == replay['result']
+    assert once['result']['delivered'] and range_row(once['result'])['value'] == '6.000000'
+    until(tick, lambda value: value == before_tick + 1)
+    assert range_row(widget_key('agent-range', 'range', 'left'))['value'] == '4.000000'
+    until(tick, lambda value: value == before_tick + 2)
+    before_tick = tick()
+    assert native_button(widget_focus('agent-button', 'button'), 'agent-button')['tab_stop'] is False
+    widget_key('agent-button', 'button', 'space')
+    widget_key('agent-button', 'button', 'accept')
+    widget_focus('agent-input-button', 'input-button')
+    widget_key('agent-input-button', 'input-button', 'accept')
+    until(tick, lambda value: value == before_tick + 1)
+    widget_key('agent-input-button', 'input-button', 'next')
+    assert not native_button(buttons(), 'agent-input-button')['focused']
+    for element, kind in (('agent-range-locked', 'range'), ('agent-range-hidden', 'range'),
+                          ('agent-button-no-focus', 'button'), ('agent-range', 'button')):
+        assert not mutate('forge_play_ui_widget_focus', **scope(), instance=instance, element=element,
+                          presentation_revision=range_revision, kind=kind)['ok']
+    failed(mutate('forge_play_ui_widget_focus', **scope(), instance=instance, element='password',
+                  presentation_revision=range_revision, kind='password'), 'invalid_arguments')
+    failed(mutate('forge_play_ui_widget_key', **scope(), instance=instance, element='agent-range',
+                  presentation_revision=range_revision, kind='range', key='text'), 'invalid_arguments')
     def forms():
         return read('forge_play_ui_controls', instance=instance)['value']
 
@@ -377,6 +423,10 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
                   presentation_revision=button_revision), 'stale_ui')
     failed(mutate('forge_play_ui_range_value', **scope(), instance=instance, element='agent-range',
                   presentation_revision=range_revision, value=1), 'stale_ui')
+    failed(mutate('forge_play_ui_widget_focus', **scope(), instance=instance, element='agent-range',
+                  presentation_revision=range_revision, kind='range'), 'stale_ui')
+    failed(mutate('forge_play_ui_widget_key', **scope(), instance=instance, element='agent-range',
+                  presentation_revision=range_revision, kind='range', key='left'), 'stale_ui')
     assert not form_field(forms(), 'agent-check')['checked'] and form_field(forms(), 'agent-choice')['value'] == 'easy'
     control('forge_play_stop')
     assert read('forge_play_ui_fields', instance=instance)['value'] is None

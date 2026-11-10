@@ -118,3 +118,32 @@ with existing input release, execute permissions, revision guards and receipts.
 Source creation supplies a finite initial numeric value (default 0); min/max/step
 attributes retain their existing source authoring owner. No SDK, dependency,
 serialized schema or runtime capability profile changes are required.
+
+## Non-text native keyboard access
+
+UiPresenter::widget_keyboard_action reuses current_form/current_button/
+current_range and their independent bounded walkers. Supported kind metadata
+contains checkbox/radio/select/button/input-button/range. Focus and paired-key
+operations reuse field_document/field_route/native input/focus/observers, with
+post-focus pointer/document/context/ID/type/config admission. Keys require the
+exact target already to have focus. Progress and text/password/textarea are
+outside these operations; existing text-field access remains supported.
+
+The existing private key-to-native mapping is extracted once and shared; text
+key names and nullable navigation consumption remain unchanged. A separate
+13-name widget menu adds Space/Escape without widening text schemas. Native
+ProcessKeyDown/Up and ElementDocument default actions own Tab/Shift-Tab, event
+cancellation and activation. No synthetic Click, desired-state no-op or focus
+order is supplied. Generic buttons with native tab-index:none do not activate
+for Space/Return; tab-index:auto enables the native behavior. Input buttons
+retain their native default. Widget range keyboard admission uses the same
+numeric profile as semantic values. Call-local observers do not keep objects
+alive; the callback retention/deferral and attached-focus rules above apply.
+
+Fresh results reuse the corresponding family observations with delivered,
+nullable consumed and requested_kind. Consumption never confirms a changed
+value or gameplay command. Native Tab can move to a different family; subsequent
+keys require the newly exact focused target. focusable/tab_stop expose cached
+native style facts, separately from visibility/enabled/admission. Existing
+Play grants/scope/revision/receipts and input release generate widget_focus/
+widget_key MCP bindings through the same providers; no new ownership layer.

@@ -2661,3 +2661,31 @@ The additive source kind range creates input type=range through the existing
 source control candidate. Empty initial text becomes 0; other initial text must
 parse completely as a finite native float within the same magnitude limit.
 Attributes, Undo, Save, resource registration and packaging keep their owners.
+
+## Native UI widget keyboard tools
+
+forge_play_ui_widget_focus and forge_play_ui_widget_key require play.execute,
+the ordinary mutation envelope, current Play launch/session/generation,
+instance/unique element/presentation_revision and the exact observed kind.
+Kinds are checkbox, radio, select, button, input-button and range. Read existing
+controls/buttons/ranges views; their native focusable and tab_stop facts do not
+replace enabled/visible or current eligibility. No extra registry, combined
+scan counter, DOM serialization or password values are introduced.
+
+Focus rechecks native identity/type/configuration after callbacks. Keys require
+the exact target already focused. Supported key strings are left/right/up/down,
+home/end/page_up/page_down, space/accept/escape/next/previous. Existing text-key
+menus are unchanged. Native controls and document defaults own events, Tab order,
+cancellation and activation; generic button tab-index:none does not gain a fake
+Click. Setting its native style to tab-index:auto enables ordinary keyboard
+activation. Native radio keys may emit Change for an already-checked radio.
+Held input, output-surface routing, numeric range admission and lifetime limits
+retain their owners. These APIs inject no text/IME/script and write no source,
+Scene or history. Fresh requests deliver again; receipt replay delivers once.
+
+Returned observations belong to the target's existing family, with delivered,
+nullable consumed and requested_kind. Neither delivery nor consumption is a
+value-change/command/gameplay acknowledgement. Tab can move to another family;
+read current views and focus an exact target before further keys. Read-only
+connections cannot discover or execute these mutations. Exported games use
+ordinary player/native keyboard input; no server is added to them.

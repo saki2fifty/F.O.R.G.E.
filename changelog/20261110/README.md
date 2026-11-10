@@ -1,5 +1,16 @@
 # 2026-11-10
 
+## Native widget keyboard interaction
+
+Play and MCP expose scoped native focus and paired keys for checkbox/radio/select,
+buttons and sliders. Existing family observations expose native focus/tab-stop
+facts, while text fields retain their existing tools and key schema. Native focus
+order, cancellation and default actions remain authoritative; generic buttons
+need native tab-index:auto for keyboard activation. Current identity/type/config,
+input/surface routing, grants, revisions and receipt replay share existing owners.
+One extracted native-key mapping serves text and non-text consumers. The manual
+covers supported keys, focus changes, button styles and saving limits.
+
 ## Native slider creation and values
 
 Elements and source MCP share a Slider kind with finite numeric initialization,

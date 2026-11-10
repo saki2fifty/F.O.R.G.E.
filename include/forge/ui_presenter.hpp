@@ -107,6 +107,9 @@ class UiPresenter {
     nlohmann::json range_controls(const std::string& instance) const;
     nlohmann::json set_range_value(const std::string& instance, const std::string& element,
                                    std::uint64_t presentation_revision, double value);
+    nlohmann::json widget_keyboard_action(const std::string& instance, const std::string& element,
+                                          std::uint64_t presentation_revision,
+                                          const std::string& kind, const std::string& action);
     // Semantic action routed by RuntimeInput; delegates to native RmlUi focus.
     void navigate(const std::string& direction);
     void release_input();

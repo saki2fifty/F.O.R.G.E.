@@ -417,8 +417,8 @@ for legacy in selected_protocols:
                 assert {'forge_play_ui_controls', 'forge_play_ui_options'} <= names
                 assert {'forge_play_ui_buttons', 'forge_play_ui_ranges'} <= names
                 assert not {'forge_play_ui_focus', 'forge_play_ui_text', 'forge_play_ui_key',
-                            'forge_play_ui_check', 'forge_play_ui_choose', 'forge_play_ui_select', 'forge_play_ui_press', 'forge_play_ui_range_value'} & names
-                for tool in ('forge_play_ui_text', 'forge_play_ui_check', 'forge_play_ui_choose', 'forge_play_ui_select', 'forge_play_ui_press', 'forge_play_ui_range_value'):
+                            'forge_play_ui_check', 'forge_play_ui_choose', 'forge_play_ui_select', 'forge_play_ui_press', 'forge_play_ui_range_value', 'forge_play_ui_widget_focus', 'forge_play_ui_widget_key'} & names
+                for tool in ('forge_play_ui_text', 'forge_play_ui_check', 'forge_play_ui_choose', 'forge_play_ui_select', 'forge_play_ui_press', 'forge_play_ui_range_value', 'forge_play_ui_widget_focus', 'forge_play_ui_widget_key'):
                     denied = readonly.request('tools/call', dict(name=tool, arguments={}))
                     assert 'error' in denied or denied['result']['isError'], denied
             print(('legacy' if legacy else 'current') + ': native UI text/form fields, paged options, semantic actions, scope/limits, '

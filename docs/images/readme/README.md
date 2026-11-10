@@ -3158,3 +3158,14 @@ images reproduce exact bytes. This SDL software component capture does not imply
 full Main, Windows, physical input/GPU or display-density acceptance.
 
 - `ui-source-slider.png`: `5f353808a01b221a758eb06eaf6bf2f32b727dca278df145d52313c30d854847`.
+
+## Native widget keyboard guidance
+
+The non-text widget keyboard tools expose existing native input behavior through
+Play and MCP. Source authoring controls, their captions and layout are unchanged;
+the eleven canonical source-editor captures listed above retain exact bytes and
+matching visible source workflow inputs in the widget-keyboard capture-reuse
+record. The form guide reuses its existing native HUD views. No new image is
+fabricated or required merely for programmatic focus/key commands. Runtime
+keyboard/context/source-hidden behavior is tested separately; these captures do
+not establish physical keyboard, display-density or Windows acceptance.

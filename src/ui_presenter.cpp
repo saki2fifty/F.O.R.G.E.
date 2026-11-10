@@ -31,6 +31,115 @@ bool valid_ui_dimensions(int width, int height, float density, int limit) {
     return width >= 1 && height >= 1 && width <= limit && height <= limit &&
            std::isfinite(density) && density >= .5f && density <= 4;
 }
+std::pair<int, int> native_ui_key(ui_field::Key key) {
+    int code = 0, modifiers = 0;
+    switch (key) {
+    case ui_field::Key::Left:
+        code = Rml::Input::KI_LEFT;
+        break;
+    case ui_field::Key::Right:
+        code = Rml::Input::KI_RIGHT;
+        break;
+    case ui_field::Key::SelectLeft:
+        code = Rml::Input::KI_LEFT;
+        modifiers = Rml::Input::KM_SHIFT;
+        break;
+    case ui_field::Key::SelectRight:
+        code = Rml::Input::KI_RIGHT;
+        modifiers = Rml::Input::KM_SHIFT;
+        break;
+    case ui_field::Key::WordLeft:
+    case ui_field::Key::SelectWordLeft:
+        code = Rml::Input::KI_LEFT;
+        modifiers = Rml::Input::KM_CTRL;
+        if (key == ui_field::Key::SelectWordLeft)
+            modifiers |= Rml::Input::KM_SHIFT;
+        break;
+    case ui_field::Key::WordRight:
+    case ui_field::Key::SelectWordRight:
+        code = Rml::Input::KI_RIGHT;
+        modifiers = Rml::Input::KM_CTRL;
+        if (key == ui_field::Key::SelectWordRight)
+            modifiers |= Rml::Input::KM_SHIFT;
+        break;
+    case ui_field::Key::Home:
+    case ui_field::Key::SelectHome:
+    case ui_field::Key::DocumentHome:
+    case ui_field::Key::SelectDocumentHome:
+        code = Rml::Input::KI_HOME;
+        if (key == ui_field::Key::SelectHome || key == ui_field::Key::SelectDocumentHome)
+            modifiers |= Rml::Input::KM_SHIFT;
+        if (key == ui_field::Key::DocumentHome || key == ui_field::Key::SelectDocumentHome)
+            modifiers |= Rml::Input::KM_CTRL;
+        break;
+    case ui_field::Key::End:
+    case ui_field::Key::SelectEnd:
+    case ui_field::Key::DocumentEnd:
+    case ui_field::Key::SelectDocumentEnd:
+        code = Rml::Input::KI_END;
+        if (key == ui_field::Key::SelectEnd || key == ui_field::Key::SelectDocumentEnd)
+            modifiers |= Rml::Input::KM_SHIFT;
+        if (key == ui_field::Key::DocumentEnd || key == ui_field::Key::SelectDocumentEnd)
+            modifiers |= Rml::Input::KM_CTRL;
+        break;
+    case ui_field::Key::Up:
+    case ui_field::Key::SelectUp:
+        code = Rml::Input::KI_UP;
+        if (key == ui_field::Key::SelectUp)
+            modifiers = Rml::Input::KM_SHIFT;
+        break;
+    case ui_field::Key::Down:
+    case ui_field::Key::SelectDown:
+        code = Rml::Input::KI_DOWN;
+        if (key == ui_field::Key::SelectDown)
+            modifiers = Rml::Input::KM_SHIFT;
+        break;
+    case ui_field::Key::PageUp:
+    case ui_field::Key::SelectPageUp:
+        code = Rml::Input::KI_PRIOR;
+        if (key == ui_field::Key::SelectPageUp)
+            modifiers = Rml::Input::KM_SHIFT;
+        break;
+    case ui_field::Key::PageDown:
+    case ui_field::Key::SelectPageDown:
+        code = Rml::Input::KI_NEXT;
+        if (key == ui_field::Key::SelectPageDown)
+            modifiers = Rml::Input::KM_SHIFT;
+        break;
+    case ui_field::Key::Backspace:
+    case ui_field::Key::WordBackspace:
+        code = Rml::Input::KI_BACK;
+        if (key == ui_field::Key::WordBackspace)
+            modifiers = Rml::Input::KM_CTRL;
+        break;
+    case ui_field::Key::Delete:
+    case ui_field::Key::WordDelete:
+        code = Rml::Input::KI_DELETE;
+        if (key == ui_field::Key::WordDelete)
+            modifiers = Rml::Input::KM_CTRL;
+        break;
+    case ui_field::Key::SelectAll:
+        code = Rml::Input::KI_A;
+        modifiers = Rml::Input::KM_CTRL;
+        break;
+    case ui_field::Key::Accept:
+        code = Rml::Input::KI_RETURN;
+        break;
+    case ui_field::Key::Next:
+    case ui_field::Key::Previous:
+        code = Rml::Input::KI_TAB;
+        if (key == ui_field::Key::Previous)
+            modifiers = Rml::Input::KM_SHIFT;
+        break;
+    case ui_field::Key::Space:
+        code = Rml::Input::KI_SPACE;
+        break;
+    case ui_field::Key::Escape:
+        code = Rml::Input::KI_ESCAPE;
+        break;
+    }
+    return {code, modifiers};
+}
 Json localization_identity(const Json& descriptor) {
     return descriptor.is_null()
                ? Json()
@@ -1737,6 +1846,73 @@ bool UiPresenter::wants_text() const {
     auto* element = context->GetFocusElement();
     return element && (element->GetTagName() == "input" || element->GetTagName() == "textarea");
 }
+Json UiPresenter::widget_keyboard_action(const std::string& instance, const std::string& element,
+                                         std::uint64_t revision, const std::string& kind,
+                                         const std::string& action) {
+    auto& s = *impl_;
+    s.check();
+    const auto named = std::find_if(ui_field::widget_keys.begin(), ui_field::widget_keys.end(),
+                                    [&](const auto& key) { return key.name == action; });
+    if (std::find(ui_field::widget_kinds.begin(), ui_field::widget_kinds.end(), kind) ==
+            ui_field::widget_kinds.end() ||
+        (action != "focus" && named == ui_field::widget_keys.end()))
+        throw std::runtime_error("Choose a supported native widget kind and keyboard action");
+    if (revision != s.presentation_revision)
+        throw std::runtime_error("UI presentation changed; read the current controls again");
+    const auto& doc = s.field_document(instance);
+    const auto find = [&](const auto& document) -> Rml::Element* {
+        if (kind == "range")
+            return s.current_range(document, element);
+        if (kind == "button" || kind == "input-button")
+            return s.current_button(document, element);
+        return ui_form_control_element(s.current_form(document, element));
+    };
+    auto* target = find(doc);
+    if (ui_widget_kind(target) != kind || !ui_widget_keyboard_editable(target))
+        throw std::runtime_error(
+            "Choose a visible enabled focusable native widget of the observed kind");
+    const auto [output, surface] = s.field_route(doc);
+    const auto observer = target->GetObserverPtr(),
+               document_observer = doc.document->GetObserverPtr();
+    auto* document = doc.document;
+    auto* context = doc.context;
+    const auto current = [&] {
+        if (!observer || !document_observer || revision != s.presentation_revision)
+            throw std::runtime_error("Native widget retired or its presentation changed");
+        const auto& now = s.field_document(instance);
+        auto* found = find(now);
+        if (now.document != document || now.context != context || found != observer.get() ||
+            found->GetOwnerDocument() != document || ui_widget_kind(found) != kind ||
+            !ui_widget_keyboard_editable(found))
+            throw std::runtime_error("Native widget identity, kind or eligibility changed");
+        return found;
+    };
+    Json consumed;
+    if (action == "focus") {
+        s.focus_target(output, surface);
+        (void)current();
+        if (!observer->Focus())
+            throw std::runtime_error("Native widget could not receive focus");
+        (void)current();
+        if (context->GetFocusElement() != observer.get())
+            throw std::runtime_error("Native widget did not retain focus");
+    } else {
+        s.validate_surface_focus();
+        (void)current();
+        if (s.focus_output != output || context->GetFocusElement() != observer.get())
+            throw std::runtime_error("Focus this exact native widget before sending keys");
+        const auto [code, modifiers] = native_ui_key(named->key);
+        const bool down = key(code, true, modifiers), up = key(code, false, modifiers);
+        consumed = down || up;
+    }
+    auto result = kind == "range"                                ? range_controls(instance)
+                  : (kind == "button" || kind == "input-button") ? buttons(instance)
+                                                                 : form_controls(instance);
+    result["delivered"] = true;
+    result["consumed"] = std::move(consumed);
+    result["requested_kind"] = kind;
+    return result;
+}
 Json UiPresenter::range_controls(const std::string& instance) const {
     auto& s = *impl_;
     s.check();
@@ -1762,6 +1938,7 @@ Json UiPresenter::range_controls(const std::string& instance) const {
                  {"visible", doc.document->IsVisible() && range->IsVisible(true)},
                  {"enabled", !range->IsDisabled()},
                  {"focusable", ui_control_focusable(range)},
+                 {"tab_stop", ui_control_tab_stop(range)},
                  {"editable", addressable && ui_range_editable(range)},
                  {"focused", doc.context == s.input_context(s.focus_output) &&
                                  doc.context->GetFocusElement() == range},
@@ -1852,6 +2029,7 @@ Json UiPresenter::buttons(const std::string& instance) const {
                  {"enabled", input ? Json(!input->IsDisabled()) : Json()},
                  {"disabled_attribute", button->HasAttribute("disabled")},
                  {"focusable", ui_control_focusable(button)},
+                 {"tab_stop", ui_control_tab_stop(button)},
                  {"pressable", addressable && ui_button_pressable(button)},
                  {"focused", doc.context == s.input_context(s.focus_output) &&
                                  doc.context->GetFocusElement() == button},
@@ -1933,6 +2111,8 @@ Json UiPresenter::form_controls(const std::string& instance) const {
                  {"enabled", input ? Json(!input->IsDisabled()) : Json()},
                  {"editable", ui_form_control_editable(control)},
                  {"read_only", kind == "progress"},
+                 {"focusable", ui_control_focusable(node)},
+                 {"tab_stop", ui_control_tab_stop(node)},
                  {"focused", doc.context == s.input_context(s.focus_output) &&
                                  doc.context->GetFocusElement() == node},
                  {"value_available", false}};
@@ -2187,106 +2367,13 @@ Json UiPresenter::text_field_action(const std::string& instance, const std::stri
         if (insert) {
             consumed = text(text_value);
         } else {
-            int code = 0, modifiers = 0;
-            switch (named_key->key) {
-            case ui_field::Key::Left:
-                code = Rml::Input::KI_LEFT;
-                break;
-            case ui_field::Key::Right:
-                code = Rml::Input::KI_RIGHT;
-                break;
-            case ui_field::Key::SelectLeft:
-                code = Rml::Input::KI_LEFT;
-                modifiers = Rml::Input::KM_SHIFT;
-                break;
-            case ui_field::Key::SelectRight:
-                code = Rml::Input::KI_RIGHT;
-                modifiers = Rml::Input::KM_SHIFT;
-                break;
-            case ui_field::Key::WordLeft:
-            case ui_field::Key::SelectWordLeft:
-                code = Rml::Input::KI_LEFT;
-                modifiers = Rml::Input::KM_CTRL;
-                if (named_key->key == ui_field::Key::SelectWordLeft)
-                    modifiers |= Rml::Input::KM_SHIFT;
-                break;
-            case ui_field::Key::WordRight:
-            case ui_field::Key::SelectWordRight:
-                code = Rml::Input::KI_RIGHT;
-                modifiers = Rml::Input::KM_CTRL;
-                if (named_key->key == ui_field::Key::SelectWordRight)
-                    modifiers |= Rml::Input::KM_SHIFT;
-                break;
-            case ui_field::Key::Home:
-            case ui_field::Key::SelectHome:
-            case ui_field::Key::DocumentHome:
-            case ui_field::Key::SelectDocumentHome:
-                code = Rml::Input::KI_HOME;
-                if (named_key->key == ui_field::Key::SelectHome ||
-                    named_key->key == ui_field::Key::SelectDocumentHome)
-                    modifiers |= Rml::Input::KM_SHIFT;
-                if (named_key->key == ui_field::Key::DocumentHome ||
-                    named_key->key == ui_field::Key::SelectDocumentHome)
-                    modifiers |= Rml::Input::KM_CTRL;
-                break;
-            case ui_field::Key::End:
-            case ui_field::Key::SelectEnd:
-            case ui_field::Key::DocumentEnd:
-            case ui_field::Key::SelectDocumentEnd:
-                code = Rml::Input::KI_END;
-                if (named_key->key == ui_field::Key::SelectEnd ||
-                    named_key->key == ui_field::Key::SelectDocumentEnd)
-                    modifiers |= Rml::Input::KM_SHIFT;
-                if (named_key->key == ui_field::Key::DocumentEnd ||
-                    named_key->key == ui_field::Key::SelectDocumentEnd)
-                    modifiers |= Rml::Input::KM_CTRL;
-                break;
-            case ui_field::Key::Up:
-            case ui_field::Key::SelectUp:
-                code = Rml::Input::KI_UP;
-                if (named_key->key == ui_field::Key::SelectUp)
-                    modifiers = Rml::Input::KM_SHIFT;
-                break;
-            case ui_field::Key::Down:
-            case ui_field::Key::SelectDown:
-                code = Rml::Input::KI_DOWN;
-                if (named_key->key == ui_field::Key::SelectDown)
-                    modifiers = Rml::Input::KM_SHIFT;
-                break;
-            case ui_field::Key::PageUp:
-            case ui_field::Key::SelectPageUp:
-                code = Rml::Input::KI_PRIOR;
-                if (named_key->key == ui_field::Key::SelectPageUp)
-                    modifiers = Rml::Input::KM_SHIFT;
-                break;
-            case ui_field::Key::PageDown:
-            case ui_field::Key::SelectPageDown:
-                code = Rml::Input::KI_NEXT;
-                if (named_key->key == ui_field::Key::SelectPageDown)
-                    modifiers = Rml::Input::KM_SHIFT;
-                break;
-            case ui_field::Key::Backspace:
-            case ui_field::Key::WordBackspace:
-                code = Rml::Input::KI_BACK;
-                if (named_key->key == ui_field::Key::WordBackspace)
-                    modifiers = Rml::Input::KM_CTRL;
-                break;
-            case ui_field::Key::Delete:
-            case ui_field::Key::WordDelete:
-                code = Rml::Input::KI_DELETE;
-                if (named_key->key == ui_field::Key::WordDelete)
-                    modifiers = Rml::Input::KM_CTRL;
-                break;
-            case ui_field::Key::SelectAll:
-                code = Rml::Input::KI_A;
-                modifiers = Rml::Input::KM_CTRL;
-                break;
-            case ui_field::Key::Accept:
-            case ui_field::Key::Next:
-            case ui_field::Key::Previous:
+            const bool navigation = named_key->key == ui_field::Key::Accept ||
+                                    named_key->key == ui_field::Key::Next ||
+                                    named_key->key == ui_field::Key::Previous;
+            if (navigation)
                 navigate(action);
-                break;
-            }
+            const auto [code, modifiers] =
+                navigation ? std::pair{0, 0} : native_ui_key(named_key->key);
             if (code) {
                 const bool down = key(code, true, modifiers);
                 const bool up = key(code, false, modifiers);

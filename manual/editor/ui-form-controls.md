@@ -120,6 +120,28 @@ setter. Repeated requests outside the bounds can trigger another native change
 event even if the displayed value stays the same; receipt replay does not set it
 twice. `value_text_changed` describes the returned text, not gameplay acceptance.
 
+For keyboard testing, use `forge_play_ui_widget_focus` with the observed `kind`
+and current scope, then `forge_play_ui_widget_key` for that exact focused control.
+These tools support checkboxes, radios, dropdowns, buttons, input buttons and
+sliders; text fields keep their existing field tools. Supported keys are arrows,
+Home, End, Page Up, Page Down, Space, Return (`accept`), Escape, Tab (`next`) and
+Shift-Tab (`previous`). Native controls decide which keys have an effect.
+
+Horizontal sliders use Left/Right; vertical sliders use Up/Down. Dropdown arrows
+change selection. Native checkbox and radio Space/Return use their own events.
+A fresh key can emit another native event for an already-selected radio. Input
+buttons support Space/Return with their default native tab stop. A generic Button
+with `tab_stop:false` does not gain keyboard activation automatically: set its
+inline style to `tab-index:auto;` when it should take part in native keyboard
+navigation. Its native `focus` style must also allow focus. The observations
+report `focusable` and `tab_stop` separately from visibility and enabled state.
+
+Tab may leave the original control or move to another control family. Read the
+appropriate view again or focus a specific control before sending its next key.
+Keyboard delivery and `consumed` describe native input handling, not value change
+or gameplay acceptance. Receipt replay does not send the key twice. Keyboard
+testing does not replace native event cancellation, save settings or write source.
+
 Already-satisfied checkbox, radio and dropdown actions do not focus or activate the control. Native events and
 gameplay callbacks can change the result, so the agent reads the returned state.
 Text/password/text-area fields have their own [field tools](ui-text-input.md).
