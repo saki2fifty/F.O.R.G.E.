@@ -50,7 +50,18 @@ class UiSourceEditor {
     int child_kind_ = 0;
     char child_text_[8193]{};
     char child_id_[129]{};
-    bool child_pixel_layout_ = false;
+    bool child_pixel_layout_ = false, place_controls_ = false;
+    struct ControlPlacement {
+        std::size_t parent;
+        std::string kind, text, id, session, instance;
+        std::uint64_t source_revision, preview_revision;
+        UiPixelLayout viewport;
+    };
+    std::optional<ControlPlacement> pending_placement_;
+    void cancel_placement() {
+        place_controls_ = false;
+        pending_placement_.reset();
+    }
     std::array<float, 4> child_pixels_{0, 0, 160, 40};
     UiMarkupControlProperties control_property_view_;
     std::map<std::string, UiControlPropertyValue> control_property_values_, control_property_edits_;
@@ -78,6 +89,7 @@ class UiSourceEditor {
 
     void changed() {
         gesture_.reset();
+        cancel_placement();
         outline_drag_active_ = false;
         const auto text = editor_.GetText();
         dirty_ = text != saved_;
@@ -108,6 +120,7 @@ class UiSourceEditor {
     }
     void finish_close() {
         gesture_.reset();
+        cancel_placement();
         outline_drag_active_ = elements_active_ = false;
         ++drag_epoch_;
         preview_frame_ = {};
@@ -821,6 +834,19 @@ class UiSourceEditor {
             throw AuthoringError("stale_ui_preview",
                                  "Preview the current source draft before editing layout");
     }
+    void reborrow_preview_observation(const std::string& instance, std::uint64_t revision) {
+        if (gesture_active())
+            throw AuthoringError("source_busy", "Finish or cancel the source gesture first");
+        // Play, project or presenter retirement can invalidate unchanged source.
+        if (preview_current())
+            try {
+                preview_frame_ = request_preview(editor_.GetText(), outline_, false);
+            } catch (...) {
+                preview_frame_.state["stale"] = true;
+                throw;
+            }
+        check_preview_observation(instance, revision);
+    }
     UiSourcePreviewFrame request_preview(const std::string& text,
                                          std::span<const UiMarkupElement> nodes, bool refresh) {
         if (!preview || locator_.extension() != ".rml")
@@ -909,6 +935,21 @@ class UiSourceEditor {
         return result;
     }
     void preview_controls(SceneDocument& project, bool locked) {
+        if (locked || ImGui::GetIO().AppFocusLost || ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+            cancel_placement();
+        if (pending_placement_) {
+            auto request = std::move(*pending_placement_);
+            pending_placement_.reset();
+            if (request.session == session_ && request.source_revision == revision_)
+                attempt([&] {
+                    place_control(request.parent, request.kind, request.text, request.id,
+                                  request.viewport, request.instance, request.preview_revision);
+                    child_id_[0] = 0;
+                    cancel_placement();
+                });
+            else
+                cancel_placement();
+        }
         if (locked) {
             gesture_.reset();
             ImGui::TextWrapped("Stop Play and finish the owning task before previewing UI source.");
@@ -953,6 +994,43 @@ class UiSourceEditor {
             attempt([&] { save_preview(); });
         FORGE_UI_PROBE("ui-source:preview-save-image");
         ImGui::EndDisabled();
+        const auto* placement_parent =
+            selected_.size() == 1 ? preview_element(selected_element()) : nullptr;
+        const bool can_place = !locked && !gesture_active() && preview_current() &&
+                               preview_frame_.image && placement_parent &&
+                               placement_parent->at("editable").get<bool>() &&
+                               placement_parent->contains("padding_bounds") &&
+                               child_parent(outline_.at(selected_element()), true);
+        const bool create_controls = ImGui::CollapsingHeader("Create controls");
+        FORGE_UI_PROBE("ui-source:create-controls");
+        if (!can_place || !create_controls)
+            cancel_placement();
+        if (create_controls) {
+            if (ui_markup_control_kinds[child_kind_].tag == "br" ||
+                ui_markup_control_kinds[child_kind_].tag == "option")
+                child_kind_ = 0;
+            ImGui::BeginDisabled(!can_place);
+            creation_fields(true);
+            ImGui::InputFloat("Width (px)", &child_pixels_[2]);
+            FORGE_UI_PROBE("ui-source:place-width");
+            ImGui::InputFloat("Height (px)", &child_pixels_[3]);
+            FORGE_UI_PROBE("ui-source:place-height");
+            if (!child_id_[0])
+                place_controls_ = false;
+            ImGui::BeginDisabled(!child_id_[0]);
+            ImGui::Checkbox("Click to place", &place_controls_);
+            FORGE_UI_PROBE("ui-source:place-control");
+            ImGui::EndDisabled();
+            ImGui::EndDisabled();
+            if (can_place) {
+                ImGui::TextWrapped(
+                    "Parent: %s", placement_parent->at("id").get_ref<const std::string&>().c_str());
+                ImGui::TextWrapped("Enter a unique Element ID, enable Click to place, then click "
+                                   "inside the container. Escape cancels.");
+            } else
+                ImGui::TextWrapped(
+                    "Select an editable absolute-pixel container to place controls in Preview.");
+        }
         ImGui::BeginChild("ui-source-preview-properties", {0, selected_.size() > 1 ? 200.f : 116.f},
                           ImGuiChildFlags_Borders);
         const auto* selected = preview_element(selected_element());
@@ -1081,9 +1159,12 @@ class UiSourceEditor {
         if (!preview_current() && !gesture_)
             ImGui::TextWrapped(
                 "Preview is stale. Complete the source and refresh before editing layout.");
-        ImGui::TextWrapped("Static draft preview. Gameplay bindings do not run. Ctrl+click toggles "
-                           "group selection; drag to move. A single element has a resize handle. "
-                           "Escape cancels.");
+        ImGui::TextWrapped(
+            place_controls_
+                ? "Placement mode: click inside the selected container to create the named "
+                  "control. Escape cancels. Gameplay bindings do not run."
+                : "Static draft preview. Gameplay bindings do not run. Ctrl+click toggles group "
+                  "selection; drag to move. A single element has a resize handle. Escape cancels.");
         const auto error = frame.state.is_object() ? frame.state.value("error", "") : "";
         if (!error.empty()) {
             ImGui::TextWrapped("%s", error.c_str());
@@ -1124,6 +1205,29 @@ class UiSourceEditor {
             draw->AddRectFilled(origin, end, IM_COL32(9, 12, 16, 255));
             draw->AddText({origin.x + 8, origin.y + 8}, IM_COL32(220, 220, 220, 255),
                           "Preview image unavailable");
+        }
+        if (place_controls_ && !locked && preview_current() && ImGui::IsItemHovered())
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+        if (place_controls_ && !locked && preview_current() &&
+            ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+            const auto mouse = ImGui::GetMousePos();
+            if (!child_id_[0])
+                error_ = "Enter a unique Element ID before placing the control";
+            else if (selected_.size() == 1) {
+                const auto& kind = ui_markup_control_kinds[child_kind_];
+                pending_placement_ =
+                    ControlPlacement{selected_element(),
+                                     std::string(kind.id),
+                                     kind.accepts_text() ? child_text_ : "",
+                                     child_id_,
+                                     session_,
+                                     preview_frame_.state.at("instance").get<std::string>(),
+                                     revision_,
+                                     preview_frame_.state.at("revision").get<std::uint64_t>(),
+                                     {(mouse.x - origin.x) / scale, (mouse.y - origin.y) / scale,
+                                      child_pixels_[2], child_pixels_[3]}};
+            }
+            return; // Apply next frame, before queuing any preview image for drawing.
         }
         const Json* visual = nullptr;
         ImVec2 handle{};
@@ -1215,6 +1319,37 @@ class UiSourceEditor {
             }))
             throw AuthoringError("stale_ui_source", "Source changed; start a new outline drag");
         return request;
+    }
+    static bool child_parent(const UiMarkupElement& node, bool pixels_only = false) {
+        return !node.self_closing && (node.tag == "body" || ui_markup_widget_editable(node)) &&
+               node.tag != "textarea" && node.tag != "option" && node.tag != "progress" &&
+               (!pixels_only || node.tag != "select");
+    }
+    const UiMarkupControlKind& creation_fields(bool pixels_only) {
+        const auto choices =
+            ImGui::BeginCombo("New child", ui_markup_control_kinds[child_kind_].label.data());
+        FORGE_UI_PROBE("ui-source:child-kind");
+        if (choices) {
+            for (std::size_t i = 0; i < ui_markup_control_kinds.size(); ++i) {
+                const auto& kind = ui_markup_control_kinds[i];
+                if (pixels_only && (kind.tag == "br" || kind.tag == "option"))
+                    continue;
+                if (ImGui::Selectable(kind.label.data(), child_kind_ == static_cast<int>(i)))
+                    child_kind_ = static_cast<int>(i);
+                FORGE_UI_PROBE("ui-source:child-choice:" + std::string(kind.id));
+            }
+            ImGui::EndCombo();
+        }
+        const auto& kind = ui_markup_control_kinds[child_kind_];
+        ImGui::BeginDisabled(!kind.accepts_text());
+        ImGui::InputTextWithHint("Initial text/value", "Optional; escaped as source text",
+                                 child_text_, sizeof(child_text_));
+        FORGE_UI_PROBE("ui-source:child-text");
+        ImGui::EndDisabled();
+        ImGui::InputTextWithHint("Element ID", "Optional; unique source ID", child_id_,
+                                 sizeof(child_id_));
+        FORGE_UI_PROBE("ui-source:child-id");
+        return kind;
     }
     void element_controls(bool locked) {
         if (locator_.extension() != ".rml") {
@@ -1345,7 +1480,7 @@ class UiSourceEditor {
         const auto& node = outline_[index];
         const auto tag = node.tag;
         const bool widget_editable = ui_markup_widget_editable(node);
-        const bool container = !node.self_closing && (node.tag == "body" || widget_editable);
+        const bool accepts_child = child_parent(node);
         bool previous = false, next = false;
         for (std::size_t i = 0; i < outline_.size(); ++i)
             if (outline_[i].parent == node.parent) {
@@ -1388,29 +1523,8 @@ class UiSourceEditor {
             attempt([&] { text(index, literal_); });
         FORGE_UI_PROBE("ui-source:text-set");
         ImGui::EndDisabled();
-        ImGui::BeginDisabled(!container || tag == "textarea" || tag == "option" ||
-                             tag == "progress");
-        const auto choices =
-            ImGui::BeginCombo("New child", ui_markup_control_kinds[child_kind_].label.data());
-        FORGE_UI_PROBE("ui-source:child-kind");
-        if (choices) {
-            for (std::size_t i = 0; i < ui_markup_control_kinds.size(); ++i) {
-                const auto& kind = ui_markup_control_kinds[i];
-                if (ImGui::Selectable(kind.label.data(), child_kind_ == static_cast<int>(i)))
-                    child_kind_ = static_cast<int>(i);
-                FORGE_UI_PROBE("ui-source:child-choice:" + std::string(kind.id));
-            }
-            ImGui::EndCombo();
-        }
-        const auto& kind = ui_markup_control_kinds[child_kind_];
-        ImGui::BeginDisabled(!kind.accepts_text());
-        ImGui::InputTextWithHint("Initial text/value", "Optional; escaped as source text",
-                                 child_text_, sizeof(child_text_));
-        FORGE_UI_PROBE("ui-source:child-text");
-        ImGui::EndDisabled();
-        ImGui::InputTextWithHint("Element ID", "Optional; unique source ID", child_id_,
-                                 sizeof(child_id_));
-        FORGE_UI_PROBE("ui-source:child-id");
+        ImGui::BeginDisabled(!accepts_child);
+        const auto& kind = creation_fields(false);
         const bool supports_pixels = kind.tag != "br" && kind.tag != "option";
         ImGui::BeginDisabled(!supports_pixels);
         ImGui::Checkbox("Absolute pixel layout", &child_pixel_layout_);
@@ -1576,18 +1690,7 @@ class UiSourceEditor {
                  std::uint64_t preview_revision) {
         if (changes.empty() || changes.size() > ui_source_selection_limit)
             throw AuthoringError("layout_selection", "Choose1..32 elements for a layout edit");
-        if (gesture_active())
-            throw AuthoringError("source_busy", "Finish or cancel the source gesture first");
-        // Reborrow the live owner: Play, project or presenter retirement can
-        // invalidate a preview even when its source text has not changed.
-        if (preview_current())
-            try {
-                preview_frame_ = request_preview(editor_.GetText(), outline_, false);
-            } catch (...) {
-                preview_frame_.state["stale"] = true;
-                throw;
-            }
-        check_preview_observation(instance, preview_revision);
+        reborrow_preview_observation(instance, preview_revision);
         std::vector<std::size_t> indices;
         indices.reserve(changes.size());
         for (const auto& change : changes)
@@ -1782,6 +1885,50 @@ class UiSourceEditor {
         replace_text(edit.source);
         select(edit.element);
     }
+    void place_control(std::size_t parent, std::string_view kind, std::string_view literal,
+                       std::string_view id, UiPixelLayout viewport, const std::string& instance,
+                       std::uint64_t preview_revision) {
+        reborrow_preview_observation(instance, preview_revision);
+        const std::array parents{parent};
+        (void)layout_boxes(parents);
+        const auto* native = preview_element(parent);
+        if (!native->contains("padding_bounds"))
+            throw AuthoringError("layout_unsupported", "Preview has no control-placement geometry");
+        const auto& padding = native->at("padding_bounds");
+        const float x = padding.at(0).get<float>(), y = padding.at(1).get<float>();
+        if (!std::isfinite(viewport.left) || !std::isfinite(viewport.top) || viewport.left < 0 ||
+            viewport.top < 0 || viewport.left >= preview_frame_.state.at("width").get<float>() ||
+            viewport.top >= preview_frame_.state.at("height").get<float>() || viewport.left < x ||
+            viewport.top < y || viewport.left >= x + padding.at(2).get<float>() ||
+            viewport.top >= y + padding.at(3).get<float>())
+            throw AuthoringError("layout_point",
+                                 "Choose a point inside the preview container's padding box");
+        auto created = insert_ui_markup_control(
+            editor_.GetText(), parent, kind, literal, {}, id,
+            UiPixelLayout{viewport.left - x, viewport.top - y, viewport.width, viewport.height});
+        created.source = set_ui_markup_style(created.source, created.element, "margin", "0px");
+        try {
+            preview_frame_ =
+                request_preview(created.source, inspect_ui_markup(created.source), false);
+        } catch (...) {
+            preview_frame_.state["stale"] = true;
+            throw;
+        }
+        const auto* candidate = preview_element(created.element);
+        if (preview_frame_.state.value("stale", true) || !candidate ||
+            !candidate->at("editable").get<bool>() ||
+            std::abs(candidate->at("bounds").at(0).get<float>() - viewport.left) > .01f ||
+            std::abs(candidate->at("bounds").at(1).get<float>() - viewport.top) > .01f) {
+            preview_frame_.state["stale"] = true;
+            throw AuthoringError(
+                "layout_unsupported",
+                candidate && !candidate->at("editable").get<bool>()
+                    ? candidate->at("reason").get<std::string>()
+                    : "Native layout does not place this control at the requested point");
+        }
+        replace_text(created.source);
+        select(created.element);
+    }
     void remove(std::size_t index) {
         const std::array indices{index};
         removes(indices);
@@ -1847,6 +1994,7 @@ class UiSourceEditor {
     }
     void request_close() {
         gesture_.reset();
+        cancel_placement();
         queued_.reset();
         if (dirty_)
             close_ = true;
@@ -1882,8 +2030,10 @@ class UiSourceEditor {
         if (!is_open())
             return;
         locked = locked || root_ != project.project();
-        if (locked)
+        if (locked) {
             gesture_.reset();
+            cancel_placement();
+        }
         editor_.SetReadOnly(locked);
         if (focus_) {
             ImGui::SetNextWindowFocus();
@@ -1940,6 +2090,7 @@ class UiSourceEditor {
                 FORGE_UI_PROBE("ui-source:source-tab");
                 if (source_tab) {
                     gesture_.reset();
+                    cancel_placement();
                     editor_.Render("ui-source-text", ImGui::GetContentRegionAvail());
                     if (editor_.IsTextChanged())
                         changed();
@@ -1951,6 +2102,7 @@ class UiSourceEditor {
                 if (elements_tab) {
                     elements_visible = !stylesheet;
                     gesture_.reset();
+                    cancel_placement();
                     if (stylesheet)
                         rule_controls(locked);
                     else

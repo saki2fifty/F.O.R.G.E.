@@ -219,6 +219,16 @@ void exercise(const std::filesystem::path& root, const Json& source,
                            20) < .001f,
               "Native percentage padding did not follow the narrower containing width");
         presenter.update(0, 800, 600);
+        auto* placement_parent = document->GetElementById("native-placement-parent");
+        auto* placement_child = document->GetElementById("native-placement-probe");
+        check(placement_parent && placement_child, "Native placement origin fixture missing");
+        const auto origin = placement_parent->GetAbsoluteOffset(Rml::BoxArea::Padding);
+        const auto placed = placement_child->GetAbsoluteOffset(Rml::BoxArea::Border);
+        if (origin != placed)
+            throw std::runtime_error("Native absolute child origin differs from parent padding: " +
+                                     std::to_string(origin.x) + "," + std::to_string(origin.y) +
+                                     " / " + std::to_string(placed.x) + "," +
+                                     std::to_string(placed.y));
         auto* configured = document->GetElementById("native-created-panel");
         check(configured &&
                   configured->GetBox().GetSize(Rml::BoxArea::Border) == Rml::Vector2f(160, 40) &&
@@ -933,6 +943,19 @@ int main(int argc, char** argv) {
                 insert_ui_markup_control(text, by_id(text, "canvas"), "container", "", {},
                                          "native-created-panel", UiPixelLayout{24, 36, 160, 40});
             text = std::move(created.source);
+            created = insert_ui_markup_control(text, by_id(text, "canvas"), "container", "", {},
+                                               "native-placement-parent",
+                                               UiPixelLayout{200, 200, 120, 80});
+            text = std::move(created.source);
+            for (const auto& [name, value] :
+                 std::initializer_list<std::pair<const char*, const char*>>{
+                     {"padding", "8px"}, {"border-width", "2px"}, {"margin", "3px"}})
+                text =
+                    set_ui_markup_style(text, by_id(text, "native-placement-parent"), name, value);
+            created = insert_ui_markup_control(text, by_id(text, "native-placement-parent"),
+                                               "container", "", {}, "native-placement-probe",
+                                               UiPixelLayout{0, 0, 20, 10});
+            text = set_ui_markup_style(created.source, created.element, "margin", "0px");
             atomic_write(root / document_path, text);
             const auto published = register_ui_document(root, document_path);
             for (const auto& row : source.at("entities"))

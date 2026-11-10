@@ -1,5 +1,13 @@
 # 2026-11-10
 
+## Place UI controls in native Preview
+
+Create controls offers named control placement inside an editable absolute-pixel
+container. Native padding geometry supplies local coordinates, and the complete
+candidate validates before one source Undo. Escape and source/view/owner changes
+cancel queued placement. The matching guarded MCP operation uses the same owner;
+the illustrated manual covers placement, supported layouts and explicit Save.
+
 ## Configured UI control creation
 
 Add child and source MCP creation can assign a unique source ID and an explicit

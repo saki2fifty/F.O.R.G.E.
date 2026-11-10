@@ -858,3 +858,15 @@ creation, or provide only `id` to name a flow control. Breaks/options keep flow
 layout; bound ancestors reject pixel setup. The new root is selected and the
 whole creation uses one source Undo. Save remains explicit; Preview determines
 native canvas eligibility after loading resources and applying the cascade.
+
+To place a control using observed geometry, call `forge_ui_source_preview` for
+the current source draft, then `forge_ui_source_place_control` with the source
+guards, `preview_instance`, `preview_revision`, parent outline index, `kind`,
+unique `id`, viewport `x`/`y`, `width`/`height` and optional `text`. Choose a point
+inside the editable parent's observed `padding_bounds` and the preview viewport.
+Coordinates are physical preview pixels; width and height are source CSS pixel
+sizes. The native candidate must place the new border corner at that point.
+The tool appends the child with zero margin as one source Undo step and selects
+it. Save stays explicit. Breaks/options and unsupported parents/layouts reject;
+refresh observations after a source edit or owner change. Metadata-only native
+hosts can use this tool without an image; the editor's click controls need an image.

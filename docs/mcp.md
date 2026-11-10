@@ -2735,8 +2735,8 @@ retain their existing source validation. The query initializes no native rendere
 reads no computed state and changes no selection/history/source/registration.
 
 The same immutable metadata powers inline/group and stylesheet literal controls.
-Native source candidates and old mutation/query results are unchanged. Existing
-35source operations plus this read-only query make36; native-style/preset staging
+Native source candidates and old mutation/query results are unchanged. Including
+this query and native-preview placement, there are37source operations. Style/preset staging
 publishes only through the original Set/Remove/Undo/Save and guarded MCP owners.
 
 Source control metadata includes an image profile: src/sprite/rect strings and
@@ -2749,19 +2749,19 @@ no new resource/URI/texture manager or live image mutation tool is introduced.
 Rect is empty or four space-separated finite bounded floats x/y/width/height with
 size at least0.000001 and distinct native-float crop edges. These finite source envelopes keep native aspect
 calculations within float range without duplicating their layout algorithm. Image tint uses the existing color profile and style mutation.
-Source operations remain36 and creation kinds18; Commonmenu has53 properties.
+Source operations total37 and creation kinds18; Commonmenu has53 properties.
 
 style_profile includes responsive layout metadata: display, flex-direction/wrap,
 justify-content, align-content/items/self, flex-grow/shrink/basis, row/column-gap
 and min/max width/height. Keyword lists are a convenience subset of native CSS;
 number metadata accurately lists units and nonnegative bounds. Existing guarded
 style, style_group and rule_property operations author these values; the tool
-count stays36, and control creation kinds stay18. Queries are source-only and
+count is37, and control creation kinds stay18. Queries are source-only and
 cannot establish computed geometry or initialize a renderer.
 
 Box style profiles extend the same query with position/box-sizing/axis overflow,
 side padding/margin and simple border width/color/radius controls. Common has53
-entries; source operations remain36, control kinds18, grants/history/replay and
+entries; source operations total37, control kinds18, grants/history/replay and
 schema ownership unchanged. The Common search field has no programmatic authoring
 semantics: agents query profiles and use existing style/group/rule mutations.
 Raw multi-value source remains supported and is not normalized by the profiles.
@@ -2779,5 +2779,28 @@ Pixel setup refuses breaks/options, requires ID and rejects bound ancestors.
 It does not initialize a renderer, register assets, create a persistent identity
 or bypass native Preview eligibility. The selected new root, one Undo, explicit
 Save, grants/revisions/replay and Scene isolation retain existing owners. There
-are still36 source operations/18creation kinds; the existing layout schema remains
+are37 source operations/18creation kinds; the existing layout schema remains
 unchanged. No separate creation path is maintained for MCP clients.
+
+## Native-preview control placement
+
+`ui.source.place_control` / `forge_ui_source_place_control` requires assets.write,
+the normal mutation envelope, current source guards and native preview instance/
+revision. Required fields are `parent`, `kind`, literal unique `id`, viewport
+`x`/`y`, `width`/`height`; `text` is optional. The16kind enum excludes breaks/options
+from the18basic creation kinds. x/y are finite nonnegative physical preview pixels
+inside both the current viewport and parent's native padding box. Width/height
+reuse the1..65536 CSS pixel schemas. Preview element metadata adds `padding_bounds`
+as `[x,y,width,height]` alongside the existing border bounds.
+
+The same SourceEditor owner reborrows live geometry, checks the existing editable
+absolute-pixel parent subset, derives local coordinates from the native padding
+origin and composes configured creation with zero margin. It validates the complete
+native candidate's new child eligibility and actual border corner before one
+source replacement/Undo and selection. Invalid candidates publish no source/history;
+their preview is stale until refreshed. No Scene/catalog/disk write occurs before
+explicit Save. Retired/stale preview guards refuse; successful receipt replay
+cannot append twice. Metadata-only native hosts remain supported. UI clicks queue
+the same owner operation before the next frame's image submission; Escape, source/
+view/close/lock/focus boundaries cancel it. No extra parser, layout solver, native
+DOM writer, persisted identity, SDK or runtime capability is introduced.

@@ -137,6 +137,15 @@ clamping, duplicate properties, entity-encoded styles and data-bound source ance
 reject canvas edits. Source remains available for those layouts; this is a bounded
 pixel canvas rather than an unrestricted responsive designer.
 
+Preview observations also expose native padding boxes. SourceEditor uses that
+origin to place a new named control inside an eligible absolute-pixel parent,
+through the same configured source creation candidate and history owner. New
+children have explicit zero margin; the full native candidate must admit editing
+and reproduce the requested border corner before source publication. The UI
+queues placement for the next frame, before image submission, preserving the
+renderer/readback image handover. Automation/MCP borrow the identical method and
+source/preview guards. This adds no runtime input, model or UI transport capability.
+
 The same CSS admission scanner optionally records inline declaration value ranges.
 Four-value candidates preserve unrelated bytes. Numeric changes validate native
 candidate geometry before source publication; mouse gestures retain transient

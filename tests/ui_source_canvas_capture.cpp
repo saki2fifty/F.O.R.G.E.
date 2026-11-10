@@ -266,6 +266,88 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
     editor.undo(false);
     require(!editor.dirty() && scene.snapshot() == authored,
             "Image capture changed source or Scene state");
+    const auto click_canvas = [&](float x, float y) {
+        const auto current = test::ui_targets.at("ui-source:canvas");
+        const float fitted = (current.maximum.x - current.minimum.x) / 1000;
+        io.AddMousePosEvent(current.minimum.x + x * fitted, current.minimum.y + y * fitted);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        const auto pressed = ImGui::GetMousePos();
+        const std::array point{(pressed.x - current.minimum.x) / fitted,
+                               (pressed.y - current.minimum.y) / fitted};
+        io.AddMouseButtonEvent(0, false);
+        frame();
+        frame();
+        return point;
+    };
+    click_canvas(100, 130);
+    input.click("ui-source:create-controls");
+    require(test::ui_targets.at("ui-source:child-id").enabled &&
+                !test::ui_targets.at("ui-source:place-control").enabled,
+            "Placement inputs or empty-ID blocking differ for the native container");
+    input.type("ui-source:child-id", "preview-control");
+    input.type("ui-source:child-text", "New UI");
+    input.type("ui-source:place-width", "100");
+    input.type("ui-source:place-height", "36");
+    input.click("ui-source:place-control");
+    const auto original_placement = editor.state();
+    io.AddKeyEvent(ImGuiKey_Escape, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Escape, false);
+    frame();
+    click_canvas(180, 170);
+    require(editor.state().at("text") == original_placement.at("text") && !editor.dirty(),
+            "Escape did not cancel Preview placement");
+    input.click("ui-source:place-control");
+    const auto queued_canvas = test::ui_targets.at("ui-source:canvas");
+    const float queued_scale = (queued_canvas.maximum.x - queued_canvas.minimum.x) / 1000;
+    io.AddMousePosEvent(queued_canvas.minimum.x + 180 * queued_scale,
+                        queued_canvas.minimum.y + 170 * queued_scale);
+    frame();
+    io.AddMouseButtonEvent(0, true);
+    frame();
+    require(editor.state().at("text") == original_placement.at("text"),
+            "Canvas placement changed source in the image-submission frame");
+    const auto parent_index = editor.state().at("selection").at(0).get<std::size_t>();
+    editor.style(parent_index, "background-color", "#285d88");
+    const auto intervening = editor.state();
+    io.AddMouseButtonEvent(0, false);
+    frame();
+    require(editor.state().at("text") == intervening.at("text"),
+            "A source change did not cancel queued placement");
+    input.click("button:Undo");
+    require(editor.state().at("text") == original_placement.at("text") && !editor.dirty(),
+            "Cancellation fixture did not restore the original source");
+    click_canvas(100, 130);
+    input.click("ui-source:place-control");
+    const auto before_placement = editor.state();
+    frame();
+    surface.save(output / ("ui-source-place-control-" + std::to_string(width) + ".png"));
+    const auto point = click_canvas(180, 170);
+    const auto placed = editor.state();
+    require(placed.at("text") != before_placement.at("text") && editor.dirty(),
+            "Native canvas placement did not publish its configured source");
+    const auto preview = editor.preview_state(project, 1000, 700, 1, false);
+    const auto found =
+        std::find_if(preview.at("elements").begin(), preview.at("elements").end(),
+                     [](const auto& row) { return row.at("id") == "preview-control"; });
+    require(found != preview.at("elements").end() && found->at("editable").get<bool>() &&
+                std::abs(found->at("bounds").at(0).get<float>() - point[0]) < .02f &&
+                std::abs(found->at("bounds").at(1).get<float>() - point[1]) < .02f &&
+                placed.at("selection") == Json::array({found->at("source_index")}) &&
+                scene.snapshot() == authored,
+            "Native placement corner/eligibility/selection or Scene ownership differs");
+    frame();
+    surface.save(output / ("ui-source-placed-control-" + std::to_string(width) + ".png"));
+    input.click("button:Undo");
+    require(editor.state().at("text") == before_placement.at("text"),
+            "Preview control placement needed multiple Undo steps");
+    input.click("button:Redo");
+    require(editor.state().at("text") == placed.at("text"), "Preview placement Redo differs");
+    editor.save(project);
+    require(!editor.dirty() && scene.snapshot() == authored,
+            "Preview placement Save changed Scene state");
     editor.discard();
     require(!presenter && !editor.is_open(), "Capture retained its source presentation owner");
 }

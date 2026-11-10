@@ -3319,3 +3319,24 @@ canonical images from the current editor without retouching:
 - ui-source-box-search.png: `ff2316f0e7d296000fa248189933b35f88f096992b3cbcbe271ea41dfc775c56`.
 
 - ui-source-box-color.png: `0e8e8373f45eef303816d6d166be36f37eca2f8876266ae747291aa9fe5fcc98`.
+
+## Native Preview control placement captures
+
+The Preview, group, placement and result images are unretouched700×950 outputs
+of `forge_ui_source_canvas_capture` with the production SourceEditor and native
+UiPresenter/UiDiligentRenderer. The fixture clicks real controls and the scaled
+canvas, checks native geometry and selection, cancellation, one Undo/Redo and
+explicit Save. The image adapter reads actual RGBA8 software-Vulkan output into
+the SDL component surface. It does not fabricate controls or rendered content.
+
+Capture source is local development based on5ab8c5f with Preview placement.
+The final current graphical gate has three passing cases: native preview rendering,
+actual canvas controls at1180/700 and MCP image round trips on both protocols.
+The existing25Source component images remain byte-identical. Exact input/executable
+and raw capture digests are in the local preview-placement evidence owner.
+No full Main, Windows, physical GPU/input or display-density acceptance is implied.
+
+- `ui-source-preview.png`: `df2abbea12fd366e329ba4c5a2475e543eb3ae68786e7c79567a44e0ce06d3e7`.
+- `ui-source-group-layout.png`: `7d60d6740ebac675776186a554c874d043bc5ccf16ebcc7814b407505104a88f`.
+- `ui-source-place-control.png`: `e9e5f527f5575590db579ddd25044513042a1cad1b0126f3c86d74a568582bc2`.
+- `ui-source-placed-control.png`: `eee065c6a04f6ca36457d1491b13ed928059eee4d5156081ee16491bf76b1ff6`.

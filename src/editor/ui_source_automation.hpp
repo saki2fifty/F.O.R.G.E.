@@ -407,7 +407,8 @@ struct UiSourceAutomation {
               "duplicate",     "reparent",      "remove",      "remove_group", "move",
               "save",          "undo",          "redo",        "reload",       "close",
               "rule_property", "rule_selector", "rule_insert", "rule_remove",  "rule_copy",
-              "rule_move",     "style_group",   "classes",     "control",      "control_values"}) {
+              "rule_move",     "style_group",   "classes",     "control",      "control_values",
+              "place_control"}) {
             const std::string action(operation);
             auto properties = guard;
             auto fields = required;
@@ -455,22 +456,35 @@ struct UiSourceAutomation {
                     values[name] = value;
                 add("values", automation_object(std::move(values)));
             }
-            if (action == "control") {
+            if (action == "control" || action == "place_control") {
+                const bool placement = action == "place_control";
                 auto kinds = Json::array();
                 for (const auto& kind : ui_markup_control_kinds)
-                    kinds.push_back(kind.id);
+                    if (!placement || (kind.tag != "br" && kind.tag != "option"))
+                        kinds.push_back(kind.id);
                 add("kind", {{"type", "string"}, {"enum", std::move(kinds)}});
                 add("text", automation_text(8192), false);
-                add("id", automation_text(128), false);
-                add("pixels",
-                    automation_object(pixel_properties(), {"left", "top", "width", "height"}),
-                    false);
+                add("id", automation_text(128, placement ? 1 : 0), placement);
+                if (placement) {
+                    add("x", {{"type", "number"}, {"minimum", 0}, {"maximum", 2048}});
+                    add("y", {{"type", "number"}, {"minimum", 0}, {"maximum", 2048}});
+                    const auto geometry = pixel_properties();
+                    add("width", geometry.at("width"));
+                    add("height", geometry.at("height"));
+                    add("preview_instance", automation_uuid());
+                    add("preview_revision", automation_integer());
+                } else
+                    add("pixels",
+                        automation_object(pixel_properties(), {"left", "top", "width", "height"}),
+                        false);
             }
-            if (action == "insert" || action == "reparent" || action == "control") {
+            if (action == "insert" || action == "reparent" || action == "control" ||
+                action == "place_control") {
                 add("parent", automation_integer(0, 8191));
                 if (action == "insert")
                     add("tag", automation_text(64, 1));
-                add("before", automation_integer(0, 8191), false);
+                if (action != "place_control")
+                    add("before", automation_integer(0, 8191), false);
             }
             if (action == "move" || action == "rule_move")
                 add("direction", {{"type", "integer"}, {"enum", {-1, 1}}});
@@ -505,6 +519,19 @@ struct UiSourceAutomation {
                       "and bindings; no runtime normalization/state, Save, catalog or Scene "
                       "writes. "
                       "Requires current source guards and assets.write; old raw tools remain."
+                : action == "place_control"
+                    ? "Append a named control inside the selected editable absolute-pixel source "
+                      "container at viewport x/y. Requires current source guards, preview instance/"
+                      "revision and assets.write. The point must lie inside its current native "
+                      "padding box and viewport. Native padding geometry supplies local pixels; "
+                      "the configured candidate uses zero margin and validates actual native "
+                      "corner/"
+                      "canvas eligibility before one source Undo. Width/height are authored CSS "
+                      "pixels; native box sizing still applies. Breaks/options are excluded. "
+                      "No source/history publication on invalid/stale/unsupported candidates; "
+                      "refresh Preview after a refused native candidate. No Save, catalog, Scene "
+                      "or runtime execution. Selects the created root; old source control creation "
+                      "remains supported."
                 : action == "control"
                     ? "Create one common RML control with parent/kind, optional initial text/value "
                       "and optional before-child index. Compose existing escaped source insert/"
@@ -690,7 +717,17 @@ struct UiSourceAutomation {
                                     "Use null, boolean, number or string control values");
                         }
                         editor.control_values(request.at("element").get<std::size_t>(), values);
-                    } else if (action == "control")
+                    } else if (action == "place_control")
+                        editor.place_control(
+                            request.at("parent").get<std::size_t>(),
+                            request.at("kind").get<std::string>(),
+                            request.value("text", std::string{}),
+                            request.at("id").get<std::string>(),
+                            {request.at("x").get<float>(), request.at("y").get<float>(),
+                             request.at("width").get<float>(), request.at("height").get<float>()},
+                            request.at("preview_instance").get<std::string>(),
+                            request.at("preview_revision").get<std::uint64_t>());
+                    else if (action == "control")
                         editor.control(request.at("parent").get<std::size_t>(),
                                        request.at("kind").get<std::string>(),
                                        request.value("text", std::string{}),

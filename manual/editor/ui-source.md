@@ -523,6 +523,37 @@ sizing also use Source. An RML draft must have a
 registered, contained source in the editable project. To preview an RCSS
 stylesheet, open the RML that links it.
 
+## Place a control in Preview
+
+1. Open the Gallery's **211-ui-layout-preview** scene and **layout.rml**, stop Play and select **Preview**. Refresh if needed.
+2. Select the blue panel, or another editable absolute-pixel container with a unique ID. Expand **Create controls**. The **Parent** line identifies the selected container.
+3. Choose **New child**, enter any **Initial text/value** and a unique **Element ID**, then set **Width (px)** and **Height (px)**. These are source CSS sizes, at least one pixel and no greater than 65,536.
+4. Enable **Click to place**. Click inside the selected container's padding box on the preview image. The click supplies the new control's top-left border corner in physical preview pixels; image scaling is handled automatically.
+5. The new control becomes selected and placement turns off. Collapse **Create controls** for more canvas space, then move or resize the control as needed. **Undo** removes the whole creation; **Redo** restores it. Choose **Save source** before registering updates or exporting.
+
+![Preview creation fields with a selected parent and Click to place enabled](../images/ui-source-place-control.png)
+
+An Element ID is required before Click to place becomes available. This menu
+offers the same control kinds as Elements except Line break and Dropdown option,
+which retain their native flow layout. To create another control, select its
+parent again and enter another unique ID.
+
+![New control selected inside its parent after placement in the Preview image](../images/ui-source-placed-control.png)
+
+Placement appends the child to the selected container and writes an absolute
+pixel layout with zero margin. Native padding and borders determine its origin;
+the stylesheet and box-sizing rules still determine the rendered size. The parent
+and new child must satisfy the canvas eligibility rules above. A dropdown cannot
+be a placement parent. Use Elements or Source for responsive or unsupported
+layouts. This creates source content; it does not add gameplay bindings or register
+resources.
+
+Press **Escape** or turn off **Click to place** to cancel. Changing source,
+switching views, closing the document, losing application focus or entering Play
+or a blocking task also cancels placement. Invalid points, stale geometry or
+unsupported native layout leave source and Undo history unchanged. Correct the
+problem, refresh Preview and try again.
+
 ## Move, align and space a group
 
 1. Open Gallery scene **211** and its **layout.rml** source, then select **Preview**.

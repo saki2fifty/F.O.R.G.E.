@@ -1372,9 +1372,13 @@ Json UiPresenter::preview_layout() const {
             reason = "Element has no finite visible border box";
         if (!element->IsVisible(true) && reason.empty())
             reason = "Element is hidden in this static preview";
+        const auto padding_origin = element->GetAbsoluteOffset(Rml::BoxArea::Padding);
+        const auto padding_size = element->GetBox().GetSize(Rml::BoxArea::Padding);
         elements.push_back({{"id", id},
                             {"tag", element->GetTagName()},
                             {"bounds", {offset.x, offset.y, size.x, size.y}},
+                            {"padding_bounds",
+                             {padding_origin.x, padding_origin.y, padding_size.x, padding_size.y}},
                             {"pixels", std::move(pixels)},
                             {"reason", reason}});
     }

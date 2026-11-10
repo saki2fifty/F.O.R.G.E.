@@ -2,13 +2,13 @@
 from mcp_test_client import failed
 
 
-def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False):
+def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False, placement_only=False):
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
                  'duplicate', 'remove_group', 'reparent', 'style', 'style_read', 'rule_read',
                  'rule_property', 'rule_selector', 'rule_insert', 'rule_remove',
-                 'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control', 'control_properties', 'control_values', 'style_profile')}
+                 'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control', 'control_properties', 'control_values', 'style_profile', 'place_control')}
     assert required <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
@@ -33,6 +33,52 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                     if node['tag'] == tag)
 
     paragraph = index('p')
+    if placement_only:
+        edit('save')
+        ok('forge_source_ui_register', path=path)
+        catalog = (root/'Game/forge.assets.json').read_bytes()
+        disk = (root/'Game'/path).read_bytes()
+        canvas = '<rml><head><style>body{display:block;width:100%;height:100%;font-family:Lato;}div{margin:11px;}button{min-width:100px;}</style></head><body><div id="panel" style="position:absolute;left:20px;top:30px;width:200px;height:120px;padding:8px;border-width:2px;margin:3px;"></div><div id="flow" style="position:relative;width:100px;height:20px;"></div></body></rml>'
+        baseline = edit('replace', text=canvas)
+        def preview():
+            return read('forge_ui_source_preview', **guard(), width=800, height=600, density=1)
+        def observation(value):
+            return dict(preview_instance=value['instance'], preview_revision=value['revision'])
+        shown = preview()
+        panel = next(row for row in shown['elements'] if row['id'] == 'panel')
+        flow = next(row for row in shown['elements'] if row['id'] == 'flow')
+        assert panel['editable'] and panel['padding_bounds'] == [25, 35, 216, 136]
+        allowed = advertised['forge_ui_source_place_control']['inputSchema']['properties']['kind']['enum']
+        assert len(allowed) == 16 and 'line-break' not in allowed and 'option' not in allowed
+        values = dict(parent=panel['source_index'], kind='container', id='placed', x=40, y=50, width=40, height=20)
+        for bad in [dict(x=0), dict(x=800), dict(width=0), dict(kind='line-break'), dict(id='panel')]:
+            assert not mutate('forge_ui_source_place_control', **guard(), **observation(shown), **(values | bad))['ok']
+            assert read('forge_ui_source_read') == baseline, 'Invalid placement partially published'
+        failed(mutate('forge_ui_source_place_control', **guard(), **observation(shown),
+                      **(values | dict(parent=flow['source_index']))), 'layout_unsupported')
+        args = arguments(**guard(), **observation(shown), **values)
+        first = client.tool('forge_ui_source_place_control', **args)
+        replay = client.tool('forge_ui_source_place_control', **args)
+        assert first['ok'] and replay['ok'] and first['result'] == replay['result']
+        placed = read('forge_ui_source_read')
+        after = preview()
+        child = next(row for row in after['elements'] if row['id'] == 'placed')
+        assert child['editable'] and child['bounds'] == [40, 50, 40, 20]
+        assert child['pixels'] == dict(left=15, top=15, width=40, height=20)
+        assert placed['selection'] == [child['source_index']] and 'margin:0px' in placed['text']
+        failed(mutate('forge_ui_source_place_control', **guard(), **observation(shown),
+                      **(values | dict(id='stale'))), 'stale_ui_preview')
+        assert edit('undo')['text'] == baseline['text']
+        assert edit('redo')['text'] == placed['text']
+        current = preview()
+        failed(mutate('forge_ui_source_place_control', **guard(), **observation(current),
+                      **(values | dict(kind='button', id='clamped'))), 'layout_unsupported')
+        assert read('forge_ui_source_read')['text'] == placed['text']
+        assert not preview()['stale'], 'Native candidate refusal prevented original draft recovery'
+        assert (root/'Game'/path).read_bytes() == disk and (root/'Game/forge.assets.json').read_bytes() == catalog
+        edit('save')
+        assert not read('forge_ui_source_read')['dirty'] and read('forge_scene_read') == before_scene
+        return
     if typography_only:
         before = read('forge_ui_source_read')
         profile = read('forge_ui_source_style_profile', **guard(), name='font-weight')
