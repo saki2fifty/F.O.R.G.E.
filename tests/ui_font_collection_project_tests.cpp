@@ -118,6 +118,14 @@ AssetId author_font_selection(const std::filesystem::path& root,
     const auto reference = ui_font_reference(catalog, selected->first, 1);
     const auto path = root / "Assets/UI/hud.rcss";
     auto text = *asset_storage::read(path);
+    text = insert_ui_stylesheet_rule(text, "#preset-center");
+    text = set_ui_stylesheet_property(text, inspect_ui_stylesheet(text).size() - 1,
+                                      "background-color", "#117733");
+    text = set_ui_stylesheet_media_query(
+        text, {},
+        {UiStyleNumber{800, UiStyleUnit::Pixels}, UiStyleNumber{1100, UiStyleUnit::Pixels}});
+    text = set_ui_stylesheet_media_rule(text, inspect_ui_stylesheet(text).size() - 1, {},
+                                        "#preset-center", {{"background-color", "#3355bb"}});
     text = set_ui_stylesheet_font_face(text, {}, "AuthoredCollectionFace",
                                        reference.at("source").get<std::string>(), 0);
     text = set_ui_stylesheet_font_face_style(text, inspect_ui_stylesheet(text).size() - 1,
@@ -251,6 +259,10 @@ void present(const std::filesystem::path& root, const std::vector<std::byte>& fo
             const auto containing = document->GetElementById("preset-center")->GetContainingBlock();
             auto* centered = document->GetElementById("preset-center");
             auto* stretched = document->GetElementById("preset-stretch");
+            check(centered->GetProperty<Rml::Colourb>("background-color") ==
+                      (size.x >= 800 && size.x <= 1100 ? Rml::Colourb{0x33, 0x55, 0xbb, 255}
+                                                       : Rml::Colourb{0x11, 0x77, 0x33, 255}),
+                  "Saved/exported native responsive stylesheet lost its active/inactive condition");
             const auto center_offset = centered->GetAbsoluteOffset(Rml::BoxArea::Border);
             const auto stretch_offset = stretched->GetAbsoluteOffset(Rml::BoxArea::Border);
             const auto center_size = centered->GetBox().GetSize(Rml::BoxArea::Border);
@@ -336,7 +348,8 @@ int main(int argc, char** argv) {
         for (bool shaped : {false, true})
             present(relocated, font, runtime_catalog.records().at(roots[0]).source, shaped, true,
                     false);
-        std::cout << "Font and ordered stylesheet source-hidden relocated native content passed\n";
+        std::cout << "Font, responsive and ordered stylesheet source-hidden relocated native "
+                     "content passed\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

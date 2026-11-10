@@ -864,8 +864,27 @@ and surrounding comments remain intact. Unchanged supported quoted
 literals, numeric index spelling and an omitted default face index stay unchanged.
 The face index must be below the file's face count and below 32. Face names, color
 and axis details are informational; [text shaping limits](ui-text-shaping.md)
-describe native font support. Other at-rules and nested stylesheet blocks use
-**Source**.
+describe native font support. Width-conditioned blocks have the responsive
+controls below; custom at-rules and nested stylesheet forms use **Source**.
+
+## Change styles at different viewport widths
+
+1. Open a linked `.rcss` file with **Edit UI source** and choose **Rules**.
+2. Choose **New responsive block...**. Enable **Minimum width**, **Maximum width**, or both. Enter each width and choose its **Unit**: `px` for physical pixels or `dp` for density-scaled pixels.
+3. Choose **Apply width condition**. The new block is selected in **Stylesheet rules**. Values are proposals until Apply; each application is one source Undo step.
+4. Choose **New child rule**, enter a **Child selector**, such as `#menu` or `.toolbar`, then choose **Apply child selector**. The new child becomes selected in **Child rules**.
+5. Scroll below the child selector and expand **Rule properties**. Use the same **Common**, **Property**, **CSS value** and optional value controls as other rules, then choose **Set property** or **Remove property**.
+6. **Save source**. Open the linked RML document in **Preview** and test widths below, at and above the bounds. Check density as well when using `dp`. Use **Reload UI** in Play to load saved styling.
+
+![Responsive stylesheet form with proposed minimum and maximum viewport widths](../images/ui-source-media-widths.png)
+
+Bounds include their endpoints. A minimum of `600px` and maximum of `700px` apply from 600 through 700 physical pixels. At density 2, `600dp` means 1,200 physical pixels. These conditions follow the whole viewport, independent of a control's parent size. A width must be finite and from `0..65536`. At least one bound is required; a same-unit minimum cannot exceed its maximum. When mixing units, both conditions still need to match at the chosen density.
+
+Select an existing width block in **Stylesheet rules** to change its condition. Select one of its **Child rules** to rename its selector or edit its properties. **Remove child rule** removes only that child. **Remove responsive block** removes the condition and all its children. Each source edit has one Undo step; saving remains explicit.
+
+![A responsive width block with its child selector selected in Child rules](../images/ui-source-media-child.png)
+
+The guided form supports one top-level minimum/maximum width interval with flat child rules. Custom media expressions, other features, nested media blocks and child at-rules remain in **Source**. Other rules, inline styles, inherited values and constraints still affect the result. Apply preserves surrounding blocks and comments; it does not flatten the cascade or rewrite unrelated layout.
 
 ## Edit stylesheet rules
 
@@ -879,7 +898,7 @@ describe native font support. Other at-rules and nested stylesheet blocks use
 ![Stylesheet Rules with the accent selector, authored color and rule/property controls](../images/ui-source-rules.png)
 
 The selected flat rule has a color override. Other blocks remain listed in source
-order. Literal `@font-face` blocks open the font controls; other at-rules and nested blocks use Source.
+order. Literal `@font-face` blocks open the font controls. Supported width-conditioned `@media` blocks open the responsive controls above; other at-rules and nested forms use Source.
 
 Rules edit the stylesheet source; they do not show computed CSS. Order, specificity,
 inline styles and bindings affect the result. Other rules, declarations and
@@ -895,7 +914,7 @@ blocks remain between them. Copy and each changed move use one Undo step. Bounda
 or identical-source moves create no history. Save, then refresh native UI to check
 the cascade.
 
-Other at-rules, nested blocks and incomplete source stay in **Source**. Literal top-level `@font-face` declarations have the guided controls above. The outline
+Custom at-rules, nested blocks and incomplete source stay in **Source**. Literal top-level `@font-face` and supported width-conditioned `@media` declarations have guided controls above. The outline
 supports up to 4,096 top-level blocks. New selectors fit 1,024 UTF-8 bytes and do
 not contain at-rules, comments, escapes or additional blocks. Child selectors such
 as `.panel > button` are supported. Property names use

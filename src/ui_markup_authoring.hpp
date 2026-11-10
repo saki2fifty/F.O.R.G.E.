@@ -194,6 +194,26 @@ std::string set_ui_stylesheet_property(std::string_view, std::size_t rule,
 std::string set_ui_stylesheet_selector(std::string_view, std::size_t rule,
                                        std::string_view selector);
 std::string insert_ui_stylesheet_rule(std::string_view, std::string_view selector);
+struct UiStylesheetWidthQuery {
+    std::optional<UiStyleNumber> minimum, maximum;
+    bool operator==(const UiStylesheetWidthQuery&) const = default;
+};
+struct UiStylesheetMediaBlock {
+    UiStylesheetWidthQuery query;
+    UiSourceRange content;
+    std::vector<UiStyleRule> rules; // Absolute ranges in the original source snapshot.
+};
+// Optional literal adapter: one width interval and flat child rules. General
+// media syntax/nesting remains in Source; native CSS evaluates the conditions.
+UiStylesheetMediaBlock read_ui_stylesheet_media(std::string_view, std::size_t rule);
+std::string set_ui_stylesheet_media_query(std::string_view, std::optional<std::size_t> rule,
+                                          UiStylesheetWidthQuery);
+std::string
+set_ui_stylesheet_media_rule(std::string_view, std::size_t media, std::optional<std::size_t> child,
+                             std::string_view selector,
+                             const std::map<std::string, std::optional<std::string>>& properties);
+std::string remove_ui_stylesheet_media_rule(std::string_view, std::size_t media,
+                                            std::optional<std::size_t> child = {});
 struct UiMarkupStylesheetLink {
     std::size_t element;
     std::string reference, type;

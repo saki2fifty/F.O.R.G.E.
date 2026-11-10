@@ -4,9 +4,10 @@ from mcp_ui_source_selection import check_selection
 from mcp_ui_source_fonts import check_font_source
 from mcp_ui_source_stylesheets import check_stylesheet_source
 from mcp_ui_source_presets import check_layout_presets
+from mcp_ui_source_media import check_media_rules
 
 
-def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False, placement_only=False, sizing_only=False, transforms_only=False, selection_only=False, fonts_only=False, stylesheets_only=False, presets_only=False):
+def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False, placement_only=False, sizing_only=False, transforms_only=False, selection_only=False, fonts_only=False, stylesheets_only=False, presets_only=False, media_only=False):
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
@@ -14,7 +15,7 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                  'rule_property', 'rule_selector', 'rule_insert', 'rule_remove',
                  'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control', 'control_properties', 'control_values', 'style_profile', 'place_control', 'transform')}
     assert required <= advertised.keys()
-    assert sum(name.startswith('forge_ui_source_') for name in advertised) == 51
+    assert sum(name.startswith('forge_ui_source_') for name in advertised) == 55
     assert {'forge_ui_source_select', 'forge_ui_source_select_rectangle',
             'forge_ui_source_image_reference'} <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
@@ -39,6 +40,9 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
         return next(node['index'] for node in read('forge_ui_source_read')['elements']
                     if node['tag'] == tag)
 
+    if media_only:
+        check_media_rules(read, ok, mutate, root, advertised, client, arguments, guard, edit, before_scene)
+        return
     if presets_only:
         check_layout_presets(read, ok, mutate, root, advertised, client, arguments, guard, edit, before_scene)
         return

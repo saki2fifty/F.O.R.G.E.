@@ -28,7 +28,8 @@ enum class SourceControls {
     CreationSetup,
     FontFaces,
     StylesheetLinks,
-    LayoutPresets
+    LayoutPresets,
+    MediaRules
 };
 void exercise(const std::filesystem::path& output, int width,
               SourceControls mode = SourceControls::All,
@@ -94,6 +95,81 @@ void exercise(const std::filesystem::path& output, int width,
     const auto old_clipboard = ImGui::GetPlatformIO().Platform_GetClipboardTextFn;
     const auto old_data = ImGui::GetPlatformIO().Platform_ClipboardUserData;
     test::ImGuiInputDriver input(frame);
+    if (mode == SourceControls::MediaRules) {
+        const auto css = root / "Assets/Layout.rcss";
+        const std::string baseline = "/*keep*/ .base{color:red;}\n";
+        asset_storage::replace(css, baseline);
+        editor.open(project, "Assets/Layout.rcss");
+        frame();
+        const auto opened = editor.state();
+        input.click("ui-source:elements-tab");
+        input.click("ui-source:media-new");
+        input.type("ui-source:media-minimum-value", "600");
+        input.click("ui-source:media-maximum-enabled");
+        input.type("ui-source:media-maximum-value", "700");
+        check(editor.state() == opened && !editor.dirty(),
+              "Responsive width staging changed source before Apply");
+        frame();
+        capture.save(output / ("ui-source-media-widths-" + std::to_string(width) + ".png"));
+        input.click("ui-source:media-apply");
+        const auto created = editor.state();
+        check(created.at("rule_selection") == 1 &&
+                  editor.media_block(1).query ==
+                      UiStylesheetWidthQuery{UiStyleNumber{600, UiStyleUnit::Pixels},
+                                             UiStyleNumber{700, UiStyleUnit::Pixels}} &&
+                  asset_storage::read(css) == baseline,
+              "Native responsive creation lost condition, selected block or explicit Save");
+        input.click("ui-source:media-child-new");
+        input.type("ui-source:media-child-selector", "#responsive");
+        input.click("ui-source:media-child-apply");
+        const auto child = editor.state();
+        check(child.at("media_child_selection") == 0 && editor.media_block(1).rules.size() == 1,
+              "Responsive child creation lost the shared child selection");
+        input.click("ui-source:style-open");
+        input.type("ui-source:style-name", "color");
+        input.type("ui-source:style-value", "#3355bb");
+        input.click("ui-source:style-set");
+        const auto property = editor.state();
+        check(editor.read_rule_property(1, "color", 0) == "#3355bb" &&
+                  property.at("media_child_selection") == 0,
+              "Shared style controls did not edit and retain the scoped child");
+        input.click("ui-source:style-set");
+        check(editor.state() == property, "Equal child property created a source history record");
+        input.click("button:Undo");
+        check(editor.state().at("text") == child.at("text"),
+              "Child property needed multiple Undo steps");
+        input.click("button:Redo");
+        check(editor.state().at("text") == property.at("text"), "Child property Redo differs");
+        input.click("ui-source:rule:1");
+        input.click("ui-source:media-child:0");
+        locked = true;
+        frame();
+        check(!test::ui_targets.at("ui-source:media-apply").enabled &&
+                  !test::ui_targets.at("ui-source:style-set").enabled,
+              "Locked source enabled responsive condition/property publication");
+        locked = false;
+        frame();
+        capture.save(output / ("ui-source-media-child-" + std::to_string(width) + ".png"));
+        input.click("ui-source:media-child-remove");
+        check(editor.media_block(1).rules.empty(),
+              "Responsive child removal changed another scope");
+        input.click("button:Undo");
+        check(editor.state().at("text") == property.at("text"),
+              "Child removal needed multiple Undo steps");
+        input.click("ui-source:rule:1");
+        input.click("ui-source:media-remove");
+        check(editor.state().at("text").get<std::string>().find("@media") == std::string::npos,
+              "Responsive block removal retained its condition/children");
+        input.click("button:Undo");
+        check(editor.state().at("text") == property.at("text"),
+              "Block removal lost its complete Undo");
+        editor.save(project);
+        check(!editor.dirty() && scene.snapshot() == authored && scene.revision() == revision &&
+                  asset_storage::read(root / "forge.assets.json") == catalog,
+              "Responsive rule Save changed Scene/catalog ownership");
+        editor.request_close();
+        return;
+    }
     if (mode == SourceControls::LayoutPresets) {
         input.click("ui-source:elements-tab");
         input.click("ui-source:element:2");
@@ -1474,7 +1550,9 @@ int main(int argc, char** argv) {
         auto mode = SourceControls::All;
         if (argc >= 3) {
             const auto flag = std::string_view(argv[2]);
-            if (flag == "--layout-presets-only")
+            if (flag == "--media-rules-only")
+                mode = SourceControls::MediaRules;
+            else if (flag == "--layout-presets-only")
                 mode = SourceControls::LayoutPresets;
             else if (flag == "--stylesheet-links-only")
                 mode = SourceControls::StylesheetLinks;

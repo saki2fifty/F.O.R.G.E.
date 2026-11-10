@@ -154,7 +154,8 @@ current source guards, `rule` and `name`; it needs `assets.read` and returns
 `forge_ui_source_rule_remove` with `rule`. They share native Rules, one source
 Undo, guards and replay. Exact no-ops preserve history; property/selector changes
 retain the edited rule, insertion selects the appended rule and removal clears
-selection. At-rules/nested blocks stay in Source. Save remains separate, then
+selection. Width-conditioned blocks have the media tools below; other custom
+at-rules/nested forms stay in Source. Save remains separate, then
 refresh the linked RML preview or Reload UI to check the native cascade. See
 [stylesheet rules](ui-source.md) for source limits.
 
@@ -950,6 +951,25 @@ other source and selection. It requires assets.write and the normal mutation
 envelope; it does not require a Preview observation. Static-source restrictions
 and native stylesheet constraints still apply. Inspect Preview at multiple
 sizes, then save. See **Center, anchor or stretch a control** in
+[UI source](ui-source.md).
+
+Use `forge_ui_source_media_read` with the current RCSS source guards and `rule`
+to inspect a supported width condition and its flat children. Each child reports
+its index, selector and authored declarations. It needs assets.read and does not
+initialize native rendering.
+
+With assets.write and the ordinary mutation envelope, use:
+
+- `forge_ui_source_media_query`: omit `rule` to append a block, or supply it to replace the condition. Pass `minimum` and/or `maximum` as `{value:600,unit:"px"}` objects; `dp` is also supported. Null or omitted bounds are disabled; at least one must be enabled.
+- `forge_ui_source_media_rule`: pass the parent `rule` and a `selector`. Omit `child` to append; supply its index to edit. Optional `properties` contains up to 32 property/value pairs, with null removing a declaration. Selector and property changes publish together as one Undo step.
+- `forge_ui_source_media_remove`: pass `rule` and optional `child`. A child index removes only that child; omission removes the whole admitted width block.
+
+These operations preserve unrelated source and use the existing source history,
+selection, revision guards, replay and explicit Save. Conditions use inclusive
+viewport bounds in `px` or `dp`; custom expressions and nested child at-rules use
+Source. Check the linked RML Preview at threshold widths and relevant densities.
+The current parent and child selection appear as `rule_selection` and
+`media_child_selection`. See **Change styles at different viewport widths** in
 [UI source](ui-source.md).
 
 For responsive UI, read `forge_ui_source_style_profile` for `display`,

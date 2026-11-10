@@ -36,6 +36,12 @@ class UiSourceEditor {
     std::vector<UiMarkupElement> outline_;
     std::vector<UiStyleRule> rules_;
     std::size_t selected_rule_ = UiMarkupElement::no_parent;
+    std::optional<std::size_t> selected_media_child_;
+    bool new_media_ = false, media_minimum_ = true, media_maximum_ = false;
+    UiStyleNumber media_minimum_value_{600, UiStyleUnit::Pixels};
+    UiStyleNumber media_maximum_value_{1000, UiStyleUnit::Pixels};
+    char media_selector_[1025]{};
+    std::string media_controls_key_;
     char rule_selector_[1025] = ".new-rule";
     std::vector<std::size_t> selected_;
     std::uint64_t revision_ = 0;
@@ -535,6 +541,8 @@ class UiSourceEditor {
     }
 
     void changed() {
+        selected_media_child_.reset();
+        new_media_ = false;
         new_font_face_ = false;
         new_stylesheet_ = false;
         cancel_gesture();
@@ -718,7 +726,7 @@ class UiSourceEditor {
         try {
             std::optional<std::string> value;
             if (sheet)
-                value = read_rule_property(selected_rule_, style_name_);
+                value = read_rule_property(selected_rule_, style_name_, selected_media_child_);
             else {
                 const auto values = read_styles(selected_, style_name_);
                 style_mixed_ = !std::ranges::all_of(
@@ -828,7 +836,7 @@ class UiSourceEditor {
         if (!open)
             return;
         ImGui::BeginDisabled(locked ||
-                             (sheet ? !rules_.at(selected_rule_).flat
+                             (sheet ? !rules_.at(selected_rule_).flat && !selected_media_child_
                                     : !ui_markup_widget_editable(outline_.at(selected_element()))));
         const bool choices = ImGui::BeginCombo("Common", style_name_);
         FORGE_UI_PROBE("ui-source:style-common");
@@ -884,7 +892,8 @@ class UiSourceEditor {
         if (button("Set property", "Replace only this CSS value as one source Undo step."))
             attempt([&] {
                 if (sheet)
-                    rule_property(selected_rule_, style_name_, std::string(style_value_));
+                    rule_property(selected_rule_, style_name_, std::string(style_value_),
+                                  selected_media_child_);
                 else
                     styles(selected_, style_name_, std::string(style_value_));
             });
@@ -893,7 +902,7 @@ class UiSourceEditor {
         if (button("Remove property", "Remove this declaration; preserve surrounding source."))
             attempt([&] {
                 if (sheet)
-                    rule_property(selected_rule_, style_name_, {});
+                    rule_property(selected_rule_, style_name_, {}, selected_media_child_);
                 else
                     styles(selected_, style_name_, {});
             });
@@ -979,6 +988,8 @@ class UiSourceEditor {
         if (index >= rules_.size())
             throw AuthoringError("source_rule", "Choose a current stylesheet rule");
         selected_rule_ = index;
+        selected_media_child_.reset();
+        new_media_ = false;
         new_font_face_ = false;
         const auto text = editor_.GetText();
         const auto range = rules_[index].selector;
@@ -987,6 +998,135 @@ class UiSourceEditor {
                       selector.size() < sizeof(rule_selector_) ? selector.c_str() : "");
         read_style_controls();
     }
+    void media_controls(std::optional<std::size_t> index, bool locked) {
+        const auto text = editor_.GetText();
+        UiStylesheetMediaBlock block;
+        if (index) {
+            try {
+                block = media_block(*index);
+            } catch (const std::exception& error) {
+                ImGui::TextWrapped("%s", error.what());
+                return;
+            }
+        }
+        const auto key = session_ + ':' + std::to_string(revision_) + ':' +
+                         (index ? std::to_string(*index) : "new");
+        if (media_controls_key_ != key) {
+            media_controls_key_ = key;
+            media_minimum_ = index ? block.query.minimum.has_value() : true;
+            media_maximum_ = index && block.query.maximum.has_value();
+            media_minimum_value_ =
+                block.query.minimum.value_or(UiStyleNumber{600, UiStyleUnit::Pixels});
+            media_maximum_value_ =
+                block.query.maximum.value_or(UiStyleNumber{1000, UiStyleUnit::Pixels});
+        }
+        ImGui::SeparatorText("Responsive width condition");
+        ImGui::TextWrapped(
+            "Inclusive viewport bounds. px uses physical pixels; dp follows Preview/game density. "
+            "At least one bound is required. Changes are proposals until Apply.");
+        ImGui::BeginDisabled(locked);
+        const auto width_control = [&](const char* label, const char* probe, bool& enabled,
+                                       UiStyleNumber& value) {
+            ImGui::PushID(probe);
+            ImGui::Checkbox(label, &enabled);
+            FORGE_UI_PROBE(std::string("ui-source:media-") + probe + "-enabled");
+            ImGui::BeginDisabled(!enabled);
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+            ImGui::InputDouble("##width", &value.value);
+            FORGE_UI_PROBE(std::string("ui-source:media-") + probe + "-value");
+            int unit = value.unit == UiStyleUnit::DensityPixels ? 1 : 0;
+            if (ImGui::Combo("Unit", &unit, "px\0dp\0"))
+                value.unit = unit ? UiStyleUnit::DensityPixels : UiStyleUnit::Pixels;
+            FORGE_UI_PROBE(std::string("ui-source:media-") + probe + "-unit");
+            ImGui::EndDisabled();
+            ImGui::PopID();
+        };
+        width_control("Minimum width", "minimum", media_minimum_, media_minimum_value_);
+        width_control("Maximum width", "maximum", media_maximum_, media_maximum_value_);
+        const auto before = revision_;
+        if (button("Apply width condition",
+                   "Create or replace this width condition as one source Undo step."))
+            attempt([&] {
+                media_query(index,
+                            {media_minimum_ ? std::optional(media_minimum_value_) : std::nullopt,
+                             media_maximum_ ? std::optional(media_maximum_value_) : std::nullopt});
+            });
+        FORGE_UI_PROBE("ui-source:media-apply");
+        ImGui::EndDisabled();
+        if (revision_ != before)
+            return;
+        if (!index) {
+            if (button("Discard responsive proposal", "Leave source unchanged."))
+                new_media_ = false;
+            return;
+        }
+        ImGui::BeginDisabled(locked);
+        if (button("Remove responsive block",
+                   "Remove the admitted condition and all its child rules as one Undo step."))
+            attempt([&] { remove_media_rule(*index); });
+        FORGE_UI_PROBE("ui-source:media-remove");
+        ImGui::EndDisabled();
+        if (revision_ != before)
+            return;
+        ImGui::TextUnformatted("Child rules");
+        if (ImGui::BeginListBox("##responsive-child-rules",
+                                {ImGui::GetContentRegionAvail().x, 100})) {
+            for (std::size_t i = 0; i < block.rules.size(); ++i) {
+                const auto range = block.rules[i].selector;
+                const auto selector = text.substr(range.begin, range.end - range.begin);
+                ImGui::PushID(int(i));
+                if (ImGui::Selectable(selector.c_str(), selected_media_child_ == i, 0,
+                                      {ImGui::GetContentRegionAvail().x, 0}))
+                    select_media_child(*index, i);
+                FORGE_UI_PROBE("ui-source:media-child:" + std::to_string(i));
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("%s", selector.c_str());
+                ImGui::PopID();
+            }
+            ImGui::EndListBox();
+        }
+        if (button("New child rule", "Stage another flat selector in this width condition.")) {
+            selected_media_child_.reset();
+            media_selector_[0] = 0;
+        }
+        FORGE_UI_PROBE("ui-source:media-child-new");
+        ImGui::BeginDisabled(locked);
+        bool long_selector = false;
+        if (selected_media_child_ && *selected_media_child_ < block.rules.size()) {
+            const auto range = block.rules[*selected_media_child_].selector;
+            long_selector = range.end - range.begin >= sizeof(media_selector_);
+        }
+        ImGui::TextUnformatted("Child selector");
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        ImGui::InputText("##media-child-selector", media_selector_, sizeof(media_selector_));
+        FORGE_UI_PROBE("ui-source:media-child-selector");
+        ImGui::BeginDisabled(long_selector);
+        if (button("Apply child selector",
+                   "Append or rename the selected child as one source Undo step."))
+            attempt([&] { media_rule(*index, selected_media_child_, media_selector_, {}); });
+        FORGE_UI_PROBE("ui-source:media-child-apply");
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+        if (revision_ != before)
+            return;
+        ImGui::BeginDisabled(locked || !selected_media_child_);
+        if (button("Remove child rule",
+                   "Remove only this child; retain the width condition and sibling rules."))
+            attempt([&] { remove_media_rule(*index, selected_media_child_); });
+        FORGE_UI_PROBE("ui-source:media-child-remove");
+        ImGui::EndDisabled();
+        if (revision_ != before)
+            return;
+        if (long_selector)
+            ImGui::TextWrapped("This child selector exceeds the control's1024-byte capacity; use "
+                               "Source for renaming.");
+        if (selected_media_child_)
+            style_controls(locked, true);
+        ImGui::TextWrapped(
+            "Save source, then refresh a linked RML Preview at different widths or Reload UI in "
+            "Play. "
+            "Other rule order, inline values and constraints still affect the result.");
+    }
     void rule_controls(bool locked) {
         if (!outline_error_.empty()) {
             ImGui::TextWrapped("Rules unavailable: %s. Continue in Source.",
@@ -994,12 +1134,14 @@ class UiSourceEditor {
             return;
         }
         const auto snapshot = editor_.GetText();
-        if (ImGui::BeginListBox("Stylesheet rules", {0, 140})) {
+        ImGui::TextUnformatted("Stylesheet rules");
+        if (ImGui::BeginListBox("##stylesheet-rules", {ImGui::GetContentRegionAvail().x, 140})) {
             for (std::size_t i = 0; i < rules_.size(); ++i) {
                 ImGui::PushID(static_cast<int>(i));
                 const auto range = rules_[i].selector;
                 const auto label = snapshot.substr(range.begin, range.end - range.begin);
-                if (ImGui::Selectable(label.c_str(), selected_rule_ == i))
+                if (ImGui::Selectable(label.c_str(), selected_rule_ == i, 0,
+                                      {ImGui::GetContentRegionAvail().x, 0}))
                     select_rule(i);
                 FORGE_UI_PROBE("ui-source:rule:" + std::to_string(i));
                 if (ImGui::IsItemHovered())
@@ -1020,6 +1162,19 @@ class UiSourceEditor {
             return;
         }
         ImGui::BeginDisabled(locked);
+        if (button("New responsive block...",
+                   "Stage a viewport-width condition containing flat child rules.")) {
+            new_media_ = true;
+            new_font_face_ = false;
+            media_controls_key_.clear();
+        }
+        FORGE_UI_PROBE("ui-source:media-new");
+        ImGui::EndDisabled();
+        if (new_media_) {
+            media_controls({}, locked);
+            return;
+        }
+        ImGui::BeginDisabled(locked);
         const bool new_font =
             button("New font face...",
                    "Declare a registered project font using an explicit family alias.");
@@ -1036,6 +1191,10 @@ class UiSourceEditor {
         if (selected_rule_ < rules_.size()) {
             const auto range = rules_[selected_rule_].selector;
             const auto selector = snapshot.substr(range.begin, range.end - range.begin);
+            if (selector.starts_with("@media")) {
+                media_controls(selected_rule_, locked);
+                return;
+            }
             if (selector.find("@font-face") == 0 &&
                 selector.find_first_not_of(" \t\r\n", 10) == selector.npos) {
                 font_face_controls(selected_rule_, locked);
@@ -2382,6 +2541,8 @@ class UiSourceEditor {
                 {"selection", selected_},
                 {"rule_selection",
                  selected_rule_ < rules_.size() ? Json(selected_rule_) : Json(nullptr)},
+                {"media_child_selection",
+                 selected_media_child_ ? Json(*selected_media_child_) : Json(nullptr)},
                 {"can_undo", can_undo()},
                 {"can_redo", can_redo()},
                 {"text", text},
@@ -2615,20 +2776,84 @@ class UiSourceEditor {
     std::optional<std::string> read_style(std::size_t index, std::string_view property) const {
         return read_ui_markup_style(editor_.GetText(), outline_, index, property);
     }
-    std::optional<std::string> read_rule_property(std::size_t index,
-                                                  std::string_view property) const {
+    std::optional<std::string> read_rule_property(std::size_t index, std::string_view property,
+                                                  std::optional<std::size_t> child = {}) const {
         if (locator_.extension() != ".rcss")
             throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        if (child) {
+            const auto text = editor_.GetText();
+            const auto block = read_ui_stylesheet_media(text, index);
+            return read_ui_stylesheet_property(text, block.rules, *child, property);
+        }
         return read_ui_stylesheet_property(editor_.GetText(), rules_, index, property);
     }
     void rule_property(std::size_t index, std::string_view property,
-                       std::optional<std::string> value) {
+                       std::optional<std::string> value, std::optional<std::size_t> child = {}) {
         if (locator_.extension() != ".rcss")
             throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        if (child) {
+            const auto text = editor_.GetText();
+            const auto block = read_ui_stylesheet_media(text, index);
+            if (*child >= block.rules.size())
+                throw AuthoringError("source_rule", "Choose a current responsive child rule");
+            const auto range = block.rules[*child].selector;
+            media_rule(index, child, text.substr(range.begin, range.end - range.begin),
+                       {{std::string(property), std::move(value)}});
+            return;
+        }
         const auto before = revision_;
         replace_text(
             set_ui_stylesheet_property(editor_.GetText(), index, property, std::move(value)));
         if (revision_ != before)
+            select_rule(index);
+    }
+    UiStylesheetMediaBlock media_block(std::size_t index) const {
+        if (locator_.extension() != ".rcss")
+            throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        return read_ui_stylesheet_media(editor_.GetText(), index);
+    }
+    void select_media_child(std::size_t index, std::size_t child) {
+        const auto block = media_block(index);
+        if (child >= block.rules.size())
+            throw AuthoringError("source_rule", "Choose a current responsive child rule");
+        select_rule(index);
+        selected_media_child_ = child;
+        const auto text = editor_.GetText();
+        const auto range = block.rules[child].selector;
+        const auto selector = text.substr(range.begin, range.end - range.begin);
+        std::snprintf(media_selector_, sizeof(media_selector_), "%s",
+                      selector.size() < sizeof(media_selector_) ? selector.c_str() : "");
+        read_style_controls();
+    }
+    void media_query(std::optional<std::size_t> index, UiStylesheetWidthQuery query) {
+        if (locator_.extension() != ".rcss")
+            throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
+        const auto before = revision_;
+        const auto retained =
+            index && *index == selected_rule_ ? selected_media_child_ : std::nullopt;
+        replace_text(set_ui_stylesheet_media_query(editor_.GetText(), index, query));
+        if (revision_ != before) {
+            const auto selected = index.value_or(rules_.size() - 1);
+            if (retained)
+                select_media_child(selected, *retained);
+            else
+                select_rule(selected);
+        }
+    }
+    void media_rule(std::size_t index, std::optional<std::size_t> child, std::string_view selector,
+                    const std::map<std::string, std::optional<std::string>>& properties) {
+        const auto count = media_block(index).rules.size();
+        const auto before = revision_;
+        replace_text(
+            set_ui_stylesheet_media_rule(editor_.GetText(), index, child, selector, properties));
+        if (revision_ != before)
+            select_media_child(index, child.value_or(count));
+    }
+    void remove_media_rule(std::size_t index, std::optional<std::size_t> child = {}) {
+        (void)media_block(index);
+        const auto before = revision_;
+        replace_text(remove_ui_stylesheet_media_rule(editor_.GetText(), index, child));
+        if (revision_ != before && child)
             select_rule(index);
     }
     void rule_selector(std::size_t index, std::string_view selector) {

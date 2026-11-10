@@ -163,7 +163,8 @@ struct UiSourceAutomation {
             "Read the native UI source draft/history and its source-derived element byte ranges. "
             "Indices are transient within this revision; no persisted DOM identity is created. "
             "Incomplete source reports outline_error. RCSS reports top-level rules, editable "
-            "flat blocks and transient rule_selection; at-rules/nested blocks use Source.",
+            "flat blocks and transient rule_selection. Width-conditioned blocks use media_read; "
+            "other at-rules/nested forms remain in Source.",
             "assets.read", automation_object(), false,
             [&files, &editor](const Json&) { return state(editor, files.document); }));
         const auto ready = [&files, &editor, unavailable] {
@@ -301,6 +302,123 @@ struct UiSourceAutomation {
                                                     request.at("direction").get<int>());
                     else
                         editor.remove_stylesheet_link(request.at("element").get<std::size_t>());
+                    return state(editor, files.document);
+                }));
+        }
+        for (const std::string action :
+             {"media_read", "media_query", "media_rule", "media_remove"}) {
+            const bool read = action == "media_read", query = action == "media_query",
+                       rule = action == "media_rule";
+            if (!read && !permissions.assets)
+                continue;
+            auto properties = guard;
+            auto fields = required;
+            properties["rule"] = automation_integer(0, 4095);
+            if (!query)
+                fields.push_back("rule");
+            if (query) {
+                const auto bound = automation_object(
+                    {{"value", {{"type", "number"}, {"minimum", 0}, {"maximum", 65536}}},
+                     {"unit", {{"type", "string"}, {"enum", {"px", "dp"}}}}},
+                    {"value", "unit"});
+                for (const auto* name : {"minimum", "maximum"})
+                    properties[name] = {{"oneOf", Json::array({bound, Json{{"type", "null"}}})}};
+            }
+            if (rule || action == "media_remove")
+                properties["child"] = automation_integer(0, 4095);
+            if (rule) {
+                properties["selector"] = automation_text(1024, 1);
+                fields.push_back("selector");
+                properties["properties"] = {
+                    {"type", "object"},
+                    {"maxProperties", 32},
+                    {"propertyNames", automation_text(64, 1)},
+                    {"additionalProperties",
+                     {{"oneOf", Json::array({automation_text(8192, 1), Json{{"type", "null"}}})}}}};
+            }
+            result.push_back(automation_method(
+                "ui.source." + action,
+                std::string(read    ? "Read a literal viewport-width media block, px/dp bounds and "
+                                      "flat child selectors/declarations. "
+                            : query ? "Create (omit rule) or replace a viewport-width condition; "
+                                      "minimum/maximum are value/unit objects or null. At least "
+                                      "one bound required. "
+                            : rule  ? "Append (omit child) or edit one flat child selector and "
+                                      "optional property map in a viewport-width media block. Null "
+                                      "property values remove overrides. "
+                                    : "Remove one flat media child, or omit child to remove the "
+                                      "admitted whole width block. ") +
+                    "Current RCSS source guards required. Static min/max-width conditions joined "
+                    "by and only; other queries/nesting use Source. Native CSS evaluates inclusive "
+                    "bounds and density. "
+                    "Source-only; no native initialization or cascade flattening. Mutations use "
+                    "assets.write/replay, one Undo and explicit Save; preserve unrelated source "
+                    "and Scene/catalog ownership.",
+                read ? "assets.read" : "assets.write",
+                automation_object(std::move(properties), std::move(fields)), !read,
+                [&files, &editor, ready, read, query, rule](const Json& request) {
+                    if (!read)
+                        ready();
+                    observed(editor, files.document, request);
+                    if (read) {
+                        const auto block =
+                            editor.media_block(request.at("rule").get<std::size_t>());
+                        const auto text = editor.state().at("text").get<std::string>();
+                        const auto number = [](const std::optional<UiStyleNumber>& value) -> Json {
+                            return value ? Json{{"value", value->value},
+                                                {"unit",
+                                                 ui_style_unit_suffixes[std::size_t(value->unit)]}}
+                                         : Json(nullptr);
+                        };
+                        auto children = Json::array();
+                        for (std::size_t i = 0; i < block.rules.size(); ++i) {
+                            const auto& child = block.rules[i];
+                            const auto body = std::string_view(text).substr(
+                                child.content.begin, child.content.end - child.content.begin);
+                            auto declarations = Json::array();
+                            for (const auto& item : inspect_ui_style(body))
+                                declarations.push_back(
+                                    {{"name", item.name},
+                                     {"value", body.substr(item.value.begin,
+                                                           item.value.end - item.value.begin)}});
+                            children.push_back({{"index", i},
+                                                {"selector", text.substr(child.selector.begin,
+                                                                         child.selector.end -
+                                                                             child.selector.begin)},
+                                                {"properties", std::move(declarations)}});
+                        }
+                        return Json{{"minimum", number(block.query.minimum)},
+                                    {"maximum", number(block.query.maximum)},
+                                    {"children", std::move(children)}};
+                    }
+                    const auto index = request.contains("rule")
+                                           ? std::optional(request.at("rule").get<std::size_t>())
+                                           : std::nullopt;
+                    const auto child = request.contains("child")
+                                           ? std::optional(request.at("child").get<std::size_t>())
+                                           : std::nullopt;
+                    if (query) {
+                        const auto bound = [&](const char* name) -> std::optional<UiStyleNumber> {
+                            if (!request.contains(name) || request.at(name).is_null())
+                                return {};
+                            const auto& value = request.at(name);
+                            return UiStyleNumber{value.at("value").get<double>(),
+                                                 value.at("unit") == "px"
+                                                     ? UiStyleUnit::Pixels
+                                                     : UiStyleUnit::DensityPixels};
+                        };
+                        editor.media_query(index, {bound("minimum"), bound("maximum")});
+                    } else if (rule) {
+                        std::map<std::string, std::optional<std::string>> values;
+                        const auto authored = request.value("properties", Json::object());
+                        for (const auto& [name, value] : authored.items())
+                            values[name] = value.is_null()
+                                               ? std::nullopt
+                                               : std::optional(value.get<std::string>());
+                        editor.media_rule(*index, child, request.at("selector").get<std::string>(),
+                                          values);
+                    } else
+                        editor.remove_media_rule(*index, child);
                     return state(editor, files.document);
                 }));
         }

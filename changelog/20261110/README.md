@@ -1,5 +1,15 @@
 # 2026-11-10
 
+## Responsive stylesheet rule authoring
+
+Rules stages inclusive viewport-width conditions in px/dp and flat child selectors.
+Child declarations reuse the original property/literal controls and source owner.
+Four guarded MCP operations share read/create/edit/remove, atomic candidates,
+selection/history and explicit Save, bringing the source family to55. Native
+threshold/density and saved/source-hidden checks cover the bounded subset; custom
+queries and nesting remain in Source. Rule lists fit narrow panels and retain
+full-label hover text. Windows/Main/physical acceptance remains pending.
+
 ## Responsive UI layout presets
 
 Elements offers16 fixed-edge, centered and stretched layout presets with explicit

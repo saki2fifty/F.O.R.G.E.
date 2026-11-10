@@ -240,6 +240,15 @@ blocks, auto margins, constraints and final geometry. Centered/far-edge/stretch
 results retain existing plain-pixel canvas refusal. Proposal dimensions1..65536
 and offsets±65536 are finite pixel values; stretched dimensions use auto size.
 
+Viewport-conditioned child rules also borrow the same source property controls.
+The media adapter uses one literal min/max-width interval in px/dp, preserves
+source spelling for unchanged bounds and reads flat children through the existing
+optional stylesheet collector. Selector/property edits compose before one source
+publication; a transient child ordinal augments the existing parent selection.
+Native and four MCP operations share these owners, guards, grants and Save.
+Conditions are evaluated by native CSS, including inclusive endpoints and density;
+custom/nested forms remain explicit Source work. No runtime state/protocol change.
+
 ## Source box styling and property search
 
 The same literal profile owner supplies position/box sizing/overflow presets,

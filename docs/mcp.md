@@ -1179,7 +1179,8 @@ guards, candidate validation, one source Undo and explicit Save still apply.
 
 RCSS `forge_ui_source_rule_read` uses assets.read, source guards, `rule` and `name`;
 it returns the authored `{name,value}`, null when absent. Flat ordinary rules only;
-at-rules/nested blocks use Source. `forge_ui_source_rule_property` uses assets.write
+explicit media/font adapters cover their bounded at-rule subsets. Other nested
+forms use Source. `forge_ui_source_rule_property` uses assets.write
 and `rule/name/value` (null removes). `forge_ui_source_rule_selector` replaces that
 rule's selector; `forge_ui_source_rule_insert` appends a selector/empty body;
 `forge_ui_source_rule_remove` removes that flat block. Selectors fit1024UTF-8bytes
@@ -2747,7 +2748,7 @@ reads no computed state and changes no selection/history/source/registration.
 
 The same immutable metadata powers inline/group and stylesheet literal controls.
 Native source candidates and old mutation/query results are unchanged. Including
-this query and native-preview placement, there are51source operations. Style/preset staging
+this query and native-preview placement, there are55source operations. Style/preset staging
 publishes only through the original Set/Remove/Undo/Save and guarded MCP owners.
 
 Source control metadata includes an image profile: src/sprite/rect strings and
@@ -2760,19 +2761,19 @@ no new resource/URI/texture manager or live image mutation tool is introduced.
 Rect is empty or four space-separated finite bounded floats x/y/width/height with
 size at least0.000001 and distinct native-float crop edges. These finite source envelopes keep native aspect
 calculations within float range without duplicating their layout algorithm. Image tint uses the existing color profile and style mutation.
-Source operations total51 and creation kinds18; Commonmenu has53 properties.
+Source operations total55 and creation kinds18; Commonmenu has53 properties.
 
 style_profile includes responsive layout metadata: display, flex-direction/wrap,
 justify-content, align-content/items/self, flex-grow/shrink/basis, row/column-gap
 and min/max width/height. Keyword lists are a convenience subset of native CSS;
 number metadata accurately lists units and nonnegative bounds. Existing guarded
 style, style_group and rule_property operations author these values; the tool
-count is51, and control creation kinds stay18. Queries are source-only and
+count is55, and control creation kinds stay18. Queries are source-only and
 cannot establish computed geometry or initialize a renderer.
 
 Box style profiles extend the same query with position/box-sizing/axis overflow,
 side padding/margin and simple border width/color/radius controls. Common has53
-entries; source operations total51, control kinds18, grants/history/replay and
+entries; source operations total55, control kinds18, grants/history/replay and
 schema ownership unchanged. The Common search field has no programmatic authoring
 semantics: agents query profiles and use existing style/group/rule mutations.
 Raw multi-value source remains supported and is not normalized by the profiles.
@@ -2790,7 +2791,7 @@ Pixel setup refuses breaks/options, requires ID and rejects bound ancestors.
 It does not initialize a renderer, register assets, create a persistent identity
 or bypass native Preview eligibility. The selected new root, one Undo, explicit
 Save, grants/revisions/replay and Scene isolation retain existing owners. There
-are51 source operations/18creation kinds; the existing layout schema remains
+are55 source operations/18creation kinds; the existing layout schema remains
 unchanged. No separate creation path is maintained for MCP clients.
 
 ## Native-preview control placement
@@ -2862,7 +2863,7 @@ Both tools require assets.write, the ordinary mutation envelope and existing
 source-task/gesture locks. Receipt replay returns its original result without
 reapplying selection. They use the same source selection owner as Elements and
 Preview and leave source revision/digest/dirty/Undo/Save/catalog/Scene unchanged.
-There are51source operations. No runtime widget input or persisted selection is
+There are55source operations. No runtime widget input or persisted selection is
 introduced; selected elements still need each authoring operation's admission.
 
 
@@ -2872,7 +2873,7 @@ The native canvas shortcuts use existing source operations: Ctrl+A is a replacem
 select_rectangle over the current viewport, Escape's idle clear is select with an
 empty list, Ctrl+D is single-subtree duplicate, and Delete is atomic remove_group.
 These same guarded tools remain available with their existing grants, source
-revisions, identity rules, history and explicit Save. These shortcuts add no separate tool; there are51source operations. Agents
+revisions, identity rules, history and explicit Save. These shortcuts add no separate tool; there are55source operations. Agents
 send source operations rather than UI key events; cancelling a local queued key
 request is a local transient workflow, not a new persisted authoring operation.
 
@@ -2907,7 +2908,7 @@ source operations; no new mutation owner, serialized identity or resource format
 
 ## Source font declarations
 
-Four font source operations share the existing source owner (51combined source operations):
+Four font source operations share the existing source owner (55combined source operations):
 
 - `ui.source.font_reference` / `forge_ui_source_font_reference`: assets.read plus
   current source guards, font `asset` and optional `face_index`(0default,0..31).
@@ -2946,8 +2947,8 @@ SDK change is introduced.
 
 ## Source layout presets
 
-ui.source.layout_preset / forge_ui_source_layout_preset adds one assets.write
-operation, bringing the source family to51. Current source guards, Edit ownership,
+ui.source.layout_preset / forge_ui_source_layout_preset is one assets.write
+operation in the current55-method source family. Current source guards, Edit ownership,
 ordinary mutation envelope and replay apply. Required element, preset, width and
 height describe an explicit proposal. Sixteen preset IDs are advertised by the
 schema from the same immutable metadata used by Elements. Width/height1..65536
@@ -2978,4 +2979,31 @@ types recognized, selected files RCSS. Source indices are revision-bound, not
 persisted identity. Generic metadata guards stay intact. Mutations use one Undo
 and explicit Save; registration/preview/native loading remain separate. Factory
 excludes the three writers without asset-write grants; both queries remain
-discoverable. Existing stylesheet-link operations remain available; the source family totals51 including layout presets.
+discoverable. Existing stylesheet-link operations remain available; the source family totals55 including layout presets.
+
+
+## Viewport-width stylesheet rules
+
+Four explicit source-owned adapters bring the source family to55. Current RCSS
+source guards apply; media_read uses assets.read, the three writers assets.write
+and normal Edit ownership/mutation envelope/replay. Read-only discovery excludes
+and direct calls deny writers. No renderer is initialized by these operations.
+
+- ui.source.media_read(rule) returns minimum/maximum value-unit objects or null, plus flat children with index/selector/authored declaration arrays. Duplicate declarations remain observable; matching writes retain ordinary ambiguity refusal.
+- ui.source.media_query(optional rule, minimum, maximum) appends or replaces a literal min/max-width condition. Bound objects use finite value0..65536 and unitpx/dp; null/omission disables that bound. At least one bound; same-unit minimum must not exceed maximum. Numeric-equivalent unchanged queries preserve original spelling and history.
+- ui.source.media_rule(rule, optional child, selector, optional properties) appends or updates one child. Selector and at most32nullable property edits compose privately through existing flat selector/property owners before one source publication. Null removes an override; unknown/invalid values or indices refuse atomically.
+- ui.source.media_remove(rule, optional child) removes one admitted flat child or the whole supported width block. Outside bytes/comments and unrelated at-rules remain intact.
+
+The adapter reuses inspect_ui_stylesheet on the admitted parent body, returning
+absolute source ranges without modifying the top-level outline/index contract.
+Only one literal min/max-width interval joined by and and flat children is guided;
+other queries, nesting and at-rule children stay Source. Native CSS evaluates
+inclusive viewport thresholds and dp density. No source-side cascade evaluation,
+breakpoint registry, runtime protocol, dependency or SDK change is introduced.
+
+UiSourceEditor borrows its existing rule selection plus an optional transient
+child ordinal. media_child_selection is null outside a selected media child.
+Native properties reuse the original literal controls and explicit scoped source
+method; existing unscoped rule methods retain their top-level semantics. Source
+publication/Undo clears derived selection, while successful scoped mutation
+retains its target. Save, catalog registration and RML Preview remain separate.

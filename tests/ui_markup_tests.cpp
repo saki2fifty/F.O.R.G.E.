@@ -742,6 +742,87 @@ void responsive_layout_presets() {
     const std::string encoded = "<rml><body><p style='width:1&#48;px;'>Text</p></body></rml>";
     rejects([&] { set_ui_markup_layout_preset(encoded, find(encoded, "p"), "center", 120, 40); });
 }
+void responsive_media_rules() {
+    using namespace forge;
+    const std::string source = "/*lead*/\r\n.base {color:red;}\r\n"
+                               "@media ( max-width : 1e3px ) and (min-width:600.0px) {\r\n"
+                               "/*keep*/ .a:hover { color : blue ; width:120px; }\r\n"
+                               "#second {height:40px;}\r\n} /*tail*/\r\n"
+                               "@font-face {font-family:Keep;src:'font.ttf';}\r\n";
+    const UiStylesheetWidthQuery interval{{UiStyleNumber{600, UiStyleUnit::Pixels}},
+                                          {UiStyleNumber{1000, UiStyleUnit::Pixels}}};
+    const auto media = read_ui_stylesheet_media(source, 1);
+    check(media.query == interval && media.rules.size() == 2 &&
+              slice(source, media.rules[0].selector) == ".a:hover " &&
+              read_ui_stylesheet_property(source, media.rules, 0, "color") == "blue" &&
+              set_ui_stylesheet_media_query(source, 1, interval) == source,
+          "Width media read lost interval/order, absolute child ranges or numeric no-op spelling");
+    const auto changed =
+        set_ui_stylesheet_media_rule(source, 1, 0, ".renamed", {{"color", "green"}, {"width", {}}});
+    auto expected = source;
+    expected.replace(expected.find(".a:hover "), 9, ".renamed");
+    expected.replace(expected.find("blue"), 4, "green");
+    expected.erase(expected.find("width:120px;"), 12);
+    check(changed == expected && read_ui_stylesheet_media(changed, 1).rules.size() == 2,
+          "Scoped media edit changed surrounding conditions/comments/rules or lost a property");
+    const auto appended =
+        set_ui_stylesheet_media_rule(source, 1, {}, "#new", {{"display", "none"}});
+    const auto children = read_ui_stylesheet_media(appended, 1);
+    check(children.rules.size() == 3 &&
+              read_ui_stylesheet_property(appended, children.rules, 2, "display") == "none" &&
+              remove_ui_stylesheet_media_rule(appended, 1, 2).find("#new") == std::string::npos,
+          "Scoped media child append/removal changed the wrong rule");
+    const auto removed = remove_ui_stylesheet_media_rule(source, 1);
+    check(removed ==
+              source.substr(0, source.find("@media")) + source.substr(source.find(" /*tail*/")),
+          "Media removal lost surrounding bytes");
+    const auto created = set_ui_stylesheet_media_query(
+        ".base{}", {}, {{}, UiStyleNumber{700, UiStyleUnit::DensityPixels}});
+    check(created == ".base{}\n@media (max-width:700dp) {}\n" &&
+              read_ui_stylesheet_media(created, 1).rules.empty(),
+          "Media creation lost the preceding rule, density unit or empty child list");
+    rejects([&] { set_ui_stylesheet_media_query(source, 1, {}); });
+    rejects([&] {
+        set_ui_stylesheet_media_query(source, 1,
+                                      {UiStyleNumber{1001, UiStyleUnit::Pixels}, interval.maximum});
+    });
+    for (const auto unit : {UiStyleUnit::Number, UiStyleUnit::Percent})
+        rejects([&] { set_ui_stylesheet_media_query(source, 1, {UiStyleNumber{600, unit}, {}}); });
+    for (const auto value : {-1.0, 65537.0, std::numeric_limits<double>::infinity(),
+                             std::numeric_limits<double>::quiet_NaN()})
+        rejects([&] {
+            set_ui_stylesheet_media_query(source, 1,
+                                          {UiStyleNumber{value, UiStyleUnit::Pixels}, {}});
+        });
+    rejects([&] { read_ui_stylesheet_media(source, 0); });
+    rejects([&] { set_ui_stylesheet_media_rule(source, 1, 8, ".x", {}); });
+    rejects([&] {
+        set_ui_stylesheet_media_rule(source, 1, 0, ".x",
+                                     {{"color", "green"}, {"width", "1px;bad:2"}});
+    });
+    for (const auto* query :
+         {"", "(width:600px)", "not (min-width:600px)", "(min-width:600px) or (max-width:1000px)",
+          "(min-width:600px) and (min-width:700px)", "(min-width:600px) and", "(min-width:50%)",
+          "(min-width:600px;)", "(min-/**/width:600px)", "(min-width:calc(600px + 1px))"}) {
+        const auto text = std::string("@media ") + query + " {.a{color:red;}}";
+        rejects([&] { read_ui_stylesheet_media(text, 0); });
+    }
+    const std::string nested =
+        "@media (min-width:600px) {@media (max-width:700px){.a{color:red;}}}";
+    rejects([&] { read_ui_stylesheet_media(nested, 0); });
+    rejects([&] { remove_ui_stylesheet_media_rule(nested, 0); });
+    rejects([&] { read_ui_stylesheet_media("@media\t(min-width:600px){.a{color:red;}}", 0); });
+    for (const auto& selector :
+         {std::string(".escaped\\:name "), "." + std::string(1025, 'a') + " "}) {
+        const auto text = "@media (min-width:600px){" + selector + "{color:red;}}";
+        auto expected = text;
+        expected.replace(expected.find("red"), 3, "blue");
+        check(set_ui_stylesheet_media_rule(text, 0, 0, selector, {{"color", "blue"}}) == expected,
+              "Property-only media editing unnecessarily rewrote or revalidated an unchanged "
+              "selector");
+        rejects([&] { set_ui_stylesheet_media_rule(text, 0, 0, selector + "\\changed", {}); });
+    }
+}
 void stylesheet_rules() {
     const std::string source = "/* lead */\r\n.a:hover, #b { /* body */ color : red ; "
                                "font-family: 'quoted;{}'; width:calc(10px + 2px) } /* gap */\r\n"
@@ -1739,6 +1820,7 @@ int main() {
         hierarchy_moves();
         inline_properties();
         responsive_layout_presets();
+        responsive_media_rules();
         stylesheet_rules();
         stylesheet_link_sources();
         font_face_sources();

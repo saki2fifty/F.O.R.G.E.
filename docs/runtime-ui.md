@@ -36,8 +36,9 @@ widget owns its draft/history; the Elements view derives byte ranges through the
 existing `validate_text_profile` parser's optional collector. Detached structured
 edits validate the whole result and preserve unrelated source bytes. Runtime
 admission calls do not allocate an authoring outline. RCSS Rules derives top-level
-selector/body/block ranges through that same optional scanner; at-rules/nested
-blocks remain Source. Flat declaration changes reuse inline CSS validation/ranges,
+selector/body/block ranges through that same optional scanner. Explicit font-face
+and viewport-width media adapters reuse those ranges; other custom at-rules/nested
+forms remain Source. Flat declaration changes reuse inline CSS validation/ranges,
 while stylesheet quotes retain their distinct semantics. Selector edits and rule
 append/removal preserve unrelated source and use the same document/history. Native
 and MCP readers/mutations borrow these operations with ordinary grants/revision/
@@ -1055,7 +1056,8 @@ relative; imported family names do not determine aliases or loaded availability.
 The source range/value patch owner supplies read/set/remove and one Undo/Save,
 with unrelated declarations preserved. The existing face-details UI also accepts
 read-only current metadata directly, avoiding a second table or metadata cache.
-Other at-rules/nested blocks and unsupported alias forms remain raw Source.
+Custom at-rules/nested blocks and unsupported alias forms remain raw Source;
+the viewport-width media adapter below is another explicit source-only subset.
 
 Font declarations stage Weight/Style together with the resource selection.
 The source helper validates normal/italic and integer1..1000/normal/bold/all using
@@ -1081,3 +1083,23 @@ Link set/remove and adjacent order changes compose source replacements with one
 Undo/Save and existing element selection. Other head nodes are order barriers;
 comments stay between swapped links. Native external and inline styles retain
 encounter order. No DOM serialization or additional document/resource database.
+
+
+## Responsive stylesheet source authoring
+
+The width-media adapter reads one literal min/max-width interval and flat child
+rules through the existing optional stylesheet scanner. Child ranges are offset
+into their original source snapshot; runtime admission still collects no outline.
+Private candidates compose ordinary selector/property changes and replace one
+parent content range before full source validation and publication. No separate
+CSS parser, cascade/condition evaluator or persisted breakpoint state is added.
+
+Native Rules stages a width condition and child selectors; child properties use
+the existing shared style/literal controls. Native layout evaluates inclusive
+thresholds and px/dp density. Source queries/writers, selection, Undo and explicit
+Save are shared with four MCP bindings. Source/native tests exercise literal
+refusal, no-op spelling, preserved comments, atomic failure and all threshold
+boundaries at densities1/2 in both text modes. The saved/source-hidden runtime
+fixture independently checks active/inactive styling with identities retained.
+Custom conditions, nested child at-rules and unrestricted responsive design are
+not exposed by this bounded adapter.

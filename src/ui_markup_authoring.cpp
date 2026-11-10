@@ -996,6 +996,129 @@ std::string insert_ui_stylesheet_rule(std::string_view source, std::string_view 
                     (newline ? "\n" : "") + std::string(selector) + " {}\n", false);
 }
 namespace {
+std::string media_width(UiStyleNumber value) {
+    require((value.unit == UiStyleUnit::Pixels || value.unit == UiStyleUnit::DensityPixels) &&
+                value.value >= 0,
+            "Media widths use nonnegative px or dp values within65536");
+    return format_ui_style_number(value);
+}
+std::string media_query(UiStylesheetWidthQuery query) {
+    require(query.minimum || query.maximum, "Choose at least one viewport width bound");
+    if (query.minimum && query.maximum && query.minimum->unit == query.maximum->unit)
+        require(query.minimum->value <= query.maximum->value,
+                "The minimum viewport width must not exceed the maximum");
+    std::string result = "@media ";
+    if (query.minimum)
+        result += "(min-width:" + media_width(*query.minimum) + ")";
+    if (query.maximum)
+        result += std::string(query.minimum ? " and " : "") +
+                  "(max-width:" + media_width(*query.maximum) + ")";
+    return result;
+}
+UiStylesheetWidthQuery media_query(std::string_view text) {
+    const auto strip = [](std::string_view value) {
+        const auto range = trimmed(value, {0, value.size()});
+        return value.substr(range.begin, range.end - range.begin);
+    };
+    text = strip(text);
+    require(text.starts_with("@media "),
+            "Choose a literal viewport-width media block; other at-rules use Source");
+    text = strip(text.substr(6));
+    UiStylesheetWidthQuery query;
+    for (unsigned count = 0; !text.empty(); ++count) {
+        require(count < 2 && text.front() == '(',
+                "Use one min-width and/or max-width condition; custom queries use Source");
+        const auto close = text.find(')');
+        require(close != text.npos, "Complete the viewport-width condition in Source");
+        const auto expression = text.substr(1, close - 1);
+        const auto declarations = inspect_ui_style(expression);
+        require(declarations.size() == 1 &&
+                    (declarations[0].name == "min-width" || declarations[0].name == "max-width") &&
+                    declarations[0].value.end == expression.size(),
+                "Use literal min-width/max-width conditions; custom queries use Source");
+        (void)style_property(expression, declarations, declarations[0].name);
+        const auto range = trimmed(expression, declarations[0].value);
+        const auto value =
+            read_ui_style_number(expression.substr(range.begin, range.end - range.begin));
+        require(value.has_value(), "Use a literal px or dp viewport width");
+        (void)media_width(*value);
+        auto& bound = declarations[0].name == "min-width" ? query.minimum : query.maximum;
+        require(!bound, "Duplicate viewport width conditions use Source");
+        bound = *value;
+        text = strip(text.substr(close + 1));
+        if (!text.empty()) {
+            require(text.starts_with("and") && text.size() > 3 &&
+                        std::string_view(" \t\r\n").find(text[3]) != std::string_view::npos,
+                    "Width interval conditions must be joined by and");
+            text = strip(text.substr(3));
+            require(!text.empty(), "Complete both viewport-width conditions");
+        }
+    }
+    (void)media_query(query);
+    return query;
+}
+} // namespace
+UiStylesheetMediaBlock read_ui_stylesheet_media(std::string_view source, std::size_t index) {
+    const auto rules = inspect_ui_stylesheet(source);
+    require(index < rules.size(), "Choose a current viewport-width media block");
+    const auto& parent = rules[index];
+    UiStylesheetMediaBlock result;
+    result.query = media_query(
+        source.substr(parent.selector.begin, parent.selector.end - parent.selector.begin));
+    result.content = parent.content;
+    result.rules = inspect_ui_stylesheet(
+        source.substr(parent.content.begin, parent.content.end - parent.content.begin));
+    for (auto& rule : result.rules) {
+        require(rule.flat, "Nested or at-rule media children use Source");
+        for (auto* range : {&rule.selector, &rule.content, &rule.source}) {
+            range->begin += parent.content.begin;
+            range->end += parent.content.begin;
+        }
+    }
+    return result;
+}
+std::string set_ui_stylesheet_media_query(std::string_view source, std::optional<std::size_t> index,
+                                          UiStylesheetWidthQuery query) {
+    const auto selector = media_query(query);
+    if (!index) {
+        require(inspect_ui_stylesheet(source).size() < 4096,
+                "Stylesheet outline exceeds4096 blocks");
+        return replaced(source, {source.size(), source.size()},
+                        (!source.empty() && source.back() != '\n' ? "\n" : "") + selector + " {}\n",
+                        false);
+    }
+    if (read_ui_stylesheet_media(source, *index).query == query)
+        return std::string(source);
+    return replaced(source, inspect_ui_stylesheet(source)[*index].selector, selector, false);
+}
+std::string
+set_ui_stylesheet_media_rule(std::string_view source, std::size_t media,
+                             std::optional<std::size_t> child, std::string_view selector,
+                             const std::map<std::string, std::optional<std::string>>& properties) {
+    require(properties.size() <= 32, "Choose at most32 child rule properties");
+    const auto block = read_ui_stylesheet_media(source, media);
+    std::string body(source.substr(block.content.begin, block.content.end - block.content.begin));
+    if (child) {
+        const auto range = stylesheet_rule(block.rules, *child).selector;
+        if (source.substr(range.begin, range.end - range.begin) != selector)
+            body = set_ui_stylesheet_selector(body, *child, selector);
+    } else {
+        child = block.rules.size();
+        body = insert_ui_stylesheet_rule(body, selector);
+    }
+    for (const auto& [name, value] : properties)
+        body = set_ui_stylesheet_property(body, *child, name, value);
+    return replaced(source, block.content, body, false);
+}
+std::string remove_ui_stylesheet_media_rule(std::string_view source, std::size_t media,
+                                            std::optional<std::size_t> child) {
+    const auto block = read_ui_stylesheet_media(source, media);
+    if (!child)
+        return replaced(source, inspect_ui_stylesheet(source)[media].source, {}, false);
+    const auto body = source.substr(block.content.begin, block.content.end - block.content.begin);
+    return replaced(source, block.content, remove_ui_stylesheet_rule(body, *child), false);
+}
+namespace {
 struct StylesheetHead {
     std::vector<UiMarkupElement> nodes;
     std::optional<std::size_t> head;

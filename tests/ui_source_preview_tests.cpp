@@ -70,6 +70,40 @@ div {display:block;}
         }
     }
 }
+void media_rules(UiPresenter& presenter, AssetId asset, const std::filesystem::path& root) {
+    const std::string markup =
+        R"rml(<rml><head><link type="text/rcss" href="responsive.rcss" /></head>
+<body><div id="target"></div></body></rml>)rml";
+    const std::string base = "body{display:block;width:100%;height:100%;font-family:Lato;}"
+                             "#target{display:block;position:absolute;left:10px;top:10px;"
+                             "width:80px;height:40px;background-color:#117733;}";
+    for (const auto unit : {UiStyleUnit::Pixels, UiStyleUnit::DensityPixels}) {
+        auto css = set_ui_stylesheet_media_query(
+            base, {}, {UiStyleNumber{600, unit}, UiStyleNumber{700, unit}});
+        css = set_ui_stylesheet_media_rule(css, 2, {}, "#target",
+                                           {{"width", "120px"}, {"background-color", "#3355bb"}});
+        std::ofstream(root / "responsive.rcss") << css;
+        for (const float density : {1.f, 2.f}) {
+            const int factor = unit == UiStyleUnit::DensityPixels ? int(density) : 1;
+            for (const int width : {600 * factor - 1, 600 * factor, 600 * factor + 1, 700 * factor,
+                                    700 * factor + 1}) {
+                check(
+                    presenter.preview_document({asset}, "layout.rml", markup, width, 320, density),
+                    "Responsive stylesheet candidate did not load");
+                auto* target = Rml::GetContext(0)->GetDocument(0)->GetElementById("target");
+                const bool active = width >= 600 * factor && width <= 700 * factor;
+                check(
+                    target &&
+                        target->GetBox().GetSize(Rml::BoxArea::Border).x ==
+                            (active ? 120.f : 80.f) &&
+                        target->GetProperty<Rml::Colourb>("background-color") ==
+                            (active ? Rml::Colourb{0x33, 0x55, 0xbb, 255}
+                                    : Rml::Colourb{0x11, 0x77, 0x33, 255}),
+                    "Native width conditions lost inclusive boundaries or px/dp density semantics");
+            }
+        }
+    }
+}
 void exercise(const std::filesystem::path& root, const std::vector<std::byte>& font, bool shaping) {
     std::filesystem::create_directories(root);
     const std::string saved = "<rml><head><style>body {font-family:Lato;font-size:20px;}"
@@ -166,6 +200,7 @@ div {display:block;}
         rejects([&] { presenter.accept(Json::object()); });
         rejects([&] { presenter.prepare(Json::object()); });
         presets(presenter, asset.id);
+        media_rules(presenter, asset.id, root);
         presenter.reset("runtime", 1);
         check(presenter.preview_layout().is_null() && Rml::GetNumContexts() == 0,
               "Reset retained preview context");

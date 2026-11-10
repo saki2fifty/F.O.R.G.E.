@@ -3692,3 +3692,25 @@ source-hidden export tests establish geometry independently of the screenshots.
 - manual/images/ui-source-created-control.png: 37680236759564594791d016fc833c549af6ad056705a861bfbd97e88fefccc2.
 - manual/images/ui-source-image-resource.png: b0f71686283de25bcc1b436e5a966d996ce1f3c397b8a05cfe7596f5016d9d13.
 - manual/images/ui-source-layout-presets.png: 66f4f68fa770ed8d8660e887cee6b701ccaf26ae2016de7f76a9ea49d7bdb199.
+
+## Viewport-width stylesheet rules
+
+The two responsive-rule figures are unretouched700x950 native SourceEditor captures
+from the passing1180/700/400 controls on2026-11-10, development based on5045f5d.
+One shows staged inclusive bounds; the other shows a selected child. Its shared
+property controls are below the visible area. Native source tests establish threshold/density semantics and
+saved/source-hidden behavior separately. These SDL software component figures
+do not establish full-editor, Windows or physical-device acceptance.
+
+Four ordinary Rules/font figures reuse their passing gate's captures and original
+executable: their UI/fixture/header inputs and flat/font paths are unchanged by
+the later scoped-media property correction. Their source/provenance is distinct
+from the corrected media captures.38other canonical figures retain exact prior
+attribution. The native long-label lists use available width and hover tooltips.
+
+- manual/images/ui-source-rules.png: db7316cc3534284ba38a2468a344d17f268d61c034aaf0016ff987ac560abb1f.
+- manual/images/ui-source-typography-rule.png: 22fabc7d4c5df95e3880f80a907e5abcb2213cb42405950644bcb75dbc78e3df.
+- manual/images/ui-source-layout-rule.png: 3c7b8bd1c6edfab9b13b6532272368b0061c2d8f8b49216903ed64be203b857d.
+- manual/images/ui-source-font-face.png: 648c01014315927f54bfcc2790d19e06a51f30d08a8abae2bab477d8ac5dd099.
+- manual/images/ui-source-media-widths.png: 5b53a560a4c71d593a3c9894994c7099989883f9fb17f7ecbc8b687e0da8f12d.
+- manual/images/ui-source-media-child.png: 85831df019e3ca2ba32ac25b5f93c3819cbc1a8d566175cf13939631b8108fb6.
