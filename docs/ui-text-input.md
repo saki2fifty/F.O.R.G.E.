@@ -175,3 +175,7 @@ and replay receipts. RuntimeUiHost rejects suspended/preparing input. Its Play
 provider uses the existing truthful GameInput release policy with menu routing retained.
 Read access never grants native input. Source/Scene/history and the installed
 gameplay ABI remain unchanged. See [MCP field tools](mcp.md).
+
+Checkbox/radio/dropdown state and read-only progress use the same presenter
+through [native form access](ui-form-controls.md), preserving this field snapshot
+and its DOM-only count/secret policy.

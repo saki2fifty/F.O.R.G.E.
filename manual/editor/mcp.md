@@ -44,9 +44,15 @@ kinds take no text, and dropdown options require a dropdown parent. Initial text
 fits 8,192 bytes. Generic `forge_ui_source_insert`, attribute and text operations
 remain available. Save is explicit. See [common controls](ui-source.md).
 
-Play field observation/action tools retain their text, password and text-area
-scope. Creation of checkbox, radio, dropdown and progress controls does not add
-specialized Play state queries or actions for those controls.
+During Play, `forge_play_ui_fields` observes text, password and text-area fields.
+Use `forge_play_ui_controls` for checkbox/radio state, dropdown selection and
+read-only progress. `forge_play_ui_options` pages through a named dropdown.
+The agent can set a checkbox with `forge_play_ui_check`, choose a radio with
+`forge_play_ui_choose`, or choose a dropdown option with `forge_play_ui_select`.
+Each action requires the current Play scope and presentation revision; dropdown
+selection also uses the option's observed state token. Read-only connections
+can inspect these controls but cannot change them. See
+[Form controls](ui-form-controls.md) for setup, interaction and current limits.
 
 `forge_ui_source_style_read` needs only `assets.read`, current source guards,
 `element` and `name`. It returns the authored `name` and `value`; `value:null`

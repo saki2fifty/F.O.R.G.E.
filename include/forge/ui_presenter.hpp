@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <cstddef>
 #include <forge/loading_state.hpp>
 #include <forge/ui_assets.hpp>
 #include <forge/ui_protocol.hpp>
@@ -92,6 +93,14 @@ class UiPresenter {
     nlohmann::json text_field_action(const std::string& instance, const std::string& element,
                                      std::uint64_t presentation_revision, const std::string& action,
                                      const std::string& text = {});
+    nlohmann::json form_controls(const std::string& instance) const;
+    nlohmann::json form_options(const std::string& instance, const std::string& element,
+                                std::size_t offset = 0, std::size_t limit = 16) const;
+    nlohmann::json form_control_action(const std::string& instance, const std::string& element,
+                                       std::uint64_t presentation_revision,
+                                       const std::string& action, bool checked = false,
+                                       std::size_t option = 0,
+                                       const std::string& option_state = {});
     // Semantic action routed by RuntimeInput; delegates to native RmlUi focus.
     void navigate(const std::string& direction);
     void release_input();

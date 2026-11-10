@@ -1,16 +1,18 @@
 #include "asset_bytes.hpp"
+#include "ui_control_access.hpp"
 #include "ui_field_keys.hpp"
 #include "ui_filter_profile.hpp"
 #include "ui_font_profile.hpp"
 #include "ui_luminance_mask.hpp"
 #include "ui_shadow_motion.hpp"
 #include "ui_shaped_font.hpp"
-#include "ui_text_field.hpp"
 #include "ui_text_input.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/ElementText.h>
 #include <RmlUi/Core/Elements/ElementFormControlInput.h>
+#include <RmlUi/Core/Elements/ElementFormControlSelect.h>
 #include <RmlUi/Core/Elements/ElementFormControlTextArea.h>
+#include <RmlUi/Core/Elements/ElementProgress.h>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -342,6 +344,87 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                 if (doc->instance == instance)
                     return *doc;
         throw std::runtime_error("No current native UI document has this instance");
+    }
+    Json control_observation(const Doc& doc) const {
+        return {{"instance", doc.instance},
+                {"session", session},
+                {"generation", generation},
+                {"presentation_revision", presentation_revision},
+                {"render_texture", doc.descriptor.value("render_texture", Json())},
+                {"visible", doc.document->IsVisible()}};
+    }
+    static void control_value(Json& row, const std::string& value) {
+        row["value_bytes"] = value.size();
+        row["value_available"] = false;
+        row.erase("value");
+        try {
+            ui_protocol::validate_value(value);
+            row["value"] = value;
+            row["value_available"] = true;
+        } catch (const std::exception&) {
+            // Unrepresentable native text stays unavailable, never truncated.
+        }
+    }
+    UiFormControl current_form(const Doc& doc, const std::string& element) const {
+        if (!ui_control_id(element))
+            throw std::runtime_error("Use a nonempty native UI element ID up to 256 UTF-8 bytes");
+        const auto scan = scan_ui_form_controls(*doc.document);
+        if (scan.truncated)
+            throw std::runtime_error(
+                "Native form access requires at most 4096 nodes and 64 controls");
+        const auto count = scan.ids.find(element);
+        if (count == scan.ids.end() || count->second != 1)
+            throw std::runtime_error("Choose a unique current native UI element ID");
+        for (const auto& control : scan.fields)
+            if (ui_form_control_element(control)->GetId() == element)
+                return control;
+        throw std::runtime_error("Choose a native checkbox, radio, dropdown or progress control");
+    }
+    std::pair<AssetId, std::optional<UiSurfaceHit>> field_route(const Doc& doc) {
+        if (!held_keys.empty() || !held_buttons.empty())
+            throw std::runtime_error("Release the current native UI key or pointer press first");
+        const auto output_value = doc.descriptor.value("render_texture", Json());
+        const auto output = output_value.is_null() ? AssetId{} : output_value.get<AssetId>();
+        std::optional<UiSurfaceHit> surface;
+        if (output) {
+            for (const auto& candidate : {focused_surface, hovered_surface})
+                if (candidate && candidate->output.id == output && surface_available(*candidate)) {
+                    surface = candidate;
+                    break;
+                }
+            if (!surface)
+                throw std::runtime_error(
+                    "Camera-output field input requires a current native surface hit");
+        }
+        return {output, surface};
+    }
+    Json option_observation(const Doc& doc, const std::string& element, std::size_t index,
+                            Rml::Element* option) const {
+        Json row{{"index", index}, {"available", false}, {"state", Json()}};
+        if (!option || option->GetTagName() != "option")
+            return row;
+        row["available"] = true;
+        row["selected"] = option->HasAttribute("selected");
+        row["enabled"] = !option->HasAttribute("disabled");
+        row["visible"] = option->IsVisible();
+        const auto value = option->GetAttribute<Rml::String>("value", "");
+        control_value(row, value);
+        const auto text = ui_form_option_text(*option, ui_protocol::max_string);
+        row["text_available"] = text.has_value();
+        if (text)
+            row["text"] = *text;
+        if (row.at("value_available").get<bool>() && text) {
+            auto identity = row;
+            identity.erase("selected");
+            identity.erase("state");
+            const auto encoded = Json{
+                {"scope", control_observation(doc)},
+                {"element", element},
+                {"option", identity}}.dump();
+            row["state"] = asset_detail::content_digest(
+                std::as_bytes(std::span(encoded.data(), encoded.size())));
+        }
+        return row;
     }
     void clear_input_state() {
         held_keys.clear();
@@ -1637,26 +1720,212 @@ bool UiPresenter::wants_text() const {
     auto* element = context->GetFocusElement();
     return element && (element->GetTagName() == "input" || element->GetTagName() == "textarea");
 }
+Json UiPresenter::form_controls(const std::string& instance) const {
+    auto& s = *impl_;
+    s.check();
+    const auto& doc = s.field_document(instance);
+    const auto scan = scan_ui_form_controls(*doc.document);
+    auto result = s.control_observation(doc);
+    result["visited_nodes"] = scan.visited;
+    result["truncated"] = scan.truncated;
+    result["limits"] = {{"nodes", ui_control_nodes},
+                        {"controls", ui_control_count},
+                        {"value_bytes", ui_protocol::max_string},
+                        {"element_id_bytes", 256},
+                        {"options_page", ui_form_options_page_limit},
+                        {"option_text_nodes", ui_form_option_text_nodes}};
+    result["controls"] = Json::array();
+    for (const auto& control : scan.fields) {
+        auto* node = ui_form_control_element(control);
+        const auto& id = node->GetId();
+        const auto at = scan.ids.find(id);
+        const auto kind = ui_form_control_kind(control);
+        auto* input = rmlui_dynamic_cast<Rml::ElementFormControl*>(node);
+        Json row{{"id", ui_control_id(id) ? Json(id) : Json()},
+                 {"kind", kind},
+                 {"addressable", !scan.truncated && at != scan.ids.end() && at->second == 1},
+                 {"visible", doc.document->IsVisible() && node->IsVisible(true)},
+                 {"enabled", input ? Json(!input->IsDisabled()) : Json()},
+                 {"editable", ui_form_control_editable(control)},
+                 {"read_only", kind == "progress"},
+                 {"focused", doc.context == s.input_context(s.focus_output) &&
+                                 doc.context->GetFocusElement() == node},
+                 {"value_available", false}};
+        if (kind == "progress") {
+            auto* progress = std::get<Rml::ElementProgress*>(control);
+            const auto value = progress->GetValue(), maximum = progress->GetMax();
+            if (std::isfinite(value) && std::isfinite(maximum)) {
+                row["value"] = value;
+                row["max"] = maximum;
+                row["value_available"] = true;
+            }
+        } else if (input && (kind == "checkbox" || kind == "radio" || kind == "select")) {
+            const auto value = input->GetValue();
+            s.control_value(row, value);
+            if (kind == "select") {
+                auto* select = std::get<Rml::ElementFormControlSelect*>(control);
+                // GetNumOptions/GetOption lazily move pending children and may emit Change.
+                // Only native Update owns that work; observations never flush it.
+                const bool ready = select->GetNumChildren() == 0;
+                row["options_ready"] = ready;
+                row["options_total"] = ready ? Json(select->GetNumOptions()) : Json();
+                row["selected_index"] = select->GetSelection();
+            } else
+                row["checked"] = input->HasAttribute("checked");
+        }
+        result["controls"].push_back(std::move(row));
+    }
+    return result;
+}
+Json UiPresenter::form_options(const std::string& instance, const std::string& element,
+                               std::size_t offset, std::size_t limit) const {
+    auto& s = *impl_;
+    s.check();
+    if (limit == 0 || limit > ui_form_options_page_limit || offset > ui_control_nodes)
+        throw std::runtime_error("Use 1..32 dropdown options per page within the node budget");
+    const auto& doc = s.field_document(instance);
+    const auto control = s.current_form(doc, element);
+    if (!std::holds_alternative<Rml::ElementFormControlSelect*>(control))
+        throw std::runtime_error("Choose a native dropdown control for its options");
+    auto* select = std::get<Rml::ElementFormControlSelect*>(control);
+    const bool ready = select->GetNumChildren() == 0;
+    auto result = s.control_observation(doc);
+    result["element"] = element;
+    result["ready"] = ready;
+    result["offset"] = offset;
+    result["total"] = Json();
+    result["next_offset"] = Json();
+    result["options"] = Json::array();
+    result["limits"] = {{"page", ui_form_options_page_limit},
+                        {"text_bytes", ui_protocol::max_string},
+                        {"text_nodes", ui_form_option_text_nodes}};
+    if (!ready)
+        return result;
+    const auto total = static_cast<std::size_t>(select->GetNumOptions());
+    if (offset > total)
+        throw std::runtime_error("Dropdown option offset exceeds the current option count");
+    const auto end = offset + std::min(limit, total - offset);
+    result["total"] = total;
+    for (auto i = offset; i < end; ++i)
+        result["options"].push_back(
+            s.option_observation(doc, element, i, select->GetOption(static_cast<int>(i))));
+    if (end < total)
+        result["next_offset"] = end;
+    return result;
+}
+Json UiPresenter::form_control_action(const std::string& instance, const std::string& element,
+                                      std::uint64_t revision, const std::string& action,
+                                      bool checked, std::size_t option,
+                                      const std::string& option_state) {
+    auto& s = *impl_;
+    s.check();
+    if (revision != s.presentation_revision)
+        throw std::runtime_error("UI presentation changed; read its controls again");
+    const bool check = action == "check", choose = action == "choose", select = action == "select";
+    if (!check && !choose && !select)
+        throw std::runtime_error("Unknown native UI form action");
+    if ((!check && checked) || (!select && (option != 0 || !option_state.empty())) ||
+        (select && (option >= ui_control_nodes || option_state.size() != 64)))
+        throw std::runtime_error(
+            "Use only the checked flag or current dropdown option/state for this action");
+    const auto& doc = s.field_document(instance);
+    const auto control = s.current_form(doc, element);
+    const std::string kind(ui_form_control_kind(control));
+    if ((check && kind != "checkbox") || (choose && kind != "radio") ||
+        (select && kind != "select") || !ui_form_control_editable(control))
+        throw std::runtime_error("Choose a visible enabled native control matching this action");
+    const auto [output, surface] = s.field_route(doc);
+    auto* node = ui_form_control_element(control);
+    const auto observer = node->GetObserverPtr();
+    const auto document_observer = doc.document->GetObserverPtr();
+    auto* document = doc.document;
+    auto* context = doc.context;
+    const auto validate_option = [&] {
+        const auto page = form_options(instance, element, option, 1);
+        if (!page.at("ready").get<bool>() || page.at("options").size() != 1)
+            throw std::runtime_error(
+                "Wait for native UI update, then read the dropdown options again");
+        const auto& row = page.at("options")[0];
+        if (!row.value("available", false) || !row.value("enabled", false) ||
+            !row.value("visible", false) || row.at("state") != option_state)
+            throw std::runtime_error(
+                "The dropdown option changed or is unavailable; read its current page");
+    };
+    if (select)
+        validate_option();
+    const Json before =
+        select ? Json(std::get<Rml::ElementFormControlSelect*>(control)->GetSelection())
+               : Json(node->HasAttribute("checked"));
+    const bool noop = select ? before == option : before == (choose || checked);
+    if (noop) {
+        auto result = form_controls(instance);
+        result["delivered"] = false;
+        result["changed"] = false;
+        return result;
+    }
+    const auto current = [&] {
+        if (!observer || !document_observer || revision != s.presentation_revision)
+            throw std::runtime_error("The native UI control retired or its presentation changed");
+        const auto& now = s.field_document(instance);
+        const auto field = s.current_form(now, element);
+        if (now.document != document || now.context != context ||
+            ui_form_control_element(field) != observer.get() ||
+            observer->GetOwnerDocument() != document || ui_form_control_kind(field) != kind ||
+            !ui_form_control_editable(field))
+            throw std::runtime_error("The native UI control changed during focus");
+        return field;
+    };
+    s.focus_target(output, surface);
+    (void)current(); // Native blur may retire or change the target.
+    if (!observer->Focus())
+        throw std::runtime_error("The native UI control could not receive focus");
+    const auto focused = current();
+    if (context->GetFocusElement() != observer.get())
+        throw std::runtime_error("The native UI control did not retain focus");
+    if (select)
+        validate_option();
+    bool delivered = false;
+    if (select) {
+        auto* dropdown = std::get<Rml::ElementFormControlSelect*>(focused);
+        if (dropdown->GetSelection() != static_cast<int>(option)) {
+            delivered = true;
+            dropdown->SetSelection(static_cast<int>(option));
+        }
+    } else if (observer->HasAttribute("checked") != (choose || checked)) {
+        delivered = true;
+        observer->Click();
+    }
+    Json changed;
+    if (observer && document_observer && revision == s.presentation_revision &&
+        observer->GetOwnerDocument() == document && document->Contains(observer.get()) &&
+        observer->GetId() == element) {
+        if (const auto survived = ui_form_control(observer.get());
+            survived && ui_form_control_kind(*survived) == kind) {
+            const Json after =
+                select ? Json(std::get<Rml::ElementFormControlSelect*>(*survived)->GetSelection())
+                       : Json(observer->HasAttribute("checked"));
+            changed = before != after;
+        }
+    }
+    auto result = form_controls(instance);
+    result["delivered"] = delivered;
+    result["changed"] = std::move(changed);
+    return result;
+}
 Json UiPresenter::text_fields(const std::string& instance) const {
     auto& s = *impl_;
     s.check();
     const auto& doc = s.field_document(instance);
     const auto scan = scan_ui_text_fields(*doc.document);
-    Json result{{"instance", doc.instance},
-                {"session", s.session},
-                {"generation", s.generation},
-                {"presentation_revision", s.presentation_revision},
-                {"render_texture", doc.descriptor.value("render_texture", Json())},
-                {"visible", doc.document->IsVisible()},
-                {"visited_nodes", scan.visited},
-                {"truncated", scan.truncated},
-                {"limits",
-                 {{"nodes", ui_text_field_nodes},
-                  {"fields", ui_text_field_count},
-                  {"text_bytes", ui_protocol::max_string},
-                  {"element_id_bytes", 256}}},
-                {"keys", Json::array()},
-                {"fields", Json::array()}};
+    auto result = s.control_observation(doc);
+    result["visited_nodes"] = scan.visited;
+    result["truncated"] = scan.truncated;
+    result["limits"] = {{"nodes", ui_control_nodes},
+                        {"fields", ui_control_count},
+                        {"text_bytes", ui_protocol::max_string},
+                        {"element_id_bytes", 256}};
+    result["keys"] = Json::array();
+    result["fields"] = Json::array();
     for (const auto& key : ui_field::keys)
         result["keys"].push_back(key.name);
     for (const auto& field : scan.fields) {
@@ -1664,7 +1933,7 @@ Json UiPresenter::text_fields(const std::string& instance) const {
         const auto& id = control->GetId();
         const auto at = scan.ids.find(id);
         const auto kind = ui_text_field_kind(field);
-        Json row{{"id", ui_text_field_id(id) ? Json(id) : Json()},
+        Json row{{"id", ui_control_id(id) ? Json(id) : Json()},
                  {"addressable", !scan.truncated && at != scan.ids.end() && at->second == 1},
                  {"kind", kind},
                  {"visible", doc.document->IsVisible() && control->IsVisible(true)},
@@ -1678,14 +1947,7 @@ Json UiPresenter::text_fields(const std::string& instance) const {
         row["selection"] = {{"begin", begin}, {"end", end}};
         if (kind != "password") {
             const auto value = control->GetValue();
-            row["value_bytes"] = value.size();
-            try {
-                ui_protocol::validate_value(value);
-                row["value"] = value;
-                row["value_available"] = true;
-            } catch (const std::exception&) {
-                // Return bounded observations without altering or normalizing the native value.
-            }
+            s.control_value(row, value);
         }
         result["fields"].push_back(std::move(row));
     }
@@ -1707,7 +1969,7 @@ Json UiPresenter::text_field_action(const std::string& instance, const std::stri
         ui_protocol::validate_value(text_value);
     else if (!text_value.empty())
         throw std::runtime_error("Only the text action accepts text");
-    if (!ui_text_field_id(element))
+    if (!ui_control_id(element))
         throw std::runtime_error("Use a nonempty native UI element ID up to256UTF-8 bytes");
     const auto& doc = s.field_document(instance);
     const auto scan = scan_ui_text_fields(*doc.document);
@@ -1721,23 +1983,9 @@ Json UiPresenter::text_field_action(const std::string& instance, const std::stri
     });
     if (found == scan.fields.end() || !ui_text_field_editable(*found))
         throw std::runtime_error("Choose a visible enabled native text/password/textarea field");
-    if (!s.held_keys.empty() || !s.held_buttons.empty())
-        throw std::runtime_error("Release the current native UI key or pointer press first");
+    const auto [output, surface] = s.field_route(doc);
     auto* control = ui_text_field_control(*found);
     const auto observer = control->GetObserverPtr();
-    const auto output_value = doc.descriptor.value("render_texture", Json());
-    const auto output = output_value.is_null() ? AssetId{} : output_value.get<AssetId>();
-    std::optional<UiSurfaceHit> surface;
-    if (output) {
-        for (const auto& candidate : {s.focused_surface, s.hovered_surface})
-            if (candidate && candidate->output.id == output && s.surface_available(*candidate)) {
-                surface = candidate;
-                break;
-            }
-        if (!surface)
-            throw std::runtime_error(
-                "Camera-output field input requires a current native surface hit");
-    }
     Json consumed;
     if (focus) {
         s.focus_target(output, surface);

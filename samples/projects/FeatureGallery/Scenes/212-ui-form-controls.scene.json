@@ -1,0 +1,74 @@
+{
+  "asset_id": "44a06101-dfd4-4547-b57f-21d76be4d65a",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 2.0,
+          "z": -7.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ef5b7bd9-6da4-47e3-93dc-e53684c525c6",
+      "name": "Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.ui_document": {
+          "document": "2fba4490-c2d5-4d4c-9be2-d3a5b12d6084",
+          "enabled": true,
+          "layer": 0,
+          "render_texture": null,
+          "visible": true
+        }
+      },
+      "id": "16deadcc-574d-4edf-a456-0907ff691161",
+      "name": "Form controls - capture Game input"
+    }
+  ],
+  "version": 3
+}

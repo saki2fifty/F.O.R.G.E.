@@ -41,7 +41,7 @@ set(BUILD_SHARED_LIBS "${_forge_ui_shared}")
 # Keep catalogs, packaging and headless runtime/model targets free of RmlUi.
 add_library(forge_ui_source_authoring src/ui_markup_authoring.cpp)
 target_link_libraries(forge_ui_source_authoring PUBLIC forge_ui_asset_catalog PRIVATE RmlUi::Core)
-add_library(forge_ui_presenter src/ui_presenter.cpp src/ui_gradient_profile.cpp src/ui_luminance_mask.cpp src/ui_shadow_motion.cpp src/ui_font_shaping.cpp src/ui_shaped_font.cpp src/ui_text_boundaries.cpp src/ui_text_field.cpp src/ui_text_input.cpp)
+add_library(forge_ui_presenter src/ui_presenter.cpp src/ui_gradient_profile.cpp src/ui_luminance_mask.cpp src/ui_shadow_motion.cpp src/ui_font_shaping.cpp src/ui_shaped_font.cpp src/ui_text_boundaries.cpp src/ui_control_access.cpp src/ui_text_input.cpp)
 target_link_libraries(forge_ui_presenter PUBLIC forge_ui_assets forge_ui_protocol PRIVATE RmlUi::Core forge_asset_bytes Freetype::Freetype harfbuzz utf8proc::utf8proc)
 # No SDL/ImGui dependency. The host translates input and supplies a RenderInterface.
 
@@ -169,6 +169,8 @@ if(BUILD_TESTING)
  set_tests_properties(ui_source_gallery PROPERTIES TIMEOUT 120)
  add_test(NAME ui_layout_gallery COMMAND forge_ui_source_gallery_tests "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/ui-layout-gallery-tests" "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf" --layout-only)
  set_tests_properties(ui_layout_gallery PROPERTIES TIMEOUT 120)
+ add_test(NAME ui_forms_gallery COMMAND forge_ui_source_gallery_tests "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/ui-forms-gallery-tests" "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf" --forms-only)
+ set_tests_properties(ui_forms_gallery PROPERTIES TIMEOUT 120)
  add_executable(forge_ui_markup_tests tests/ui_markup_tests.cpp)
  target_include_directories(forge_ui_markup_tests PRIVATE src)
  target_link_libraries(forge_ui_markup_tests PRIVATE forge_ui_source_authoring)

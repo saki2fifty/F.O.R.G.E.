@@ -102,3 +102,7 @@ plaintext is omitted from observations. Field text stays in the running UI;
 game models may replace it, and it is not saved into source or Scene Undo.
 Camera-output input requires existing native surface focus/hover mapping. IME
 composition injection and arbitrary DOM/script editing are unavailable.
+
+For checkbox, radio and dropdown actions, and read-only progress observations,
+see [Form controls](ui-form-controls.md). These share native input and Play scope;
+their local values are also transient.

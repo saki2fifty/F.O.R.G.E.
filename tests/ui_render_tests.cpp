@@ -1,6 +1,7 @@
 #include "ui_backdrop_render_tests.hpp"
 #include "ui_box_shadow_render_tests.hpp"
 #include "ui_filter_render_tests.hpp"
+#include "ui_form_render_tests.hpp"
 #include "ui_gradient_render_tests.hpp"
 #include "ui_luminance_render_tests.hpp"
 #include "ui_render_readback.hpp"
@@ -70,8 +71,9 @@ int main(int argc, char** argv) {
             argc == 5 && std::string_view(argv[4]) == "--shadow-motion-only";
         const bool shaping_only = argc == 5 && std::string_view(argv[4]) == "--text-shaping-only";
         const bool preview_only = argc == 5 && std::string_view(argv[4]) == "--source-preview-only";
+        const bool forms_only = argc == 5 && std::string_view(argv[4]) == "--forms-only";
         require(argc == 3 || argc == 4 || states_only || conditions_only || luminance_only ||
-                    shadow_motion_only || shaping_only || preview_only,
+                    shadow_motion_only || shaping_only || preview_only || forms_only,
                 "Need image output, font, optional Gallery and application-state profile");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
@@ -116,6 +118,13 @@ int main(int argc, char** argv) {
             return 0;
         }
         forge::UiDiligentRenderer renderer(device);
+        if (forms_only) {
+            forge::test_ui_forms::exercise(device, context, renderer, images, argv[2], argv[3],
+                                           readback);
+            context->WaitForIdle();
+            std::cout << "Native form controls, actions and responsive captures passed\n";
+            return 0;
+        }
         if (shaping_only) {
             forge::test_ui_shaping_pixels::exercise(device, context, renderer, images, argv[2],
                                                     argv[3], readback, save);

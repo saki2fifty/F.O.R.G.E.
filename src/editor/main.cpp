@@ -2779,15 +2779,34 @@ int main(int argc, char** argv) {
             play_providers.ui_fields = [&](const std::string& instance) {
                 return runtime_ui.text_fields(instance);
             };
+            const auto prepare_ui_action = [&] {
+                const bool released =
+                    play.sdk_play() ? game_input.submit_external_release_observation(play, true)
+                                    : game_input.release_checked(play, true);
+                if (!released)
+                    throw forge::AuthoringError("play_busy", "Release gameplay input first");
+            };
             play_providers.ui_field_action =
-                [&](const std::string& instance, const std::string& element, std::uint64_t revision,
-                    const std::string& action, const std::string& text) {
-                    const bool released =
-                        play.sdk_play() ? game_input.submit_external_release_observation(play, true)
-                                        : game_input.release_checked(play, true);
-                    if (!released)
-                        throw forge::AuthoringError("play_busy", "Release gameplay input first");
+                [&, prepare_ui_action](const std::string& instance, const std::string& element,
+                                       std::uint64_t revision, const std::string& action,
+                                       const std::string& text) {
+                    prepare_ui_action();
                     return runtime_ui.text_field_action(instance, element, revision, action, text);
+                };
+            play_providers.ui_controls = [&](const std::string& instance) {
+                return runtime_ui.form_controls(instance);
+            };
+            play_providers.ui_options = [&](const std::string& instance, const std::string& element,
+                                            std::size_t offset, std::size_t limit) {
+                return runtime_ui.form_options(instance, element, offset, limit);
+            };
+            play_providers.ui_control_action =
+                [&, prepare_ui_action](const std::string& instance, const std::string& element,
+                                       std::uint64_t revision, const std::string& action,
+                                       bool checked, std::size_t index, const std::string& state) {
+                    prepare_ui_action();
+                    return runtime_ui.form_control_action(instance, element, revision, action,
+                                                          checked, index, state);
                 };
             auto runtime = forge::PlayAutomation::methods(scene, files, play, runtime_tuning_review,
                                                           std::move(play_providers), permissions);

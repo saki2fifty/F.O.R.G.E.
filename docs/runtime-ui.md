@@ -19,6 +19,16 @@ During editor Play, the separate runtime process owns gameplay, authored UI conf
 
 The standalone `forge_game` executable composes gameplay, Diligent and the same presenter in one process. The private bridge does not require permanent IPC. See [standalone host](standalone-host.md). Native RmlUi/presentation faults share the editor's failure domain; process isolation protects against gameplay worker faults, not every native fault.
 
+## Native form controls
+
+Checkboxes, radio groups and dropdowns retain native input, values and events;
+progress is a read-only display. Native Play form observations/actions use the
+same presenter, input routing and current document scope as text fields. Source
+creation and runtime local state have separate persistence: changing a live
+control does not save RML, Scene data or game preferences automatically. See
+[form ownership and limits](ui-form-controls.md) and the
+[user guide](../manual/editor/ui-form-controls.md).
+
 ## Authored state and assets
 
 Native RML/RCSS authoring uses `UiSourceEditor` in DocumentWorkspace. One source

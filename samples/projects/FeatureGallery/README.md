@@ -1,5 +1,17 @@
 # Feature Gallery
 
+## Native form controls
+
+Open `Scenes/212-ui-form-controls.scene.json`, press Play and capture Game input.
+Toggle Music, choose Casual/Expert and select a Display quality option. The fourth
+option and the final checkbox are disabled. Progress is an authored fixed 35%.
+Radio buttons share one name; labels address unique control IDs. Choices are
+transient, so restarting Play restores defaults. The Scene includes a Camera and
+requires no Light or project C++ module. Edit `Assets/UI/Forms/forms.rml` and
+`forms.rcss`, save and restart Play to test source changes. Set this Scene as
+startup before exporting. See [Form controls](../../../manual/editor/ui-form-controls.md)
+for native interaction, agent actions, saving and limits.
+
 ## Native UI draft preview and pixel layouts
 
 Open `Scenes/211-ui-layout-preview.scene.json`. With Play stopped, find

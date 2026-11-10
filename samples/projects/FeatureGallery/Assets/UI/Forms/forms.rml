@@ -1,0 +1,26 @@
+<rml>
+<head><link type="text/rcss" href="forms.rcss" /></head>
+<body>
+  <div id="panel">
+    <p id="eyebrow">FORGE / NATIVE FORM CONTROLS</p>
+    <p id="heading">Choose your settings</p>
+    <p>Capture gameplay input, then try each control.</p>
+    <div class="row"><input id="music" type="checkbox" value="music" checked="checked" /><label for="music">Music enabled</label></div>
+    <p class="section">DIFFICULTY / ONE SHARED RADIO GROUP</p>
+    <div class="row"><input id="casual" type="radio" name="difficulty" value="casual" checked="checked" /><label for="casual">Casual</label></div>
+    <div class="row"><input id="expert" type="radio" name="difficulty" value="expert" /><label for="expert">Expert</label></div>
+    <label class="section" for="quality">DISPLAY QUALITY</label>
+    <select id="quality">
+      <option value="balanced" selected="selected">Balanced</option>
+      <option value="detailed">Detailed</option>
+      <option value="cinematic">Cinematic</option>
+      <option value="locked" disabled="disabled">Locked example</option>
+    </select>
+    <p class="section">PROGRESS / READ-ONLY DISPLAY</p>
+    <progress id="download" value="0.35" max="1" />
+    <p>35% complete. This display has an authored fixed value.</p>
+    <div class="row"><input id="locked" type="checkbox" value="locked" disabled="disabled" /><label for="locked">Disabled control</label></div>
+    <p id="hint">Choices live in this running UI. Stop and restart Play to restore defaults. They do not save game settings or change Scene data.</p>
+  </div>
+</body>
+</rml>

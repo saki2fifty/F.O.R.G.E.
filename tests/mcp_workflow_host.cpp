@@ -297,9 +297,7 @@ int main(int argc, char** argv) {
             controls.ui_fields = [&](const std::string& instance) {
                 return presenter ? presenter->text_fields(instance) : forge::Json{};
             };
-            controls.ui_field_action = [&](const std::string& instance, const std::string& element,
-                                           std::uint64_t revision, const std::string& action,
-                                           const std::string& text) {
+            const auto prepare_ui_action = [&] {
                 if (!presenter)
                     throw forge::AuthoringError("ui_unavailable", "No live UI presenter");
                 const bool released = play.sdk_play()
@@ -307,8 +305,30 @@ int main(int argc, char** argv) {
                                           : input.release_checked(play, true);
                 if (!released)
                     throw forge::AuthoringError("play_busy", "Release gameplay input first");
-                return presenter->text_field_action(instance, element, revision, action, text);
             };
+            controls.ui_field_action =
+                [&, prepare_ui_action](const std::string& instance, const std::string& element,
+                                       std::uint64_t revision, const std::string& action,
+                                       const std::string& text) {
+                    prepare_ui_action();
+                    return presenter->text_field_action(instance, element, revision, action, text);
+                };
+            controls.ui_controls = [&](const std::string& instance) {
+                return presenter ? presenter->form_controls(instance) : forge::Json{};
+            };
+            controls.ui_options = [&](const std::string& instance, const std::string& element,
+                                      std::size_t offset, std::size_t limit) {
+                return presenter ? presenter->form_options(instance, element, offset, limit)
+                                 : forge::Json{};
+            };
+            controls.ui_control_action =
+                [&, prepare_ui_action](const std::string& instance, const std::string& element,
+                                       std::uint64_t revision, const std::string& action,
+                                       bool checked, std::size_t index, const std::string& state) {
+                    prepare_ui_action();
+                    return presenter->form_control_action(instance, element, revision, action,
+                                                          checked, index, state);
+                };
             controls.reload_ui = [&] {
                 if (!presenter)
                     throw forge::AuthoringError("ui_unavailable", "No live UI presenter");

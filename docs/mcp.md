@@ -1150,8 +1150,8 @@ nonempty dropdowns create one selected option with matching label/value. Image,
 break and progress accept no text; progress starts at0. Options require a select
 parent, selects accept option controls, and textarea/option/progress parents reject.
 No automatic IDs/label targets, registration, execution or Save. Generic insert
-remains supported. Specialized Play field reads/actions retain text/password/
-textarea scope; this authoring operation adds no checkbox/radio/select state API.
+remains supported. In Play, use the native field tools for text/password/textarea
+and the native form tools below for checkbox/radio/dropdown state and actions.
 
 `forge_ui_source_style` takes current source guards, `element`, lowercase `name`
 and string-or-null `value`. Null removes the matching declaration; set edits only
@@ -2488,12 +2488,68 @@ hit; ordinary native pointer/focus mapping and IME placement remain authoritativ
 
 Field observations visit at most4096DOM nodes/64fields, and IDs are valid nonempty
 UTF-8 up to256bytes. Truncated scans and duplicate IDs cannot authorize input.
-Values are admitted through the existing UI validator up to1024UTF-8 bytes;
+Values are admitted through the existing UI validator up to 1,024 UTF-8 bytes;
 unadmitted values are omitted without changing the native field. Password
 plaintext is omitted from reads/action results. Actions return delivered,
 consumed (null for focus/navigation) and fresh fields. Delivery is not a
 gameplay acknowledgement or a claim that a canceled event edited text.
 These are editor Play operations; they do not attach MCP to an exported game process.
+
+## Native UI form tools
+
+| Tool | Scope |
+| --- | --- |
+| `forge_play_ui_controls` | `play.read`; observe checkbox/radio/select/progress in one displayed `instance` |
+| `forge_play_ui_options` | `play.read`; read a unique dropdown `element`, optional `offset` (default 0) and `limit` (default 16, maximum 32) |
+| `forge_play_ui_check` | `play.execute`; set a checkbox to the required boolean `checked` |
+| `forge_play_ui_choose` | `play.execute`; choose a radio; native name/group rules deselect its peers |
+| `forge_play_ui_select` | `play.execute`; choose an option using its observed `index` and `option_state` |
+
+Reads return native state under `value`, or null without a ready presenter. They
+do not focus controls, flush native updates, dispatch events or change source.
+The control snapshot includes session/generation/presentation_revision/instance,
+visibility, enabled/editable/addressable facts, checked flags, dropdown selection
+and finite progress value/max. Progress is read-only and has no semantic action.
+Text/password/textarea remain in the separate native field snapshot; password
+plaintext is never exposed by the form tools.
+
+Actions use the same current authoring envelope, Play launch/session/generation,
+instance, unique element and observed presentation_revision as field actions.
+They require visible enabled controls, a complete unambiguous native scan, and
+the ordinary held-input, focus and output-surface routing. Native blur/focus
+callbacks can cancel focus, retire or replace a control; identity, kind, scope,
+admission and option state are rechecked afterwards. Native extensions must obey
+[callback ownership limits](dependency-known-issues.md#native-ui-focus-callback-removal);
+observers cannot make destruction inside an executing native stack safe. Native Click/SetSelection
+own state changes and events. A request already satisfied returns
+`delivered:false,changed:false` without focus or events. An actual activation
+returns `delivered:true` and fresh control observations; `changed` is null if the
+target detached, retired or changed kind during activation. Delivery is not a gameplay
+acknowledgement. Native callback changes are not rolled back.
+
+Option pages return `options`, `total` and `next_offset`. Each row includes index,
+enabled/visible/selected, admitted value and raw native text, availability flags
+and an opaque `state`. Pass that exact row's state as `option_state` to select.
+The digest covers current scope, index, value, text and admission facts; changing
+the selected hint alone preserves it. A state-token mismatch returns `stale_ui_option` before
+activation; invalid current native targets/offsets use the native operation failure.
+Stale presentation and Play scope retain `stale_ui` and `stale_play`.
+Native revalidation still applies if callbacks change options after preflight.
+When pending native children have not yet been normalized by Update, the page
+returns `ready:false,total:null,options:[]`; wait for an update and read again.
+
+The form scan admits 4,096 nodes including native non-DOM widget children and 64 form
+controls, independently of the text field counter. IDs use the same 256-byte UTF-8
+admission and must be unique across that scan. Truncation blocks actions. String
+values are admitted up to 1,024 UTF-8 bytes without silent truncation. Option text
+visits at most 256 nodes and 1,024 bytes, preserving raw native text leaves rather than
+rendered whitespace/style. Nested form values are not read. Missing/unadmitted
+text is reported unavailable. Schemas reject invalid types/ranges with
+`invalid_arguments`; an option without a state token cannot authorize selection.
+Missing, hidden, disabled or inappropriate native targets
+fail without activation. Receipt replay returns the original action result.
+State is transient in the running UI; no Source/Scene/Undo writer is added, and
+these tools do not attach to exported game processes.
 
 Use the existing reviewed `forge_asset_import_prepare`/`commit` workflow to copy
 TTF/OTF/TTC/OTC files from the project or explicitly granted import root. A review

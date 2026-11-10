@@ -3114,3 +3114,18 @@ collection and axis captures above are unchanged. No crop/resize/retouch or
 invented controls are used. These are native software fixtures, not full desktop,
 Windows/MSVC/D3D12, DPI, physical input/display or GPU acceptance. See
 [native text provenance](../../ci.md#native-ui-text-shaping) for scope.
+
+## Native form controls
+
+`ui-form-controls.png` and `ui-form-options.png` in the manual are exact700×900
+native RmlUi/Diligent game-HUD component captures, with no retouching. The first
+shows the saved defaults; the second follows native checkbox/radio/dropdown actions
+and opens the dropdown. Reproduce through the `ui_forms_vulkan` CTest case or
+`forge_ui_vulkan_probe <output> <font> <FeatureGallery> --forms-only`. The native
+form-access validation checkpoint retains nine raw PNGs at1180/700/400pixels,
+fixture/source/font/executable hashes and the software-Vulkan receipt. These are
+component captures on a software Vulkan device; full editor, Windows/D3D12 and
+physical-device/display-density acceptance remain separate.
+
+- `ui-form-controls.png`: `0e1ea0215b78d5ab7d47d2c03bdf229ca4b50497aed388ba5fa00fef8afc45d3`.
+- `ui-form-options.png`: `761ab2c342689a71a2a030591ec6df0e8b70167c25b2addd63338a3b0fb77fe5`.

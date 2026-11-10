@@ -8,6 +8,7 @@
 #include <RmlUi/Core/Elements/ElementFormControlTextArea.h>
 #include <RmlUi/Core/Elements/ElementProgress.h>
 #include <algorithm>
+#include <cmath>
 #include <forge/authoring.hpp>
 #include <forge/runtime_ui.hpp>
 #include <fstream>
@@ -20,6 +21,8 @@ constexpr auto document_path = "Assets/UI/SourceAuthoring/hud.rml";
 constexpr auto stylesheet_path = "Assets/UI/SourceAuthoring/hud.rcss";
 constexpr auto layout_scene = "Scenes/211-ui-layout-preview.scene.json";
 constexpr auto layout_document = "Assets/UI/Layout/layout.rml";
+constexpr auto forms_scene = "Scenes/212-ui-form-controls.scene.json";
+constexpr auto forms_document = "Assets/UI/Forms/forms.rml";
 void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
@@ -421,9 +424,83 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
           "Layout workflow changed Scene data or leaked native resources");
 }
 } // namespace
+namespace {
+void author_forms(const std::filesystem::path& root, const std::vector<std::byte>& font) {
+    check(!std::filesystem::exists(root / forms_scene), "Form example already exists");
+    const auto document = register_ui_document(root, forms_document);
+    EngineContext engine;
+    Scene scene(engine.world());
+    auto source =
+        duplicate_scene_asset(read_json(root / layout_scene), AssetId::generate(), scene.schema());
+    for (auto& row : source["entities"])
+        if (row["components"].contains("forge.ui_document")) {
+            row["name"] = "Form controls - capture Game input";
+            row["components"]["forge.ui_document"]["document"] = document.id;
+        }
+    scene.reset(source);
+    scene.save(root / forms_scene);
+    auto catalog = AssetCatalog::open_project(root);
+    const auto record = catalog.add_scene(forms_scene);
+    catalog.save(AssetCatalog::project_index(root));
+    ProjectLease lease(root);
+    const std::array roots{record.id};
+    prepare_runtime_content_catalog(lease, roots, inspector(root, font), scene.schema());
+}
+void exercise_forms(const std::filesystem::path& root, const Json& source,
+                    const std::vector<std::byte>& font) {
+    EngineContext engine(WorldRole::Runtime, false, {ui_module(root)});
+    Scene scene(engine.world());
+    scene.restore_snapshot(source);
+    const auto authored = scene.snapshot();
+    const auto ui = std::static_pointer_cast<UiRuntime>(engine.services().ui());
+    UiTestRenderer renderer;
+    {
+        UiPresenter presenter(renderer, root, font);
+        presenter.reset("form-gallery", 1);
+        auto state = ui->snapshot(scene, "form-gallery", 1, 1, true);
+        check(presenter.accept(state), presenter.diagnostic().c_str());
+        presenter.update(0, 800, 900);
+        const auto instance = state.at("documents")[0].at("instance").get<std::string>();
+        const auto initial = presenter.form_controls(instance);
+        const auto revision = initial.at("presentation_revision").get<std::uint64_t>();
+        const auto control = [&](const Json& observation, const char* id) {
+            for (const auto& row : observation.at("controls"))
+                if (row.at("id") == id)
+                    return row;
+            throw std::runtime_error("Gallery form control missing");
+        };
+        check(initial.at("controls").size() == 6 && !initial.at("truncated").get<bool>() &&
+                  control(initial, "music").at("checked") == true &&
+                  control(initial, "casual").at("checked") == true &&
+                  control(initial, "quality").at("value") == "balanced" &&
+                  control(initial, "download").at("read_only") == true &&
+                  std::abs(control(initial, "download").at("value").get<double>() - .35) < .0001 &&
+                  control(initial, "locked").at("editable") == false,
+              "Gallery form defaults differ from saved native controls");
+        presenter.form_control_action(instance, "music", revision, "check", false);
+        presenter.form_control_action(instance, "expert", revision, "choose");
+        const auto page = presenter.form_options(instance, "quality");
+        check(page.at("options").size() == 4 && page.at("options")[3].at("enabled") == false,
+              "Gallery dropdown lost saved options or disabled state");
+        presenter.form_control_action(instance, "quality", revision, "select", false, 1,
+                                      page.at("options")[1].at("state"));
+        const auto changed = presenter.form_controls(instance);
+        check(control(changed, "music").at("checked") == false &&
+                  control(changed, "casual").at("checked") == false &&
+                  control(changed, "expert").at("checked") == true &&
+                  control(changed, "quality").at("value") == "detailed",
+              "Gallery forms did not retain native checkbox/radio/dropdown actions");
+        presenter.render();
+        check(renderer.draws > 0 && scene.snapshot() == authored,
+              "Gallery form presentation changed authored Scene or drew nothing");
+    }
+    check(renderer.geometry.empty(), "Gallery forms retained retired geometry");
+}
+} // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4 || (argc == 5 && std::string_view(argv[4]) == "--layout-only"),
+        check(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--layout-only" ||
+                                          std::string_view(argv[4]) == "--forms-only")),
               "Need Gallery, scratch root and font; or --author/--author-layout Gallery font");
         const auto font = asset_detail::read_bytes(argv[3], 4 * 1024 * 1024);
         if (std::string_view(argv[1]) == "--author") {
@@ -434,13 +511,22 @@ int main(int argc, char** argv) {
             author_layout(argv[2], font);
             return 0;
         }
+        if (std::string_view(argv[1]) == "--author-forms") {
+            author_forms(argv[2], font);
+            return 0;
+        }
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(scratch);
         const auto root = scratch / "source";
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
-        const bool layout_only = argc == 5;
-        const auto source = read_json(root / (layout_only ? layout_scene : scene_path));
-        if (layout_only)
+        const bool forms_only = argc == 5 && std::string_view(argv[4]) == "--forms-only";
+        const bool layout_only = argc == 5 && !forms_only;
+        const auto source = read_json(root / (forms_only    ? forms_scene
+                                              : layout_only ? layout_scene
+                                                            : scene_path));
+        if (forms_only)
+            exercise_forms(root, source, font);
+        else if (layout_only)
             exercise_layout(root, source, font, true);
         else
             exercise(root, source, font, true);
@@ -457,7 +543,9 @@ int main(int argc, char** argv) {
         check(catalog.records().size() == 3, "UI source package lost/duplicated its closure");
         std::filesystem::rename(root, scratch / "source-offline");
         const auto exported = read_json(moved / catalog.records().at(roots[0]).source);
-        if (layout_only)
+        if (forms_only)
+            exercise_forms(moved, exported, font);
+        else if (layout_only)
             exercise_layout(moved, exported, font, false);
         else
             exercise(moved, exported, font, false);

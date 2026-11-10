@@ -6,6 +6,8 @@ See[dependency policy](dependency-policy.md).
 
 | Exact source | Observed issue | FORGE boundary / status |
 | --- | --- | --- |
+| RmlUi 6.3/ba95ffe8, `WidgetDropDown::OnValueChange` / `SetSelection` | Native widget members are accessed after synchronous Change dispatch; destroying that dropdown inside the callback causes use-after-free | An independent native-only probe reproduces it with the exact unchanged widget unit instrumented. Retain the native removed-element owner until dispatch returns, or defer removal. FORGE uses native activation and call-local observers; detached targets produce unavailable change state. No dependency patch, upgrade or suppression. See [native callback lifetime](#native-ui-dropdown-callback-lifetime). |
+| Same pin, `Context::OnFocusChange` | Focus dispatch assigns its requested pointer after callbacks; removing/destroying that target during Focus can leave freed native focus | Independent native-only and actual-consumer diagnostics reproduce the lifetime failure with unchanged native Context/Element/EventDispatcher/widget units instrumented. Defer removal until dispatch returns; retained early detach also requires restoring attached native focus before releasing the removed owner. No focus manager or dependency patch is introduced. See [focus callback removal](#native-ui-focus-callback-removal). |
 | Ozz0.17.0/744eb9d, `gltf2ozz.cc::Create*RestPoseKey` | Unanimated matrix-authored node fallback channels read only TRS fields. A parent with matrix translationX=5 samples near0 in its child animation; equivalent explicitTRS samples near5. | Reproduced using official converter and FORGE archive admission/sampler on2026-09-20. Existing animation-only path is not generalized by this finding. New model animation integration must canonicalize validated matrix rest transforms to explicitTRS in private converter transport and verify skeleton/clip compatibility. Private canonical adapter and permanent official-converter regression now retain matrix ancestor rest values; whole-model worker integration and the official-converter regressions pass. No vendor patch or pin change. |
 | DiligentTools7d113906, `TextureLoader/src/PNGCodec.c` | Read callback ignores supplied source length; a truncated span over a larger allocation still decodes | New texture importer uses the existing libpng1.6.55 through a bounds-checked callback. All truncated fixture copies reject. Old image call sites are not automatically covered. |
 | Same pin, `Image.cpp::TIFFReadProc` | Requested bytes copied without checking remaining input | Native TIFF route excluded from texture importer; no supported TIFF-import claim. |
@@ -324,3 +326,48 @@ custom nonempty-commit backend must treat this native limitation explicitly.
 The independent boundary adapter forwards public context behavior and does not
 silently replace the native text/maximum-length owner. Recheck exact source and
 both native paths when the dependency or platform backend changes.
+
+## Native UI dropdown callback lifetime
+
+At RmlUi 6.3 `ba95ffe8bfb6370efb2cdcca927eaad4710c5413`, public dropdown
+SetSelection dispatches Change synchronously. WidgetDropDown::OnValueChange and
+SetSelection access widget members after that dispatch. A callback that removes
+and immediately destroys the same dropdown therefore invalidates the active
+native widget stack. A FORGE consumer test passed normally but failed under its
+instrumented lifetime checks. A separate original probe with no FORGE includes
+or libraries reproduces heap-use-after-free at WidgetDropDown.cpp:282 when that
+exact unchanged native widget unit is instrumented. Other native units remain
+normal in this diagnostic; it is not whole-dependency sanitizer acceptance.
+
+The same probe passes with unsuppressed address/undefined/leak checks when its
+callback retains the ElementPtr returned by RemoveChild until SetSelection
+returns. Native extensions must preserve that caller-owned lifetime or defer the
+removal; an observer does not keep an element alive. FORGE adds no alternate
+widget, ownership manager or deletion queue. Its form actions recheck native
+observer/document/scope/containment before observing post-action change, so a
+safely detached target reports changed:null. Regression cases cover retained
+native removal during both checkbox and dropdown Change, followed by ordinary
+owner destruction after dispatch. Native command bindings/MCP expose no arbitrary
+DOM-deletion callback API. No guarantee is made for extensions that immediately
+destroy objects still executing a native callback. Preserve the pin and revisit
+this boundary deliberately when selecting another native revision.
+
+## Native UI focus callback removal
+
+At the same native pin, Context::OnFocusChange assigns its requested focus after
+synchronous blur/focus callbacks, then accesses that object. Immediate destruction
+inside Focus produces use-after-free at Context.cpp:1240 in an independent probe
+and the actual FORGE field consumer. Retaining a detached target only until Focus
+returns avoids that immediate access but leaves the native focus pointer detached;
+freeing it then causes a later focus transition to use freed memory at line1198.
+Diagnostics instrument four exact unchanged native units: Context, Element,
+EventDispatcher and WidgetDropDown. Other native/dependency units remain normal.
+
+Native extensions should defer focused-element removal until dispatch returns.
+If a callback deliberately detaches early, its native caller must retain the
+returned owner through dispatch, restore attached focus through the native API,
+then release that owner. The form-action regression keeps its rejection of a
+removed target before activation and performs this explicit caller cleanup. This
+is a native extension lifetime boundary, not an additional public DOM operation,
+parallel focus manager, rollback, suppression or dependency change. Call-local
+observers cannot make immediate destruction inside an active native stack safe.

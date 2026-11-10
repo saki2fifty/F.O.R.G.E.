@@ -13,6 +13,10 @@ Runtime UI is the interface shown **inside your running game**: HUDs, menus, but
 
 The example creates three files: `hud.rml` for content, `hud.rcss` for appearance, and `badge.tga` for the image. You do not need to enter an asset UUID or write C++.
 
+For checkbox, radio, dropdown and progress widgets, follow
+[Form controls](ui-form-controls.md). Create them with **Elements → New child**
+or edit their RML source; interactive testing takes place in Play.
+
 ## Try the buttons and text field
 
 Click **Pause**. The tick counter stops, but the HUD stays interactive. Click the text field and type; gameplay keyboard actions should not fire while the field owns your input.

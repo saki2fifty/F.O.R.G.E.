@@ -215,6 +215,23 @@ class RuntimeUiHost {
             throw std::runtime_error("Runtime UI is unavailable or preparing a scene");
         return presenter_->text_field_action(instance, element, revision, action, text);
     }
+    Json form_controls(const std::string& instance) const {
+        return presenter_ && !suspended_ ? presenter_->form_controls(instance) : Json{};
+    }
+    Json form_options(const std::string& instance, const std::string& element, std::size_t offset,
+                      std::size_t limit) const {
+        return presenter_ && !suspended_
+                   ? presenter_->form_options(instance, element, offset, limit)
+                   : Json{};
+    }
+    Json form_control_action(const std::string& instance, const std::string& element,
+                             std::uint64_t revision, const std::string& action, bool checked,
+                             std::size_t option, const std::string& state) {
+        if (!presenter_ || suspended_ || prepared_ticket_)
+            throw std::runtime_error("Runtime UI is unavailable or preparing a scene");
+        return presenter_->form_control_action(instance, element, revision, action, checked, option,
+                                               state);
+    }
     // Single source of truth for "has RmlUi Core been initialized by this
     // host yet?". Mirrors `set_game_input_observer`/`set_presenter_alive_observer`
     // in tests/editor_sdk_workflow.hpp: the workflow probes this before

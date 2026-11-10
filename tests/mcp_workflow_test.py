@@ -56,8 +56,9 @@ ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 INPUT_RECORDING_ONLY = sys.argv[7:] == ['--input-recording-only']
 UI_SOURCE_ONLY = sys.argv[7:] == ['--ui-source-only']
 UI_TEXT_SHAPING_ONLY = sys.argv[7:] == ['--ui-text-shaping-only']
-UI_FIELDS_SDK = sys.argv[7:] == ['--ui-fields-sdk-only']
-UI_FIELDS_ONLY = UI_FIELDS_SDK or sys.argv[7:] == ['--ui-fields-only']
+UI_FIELDS_SDK = sys.argv[7:] in (['--ui-fields-sdk-only'], ['--ui-forms-sdk-only'])
+UI_FORMS_ONLY = sys.argv[7:] in (['--ui-forms-only'], ['--ui-forms-sdk-only'])
+UI_FIELDS_ONLY = UI_FORMS_ONLY or UI_FIELDS_SDK or sys.argv[7:] == ['--ui-fields-only']
 UI_FONT_COLLECTIONS_SDK = len(sys.argv) == 9 and sys.argv[7] == '--ui-font-collections-sdk-only'
 UI_FONT_COLLECTIONS_ONLY = UI_FONT_COLLECTIONS_SDK or len(sys.argv) == 9 and sys.argv[7] == '--ui-font-collections-only'
 AUDIO_STREAMING_ONLY = sys.argv[7:] == ['--audio-streaming-only']
@@ -409,14 +410,17 @@ for legacy in selected_protocols:
                   'malformed admission, both native font profiles and authored isolation passed')
             continue
         if UI_FIELDS_ONLY:
-            check_ui_fields_play(root, client, read, ok, control, mutate, arguments, until, advertised)
+            check_ui_fields_play(root, client, read, ok, control, mutate, arguments, until, advertised, forms_only=UI_FORMS_ONLY)
             with editor('read') as (_, readonly_config), Client(readonly_config, legacy) as readonly:
                 names = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
                 assert 'forge_play_ui_fields' in names
-                assert not {'forge_play_ui_focus', 'forge_play_ui_text', 'forge_play_ui_key'} & names
-                denied = readonly.request('tools/call', dict(name='forge_play_ui_text', arguments={}))
-                assert 'error' in denied or denied['result']['isError'], denied
-            print(('legacy' if legacy else 'current') + ': native UI fields, focus/text/keys, scope/limits, '
+                assert {'forge_play_ui_controls', 'forge_play_ui_options'} <= names
+                assert not {'forge_play_ui_focus', 'forge_play_ui_text', 'forge_play_ui_key',
+                            'forge_play_ui_check', 'forge_play_ui_choose', 'forge_play_ui_select'} & names
+                for tool in ('forge_play_ui_text', 'forge_play_ui_check', 'forge_play_ui_choose', 'forge_play_ui_select'):
+                    denied = readonly.request('tools/call', dict(name=tool, arguments={}))
+                    assert 'error' in denied or denied['result']['isError'], denied
+            print(('legacy' if legacy else 'current') + ': native UI text/form fields, paged options, semantic actions, scope/limits, '
                   'masked passwords, exact receipt replay, reload revision and authored isolation passed')
             continue
         if UI_TEXT_SHAPING_ONLY:

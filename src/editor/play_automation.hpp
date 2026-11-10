@@ -2,6 +2,7 @@
 #include "../asset_bytes.hpp"
 #include "../cpu_profile_trace.hpp"
 #include "../input_recording_files.hpp"
+#include "../ui_control_access.hpp"
 #include "../ui_field_keys.hpp"
 #include "animation_playback.hpp"
 #include "audio_source.hpp"
@@ -36,6 +37,12 @@ struct PlayAutomationProviders {
     std::function<Json(const std::string&, const std::string&, std::uint64_t, const std::string&,
                        const std::string&)>
         ui_field_action;
+    std::function<Json(const std::string&)> ui_controls;
+    std::function<Json(const std::string&, const std::string&, std::size_t, std::size_t)>
+        ui_options;
+    std::function<Json(const std::string&, const std::string&, std::uint64_t, const std::string&,
+                       bool, std::size_t, const std::string&)>
+        ui_control_action;
 };
 struct PlayAutomation {
     static Json state(const PlaySession& play) {
@@ -153,6 +160,47 @@ struct PlayAutomation {
                 files.document.check_ownership();
                 auto result = state(play);
                 result["value"] = play.ready() && fields ? fields(request.at("instance")) : Json{};
+                return result;
+            }));
+        methods.push_back(automation_method(
+            "play.ui.controls",
+            "Read bounded actual native checkbox/radio/dropdown/progress controls in one current "
+            "UI document instance. Reports session/world/presentation, unique IDs, native state, "
+            "visibility/enabled/focus and readonly progress. Text/password controls stay in "
+            "play.ui.fields; no password values enter this view. At most 4096 native nodes and "
+            "64 controls. No focus, callback, source or Scene mutation; null without a ready "
+            "presenter.",
+            "play.read", automation_object({{"instance", automation_text(256, 1)}}, {"instance"}),
+            false, [&files, &play, controls = providers.ui_controls](const Json& request) {
+                files.document.check_ownership();
+                auto result = state(play);
+                result["value"] =
+                    play.ready() && controls ? controls(request.at("instance")) : Json{};
+                return result;
+            }));
+        methods.push_back(automation_method(
+            "play.ui.options",
+            "Read a bounded page of current native dropdown options by instance/unique element. "
+            "Optional offset defaults to0, limit to16 (1..32). Returns index, native raw "
+            "text/value "
+            "availability, enabled/visibility/selection, next_offset and observed option state "
+            "digest. Text/value cap1024UTF-8bytes; text traversal256nodes. Pending native children "
+            "report ready:false and are never flushed by this read. Use option_state/index with "
+            "play.ui.select; no DOM serialization, nested control values, focus or change events.",
+            "play.read",
+            automation_object({{"instance", automation_text(256, 1)},
+                               {"element", automation_text(256, 1)},
+                               {"offset", automation_integer(0, ui_control_nodes)},
+                               {"limit", automation_integer(1, ui_form_options_page_limit)}},
+                              {"instance", "element"}),
+            false, [&files, &play, options = providers.ui_options](const Json& request) {
+                files.document.check_ownership();
+                auto result = state(play);
+                result["value"] = play.ready() && options
+                                      ? options(request.at("instance"), request.at("element"),
+                                                request.value("offset", std::size_t{}),
+                                                request.value("limit", std::size_t(16)))
+                                      : Json{};
                 return result;
             }));
         for (const auto* kind : {"schema", "diagnostics", "physics", "input", "ui", "audio",
@@ -901,6 +949,67 @@ struct PlayAutomation {
                         request.at("presentation_revision"),
                         kind == "key" ? request.at("key").get<std::string>() : kind,
                         kind == "text" ? request.at("text").get<std::string>() : std::string{});
+                },
+                true));
+        }
+        for (const auto* name : {"check", "choose", "select"}) {
+            const std::string action(name);
+            auto properties = field_properties, required = field_required;
+            if (action == "check") {
+                properties["checked"] = {{"type", "boolean"}};
+                required.push_back("checked");
+            } else if (action == "select") {
+                properties["index"] = automation_integer(0, ui_control_nodes - 1);
+                properties["option_state"] = automation_digest();
+                required.push_back("index");
+                required.push_back("option_state");
+            }
+            methods.push_back(automation_method(
+                "play.ui." + action,
+                "Apply one semantic native checkbox check(checked), radio choose, or dropdown "
+                "select(index/option_state from play.ui.options). Needs current Play scope, "
+                "instance/unique element/presentation revision and play.execute. Native Click/"
+                "SetSelection owns state, groups and change events; repeated desired state is "
+                "an eventless no-op. Validate visible/enabled kind, IDs and option state again "
+                "after native focus callbacks. Held UI input rejects; camera outputs require a "
+                "current native surface hit. Returns actual form observations, delivered and "
+                "changed(null if target retired). Delivered means native activation/selection, "
+                "not gameplay acknowledgement. Transient only; no source/Scene/history writes, "
+                "arbitrary DOM operations, password actions or progress value replacement.",
+                "play.execute", automation_object(properties, required), true,
+                [&files, &play, providers, action](const Json& request) {
+                    current(play, files, providers, request);
+                    if (!play.ready())
+                        throw AuthoringError("not_ready", "Wait for the current Play world");
+                    if (!providers.ui_control_action || !providers.ui_controls ||
+                        (action == "select" && !providers.ui_options))
+                        throw AuthoringError("ui_unavailable",
+                                             "Native UI control input is unavailable");
+                    const auto shown = providers.ui_controls(request.at("instance"));
+                    if (!shown.is_object() || shown.at("session") != play.session() ||
+                        shown.at("generation") != play.world_generation() ||
+                        shown.at("presentation_revision") != request.at("presentation_revision"))
+                        throw AuthoringError("stale_ui",
+                                             "Read the current native UI controls first");
+                    if (action == "select") {
+                        const auto page =
+                            providers.ui_options(request.at("instance"), request.at("element"),
+                                                 request.at("index").get<std::size_t>(), 1);
+                        if (!page.is_object() || page.at("session") != play.session() ||
+                            page.at("generation") != play.world_generation() ||
+                            page.at("presentation_revision") != request.at("presentation_revision"))
+                            throw AuthoringError("stale_ui",
+                                                 "Read the current dropdown options first");
+                        if (!page.at("ready").get<bool>() || page.at("options").size() != 1 ||
+                            page.at("options")[0].at("state") != request.at("option_state"))
+                            throw AuthoringError("stale_ui_option",
+                                                 "Read the current dropdown option page first");
+                    }
+                    return providers.ui_control_action(
+                        request.at("instance"), request.at("element"),
+                        request.at("presentation_revision"), action,
+                        request.value("checked", false), request.value("index", std::size_t{}),
+                        request.value("option_state", std::string{}));
                 },
                 true));
         }
