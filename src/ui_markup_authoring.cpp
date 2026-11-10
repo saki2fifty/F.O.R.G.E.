@@ -812,10 +812,38 @@ std::vector<UiMarkupControlProperty> control_property_metadata(std::string_view 
         row.type = type;
         row.value = std::move(value);
         row.choices = std::move(choices);
+        if (type == UiControlPropertyType::Number) {
+            row.minimum =
+                std::string_view(name) == "step" ? ui_range_minimum_step : -ui_range_magnitude;
+            row.maximum = ui_range_magnitude;
+        }
         result.push_back(std::move(row));
     };
     using Type = UiControlPropertyType;
-    if (kind == "range") {
+    const auto integer = [&](const char* name, const char* label, double value, double minimum,
+                             double maximum) {
+        add(name, label, Type::Number, value);
+        auto& row = result.back();
+        row.minimum = minimum;
+        row.maximum = maximum;
+        row.integer = true;
+    };
+    if (kind == "text-input" || kind == "password-input" || kind == "textarea") {
+        if (kind != "textarea")
+            add("value",
+                kind == "password-input" ? "Initial source value (visible)" : "Initial value",
+                Type::Text, std::string{});
+        add("placeholder", "Placeholder", Type::Text, std::string{});
+        integer("maxlength", "Maximum length (-1: unlimited)", -1, -1, 1000000);
+        if (kind == "textarea") {
+            integer("cols", "Columns", 20, 1, 4096);
+            integer("rows", "Rows", 2, 1, 4096);
+            add("wrap", "Line wrapping", Type::Choice, std::string("wrap"), {"wrap", "nowrap"});
+        } else
+            integer("size", "Width in characters", 20, 1, 4096);
+    } else if (kind == "label") {
+        add("for", "Target ID (empty: first child control)", Type::Text, std::string{});
+    } else if (kind == "range") {
         add("value", "Initial value", Type::Number, 0.0);
         add("min", "Minimum", Type::Number, 0.0);
         add("max", "Maximum", Type::Number, 100.0);
@@ -837,9 +865,9 @@ std::vector<UiMarkupControlProperty> control_property_metadata(std::string_view 
     } else if (kind != "select" && kind != "button") {
         return {};
     }
-    if (kind != "progress" && kind != "button")
+    if (kind != "progress" && kind != "button" && kind != "label")
         add("disabled", "Disabled", Type::Flag, false);
-    if (kind != "progress" && kind != "option") {
+    if (kind != "progress" && kind != "option" && kind != "label") {
         add("tab-index", "Keyboard tab stop", Type::Choice, std::monostate{}, {"auto", "none"});
         add("focus", "Focus", Type::Choice, std::monostate{}, {"auto", "none"});
     }
@@ -854,11 +882,12 @@ std::string_view trimmed_control_literal(std::string_view value) {
     const auto range = trimmed(value, {0, value.size()});
     return value.substr(range.begin, range.end - range.begin);
 }
-void validate_control_number(std::string_view name, double value) {
+void validate_control_number(const UiMarkupControlProperty& row, double value) {
     require(ui_range_number(value), "Use a finite control number within -1000000..1000000");
-    if (name == "step")
-        require(static_cast<float>(value) >= ui_range_minimum_step,
-                "Slider step must be within 0.000001..1000000");
+    const double normalized = static_cast<float>(value);
+    require(!row.minimum || normalized >= *row.minimum, "Control number is below its minimum");
+    require(!row.maximum || normalized <= *row.maximum, "Control number is above its maximum");
+    require(!row.integer || std::trunc(value) == value, "Use a whole-number control property");
 }
 } // namespace
 std::vector<std::string> ui_markup_control_property_names() {
@@ -952,8 +981,19 @@ UiMarkupControlProperties read_ui_markup_control_properties(std::string_view sou
                 row.value = row.authored;
             else if (literal) {
                 if (row.type == UiControlPropertyType::Number) {
-                    const double value = parse_ui_range_number(trimmed_control_literal(*literal));
-                    validate_control_number(row.name, value);
+                    const auto text = trimmed_control_literal(*literal);
+                    double value = 0;
+                    if (row.integer) {
+                        int parsed = 0;
+                        const auto number =
+                            std::from_chars(text.data(), text.data() + text.size(), parsed);
+                        require(
+                            number.ec == std::errc{} && number.ptr == text.data() + text.size(),
+                            "This integer literal uses Source; enter a whole-number replacement");
+                        value = parsed;
+                    } else
+                        value = parse_ui_range_number(text);
+                    validate_control_number(row, value);
                     row.value = value;
                 } else if (row.type == UiControlPropertyType::Choice) {
                     const std::string value(trimmed_control_literal(*literal));
@@ -1003,7 +1043,7 @@ set_ui_markup_control_properties(std::string_view source, std::size_t index,
         } else if (row->type == UiControlPropertyType::Number) {
             const auto* number = std::get_if<double>(&value);
             require(number != nullptr, "Use a numeric control property, or null to remove it");
-            validate_control_number(name, *number);
+            validate_control_number(*row, *number);
             const double normalized = static_cast<float>(*number);
             if (row->authored && row->available && row->value == UiControlPropertyValue(normalized))
                 continue;

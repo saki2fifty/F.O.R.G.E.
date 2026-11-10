@@ -2715,3 +2715,12 @@ IDs, resource references and bindings. Equal native-float numbers retain spellin
 Save, resource refresh, Scene history, content cooking and Play keep their owners.
 Replay uses the existing source receipt. These two operations bring source tools
 to35 while preserving the existing33operations and18sourcekind strings.
+
+Source control profiles also include text/password inputs, textarea and label.
+Each numeric row reports minimum/maximum and integer; absent bounds are null.
+Text dimensions (size/rows/cols) require integers1..4096; maxlength allows integers
+-1..1000000 (-1unlimited). Fractional/invalid typed patches reject atomically.
+Textarea settings retain the body; use the existing source text operation to
+edit it. Label for updates only its target attribute. Password initial values
+are source content under assets.read/write, not a live secret observation or
+input grant. The existing35tools and18sourcekind strings remain unchanged.

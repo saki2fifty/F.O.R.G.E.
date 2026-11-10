@@ -130,6 +130,8 @@ struct UiMarkupControlProperty {
     UiControlPropertyType type = UiControlPropertyType::Text;
     std::vector<std::string> choices;
     UiControlPropertyValue value;
+    std::optional<double> minimum, maximum;
+    bool integer = false;
     bool authored = false, available = false, editable = false;
     std::string reason;
 };

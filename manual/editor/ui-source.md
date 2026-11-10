@@ -111,11 +111,44 @@ batch. Saving a source does not automatically save game settings or Scene data.
 
 Supported controls include:
 
+- **Text input** and **Password input**: initial source value, placeholder, maximum length, width in characters, disabled state and focus/tab styles. Initial password text is visible in source; runtime password observations stay redacted.
+- **Text area**: placeholder, maximum length, rows, columns, wrapping, disabled state and focus/tab styles. Edit its initial body through the existing **Text** field; changing dimensions preserves that body.
+- **Label**: target ID. An empty target uses the first descendant control. Its existing text and nested markup remain unchanged when you set a target.
 - **Checkbox** and **Radio option**: value, initial checked state and disabled state; radios also have a group name.
 - **Dropdown**: disabled and focus/tab styles. Select a **Dropdown option** child to edit its value, initial selection and disabled state. Clear other authored initial flags when you want one initial choice.
 - **Slider**: authored value, bounds, step, orientation, disabled state and focus/tab styles. Numbers must be finite within `-1000000..1000000`; step must be at least `0.000001`. The native slider owns rounding and clamping during Preview or Play.
 - **Progress**: authored value and maximum. The native display clamps its value; a maximum of zero or less uses `1`. For example, value `0.35` and maximum `1` displays 35%.
 - **Input button**: caption, disabled state and focus/tab styles. **Button** offers focus/tab styles; use the existing **Text** field for its simple leaf caption. A generic button has no native disabled flag.
+
+![UI Source text-input properties with initial value, placeholder and integer length and width limits staged](../images/ui-source-text-input-properties.png)
+
+Text input source settings are staged together; scroll to **Apply properties**
+when ready. An initial password value is authored source, so do not use it for a
+user's runtime password.
+
+![UI Source textarea properties with staged rows, columns and nowrap selection](../images/ui-source-textarea-properties.png)
+
+A text area's dimensions and wrapping can change without replacing its initial
+body. Use **Text** for plain initial content or **Source** for unsupported forms.
+With the current native parser, entities in a textarea body can appear literally
+(for example, `&amp;`). Test punctuation in **Preview** before exporting. For
+an exact escaped initial value, leave the body empty and set its `value` attribute
+in **Source**, for example:
+
+```xml
+<textarea value="Initial &amp; &lt;notes&gt;"></textarea>
+```
+
+Do not add body text to this form: the native body parser can replace that initial
+attribute value. Test the result in **Preview** or **Game**.
+
+Text dimensions and maximum length require whole numbers. Width, rows and columns
+support `1..4096`; maximum length supports `-1..1000000`, with `-1` leaving length
+unlimited and `0` giving a zero-length input limit. Reset removes the override and
+restores the native default: width/columns `20`, rows `2`, maximum length `-1`.
+The panel shows each integer range. An existing unsupported numeric spelling stays
+in Source until you explicitly replace or reset it. Native controls determine
+maximum-length behavior; the property panel does not truncate authored text.
 
 Source numbers use native float precision. Equal typed numbers preserve existing
 source spelling. Flags use attribute presence: typing `false` into a present
@@ -125,7 +158,7 @@ remove the attribute instead.
 Known bindings, duplicate attributes and unsupported source forms show a reason.
 Use the **Attribute**/**Value** controls or **Source** for those cases; the property panel does not remove
 bindings. A plain custom numeric or choice literal can be replaced explicitly.
-Text/password inputs retain their existing text and attribute controls. Property
+Text controls also retain their existing text and attribute controls. Property
 edits retain unrelated source, IDs and resource references. See
 [Form controls](ui-form-controls.md) for runtime keyboard and agent input.
 

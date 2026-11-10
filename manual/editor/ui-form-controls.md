@@ -35,7 +35,8 @@ See [UI source](ui-source.md) for source selection, attributes, styling and Undo
 
 For common settings, select one control and use **Control properties**. Stage
 flags, radio groups, slider bounds and steps, option defaults, captions or progress
-values, then choose **Apply properties** and **Save source**. Each applied batch
+values, text placeholders, length and dimensions, or label targets, then choose
+**Apply properties** and **Save source**. Each applied batch
 has one source Undo step. These are authored values; native controls determine the
 result during Play. See [UI source](ui-source.md) for reset, binding and numeric
 limits.

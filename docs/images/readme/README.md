@@ -3187,3 +3187,19 @@ as local technical evidence; canonical images show the corrected staging status.
 
 - `ui-source-control-properties.png`: `927fe63f6c6a4a1a75d87964a484b4f8fb68eb75e00209397e4766dafa7602b1`.
 - `ui-source-control-flags.png`: `1bfb26e55fe048c7d3786ed98b7d0db3e91f97854ec707e2b5a49d0822305b5e`.
+
+## Text control source properties
+
+ui-source-text-input-properties.png and ui-source-textarea-properties.png are
+unaltered700×950 native UiSourceEditor/DocumentWorkspace component captures from
+forge_ui_source_editor_tests --text-properties-only (ui_source_text_properties).
+The real fields stage initial source values/placeholders/length/width and textarea
+rows/columns/wrapping. The same fixture checks one Undo/Redo, selected root,
+explicit Save, unchanged Scene/catalog and all four source profiles at1180/700/400.
+Twelve raw captures retain exact source/font/executable provenance locally. These
+software SDL component captures do not establish full Main/Windows, physical
+input/GPU/DPI or external-client acceptance.
+
+- ui-source-text-input-properties.png: `7ad4dfe826cacb063d58f546a8cbfa58e442cf32bf4ee783c6dac57b9f1007c8`.
+
+- ui-source-textarea-properties.png: `f78af146e42b4001efd054ff6e2127691db87690cf8c67cfe3b42d3943be7a13`.

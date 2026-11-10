@@ -64,7 +64,10 @@ source element's property profile using current source guards.
 owner. Null resets an authored override; flags use true/false. An applied batch
 has one source Undo step and still needs **Save source**. Bindings and unsupported
 forms keep their Source controls. See [UI source](ui-source.md) for the panel and
-source/default distinctions.
+source/default distinctions. Read each row's `minimum`, `maximum` and `integer` constraints for text length and
+dimensions. Text/password initial values are source settings; live passwords stay
+redacted. Textarea settings preserve its initial body, and Label changes only its
+target ID.
 
 `forge_play_ui_widget_focus` and `forge_play_ui_widget_key` test ordinary native
 keyboard input on non-text controls using their observed kind and current scope.

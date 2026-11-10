@@ -18,7 +18,7 @@ template <class F> void rejects(F&& operation) {
     }
     check(rejected, "Invalid source owner operation accepted");
 }
-void exercise(const std::filesystem::path& output, int width) {
+void exercise(const std::filesystem::path& output, int width, bool text_properties_only = false) {
     using namespace forge;
     const auto root = output / AssetId::generate().str();
     SceneDocument::create_project(root, "UI source editor");
@@ -62,6 +62,78 @@ void exercise(const std::filesystem::path& output, int width) {
     const auto old_clipboard = ImGui::GetPlatformIO().Platform_GetClipboardTextFn;
     const auto old_data = ImGui::GetPlatformIO().Platform_ClipboardUserData;
     test::ImGuiInputDriver input(frame);
+    if (text_properties_only) {
+        input.click("ui-source:elements-tab");
+        for (const auto* kind : {"text-input", "password-input", "textarea", "label"}) {
+            editor.control(1, kind, "Initial & <source>");
+            frame();
+            input.click("ui-source:element:3");
+            const auto before = editor.state();
+            const auto baseline_bytes = asset_storage::read(file);
+            const bool label = std::string_view(kind) == "label";
+            const bool area = std::string_view(kind) == "textarea";
+            if (label)
+                input.type("ui-source:control-property:for", "player-name");
+            else {
+                input.type("ui-source:control-property:placeholder", "A & <hint>");
+                input.type("ui-source:control-property:maxlength", "80");
+                if (area) {
+                    input.type("ui-source:control-property:rows", "5");
+                    input.type("ui-source:control-property:cols", "32");
+                    input.click("ui-source:control-property:wrap");
+                    input.select("ui-source:control-choice:wrap:nowrap");
+                } else {
+                    input.type("ui-source:control-property:value", "Authored & <value>");
+                    input.type("ui-source:control-property:size", "16");
+                }
+            }
+            check(editor.state() == before && asset_storage::read(file) == baseline_bytes,
+                  "Text source staging changed history or disk");
+            const char* capture_name = label ? "label" : area ? "textarea" : kind;
+            frame();
+            capture.save(output / ("ui-source-" + std::string(capture_name) + "-properties-" +
+                                   std::to_string(width) + ".png"));
+            input.click("ui-source:control-apply");
+            const auto after = editor.state();
+            check(after.at("selection") == Json::array({3}) &&
+                      after.at("text") != before.at("text") &&
+                      asset_storage::read(file) == baseline_bytes,
+                  "Text source properties lost selected root or implicitly saved");
+            const auto properties = editor.control_properties(3);
+            const auto value = [&](const char* name) {
+                for (const auto& row : properties.properties)
+                    if (row.name == name)
+                        return row.value;
+                throw std::runtime_error("Missing text source property");
+            };
+            check(label ? value("for") == UiControlPropertyValue(std::string("player-name"))
+                        : value("maxlength") == UiControlPropertyValue(80.0),
+                  "Native text source property published the wrong value");
+            if (area)
+                check(value("wrap") == UiControlPropertyValue(std::string("nowrap")) &&
+                          after.at("text").get<std::string>().find(
+                              ">Initial &amp; &lt;source&gt;</textarea>") != std::string::npos,
+                      "Textarea properties replaced body text or wrapping");
+            input.click("button:Undo");
+            check(editor.state().at("text") == before.at("text"),
+                  "Text property batch needed multiple Undo steps");
+            input.click("button:Redo");
+            check(editor.state().at("text") == after.at("text"), "Text property Redo differs");
+            editor.save(project);
+            const auto stored = asset_storage::read(file);
+            check(!editor.dirty() && stored &&
+                      stored->find(label ? "player-name" : "maxlength=\"80\"") != std::string::npos,
+                  "Explicit text property Save omitted source settings");
+            editor.undo(false);
+            editor.undo(false);
+            editor.save(project);
+        }
+        check(scene.snapshot() == authored && scene.revision() == revision &&
+                  asset_storage::read(root / "forge.assets.json") == catalog,
+              "Text source property controls changed Scene or catalog ownership");
+        editor.request_close();
+        return;
+    }
     const auto start_drag = [&](const char* from, const char* to, bool before = false) {
         frame();
         const auto a = test::ui_targets.at(from), b = test::ui_targets.at(to);
@@ -827,12 +899,14 @@ void exercise_stylesheet(const std::filesystem::path& output, int width) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2, "Need capture/scratch directory");
+        check(argc == 2 || (argc == 3 && std::string_view(argv[2]) == "--text-properties-only"),
+              "Need capture/scratch directory and optional text property mode");
         const auto output = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(output);
         for (const auto width : {1180, 700, 400}) {
-            exercise(output, width);
-            exercise_stylesheet(output, width);
+            exercise(output, width, argc == 3);
+            if (argc == 2)
+                exercise_stylesheet(output, width);
         }
         std::cout << "Native UI source controls/history/storage at1180/700/400 passed\n";
     } catch (const std::exception& error) {

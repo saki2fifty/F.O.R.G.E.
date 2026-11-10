@@ -33,6 +33,9 @@ struct UiSourceAutomation {
                             {"type", type},
                             {"choices", item.choices},
                             {"value", std::move(value)},
+                            {"minimum", item.minimum ? Json(*item.minimum) : Json{}},
+                            {"maximum", item.maximum ? Json(*item.maximum) : Json{}},
+                            {"integer", item.integer},
                             {"authored", item.authored},
                             {"available", item.available},
                             {"editable", item.editable},
@@ -419,7 +422,11 @@ struct UiSourceAutomation {
                       "boolean "
                       "flags use presence/removal. Numbers are finite native floats within "
                       "+/-1000000; "
-                      "slider step is at least0.000001. Strings fit8192bytes without NUL/dynamic "
+                      "slider step is at least0.000001. Read each row's minimum/maximum/integer "
+                      "constraints for text length/dimensions. Password initial values are "
+                      "authored "
+                      "source, never a live password observation. Strings fit8192bytes without "
+                      "NUL/dynamic "
                       "expressions; choices follow the property profile. Bound/ambiguous "
                       "properties "
                       "reject; explicit valid replacements can repair unsupported plain literals. "

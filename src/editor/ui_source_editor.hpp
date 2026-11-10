@@ -616,6 +616,8 @@ class UiSourceEditor {
             ImGui::Separator();
             if (row.type != UiControlPropertyType::Flag || !row.editable)
                 ImGui::TextUnformatted(row.label.c_str());
+            if (row.integer && row.minimum && row.maximum)
+                ImGui::TextDisabled("Whole number: %.0f..%.0f", *row.minimum, *row.maximum);
             const auto edit = control_property_edits_.find(row.name);
             const bool reset = edit != control_property_edits_.end() &&
                                std::holds_alternative<std::monostate>(edit->second);

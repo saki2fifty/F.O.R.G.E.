@@ -167,3 +167,17 @@ explicit. No native DOM serialization, normalization, widget state or writer is
 introduced. SourceEditor caches this view/staging on source/selection refresh,
 not per frame. Apply/Discard/Reset affect staging until publication; Save remains
 explicit. Tool bindings reuse source guards/grants/receipts and the same owner.
+
+Text source profiles use the same metadata/reader/candidate: text-input and
+password-input expose initial value/placeholder/maxlength/size; textarea exposes
+placeholder/maxlength/rows/cols/wrap without replacing its body; label exposes for
+without replacing captions or IDs. Query rows additionally report optional
+minimum/maximum and integer. The same metadata validates source and typed patches.
+Strict decimal integer source parsing refuses fractional/exponent/overflow forms
+rather than accepting a rounded native float; explicit replacements can repair
+plain literals. Length is -1..1000000, dimensions1..4096. Existing range native-float
+admission/step bounds are retained through that metadata. Source bindings and
+ambiguous attributes still refuse, without changing native password observations,
+UI history, runtime state or source text normalization. Native widgets alone apply
+length restrictions and label focus; textarea body/attribute precedence remains
+with the exact native parser and existing Text/source controls.

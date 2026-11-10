@@ -995,7 +995,7 @@ void control_properties() {
                    "step")
               .available,
           "Explicit valid source property replacement could not repair a literal");
-    for (const auto* type : {"text", "password", "RANGE", "submit"}) {
+    for (const auto* type : {"RANGE", "submit"}) {
         const std::string unsupported = "<rml><body><input type='" + std::string(type) +
                                         "' value='private-source'/></body></rml>";
         check(read(unsupported).properties.empty() && !read(unsupported).reason.empty(),
@@ -1042,6 +1042,106 @@ void control_properties() {
         [&] { set_ui_markup_control_properties(caption, 2, {{"value", std::string("a\0b", 3)}}); });
 }
 
+void text_control_properties() {
+    using namespace forge;
+    using Value = UiControlPropertyValue;
+    const auto read = [](std::string_view source) {
+        return read_ui_markup_control_properties(source, inspect_ui_markup(source), 2);
+    };
+    const auto row = [](const UiMarkupControlProperties& state, std::string_view name) {
+        for (const auto& value : state.properties)
+            if (value.name == name)
+                return value;
+        throw std::runtime_error("Missing text source property");
+    };
+    for (const auto* type : {"text", "password"}) {
+        const std::string source = "<!-- keep --><rml><body><input type='" + std::string(type) +
+                                   "' id='stable' value='A &amp; B' size='0020'/>"
+                                   "<p>Keep this</p></body></rml>";
+        const auto before = read(source);
+        check(before.properties.size() == 7 &&
+                  row(before, "value").value == Value(std::string("A & B")) &&
+                  row(before, "maxlength").value == Value(-1.0) && row(before, "size").integer &&
+                  row(before, "size").minimum == 1 && row(before, "size").maximum == 4096,
+              "Text/password source metadata or native defaults differ");
+        check(set_ui_markup_control_properties(source, 2, {{"size", 20.0}}) == source,
+              "Equal source integer normalized its spelling");
+        const auto changed =
+            set_ui_markup_control_properties(source, 2,
+                                             {{"placeholder", std::string("Name & <hint>")},
+                                              {"maxlength", 0.0},
+                                              {"size", 12.0},
+                                              {"disabled", true}});
+        const auto after = read(changed);
+        check(row(after, "placeholder").value == Value(std::string("Name & <hint>")) &&
+                  row(after, "maxlength").value == Value(0.0) &&
+                  row(after, "size").value == Value(12.0) && changed.starts_with("<!-- keep -->") &&
+                  changed.find("id='stable'") != changed.npos &&
+                  changed.find("value='A &amp; B'") != changed.npos &&
+                  changed.ends_with("<p>Keep this</p></body></rml>"),
+              "Text source property batch normalized unrelated content or native values");
+        const auto cleared = read(set_ui_markup_control_properties(
+            changed, 2, {{"maxlength", Value{}}, {"placeholder", Value{}}, {"disabled", false}}));
+        check(!row(cleared, "maxlength").authored &&
+                  row(cleared, "maxlength").value == Value(-1.0) &&
+                  !row(cleared, "placeholder").authored && !row(cleared, "disabled").authored,
+              "Text property reset wrote defaults instead of removing attributes");
+        for (const double number : {-2., 0.5, 1.000000001, 1000001.})
+            rejects([&] { set_ui_markup_control_properties(source, 2, {{"maxlength", number}}); });
+        for (const double number : {0., 4097., 1.5})
+            rejects([&] { set_ui_markup_control_properties(source, 2, {{"size", number}}); });
+    }
+    const std::string area =
+        "<rml><body><textarea id='notes'>Line &amp; one\nLine two</textarea></body></rml>";
+    const auto before = read(area);
+    check(before.properties.size() == 8 && row(before, "rows").value == Value(2.0) &&
+              row(before, "cols").value == Value(20.0) &&
+              row(before, "wrap").value == Value(std::string("wrap")),
+          "Textarea native source defaults differ");
+    const auto changed = set_ui_markup_control_properties(area, 2,
+                                                          {{"rows", 6.0},
+                                                           {"cols", 32.0},
+                                                           {"wrap", std::string("nowrap")},
+                                                           {"maxlength", 80.0},
+                                                           {"placeholder", std::string("Notes")}});
+    check(changed.find(">Line &amp; one\nLine two</textarea>") != changed.npos &&
+              row(read(changed), "wrap").value == Value(std::string("nowrap")),
+          "Textarea settings replaced its existing body or native wrap policy");
+    rejects([&] {
+        set_ui_markup_control_properties(area, 2, {{"value", std::string("replacement")}});
+    });
+    const std::string label =
+        "<rml><body><label for='name' id='caption'><span>Rich caption</span></label></body></rml>";
+    check(read(label).properties.size() == 1 &&
+              row(read(label), "for").value == Value(std::string("name")),
+          "Label target profile is missing");
+    const auto target =
+        set_ui_markup_control_properties(label, 2, {{"for", std::string("other&field")}});
+    check(target.find("for=\"other&amp;field\"") != target.npos &&
+              target.find("id='caption'><span>Rich caption</span>") != target.npos,
+          "Label target change overwrote its ID or nested caption");
+    for (const auto* attr :
+         {"maxlength='1.5'", "maxlength='1.000000001'", "maxlength='2e1'", "size='0'"}) {
+        const std::string source =
+            "<rml><body><input type='text' " + std::string(attr) + "/></body></rml>";
+        const char* field = std::string_view(attr).starts_with("size") ? "size" : "maxlength";
+        check(!row(read(source), field).available && row(read(source), field).editable,
+              "Unsupported native integer spelling silently became a rounded integer");
+        check(row(read(set_ui_markup_control_properties(source, 2, {{field, 20.0}})), field)
+                  .available,
+              "Explicit whole-number replacement could not repair an unsupported integer");
+    }
+    for (const auto* source :
+         {"<rml><body><input type='text' value='x' data-value='bound'/></body></rml>",
+          "<rml><body><input type='password' value='x' value='y'/></body></rml>"}) {
+        check(!row(read(source), "value").editable,
+              "Text source binding/duplicate admitted typed editing");
+        rejects([&] {
+            set_ui_markup_control_properties(source, 2, {{"value", std::string("other")}});
+        });
+    }
+}
+
 int main() {
     try {
         ranges();
@@ -1059,6 +1159,7 @@ int main() {
         style_value_literals();
         common_controls();
         control_properties();
+        text_control_properties();
         std::cout << "Source-preserving outline/attributes and shared validator errors passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

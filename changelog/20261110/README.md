@@ -1,5 +1,13 @@
 # 2026-11-10
 
+## Text control source settings
+
+The shared source property panel and typed automation expose text/password initial
+values, placeholders, bounded integer length/dimensions, textarea wrapping and
+label targets. Metadata reports numeric constraints. Source integer parsing keeps
+unsupported spellings explicit; a complete patch remains one Undo with explicit
+Save. Textarea body/label markup and live password restrictions keep their owners.
+
 ## Authored control properties
 
 Elements adds staged typed properties for existing form, button and range controls,

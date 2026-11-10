@@ -154,6 +154,47 @@ void exercise(const std::filesystem::path& root, const Json& source,
         };
         acknowledge("Resume");
         const auto instance = snapshot.at("documents")[0].at("instance").get<std::string>();
+        auto* authored_text = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(
+            document->GetElementById("native-text"));
+        auto* authored_area = rmlui_dynamic_cast<Rml::ElementFormControlTextArea*>(
+            document->GetElementById("native-area"));
+        auto* attribute_area = rmlui_dynamic_cast<Rml::ElementFormControlTextArea*>(
+            document->GetElementById("native-attribute-area"));
+        check(authored_text && authored_area, "Authored native text fields missing");
+        check(attribute_area && attribute_area->GetValue() == "Initial & <area>",
+              "Empty-body textarea initial value attribute did not decode literal text");
+        const Json text_facts{
+            {"text", authored_text->GetValue()},
+            {"size", authored_text->GetAttribute<int>("size", 0)},
+            {"length", authored_text->GetAttribute<int>("maxlength", 0)},
+            {"placeholder", authored_text->GetAttribute<Rml::String>("placeholder", "")},
+            {"area", authored_area->GetValue()},
+            {"rows", authored_area->GetNumRows()},
+            {"cols", authored_area->GetNumColumns()},
+            {"area_length", authored_area->GetMaxLength()},
+            {"wrap", authored_area->GetWordWrap()}};
+        const Json expected_text{{"text", "Authored & <value>"},
+                                 {"size", 12},
+                                 {"length", 80},
+                                 {"placeholder", "Name & <hint>"},
+                                 {"area", "Initial &amp; area"},
+                                 {"rows", 4},
+                                 {"cols", 24},
+                                 {"area_length", 80},
+                                 {"wrap", false}};
+        if (text_facts != expected_text)
+            throw std::runtime_error("Saved/exported native text facts: " + text_facts.dump());
+        document->GetElementById("native-label")->Click();
+        check(document->GetContext()->GetFocusElement() == authored_text,
+              "Authored label target did not focus its native text field");
+        bool password_redacted = false;
+        const auto authored_fields = presenter.text_fields(instance);
+        for (const auto& field : authored_fields.at("fields"))
+            if (field.at("id") == "native-password")
+                password_redacted = field.at("kind") == "password" &&
+                                    field.at("value_available") == false &&
+                                    !field.contains("value");
+        check(password_redacted, "Source password settings widened native password observations");
         const auto forms = presenter.form_controls(instance);
         Json authored_flag, authored_progress;
         for (const auto& row : forms.at("controls")) {
@@ -605,6 +646,35 @@ int main(int argc, char** argv) {
                 set_ui_markup_attribute(created.source, created.element, "id", "native-progress");
             text = set_ui_markup_control_properties(text, created.element,
                                                     {{"value", 20.0}, {"max", 0.0}});
+            created = insert_ui_markup_control(text, by_id(text, "panel"), "text-input", "Initial");
+            text = set_ui_markup_attribute(created.source, created.element, "id", "native-text");
+            text = set_ui_markup_control_properties(text, created.element,
+                                                    {{"value", std::string("Authored & <value>")},
+                                                     {"placeholder", std::string("Name & <hint>")},
+                                                     {"maxlength", 80.0},
+                                                     {"size", 12.0}});
+            created =
+                insert_ui_markup_control(text, by_id(text, "panel"), "textarea", "Initial & area");
+            text = set_ui_markup_attribute(created.source, created.element, "id", "native-area");
+            text = set_ui_markup_control_properties(text, created.element,
+                                                    {{"rows", 4.0},
+                                                     {"cols", 24.0},
+                                                     {"wrap", std::string("nowrap")},
+                                                     {"maxlength", 80.0}});
+            created = insert_ui_markup_control(text, by_id(text, "panel"), "label", "Name");
+            text = set_ui_markup_attribute(created.source, created.element, "id", "native-label");
+            text = set_ui_markup_control_properties(text, created.element,
+                                                    {{"for", std::string("native-text")}});
+            created = insert_ui_markup_control(text, by_id(text, "panel"), "password-input",
+                                               "Source only");
+            text =
+                set_ui_markup_attribute(created.source, created.element, "id", "native-password");
+            text = set_ui_markup_control_properties(text, created.element,
+                                                    {{"maxlength", 80.0}, {"size", 12.0}});
+            created = insert_ui_markup_control(text, by_id(text, "panel"), "textarea");
+            text = set_ui_markup_attribute(created.source, created.element, "id",
+                                           "native-attribute-area");
+            text = set_ui_markup_attribute(text, created.element, "value", "Initial & <area>");
             atomic_write(root / document_path, text);
             const auto published = register_ui_document(root, document_path);
             for (const auto& row : source.at("entities"))

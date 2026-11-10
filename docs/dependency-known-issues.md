@@ -371,3 +371,19 @@ removed target before activation and performs this explicit caller cleanup. This
 is a native extension lifetime boundary, not an additional public DOM operation,
 parallel focus manager, rollback, suppression or dependency change. Call-local
 observers cannot make immediate destruction inside an active native stack safe.
+
+## Native textarea source entities
+
+At RmlUi6.3ba95ffe8bfb6370efb2cdcca927eaad4710c5413,
+XMLNodeHandlerTextArea::ElementData forwards its body through TranslateString into
+SetValue without DecodeRml. An authored body `Initial &amp; area` therefore has
+native value `Initial &amp; area`. Ordinary input value/placeholder attributes
+instead decode their RML entities. Source property changes to rows/cols/maxlength/
+wrap preserve that existing body and native parser result; they do not silently
+normalize text or rewrite a document. Native/source-hidden regressions retain the
+exact result. No dependency patch/upgrade or text-buffer owner is introduced.
+
+An empty-body textarea with an escaped value attribute decodes its initial value
+through the ordinary attribute parser. The same native and source-hidden fixture
+verifies value `Initial & <area>` in that form. It is an explicit source-authoring
+alternative, not a silent migration or body/attribute rewrite by the property panel.

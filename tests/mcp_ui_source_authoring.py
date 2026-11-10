@@ -72,6 +72,38 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
     assert edit('undo')['text'] == original
     assert read('forge_scene_read') == before_scene
     if properties_only:
+        for kind in ('text-input', 'password-input', 'textarea', 'label'):
+            created = edit('control', parent=index('body'), kind=kind, text='Source & <safe>')
+            selected = created['selection'][0]
+            props = read('forge_ui_source_control_properties', **guard(), element=selected)
+            rows = {row['name']: row for row in props['properties']}
+            if kind == 'label':
+                patch = {'for': 'player-name'}
+                assert set(rows) == {'for'}
+            else:
+                assert rows['maxlength']['integer'] and rows['maxlength']['minimum'] == -1
+                assert rows['maxlength']['maximum'] == 1000000
+                patch = dict(placeholder='A & <hint>', maxlength=80)
+                if kind == 'textarea':
+                    patch.update(rows=5, cols=32, wrap='nowrap')
+                else:
+                    patch.update(size=16, value='Authored & <value>')
+                for invalid in (dict(maxlength=1.000000001), dict(maxlength=-2),
+                                {'cols' if kind == 'textarea' else 'size': 0}):
+                    assert not mutate('forge_ui_source_control_values', **guard(), element=selected,
+                                      values=invalid)['ok']
+                    assert read('forge_ui_source_read') == created, 'Invalid text settings partially published'
+            applied = edit('control_values', element=selected, values=patch)
+            props = read('forge_ui_source_control_properties', **guard(), element=selected)
+            rows = {row['name']: row for row in props['properties']}
+            assert all(rows[name]['value'] == value for name, value in patch.items())
+            if kind == 'textarea':
+                assert '>Source &amp; &lt;safe&gt;</textarea>' in applied['text']
+            assert (root/'Game'/path).read_bytes() == source.encode('utf-8')
+            assert edit('undo')['text'] == created['text']
+            assert edit('redo')['text'] == applied['text']
+            edit('undo')
+            assert edit('undo')['text'] == original
         button = edit('control', parent=index('body'), kind='input-button', text='Go')
         target = button['selection'][0]
         caption = edit('control_values', element=target, values=dict(value='C & <safe>', disabled=True))
