@@ -1,5 +1,12 @@
 # 2026-11-10
 
+## Guided font fallback participation
+
+The existing font declaration form stages fallback participation with explicit
+false/true/default removal. The same guarded MCP writer accepts optional boolean
+fallback or null reset. Fixed native property patches preserve the existing
+font loading, resource, source history and Save owners.
+
 ## Font declaration weight and style
 
 Guided font declarations stage weight and style alongside the existing alias,

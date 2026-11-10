@@ -260,3 +260,8 @@ arguments preserve values when omitted and remove overrides on null. Appearance
 and alias/resource/index compose before one source publication and share staged
 native controls, validation, Undo and explicit Save. No additional font registry
 or native font cache owns an authoring copy.
+
+The fixed native fallback declaration shares that same closed property whitelist,
+private value patch, staged choices and optional guarded MCP writer. It is not
+admitted as a general CSS identifier. Default removal preserves nativefalse and
+existing loaded-font fallback order; no source/runtime font registry is added.

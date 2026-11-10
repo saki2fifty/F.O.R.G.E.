@@ -835,6 +835,22 @@ void font_face_style_sources() {
         [&] { forge::set_ui_stylesheet_font_face_style(source, 0, {{"font-style", "oblique"}}); });
     rejects([&] { forge::set_ui_stylesheet_font_face_style(source, 0, {{"color", "red"}}); });
     rejects([&] { forge::set_ui_stylesheet_font_face_style(source, 1, {{"font-weight", "700"}}); });
+    const auto fallback =
+        forge::set_ui_stylesheet_font_face_style(styled, 0, {{"-rmlui-fallback-face", "true"}});
+    check(forge::read_ui_stylesheet_font_face(fallback, 0).at("-rmlui-fallback-face") == "true" &&
+              forge::set_ui_stylesheet_font_face_style(
+                  fallback, 0, {{"-rmlui-fallback-face", "true"}}) == fallback,
+          "Font fallback literal or no-op spelling changed");
+    const auto disabled =
+        forge::set_ui_stylesheet_font_face_style(fallback, 0, {{"-rmlui-fallback-face", "false"}});
+    check(forge::read_ui_stylesheet_font_face(disabled, 0).at("-rmlui-fallback-face") == "false" &&
+              forge::set_ui_stylesheet_font_face_style(fallback, 0,
+                                                       {{"-rmlui-fallback-face", {}}}) == styled,
+          "Font fallback false/reset changed unrelated appearance");
+    for (const auto* value : {"yes", "1", "true;src:bad.ttf"})
+        rejects([&] {
+            forge::set_ui_stylesheet_font_face_style(source, 0, {{"-rmlui-fallback-face", value}});
+        });
 }
 void reusable_styles() {
     const std::string source =

@@ -183,7 +183,7 @@ class UiSourceEditor {
             if (rule) {
                 try {
                     const auto values = read_ui_stylesheet_font_face(editor_.GetText(), *rule);
-                    for (const auto* name : {"font-weight", "font-style"})
+                    for (const auto* name : {"font-weight", "font-style", "-rmlui-fallback-face"})
                         if (const auto found = values.find(name); found != values.end())
                             font_appearance_values_[name] = found->second;
                     const auto& weight = font_appearance_values_["font-weight"];
@@ -247,14 +247,18 @@ class UiSourceEditor {
         }
         ImGui::InputInt("Face index", &font_face_index_);
         FORGE_UI_PROBE("ui-source:font-face-index");
-        for (const auto* name : {"font-weight", "font-style"}) {
+        for (const auto* name : {"font-weight", "font-style", "-rmlui-fallback-face"}) {
             const bool weight = std::string_view(name) == "font-weight";
+            const bool fallback = std::string_view(name) == "-rmlui-fallback-face";
             const auto profile = ui_style_literal_profile(name);
             auto& value = font_appearance_values_[name];
-            const bool open = ImGui::BeginCombo(
-                weight ? "Weight" : "Style",
-                value.empty() ? (weight ? "Automatic (default)" : "Normal (default)")
-                              : value.c_str());
+            const bool open = ImGui::BeginCombo(weight     ? "Weight"
+                                                : fallback ? "Fallback"
+                                                           : "Style",
+                                                value.empty() ? (weight     ? "Automatic (default)"
+                                                                 : fallback ? "False (default)"
+                                                                            : "Normal (default)")
+                                                              : value.c_str());
             FORGE_UI_PROBE("ui-source:font-preset:" + std::string(name));
             if (open) {
                 const auto choice = [&](const char* label, std::optional<std::string> literal) {
@@ -269,8 +273,12 @@ class UiSourceEditor {
                 choice("Default (remove override)", {});
                 if (weight)
                     choice("all", "all");
-                for (const auto keyword : profile->keywords)
-                    choice(keyword.data(), std::string(keyword));
+                if (fallback) {
+                    choice("false", "false");
+                    choice("true", "true");
+                } else
+                    for (const auto keyword : profile->keywords)
+                        choice(keyword.data(), std::string(keyword));
                 ImGui::EndCombo();
             }
         }
@@ -282,6 +290,9 @@ class UiSourceEditor {
         ImGui::TextWrapped("Weight accepts all (native automatic), normal, bold or an integer "
                            "1..1000. Style describes this alias; it does not transform the font. "
                            "Default removes the override. Untouched custom values stay in Source.");
+        ImGui::TextWrapped("Fallback true lets this loaded face supply missing glyphs for other "
+                           "families, using native selection order. Restart Play after changes; "
+                           "default is false. It does not assign this alias to a widget.");
         if (font_face_details_.is_object()) {
             ImGui::TextWrapped("Last read: %u face(s). Apply checks the current file.",
                                font_face_details_.at("faces").get<unsigned>());

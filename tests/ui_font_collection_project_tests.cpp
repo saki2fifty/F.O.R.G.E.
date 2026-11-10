@@ -103,7 +103,8 @@ scrollbarvertical sliderbar {background-color:#477e9a;}
         inspect(root, asset_detail::read_bytes(fonts / "LatoLatin-Regular.ttf", 4 * 1024 * 1024)),
         scene.schema());
 }
-void author_font_selection(const std::filesystem::path& root, const std::vector<std::byte>& font) {
+AssetId author_font_selection(const std::filesystem::path& root,
+                              const std::vector<std::byte>& font) {
     ProjectLease lease(root);
     const auto catalog = AssetCatalog::open_project(root);
     const auto selected =
@@ -141,9 +142,11 @@ void author_font_selection(const std::filesystem::path& root, const std::vector<
                                       "italic");
     asset_storage::replace(path, text);
     refresh_ui_asset_catalog(lease, inspect(root, font)(document->first, {}));
+    return document->first;
 }
 void present(const std::filesystem::path& root, const std::vector<std::byte>& font,
-             const std::filesystem::path& scene_source = scene_path, bool shaped = true) {
+             const std::filesystem::path& scene_source = scene_path, bool shaped = true,
+             bool fallback = false) {
     Json saved;
     std::ifstream(root / scene_source) >> saved;
     EngineContext engine(WorldRole::Runtime, false, {ui_module(root)});
@@ -195,6 +198,14 @@ void present(const std::filesystem::path& root, const std::vector<std::byte>& fo
                       width(fonts->GetFontFaceHandle("menulatin", Rml::Style::FontStyle::Normal,
                                                      Rml::Style::FontWeight::Normal, 32)),
               "Authored font style/weight did not select the expected saved/exported faces");
+        const Rml::String arabic_language = "ar";
+        Rml::TextShapingContext rtl{arabic_language};
+        rtl.text_direction = Rml::Style::Direction::Rtl;
+        const auto arabic = fonts->GetFontFaceHandle("menuarabic", Rml::Style::FontStyle::Normal,
+                                                     Rml::Style::FontWeight::Normal, 32);
+        check((fonts->GetStringWidth(regular, "سلام", rtl) ==
+               fonts->GetStringWidth(arabic, "سلام", rtl)) == fallback,
+              "Authored fallback flag did not control actual missing-glyph native metrics");
         check(scene.snapshot() == saved, "Native collection rendering mutated the saved Scene");
     }
     check(renderer.geometry.empty() && renderer.textures.empty(), "Example resources leaked");
@@ -232,9 +243,20 @@ int main(int argc, char** argv) {
         std::filesystem::copy(argv[1], source, std::filesystem::copy_options::recursive);
         const auto font = asset_detail::read_bytes(
             std::filesystem::path(argv[3]) / "LatoLatin-Regular.ttf", 4 * 1024 * 1024);
-        author_font_selection(source, font);
+        const auto hud = author_font_selection(source, font);
         for (bool shaped : {false, true})
             present(source, font, scene_path, shaped);
+        {
+            ProjectLease lease(source);
+            const auto css = source / "Assets/UI/hud.rcss";
+            const auto text = *asset_storage::read(css);
+            asset_storage::replace(
+                css, set_ui_stylesheet_font_face_style(text, inspect_ui_stylesheet(text).size() - 1,
+                                                       {{"-rmlui-fallback-face", "true"}}));
+            refresh_ui_asset_catalog(lease, inspect(source, font)(hud, {}));
+        }
+        for (bool shaped : {false, true})
+            present(source, font, scene_path, shaped, true);
         const auto catalog = AssetCatalog::open_project(source);
         ProjectSettings settings(source);
         const std::array roots{settings.document().at("startup_scene").at("asset").get<AssetId>()};
@@ -250,7 +272,7 @@ int main(int argc, char** argv) {
                   "Collection asset ID changed during export");
         std::filesystem::rename(source, scratch / "source-offline");
         for (bool shaped : {false, true})
-            present(relocated, font, runtime_catalog.records().at(roots[0]).source, shaped);
+            present(relocated, font, runtime_catalog.records().at(roots[0]).source, shaped, true);
         std::cout << "Collection example and source-hidden relocated native font content passed\n";
         return 0;
     } catch (const std::exception& error) {

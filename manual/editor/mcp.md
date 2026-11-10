@@ -91,6 +91,9 @@ an integer from `1` to `1000` or `all`, `normal`, `bold`; optional `style` accep
 `normal` or `italic`. Omit either to preserve its source value, or send JSON `null`
 to remove its override. Font-face `all` uses native automatic selection; absent style is
 normal. Set matching weight/style on text that should use that face. Use
+optional boolean `fallback` to control native missing-glyph fallback participation
+(default `false`); omit it to preserve the source or send `null` to remove its
+override. With Shape UI text, the fallback face must cover the whole run. Use
 `forge_ui_source_font_face_remove` to remove it. Write operations need
 `assets.write`, preserve the existing source owner/history and still require Save.
 Read-only connections can discover the two queries, and cannot invoke the writers.

@@ -239,6 +239,8 @@ struct UiSourceAutomation {
                 properties["style"] = Json{
                     {"oneOf", Json::array({Json{{"type", "string"}, {"enum", {"normal", "italic"}}},
                                            Json{{"type", "null"}}})}};
+                properties["fallback"] = Json{
+                    {"oneOf", Json::array({Json{{"type", "boolean"}}, Json{{"type", "null"}}})}};
             }
             const std::string description =
                 reference ? "Read a registered standalone project UI font's current source and "
@@ -253,7 +255,7 @@ struct UiSourceAutomation {
                             "source/catalog/history mutation."
                 : read_face
                     ? "Read authored literal font-family/src/-rmlui-face-index and optional "
-                      "font-weight/font-style values from a "
+                      "font-weight/font-style/-rmlui-fallback-face values from a "
                       "current top-level literal @font-face "
                       "in an RCSS draft. Current source guards/assets.read required. Uses "
                       "the existing stylesheet "
@@ -262,11 +264,13 @@ struct UiSourceAutomation {
                 : write_face
                     ? "Add or update one literal RCSS @font-face with an explicit plain family "
                       "alias, registered project "
-                      "font UUID and optional face_index(default0). Omit rule to append. Re-admits "
+                      "font UUID and optional face_index(default0). Omit rule to append. "
                       "Optional weight accepts integer1..1000 or all/normal/bold; style accepts "
                       "normal/italic. Null removes that override; omission preserves it. "
                       "Font-face all uses native automatic selection; absent style is normal. "
-                      "actual font bytes/face; "
+                      "Optional boolean fallback controls native missing-glyph fallback "
+                      "participation (default false); null removes the override. "
+                      "Re-admits actual font bytes/face; "
                       "writes a project-relative src, preserving other "
                       "declarations/comments/rules. Plain aliases are "
                       "1..64 ASCII letters/digits/_/-, starting with a letter or _. Uses existing "
@@ -303,11 +307,15 @@ struct UiSourceAutomation {
                                                    request.at("rule").get<std::size_t>())}};
                     if (write_face) {
                         std::map<std::string, std::optional<std::string>> appearance;
-                        for (const auto* name : {"weight", "style"})
+                        for (const auto* name : {"weight", "style", "fallback"})
                             if (request.contains(name)) {
                                 const auto& value = request.at(name);
-                                appearance[std::string("font-") + name] =
-                                    value.is_null() ? std::nullopt
+                                appearance[std::string_view(name) == "fallback"
+                                               ? "-rmlui-fallback-face"
+                                               : std::string("font-") + name] =
+                                    value.is_null()      ? std::nullopt
+                                    : value.is_boolean() ? std::optional<std::string>(
+                                                               value.get<bool>() ? "true" : "false")
                                     : value.is_number_integer()
                                         ? std::optional(std::to_string(value.get<int>()))
                                         : std::optional(value.get<std::string>());

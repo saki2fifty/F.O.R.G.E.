@@ -960,8 +960,8 @@ std::map<std::string, std::string> read_ui_stylesheet_font_face(std::string_view
     const auto text = source.substr(rule.content.begin, rule.content.end - rule.content.begin);
     const auto declarations = inspect_ui_style(text);
     std::map<std::string, std::string> result;
-    for (const auto* name :
-         {"font-family", "src", "-rmlui-face-index", "font-weight", "font-style"})
+    for (const auto* name : {"font-family", "src", "-rmlui-face-index", "font-weight", "font-style",
+                             "-rmlui-fallback-face"})
         if (const auto* found = style_property(text, declarations, name)) {
             const auto range = trimmed(text, found->value);
             result[name] = std::string(text.substr(range.begin, range.end - range.begin));
@@ -1046,10 +1046,13 @@ std::string set_ui_stylesheet_font_face_style(
     const auto range = font_face_rule(source, rules, index).content;
     std::string body(source.substr(range.begin, range.end - range.begin));
     for (const auto& [name, value] : properties) {
-        require(name == "font-weight" || name == "font-style",
-                "Font appearance accepts only font-weight and font-style");
+        const bool fallback = name == "-rmlui-fallback-face";
+        require(name == "font-weight" || name == "font-style" || fallback,
+                "Use a supported font declaration property");
         std::optional<UiStyleNumber> number;
-        if (value) {
+        if (value && fallback)
+            require(*value == "true" || *value == "false", "Use true or false for font fallback");
+        else if (value) {
             const auto profile = ui_style_literal_profile(name);
             const bool keyword =
                 std::ranges::find(profile->keywords, *value) != profile->keywords.end();
@@ -1070,7 +1073,7 @@ std::string set_ui_stylesheet_font_face_style(
             if (old == *value || (number && read_ui_style_number(old) == number))
                 continue;
         }
-        const auto edit = style_edit(body, declarations, name, value);
+        const auto edit = style_value_edit(body, declarations, name, value);
         body.replace(edit.first.begin, edit.first.end - edit.first.begin, edit.second);
     }
     return replaced(source, range, body, false);

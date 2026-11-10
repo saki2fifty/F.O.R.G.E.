@@ -3596,3 +3596,18 @@ capture, without full Main/Windows/MSVC/D3D12/physical-device acceptance. Other3
 canonical Source figures retain their prior exact provenance.
 
 Current manual/images/ui-source-font-face.png SHA256: f4153f4a6cba984056806f8316fe3c8e52d267e6bd3b6787423c040c0abbdca1.
+
+
+## Font fallback declaration controls
+
+The canonical font-face image is refreshed from the passing native form workflow
+at700x950 on2026-11-10, development based onb0bc7f5. Fallback true is staged before
+Apply alongside alias/source/index/weight/style; the table still describes the
+actual file. Native controls/history/reset/Save pass at1180/700/400. The image is
+unretouched SDL software component output, with no fullMain/Windows/physical
+acceptance. Other39canonical images retain exact prior attribution. Separate
+native tests compare missing-glyph metrics with fallback absent/enabled in both
+text modes and after source-hidden relocation; the image alone proves no script
+coverage or font rendering quality.
+
+Current manual/images/ui-source-font-face.png SHA256: 382b567b00fdd90665da0575acb430ce7c875df0727ffcce8f13a4be034b14ee.

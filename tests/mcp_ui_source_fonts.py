@@ -54,13 +54,15 @@ def check_font_source(read, ok, mutate, root, advertised, client, arguments, gua
     font_path.write_bytes(font_bytes)
     assert edit('undo')['text'] == baseline['text'], 'Font append/replay needed multiple Undo steps'
     assert edit('redo')['text'] == created['text']
-    changed = edit('font_face', rule=1, family='MenuUpdated', asset=font, weight=700, style='italic')
+    changed = edit('font_face', rule=1, family='MenuUpdated', asset=font,
+                   weight=700, style='italic', fallback=True)
     assert changed['rule_selection'] == 1
     assert read('forge_ui_source_font_face_read', **guard(), rule=1)['values']['font-family'] == 'MenuUpdated'
     styled = read('forge_ui_source_font_face_read', **guard(), rule=1)['values']
     assert styled['font-weight'] == '700' and styled['font-style'] == 'italic'
+    assert styled['-rmlui-fallback-face'] == 'true'
     for extra in [dict(weight=0), dict(weight=1001), dict(weight=450.5), dict(weight=True),
-                  dict(style='oblique')]:
+                  dict(style='oblique'), dict(fallback='true'), dict(fallback=1)]:
         assert not mutate('forge_ui_source_font_face', **guard(), rule=1,
                           family='MenuUpdated', asset=font, **extra)['ok']
         assert read('forge_ui_source_read') == changed
@@ -72,9 +74,11 @@ def check_font_source(read, ok, mutate, root, advertised, client, arguments, gua
     assert edit('undo')['text'] == changed['text']
     assert edit('redo')['text'] == automatic['text']
     changed = automatic
-    reset = edit('font_face', rule=1, family='MenuUpdated', asset=font, weight=None, style=None)
+    reset = edit('font_face', rule=1, family='MenuUpdated', asset=font,
+                 weight=None, style=None, fallback=None)
     defaults = read('forge_ui_source_font_face_read', **guard(), rule=1)['values']
     assert 'font-weight' not in defaults and 'font-style' not in defaults
+    assert '-rmlui-fallback-face' not in defaults
     assert edit('undo')['text'] == changed['text']
     assert edit('redo')['text'] == reset['text']
     changed = edit('undo')

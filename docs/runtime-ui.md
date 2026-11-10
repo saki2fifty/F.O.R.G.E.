@@ -1053,3 +1053,10 @@ unless replaced. One candidate composes all edits before publication. The same
 optional MCP arguments preserve omissions and remove overrides on null. Native
 automatic weight reads static file metadata; variable designs retain the existing
 text-mode implementation and limits. No runtime font engine behavior changes.
+
+Guided fallback participation maps boolean choices to the existing fixed native
+-rmlui-fallback-face property; default removal leaves nativefalse. Source Save
+and resource registration remain explicit. Both native text modes retain their
+existing fallback selection; shaped fallback requires whole-run coverage. Restart
+Play to replace previously loaded participation. The current-byte/face checks,
+source history and same guarded MCP operation own this flag alongside appearance.

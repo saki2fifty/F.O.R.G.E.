@@ -2916,12 +2916,16 @@ Four source operations extend the shared source owner (45total):
   not authored aliases or native loaded state. No native/GPU initialization.
 - `ui.source.font_face_read`: assets.read/current guards/RCSS/rule; returns
   `{rule,values}` for raw literal font-family/src/-rmlui-face-index and authored
-  font-weight/font-style when present. No mutation or inferred defaults.
+  font-weight/font-style/-rmlui-fallback-face when present. No inferred defaults.
 - `ui.source.font_face`: assets.write/current guards/RCSS, asset, family and optional
-  face_index/rule/weight/style. Weight is integer1..1000 or all/normal/bold; style
+  face_index/rule/weight/style/fallback. Weight is integer1..1000 or all/normal/bold; style
   is normal/italic. Omission preserves authored literals; null removes an override.
-  Native font-face all uses native automatic selection; absent style is normal. Existing literal
-  profiles validate edits, with all scoped to font faces. Alias/source/index and
+  Native font-face all uses native automatic selection; absent style is normal.
+  Optional boolean fallback maps to the fixed native -rmlui-fallback-face
+  declaration, defaultfalse; omission preserves and null removes its override.
+  The closed property whitelist reuses private value patches without widening
+  general CSS identifier admission. Native loaded-face fallback order is retained.
+  Existing literal profiles validate edits, with all scoped to font faces. Alias/source/index and
   appearance compose before one publication; failed validation changes no source.
   Omit rule to append. Plain aliases are1..64ASCII letters/digits/
   underscore/hyphen, first letter/underscore. Current file/index are validated;

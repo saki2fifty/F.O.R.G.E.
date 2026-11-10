@@ -165,6 +165,8 @@ void exercise(const std::filesystem::path& output, int width,
         input.type("ui-source:font-weight", "700");
         input.click("ui-source:font-preset:font-style");
         input.select("ui-source:font-choice:font-style:italic");
+        input.click("ui-source:font-preset:-rmlui-fallback-face");
+        input.select("ui-source:font-choice:-rmlui-fallback-face:true");
         check(editor.state() == before && asset_storage::read(css) == stylesheet,
               "Font controls changed source/history/disk before Apply");
         frame();
@@ -175,6 +177,7 @@ void exercise(const std::filesystem::path& output, int width,
         check(created.at("rule_selection") == 1 && values.at("font-family") == "MenuFace" &&
                   values.at("src") == "\"Assets/Fonts/Menu.ttf\"" &&
                   values.at("-rmlui-face-index") == "0" && values.at("font-weight") == "700" &&
+                  values.at("-rmlui-fallback-face") == "true" &&
                   values.at("font-style") == "italic" && asset_storage::read(css) == stylesheet,
               "Font declaration lost source scope, alias, face or explicit Save");
         input.click("button:Undo");
@@ -203,11 +206,14 @@ void exercise(const std::filesystem::path& output, int width,
         input.select("ui-source:font-choice:font-weight:Default (remove override)");
         input.click("ui-source:font-preset:font-style");
         input.select("ui-source:font-choice:font-style:Default (remove override)");
+        input.click("ui-source:font-preset:-rmlui-fallback-face");
+        input.select("ui-source:font-choice:-rmlui-fallback-face:Default (remove override)");
         check(editor.state() == styled, "Default reset published before Apply");
         input.click("ui-source:font-apply");
         const auto reset = editor.state();
         check(!editor.font_face_properties(1).contains("font-weight") &&
-                  !editor.font_face_properties(1).contains("font-style"),
+                  !editor.font_face_properties(1).contains("font-style") &&
+                  !editor.font_face_properties(1).contains("-rmlui-fallback-face"),
               "Font reset retained guessed defaults");
         input.click("button:Undo");
         check(editor.state().at("text") == styled.at("text"),

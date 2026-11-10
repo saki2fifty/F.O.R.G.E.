@@ -223,7 +223,7 @@ See [Export a game](runtime-content.md) for the normal export workflow.
 
 ## Limits and troubleshooting
 
-- Missing glyph boxes usually mean the selected font lacks those characters. Assign a font containing the script. Fallback chooses a face covering a whole run; arbitrary mixed-script fallback is unavailable.
+- Missing glyph boxes usually mean the selected font lacks those characters. Assign a font containing the script. With Shape UI text, fallback chooses a face covering a whole run; arbitrary mixed-script fallback is unavailable. Enable **Fallback** in the linked stylesheet's font-face controls, save and restart Play to add a loaded face to that list. See [Declare a project font](ui-source.md).
 - Use horizontal text and font sizes from **1–512 px**. A single run supports **64 KiB** of UTF-8 and **16,384 glyphs**, within the normal document limits.
 - Only the admitted weight axis is adjustable through `font-weight`; other axis controls, named variation instances and vertical text are unavailable. Color rendering is limited to COLRv0 vector layers with palette 0; COLRv1 paints, SVG glyphs, bitmap color fonts and general color emoji are unsupported. Use a valid zero-based collection face index; an invalid index reports a font diagnostic.
 - Shaping does not provide full paragraph bidirectional layout, joining across separate elements, complete international input methods or accessibility. Use the separate [Edit whole UI characters](ui-text-input.md) option for bounded plain-key movement/deletion, Shift-arrow selection and Ctrl-arrow word movement/selection. Check text entry on your target systems.

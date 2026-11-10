@@ -761,7 +761,7 @@ registering a file does not load its family into a document.
 6. Assign that alias using `font-family` in an existing selector or the RML widget's **Inline style** controls, then save that source. For example, use `font-family:MenuFace` and `font-size:28px` on the text you want to style.
 7. Return to the linked RML document and **Refresh preview**, or restart Play after replacing an already loaded font family. Register / refresh the UI resources before exporting the saved project.
 
-![A staged font declaration with an explicit alias, source, face index, weight, style and recorded face details](../images/ui-source-font-face.png)
+![A staged font declaration with an explicit alias, source, face index, weight, style, fallback and recorded face details](../images/ui-source-font-face.png)
 
 The alias, font selection, weight and style stay staged until **Apply font face**.
 Before applying, set **Weight** and **Style** if the alias describes a particular
@@ -778,6 +778,15 @@ the selected text mode; see [UI text shaping](ui-text-shaping.md).
 An invalid weight leaves the source unchanged; correct it and apply again.
 Several faces can share one alias with different weight/style settings.
 
+Set **Fallback** to **true** to let the loaded face provide glyphs that another
+font lacks. Choose a file that contains the required characters. **false** or
+**Default (remove override)** leaves it out of the fallback list; default removal
+takes effect on Apply. The native font owner chooses among loaded fallback faces
+in its existing order. This does not assign the alias to a widget or guarantee
+coverage of every script. With **Shape UI text**, a fallback face must cover the
+whole run. Save the stylesheet, refresh the UI resources and restart Play after
+changing a loaded font declaration. Export uses the saved declaration.
+
 Font `src` values are **project relative**, such as `Assets/Fonts/Menu.ttf`, even
 when the stylesheet is in another folder. Stylesheet links and image references
 remain document relative. The RML document needs an explicit `<head>` containing
@@ -793,7 +802,7 @@ Scene or asset catalog.
 
 Guided aliases use 1–64 ASCII letters, digits, `_` or `-`, beginning with a letter
 or `_`. Use **Source** for other alias forms, escaped declarations or ambiguous
-matching properties. Untouched custom weight/style values, other declarations
+matching properties. Untouched custom weight/style/fallback values, other declarations
 and surrounding comments remain intact. Unchanged supported quoted
 literals, numeric index spelling and an omitted default face index stay unchanged.
 The face index must be below the file's face count and below 32. Face names, color
