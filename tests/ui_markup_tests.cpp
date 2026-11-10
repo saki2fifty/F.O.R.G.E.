@@ -804,6 +804,38 @@ void font_face_sources() {
         forge::set_ui_stylesheet_font_face("@font-face{.nested{}}", 0, "Menu", "font.ttf", 0);
     });
 }
+void font_face_style_sources() {
+    const std::string source = "/* keep "
+                               "*/"
+                               "@font-face{font-family:Menu;src:'font.ttf';font-weight:400.0;font-"
+                               "style:normal;custom:yes;} .text{font-weight:700;}";
+    check(forge::set_ui_stylesheet_font_face_style(source, 0, {{"font-weight", "400"}}) == source,
+          "Equal font declaration weight changed existing numeric spelling");
+    const auto styled = forge::set_ui_stylesheet_font_face_style(
+        source, 0, {{"font-weight", "all"}, {"font-style", "italic"}});
+    check(styled == "/* keep "
+                    "*/"
+                    "@font-face{font-family:Menu;src:'font.ttf';font-weight:all;font-style:italic;"
+                    "custom:yes;} .text{font-weight:700;}",
+          "Font style edits changed unrelated aliases, declarations or rules");
+    const auto values = forge::read_ui_stylesheet_font_face(styled, 0);
+    check(values.at("font-weight") == "all" && values.at("font-style") == "italic",
+          "Font declaration read omitted authored weight/style");
+    const auto reset = forge::set_ui_stylesheet_font_face_style(
+        styled, 0, {{"font-weight", {}}, {"font-style", {}}});
+    check(!forge::read_ui_stylesheet_font_face(reset, 0).contains("font-weight") &&
+              !forge::read_ui_stylesheet_font_face(reset, 0).contains("font-style") &&
+              reset.find("custom:yes;") != std::string::npos,
+          "Font default reset rewrote other declarations or stored guessed defaults");
+    for (const auto* weight : {"0", "1001", "450.5", "400px", "auto", "all;src:bad.ttf"})
+        rejects([&] {
+            forge::set_ui_stylesheet_font_face_style(source, 0, {{"font-weight", weight}});
+        });
+    rejects(
+        [&] { forge::set_ui_stylesheet_font_face_style(source, 0, {{"font-style", "oblique"}}); });
+    rejects([&] { forge::set_ui_stylesheet_font_face_style(source, 0, {{"color", "red"}}); });
+    rejects([&] { forge::set_ui_stylesheet_font_face_style(source, 1, {{"font-weight", "700"}}); });
+}
 void reusable_styles() {
     const std::string source =
         "<rml><body data-model='demo'><p id='a' class='old' "
@@ -1567,6 +1599,7 @@ int main() {
         inline_properties();
         stylesheet_rules();
         font_face_sources();
+        font_face_style_sources();
         reusable_styles();
         style_value_literals();
         typography_literals();

@@ -252,3 +252,11 @@ the existing project-relative convention. RCSS font-face changes and their MCP
 bindings share one source replacement/history, guards, grants, explicit Save and
 source range ownership. Generic flat-rule operations retain their at-rule barriers.
 The Add rule event returns after publication before new range observations.
+
+Font-face weight/style edits reuse ordinary literal profiles and existing
+declaration value patches. The native automatic weight keyword is scoped to font
+faces; ordinary text weight controls retain their existing range. Optional MCP
+arguments preserve values when omitted and remove overrides on null. Appearance
+and alias/resource/index compose before one source publication and share staged
+native controls, validation, Undo and explicit Save. No additional font registry
+or native font cache owns an authoring copy.

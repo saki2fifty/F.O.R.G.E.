@@ -1,5 +1,14 @@
 # 2026-11-10
 
+## Font declaration weight and style
+
+Guided font declarations stage weight and style alongside the existing alias,
+resource and face index. Apply publishes one source edit; default reset removes
+the override, and untouched source values retain their spelling. The existing
+guarded MCP writer exposes matching optional values and null reset. Saved and
+source-hidden project checks exercise styled faces under one alias in both text
+modes.
+
 ## Project font declaration authoring
 
 RCSS Rules adds font declaration creation, editing and removal through registered

@@ -118,7 +118,13 @@ void author_font_selection(const std::filesystem::path& root, const std::vector<
     const auto path = root / "Assets/UI/hud.rcss";
     auto text = *asset_storage::read(path);
     text = set_ui_stylesheet_font_face(text, {}, "AuthoredCollectionFace",
+                                       reference.at("source").get<std::string>(), 0);
+    text = set_ui_stylesheet_font_face_style(text, inspect_ui_stylesheet(text).size() - 1,
+                                             {{"font-weight", "400"}, {"font-style", "normal"}});
+    text = set_ui_stylesheet_font_face(text, {}, "AuthoredCollectionFace",
                                        reference.at("source").get<std::string>(), 1);
+    text = set_ui_stylesheet_font_face_style(text, inspect_ui_stylesheet(text).size() - 1,
+                                             {{"font-weight", "700"}, {"font-style", "italic"}});
     const auto rules = inspect_ui_stylesheet(text);
     const auto input = std::find_if(rules.begin(), rules.end(), [&](const auto& rule) {
         return rule.flat &&
@@ -129,11 +135,15 @@ void author_font_selection(const std::filesystem::path& root, const std::vector<
     check(input != rules.end(), "Font authoring fixture lacks its input selector");
     text = set_ui_stylesheet_property(text, std::size_t(input - rules.begin()), "font-family",
                                       "AuthoredCollectionFace");
+    text =
+        set_ui_stylesheet_property(text, std::size_t(input - rules.begin()), "font-weight", "700");
+    text = set_ui_stylesheet_property(text, std::size_t(input - rules.begin()), "font-style",
+                                      "italic");
     asset_storage::replace(path, text);
     refresh_ui_asset_catalog(lease, inspect(root, font)(document->first, {}));
 }
 void present(const std::filesystem::path& root, const std::vector<std::byte>& font,
-             const std::filesystem::path& scene_source = scene_path) {
+             const std::filesystem::path& scene_source = scene_path, bool shaped = true) {
     Json saved;
     std::ifstream(root / scene_source) >> saved;
     EngineContext engine(WorldRole::Runtime, false, {ui_module(root)});
@@ -142,7 +152,7 @@ void present(const std::filesystem::path& root, const std::vector<std::byte>& fo
     const auto ui = std::static_pointer_cast<UiRuntime>(engine.services().ui());
     UiTestRenderer renderer;
     {
-        UiPresenter presenter(renderer, root, font, {}, nullptr, true, true);
+        UiPresenter presenter(renderer, root, font, {}, nullptr, shaped, true);
         presenter.reset("font-collection-project", 1);
         const auto snapshot = ui->snapshot(scene, "font-collection-project", 1, 7, true);
         check(presenter.accept(snapshot), presenter.diagnostic().c_str());
@@ -153,13 +163,38 @@ void present(const std::filesystem::path& root, const std::vector<std::byte>& fo
         const auto fields = presenter.text_fields(snapshot.at("documents")[0].at("instance"));
         check(!fields.at("fields").empty(), "Collection example text field missing");
         auto* input = Rml::GetContext(0)->GetDocument(0)->GetElementById("field");
+        auto* fonts = Rml::GetFontEngineInterface();
+        const auto selected =
+            fonts->GetFontFaceHandle("authoredcollectionface", Rml::Style::FontStyle::Italic,
+                                     Rml::Style::FontWeight::Bold, 32);
+        const auto regular =
+            fonts->GetFontFaceHandle("authoredcollectionface", Rml::Style::FontStyle::Normal,
+                                     Rml::Style::FontWeight::Normal, 32);
+        const Rml::String language = "en";
+        const Rml::TextShapingContext context{language};
+        const auto width = [&](Rml::FontFaceHandle handle) {
+            check(bool(handle), "Authored font face did not load");
+            return fonts->GetStringWidth(handle, "office", context);
+        };
         check(input &&
                   Rml::StringUtilities::ToLower(input->GetProperty<Rml::String>("font-family")) ==
                       "authoredcollectionface" &&
-                  Rml::GetFontEngineInterface()->GetFontFaceHandle(
-                      "authoredcollectionface", Rml::Style::FontStyle::Normal,
-                      Rml::Style::FontWeight::Normal, 32),
-              "Authored collection face alias did not survive saved/source-hidden native loading");
+                  input->GetProperty<Rml::Style::FontStyle>("font-style") ==
+                      Rml::Style::FontStyle::Italic &&
+                  input->GetProperty<Rml::Style::FontWeight>("font-weight") ==
+                      Rml::Style::FontWeight::Bold &&
+                  input->GetFontFaceHandle() ==
+                      fonts->GetFontFaceHandle("authoredcollectionface",
+                                               Rml::Style::FontStyle::Italic,
+                                               Rml::Style::FontWeight::Bold, 18) &&
+                  selected && regular && selected != regular &&
+                  width(selected) ==
+                      width(fonts->GetFontFaceHandle("menuarabic", Rml::Style::FontStyle::Normal,
+                                                     Rml::Style::FontWeight::Normal, 32)) &&
+                  width(regular) ==
+                      width(fonts->GetFontFaceHandle("menulatin", Rml::Style::FontStyle::Normal,
+                                                     Rml::Style::FontWeight::Normal, 32)),
+              "Authored font style/weight did not select the expected saved/exported faces");
         check(scene.snapshot() == saved, "Native collection rendering mutated the saved Scene");
     }
     check(renderer.geometry.empty() && renderer.textures.empty(), "Example resources leaked");
@@ -198,7 +233,8 @@ int main(int argc, char** argv) {
         const auto font = asset_detail::read_bytes(
             std::filesystem::path(argv[3]) / "LatoLatin-Regular.ttf", 4 * 1024 * 1024);
         author_font_selection(source, font);
-        present(source, font);
+        for (bool shaped : {false, true})
+            present(source, font, scene_path, shaped);
         const auto catalog = AssetCatalog::open_project(source);
         ProjectSettings settings(source);
         const std::array roots{settings.document().at("startup_scene").at("asset").get<AssetId>()};
@@ -213,7 +249,8 @@ int main(int argc, char** argv) {
             check(runtime_catalog.records().contains(id),
                   "Collection asset ID changed during export");
         std::filesystem::rename(source, scratch / "source-offline");
-        present(relocated, font, runtime_catalog.records().at(roots[0]).source);
+        for (bool shaped : {false, true})
+            present(relocated, font, runtime_catalog.records().at(roots[0]).source, shaped);
         std::cout << "Collection example and source-hidden relocated native font content passed\n";
         return 0;
     } catch (const std::exception& error) {

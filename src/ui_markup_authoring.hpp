@@ -175,6 +175,9 @@ std::string set_ui_stylesheet_font_face(std::string_view, std::optional<std::siz
                                         std::string_view family, std::string_view source,
                                         unsigned face_index);
 std::string remove_ui_stylesheet_font_face(std::string_view, std::size_t rule);
+std::string set_ui_stylesheet_font_face_style(
+    std::string_view, std::size_t rule,
+    const std::map<std::string, std::optional<std::string>>& properties);
 std::string remove_ui_stylesheet_rule(std::string_view, std::size_t rule);
 std::string duplicate_ui_stylesheet_rule(std::string_view, std::size_t rule);
 std::string move_ui_stylesheet_rule(std::string_view, std::size_t rule, int direction);

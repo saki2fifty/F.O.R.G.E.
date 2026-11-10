@@ -85,8 +85,13 @@ Its source path is project relative; recorded family names are not authored alia
 or evidence that a font is loaded. In an RCSS draft, use
 `forge_ui_source_font_face` with `asset`, `family` and optional `face_index` to
 append a declaration, or add `rule` to update one. Use
-`forge_ui_source_font_face_read` to inspect its three literal source properties,
-and `forge_ui_source_font_face_remove` to remove it. Write operations need
+`forge_ui_source_font_face_read` to inspect authored literal source properties,
+including weight/style when present. Optional `weight` on the writer accepts
+an integer from `1` to `1000` or `all`, `normal`, `bold`; optional `style` accepts
+`normal` or `italic`. Omit either to preserve its source value, or send JSON `null`
+to remove its override. Font-face `all` uses native automatic selection; absent style is
+normal. Set matching weight/style on text that should use that face. Use
+`forge_ui_source_font_face_remove` to remove it. Write operations need
 `assets.write`, preserve the existing source owner/history and still require Save.
 Read-only connections can discover the two queries, and cannot invoke the writers.
 See [Declare a project font](ui-source.md) for alias limits,

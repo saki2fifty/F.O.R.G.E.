@@ -1044,3 +1044,12 @@ The source range/value patch owner supplies read/set/remove and one Undo/Save,
 with unrelated declarations preserved. The existing face-details UI also accepts
 read-only current metadata directly, avoiding a second table or metadata cache.
 Other at-rules/nested blocks and unsupported alias forms remain raw Source.
+
+Font declarations stage Weight/Style together with the resource selection.
+The source helper validates normal/italic and integer1..1000/normal/bold/all using
+existing literal profiles, with all scoped to font faces. Explicit default reset
+removes the property; absent/custom/unchanged numeric literals remain untouched
+unless replaced. One candidate composes all edits before publication. The same
+optional MCP arguments preserve omissions and remove overrides on null. Native
+automatic weight reads static file metadata; variable designs retain the existing
+text-mode implementation and limits. No runtime font engine behavior changes.

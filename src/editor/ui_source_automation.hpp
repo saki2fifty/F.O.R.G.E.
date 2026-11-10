@@ -231,28 +231,41 @@ struct UiSourceAutomation {
             if (write_face) {
                 properties["family"] = automation_text(64, 1);
                 fields.push_back("family");
+                properties["weight"] = Json{
+                    {"oneOf",
+                     Json::array({automation_integer(1, 1000),
+                                  Json{{"type", "string"}, {"enum", {"all", "normal", "bold"}}},
+                                  Json{{"type", "null"}}})}};
+                properties["style"] = Json{
+                    {"oneOf", Json::array({Json{{"type", "string"}, {"enum", {"normal", "italic"}}},
+                                           Json{{"type", "null"}}})}};
             }
             const std::string description =
-                reference   ? "Read a registered standalone project UI font's current source and "
-                              "face metadata. "
-                              "Requires current source guards/assets.read. Optional zero-based "
-                              "face_index defaults to0. "
-                              "Returns asset/source/face_index/selected_face/details through shared "
-                              "actual-byte font admission. "
-                              "Font sources are project relative. Recorded family names are "
-                              "informational, not authored aliases "
-                              "or loaded availability. No native/GPU/gameplay initialization or "
-                              "source/catalog/history mutation."
-                : read_face ? "Read literal font-family/src/-rmlui-face-index values from a "
-                              "current top-level literal @font-face "
-                              "in an RCSS draft. Current source guards/assets.read required. Uses "
-                              "the existing stylesheet "
-                              "source ranges/declaration owner; no selection/history/source or "
-                              "font-load changes."
+                reference ? "Read a registered standalone project UI font's current source and "
+                            "face metadata. "
+                            "Requires current source guards/assets.read. Optional zero-based "
+                            "face_index defaults to0. "
+                            "Returns asset/source/face_index/selected_face/details through shared "
+                            "actual-byte font admission. "
+                            "Font sources are project relative. Recorded family names are "
+                            "informational, not authored aliases "
+                            "or loaded availability. No native/GPU/gameplay initialization or "
+                            "source/catalog/history mutation."
+                : read_face
+                    ? "Read authored literal font-family/src/-rmlui-face-index and optional "
+                      "font-weight/font-style values from a "
+                      "current top-level literal @font-face "
+                      "in an RCSS draft. Current source guards/assets.read required. Uses "
+                      "the existing stylesheet "
+                      "source ranges/declaration owner; no selection/history/source or "
+                      "font-load changes."
                 : write_face
                     ? "Add or update one literal RCSS @font-face with an explicit plain family "
                       "alias, registered project "
                       "font UUID and optional face_index(default0). Omit rule to append. Re-admits "
+                      "Optional weight accepts integer1..1000 or all/normal/bold; style accepts "
+                      "normal/italic. Null removes that override; omission preserves it. "
+                      "Font-face all uses native automatic selection; absent style is normal. "
                       "actual font bytes/face; "
                       "writes a project-relative src, preserving other "
                       "declarations/comments/rules. Plain aliases are "
@@ -288,14 +301,24 @@ struct UiSourceAutomation {
                         return Json{{"rule", request.at("rule")},
                                     {"values", editor.font_face_properties(
                                                    request.at("rule").get<std::size_t>())}};
-                    if (write_face)
+                    if (write_face) {
+                        std::map<std::string, std::optional<std::string>> appearance;
+                        for (const auto* name : {"weight", "style"})
+                            if (request.contains(name)) {
+                                const auto& value = request.at(name);
+                                appearance[std::string("font-") + name] =
+                                    value.is_null() ? std::nullopt
+                                    : value.is_number_integer()
+                                        ? std::optional(std::to_string(value.get<int>()))
+                                        : std::optional(value.get<std::string>());
+                            }
                         editor.font_face(request.contains("rule")
                                              ? std::optional(request.at("rule").get<std::size_t>())
                                              : std::nullopt,
                                          request.at("asset").get<AssetId>(),
                                          request.value("face_index", 0u),
-                                         request.at("family").get<std::string>());
-                    else
+                                         request.at("family").get<std::string>(), appearance);
+                    } else
                         editor.remove_font_face(request.at("rule").get<std::size_t>());
                     return state(editor, files.document);
                 }));

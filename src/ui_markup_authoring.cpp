@@ -960,7 +960,8 @@ std::map<std::string, std::string> read_ui_stylesheet_font_face(std::string_view
     const auto text = source.substr(rule.content.begin, rule.content.end - rule.content.begin);
     const auto declarations = inspect_ui_style(text);
     std::map<std::string, std::string> result;
-    for (const auto* name : {"font-family", "src", "-rmlui-face-index"})
+    for (const auto* name :
+         {"font-family", "src", "-rmlui-face-index", "font-weight", "font-style"})
         if (const auto* found = style_property(text, declarations, name)) {
             const auto range = trimmed(text, found->value);
             result[name] = std::string(text.substr(range.begin, range.end - range.begin));
@@ -1037,6 +1038,42 @@ std::string remove_ui_stylesheet_rule(std::string_view source, std::size_t index
 std::string remove_ui_stylesheet_font_face(std::string_view source, std::size_t index) {
     const auto rules = inspect_ui_stylesheet(source);
     return replaced(source, font_face_rule(source, rules, index).source, {}, false);
+}
+std::string set_ui_stylesheet_font_face_style(
+    std::string_view source, std::size_t index,
+    const std::map<std::string, std::optional<std::string>>& properties) {
+    const auto rules = inspect_ui_stylesheet(source);
+    const auto range = font_face_rule(source, rules, index).content;
+    std::string body(source.substr(range.begin, range.end - range.begin));
+    for (const auto& [name, value] : properties) {
+        require(name == "font-weight" || name == "font-style",
+                "Font appearance accepts only font-weight and font-style");
+        std::optional<UiStyleNumber> number;
+        if (value) {
+            const auto profile = ui_style_literal_profile(name);
+            const bool keyword =
+                std::ranges::find(profile->keywords, *value) != profile->keywords.end();
+            if (name == "font-weight" && *value != "all" && !keyword) {
+                number = read_ui_style_number(*value);
+                require(number.has_value(),
+                        "Use all, normal, bold or an integer font weight1..1000");
+                (void)format_ui_style_literal_number(name, *number);
+            } else
+                require(keyword || (name == "font-weight" && *value == "all"),
+                        "Use a supported font declaration style or weight");
+        }
+        const auto declarations = inspect_ui_style(body);
+        if (const auto* existing = style_property(body, declarations, name); existing && value) {
+            const auto old_range = trimmed(body, existing->value);
+            const auto old =
+                std::string_view(body).substr(old_range.begin, old_range.end - old_range.begin);
+            if (old == *value || (number && read_ui_style_number(old) == number))
+                continue;
+        }
+        const auto edit = style_edit(body, declarations, name, value);
+        body.replace(edit.first.begin, edit.first.end - edit.first.begin, edit.second);
+    }
+    return replaced(source, range, body, false);
 }
 std::string duplicate_ui_stylesheet_rule(std::string_view source, std::size_t index) {
     const auto rules = inspect_ui_stylesheet(source);

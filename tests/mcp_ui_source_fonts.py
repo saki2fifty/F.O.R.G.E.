@@ -54,11 +54,30 @@ def check_font_source(read, ok, mutate, root, advertised, client, arguments, gua
     font_path.write_bytes(font_bytes)
     assert edit('undo')['text'] == baseline['text'], 'Font append/replay needed multiple Undo steps'
     assert edit('redo')['text'] == created['text']
-    changed = edit('font_face', rule=1, family='MenuUpdated', asset=font)
+    changed = edit('font_face', rule=1, family='MenuUpdated', asset=font, weight=700, style='italic')
     assert changed['rule_selection'] == 1
     assert read('forge_ui_source_font_face_read', **guard(), rule=1)['values']['font-family'] == 'MenuUpdated'
+    styled = read('forge_ui_source_font_face_read', **guard(), rule=1)['values']
+    assert styled['font-weight'] == '700' and styled['font-style'] == 'italic'
+    for extra in [dict(weight=0), dict(weight=1001), dict(weight=450.5), dict(weight=True),
+                  dict(style='oblique')]:
+        assert not mutate('forge_ui_source_font_face', **guard(), rule=1,
+                          family='MenuUpdated', asset=font, **extra)['ok']
+        assert read('forge_ui_source_read') == changed
     assert edit('undo')['text'] == created['text']
     assert edit('redo')['text'] == changed['text']
+    automatic = edit('font_face', rule=1, family='MenuUpdated', asset=font, weight='all')
+    assert read('forge_ui_source_font_face_read', **guard(), rule=1)['values']['font-weight'] == 'all'
+    assert edit('font_face', rule=1, family='MenuUpdated', asset=font)['text'] == automatic['text']
+    assert edit('undo')['text'] == changed['text']
+    assert edit('redo')['text'] == automatic['text']
+    changed = automatic
+    reset = edit('font_face', rule=1, family='MenuUpdated', asset=font, weight=None, style=None)
+    defaults = read('forge_ui_source_font_face_read', **guard(), rule=1)['values']
+    assert 'font-weight' not in defaults and 'font-style' not in defaults
+    assert edit('undo')['text'] == changed['text']
+    assert edit('redo')['text'] == reset['text']
+    changed = edit('undo')
     removed = edit('font_face_remove', rule=1)
     assert '@font-face' not in removed['text'] and '.heading{font-family:MenuFace;color:red;}' in removed['text']
     assert edit('undo')['text'] == changed['text']

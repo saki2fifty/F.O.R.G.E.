@@ -756,14 +756,27 @@ registering a file does not load its family into a document.
 1. Register the font with **Content → Create / Register → Runtime UI → Register / Refresh**. [Font collections](ui-text-shaping.md) explains face indices and supported formats.
 2. Open the linked `.rcss` file using **Edit UI source** and choose **Rules**.
 3. Choose **New font face...**. Enter a **Family alias**, such as `MenuFace`. This is your authored name; it is independent of the file's recorded family name.
-4. Choose **Font source**, or drop its registered font from Content onto that picker. Read **Font faces** to find its family, style, weight and zero-based index, then set **Face index**. A standalone font normally uses `0`; a collection can expose more faces. **Last read** describes the last inspected file; Apply checks the current bytes and available index again.
+4. Choose **Font source**, or drop its registered font from Content onto that picker. Read **Font faces** to find its family, style, weight and zero-based index, then set **Face index**. A standalone font normally uses `0`; a collection can expose more faces. **Last read** describes the last inspected file; Apply checks the current bytes and available index again. Stage **Weight** and **Style** before applying if needed; their settings are explained below.
 5. Choose **Apply font face**. The declaration becomes selected and the source changes in one Undo step. Choose **Save source** to write the stylesheet.
 6. Assign that alias using `font-family` in an existing selector or the RML widget's **Inline style** controls, then save that source. For example, use `font-family:MenuFace` and `font-size:28px` on the text you want to style.
 7. Return to the linked RML document and **Refresh preview**, or restart Play after replacing an already loaded font family. Register / refresh the UI resources before exporting the saved project.
 
-![A staged font declaration with an explicit alias, source, face index and the recorded face details](../images/ui-source-font-face.png)
+![A staged font declaration with an explicit alias, source, face index, weight, style and recorded face details](../images/ui-source-font-face.png)
 
-The alias and font selection stay staged until **Apply font face**.
+The alias, font selection, weight and style stay staged until **Apply font face**.
+Before applying, set **Weight** and **Style** if the alias describes a particular
+face. **Weight literal** accepts integers from 1 to 1000; the presets include
+normal (400), bold (700) and all (native automatic selection). **Style** offers normal
+and italic. These settings describe the chosen face; they do not make a regular
+font bold or italic. Assign matching weight/style properties to the text that
+should use the face.
+
+Choose **Default (remove override)** in Weight or Style to remove that declaration
+on Apply. The native font-face defaults are automatic weight and normal style.
+For a static font, automatic reads its file weight. Variable font designs follow
+the selected text mode; see [UI text shaping](ui-text-shaping.md).
+An invalid weight leaves the source unchanged; correct it and apply again.
+Several faces can share one alias with different weight/style settings.
 
 Font `src` values are **project relative**, such as `Assets/Fonts/Menu.ttf`, even
 when the stylesheet is in another folder. Stylesheet links and image references
@@ -780,8 +793,8 @@ Scene or asset catalog.
 
 Guided aliases use 1–64 ASCII letters, digits, `_` or `-`, beginning with a letter
 or `_`. Use **Source** for other alias forms, escaped declarations or ambiguous
-matching properties. Other declarations, including authored weight/style
-settings, and surrounding comments remain intact. Unchanged supported quoted
+matching properties. Untouched custom weight/style values, other declarations
+and surrounding comments remain intact. Unchanged supported quoted
 literals, numeric index spelling and an omitted default face index stay unchanged.
 The face index must be below the file's face count and below 32. Face names, color
 and axis details are informational; [text shaping limits](ui-text-shaping.md)

@@ -154,6 +154,9 @@ class UiSourceEditor {
     char font_family_[65]{};
     Json font_asset_ = nullptr, font_face_details_;
     int font_face_index_ = 0;
+    char font_weight_[65]{};
+    std::map<std::string, std::string> font_appearance_values_;
+    std::map<std::string, std::optional<std::string>> font_appearance_edits_;
 
     void font_face_controls(std::optional<std::size_t> rule, bool locked) {
         const auto key = session_ + ":" + std::to_string(revision_) + ":" +
@@ -174,9 +177,18 @@ class UiSourceEditor {
             font_asset_ = nullptr;
             font_face_details_ = nullptr;
             font_face_index_ = 0;
+            font_weight_[0] = '\0';
+            font_appearance_values_.clear();
+            font_appearance_edits_.clear();
             if (rule) {
                 try {
                     const auto values = read_ui_stylesheet_font_face(editor_.GetText(), *rule);
+                    for (const auto* name : {"font-weight", "font-style"})
+                        if (const auto found = values.find(name); found != values.end())
+                            font_appearance_values_[name] = found->second;
+                    const auto& weight = font_appearance_values_["font-weight"];
+                    if (weight.size() < sizeof(font_weight_))
+                        std::snprintf(font_weight_, sizeof(font_weight_), "%s", weight.c_str());
                     if (const auto family = values.find("font-family"); family != values.end()) {
                         auto text = family->second;
                         if (text.size() >= 2 && (text.front() == '\'' || text.front() == '"') &&
@@ -235,6 +247,41 @@ class UiSourceEditor {
         }
         ImGui::InputInt("Face index", &font_face_index_);
         FORGE_UI_PROBE("ui-source:font-face-index");
+        for (const auto* name : {"font-weight", "font-style"}) {
+            const bool weight = std::string_view(name) == "font-weight";
+            const auto profile = ui_style_literal_profile(name);
+            auto& value = font_appearance_values_[name];
+            const bool open = ImGui::BeginCombo(
+                weight ? "Weight" : "Style",
+                value.empty() ? (weight ? "Automatic (default)" : "Normal (default)")
+                              : value.c_str());
+            FORGE_UI_PROBE("ui-source:font-preset:" + std::string(name));
+            if (open) {
+                const auto choice = [&](const char* label, std::optional<std::string> literal) {
+                    if (ImGui::Selectable(label, value == literal.value_or(""))) {
+                        value = literal.value_or("");
+                        font_appearance_edits_[name] = std::move(literal);
+                        if (weight)
+                            std::snprintf(font_weight_, sizeof(font_weight_), "%s", value.c_str());
+                    }
+                    FORGE_UI_PROBE("ui-source:font-choice:" + std::string(name) + ":" + label);
+                };
+                choice("Default (remove override)", {});
+                if (weight)
+                    choice("all", "all");
+                for (const auto keyword : profile->keywords)
+                    choice(keyword.data(), std::string(keyword));
+                ImGui::EndCombo();
+            }
+        }
+        if (ImGui::InputText("Weight literal", font_weight_, sizeof(font_weight_))) {
+            font_appearance_values_["font-weight"] = font_weight_;
+            font_appearance_edits_["font-weight"] = std::string(font_weight_);
+        }
+        FORGE_UI_PROBE("ui-source:font-weight");
+        ImGui::TextWrapped("Weight accepts all (native automatic), normal, bold or an integer "
+                           "1..1000. Style describes this alias; it does not transform the font. "
+                           "Default removes the override. Untouched custom values stay in Source.");
         if (font_face_details_.is_object()) {
             ImGui::TextWrapped("Last read: %u face(s). Apply checks the current file.",
                                font_face_details_.at("faces").get<unsigned>());
@@ -269,7 +316,7 @@ class UiSourceEditor {
                 if (font_face_index_ < 0)
                     throw AuthoringError("font_face", "Choose an available zero-based face index");
                 font_face(rule, font_asset_.get<AssetId>(), unsigned(font_face_index_),
-                          font_family_);
+                          font_family_, font_appearance_edits_);
             });
         else if (remove)
             attempt([&] { remove_font_face(*rule); });
@@ -2408,15 +2455,19 @@ class UiSourceEditor {
         replace_text(remove_ui_stylesheet_font_face(editor_.GetText(), rule));
     }
     void font_face(std::optional<std::size_t> rule, AssetId font, unsigned face_index,
-                   std::string_view family) {
+                   std::string_view family,
+                   const std::map<std::string, std::optional<std::string>>& appearance = {}) {
         if (locator_.extension() != ".rcss")
             throw AuthoringError("source_scope", "Open an RCSS stylesheet first");
         const auto reference =
             ui_font_reference(AssetCatalog::open_project(root_), font, face_index);
         const auto before = revision_;
-        replace_text(set_ui_stylesheet_font_face(editor_.GetText(), rule, family,
-                                                 reference.at("source").get<std::string>(),
-                                                 face_index));
+        auto candidate = set_ui_stylesheet_font_face(
+            editor_.GetText(), rule, family, reference.at("source").get<std::string>(), face_index);
+        if (!appearance.empty())
+            candidate = set_ui_stylesheet_font_face_style(
+                candidate, rule.value_or(inspect_ui_stylesheet(candidate).size() - 1), appearance);
+        replace_text(candidate);
         if (revision_ != before)
             select_rule(rule.value_or(rules_.size() - 1));
     }

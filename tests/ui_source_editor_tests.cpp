@@ -162,6 +162,9 @@ void exercise(const std::filesystem::path& output, int width,
         input.click("asset-picker:ui_font:Font source");
         input.select(("picker-option:" + font.id.str()).c_str());
         input.type("ui-source:font-face-index", "0");
+        input.type("ui-source:font-weight", "700");
+        input.click("ui-source:font-preset:font-style");
+        input.select("ui-source:font-choice:font-style:italic");
         check(editor.state() == before && asset_storage::read(css) == stylesheet,
               "Font controls changed source/history/disk before Apply");
         frame();
@@ -171,7 +174,8 @@ void exercise(const std::filesystem::path& output, int width,
         const auto values = editor.font_face_properties(1);
         check(created.at("rule_selection") == 1 && values.at("font-family") == "MenuFace" &&
                   values.at("src") == "\"Assets/Fonts/Menu.ttf\"" &&
-                  values.at("-rmlui-face-index") == "0" && asset_storage::read(css) == stylesheet,
+                  values.at("-rmlui-face-index") == "0" && values.at("font-weight") == "700" &&
+                  values.at("font-style") == "italic" && asset_storage::read(css) == stylesheet,
               "Font declaration lost source scope, alias, face or explicit Save");
         input.click("button:Undo");
         check(editor.state().at("text") == before.at("text"),
@@ -179,23 +183,52 @@ void exercise(const std::filesystem::path& output, int width,
         input.click("button:Redo");
         check(editor.state().at("text") == created.at("text"), "Font append Redo differs");
         input.select("ui-source:rule:1");
+        const auto before_unchanged = editor.state();
+        input.click("ui-source:font-apply");
+        check(editor.state() == before_unchanged, "Unchanged font controls added source history");
+        input.type("ui-source:font-weight", "450.5");
+        input.click("ui-source:font-apply");
+        check(editor.state() == before_unchanged, "Invalid weight partially changed source");
+        input.type("ui-source:font-weight", "700");
         input.type("ui-source:font-family", "bad family");
         const auto before_invalid = editor.state();
         input.click("ui-source:font-apply");
         check(editor.state() == before_invalid, "Invalid font alias partially changed source");
         input.type("ui-source:font-family", "MenuUpdated");
         input.click("ui-source:font-apply");
-        const auto updated = editor.state();
+        const auto styled = editor.state();
         check(editor.font_face_properties(1).at("font-family") == "MenuUpdated",
               "Font declaration did not recover after invalid alias");
+        input.click("ui-source:font-preset:font-weight");
+        input.select("ui-source:font-choice:font-weight:Default (remove override)");
+        input.click("ui-source:font-preset:font-style");
+        input.select("ui-source:font-choice:font-style:Default (remove override)");
+        check(editor.state() == styled, "Default reset published before Apply");
+        input.click("ui-source:font-apply");
+        const auto reset = editor.state();
+        check(!editor.font_face_properties(1).contains("font-weight") &&
+                  !editor.font_face_properties(1).contains("font-style"),
+              "Font reset retained guessed defaults");
+        input.click("button:Undo");
+        check(editor.state().at("text") == styled.at("text"),
+              "Font appearance reset needed multiple Undo steps");
+        input.click("button:Redo");
+        check(editor.state().at("text") == reset.at("text"), "Font reset Redo differs");
+        input.click("button:Undo");
+        input.select("ui-source:rule:1");
+        const auto updated = editor.state();
         rejects([&] { editor.font_face(1, font.id, 1, "MenuUpdated"); });
         check(editor.state() == updated, "Unavailable actual font face changed source/history");
         input.click("ui-source:font-remove");
         check(editor.state().at("text").get<std::string>().find("@font-face") == std::string::npos,
               "Font removal retained its declaration");
         input.click("button:Undo");
-        check(editor.state().at("text") == updated.at("text"),
-              "Font removal needed multiple Undo steps");
+        if (editor.state().at("text") != updated.at("text")) {
+            capture.save(output / ("font-removal-undo-" + std::to_string(width) + ".png"));
+            throw std::runtime_error(
+                "Font removal Undo differs: " +
+                Json{{"width", width}, {"before", updated}, {"after", editor.state()}}.dump());
+        }
         input.type("ui-source:rule-selector", ".footer");
         input.click("ui-source:rule-add");
         check(editor.state().at("rule_selection") == 2,

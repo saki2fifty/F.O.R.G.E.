@@ -3582,3 +3582,17 @@ the authored collection alias, input assignment and actual native font handle.
 
 - manual/images/ui-source-font-face.png: `c54ec78b1144f7aa9e75b7a68922656cdb2314bbd49e3cf9e556e4c683cf7caf`.
 - manual/images/ui-source-rules.png: `c90358515b1fed036002b6d6c121fdb1694ddb4f3ba006a913dc828d0069b7b0`.
+
+
+## Font declaration appearance controls
+
+The canonical font-face figure is refreshed from the native SourceEditor font
+workflow at 700x950 on2026-11-10, development based on2283a72. The staged
+Weight/Style fields describe the authored alias, while the existing table reports
+the actual file metadata. The screenshot does not imply that a regular file is
+transformed into bold or italic. The same controls/history/default reset run at
+1180/700/400 with actual ImGui input. This is an unretouched SDL software component
+capture, without full Main/Windows/MSVC/D3D12/physical-device acceptance. Other39
+canonical Source figures retain their prior exact provenance.
+
+Current manual/images/ui-source-font-face.png SHA256: f4153f4a6cba984056806f8316fe3c8e52d267e6bd3b6787423c040c0abbdca1.

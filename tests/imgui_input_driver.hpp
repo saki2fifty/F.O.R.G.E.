@@ -40,6 +40,19 @@ class ImGuiInputDriver {
             }
             if (box.maximum.x > box.minimum.x && box.maximum.y > box.minimum.y &&
                 box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y) {
+                io.AddMousePosEvent((box.minimum.x + box.maximum.x) / 2,
+                                    (box.minimum.y + box.maximum.y) / 2);
+                frame_();
+                const auto current = test::ui_targets.find(key);
+                // Shrinking content can clamp scroll during this hover frame.
+                // Press only after the target has stopped moving under the pointer.
+                if (current == test::ui_targets.end() ||
+                    current->second.minimum.x != source.minimum.x ||
+                    current->second.minimum.y != source.minimum.y ||
+                    current->second.maximum.x != source.maximum.x ||
+                    current->second.maximum.y != source.maximum.y)
+                    continue;
+                box.enabled = current->second.enabled;
                 visible = true;
                 break;
             }
@@ -66,9 +79,6 @@ class ImGuiInputDriver {
                       box.clip_maximum.y}},
                     {"enabled", box.enabled}}
                     .dump());
-        io.AddMousePosEvent((box.minimum.x + box.maximum.x) / 2,
-                            (box.minimum.y + box.maximum.y) / 2);
-        frame_();
         io.AddMouseButtonEvent(0, true);
         frame_();
         io.AddMouseButtonEvent(0, false);
