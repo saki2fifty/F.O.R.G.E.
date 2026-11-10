@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdio>
 #include <map>
+#include <type_traits>
 #include <utility>
 
 namespace forge::ui {
@@ -36,7 +37,7 @@ class UiSourceEditor {
     char attribute_[65] = "id", value_[8193]{}, literal_[8193]{};
     char duplicate_prefix_[65]{};
     char style_name_[65] = "color", style_value_[8193]{};
-    std::string style_error_;
+    std::string style_error_, style_control_error_;
     bool style_mixed_ = false, classes_mixed_ = false;
     char classes_[1025]{};
     std::string classes_error_;
@@ -111,6 +112,7 @@ class UiSourceEditor {
         outline_error_.clear();
         selected_.clear();
         style_error_.clear();
+        style_control_error_.clear();
         classes_error_.clear();
         style_mixed_ = classes_mixed_ = false;
         hierarchy_parent_ = hierarchy_before_ = UiMarkupElement::no_parent;
@@ -218,6 +220,7 @@ class UiSourceEditor {
     }
     void read_style_controls() {
         style_error_.clear();
+        style_control_error_.clear();
         style_mixed_ = false;
         style_value_[0] = 0;
         const bool sheet = locator_.extension() == ".rcss";
@@ -246,6 +249,73 @@ class UiSourceEditor {
             style_error_ = error.what();
         }
     }
+    void style_value_controls() {
+        const auto stage = [&](const auto& value) {
+            try {
+                const auto text = [&] {
+                    if constexpr (std::is_same_v<std::decay_t<decltype(value)>, UiStyleNumber>)
+                        return format_ui_style_number(value);
+                    else
+                        return format_ui_style_color(value);
+                }();
+                std::snprintf(style_value_, sizeof(style_value_), "%s", text.c_str());
+                style_control_error_.clear();
+            } catch (const std::exception& error) {
+                style_control_error_ = error.what();
+            }
+        };
+        const std::string_view property(style_name_);
+        if (property == "color" || property == "background-color") {
+            if (auto color = read_ui_style_color(style_value_)) {
+                if (ImGui::ColorEdit4("Color", color->data(),
+                                      ImGuiColorEditFlags_DisplayHex |
+                                          ImGuiColorEditFlags_AlphaPreviewHalf |
+                                          ImGuiColorEditFlags_NoOptions))
+                    stage(*color);
+                FORGE_UI_PROBE("ui-source:style-color");
+            } else {
+                ImGui::TextWrapped("Color control accepts #RRGGBB or #RRGGBBAA. Keep other CSS "
+                                   "forms as text, or stage a new color.");
+                if (ImGui::Button("New color"))
+                    stage(UiStyleColor{1, 1, 1, 1});
+                FORGE_UI_PROBE("ui-source:style-new-color");
+            }
+        } else if (std::ranges::any_of(std::array{"opacity", "font-size", "width", "height",
+                                                  "padding", "margin", "left", "top", "right",
+                                                  "bottom"},
+                                       [&](const auto* name) { return property == name; })) {
+            if (auto number = read_ui_style_number(style_value_)) {
+                if (ImGui::InputDouble("Number", &number->value, 0, 0, "%.17g"))
+                    stage(*number);
+                FORGE_UI_PROBE("ui-source:style-number");
+                const auto unit = static_cast<std::size_t>(number->unit);
+                const auto units = ImGui::BeginCombo(
+                    "Unit", unit == 0 ? "Unitless" : ui_style_unit_suffixes[unit].data());
+                FORGE_UI_PROBE("ui-source:style-unit");
+                if (units) {
+                    for (std::size_t i = 0; i < ui_style_unit_suffixes.size(); ++i) {
+                        if (ImGui::Selectable(i == 0 ? "Unitless"
+                                                     : ui_style_unit_suffixes[i].data(),
+                                              unit == i) &&
+                            i != unit) {
+                            number->unit = static_cast<UiStyleUnit>(i);
+                            stage(*number);
+                        }
+                        FORGE_UI_PROBE("ui-source:style-unit:" + std::to_string(i));
+                    }
+                    ImGui::EndCombo();
+                }
+            } else {
+                ImGui::TextWrapped("Number control accepts unitless, px, dp or %% literals from "
+                                   "-65536 to65536. Keep other CSS forms as text.");
+                if (ImGui::Button("New number"))
+                    stage(UiStyleNumber{});
+                FORGE_UI_PROBE("ui-source:style-new-number");
+            }
+        }
+        if (!style_control_error_.empty())
+            ImGui::TextWrapped("%s", style_control_error_.c_str());
+    }
     void style_controls(bool locked, bool sheet = false) {
         const bool open = ImGui::CollapsingHeader(sheet                  ? "Rule properties"
                                                   : selected_.size() > 1 ? "Group inline style"
@@ -272,11 +342,13 @@ class UiSourceEditor {
         }
         if (ImGui::InputText("Property", style_name_, sizeof(style_name_))) {
             style_error_.clear();
+            style_control_error_.clear();
             style_value_[0] = 0;
         }
         FORGE_UI_PROBE("ui-source:style-name");
-        ImGui::InputTextWithHint("CSS value", "e.g. #77bdf7 or 24px", style_value_,
-                                 sizeof(style_value_));
+        if (ImGui::InputTextWithHint("CSS value", "e.g. #77bdf7 or 24px", style_value_,
+                                     sizeof(style_value_)))
+            style_control_error_.clear();
         FORGE_UI_PROBE("ui-source:style-value");
         if (button(sheet ? "Read property" : "Read inline",
                    "Read the authored value; an empty field means no inline override."))
@@ -290,6 +362,10 @@ class UiSourceEditor {
         if (!style_error_.empty())
             ImGui::TextWrapped("%s", style_error_.c_str());
         ImGui::BeginDisabled(!style_error_.empty());
+        style_value_controls();
+        ImGui::TextWrapped(
+            "Controls stage the CSS value. Set property applies it as one Undo step.");
+        ImGui::BeginDisabled(!style_control_error_.empty());
         if (button("Set property", "Replace only this CSS value as one source Undo step."))
             attempt([&] {
                 if (sheet)
@@ -307,6 +383,7 @@ class UiSourceEditor {
                     styles(selected_, style_name_, {});
             });
         FORGE_UI_PROBE("ui-source:style-remove");
+        ImGui::EndDisabled();
         ImGui::EndDisabled();
         ImGui::EndDisabled();
         ImGui::TextWrapped(

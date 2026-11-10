@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-11-10](20261110/README.md) — Shared authored UI color and numeric/unit controls with staged values, source Undo, existing automation/MCP access and illustrated instructions. Windows/full-editor/physical review remains queued.
+
 - [2026-11-09](20261109/README.md) — Atomic native UI group layout; whole-character native navigation/selected deletion; native UI draft preview/pixel canvas, guarded preview-image capture and Gallery211; shared source/MCP/history/export workflows; optional native text shaping, font discovery and color glyphs. Source changes; Windows verification and delivery pending.
 
 - [2026-11-08](20261108/README.md) — Fixed gameplay input recording/replay and input-driven movies/Gallery209; related Prefab source contributions/Gallery208; ordered sound playlist authoring/Gallery198; shared native/MCP workflows and illustrated manuals. Local source; Windows verification and delivery pending.

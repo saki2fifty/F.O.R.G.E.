@@ -232,10 +232,16 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
                 reparent_ui_markup_elements(candidate, fields, by_id(candidate, "field-group"));
             candidate = set_ui_markup_style(candidate, by_id(candidate, "field-group"),
                                             "background-color", "#253f59");
+            candidate = set_ui_markup_style(candidate, by_id(candidate, "field-group"), "height",
+                                            format_ui_style_number({50, UiStyleUnit::Percent}));
             const std::array styled_fields{by_id(candidate, "copied-clone-entry"),
                                            by_id(candidate, "copied-clone-label")};
+            candidate = set_ui_markup_styles(
+                candidate, styled_fields, "background-color",
+                format_ui_style_color({51.f / 255, 68.f / 255, 85.f / 255, 128.f / 255}));
             candidate =
-                set_ui_markup_styles(candidate, styled_fields, "background-color", "#334455");
+                set_ui_markup_styles(candidate, styled_fields, "width",
+                                     format_ui_style_number({55, UiStyleUnit::DensityPixels}));
             candidate = set_ui_markup_classes(candidate, styled_fields, "shared-widget");
             check(presenter.preview_document({asset}, layout_document, candidate, 800, 600),
                   "Gallery draft preview did not load");
@@ -251,6 +257,8 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
             auto styled = insert_ui_stylesheet_rule(*saved_style, ".shared-widget");
             const auto rule = inspect_ui_stylesheet(styled).size() - 1;
             styled = set_ui_stylesheet_property(styled, rule, "color", "#6ac98a");
+            styled = set_ui_stylesheet_property(styled, rule, "opacity",
+                                                format_ui_style_number({.5, UiStyleUnit::Number}));
             styled = duplicate_ui_stylesheet_rule(styled, rule);
             styled = set_ui_stylesheet_property(styled, rule + 1, "color", "#aabbcc");
             {
@@ -312,6 +320,9 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
         const auto* background = field_group->GetProperty("background-color");
         check(background && background->Get<Rml::Colourb>() == Rml::Colourb(37, 63, 89, 255),
               "Saved/exported inline style lost its authored native color");
+        const auto* height = field_group->GetProperty("height");
+        check(height && height->unit == Rml::Unit::PERCENT && height->Get<float>() == 50,
+              "Saved/exported typed percentage lost its native value or unit");
         const auto* label_color = copied_label->GetProperty("color");
         check(label_color && label_color->Get<Rml::Colourb>() == Rml::Colourb(106, 201, 138, 255),
               "Saved/exported linked stylesheet lost its authored selector/declaration color");
@@ -320,9 +331,14 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
                   "Saved/exported group class assignment lost its literal class list");
             const auto* fill = node->GetProperty("background-color");
             const auto* color = node->GetProperty("color");
-            check(fill && fill->Get<Rml::Colourb>() == Rml::Colourb(51, 68, 85, 255) && color &&
+            check(fill && fill->Get<Rml::Colourb>() == Rml::Colourb(51, 68, 85, 128) && color &&
                       color->Get<Rml::Colourb>() == Rml::Colourb(106, 201, 138, 255),
                   "Saved/exported group styles or reordered class cascade changed native values");
+            const auto* width = node->GetProperty("width");
+            const auto* opacity = node->GetProperty("opacity");
+            check(width && width->unit == Rml::Unit::DP && width->Get<float>() == 55 && opacity &&
+                      opacity->unit == Rml::Unit::NUMBER && opacity->Get<float>() == .5f,
+                  "Saved/exported typed density-pixel or unitless values changed native units");
         }
         const auto label_position = copied_label->GetAbsoluteOffset(Rml::BoxArea::Border);
         const auto label_size = copied_label->GetBox().GetSize(Rml::BoxArea::Border);

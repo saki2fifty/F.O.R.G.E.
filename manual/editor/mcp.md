@@ -69,6 +69,12 @@ require `assets.write`, validate the entire group before one Undo, retain edited
 selection and keep Save explicit. Use fresh source guards and read mixed values
 before choosing the replacement. See [group styles and classes](ui-source.md).
 
+The editor's Color, Number and Unit controls stage ordinary CSS values. An agent
+uses the same single, group or rule property operations with values such as
+`#12345680`, `27.5dp`, `25%` or `0.5`. Alpha is the final hex byte; changing a unit
+keeps the number without converting sizes. No separate control-state tool is
+needed. See [color and number controls](ui-source.md).
+
 `forge_ui_source_rule_copy` takes `rule` and inserts an unchanged flat block after
 itself. `forge_ui_source_rule_move` takes `rule` and `direction:-1` or `1`. Both use
 write grants, source guards, replay and one Undo; moving cannot cross a nested or

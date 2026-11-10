@@ -140,6 +140,20 @@ Literal class assignment retains binding/ID ownership and existing equal-value
 encoding; flat rule copy/order remains source manipulation under the same owner.
 No extracted theme, second stylesheet parser or persistent source identity follows.
 
+Literal color/number controls are optional authored-value adapters in
+ui_markup_authoring, with no native initialization or computed-style reads.
+The color subset is six/eight hex digits with alpha last; normalized RGB channels
+are authored color bytes, not linear-light material colors. Scalar adapters accept
+finite magnitudes up to65536 and unitless/px/dp/% suffixes. Standard character
+conversion formats round-trippable numbers; edited colors round to eight-bit
+channels. These adapters do not replace complete candidate admission, property
+limits, stylesheet parsing or the separate absolute-pixel layout eligibility.
+The native controls stage only their existing CSS text field and preserve mixed,
+absent and unsupported values until an explicit replacement. Existing single,
+group and flat-rule property operations publish the resulting text through the
+same guarded source replacement/history. Automation/MCP use those same operations
+and optional authored reads; no control-state API or additional writer is needed.
+
 Source-preview image output borrows the same observed native image through
 ViewImageTask. A rendered input retains the source/preview identity and rechecks
 it before the existing nonblocking GPU copy is submitted. Pending observations

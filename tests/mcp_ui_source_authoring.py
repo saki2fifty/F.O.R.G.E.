@@ -110,6 +110,12 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
     assert removed['text'] == styled_text.replace('style="color:#77bdf7;"', 'style=""', 1)
     assert edit('undo')['text'] == styled_text, 'Inline removal needed more than one Undo'
     assert edit('undo')['text'] == original, 'Inline set/no-op needed more than one Undo'
+    # Typed native controls stage these same raw CSS values; protocols share the writer.
+    for name, value in (('background-color', '#01020304'), ('width', '12.5dp'),
+                        ('height', '25%'), ('opacity', '0.5')):
+        edit('style', element=index('p'), name=name, value=value)
+        assert read('forge_ui_source_style_read', **guard(), element=index('p'), name=name) == dict(name=name, value=value)
+        assert edit('undo')['text'] == original, 'Typed inline value needed more than one Undo'
     state = read('forge_ui_source_read')
 
     saved = read('forge_source_text_read', path=path)
@@ -206,6 +212,13 @@ body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
     failed(client.tool('forge_ui_source_style_group_read', **stale), 'stale_ui_source')
     edit('style_group', elements=members, name='color', value='#77bdf7')
     assert read('forge_ui_source_read') == styled_group, 'Group property no-op changed history'
+    for name, value in (('background-color', '#aabbcc80'), ('width', '27.5dp')):
+        edit('style_group', elements=members, name=name, value=value)
+        typed = read('forge_ui_source_style_group_read', **guard(), elements=members, name=name)
+        assert not typed['mixed'] and typed['value'] == value
+        assert [row['value'] for row in typed['values']] == [value, value]
+        assert edit('undo')['text'] == expected_group, 'Typed group value needed more than one Undo'
+    styled_group = read('forge_ui_source_read')
     for selection, name, value in (([members[0], index('body')], 'color', 'red'),
                                     ([members[0], members[0]], 'color', 'red'),
                                     (members, 'font-size', '257px'),
@@ -367,6 +380,12 @@ body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
     failed(client.tool('forge_ui_source_rule_read', **stale_read), 'stale_ui_source')
     edit('rule_property', rule=0, name='color', value='blue')
     assert read('forge_ui_source_read') == state, 'Exact rule property no-op changed history'
+    for name, value in (('background-color', '#12345680'), ('width', '12.5dp'),
+                        ('height', '25%'), ('opacity', '0.5')):
+        edit('rule_property', rule=0, name=name, value=value)
+        assert read('forge_ui_source_rule_read', **guard(), rule=0, name=name) == dict(name=name, value=value)
+        assert edit('undo')['text'] == blue, 'Typed rule value needed more than one Undo'
+    state = read('forge_ui_source_read')
     for extra in (dict(name='color', value='red;opacity:0'), dict(name='font-size', value='257px'),
                   dict(name='Color', value='red')):
         assert not mutate('forge_ui_source_rule_property', **guard(), rule=0, **extra)['ok']

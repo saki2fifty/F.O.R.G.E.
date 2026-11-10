@@ -236,10 +236,10 @@ void exercise(const std::filesystem::path& output, int width) {
     input.click("ui-source:hierarchy-open");
     input.click("ui-source:style-open");
     input.type("ui-source:style-name", "color");
-    input.type("ui-source:style-value", "#77bdf7");
+    input.type("ui-source:style-value", "#77BDF7FF");
     input.click("ui-source:style-set");
     auto color_expected = original.get<std::string>();
-    color_expected.replace(color_expected.find("<p>"), 3, "<p style=\"color:#77bdf7;\">");
+    color_expected.replace(color_expected.find("<p>"), 3, "<p style=\"color:#77BDF7FF;\">");
     check(editor.state().at("text") == color_expected &&
               editor.state().at("selection") == Json::array({2}),
           "Native inline property controls lost the declaration or edited selection");
@@ -257,8 +257,23 @@ void exercise(const std::filesystem::path& output, int width) {
     input.click("ui-source:style-common");
     input.select("ui-source:style-choice:width");
     input.type("ui-source:style-value", "24px");
+    const auto before_number = editor.state();
+    input.type("ui-source:style-number", "70000");
+    check(editor.state() == before_number && !test::ui_targets.at("ui-source:style-set").enabled,
+          "An out-of-range staged number published source or enabled Set property");
+    input.type("ui-source:style-number", "27.5");
+    check(test::ui_targets.at("ui-source:style-set").enabled,
+          "A valid numeric replacement did not recover property publication");
+    input.click("ui-source:style-unit");
+    input.select("ui-source:style-unit:2");
+    check(editor.state() == before_number && asset_storage::read(file) == source,
+          "Numeric/unit staging published source or saved the document");
     input.click("ui-source:style-set");
     const auto width_source = editor.state().at("text");
+    check(editor.read_style(2, "width") == "27.5dp",
+          "Actual numeric/unit controls did not publish the staged density-pixel value");
+    frame();
+    capture.save(output / ("ui-source-style-number-" + std::to_string(width) + ".png"));
     input.click("ui-source:element:2");
     input.click("ui-source:style-remove");
     check(editor.state().at("text").get<std::string>().find("style=\"\"") != std::string::npos,
@@ -268,6 +283,24 @@ void exercise(const std::filesystem::path& output, int width) {
     input.click("button:Undo");
     check(editor.state().at("text") == original,
           "Common-property history lost the original source");
+    input.click("ui-source:element:2");
+    input.click("ui-source:style-common");
+    input.select("ui-source:style-choice:color");
+    const auto before_color = editor.state();
+    check(!test::ui_targets.contains("ui-source:style-color") &&
+              test::ui_targets.contains("ui-source:style-new-color"),
+          "An absent authored color displayed guessed channels");
+    input.click("ui-source:style-new-color");
+    input.type("ui-source:style-color", "12345680");
+    check(editor.state() == before_color, "Actual color control published a staged value");
+    input.click("ui-source:style-set");
+    check(editor.read_style(2, "color") == "#12345680" && asset_storage::read(file) == source,
+          "Actual RGBA color control lost channel order, alpha or explicit Save isolation");
+    frame();
+    capture.save(output / ("ui-source-style-color-" + std::to_string(width) + ".png"));
+    input.click("button:Undo");
+    check(editor.state().at("text") == original,
+          "Color staging added more than one source Undo step");
     input.click("ui-source:element:2");
     input.click("ui-source:style-open");
     input.type("ui-source:literal", "New & <literal>");
@@ -445,6 +478,13 @@ void exercise_stylesheet(const std::filesystem::path& output, int width) {
     input.click("ui-source:elements-tab");
     input.click("ui-source:rule:0");
     input.click("ui-source:style-open");
+    const auto before_rule_color = editor.state();
+    check(!test::ui_targets.contains("ui-source:style-color"),
+          "A named rule color displayed guessed hex channels");
+    input.click("ui-source:style-new-color");
+    input.type("ui-source:style-color", "01020304");
+    check(editor.state() == before_rule_color && asset_storage::read(file) == source,
+          "Rule color controls wrote source before Set property");
     input.type("ui-source:style-value", "#77bdf7");
     input.click("ui-source:style-set");
     auto styled = draft;
@@ -575,9 +615,14 @@ void exercise_stylesheet(const std::filesystem::path& output, int width) {
     input.click("ui-source:style-open");
     check(test::ui_targets.contains("ui-source:style-mixed"),
           "Native group property controls silently chose one mixed value");
+    check(!test::ui_targets.contains("ui-source:style-color"),
+          "Mixed authored group colors exposed one member's channels");
     const auto mixed = editor.state();
     input.click("ui-source:style-set");
     check(editor.state() == mixed, "An empty mixed property partially overwrote the group");
+    input.click("ui-source:style-new-color");
+    input.type("ui-source:style-color", "aabbcc80");
+    check(editor.state() == mixed, "Group color staging partially published to source");
     input.type("ui-source:style-value", "#77bdf7");
     input.click("ui-source:style-set");
     auto uniform = group_original;

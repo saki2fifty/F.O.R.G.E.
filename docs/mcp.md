@@ -1154,6 +1154,14 @@ element (ordering cannot change); exact no-ops retain revision/history/selection
 This authors CSS defaults, not native computed styling or Scene UiValues models.
 Bindings can replace the value in Play. Save/registration remain explicit.
 
+Native color and numeric/unit controls stage the same authored CSS strings. Use
+`forge_ui_source_style`, `forge_ui_source_style_group` or
+`forge_ui_source_rule_property` to publish them, then the corresponding authored
+read to inspect them. Examples include `#12345680` (alpha last), `27.5dp`, `25%`
+and unitless `0.5`. Changing a suffix retains the number rather than converting
+sizes. These controls add no separate automation state or writer; existing grants,
+guards, candidate validation, one source Undo and explicit Save still apply.
+
 RCSS `forge_ui_source_rule_read` uses assets.read, source guards, `rule` and `name`;
 it returns the authored `{name,value}`, null when absent. Flat ordinary rules only;
 at-rules/nested blocks use Source. `forge_ui_source_rule_property` uses assets.write

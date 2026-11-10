@@ -7,6 +7,19 @@
 
 namespace forge {
 bool ui_markup_widget_editable(const UiMarkupElement&) noexcept;
+// Optional literal adapters for authored controls, not computed CSS or admission.
+enum class UiStyleUnit { Number, Pixels, DensityPixels, Percent };
+inline constexpr std::array<std::string_view, 4> ui_style_unit_suffixes{"", "px", "dp", "%"};
+struct UiStyleNumber {
+    double value = 0;
+    UiStyleUnit unit = UiStyleUnit::Number;
+    bool operator==(const UiStyleNumber&) const = default;
+};
+std::optional<UiStyleNumber> read_ui_style_number(std::string_view);
+std::string format_ui_style_number(UiStyleNumber);
+using UiStyleColor = std::array<float, 4>;
+std::optional<UiStyleColor> read_ui_style_color(std::string_view);
+std::string format_ui_style_color(UiStyleColor);
 struct UiPixelLayout {
     float left = 0, top = 0, width = 1, height = 1;
     bool operator==(const UiPixelLayout&) const = default;

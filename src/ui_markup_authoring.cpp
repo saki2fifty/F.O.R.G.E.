@@ -4,6 +4,7 @@
 #include <array>
 #include <charconv>
 #include <cmath>
+#include <cstdint>
 #include <forge/ui_assets.hpp>
 #include <limits>
 #include <map>
@@ -386,6 +387,67 @@ LayoutSource layout_source(std::string_view source, std::span<const UiMarkupElem
     return result;
 }
 } // namespace
+std::optional<UiStyleNumber> read_ui_style_number(std::string_view text) {
+    const auto range = trimmed(text, {0, text.size()});
+    text = text.substr(range.begin, range.end - range.begin);
+    for (std::size_t i = ui_style_unit_suffixes.size(); i-- > 0;) {
+        const auto suffix = ui_style_unit_suffixes[i];
+        if (!text.ends_with(suffix))
+            continue;
+        const auto number = text.substr(0, text.size() - suffix.size());
+        if (number.empty())
+            return {};
+        double value = 0;
+        const auto parsed = std::from_chars(number.data(), number.data() + number.size(), value);
+        if (parsed.ec == std::errc{} && parsed.ptr == number.data() + number.size() &&
+            std::isfinite(value) && std::abs(value) <= 65536)
+            return UiStyleNumber{value, static_cast<UiStyleUnit>(i)};
+        return {};
+    }
+    return {};
+}
+std::string format_ui_style_number(UiStyleNumber number) {
+    const auto unit = static_cast<std::size_t>(number.unit);
+    require(unit < ui_style_unit_suffixes.size() && std::isfinite(number.value) &&
+                std::abs(number.value) <= 65536,
+            "Use a finite style number between -65536 and65536 and a supported unit");
+    std::array<char, 64> buffer{};
+    const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), number.value);
+    require(result.ec == std::errc{}, "Could not format the style number");
+    return std::string(buffer.data(), result.ptr) + std::string(ui_style_unit_suffixes[unit]);
+}
+std::optional<UiStyleColor> read_ui_style_color(std::string_view text) {
+    const auto range = trimmed(text, {0, text.size()});
+    text = text.substr(range.begin, range.end - range.begin);
+    if ((text.size() != 7 && text.size() != 9) || text.front() != '#')
+        return {};
+    std::uint32_t packed = 0;
+    const auto parsed = std::from_chars(text.data() + 1, text.data() + text.size(), packed, 16);
+    if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size())
+        return {};
+    if (text.size() == 7)
+        packed = (packed << 8) | 255;
+    UiStyleColor result{};
+    for (std::size_t i = 0; i < result.size(); ++i)
+        result[i] = static_cast<float>((packed >> (8 * (3 - i))) & 255) / 255.f;
+    return result;
+}
+std::string format_ui_style_color(UiStyleColor color) {
+    std::uint32_t packed = 0;
+    for (const auto channel : color) {
+        require(std::isfinite(channel) && channel >= 0 && channel <= 1,
+                "Color channels must be finite values between0 and1");
+        packed = (packed << 8) | static_cast<std::uint32_t>(std::lround(channel * 255));
+    }
+    const auto digits = (packed & 255) == 255 ? 6u : 8u;
+    if (digits == 6)
+        packed >>= 8;
+    std::array<char, 8> buffer{};
+    const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), packed, 16);
+    require(result.ec == std::errc{}, "Could not format the style color");
+    const auto count = static_cast<std::size_t>(result.ptr - buffer.data());
+    return "#" + std::string(digits - count, '0') + std::string(buffer.data(), result.ptr);
+}
 std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMarkupLayoutBox> boxes,
                                                           std::string_view action, float dx,
                                                           float dy) {

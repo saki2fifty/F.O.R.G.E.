@@ -769,6 +769,58 @@ void reusable_styles() {
         capped += ".a{}";
     rejects([&] { forge::duplicate_ui_stylesheet_rule(capped, 0); });
 }
+void style_value_literals() {
+    using namespace forge;
+    const std::array cases{
+        std::pair{"0", UiStyleNumber{0, UiStyleUnit::Number}},
+        std::pair{" -12.5px\t", UiStyleNumber{-12.5, UiStyleUnit::Pixels}},
+        std::pair{"24dp", UiStyleNumber{24, UiStyleUnit::DensityPixels}},
+        std::pair{"33.125%", UiStyleNumber{33.125, UiStyleUnit::Percent}},
+        std::pair{"65536px", UiStyleNumber{65536, UiStyleUnit::Pixels}},
+        std::pair{"-65536", UiStyleNumber{-65536, UiStyleUnit::Number}},
+        std::pair{"0.10000000000000002", UiStyleNumber{0.10000000000000002, UiStyleUnit::Number}}};
+    for (const auto& [text, expected] : cases) {
+        const auto parsed = read_ui_style_number(text);
+        check(parsed == expected && read_ui_style_number(format_ui_style_number(*parsed)) == parsed,
+              "Literal number/unit adapter lost a value or round-trip precision");
+    }
+    for (const auto* invalid :
+         {"", "px", "12 px", "12PX", "12px trailing", "auto", "1em", "calc(2px + 3px)", "{{value}}",
+          "NaN", "inf", "1e9999", "65537px", "-65536.1%", "1; color:red", "1 2"})
+        check(!read_ui_style_number(invalid), "Unsupported style number acquired a guessed value");
+    for (const auto value : {std::numeric_limits<double>::infinity(),
+                             std::numeric_limits<double>::quiet_NaN(), 65537., -65537.})
+        rejects([&] { format_ui_style_number({value, UiStyleUnit::Pixels}); });
+    rejects([&] { format_ui_style_number({1, static_cast<UiStyleUnit>(99)}); });
+    check(format_ui_style_number({24, UiStyleUnit::Pixels}) == "24px" &&
+              format_ui_style_number({.5, UiStyleUnit::Number}) == "0.5",
+          "Literal number formatter changed suffix or decimal spelling");
+    check(read_ui_style_color("#000000") == UiStyleColor{0, 0, 0, 1} &&
+              read_ui_style_color("#ff000000") == UiStyleColor{1, 0, 0, 0} &&
+              read_ui_style_color("#00ff00ff") == UiStyleColor{0, 1, 0, 1} &&
+              read_ui_style_color(" #0000ff80\n") == UiStyleColor{0, 0, 1, 128.f / 255},
+          "Literal color adapter confused RGB channel order or final alpha");
+    for (const auto* text : {"#00000000", "#01020304", "#abcdef", "#ABCDEF80", "#ffffffff"}) {
+        const auto parsed = read_ui_style_color(text);
+        check(parsed && read_ui_style_color(format_ui_style_color(*parsed)) == parsed,
+              "Literal color failed byte-exact normalized channel round trip");
+    }
+    check(format_ui_style_color({0, 0, 0, 0}) == "#00000000" &&
+              format_ui_style_color({1, 1, 1, 1}) == "#ffffff" &&
+              format_ui_style_color({0, 0, 1, .5}) == "#0000ff80",
+          "Color formatter lost leading zeros, opaque spelling or alpha rounding");
+    for (const auto* invalid :
+         {"", "#fff", "#abcd", "#gg0000", "#1234567", "#123456789", "#12345g", "#123456;", "red",
+          "transparent", "rgb(1,2,3)", "{{color}}", "0xffffff", "#-12345"})
+        check(!read_ui_style_color(invalid), "Unsupported color acquired guessed channels");
+    for (const auto value : {std::numeric_limits<float>::infinity(),
+                             std::numeric_limits<float>::quiet_NaN(), -0.01f, 1.01f})
+        for (std::size_t channel = 0; channel < 4; ++channel) {
+            UiStyleColor color{0, 0, 0, 1};
+            color[channel] = value;
+            rejects([&] { format_ui_style_color(color); });
+        }
+}
 } // namespace
 int main() {
     try {
@@ -784,6 +836,7 @@ int main() {
         inline_properties();
         stylesheet_rules();
         reusable_styles();
+        style_value_literals();
         std::cout << "Source-preserving outline/attributes and shared validator errors passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

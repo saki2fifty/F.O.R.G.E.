@@ -71,6 +71,39 @@ For example, use CSS single quotes inside a double-quoted attribute. Source
 admission checks structure and resource limits; Preview and Play check native
 CSS behavior. These controls do not provide a complete theme or responsive designer.
 
+## Choose a color or number
+
+**Inline style**, **Group inline style** and **Rule properties** share the same
+value controls. Changes to these controls only stage the **CSS value** field.
+Choose **Set property** to change source as one Undo step, then **Save source**
+to save the document. Reading or opening a control does not rewrite source.
+
+- For `color` and `background-color`, a **Color** field appears for `#RRGGBB` and `#RRGGBBAA` values. The last two digits are alpha: `00` is transparent, `ff` is opaque. Edit the hex field or open its swatch to choose a color.
+- For common numeric properties, use **Number** and **Unit**. **Unitless** leaves the value without a suffix; `px` means pixels, `dp` means density-scaled pixels and `%` means a percentage relative to the property's CSS reference. Changing the unit keeps the number; it does not convert physical sizes.
+- If the authored value is absent, mixed or uses another CSS form, no color or number is guessed. **New color** stages opaque white; **New number** stages unitless zero. These explicit replacements do not publish source until you choose **Set property**. A group change applies the value to every selected sibling.
+
+![Inline style color controls with a staged eight-digit RGBA hex value and alpha swatch](../images/ui-source-style-color.png)
+
+The Color field uses alpha as its final byte. Set property applies the staged
+value; the source stays unsaved until Save source.
+
+![Inline width property with Number, density-pixel Unit and explicit Set property controls](../images/ui-source-style-number.png)
+
+Number and Unit stage a width of `27.5dp`. Changing the unit retains `27.5`.
+
+The numeric control accepts finite values from -65,536 to 65,536 for `opacity`,
+`font-size`, `width`, `height`, `padding`, `margin`, `left`, `top`, `right` and
+`bottom`. Individual properties have additional constraints; for example, an
+admitted font size is at most 256. Use the appropriate unit for the property and
+check **Preview**. Numeric or color controls do not expand the absolute-pixel
+requirements for dragging widgets in Preview.
+
+**CSS value** remains available for named colors, short hex colors, other units,
+multi-value declarations and other supported CSS syntax. Unsupported forms stay
+as text. Opening a color control preserves the existing spelling and precision;
+an edited color is rounded to eight bits per channel. An invalid numeric entry
+keeps the previous CSS value and disables property publication until corrected.
+
 ## Style several controls together
 
 1. In **Elements**, select a widget and **Ctrl**-click its siblings. Choose up to 32 widgets with the same parent.
