@@ -68,6 +68,14 @@ source/default distinctions. Read each row's `minimum`, `maximum` and `integer` 
 dimensions. Text/password initial values are source settings; live passwords stay
 redacted. Textarea settings preserve its initial body, and Label changes only its
 target ID.
+Image rows expose source/sprite/crop and dimension attributes. An absent dimension
+has `value: null` and `available: false` because its native intrinsic size is not
+resolved by source inspection; it can still be edited. Positive sizes request
+native dimensions, zero omits that dimension request, and null removes the override.
+Crop text is empty or four finite space-separated numbers with positive width and
+height at least `0.000001`. Dimension metadata includes `minimum_positive`; zero
+omits the request, and positive values must meet that minimum. The existing
+style/profile tools also expose `image-color` tint.
 
 `forge_ui_source_style_profile` reads the current source controls' literal helper
 metadata for one CSS property: presets, numeric units/ranges and the Common menu.

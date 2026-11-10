@@ -64,6 +64,8 @@ struct UiSourceAutomation {
                             {"value", std::move(value)},
                             {"minimum", item.minimum ? Json(*item.minimum) : Json{}},
                             {"maximum", item.maximum ? Json(*item.maximum) : Json{}},
+                            {"minimum_positive",
+                             item.minimum_positive ? Json(*item.minimum_positive) : Json{}},
                             {"integer", item.integer},
                             {"authored", item.authored},
                             {"available", item.available},
@@ -471,7 +473,14 @@ struct UiSourceAutomation {
                       "boolean "
                       "flags use presence/removal. Numbers are finite native floats within "
                       "+/-1000000; "
-                      "slider step is at least0.000001. Read each row's minimum/maximum/integer "
+                      "slider step is at least0.000001. Image rect is empty or four "
+                      "space-separated "
+                      "finite numbers x y width height with crop dimensions0.000001..1000000. "
+                      "Image size "
+                      "attributes admit0 or0.000001..1000000; zero omits that size request. Source "
+                      "queries "
+                      "do not resolve intrinsic dimensions. Read each row's "
+                      "minimum/maximum/integer "
                       "constraints for text length/dimensions. Password initial values are "
                       "authored "
                       "source, never a live password observation. Strings fit8192bytes without "

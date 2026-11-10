@@ -2728,7 +2728,7 @@ input grant. The previous source tools and18sourcekind strings remain supported.
 
 forge_ui_source_style_profile requires assets.read, current path/session/revision/
 state and name. It returns known/kind, keyword presets, optional numeric units/
-minimum/maximum/integer/initial_literal and the shared20Common properties. Profiles
+minimum/maximum/integer/initial_literal and the shared21Common properties. Profiles
 are optional bounded input conveniences, not native CSS admission/cascade/defaults
 or font-face availability. Unknown properties report knownfalse; raw style APIs
 retain their existing source validation. The query initializes no native renderer,
@@ -2738,3 +2738,15 @@ The same immutable metadata powers inline/group and stylesheet literal controls.
 Native source candidates and old mutation/query results are unchanged. Existing
 35source operations plus this read-only query make36; native-style/preset staging
 publishes only through the original Set/Remove/Undo/Save and guarded MCP owners.
+
+Source control metadata includes an image profile: src/sprite/rect strings and
+width/height native-float attributes0 or0.000001..1000000, with optional
+minimum_positive metadata. No renderer initializes to report
+intrinsic size: absent dimension rows stay value-null/availablefalse/editabletrue
+with an explicit reason. Nonempty sprite precedence and CSS/native layout remain
+with the existing renderer. The same source patch/guards/history/receipts apply;
+no new resource/URI/texture manager or live image mutation tool is introduced.
+Rect is empty or four space-separated finite bounded floats x/y/width/height with
+size at least0.000001 and distinct native-float crop edges. These finite source envelopes keep native aspect
+calculations within float range without duplicating their layout algorithm. Image tint uses the existing color profile and style mutation.
+Source operations remain36 and creation kinds18; Commonmenu grows to21.

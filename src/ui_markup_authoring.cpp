@@ -1,6 +1,8 @@
 #include "ui_markup_authoring.hpp"
 #include "ui_range_numeric.hpp"
+#include <RmlUi/Core/Rectangle.h>
 #include <RmlUi/Core/StringUtilities.h>
+#include <RmlUi/Core/Types.h>
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -434,7 +436,7 @@ std::optional<UiStyleLiteralProfile> ui_style_literal_profile(std::string_view p
                                                                 "pre-wrap", "pre-line"};
     static constexpr std::array<std::string_view, 1> normal{"normal"};
     UiStyleLiteralProfile profile;
-    if (property == "color" || property == "background-color")
+    if (property == "color" || property == "background-color" || property == "image-color")
         profile.color = true;
     else if (std::ranges::any_of(std::array{"opacity", "font-size", "width", "height", "padding",
                                             "margin", "left", "top", "right", "bottom"},
@@ -914,6 +916,18 @@ std::vector<UiMarkupControlProperty> control_property_metadata(std::string_view 
             add("wrap", "Line wrapping", Type::Choice, std::string("wrap"), {"wrap", "nowrap"});
         } else
             integer("size", "Width in characters", 20, 1, 4096);
+    } else if (kind == "image") {
+        add("src", "Image source (document relative)", Type::Text, std::string{});
+        add("sprite", "Sprite name (takes precedence)", Type::Text, std::string{});
+        add("rect", "Crop rectangle (x y width height)", Type::Text, std::string{});
+        for (const auto* name : {"width", "height"}) {
+            add(name,
+                std::string_view(name) == "width" ? "Width attribute (0: intrinsic)"
+                                                  : "Height attribute (0: intrinsic)",
+                Type::Number, std::monostate{});
+            result.back().minimum = 0;
+            result.back().minimum_positive = ui_range_minimum_step;
+        }
     } else if (kind == "label") {
         add("for", "Target ID (empty: first child control)", Type::Text, std::string{});
     } else if (kind == "range") {
@@ -938,9 +952,9 @@ std::vector<UiMarkupControlProperty> control_property_metadata(std::string_view 
     } else if (kind != "select" && kind != "button") {
         return {};
     }
-    if (kind != "progress" && kind != "button" && kind != "label")
+    if (kind != "progress" && kind != "button" && kind != "label" && kind != "image")
         add("disabled", "Disabled", Type::Flag, false);
-    if (kind != "progress" && kind != "option" && kind != "label") {
+    if (kind != "progress" && kind != "option" && kind != "label" && kind != "image") {
         add("tab-index", "Keyboard tab stop", Type::Choice, std::monostate{}, {"auto", "none"});
         add("focus", "Focus", Type::Choice, std::monostate{}, {"auto", "none"});
     }
@@ -960,7 +974,31 @@ void validate_control_number(const UiMarkupControlProperty& row, double value) {
     const double normalized = static_cast<float>(value);
     require(!row.minimum || normalized >= *row.minimum, "Control number is below its minimum");
     require(!row.maximum || normalized <= *row.maximum, "Control number is above its maximum");
+    require(!row.minimum_positive || value == 0 || normalized >= *row.minimum_positive,
+            "A positive image dimension must be at least 0.000001");
     require(!row.integer || std::trunc(value) == value, "Use a whole-number control property");
+}
+void validate_image_rectangle(std::string_view literal) {
+    literal = trimmed_control_literal(literal);
+    if (literal.empty())
+        return; // An empty attribute leaves the full image available to the native owner.
+    std::array<float, 4> values{};
+    for (auto& value : values) {
+        const auto first = literal.find_first_not_of(' ');
+        require(first != literal.npos, "Use four space-separated crop numbers: x y width height");
+        literal.remove_prefix(first);
+        const auto end = literal.find(' ');
+        value = parse_ui_range_number(trimmed_control_literal(literal.substr(0, end)));
+        literal = end == literal.npos ? std::string_view{} : literal.substr(end + 1);
+    }
+    require(trimmed_control_literal(literal).empty(),
+            "Use exactly four crop numbers: x y width height");
+    require(values[2] >= ui_range_minimum_step && values[3] >= ui_range_minimum_step,
+            "Crop width and height must be at least 0.000001");
+    const auto size =
+        Rml::Rectanglef::FromPositionSize({values[0], values[1]}, {values[2], values[3]}).Size();
+    require(size.x > 0 && size.y > 0,
+            "Crop edges must remain distinct at native float precision; increase the size");
 }
 } // namespace
 std::vector<std::string> ui_markup_control_property_names() {
@@ -1050,6 +1088,12 @@ UiMarkupControlProperties read_ui_markup_control_properties(std::string_view sou
             continue;
         }
         try {
+            if (row.type == UiControlPropertyType::Number && !literal &&
+                std::holds_alternative<std::monostate>(row.value)) {
+                row.reason = "Intrinsic dimensions require the native image/sprite; enter an "
+                             "attribute override or keep it absent. CSS can override sizing.";
+                continue;
+            }
             if (row.type == UiControlPropertyType::Flag)
                 row.value = row.authored;
             else if (literal) {
@@ -1078,6 +1122,8 @@ UiMarkupControlProperties read_ui_markup_control_properties(std::string_view sou
                 } else {
                     require(literal->size() <= 8192 && literal->find('\0') == literal->npos,
                             "Literal control values above 8192 bytes or containing NUL use Source");
+                    if (result.kind == "image" && row.name == "rect")
+                        validate_image_rectangle(*literal);
                     row.value = *literal;
                 }
             }
@@ -1132,6 +1178,8 @@ set_ui_markup_control_properties(std::string_view source, std::size_t index,
                 require(std::find(row->choices.begin(), row->choices.end(), *text) !=
                             row->choices.end(),
                         "Choose a supported control property value");
+            if (current.kind == "image" && name == "rect")
+                validate_image_rectangle(*text);
             if (row->authored && row->available && row->value == value)
                 continue;
             encoded = *text;

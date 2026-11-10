@@ -1,5 +1,13 @@
 # 2026-11-10
 
+## Image source properties and tint
+
+The shared source panel and MCP properties expose image sources, sprite names,
+crops and size attributes without guessing unloaded intrinsic dimensions.
+image-color uses the existing color control. Native resource registration, sprite
+precedence, aspect sizing, CSS overrides and cooking retain their owners; an
+applied source batch stays one Undo with explicit Save.
+
 ## Source typography literal controls
 
 Inline/group and stylesheet controls share keyword presets for text weight/style,

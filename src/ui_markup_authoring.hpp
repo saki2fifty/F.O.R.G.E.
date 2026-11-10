@@ -19,7 +19,7 @@ struct UiStyleNumber {
 };
 std::optional<UiStyleNumber> read_ui_style_number(std::string_view);
 std::string format_ui_style_number(UiStyleNumber);
-inline constexpr std::array<std::string_view, 20> ui_common_style_properties{"color",
+inline constexpr std::array<std::string_view, 21> ui_common_style_properties{"color",
                                                                              "background-color",
                                                                              "opacity",
                                                                              "font-size",
@@ -38,7 +38,8 @@ inline constexpr std::array<std::string_view, 20> ui_common_style_properties{"co
                                                                              "text-transform",
                                                                              "white-space",
                                                                              "line-height",
-                                                                             "letter-spacing"};
+                                                                             "letter-spacing",
+                                                                             "image-color"};
 // Optional literal input controls, not a native CSS admission/cascade contract.
 // Spans borrow immutable metadata; reading a profile allocates no storage.
 struct UiStyleLiteralProfile {
@@ -163,7 +164,7 @@ struct UiMarkupControlProperty {
     UiControlPropertyType type = UiControlPropertyType::Text;
     std::vector<std::string> choices;
     UiControlPropertyValue value;
-    std::optional<double> minimum, maximum;
+    std::optional<double> minimum, maximum, minimum_positive;
     bool integer = false;
     bool authored = false, available = false, editable = false;
     std::string reason;

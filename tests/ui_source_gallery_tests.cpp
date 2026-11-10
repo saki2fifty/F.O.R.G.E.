@@ -146,11 +146,23 @@ void exercise(const std::filesystem::path& root, const Json& source,
                   typography->GetProperty<float>("line-height") == 120 &&
                   typography->GetProperty<float>("letter-spacing") == .5f,
               "Saved/source-hidden typography literals lost actual native property values");
+        for (const auto& [id, size] : std::array<std::pair<const char*, Rml::Vector2f>, 4>{
+                 {{"native-image", {32, 32}},
+                  {"native-sprite", {32, 32}},
+                  {"native-image-css", {24, 12}},
+                  {"native-image-intrinsic", {2, 1}}}}) {
+            auto* image = document->GetElementById(id);
+            check(image && image->GetBox().GetSize(Rml::BoxArea::Content) == size &&
+                      image->GetProperty<Rml::Colourb>("image-color") ==
+                          Rml::Colourb(128, 255, 64, 255),
+                  "Saved/source-hidden image lost native crop/sprite precedence/aspect/CSS "
+                  "sizing/tint");
+        }
         const auto initial_state = document->GetElementById("state")->GetInnerRML();
         if (initial_state != "Tick 41 / paused 1")
             throw std::runtime_error("Structured text binding result: " + initial_state);
         check(renderer.draws && !renderer.textures.empty() && presenter.asset_snapshot() &&
-                  presenter.asset_snapshot()->sources.size() == 3,
+                  presenter.asset_snapshot()->sources.size() == 4,
               "UI source example lost text draw resources or linked stylesheet");
         check(document->GetElementById("heading")->GetProperty<float>("font-size") == 28,
               "Linked stylesheet layout was not applied");
@@ -654,6 +666,26 @@ int main(int argc, char** argv) {
             atomic_write(root / stylesheet_path,
                          "@font-face {font-family:Lato;src:\"" + path_utf8(face_path) +
                              "\";font-style:italic;font-weight:700;}\n" + *style);
+            {
+                // Original two-pixel white TGA fixture; ordinary import owns decoding/resources.
+                std::array<unsigned char, 24> image{};
+                image[2] = 2;
+                image[12] = 2;
+                image[14] = 1;
+                image[16] = 24;
+                image[17] = 32;
+                std::fill(image.begin() + 18, image.end(), 255);
+                std::ofstream pixels(root / "Assets/UI/SourceAuthoring/Badge.tga",
+                                     std::ios::binary);
+                pixels.write(reinterpret_cast<const char*>(image.data()), image.size());
+                check(bool(pixels), "Image fixture write failed");
+            }
+            const auto with_face = ProjectTextSource::read(root / stylesheet_path);
+            check(with_face.has_value(), "Image fixture stylesheet missing");
+            atomic_write(root / stylesheet_path,
+                         "@spritesheet source-images {src:Badge.tga;source-dot:0px 0px 1px "
+                         "1px;resolution:1x;}\n" +
+                             *with_face);
             const auto saved = ProjectTextSource::read(root / document_path);
             check(saved.has_value(), "Source example document missing");
             auto created = insert_ui_markup_control(*saved, by_id(*saved, "panel"), "input-button",
@@ -724,6 +756,29 @@ int main(int argc, char** argv) {
             text = set_ui_markup_style(
                 text, created.element, "letter-spacing",
                 format_ui_style_literal_number("letter-spacing", {.5, UiStyleUnit::DensityPixels}));
+            for (const auto* id :
+                 {"native-image", "native-sprite", "native-image-css", "native-image-intrinsic"}) {
+                created = insert_ui_markup_control(text, by_id(text, "panel"), "image");
+                text = set_ui_markup_attribute(created.source, created.element, "id", id);
+                text = set_ui_markup_control_properties(text, created.element,
+                                                        {{"src", std::string("Badge.tga")}});
+                if (std::string_view(id) != "native-image-intrinsic") {
+                    const auto crop =
+                        std::string_view(id) == "native-image" ? "0 0 1 1" : "0 0 2 1";
+                    text = set_ui_markup_control_properties(
+                        text, created.element, {{"rect", std::string(crop)}, {"width", 32.0}});
+                }
+                if (std::string_view(id) == "native-sprite")
+                    text = set_ui_markup_control_properties(
+                        text, created.element, {{"sprite", std::string("source-dot")}});
+                if (std::string_view(id) == "native-image-css") {
+                    text =
+                        set_ui_markup_control_properties(text, created.element, {{"height", 16.0}});
+                    text = set_ui_markup_style(text, created.element, "width", "24px");
+                    text = set_ui_markup_style(text, created.element, "height", "12px");
+                }
+                text = set_ui_markup_style(text, created.element, "image-color", "#80ff40ff");
+            }
             atomic_write(root / document_path, text);
             const auto published = register_ui_document(root, document_path);
             for (const auto& row : source.at("entities"))
@@ -750,7 +805,7 @@ int main(int argc, char** argv) {
         const auto moved = scratch / "relocated";
         std::filesystem::rename(scratch / "export", moved);
         const auto catalog = open_runtime_content(moved, {"windows", "d3d12"});
-        check(catalog.records().size() == (forms_only || layout_only ? 3 : 4),
+        check(catalog.records().size() == (forms_only || layout_only ? 3 : 5),
               "UI source package lost/duplicated its closure, including the typography font");
         std::filesystem::rename(root, scratch / "source-offline");
         const auto exported = read_json(moved / catalog.records().at(roots[0]).source);

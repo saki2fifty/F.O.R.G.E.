@@ -1093,6 +1093,80 @@ void control_properties() {
         [&] { set_ui_markup_control_properties(caption, 2, {{"value", std::string("a\0b", 3)}}); });
 }
 
+void image_control_properties() {
+    using namespace forge;
+    using Value = UiControlPropertyValue;
+    const auto read = [](std::string_view source) {
+        return read_ui_markup_control_properties(source, inspect_ui_markup(source), 2);
+    };
+    const auto row = [](const UiMarkupControlProperties& state, std::string_view name) {
+        for (const auto& value : state.properties)
+            if (value.name == name)
+                return value;
+        throw std::runtime_error("Missing image source property");
+    };
+    const std::string source =
+        "<!-- keep --><rml><body><img id='photo' src='old.tga'/><p>Keep</p></body></rml>";
+    const auto before = read(source);
+    check(before.kind == "image" && before.properties.size() == 5 &&
+              row(before, "src").value == Value(std::string("old.tga")) &&
+              !row(before, "width").available && !row(before, "width").authored &&
+              row(before, "width").editable &&
+              std::holds_alternative<std::monostate>(row(before, "width").value),
+          "Image properties guessed unloaded intrinsic dimensions or acquired native form flags");
+    const auto patched = set_ui_markup_control_properties(source, 2,
+                                                          {{"src", std::string("new & safe.tga")},
+                                                           {"sprite", std::string("badge")},
+                                                           {"rect", std::string("0 0 2 1")},
+                                                           {"width", 32.5}});
+    const auto after = read(patched);
+    check(
+        row(after, "src").value == Value(std::string("new & safe.tga")) &&
+            row(after, "sprite").value == Value(std::string("badge")) &&
+            row(after, "rect").value == Value(std::string("0 0 2 1")) &&
+            row(after, "width").value == Value(32.5) && !row(after, "height").available &&
+            patched.starts_with("<!-- keep -->") && patched.find("id='photo'") != patched.npos &&
+            patched.ends_with("<p>Keep</p></body></rml>"),
+        "Image source patch changed unrelated bytes, dropped fallback fields or normalized layout");
+    const auto reset = read(set_ui_markup_control_properties(
+        patched, 2, {{"width", Value{}}, {"rect", Value{}}, {"sprite", Value{}}}));
+    check(!row(reset, "width").authored && !row(reset, "width").available &&
+              !row(reset, "rect").authored && !row(reset, "sprite").authored,
+          "Reset image dimensions materialized an invented default");
+    rejects([&] { set_ui_markup_control_properties(source, 2, {{"width", 1e-45}}); });
+    rejects([&] { set_ui_markup_control_properties(source, 2, {{"width", 1e-300}}); });
+    rejects([&] {
+        set_ui_markup_control_properties(source, 2, {{"rect", std::string("0 0 1e6 1e-45")}});
+    });
+    rejects([&] {
+        set_ui_markup_control_properties(source, 2,
+                                         {{"rect", std::string("1000000 0 0.000001 1")}});
+    });
+    const auto zero = read(set_ui_markup_control_properties(source, 2, {{"width", 0.0}}));
+    check(row(zero, "width").authored && row(zero, "width").value == Value(0.0),
+          "Explicit zero image attribute was confused with an absent source value");
+    for (const auto* invalid : {"0 0 2", "0 0 2 1 5", "0,0,2,1", "0 0 0 1", "0 0 2 -1", "0 0 NaN 1",
+                                "0 0 1000001 1", "0\t0 2 1"})
+        rejects(
+            [&] { set_ui_markup_control_properties(source, 2, {{"rect", std::string(invalid)}}); });
+    for (const auto* valid : {"", "0  0 2 1", "-1 0 2.5 1"})
+        check(row(read(set_ui_markup_control_properties(source, 2, {{"rect", std::string(valid)}})),
+                  "rect")
+                  .available,
+              "Valid bounded crop source literal rejected");
+    rejects([&] {
+        set_ui_markup_control_properties(source, 2,
+                                         {{"src", std::string("other")}, {"width", -1.0}});
+    });
+    rejects([&] { set_ui_markup_control_properties(source, 2, {{"disabled", true}}); });
+    const std::string bound = "<rml><body><img src='old.tga' data-attr-src='bound'/></body></rml>";
+    check(!row(read(bound), "src").editable, "Bound image source advertised literal editing");
+    rejects([&] { set_ui_markup_control_properties(bound, 2, {{"src", std::string("other")}}); });
+    check(ui_style_literal_profile("image-color")->color &&
+              ui_style_literal_profile("image-color")->units.empty(),
+          "Image tint did not reuse the native color literal profile");
+}
+
 void text_control_properties() {
     using namespace forge;
     using Value = UiControlPropertyValue;
@@ -1212,6 +1286,7 @@ int main() {
         common_controls();
         control_properties();
         text_control_properties();
+        image_control_properties();
         std::cout << "Source-preserving outline/attributes and shared validator errors passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

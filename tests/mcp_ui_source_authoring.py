@@ -38,7 +38,7 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
         profile = read('forge_ui_source_style_profile', **guard(), name='font-weight')
         assert profile['known'] and profile['kind'] == 'number' and profile['keywords'] == ['normal', 'bold']
         assert profile['numeric'] == dict(units=[''], minimum=1, maximum=1000, integer=True, initial_literal='400')
-        assert len(profile['common_properties']) == len(set(profile['common_properties'])) == 20
+        assert len(profile['common_properties']) == len(set(profile['common_properties'])) == 21
         assert read('forge_ui_source_read') == before, 'Literal profile query changed the draft'
         unknown = read('forge_ui_source_style_profile', **guard(), name='custom-property')
         assert not unknown['known'] and unknown['numeric'] is None
@@ -118,6 +118,25 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
     assert edit('undo')['text'] == original
     assert read('forge_scene_read') == before_scene
     if properties_only:
+        image = edit('control', parent=index('body'), kind='image')
+        selected = image['selection'][0]
+        profile = read('forge_ui_source_control_properties', **guard(), element=selected)
+        rows = {row['name']: row for row in profile['properties']}
+        assert profile['kind'] == 'image' and len(rows) == 5
+        assert rows['width']['value'] is None and not rows['width']['available'] and rows['width']['editable']
+        assert not rows['width']['authored'] and rows['width']['minimum'] == 0
+        assert 0 < rows['width']['minimum_positive'] <= 0.000001
+        patch = dict(src='badge.tga', sprite='', rect='0 0 2 1', width=32.5)
+        applied = edit('control_values', element=selected, values=patch)
+        for invalid in [dict(src='other.tga', height=16, rect='0 0 0 1'), dict(rect='1000000 0 0.000001 1'), dict(width=-1), dict(height=1e-45), dict(height='2')]:
+            assert not mutate('forge_ui_source_control_values', **guard(), element=selected, values=invalid)['ok']
+            assert read('forge_ui_source_read') == applied, 'Image patch partially published'
+        tint = read('forge_ui_source_style_profile', **guard(), name='image-color')
+        assert tint['known'] and tint['kind'] == 'color' and tint['numeric'] is None
+        assert edit('undo')['text'] == image['text']
+        assert edit('redo')['text'] == applied['text']
+        edit('undo')
+        assert edit('undo')['text'] == original
         for kind in ('text-input', 'password-input', 'textarea', 'label'):
             created = edit('control', parent=index('body'), kind=kind, text='Source & <safe>')
             selected = created['selection'][0]

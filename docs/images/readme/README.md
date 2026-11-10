@@ -3220,3 +3220,19 @@ Native/source-hidden property and actual pinned font-resource checks are separat
 - ui-source-typography-weight.png: `a1e45de11b8bafa4555f10a463fc33d80f688a52e438492e6eff7f39d509b15e`.
 
 - ui-source-typography-rule.png: `8abe12ba0c7f2f73504d5f36b38cfc631e34aa5c4e062adc4ffad62778cebfde`.
+
+## Image source properties and tint
+
+ui-source-image-properties.png and ui-source-image-tint.png are unaltered700×950
+production UiSourceEditor/DocumentWorkspace component captures from
+forge_ui_source_editor_tests --image-properties-only (ui_source_image_properties).
+The real property inputs stage source/crop/size before Apply, and the original
+color picker stages image-color before Set property. The fixture checks one Undo/
+Redo per batch, explicit Save and unchanged Scene/catalog at1180/700/400. Sixraw
+captures retain source/font/executable provenance. These softwareSDL source UI
+views do not establish fullMain/Windows/physicalGPU/DPI acceptance. Native image
+resource, crop/aspect/sprite/CSS/tint and source-hidden tests are separate.
+
+- ui-source-image-properties.png: `6b1660f4791b7ca9c7c134f9a94643ba5a331d763153057363e61e6019ce268a`.
+
+- ui-source-image-tint.png: `ba0a31f21ca4c428d110b38e5a1842499df7b81bac44d80fbb5bb6c0cfec50fe`.

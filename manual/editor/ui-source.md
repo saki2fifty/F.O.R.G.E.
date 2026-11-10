@@ -113,6 +113,7 @@ Supported controls include:
 
 - **Text input** and **Password input**: initial source value, placeholder, maximum length, width in characters, disabled state and focus/tab styles. Initial password text is visible in source; runtime password observations stay redacted.
 - **Text area**: placeholder, maximum length, rows, columns, wrapping, disabled state and focus/tab styles. Edit its initial body through the existing **Text** field; changing dimensions preserves that body.
+- **Image**: source, sprite name, crop rectangle and width/height attributes. Source paths follow the RML document's directory. A nonempty sprite takes precedence over source and crop; a missing sprite does not fall back to source.
 - **Label**: target ID. An empty target uses the first descendant control. Its existing text and nested markup remain unchanged when you set a target.
 - **Checkbox** and **Radio option**: value, initial checked state and disabled state; radios also have a group name.
 - **Dropdown**: disabled and focus/tab styles. Select a **Dropdown option** child to edit its value, initial selection and disabled state. Clear other authored initial flags when you want one initial choice.
@@ -162,6 +163,31 @@ Text controls also retain their existing text and attribute controls. Property
 edits retain unrelated source, IDs and resource references. See
 [Form controls](ui-form-controls.md) for runtime keyboard and agent input.
 
+## Set an image source, crop and size
+
+1. Create an **Image** child, select it in **Elements**, and expand **Control properties**.
+2. Enter **Image source (document relative)**, such as `Badge.tga` for a file beside the RML document. Use the existing import and resource refresh controls to make that image available.
+3. Leave **Sprite name (takes precedence)** empty for an ordinary image. To use a named sprite from an authored stylesheet, enter that name instead. Clear the sprite override to return to the source image.
+4. Optionally enter **Crop rectangle (x y width height)**: four space-separated finite texture-pixel numbers, such as `0 0 32 16`. Crop width and height must be within `0.000001..1000000`; each coordinate's magnitude is at most `1000000`. Crop edges must stay distinct at native float precision; increase a very small crop at a large coordinate if needed. Empty or Reset removes cropping; a named sprite supplies its own crop.
+5. Set positive **Width attribute** or **Height attribute** values to request native sizing. One positive value keeps the image/crop aspect ratio; two positive values set both dimensions. `0` leaves that attribute out of the size request. **Reset property** removes the attribute entirely.
+6. Choose **Apply properties** for one source Undo step, then **Save source**. Refresh the registered document and check **Preview** or **Game** before export.
+
+![UI Source image properties with staged source, crop and size attributes](../images/ui-source-image-properties.png)
+
+Absent image dimensions show an unavailable intrinsic-size reason. The panel does
+not load the texture or guess its dimensions; a new dimension entry starts at `0`
+as an editing proposal. Another positive size attribute can still determine the
+other dimension through the native aspect ratio. Attribute numbers use native float precision: `0` or `0.000001..1000000`. CSS width/height can override these attributes, and display density
+can scale native dimensions. Source values are separate from the displayed size.
+
+For tint, expand **Inline style**, choose `image-color` in **Common**, and use the
+existing **Color** control. Choose **Set property**, then **Save source**. This
+uses the same hex/RGBA, group/rule, Undo and resource ownership as other styles.
+![UI Source image-color tint staged through the existing RGBA color control](../images/ui-source-image-tint.png)
+
+Missing resources or sprite names need correction in the existing import/source/
+stylesheet workflow; changing this panel does not create another texture or sprite.
+
 ## Edit an inline style property
 
 1. Select one widget in **Elements** and expand **Inline style**.
@@ -196,7 +222,7 @@ value controls. Changes to these controls only stage the **CSS value** field.
 Choose **Set property** to change source as one Undo step, then **Save source**
 to save the document. Reading or opening a control does not rewrite source.
 
-- For `color` and `background-color`, a **Color** field appears for `#RRGGBB` and `#RRGGBBAA` values. The last two digits are alpha: `00` is transparent, `ff` is opaque. Edit the hex field or open its swatch to choose a color.
+- For `color`, `background-color` and `image-color`, a **Color** field appears for `#RRGGBB` and `#RRGGBBAA` values. The last two digits are alpha: `00` is transparent, `ff` is opaque. Edit the hex field or open its swatch to choose a color.
 - For common numeric properties, use **Number** and **Unit**. **Unitless** leaves the value without a suffix; `px` means pixels, `dp` means density-scaled pixels and `%` means a percentage relative to the property's CSS reference. Changing the unit keeps the number; it does not convert physical sizes.
 - If the authored value is absent, mixed or uses another CSS form, no color or number is guessed. **New color** stages opaque white; **New number** stages a supported starting value for the selected property. These explicit replacements do not publish source until you choose **Set property**. A group change applies the value to every selected sibling.
 

@@ -18,8 +18,9 @@ template <class F> void rejects(F&& operation) {
     }
     check(rejected, "Invalid source owner operation accepted");
 }
-void exercise(const std::filesystem::path& output, int width, bool text_properties_only = false,
-              bool typography_only = false) {
+enum class SourceControls { All, TextProperties, Typography, ImageProperties };
+void exercise(const std::filesystem::path& output, int width,
+              SourceControls mode = SourceControls::All) {
     using namespace forge;
     const auto root = output / AssetId::generate().str();
     SceneDocument::create_project(root, "UI source editor");
@@ -63,7 +64,56 @@ void exercise(const std::filesystem::path& output, int width, bool text_properti
     const auto old_clipboard = ImGui::GetPlatformIO().Platform_GetClipboardTextFn;
     const auto old_data = ImGui::GetPlatformIO().Platform_ClipboardUserData;
     test::ImGuiInputDriver input(frame);
-    if (typography_only) {
+    if (mode == SourceControls::ImageProperties) {
+        editor.control(1, "image", "");
+        frame();
+        input.click("ui-source:elements-tab");
+        input.click("ui-source:element:3");
+        const auto before = editor.state();
+        input.type("ui-source:control-property:src", "Badge.tga");
+        input.type("ui-source:control-property:rect", "0 0 2 1");
+        input.type("ui-source:control-property:width", "32.5");
+        input.type("ui-source:control-property:height", "16.25");
+        check(editor.state() == before && asset_storage::read(file) == source,
+              "Image property staging changed source/history/disk");
+        frame();
+        capture.save(output / ("ui-source-image-properties-" + std::to_string(width) + ".png"));
+        input.click("ui-source:control-apply");
+        const auto applied = editor.state();
+        check(applied.at("selection") == Json::array({3}) &&
+                  applied.at("text") != before.at("text"),
+              "Image properties did not retain their selected source root");
+        input.click("ui-source:style-open");
+        input.click("ui-source:style-common");
+        input.select("ui-source:style-choice:image-color");
+        const auto before_tint = editor.state();
+        input.click("ui-source:style-new-color");
+        input.type("ui-source:style-color", "80FF40FF");
+        check(editor.state() == before_tint, "Image tint wrote source before Set property");
+        frame();
+        capture.save(output / ("ui-source-image-tint-" + std::to_string(width) + ".png"));
+        input.click("ui-source:style-set");
+        const auto tinted = editor.state();
+        check(editor.read_style(3, "image-color") == "#80ff40" &&
+                  asset_storage::read(file) == source,
+              "Image tint did not share the color/source owner or saved implicitly");
+        input.click("button:Undo");
+        check(editor.state().at("text") == applied.at("text"),
+              "Image tint needed multiple Undo steps");
+        input.click("button:Undo");
+        check(editor.state().at("text") == before.at("text"),
+              "Image property batch needed multiple Undo steps");
+        input.click("button:Redo");
+        input.click("button:Redo");
+        check(editor.state().at("text") == tinted.at("text"), "Image property/tint Redo differs");
+        editor.save(project);
+        check(!editor.dirty() && scene.snapshot() == authored && scene.revision() == revision &&
+                  asset_storage::read(root / "forge.assets.json") == catalog,
+              "Image source Save changed Scene/catalog ownership");
+        editor.request_close();
+        return;
+    }
+    if (mode == SourceControls::Typography) {
         input.click("ui-source:elements-tab");
         input.click("ui-source:element:2");
         const auto open_style = [&] {
@@ -157,7 +207,7 @@ void exercise(const std::filesystem::path& output, int width, bool text_properti
         editor.request_close();
         return;
     }
-    if (text_properties_only) {
+    if (mode == SourceControls::TextProperties) {
         input.click("ui-source:elements-tab");
         for (const auto* kind : {"text-input", "password-input", "textarea", "label"}) {
             editor.control(1, kind, "Initial & <source>");
@@ -994,15 +1044,24 @@ void exercise_stylesheet(const std::filesystem::path& output, int width) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        const bool typography = argc == 3 && std::string_view(argv[2]) == "--typography-only";
-        check(argc == 2 || (argc == 3 &&
-                            (typography || std::string_view(argv[2]) == "--text-properties-only")),
-              "Need capture/scratch directory and optional source control mode");
+        check(argc == 2 || argc == 3, "Need capture/scratch directory and optional control mode");
+        auto mode = SourceControls::All;
+        if (argc == 3) {
+            const auto flag = std::string_view(argv[2]);
+            if (flag == "--typography-only")
+                mode = SourceControls::Typography;
+            else if (flag == "--text-properties-only")
+                mode = SourceControls::TextProperties;
+            else if (flag == "--image-properties-only")
+                mode = SourceControls::ImageProperties;
+            else
+                throw std::runtime_error("Unknown source control mode");
+        }
         const auto output = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(output);
         for (const auto width : {1180, 700, 400}) {
-            exercise(output, width, argc == 3 && !typography, typography);
-            if (argc == 2)
+            exercise(output, width, mode);
+            if (mode == SourceControls::All)
                 exercise_stylesheet(output, width);
         }
         std::cout << "Native UI source controls/history/storage at1180/700/400 passed\n";

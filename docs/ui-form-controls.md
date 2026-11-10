@@ -185,7 +185,7 @@ with the exact native parser and existing Text/source controls.
 ## Literal typography styling
 
 UiStyleLiteralProfile borrows immutable keyword/unit spans for optional source
-input controls. The shared20Common names/profile back inline/group/rule staging
+input controls. The shared21Common names/profile back inline/group/rule staging
 and the read-only style_profile query. Existing color/number formatters and native
 source writers remain authoritative; the helper is not a CSS parser or cascade.
 Ten existing numeric helpers keep all four units and their prior finite envelope.
@@ -202,3 +202,18 @@ pin through a project-relative @font-face, without altering fallback or aliasing
 regular font. Native parsing/rendering checks all adopted style values; no physical
 typography/Windows acceptance is implied. See dependency provenance and the user
 source guide for controls, units, custom values and font prerequisites.
+
+## Image source properties
+
+Image adds src/sprite/rect and float width/height to the same source property
+metadata/candidate owner; it acquires no form disabled flag. Missing dimensions
+carry no invented native value: absent numeric defaults remain null/unavailable
+but editable, with a native-resource/cascade reason. Native positive dimensions,
+sprite precedence, crop/layout/density and CSS overrides are not reimplemented.
+The rect literal helper only validates four finite source numbers and size at least0.000001
+through the existing scalar admission. Image attributes acceptzero orpositive
+values at least0.000001; optionalminimum_positive metadata drives shared validation
+and hints. This bounds native float aspect calculations without copying them. The native rectangle value type validates distinguishable crop edges at float
+precision; UV generation and layout stay in the renderer.
+Data bindings/duplicates/source/current guards and explicit reset/Save apply as
+for other profiles. image-color reuses the original color literal/staging owner.

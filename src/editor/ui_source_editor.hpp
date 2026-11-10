@@ -625,6 +625,11 @@ class UiSourceEditor {
         ImGui::TextUnformatted(control_property_view_.label.c_str());
         ImGui::TextWrapped(
             "Authored source values. Changes are staged: Apply properties, then Save source.");
+        if (control_property_view_.kind == "image")
+            ImGui::TextWrapped(
+                "A nonempty sprite takes precedence over source and crop. "
+                "Dimensions are authored attributes; CSS and the loaded image "
+                "determine the displayed size. Zero leaves native intrinsic sizing.");
         for (const auto& row : control_property_view_.properties) {
             ImGui::PushID(row.name.c_str());
             ImGui::Separator();
@@ -632,6 +637,8 @@ class UiSourceEditor {
                 ImGui::TextUnformatted(row.label.c_str());
             if (row.integer && row.minimum && row.maximum)
                 ImGui::TextDisabled("Whole number: %.0f..%.0f", *row.minimum, *row.maximum);
+            if (row.minimum_positive)
+                ImGui::TextDisabled("Positive minimum: %.6g", *row.minimum_positive);
             const auto edit = control_property_edits_.find(row.name);
             const bool reset = edit != control_property_edits_.end() &&
                                std::holds_alternative<std::monostate>(edit->second);
