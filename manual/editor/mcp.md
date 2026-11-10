@@ -195,6 +195,24 @@ Deltas clamp at source bounds as with dragging; invalid snapped bounds refuse.
 Zero delta is a no-op. The complete native result validates before one Undo and
 selection update; Save remains explicit. See [mouse layout gestures](ui-source.md).
 
+To change the editor's selection, call `forge_ui_source_select` with current
+source guards and `elements`, an ordered list of zero to 32 distinct source
+indices. Empty clears the selection; the last member is active. This operation
+does not need a native preview.
+
+For rectangle selection, call `forge_ui_source_select_rectangle` with the current
+source and preview guards and `left`, `top`, `width`, `height` in native viewport
+pixels. The rectangle must be nonnegative and fit inside Preview. The tool selects
+fully enclosed, visible, uniquely named source elements in source order. Use
+`add:true` to preserve existing members and append new ones. A zero-area rectangle
+matches nothing. The complete result must fit the 32-member limit; a refusal
+retains the prior selection. Metadata-only hosts support this operation.
+
+Both selection tools require `assets.write` and the ordinary mutation envelope.
+They update the same selection shown in Elements and Preview without changing
+source revision, dirty state, Undo or Scene history. Selection does not grant
+layout editability; later authoring tools still validate their own prerequisites.
+
 To inspect the rendered draft, grant an output folder and call
 `forge_capture_ui_source`. Its `path` selects the output file inside that folder;
 its nested `source` contains the current source `path`, `session`, `revision`,

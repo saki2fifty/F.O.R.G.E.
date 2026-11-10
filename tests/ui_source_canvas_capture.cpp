@@ -472,6 +472,81 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
     toggle(760, 260);
     require(editor.state().at("selection").size() == 3,
             "Precision drag fixture did not restore the original group");
+    const auto selection_start = editor.state();
+    const auto members = selection_start.at("selection").get<std::vector<std::size_t>>();
+    input.click("ui-source:box-select");
+    enum class BoxCancel { None, Escape, Focus, Lock };
+    const auto box_select = [&](float x1, float y1, float x2, float y2, bool add,
+                                BoxCancel cancel = BoxCancel::None, const char* image = "") {
+        const auto canvas = test::ui_targets.at("ui-source:canvas");
+        const float fitted = (canvas.maximum.x - canvas.minimum.x) / 1000;
+        io.AddMousePosEvent(canvas.minimum.x + x1 * fitted, canvas.minimum.y + y1 * fitted);
+        io.AddKeyEvent(ImGuiMod_Ctrl, add);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMousePosEvent(canvas.minimum.x + x2 * fitted, canvas.minimum.y + y2 * fitted);
+        frame();
+        require(editor.gesture_active() && editor.state().at("text") == selection_start.at("text"),
+                "Rectangle selection changed source before release");
+        try {
+            editor.selection({});
+            throw std::runtime_error("Selection accepted during a native rectangle gesture");
+        } catch (const AuthoringError&) {
+        }
+        if (*image)
+            surface.save(output / (std::string("ui-source-") + image + "-" + std::to_string(width) +
+                                   ".png"));
+        if (cancel == BoxCancel::Escape) {
+            io.AddKeyEvent(ImGuiKey_Escape, true);
+            frame();
+            io.AddKeyEvent(ImGuiKey_Escape, false);
+        } else if (cancel == BoxCancel::Focus) {
+            io.AddFocusEvent(false);
+            frame();
+            io.AddFocusEvent(true);
+        } else if (cancel == BoxCancel::Lock) {
+            source_locked = true;
+            frame();
+            source_locked = false;
+        }
+        io.AddMouseButtonEvent(0, false);
+        frame();
+        io.AddKeyEvent(ImGuiMod_Ctrl, false);
+        frame();
+        frame();
+        require(!editor.gesture_active() && scene.snapshot() == authored,
+                "Rectangle selection retained a gesture or changed Scene state");
+        for (const auto* key : {"text", "revision", "state", "dirty", "can_undo", "can_redo"})
+            require(editor.state().at(key) == selection_start.at(key),
+                    "Rectangle selection changed source/history");
+    };
+    box_select(425, 135, 655, 285, false);
+    require(editor.state().at("selection") == Json::array({members[1]}),
+            "Rectangle replacement did not select its fully enclosed panel");
+    box_select(55, 85, 365, 315, true);
+    require(editor.state().at("selection") == Json::array({members[1], members[0]}),
+            "Additive rectangle selection lost existing member order");
+    box_select(950, 370, 50, 80, false, BoxCancel::None, "box-drag");
+    require(editor.state().at("selection") == selection_start.at("selection"),
+            "Reverse rectangle did not select all panels in source order");
+    surface.save(output / ("ui-source-box-selection-" + std::to_string(width) + ".png"));
+    for (const auto cancel : {BoxCancel::Escape, BoxCancel::Focus, BoxCancel::Lock}) {
+        box_select(425, 135, 655, 285, false, cancel);
+        require(editor.state().at("selection") == selection_start.at("selection"),
+                "Cancelled rectangle changed selection membership");
+    }
+    box_select(470, 180, 470, 180, false);
+    require(editor.state().at("selection") == Json::array({members[1]}),
+            "Box-mode click did not select its hit control");
+    box_select(760, 260, 760, 260, true);
+    require(editor.state().at("selection") == Json::array({members[1], members[2]}),
+            "Box-mode Ctrl-click did not add its hit control");
+    box_select(470, 180, 470, 180, true);
+    require(editor.state().at("selection") == Json::array({members[2]}),
+            "Box-mode Ctrl-click did not remove its hit control");
+    box_select(50, 80, 950, 370, false);
+    input.click("ui-source:box-select");
     input.click("ui-source:preview-save-image");
     const auto wait = [&] {
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);

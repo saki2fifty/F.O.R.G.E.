@@ -1,8 +1,9 @@
 """Native UI source ownership through the actual MCP workflow host."""
 from mcp_test_client import failed
+from mcp_ui_source_selection import check_selection
 
 
-def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False, placement_only=False, sizing_only=False, transforms_only=False):
+def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False, placement_only=False, sizing_only=False, transforms_only=False, selection_only=False):
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
@@ -10,6 +11,7 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                  'rule_property', 'rule_selector', 'rule_insert', 'rule_remove',
                  'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control', 'control_properties', 'control_values', 'style_profile', 'place_control', 'transform')}
     assert required <= advertised.keys()
+    assert {'forge_ui_source_select', 'forge_ui_source_select_rectangle'} <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
         ok('forge_source_folder_create', path='Assets')
@@ -33,6 +35,9 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                     if node['tag'] == tag)
 
     paragraph = index('p')
+    if selection_only:
+        check_selection(read, ok, mutate, root, advertised, client, arguments, guard, edit, path)
+        return
     if sizing_only or transforms_only:
         edit('save')
         ok('forge_source_ui_register', path=path)

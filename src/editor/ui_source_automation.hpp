@@ -309,7 +309,8 @@ struct UiSourceAutomation {
             "Preview the observed registered RML draft while Play is stopped, without saving, "
             "publishing metadata or executing gameplay bindings. Reloads saved linked "
             "dependencies. "
-            "Returns native border boxes, source indices, editable flags/reasons and a transient "
+            "Returns native border boxes, visibility/ID uniqueness, source indices, editable "
+            "flags/reasons and a transient "
             "preview instance/revision for atomic layout edits. At most512 unique-ID observations, "
             "128-byte IDs and2048x2048 physical pixels; density0.5..4. A failed candidate retains "
             "last-good pixels and marks geometry stale. Metadata-only hosts need no GPU image.",
@@ -324,6 +325,58 @@ struct UiSourceAutomation {
             }));
         if (!permissions.assets)
             return result;
+        for (const bool rectangle : {false, true}) {
+            auto properties = guard;
+            auto fields = required;
+            if (rectangle) {
+                for (const auto* name : {"left", "top", "width", "height"}) {
+                    properties[name] = {{"type", "number"}, {"minimum", 0}, {"maximum", 2048}};
+                    fields.push_back(name);
+                }
+                properties["add"] = {{"type", "boolean"}, {"default", false}};
+                properties["preview_instance"] = automation_uuid();
+                properties["preview_revision"] = automation_integer();
+                fields.push_back("preview_instance");
+                fields.push_back("preview_revision");
+            } else {
+                properties["elements"] =
+                    automation_array(automation_integer(0, 8191), ui_source_selection_limit, 0);
+                fields.push_back("elements");
+            }
+            result.push_back(automation_method(
+                rectangle ? "ui.source.select_rectangle" : "ui.source.select",
+                std::string(rectangle
+                                ? "Select visible uniquely named source elements whose complete "
+                                  "native border boxes fit inside the viewport rectangle. Requires "
+                                  "current source and native preview guards; metadata-only hosts "
+                                  "are supported. Native viewport pixels, nonnegative coordinates/"
+                                  "sizes, entirely inside Preview. Zero area matches nothing. "
+                                  "Default replaces selection in source order; add=true preserves "
+                                  "existing order and appends new members in source order. "
+                                : "Replace the ordered source element selection with0..32 distinct "
+                                  "current RML element indices. Empty clears; last is active. "
+                                  "Requires current source guards; no native preview is needed. ") +
+                    "Uses the same selection as Elements and Preview. At most32 total members; "
+                    "invalid, stale or oversized results refuse atomically. Requires assets.write "
+                    "and the ordinary mutation envelope/replay. Selection does not change source "
+                    "revision, dirty state, Undo, Save, registration or Scene history. Selecting "
+                    "an element does not make its layout/style editable.",
+                "assets.write", automation_object(std::move(properties), std::move(fields)), true,
+                [&files, &editor, ready, rectangle](const Json& request) {
+                    ready();
+                    observed(editor, files.document, request);
+                    if (rectangle)
+                        editor.select_rectangle(
+                            {request.at("left").get<float>(), request.at("top").get<float>(),
+                             request.at("width").get<float>(), request.at("height").get<float>()},
+                            request.value("add", false),
+                            request.at("preview_instance").get<std::string>(),
+                            request.at("preview_revision").get<std::uint64_t>());
+                    else
+                        editor.selection(request.at("elements").get<std::vector<std::size_t>>());
+                    return state(editor, files.document);
+                }));
+        }
         auto layout_properties = guard;
         layout_properties["element"] = automation_integer(0, 8191);
         layout_properties["preview_instance"] = automation_uuid();

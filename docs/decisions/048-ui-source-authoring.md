@@ -121,6 +121,19 @@ last good candidate. Grid spacing has one Preview control, with no persisted
 settings or parallel coordinate authority. General group scaling remains outside
 the profile.
 
+Rectangle and programmatic selection use the existing ordered source selection
+owner and 32-member limit. The native observation producer reports visibility and
+ID uniqueness from its established native traversal. Rectangle selection fully
+encloses visible, unambiguously source-bound border boxes, sorted in source order;
+additive selection retains old order and appends new members. Source-only index
+selection needs source guards, while rectangles also reborrow native preview
+guards. Neither creates source history or persisted selection. The explicit Box
+select mode preserves default layout dragging and excludes placement mode. Its
+transient rectangle cancels at existing source/view/focus/lock/close boundaries;
+release dispatches through the existing deferred Preview envelope before image
+submission, preserving preview image lifetime. No DOM writer or second selection
+manager is introduced.
+
 Static subtree duplication and sibling-group removal extend these same source
 range, selection and history owners. Duplication retains original source/IDs and
 assigns collision-checked prefix IDs only to the new raw fragment. Literal internal

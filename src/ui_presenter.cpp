@@ -1370,12 +1370,14 @@ Json UiPresenter::preview_layout() const {
              !std::isfinite(size.y) || size.x <= 0 || size.y <= 0) &&
             reason.empty())
             reason = "Element has no finite visible border box";
-        if (!element->IsVisible(true) && reason.empty())
+        const bool visible = element->IsVisible(true);
+        if (!visible && reason.empty())
             reason = "Element is hidden in this static preview";
         const auto padding_origin = element->GetAbsoluteOffset(Rml::BoxArea::Padding);
         const auto padding_size = element->GetBox().GetSize(Rml::BoxArea::Padding);
         elements.push_back({{"id", id},
                             {"tag", element->GetTagName()},
+                            {"visible", visible},
                             {"bounds", {offset.x, offset.y, size.x, size.y}},
                             {"padding_bounds",
                              {padding_origin.x, padding_origin.y, padding_size.x, padding_size.y}},
@@ -1383,7 +1385,9 @@ Json UiPresenter::preview_layout() const {
                             {"reason", reason}});
     }
     for (auto& element : elements) {
-        if (ids.at(element.at("id").get<std::string>()) != 1)
+        const bool unique = ids.at(element.at("id").get<std::string>()) == 1;
+        element["id_unique"] = unique;
+        if (!unique)
             element["reason"] = "Canvas selection requires a unique element ID";
         element["editable"] = element.at("reason") == "";
     }

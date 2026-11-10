@@ -2747,7 +2747,7 @@ reads no computed state and changes no selection/history/source/registration.
 
 The same immutable metadata powers inline/group and stylesheet literal controls.
 Native source candidates and old mutation/query results are unchanged. Including
-this query and native-preview placement, there are38source operations. Style/preset staging
+this query and native-preview placement, there are40source operations. Style/preset staging
 publishes only through the original Set/Remove/Undo/Save and guarded MCP owners.
 
 Source control metadata includes an image profile: src/sprite/rect strings and
@@ -2760,19 +2760,19 @@ no new resource/URI/texture manager or live image mutation tool is introduced.
 Rect is empty or four space-separated finite bounded floats x/y/width/height with
 size at least0.000001 and distinct native-float crop edges. These finite source envelopes keep native aspect
 calculations within float range without duplicating their layout algorithm. Image tint uses the existing color profile and style mutation.
-Source operations total38 and creation kinds18; Commonmenu has53 properties.
+Source operations total40 and creation kinds18; Commonmenu has53 properties.
 
 style_profile includes responsive layout metadata: display, flex-direction/wrap,
 justify-content, align-content/items/self, flex-grow/shrink/basis, row/column-gap
 and min/max width/height. Keyword lists are a convenience subset of native CSS;
 number metadata accurately lists units and nonnegative bounds. Existing guarded
 style, style_group and rule_property operations author these values; the tool
-count is38, and control creation kinds stay18. Queries are source-only and
+count is40, and control creation kinds stay18. Queries are source-only and
 cannot establish computed geometry or initialize a renderer.
 
 Box style profiles extend the same query with position/box-sizing/axis overflow,
 side padding/margin and simple border width/color/radius controls. Common has53
-entries; source operations total38, control kinds18, grants/history/replay and
+entries; source operations total40, control kinds18, grants/history/replay and
 schema ownership unchanged. The Common search field has no programmatic authoring
 semantics: agents query profiles and use existing style/group/rule mutations.
 Raw multi-value source remains supported and is not normalized by the profiles.
@@ -2790,7 +2790,7 @@ Pixel setup refuses breaks/options, requires ID and rejects bound ancestors.
 It does not initialize a renderer, register assets, create a persistent identity
 or bypass native Preview eligibility. The selected new root, one Undo, explicit
 Save, grants/revisions/replay and Scene isolation retain existing owners. There
-are38 source operations/18creation kinds; the existing layout schema remains
+are40 source operations/18creation kinds; the existing layout schema remains
 unchanged. No separate creation path is maintained for MCP clients.
 
 ## Native-preview control placement
@@ -2839,3 +2839,28 @@ membership and native clamping cannot partly publish. Receipt replay applies onc
 Native gestures use the same projection and candidate validator, retaining each
 new frame before geometry refusal. This adds no runtime input, Scene history,
 resource registration, general group resize, SDK/profile or persistence change.
+
+
+## Native source selection
+
+`ui.source.select` / `forge_ui_source_select` replaces the existing ordered source
+selection with `elements` (0..32 distinct current RML indices). Empty clears;
+last is active. It requires current source guards but no native initialization.
+`ui.source.select_rectangle` / `forge_ui_source_select_rectangle` also requires
+current native preview instance/revision. Its required `left`, `top`, `width`,
+`height` are nonnegative native viewport pixels; the entire rectangle must fit
+Preview. Optional `add` defaults false. Zero area matches nothing.
+
+Rectangle selection includes fully enclosed visible border boxes with unique IDs
+and unambiguous source bindings, regardless of their layout-editability flag.
+Native observations expose `visible` and `id_unique`; existing editable reasons
+remain authoritative for layout edits. Replacement sorts by source index. Addition
+keeps old order and appends new members in source order. Invalid/stale rectangles,
+indices, duplicate indices or results over32 refuse without changing selection.
+
+Both tools require assets.write, the ordinary mutation envelope and existing
+source-task/gesture locks. Receipt replay returns its original result without
+reapplying selection. They use the same source selection owner as Elements and
+Preview and leave source revision/digest/dirty/Undo/Save/catalog/Scene unchanged.
+There are40source operations. No runtime widget input or persisted selection is
+introduced; selected elements still need each authoring operation's admission.

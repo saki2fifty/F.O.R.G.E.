@@ -59,7 +59,8 @@ UI_TYPOGRAPHY_ONLY = sys.argv[7:] == ['--ui-typography-only']
 UI_PLACEMENT_ONLY = sys.argv[7:] == ['--ui-placement-only']
 UI_SIZING_ONLY = sys.argv[7:] == ['--ui-sizing-only']
 UI_TRANSFORMS_ONLY = sys.argv[7:] == ['--ui-transforms-only']
-UI_SOURCE_ONLY = sys.argv[7:] == ['--ui-source-only'] or UI_CONTROL_PROPERTIES_ONLY or UI_TYPOGRAPHY_ONLY or UI_PLACEMENT_ONLY or UI_SIZING_ONLY or UI_TRANSFORMS_ONLY
+UI_SELECTION_ONLY = sys.argv[7:] == ['--ui-selection-only']
+UI_SOURCE_ONLY = sys.argv[7:] == ['--ui-source-only'] or UI_CONTROL_PROPERTIES_ONLY or UI_TYPOGRAPHY_ONLY or UI_PLACEMENT_ONLY or UI_SIZING_ONLY or UI_TRANSFORMS_ONLY or UI_SELECTION_ONLY
 UI_TEXT_SHAPING_ONLY = sys.argv[7:] == ['--ui-text-shaping-only']
 UI_FIELDS_SDK = sys.argv[7:] in (['--ui-fields-sdk-only'], ['--ui-forms-sdk-only'])
 UI_FORMS_ONLY = sys.argv[7:] in (['--ui-forms-only'], ['--ui-forms-sdk-only'])
@@ -466,7 +467,7 @@ for legacy in selected_protocols:
                   'stale digest, Save/discard, Scene isolation and grant discovery passed')
             continue
         if UI_SOURCE_ONLY:
-            check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=UI_CONTROL_PROPERTIES_ONLY, typography_only=UI_TYPOGRAPHY_ONLY, placement_only=UI_PLACEMENT_ONLY, sizing_only=UI_SIZING_ONLY, transforms_only=UI_TRANSFORMS_ONLY)
+            check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=UI_CONTROL_PROPERTIES_ONLY, typography_only=UI_TYPOGRAPHY_ONLY, placement_only=UI_PLACEMENT_ONLY, sizing_only=UI_SIZING_ONLY, transforms_only=UI_TRANSFORMS_ONLY, selection_only=UI_SELECTION_ONLY)
             with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
                 visible = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
                 assert 'forge_ui_source_read' in visible and 'forge_ui_source_open' not in visible
@@ -478,6 +479,10 @@ for legacy in selected_protocols:
                 assert 'forge_ui_source_control' not in visible
                 assert 'forge_ui_source_place_control' not in visible
                 assert 'forge_ui_source_transform' not in visible
+                for name in ('forge_ui_source_select', 'forge_ui_source_select_rectangle'):
+                    assert name not in visible
+                    denied = readonly.request('tools/call', dict(name=name, arguments={}))
+                    assert 'error' in denied or denied['result']['isError'], denied
                 assert 'forge_ui_source_style_profile' in visible
                 assert 'forge_ui_source_control_properties' in visible
                 assert 'forge_ui_source_control_values' not in visible

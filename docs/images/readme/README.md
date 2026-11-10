@@ -3336,10 +3336,10 @@ The existing25Source component images remain byte-identical. Exact input/executa
 and raw capture digests are in the local preview-placement evidence owner.
 No full Main, Windows, physical GPU/input or display-density acceptance is implied.
 
-- `ui-source-preview.png`: `3a61a5e66784d31423fbf5ba5f647f6c8fe784b37e129c09575e8afc69168495`.
-- `ui-source-group-layout.png`: `74c08827e5ccfd2377fbab762798abb51c2ce458e3e12267d48a8d61c06007ed`.
-- `ui-source-place-control.png`: `b2b6c75d5c4793f4f0652eb71daae7f973853427b8bf00ebebe98aca3713a642`.
-- `ui-source-placed-control.png`: `5e77dda6c4beeb63faf093c15a6bac10690db8ffab44d842eb84366514cc4a60`.
+- `ui-source-preview.png`: `6620ea20f0e7f635aa16dde9e7c13bb444790b60635cbf9e4d52471102c9e96f`.
+- `ui-source-group-layout.png`: `3ac38a75c42d4b0117a23c3612286cdb7517c9f037cc957d6089fc4eaac14ccc`.
+- `ui-source-place-control.png`: `50e47038951b178d9ccc320be4b7ef885a27f2c59ad4902f355cb2a4b5b642dd`.
+- `ui-source-placed-control.png`: `f88427548aa8a1c0eb384169696c1ee5a18a7df7ed01e3634618df82df3e105e`.
 
 ## Native Preview group sizing capture
 
@@ -3357,7 +3357,7 @@ Current graphical gate covers native rendering, actual controls and both MCP ima
 protocols. Input/executable/raw image digests belong to the local group-sizing
 evidence owner. No full Main/Windows/physical-device acceptance is implied.
 
-PNG SHA256: `af5d21a82cbf51a7f1812cb60be743b10e97341c5b090d06afb682706591dd87`.
+PNG SHA256: `4853f7fe985b5cf0083957961be9bc3c0f36715c02c3b97ef677a02c0819eebd`.
 
 ## Precise UI canvas positioning captures
 
@@ -3377,14 +3377,14 @@ retain their frozen attribution. Exact input/executable/raw image digests belong
 to the local pixel-positioning evidence owner. No full Main, Windows, physical
 input/GPU or density acceptance is implied.
 
-- `ui-source-grid.png`: `1e0006485008c45e32a19d4ef834c07ceef20743214a785a1d3d33702c1483d4`.
-- `ui-source-keyboard.png`: `9a98e5f557ff81bb2542a23b7cd91b28ac691f05a97c8e90b534abc6bf7cc445`.
+- `ui-source-grid.png`: `49f270b19c6cf119af84424ca629185fd64c5a377958574cc4b2fe8ccc6502f1`.
+- `ui-source-keyboard.png`: `adf07db8e630cf464a2884f6a3b303f00494a3dd70c9bcf5564e2c9bb42eac9c`.
 
-Refreshed `ui-source-preview.png`: `3a61a5e66784d31423fbf5ba5f647f6c8fe784b37e129c09575e8afc69168495`.
+Refreshed `ui-source-preview.png`: `6620ea20f0e7f635aa16dde9e7c13bb444790b60635cbf9e4d52471102c9e96f`.
 
-Refreshed `ui-source-place-control.png`: `b2b6c75d5c4793f4f0652eb71daae7f973853427b8bf00ebebe98aca3713a642`.
+Refreshed `ui-source-place-control.png`: `50e47038951b178d9ccc320be4b7ef885a27f2c59ad4902f355cb2a4b5b642dd`.
 
-Refreshed `ui-source-placed-control.png`: `5e77dda6c4beeb63faf093c15a6bac10690db8ffab44d842eb84366514cc4a60`.
+Refreshed `ui-source-placed-control.png`: `f88427548aa8a1c0eb384169696c1ee5a18a7df7ed01e3634618df82df3e105e`.
 
 ## Precise mouse layout gesture captures
 
@@ -3403,19 +3403,55 @@ Preview images. Prior25Source CPU images keep their frozen attribution. Exact
 source/executable/raw image and graphical gate digests belong to the local drag
 precision evidence owner. No full Main, Windows or physical acceptance is implied.
 
-- `ui-source-drag-grid.png`: `a9e5276475c2879d9097a1d8b2890ba09b4d1d499f28c60d310853ab5db4dc1f`.
-- `ui-source-drag-aspect.png`: `4811ce4b14b74ab2dea04501f652e1ffd3c7f7d0fb1edc64444846f13dab3a72`.
+- `ui-source-drag-grid.png`: `7d3739da113a85893a5a5ef2a68905c64293dd469e11c2271c239321ae5a37ea`.
+- `ui-source-drag-aspect.png`: `417b6fe6f712a9032eb0effc493d491bf14e2564bc03032478c521f37d3b98b6`.
 
-Refreshed `ui-source-preview.png`: `3a61a5e66784d31423fbf5ba5f647f6c8fe784b37e129c09575e8afc69168495`.
+Refreshed `ui-source-preview.png`: `6620ea20f0e7f635aa16dde9e7c13bb444790b60635cbf9e4d52471102c9e96f`.
 
-Refreshed `ui-source-group-layout.png`: `74c08827e5ccfd2377fbab762798abb51c2ce458e3e12267d48a8d61c06007ed`.
+Refreshed `ui-source-group-layout.png`: `3ac38a75c42d4b0117a23c3612286cdb7517c9f037cc957d6089fc4eaac14ccc`.
 
-Refreshed `ui-source-place-control.png`: `b2b6c75d5c4793f4f0652eb71daae7f973853427b8bf00ebebe98aca3713a642`.
+Refreshed `ui-source-place-control.png`: `50e47038951b178d9ccc320be4b7ef885a27f2c59ad4902f355cb2a4b5b642dd`.
 
-Refreshed `ui-source-placed-control.png`: `5e77dda6c4beeb63faf093c15a6bac10690db8ffab44d842eb84366514cc4a60`.
+Refreshed `ui-source-placed-control.png`: `f88427548aa8a1c0eb384169696c1ee5a18a7df7ed01e3634618df82df3e105e`.
 
-Refreshed `ui-source-group-sizing.png`: `af5d21a82cbf51a7f1812cb60be743b10e97341c5b090d06afb682706591dd87`.
+Refreshed `ui-source-group-sizing.png`: `4853f7fe985b5cf0083957961be9bc3c0f36715c02c3b97ef677a02c0819eebd`.
 
-Refreshed `ui-source-grid.png`: `1e0006485008c45e32a19d4ef834c07ceef20743214a785a1d3d33702c1483d4`.
+Refreshed `ui-source-grid.png`: `49f270b19c6cf119af84424ca629185fd64c5a377958574cc4b2fe8ccc6502f1`.
 
-Refreshed `ui-source-keyboard.png`: `9a98e5f557ff81bb2542a23b7cd91b28ac691f05a97c8e90b534abc6bf7cc445`.
+Refreshed `ui-source-keyboard.png`: `adf07db8e630cf464a2884f6a3b303f00494a3dd70c9bcf5564e2c9bb42eac9c`.
+
+## UI rectangle selection captures
+
+The box-drag and box-selection images are unretouched700×950 production
+SourceEditor outputs during and after a real mouse rectangle. The translucent
+rectangle encloses named visible panels; existing selection remains until release.
+Native input at1180/700 verifies replacement, additive/source order, reverse drag,
+click/Ctrl-click, unchanged source/history and busy/Escape/focus/task-lock refusal.
+
+Capture source is local development based on32d4bcb with rectangle selection.
+Native softwareVulkan pixels are read back into the SDL component surface. The
+Box select toolbar refreshes existing Preview captures. Prior25Source CPU images
+retain their frozen attribution, with no unrelated oldGUI rerun claim. Exact input,
+executable/raw image digests and graphical receipts remain in the local selection
+evidence owner. No full Main, Windows or physical acceptance is implied.
+
+- `ui-source-box-drag.png`: `c9e73d68bc56f57830ee8ce6a84d1b878f8a3b73524cff741c032332802f915d`.
+- `ui-source-box-selection.png`: `0db1374277daa1770b9399f732fcf638a0c516623cbec349af6ab4b4eb9f07d8`.
+
+Refreshed `ui-source-preview.png`: `6620ea20f0e7f635aa16dde9e7c13bb444790b60635cbf9e4d52471102c9e96f`.
+
+Refreshed `ui-source-group-layout.png`: `3ac38a75c42d4b0117a23c3612286cdb7517c9f037cc957d6089fc4eaac14ccc`.
+
+Refreshed `ui-source-place-control.png`: `50e47038951b178d9ccc320be4b7ef885a27f2c59ad4902f355cb2a4b5b642dd`.
+
+Refreshed `ui-source-placed-control.png`: `f88427548aa8a1c0eb384169696c1ee5a18a7df7ed01e3634618df82df3e105e`.
+
+Refreshed `ui-source-group-sizing.png`: `4853f7fe985b5cf0083957961be9bc3c0f36715c02c3b97ef677a02c0819eebd`.
+
+Refreshed `ui-source-grid.png`: `49f270b19c6cf119af84424ca629185fd64c5a377958574cc4b2fe8ccc6502f1`.
+
+Refreshed `ui-source-keyboard.png`: `adf07db8e630cf464a2884f6a3b303f00494a3dd70c9bcf5564e2c9bb42eac9c`.
+
+Refreshed `ui-source-drag-grid.png`: `7d3739da113a85893a5a5ef2a68905c64293dd469e11c2271c239321ae5a37ea`.
+
+Refreshed `ui-source-drag-aspect.png`: `417b6fe6f712a9032eb0effc493d491bf14e2564bc03032478c521f37d3b98b6`.

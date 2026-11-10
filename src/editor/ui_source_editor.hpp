@@ -57,10 +57,14 @@ class UiSourceEditor {
         std::string kind, text, id;
         UiPixelLayout viewport;
     };
+    struct RectangleSelection {
+        UiPixelLayout viewport;
+        bool add;
+    };
     struct PreviewEdit {
         std::string session, instance;
         std::uint64_t source_revision, preview_revision;
-        std::variant<ControlPlacement, std::vector<UiMarkupLayoutEdit>> action;
+        std::variant<ControlPlacement, RectangleSelection, std::vector<UiMarkupLayoutEdit>> action;
     };
     std::optional<PreviewEdit> pending_preview_edit_;
     void cancel_placement() {
@@ -101,9 +105,22 @@ class UiSourceEditor {
         UiSourcePreviewFrame frame;
     };
     std::optional<LayoutGesture> gesture_;
+    struct SelectionMarquee {
+        std::string session, instance;
+        std::uint64_t revision, preview_revision;
+        ImVec2 pointer, origin;
+        float scale;
+        bool add, dragged = false;
+    };
+    std::optional<SelectionMarquee> marquee_;
+    bool box_select_ = false;
+    void cancel_gesture() {
+        gesture_.reset();
+        marquee_.reset();
+    }
 
     void changed() {
-        gesture_.reset();
+        cancel_gesture();
         cancel_preview_edit();
         outline_drag_active_ = false;
         const auto text = editor_.GetText();
@@ -134,7 +151,8 @@ class UiSourceEditor {
             throw AuthoringError("source_scope", "Open a UI source in the current project first");
     }
     void finish_close() {
-        gesture_.reset();
+        cancel_gesture();
+        box_select_ = false;
         cancel_preview_edit();
         outline_drag_active_ = elements_active_ = false;
         ++drag_epoch_;
@@ -804,26 +822,44 @@ class UiSourceEditor {
         read_class_controls();
         read_control_property_controls();
     }
-    void select(std::size_t index, bool toggle = false) {
-        if (index >= outline_.size())
-            throw AuthoringError("source_element", "Select a current source element");
-        hierarchy_parent_ = hierarchy_before_ = UiMarkupElement::no_parent;
-        if (!toggle)
-            selected_.assign(1, index);
-        else if (const auto found = std::ranges::find(selected_, index); found != selected_.end())
-            selected_.erase(found);
-        else {
-            if (selected_.size() == ui_source_selection_limit)
-                throw AuthoringError("layout_selection", "Select at most32 elements");
-            selected_.push_back(index);
+    void set_selection(std::span<const std::size_t> indices) {
+        if (indices.size() > ui_source_selection_limit)
+            throw AuthoringError("layout_selection", "Select at most 32 elements");
+        for (std::size_t i = 0; i < indices.size(); ++i) {
+            if (indices[i] >= outline_.size())
+                throw AuthoringError("source_element", "Select a current source element");
+            if (std::ranges::find(indices.first(i), indices[i]) != indices.first(i).end())
+                throw AuthoringError("layout_selection", "Select distinct source elements");
         }
+        auto candidate = std::vector<std::size_t>(indices.begin(), indices.end());
+        hierarchy_parent_ = hierarchy_before_ = UiMarkupElement::no_parent;
+        selected_ = std::move(candidate);
         selection_controls();
     }
+    void select(std::size_t index, bool toggle = false) {
+        auto candidate = selected_;
+        if (!toggle)
+            candidate.assign(1, index);
+        else if (const auto found = std::ranges::find(candidate, index); found != candidate.end())
+            candidate.erase(found);
+        else
+            candidate.push_back(index);
+        set_selection(candidate);
+    }
     void select_layouts(std::span<const UiMarkupLayoutEdit> changes) {
-        selected_.clear();
+        std::vector<std::size_t> indices;
         for (const auto& change : changes)
-            selected_.push_back(change.element);
-        selection_controls();
+            indices.push_back(change.element);
+        set_selection(indices);
+    }
+    std::optional<std::size_t> canvas_hit(float x, float y) const {
+        if (preview_hit && preview_frame_.state.contains("elements")) {
+            const auto id = preview_hit(x, y);
+            for (const auto& row : preview_frame_.state.at("elements"))
+                if (row.at("id") == id && !row.at("source_index").is_null())
+                    return row.at("source_index").get<std::size_t>();
+        }
+        return {};
     }
     static std::string source_id(std::string_view text, const UiMarkupElement& node) {
         std::string id;
@@ -993,7 +1029,11 @@ class UiSourceEditor {
                                               action.viewport, request.instance,
                                               request.preview_revision);
                                 child_id_[0] = 0;
-                            } else
+                            } else if constexpr (std::is_same_v<std::decay_t<decltype(action)>,
+                                                                RectangleSelection>)
+                                select_rectangle(action.viewport, action.add, request.instance,
+                                                 request.preview_revision);
+                            else
                                 layouts(action, request.instance, request.preview_revision);
                         },
                         request.action);
@@ -1003,7 +1043,7 @@ class UiSourceEditor {
                 cancel_preview_edit();
         }
         if (locked) {
-            gesture_.reset();
+            cancel_gesture();
             ImGui::TextWrapped("Stop Play and finish the owning task before previewing UI source.");
             return;
         }
@@ -1030,13 +1070,22 @@ class UiSourceEditor {
         ImGui::SameLine();
         ImGui::Checkbox("Snap dragging", &snap_dragging_);
         FORGE_UI_PROBE("ui-source:snap-dragging");
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Box select", &box_select_) && box_select_)
+            cancel_placement();
+        FORGE_UI_PROBE("ui-source:box-select");
         ImGui::EndDisabled();
         if (gesture_ &&
             (gesture_->session != session_ || gesture_->revision != revision_ ||
              ImGui::GetIO().AppFocusLost || ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
              !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)))
-            gesture_.reset();
-        if (!gesture_)
+            cancel_gesture();
+        if (marquee_ &&
+            (marquee_->session != session_ || marquee_->revision != revision_ ||
+             ImGui::GetIO().AppFocusLost || ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
+             !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)))
+            cancel_gesture();
+        if (!gesture_ && !marquee_)
             try {
                 preview_state(project, preview_width_, preview_height_, preview_density_, refresh);
             } catch (const std::exception& error) {
@@ -1076,7 +1125,8 @@ class UiSourceEditor {
             if (!child_id_[0])
                 place_controls_ = false;
             ImGui::BeginDisabled(!child_id_[0]);
-            ImGui::Checkbox("Click to place", &place_controls_);
+            if (ImGui::Checkbox("Click to place", &place_controls_) && place_controls_)
+                box_select_ = false;
             FORGE_UI_PROBE("ui-source:place-control");
             ImGui::EndDisabled();
             ImGui::EndDisabled();
@@ -1224,6 +1274,9 @@ class UiSourceEditor {
             place_controls_
                 ? "Placement mode: click inside the selected container to create the named "
                   "control. Escape cancels. Gameplay bindings do not run."
+            : box_select_
+                ? "Box select: drag to fully enclose named visible elements. Ctrl adds to the "
+                  "selection. Click selects; Ctrl+click toggles. Escape cancels the rectangle."
                 : "Static draft preview; gameplay bindings do not run. Ctrl+click toggles group; "
                   "drag to move or use the single resize handle. Shift constrains axis/aspect. "
                   "Focus canvas: arrows move1px, Shift10px. Escape cancels.");
@@ -1253,8 +1306,9 @@ class UiSourceEditor {
         const float width = frame.state.at("width").get<float>(),
                     height = frame.state.at("height").get<float>();
         const auto available = ImGui::GetContentRegionAvail();
-        const float scale = gesture_
-                                ? gesture_->scale
+        const float scale = gesture_ ? gesture_->scale
+                            : marquee_
+                                ? marquee_->scale
                                 : std::max(.05f, std::min({1.f, available.x / width,
                                                            std::max(120.f, available.y) / height}));
         const ImVec2 origin = ImGui::GetCursorScreenPos(), size{width * scale, height * scale};
@@ -1317,6 +1371,55 @@ class UiSourceEditor {
             }
             return; // Apply next frame, before queuing any preview image for drawing.
         }
+        if (box_select_) {
+            if (!marquee_ && preview_current() && frame.image &&
+                ImGui::IsItemClicked(ImGuiMouseButton_Left))
+                marquee_ =
+                    SelectionMarquee{session_,
+                                     preview_frame_.state.at("instance").get<std::string>(),
+                                     revision_,
+                                     preview_frame_.state.at("revision").get<std::uint64_t>(),
+                                     ImGui::GetMousePos(),
+                                     origin,
+                                     scale,
+                                     ImGui::GetIO().KeyCtrl};
+            if (marquee_) {
+                auto& gesture = *marquee_;
+                const auto mouse = ImGui::GetMousePos();
+                gesture.dragged = gesture.dragged || ImGui::IsMouseDragging(ImGuiMouseButton_Left);
+                const auto local = [&](ImVec2 point) {
+                    return ImVec2{
+                        std::clamp((point.x - gesture.origin.x) / gesture.scale, 0.f, width),
+                        std::clamp((point.y - gesture.origin.y) / gesture.scale, 0.f, height)};
+                };
+                const auto start = local(gesture.pointer), finish = local(mouse);
+                const UiPixelLayout rectangle{
+                    std::min(start.x, finish.x), std::min(start.y, finish.y),
+                    std::abs(start.x - finish.x), std::abs(start.y - finish.y)};
+                const ImVec2 begin{gesture.origin.x + rectangle.left * scale,
+                                   gesture.origin.y + rectangle.top * scale},
+                    corner{begin.x + rectangle.width * scale, begin.y + rectangle.height * scale};
+                draw->AddRectFilled(begin, corner, IM_COL32(70, 195, 255, 36));
+                draw->AddRect(begin, corner, IM_COL32(70, 195, 255, 255));
+                if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                    const auto completed = std::move(gesture);
+                    marquee_.reset();
+                    if (completed.dragged)
+                        pending_preview_edit_ =
+                            PreviewEdit{completed.session, completed.instance, completed.revision,
+                                        completed.preview_revision,
+                                        RectangleSelection{rectangle, completed.add}};
+                    else
+                        attempt([&] {
+                            const auto hit = canvas_hit(finish.x, finish.y);
+                            if (hit)
+                                select(*hit, completed.add);
+                            else if (!completed.add)
+                                set_selection({});
+                        });
+                }
+            }
+        }
         const Json* visual = nullptr;
         ImVec2 handle{};
         if (frame.state.contains("elements"))
@@ -1335,32 +1438,28 @@ class UiSourceEditor {
                 const auto color = element.at("editable").get<bool>() ? IM_COL32(70, 195, 255, 255)
                                                                       : IM_COL32(245, 180, 65, 255);
                 draw->AddRect(begin, corner, color, 0.f, 2.f);
-                if (selected_.size() == 1 && element.at("editable").get<bool>()) {
+                if (!box_select_ && selected_.size() == 1 && element.at("editable").get<bool>()) {
                     handle = corner;
                     draw->AddRectFilled({handle.x - 5, handle.y - 5}, {handle.x + 5, handle.y + 5},
                                         color);
                 }
             }
-        if (!gesture_ && preview_current() && ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+        if (!box_select_ && !gesture_ && preview_current() &&
+            ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
             const auto mouse = ImGui::GetMousePos();
             const bool resize =
                 selected_.size() == 1 && visual && visual->at("editable").get<bool>() &&
                 std::abs(mouse.x - handle.x) <= 8 && std::abs(mouse.y - handle.y) <= 8;
             if (!resize && preview_hit) {
-                std::optional<std::size_t> hit;
-                const auto id =
-                    preview_hit((mouse.x - origin.x) / scale, (mouse.y - origin.y) / scale);
-                if (preview_frame_.state.contains("elements"))
-                    for (const auto& element : preview_frame_.state.at("elements"))
-                        if (element.at("id") == id && !element.at("source_index").is_null())
-                            hit = element.at("source_index").get<std::size_t>();
+                const auto hit =
+                    canvas_hit((mouse.x - origin.x) / scale, (mouse.y - origin.y) / scale);
                 if (ImGui::GetIO().KeyCtrl) {
                     if (hit)
                         attempt([&] { select(*hit, true); });
                     return; // A toggle chooses membership, without starting a drag.
                 }
                 if (!hit)
-                    selected_.clear();
+                    set_selection({});
                 else if (std::ranges::find(selected_, *hit) == selected_.end())
                     select(*hit);
             }
@@ -1698,7 +1797,9 @@ class UiSourceEditor {
     bool close_pending() const { return close_; }
     const std::filesystem::path& project() const { return root_; }
     bool owns_keyboard() const { return is_open() && source_widget_owns_keyboard("###UI Source"); }
-    bool gesture_active() const { return gesture_.has_value() || outline_drag_active_; }
+    bool gesture_active() const {
+        return gesture_.has_value() || marquee_.has_value() || outline_drag_active_;
+    }
     bool can_undo() const { return is_open() && !gesture_active() && editor_.CanUndo(); }
     bool can_redo() const { return is_open() && !gesture_active() && editor_.CanRedo(); }
     WorkspaceDocument workspace_document(SceneDocument& project, EditorUiContext& context,
@@ -1747,7 +1848,7 @@ class UiSourceEditor {
     Json preview_state(SceneDocument& project, int width, int height, float density,
                        bool refresh = true) {
         check_project(project);
-        if (gesture_ || close_)
+        if (gesture_active() || close_)
             throw AuthoringError("source_busy", "Finish the source dialog or canvas gesture first");
         if (width < 1 || height < 1 || width > 2048 || height > 2048 || !std::isfinite(density) ||
             density < .5f || density > 4)
@@ -1780,6 +1881,51 @@ class UiSourceEditor {
                 {"width", preview_frame_.state.at("width")},
                 {"height", preview_frame_.state.at("height")},
                 {"density", preview_frame_.state.at("density")}};
+    }
+    void selection(std::span<const std::size_t> indices) {
+        if (!is_open() || locator_.extension() != ".rml")
+            throw AuthoringError("source_scope", "Open an RML source to select elements");
+        if (gesture_active())
+            throw AuthoringError("source_busy", "Finish or cancel the source gesture first");
+        set_selection(indices);
+    }
+    void select_rectangle(UiPixelLayout rectangle, bool add, const std::string& instance,
+                          std::uint64_t preview_revision) {
+        reborrow_preview_observation(instance, preview_revision);
+        const auto& state = preview_frame_.state;
+        for (const auto value : {rectangle.left, rectangle.top, rectangle.width, rectangle.height})
+            if (!std::isfinite(value) || value < 0)
+                throw AuthoringError("layout_rectangle", "Use a finite nonnegative rectangle");
+        const double right = double(rectangle.left) + rectangle.width,
+                     bottom = double(rectangle.top) + rectangle.height;
+        if (right > state.at("width").get<double>() + .001 ||
+            bottom > state.at("height").get<double>() + .001)
+            throw AuthoringError("layout_rectangle", "Keep the selection rectangle inside Preview");
+        std::vector<std::size_t> contained;
+        for (const auto& row : state.at("elements")) {
+            if (!row.contains("visible") || !row.contains("id_unique"))
+                throw AuthoringError("layout_unsupported",
+                                     "Preview has no selection visibility metadata");
+            if (!row.at("visible").get<bool>() || !row.at("id_unique").get<bool>() ||
+                row.at("source_index").is_null())
+                continue;
+            const auto& bounds = row.at("bounds");
+            const float x = bounds.at(0).get<float>(), y = bounds.at(1).get<float>(),
+                        width = bounds.at(2).get<float>(), height = bounds.at(3).get<float>();
+            if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) ||
+                !std::isfinite(height) || width <= 0 || height <= 0)
+                continue;
+            if (rectangle.width > 0 && rectangle.height > 0 && x >= rectangle.left - .001f &&
+                y >= rectangle.top - .001f && double(x) + width <= right + .001 &&
+                double(y) + height <= bottom + .001)
+                contained.push_back(row.at("source_index").get<std::size_t>());
+        }
+        std::ranges::sort(contained);
+        auto candidate = add ? selected_ : std::vector<std::size_t>{};
+        for (const auto index : contained)
+            if (std::ranges::find(candidate, index) == candidate.end())
+                candidate.push_back(index);
+        set_selection(candidate);
     }
     void layout(std::size_t index, UiPixelLayout pixels, const std::string& instance,
                 std::uint64_t preview_revision) {
@@ -2119,7 +2265,7 @@ class UiSourceEditor {
         dirty_ = false;
     }
     void request_close() {
-        gesture_.reset();
+        cancel_gesture();
         cancel_preview_edit();
         queued_.reset();
         if (dirty_)
@@ -2157,7 +2303,7 @@ class UiSourceEditor {
             return;
         locked = locked || root_ != project.project();
         if (locked) {
-            gesture_.reset();
+            cancel_gesture();
             cancel_preview_edit();
         }
         editor_.SetReadOnly(locked);
@@ -2215,7 +2361,7 @@ class UiSourceEditor {
                 const bool source_tab = ImGui::BeginTabItem("Source");
                 FORGE_UI_PROBE("ui-source:source-tab");
                 if (source_tab) {
-                    gesture_.reset();
+                    cancel_gesture();
                     cancel_preview_edit();
                     editor_.Render("ui-source-text", ImGui::GetContentRegionAvail());
                     if (editor_.IsTextChanged())
@@ -2227,7 +2373,7 @@ class UiSourceEditor {
                 FORGE_UI_PROBE("ui-source:elements-tab");
                 if (elements_tab) {
                     elements_visible = !stylesheet;
-                    gesture_.reset();
+                    cancel_gesture();
                     cancel_preview_edit();
                     if (stylesheet)
                         rule_controls(locked);

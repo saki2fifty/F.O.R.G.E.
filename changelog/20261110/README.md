@@ -1,5 +1,13 @@
 # 2026-11-10
 
+## UI rectangle and programmatic selection
+
+Preview's Box select mode selects fully enclosed named visible controls, with
+Ctrl-addition and atomic 32-member admission. Ordered source selection and native
+rectangle selection are also available through guarded MCP tools. Selection does
+not change source, Undo or Scene history; subsequent edits retain their existing
+validation and Save behavior. The illustrated guide covers the workflow.
+
 ## Precise UI mouse layout gestures
 
 Preview adds optional drag-grid snapping, Shift movement-axis constraint and Shift

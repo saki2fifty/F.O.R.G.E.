@@ -43,6 +43,19 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+
+`mcp_ui_source_selection_stdio` checks both protocol envelopes against the actual
+source selection owner: source-only selection, fully enclosed native rectangles,
+replace/add ordering, replay without reapplication, zero/partial/hidden/ambiguous
+boxes, the32-member bound, atomic refusal, stale source/preview, write grants and
+unchanged source/history/catalog/Scene. The native softwareVulkan canvas fixture
+uses real mouse gestures at1180/700pixels for reverse rectangles, additive order,
+click/Ctrl-click, busy admission and Escape/application-focus/task-lock cancellation.
+The existing layout, keyboard, image capture and placement cases remain in that
+fixture. Selected CPU producer/host instrumentation is distinct from normal GPU
+fixture execution; neither establishes Windows or physical-hardware acceptance.
+
+
 Native UI source authoring uses `ui_markup` for source ranges, preserved bytes,
 escaping/bindings and rejected structural candidates; `ui_source_file` checks
 contained raw-file admission, conflicts and atomic storage. `ui_source_editor`
@@ -51,7 +64,7 @@ attribute/text/child/order/removal, history, CRLF, invalid drafts, conflicts,
 read-only state, close/cancel/discard, moves/deletion and long-text protection.
 The C++ history fixture checks the shared widget replacement helper.
 `sprite_atlas_source_editor` also verifies hook-only document entries are excluded
-from typed-source discovery and dispatch. `mcp_ui_source_stdio` exercises32 actual
+from typed-source discovery and dispatch. `mcp_ui_source_stdio` discovers40 actual
 native-owner tools through both MCP envelopes, grants, stale guards, source-owned
 raw-write rejection, history, conflicts, RCSS and dirty-source Play rejection.
 It includes native draft geometry, source/preview guards, unsupported layouts and

@@ -572,6 +572,33 @@ selection retains its numeric layout fields and resize handle. Use the matching
 operations below for group dimensions. Group scale gestures, flow/relative units
 and canvas reparenting are unavailable.
 
+## Select controls with a rectangle
+
+1. Open **Preview** and enable **Box select** beside **Snap dragging**.
+2. Drag across the image to fully enclose the controls you want. You can start at either corner. Release to replace the selection; hold **Ctrl** when starting the drag to add controls.
+3. New members enter in source order. The last member is active. An additive selection keeps existing members in their current order and appends new ones.
+4. Disable **Box select** to move or resize the selection. You can then use the group operations above when all members are editable siblings.
+
+![A selection rectangle enclosing the three named panels in Preview](../images/ui-source-box-drag.png)
+
+The blue rectangle shows the area being selected; the outlines show the existing
+selection until release. Only fully enclosed, visible elements with unique IDs
+and an unambiguous source match are included. Partially enclosed, hidden and
+unnamed elements are skipped. Flow-layout elements can be selected for inspection,
+but selection does not enable unsupported layout edits.
+
+![The three panels selected after releasing the rectangle, with Box select enabled](../images/ui-source-box-selection.png)
+
+At most 32 elements can be selected. A result above that limit is refused and the
+previous selection is retained. Dragging over an empty area clears a replacement
+selection; an additive drag over empty space keeps it. A click selects one control
+and Ctrl+click toggles it. **Escape**, changing source views, closing the document,
+losing focus or entering a locked task cancels an unfinished rectangle. **Click to
+place** and **Box select** are mutually exclusive.
+
+Selection changes do not edit source, create Undo records or require Save.
+Subsequent property and layout edits keep their usual Undo and Save behavior.
+
 ## Match a group's width or height
 
 1. Select between 2 and 32 editable sibling controls in Preview. Add the reference control **last** with Ctrl+click. The last-selected control is active.

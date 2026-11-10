@@ -164,6 +164,15 @@ The current gesture frame is retained before a native refusal, so a readback
 adapter cannot leave the UI drawing a replaced image. Source/profile/SDK and
 runtime presentation ownership remain unchanged.
 
+Preview selection observations include native visibility and ID uniqueness.
+Rectangle selection uses those observed border boxes and source bindings through
+the source editor's ordered selection owner, independent of layout editability.
+Replace/add operations admit the complete result atomically within 32 members;
+selection leaves source revision/history and Scene unchanged. Box selection has
+its own transient gesture alongside layout dragging, sharing cancellation and the
+existing pre-image deferred request. Automation/MCP borrow these same operations
+with source guards and, for rectangle geometry, native preview guards.
+
 The same CSS admission scanner optionally records inline declaration value ranges.
 Four-value candidates preserve unrelated bytes. Numeric changes validate native
 candidate geometry before source publication; mouse gestures retain transient
