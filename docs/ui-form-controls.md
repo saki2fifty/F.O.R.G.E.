@@ -147,3 +147,23 @@ keys require the newly exact focused target. focusable/tab_stop expose cached
 native style facts, separately from visibility/enabled/admission. Existing
 Play grants/scope/revision/receipts and input release generate widget_focus/
 widget_key MCP bindings through the same providers; no new ownership layer.
+
+## Source control properties
+
+UiMarkupControlProperties is a derived, stateless source view, distinct from
+native runtime observations. The source kind table and property metadata own
+labels/types/defaults/choices and generate the source MCP value field names.
+Numbers use the shared finite native-float envelope; flags model attribute
+presence, including present checked="false". Progress source20/max0 remains20/0;
+only the native runtime clamps/falls back. Generic buttons do not gain native
+disabled/value fields. Options require a select parent, matching source creation.
+
+The reader borrows the current inspected source outline. The setter composes
+existing escaped attribute/inline-style candidates privately; one replace_selected
+publication retains the element and one widget Undo. Numeric no-ops preserve
+existing spelling, quotes and interstitial bytes. Null resets, bindings/duplicate
+source refusals, explicit literal repair and source/resource ID ownership remain
+explicit. No native DOM serialization, normalization, widget state or writer is
+introduced. SourceEditor caches this view/staging on source/selection refresh,
+not per frame. Apply/Discard/Reset affect staging until publication; Save remains
+explicit. Tool bindings reuse source guards/grants/receipts and the same owner.

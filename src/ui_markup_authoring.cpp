@@ -798,6 +798,238 @@ UiMarkupControlEdit insert_ui_markup_control(std::string_view source, std::size_
         candidate = set_ui_markup_attribute(candidate, index, "value", "0");
     return {std::move(candidate), index};
 }
+namespace {
+bool control_style_property(std::string_view name) {
+    return name == "focus" || name == "tab-index";
+}
+std::vector<UiMarkupControlProperty> control_property_metadata(std::string_view kind) {
+    std::vector<UiMarkupControlProperty> result;
+    const auto add = [&](const char* name, const char* label, UiControlPropertyType type,
+                         UiControlPropertyValue value, std::vector<std::string> choices = {}) {
+        UiMarkupControlProperty row;
+        row.name = name;
+        row.label = label;
+        row.type = type;
+        row.value = std::move(value);
+        row.choices = std::move(choices);
+        result.push_back(std::move(row));
+    };
+    using Type = UiControlPropertyType;
+    if (kind == "range") {
+        add("value", "Initial value", Type::Number, 0.0);
+        add("min", "Minimum", Type::Number, 0.0);
+        add("max", "Maximum", Type::Number, 100.0);
+        add("step", "Step", Type::Number, 1.0);
+        add("orientation", "Orientation", Type::Choice, std::string("horizontal"),
+            {"horizontal", "vertical"});
+    } else if (kind == "progress") {
+        add("value", "Authored value", Type::Number, 0.0);
+        add("max", "Maximum", Type::Number, 1.0);
+    } else if (kind == "checkbox" || kind == "radio" || kind == "option" ||
+               kind == "input-button") {
+        add("value", kind == "input-button" ? "Caption" : "Value", Type::Text, std::string{});
+        if (kind == "radio")
+            add("name", "Radio group", Type::Text, std::string{});
+        if (kind == "checkbox" || kind == "radio")
+            add("checked", "Initially checked", Type::Flag, false);
+        if (kind == "option")
+            add("selected", "Initially selected", Type::Flag, false);
+    } else if (kind != "select" && kind != "button") {
+        return {};
+    }
+    if (kind != "progress" && kind != "button")
+        add("disabled", "Disabled", Type::Flag, false);
+    if (kind != "progress" && kind != "option") {
+        add("tab-index", "Keyboard tab stop", Type::Choice, std::monostate{}, {"auto", "none"});
+        add("focus", "Focus", Type::Choice, std::monostate{}, {"auto", "none"});
+    }
+    return result;
+}
+std::string control_attribute_text(std::string_view source, const UiMarkupAttribute& attribute) {
+    require(attribute.has_value, "This attribute needs a literal value or the Source view");
+    return Rml::StringUtilities::DecodeRml(std::string(
+        source.substr(attribute.value.begin, attribute.value.end - attribute.value.begin)));
+}
+std::string_view trimmed_control_literal(std::string_view value) {
+    const auto range = trimmed(value, {0, value.size()});
+    return value.substr(range.begin, range.end - range.begin);
+}
+void validate_control_number(std::string_view name, double value) {
+    require(ui_range_number(value), "Use a finite control number within -1000000..1000000");
+    if (name == "step")
+        require(static_cast<float>(value) >= ui_range_minimum_step,
+                "Slider step must be within 0.000001..1000000");
+}
+} // namespace
+std::vector<std::string> ui_markup_control_property_names() {
+    std::vector<std::string> result;
+    for (const auto& kind : ui_markup_control_kinds)
+        for (const auto& property : control_property_metadata(kind.id))
+            if (std::find(result.begin(), result.end(), property.name) == result.end())
+                result.push_back(property.name);
+    std::sort(result.begin(), result.end());
+    return result;
+}
+UiMarkupControlProperties read_ui_markup_control_properties(std::string_view source,
+                                                            std::span<const UiMarkupElement> nodes,
+                                                            std::size_t index) {
+    const auto& node = element(nodes, index);
+    UiMarkupControlProperties result;
+    std::string input_type;
+    try {
+        if (node.tag == "input") {
+            const auto* type = markup_attribute(node, "type");
+            input_type = type ? control_attribute_text(source, *type) : "text";
+        }
+    } catch (const std::exception& error) {
+        result.reason = error.what();
+        return result;
+    }
+    const auto kind = std::find_if(
+        ui_markup_control_kinds.begin(), ui_markup_control_kinds.end(),
+        [&](const auto& item) { return item.tag == node.tag && item.input_type == input_type; });
+    if (kind != ui_markup_control_kinds.end()) {
+        result.kind = kind->id;
+        result.label = kind->label;
+        result.properties = control_property_metadata(kind->id);
+    }
+    if (node.tag == "option" &&
+        (node.parent >= nodes.size() || nodes[node.parent].tag != "select")) {
+        result.properties.clear();
+        result.reason = "Dropdown option properties require a select parent; use Source";
+        return result;
+    }
+    if (result.properties.empty()) {
+        result.reason = "Edit this element's properties through Attributes or Source";
+        return result;
+    }
+    const auto has = [&](const UiMarkupElement& target, std::string_view name) {
+        return std::any_of(target.attributes.begin(), target.attributes.end(),
+                           [&](const auto& attribute) { return attribute.name == name; });
+    };
+    for (auto& row : result.properties) {
+        const bool style = control_style_property(row.name);
+        const auto binding = std::string(style ? "data-style-" : "data-attr-") + row.name;
+        const bool bound_value =
+            (row.name == "value" || row.name == "checked" || row.name == "selected") &&
+            has(node, "data-value");
+        const bool bound_option = row.name == "selected" && node.tag == "option" &&
+                                  node.parent < nodes.size() &&
+                                  has(nodes[node.parent], "data-value");
+        row.authored = !style && has(node, row.name);
+        std::optional<std::string> literal;
+        try {
+            if (style)
+                literal = read_ui_markup_style(source, nodes, index, row.name);
+            else if (const auto* attribute = markup_attribute(node, row.name)) {
+                row.authored = true;
+                if (row.type != UiControlPropertyType::Flag)
+                    literal = control_attribute_text(source, *attribute);
+            }
+            if (style)
+                row.authored = literal.has_value();
+        } catch (const std::exception& error) {
+            row.value = std::monostate{};
+            row.reason = error.what();
+            continue;
+        }
+        if ((node.tag == "input" && has(node, "data-attr-type")) || has(node, binding) ||
+            bound_value || bound_option || (style && has(node, "data-attr-style"))) {
+            row.value = std::monostate{};
+            row.reason = "This property has a source binding; edit it through Attributes or Source";
+            continue;
+        }
+        row.editable = true;
+        if (literal &&
+            (literal->find("{{") != literal->npos || literal->find("}}") != literal->npos)) {
+            row.value = std::monostate{};
+            row.editable = false;
+            row.reason = "Dynamic property expressions use the Source view";
+            continue;
+        }
+        try {
+            if (row.type == UiControlPropertyType::Flag)
+                row.value = row.authored;
+            else if (literal) {
+                if (row.type == UiControlPropertyType::Number) {
+                    const double value = parse_ui_range_number(trimmed_control_literal(*literal));
+                    validate_control_number(row.name, value);
+                    row.value = value;
+                } else if (row.type == UiControlPropertyType::Choice) {
+                    const std::string value(trimmed_control_literal(*literal));
+                    require(std::find(row.choices.begin(), row.choices.end(), value) !=
+                                row.choices.end(),
+                            "This custom property value uses Source; choose a supported value to "
+                            "replace it");
+                    row.value = value;
+                } else {
+                    require(literal->size() <= 8192 && literal->find('\0') == literal->npos,
+                            "Literal control values above 8192 bytes or containing NUL use Source");
+                    row.value = *literal;
+                }
+            }
+            row.available = true;
+        } catch (const std::exception& error) {
+            row.value = std::monostate{};
+            row.reason = error.what();
+        }
+    }
+    return result;
+}
+std::string
+set_ui_markup_control_properties(std::string_view source, std::size_t index,
+                                 const std::map<std::string, UiControlPropertyValue>& properties) {
+    const auto nodes = inspect_ui_markup(source);
+    const auto current = read_ui_markup_control_properties(source, nodes, index);
+    require(!current.properties.empty(), "Choose a supported source control");
+    std::string candidate(source);
+    for (const auto& [name, value] : properties) {
+        const auto row = std::find_if(current.properties.begin(), current.properties.end(),
+                                      [&](const auto& item) { return item.name == name; });
+        require(row != current.properties.end(),
+                "This property is not supported by the selected source control");
+        require(row->editable, "Bound or ambiguous control properties use Attributes or Source");
+        std::optional<std::string> encoded;
+        if (std::holds_alternative<std::monostate>(value)) {
+            if (!row->authored)
+                continue;
+        } else if (row->type == UiControlPropertyType::Flag) {
+            const auto* flag = std::get_if<bool>(&value);
+            require(flag != nullptr, "Use a boolean control flag, or null to remove it");
+            if (*flag == row->authored)
+                continue;
+            if (*flag)
+                encoded = name;
+        } else if (row->type == UiControlPropertyType::Number) {
+            const auto* number = std::get_if<double>(&value);
+            require(number != nullptr, "Use a numeric control property, or null to remove it");
+            validate_control_number(name, *number);
+            const double normalized = static_cast<float>(*number);
+            if (row->authored && row->available && row->value == UiControlPropertyValue(normalized))
+                continue;
+            encoded = format_ui_range_number(*number);
+        } else {
+            const auto* text = std::get_if<std::string>(&value);
+            require(text != nullptr, "Use a literal string control property, or null to remove it");
+            require(
+                text->size() <= 8192 && text->find('\0') == text->npos &&
+                    text->find("{{") == text->npos && text->find("}}") == text->npos,
+                "Use at most8192 bytes of literal control text without NUL or dynamic expressions");
+            if (row->type == UiControlPropertyType::Choice)
+                require(std::find(row->choices.begin(), row->choices.end(), *text) !=
+                            row->choices.end(),
+                        "Choose a supported control property value");
+            if (row->authored && row->available && row->value == value)
+                continue;
+            encoded = *text;
+        }
+        candidate = control_style_property(name)
+                        ? set_ui_markup_style(candidate, index, name, std::move(encoded))
+                        : set_ui_markup_attribute(candidate, index, name, std::move(encoded));
+    }
+    return candidate;
+}
+
 std::string remove_ui_markup_elements(std::string_view source,
                                       std::span<const std::size_t> indices) {
     const auto nodes = inspect_ui_markup(source);

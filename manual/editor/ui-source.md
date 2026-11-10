@@ -84,6 +84,51 @@ normal attribute controls to set `checked`, `disabled`, option `selected` and ot
 admitted attributes; remove an attribute to clear it. Author IDs and targets
 explicitly, then save and test native behavior in Game.
 
+## Edit control properties
+
+Select one supported control in **Elements**, then expand **Control properties**.
+The panel shows authored literals or defaults from the RML source. It does not
+show the running game's values or computed stylesheet results.
+
+1. Edit the values you need. A slider offers **Initial value**, **Minimum**, **Maximum**, **Step**, **Orientation** and **Disabled**. Checkbox and radio controls offer **Initially checked**; radios also have **Radio group**.
+2. Changed rows show **Staged change**. The source draft, Undo history and disk stay unchanged while you enter values.
+3. Choose **Apply properties**. The complete edit becomes one source Undo step, and the control stays selected. If a value is invalid, correct it and apply again.
+4. Choose **Save source** before testing or exporting. Use **Preview** for appearance and **Game** during Play for interaction. Refresh a registered resource when its source update is offered.
+
+![UI Source showing staged slider minimum, maximum, step, orientation and disabled properties](../images/ui-source-control-properties.png)
+
+Scroll the panel when needed. **Native default** means the property has no authored
+attribute. **No inline override** leaves focus or tab behavior to styles and native
+defaults. **Staged change** identifies a pending edit; it is written to the draft
+only on Apply.
+
+**Reset property** stages removal of an attribute or inline override. **Keep
+override** cancels that reset. **Discard staged properties** restores this panel's
+values without changing the source draft. Undo and Redo operate on an applied
+batch. Saving a source does not automatically save game settings or Scene data.
+
+![UI Source checkbox properties with Initially checked staged and a separate Disabled flag](../images/ui-source-control-flags.png)
+
+Supported controls include:
+
+- **Checkbox** and **Radio option**: value, initial checked state and disabled state; radios also have a group name.
+- **Dropdown**: disabled and focus/tab styles. Select a **Dropdown option** child to edit its value, initial selection and disabled state. Clear other authored initial flags when you want one initial choice.
+- **Slider**: authored value, bounds, step, orientation, disabled state and focus/tab styles. Numbers must be finite within `-1000000..1000000`; step must be at least `0.000001`. The native slider owns rounding and clamping during Preview or Play.
+- **Progress**: authored value and maximum. The native display clamps its value; a maximum of zero or less uses `1`. For example, value `0.35` and maximum `1` displays 35%.
+- **Input button**: caption, disabled state and focus/tab styles. **Button** offers focus/tab styles; use the existing **Text** field for its simple leaf caption. A generic button has no native disabled flag.
+
+Source numbers use native float precision. Equal typed numbers preserve existing
+source spelling. Flags use attribute presence: typing `false` into a present
+`checked` or `disabled` attribute does not clear it. Use the property checkbox or
+remove the attribute instead.
+
+Known bindings, duplicate attributes and unsupported source forms show a reason.
+Use the **Attribute**/**Value** controls or **Source** for those cases; the property panel does not remove
+bindings. A plain custom numeric or choice literal can be replaced explicitly.
+Text/password inputs retain their existing text and attribute controls. Property
+edits retain unrelated source, IDs and resource references. See
+[Form controls](ui-form-controls.md) for runtime keyboard and agent input.
+
 ## Edit an inline style property
 
 1. Select one widget in **Elements** and expand **Inline style**.

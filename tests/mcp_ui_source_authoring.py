@@ -2,13 +2,13 @@
 from mcp_test_client import failed
 
 
-def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments):
+def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False):
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
                  'duplicate', 'remove_group', 'reparent', 'style', 'style_read', 'rule_read',
                  'rule_property', 'rule_selector', 'rule_insert', 'rule_remove',
-                 'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control')}
+                 'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control', 'control_properties', 'control_values')}
     assert required <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
@@ -35,6 +35,75 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
     paragraph = index('p')
     kinds = advertised['forge_ui_source_control']['inputSchema']['properties']['kind']['enum']
     assert len(kinds) == len(set(kinds)) == 18 and {'textarea', 'label', 'checkbox', 'radio', 'select', 'option', 'progress', 'input-button'} <= set(kinds)
+    assert not advertised['forge_ui_source_control_properties']['annotations']['openWorldHint']
+    assert not advertised['forge_ui_source_control_values']['annotations']['openWorldHint']
+    created_range = edit('control', parent=index('body'), kind='range', text='5')
+    slider = created_range['selection'][0]
+    props = read('forge_ui_source_control_properties', **guard(), element=slider)
+    values = {row['name']: row for row in props['properties']}
+    assert props['kind'] == 'range' and len(values) == 8
+    assert values['value']['value'] == 5 and values['value']['authored']
+    assert values['max']['value'] == 100 and not values['max']['authored']
+    assert values['tab-index']['value'] is None and values['tab-index']['available']
+    before_properties = guard()
+    property_args = arguments(**before_properties, element=slider,
+                              values=dict(min=-2, max=8, step=2, orientation='vertical',
+                                          disabled=True, **{'tab-index': 'auto'}))
+    once = client.tool('forge_ui_source_control_values', **property_args)
+    replay = client.tool('forge_ui_source_control_values', **property_args)
+    assert once['ok'] and replay['ok'] and once['result'] == replay['result']
+    patched_range = read('forge_ui_source_read')
+    assert patched_range['selection'] == [slider]
+    props = read('forge_ui_source_control_properties', **guard(), element=slider)
+    values = {row['name']: row for row in props['properties']}
+    assert values['min']['value'] == -2 and values['step']['value'] == 2
+    assert values['disabled']['value'] is True and values['orientation']['value'] == 'vertical'
+    assert (root/'Game'/path).read_bytes() == source.encode('utf-8')
+    for patch in (dict(min=-10, step=0), dict(value='2'), dict(orientation='diagonal')):
+        assert not mutate('forge_ui_source_control_values', **guard(), element=slider, values=patch)['ok']
+        assert read('forge_ui_source_read') == patched_range, 'Invalid property patch partially changed the draft'
+    failed(mutate('forge_ui_source_control_values', **guard(), element=slider, values=dict(id='other')), 'invalid_arguments')
+    current_target = client.tool('forge_discover')['result']['target']
+    failed(client.tool('forge_ui_source_control_properties', target=current_target,
+                       **before_properties, element=slider), 'stale_ui_source')
+    assert edit('undo')['text'] == created_range['text'], 'Property transaction/replay needed more than one Undo'
+    assert edit('redo')['text'] == patched_range['text']
+    edit('undo')
+    assert edit('undo')['text'] == original
+    assert read('forge_scene_read') == before_scene
+    if properties_only:
+        button = edit('control', parent=index('body'), kind='input-button', text='Go')
+        target = button['selection'][0]
+        caption = edit('control_values', element=target, values=dict(value='C & <safe>', disabled=True))
+        assert 'C &amp; &lt;safe&gt;' in caption['text']
+        props = read('forge_ui_source_control_properties', **guard(), element=target)
+        values = {row['name']: row for row in props['properties']}
+        assert values['value']['value'] == 'C & <safe>' and values['disabled']['value'] is True
+        reset = edit('control_values', element=target, values=dict(disabled=False, focus=None))
+        props = read('forge_ui_source_control_properties', **guard(), element=target)
+        assert next(row for row in props['properties'] if row['name'] == 'disabled')['authored'] is False
+        previous = guard()
+        saved = edit('save')
+        assert not saved['dirty'] and b'C &amp; &lt;safe&gt;' in (root/'Game'/path).read_bytes()
+        saved_bytes = (root/'Game'/path).read_bytes()
+        assert saved_bytes == reset['text'].replace('\n', '\r\n').encode('utf-8')
+        closed = edit('close')
+        assert not closed['open'], closed
+        reopened = ok('forge_ui_source_open', path=path)
+        # Native widget SetText/GetText retains its existing final-newline convention.
+        assert reopened['text'] == reset['text'] + '\n' and reopened['session'] != previous['session']
+        assert not reopened['dirty']
+        edit('save')
+        assert (root/'Game'/path).read_bytes() == saved_bytes, 'Reopen/no-op Save rewrote stored source'
+        props = read('forge_ui_source_control_properties', **guard(), element=target)
+        assert next(row for row in props['properties'] if row['name'] == 'value')['value'] == 'C & <safe>'
+        current_target = client.tool('forge_discover')['result']['target']
+        failed(client.tool('forge_ui_source_control_properties', target=current_target,
+                           **previous, element=target), 'stale_ui_source')
+        failed(mutate('forge_ui_source_control_values', **previous, element=target,
+                      values=dict(value='stale')), 'stale_ui_source')
+        assert read('forge_scene_read') == before_scene
+        return
     creation_guard = guard()
     creation_args = arguments(**creation_guard, parent=index('body'), kind='select', text='Choice & <one>')
     once = client.tool('forge_ui_source_control', **creation_args)

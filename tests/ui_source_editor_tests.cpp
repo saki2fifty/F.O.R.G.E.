@@ -356,10 +356,11 @@ void exercise(const std::filesystem::path& output, int width) {
     check(editor.outline().size() == 3 && !editor.dirty(),
           "Native structural controls did not restore the saved draft");
     const auto control_baseline = editor.state().at("text");
-    for (const auto& [kind, markup] : std::array<std::pair<const char*, const char*>, 5>{
+    for (const auto& [kind, markup] : std::array<std::pair<const char*, const char*>, 6>{
              {{"checkbox", "<input type=\"checkbox\" value=\"Choice &amp; &lt;one&gt;\"/>"},
               {"input-button", "<input type=\"button\" value=\"Choice &amp; &lt;one&gt;\"/>"},
               {"range", "<input type=\"range\" value=\"12.5\"/>"},
+              {"radio", "<input type=\"radio\" value=\"Choice &amp; &lt;one&gt;\"/>"},
               {"textarea", "<textarea>Choice &amp; &lt;one&gt;</textarea>"},
               {"select", "<select><option value=\"Choice &amp; &lt;one&gt;\" "
                          "selected=\"selected\">Choice &amp; &lt;one&gt;</option></select>"}}}) {
@@ -393,6 +394,91 @@ void exercise(const std::filesystem::path& output, int width) {
         if (std::string_view(kind) == "range") {
             frame();
             capture.save(output / ("ui-source-slider-created-" + std::to_string(width) + ".png"));
+        }
+        if (std::string_view(kind) == "range" || std::string_view(kind) == "checkbox" ||
+            std::string_view(kind) == "radio" || std::string_view(kind) == "input-button") {
+            const auto before_properties = editor.state();
+            if (std::string_view(kind) == "range") {
+                input.type("ui-source:control-property:min", "-1");
+                input.click("ui-source:control-discard");
+                check(editor.state() == before_properties,
+                      "Discarding staged control properties changed source/history");
+                input.type("ui-source:control-property:min", "-2");
+                input.type("ui-source:control-property:max", "8");
+                input.type("ui-source:control-property:step", "3");
+                input.click("ui-source:control-reset:step");
+                input.click("ui-source:control-reset:step");
+                check(editor.state() == before_properties,
+                      "Reset/Keep override staging changed source/history");
+                input.type("ui-source:control-property:step", "2");
+                input.click("ui-source:control-property:orientation");
+                input.select("ui-source:control-choice:orientation:vertical");
+                input.click("ui-source:control-property:disabled");
+            } else if (std::string_view(kind) == "input-button") {
+                input.type("ui-source:control-property:value", "Go & <safe>");
+            } else {
+                if (std::string_view(kind) == "radio")
+                    input.type("ui-source:control-property:name", "team & quality");
+                input.click("ui-source:control-property:checked");
+            }
+            check(editor.state() == before_properties && asset_storage::read(file) == saved,
+                  "Staging native control properties wrote source/history/disk");
+            if (std::string_view(kind) == "range") {
+                input.click("ui-source:control-property:value");
+                frame();
+                capture.save(output /
+                             ("ui-source-control-properties-" + std::to_string(width) + ".png"));
+            } else if (std::string_view(kind) == "checkbox") {
+                input.click("ui-source:control-property:value");
+                frame();
+                capture.save(output /
+                             ("ui-source-control-flags-" + std::to_string(width) + ".png"));
+            }
+            input.click("ui-source:control-apply");
+            const auto applied = editor.state();
+            check(applied.at("selection") == Json::array({3}) && applied.at("text") != expected &&
+                      asset_storage::read(file) == saved,
+                  "Control properties did not select their root or implicitly saved source");
+            const auto source_properties = editor.control_properties(3);
+            const auto value = [&](const char* name) {
+                for (const auto& row : source_properties.properties)
+                    if (row.name == name)
+                        return row.value;
+                throw std::runtime_error("Missing authored control property");
+            };
+            if (std::string_view(kind) == "range") {
+                check(value("min") == UiControlPropertyValue(-2.0) &&
+                          value("step") == UiControlPropertyValue(2.0) &&
+                          value("disabled") == UiControlPropertyValue(true),
+                      "Native range property panel published different values");
+            } else if (std::string_view(kind) == "input-button") {
+                check(value("value") == UiControlPropertyValue(std::string("Go & <safe>")),
+                      "Native caption property changed escaping");
+            } else
+                check(value("checked") == UiControlPropertyValue(true),
+                      "Native checkbox/radio panel did not use flag presence");
+            if (std::string_view(kind) == "range") {
+                input.click("ui-source:control-reset:min");
+                check(editor.state() == applied, "Reset property published before Apply");
+                input.click("ui-source:control-apply");
+                const auto reset_properties = editor.control_properties(3);
+                bool removed_minimum = false;
+                for (const auto& row : reset_properties.properties)
+                    if (row.name == "min")
+                        removed_minimum = !row.authored && row.value == UiControlPropertyValue(0.0);
+                check(removed_minimum && asset_storage::read(file) == saved,
+                      "Applied reset did not remove the override or saved implicitly");
+                input.click("button:Undo");
+                check(editor.state().at("text") == applied.at("text"),
+                      "Property reset needed more than one Undo");
+            }
+            input.click("button:Undo");
+            check(editor.state().at("text") == expected,
+                  "Control property batch needed more than one Undo");
+            input.click("button:Redo");
+            check(editor.state().at("text") == applied.at("text"),
+                  "Control property batch Redo differs");
+            input.click("button:Undo");
         }
         if (std::string_view(kind) == "select") {
             input.click("ui-source:child-kind");

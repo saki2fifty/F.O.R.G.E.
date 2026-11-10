@@ -892,6 +892,156 @@ void style_value_literals() {
         }
 }
 } // namespace
+void control_properties() {
+    using namespace forge;
+    using Value = UiControlPropertyValue;
+    const auto read = [](std::string_view source) {
+        const auto nodes = inspect_ui_markup(source);
+        return read_ui_markup_control_properties(source, nodes, 2);
+    };
+    const auto property = [](const UiMarkupControlProperties& state, std::string_view name) {
+        for (const auto& item : state.properties)
+            if (item.name == name)
+                return item;
+        throw std::runtime_error("Missing source control property");
+    };
+    const std::string initial =
+        "<!-- keep --><rml><body><input id='stable' type='range' value='1e1'/>"
+        "<p id='outside'>Keep &amp; retain</p></body></rml>";
+    const auto before = read(initial);
+    check(before.kind == "range" && before.label == "Slider" && before.properties.size() == 8 &&
+              property(before, "value").value == Value(10.0) &&
+              property(before, "value").authored && property(before, "max").value == Value(100.0) &&
+              !property(before, "max").authored &&
+              property(before, "orientation").value == Value(std::string("horizontal")) &&
+              std::holds_alternative<std::monostate>(property(before, "tab-index").value),
+          "Source property defaults/metadata or authored facts differ");
+    check(set_ui_markup_control_properties(initial, 2, {{"value", 10.0}}) == initial,
+          "Equal native-float property normalized source spelling or quotes");
+    auto changed = set_ui_markup_control_properties(initial, 2,
+                                                    {{"min", -2.0},
+                                                     {"max", 8.0},
+                                                     {"step", 2.0},
+                                                     {"disabled", true},
+                                                     {"orientation", std::string("vertical")},
+                                                     {"tab-index", std::string("none")}});
+    auto state = read(changed);
+    check(property(state, "value").value == Value(10.0) &&
+              changed.find("value='1e1'") != changed.npos && changed.starts_with("<!-- keep -->") &&
+              changed.find("id='stable'") != changed.npos &&
+              changed.find("<p id='outside'>Keep &amp; retain</p>") != changed.npos &&
+              property(state, "disabled").value == Value(true) &&
+              property(state, "tab-index").value == Value(std::string("none")),
+          "Composed control properties changed unrelated source or clamped authored values");
+    changed = set_ui_markup_control_properties(
+        changed, 2, {{"disabled", false}, {"min", Value{}}, {"tab-index", Value{}}});
+    state = read(changed);
+    check(!property(state, "disabled").authored && !property(state, "min").authored &&
+              !property(state, "tab-index").authored && property(state, "min").value == Value(0.0),
+          "Clearing source properties materialized defaults or retained flags");
+    const std::string flags =
+        "<rml><body><input type='checkbox' checked='false' disabled/></body></rml>";
+    check(property(read(flags), "checked").value == Value(true) &&
+              property(read(flags), "disabled").value == Value(true) &&
+              set_ui_markup_control_properties(flags, 2, {{"checked", true}, {"disabled", true}}) ==
+                  flags,
+          "Native source boolean presence was replaced by string truthiness");
+    check(
+        !property(read(set_ui_markup_control_properties(flags, 2, {{"checked", false}})), "checked")
+             .authored,
+        "False source flag wrote a present false attribute");
+    const std::string caption =
+        "<rml><body><input type='button' value='A &amp; &lt;B&gt;'/></body></rml>";
+    check(property(read(caption), "value").value == Value(std::string("A & <B>")) &&
+              set_ui_markup_control_properties(caption, 2, {{"value", std::string("A & <B>")}}) ==
+                  caption,
+          "Control caption decoded twice or normalized equal source");
+    const auto escaped =
+        set_ui_markup_control_properties(caption, 2, {{"value", std::string("C & <D>")}});
+    check(escaped.find("C &amp; &lt;D&gt;") != escaped.npos &&
+              inspect_ui_markup(escaped).size() == 3,
+          "Control caption escaped its attribute");
+    const std::string progress = "<rml><body><progress value='20' max='0'/></body></rml>";
+    check(property(read(progress), "value").value == Value(20.0) &&
+              property(read(progress), "max").value == Value(0.0) &&
+              read(progress).properties.size() == 2,
+          "Source progress adapter copied native runtime clamping/fallback into authored state");
+    const std::string radio =
+        "<rml><body><input type='radio' name='a&amp;b' value='one'/></body></rml>";
+    check(property(read(radio), "name").value == Value(std::string("a&b")),
+          "Radio group source did not decode");
+    const std::string bound =
+        "<rml><body><input type='range' value='3' data-value='amount'/></body></rml>";
+    const auto bound_value = property(read(bound), "value");
+    check(bound_value.authored && !bound_value.available && !bound_value.editable &&
+              !bound_value.reason.empty(),
+          "Bound value advertised an editable literal or lost authored presence");
+    rejects([&] { set_ui_markup_control_properties(bound, 2, {{"value", 4.0}}); });
+    check(
+        property(read(set_ui_markup_control_properties(bound, 2, {{"disabled", true}})), "disabled")
+                .value == Value(true),
+        "Unrelated source binding blocked a literal disabled property");
+    const std::string duplicate = "<rml><body><input type='range' min='0' min='2'/></body></rml>";
+    check(!property(read(duplicate), "min").editable,
+          "Duplicate control attribute advertised editing");
+    rejects([&] { set_ui_markup_control_properties(duplicate, 2, {{"min", 2.0}}); });
+    const std::string custom =
+        "<rml><body><input type='range' step='0' orientation='diagonal'/></body></rml>";
+    check(!property(read(custom), "step").available && property(read(custom), "step").editable &&
+              !property(read(custom), "orientation").available,
+          "Unsupported source literals were represented as native defaults");
+    check(property(read(set_ui_markup_control_properties(
+                       custom, 2, {{"step", 1.0}, {"orientation", std::string("horizontal")}})),
+                   "step")
+              .available,
+          "Explicit valid source property replacement could not repair a literal");
+    for (const auto* type : {"text", "password", "RANGE", "submit"}) {
+        const std::string unsupported = "<rml><body><input type='" + std::string(type) +
+                                        "' value='private-source'/></body></rml>";
+        check(read(unsupported).properties.empty() && !read(unsupported).reason.empty(),
+              "Non-profile source input was advertised as a control property panel");
+        rejects([&] {
+            set_ui_markup_control_properties(unsupported, 2, {{"value", std::string("other")}});
+        });
+    }
+    const std::string options =
+        "<rml><body><select><option selected value='x'>Choice</option></select></body></rml>";
+    const auto option_nodes = inspect_ui_markup(options);
+    const auto option_properties = read_ui_markup_control_properties(options, option_nodes, 3);
+    check(option_properties.properties.size() == 3 &&
+              property(option_properties, "selected").value == Value(true),
+          "Dropdown option selected presence or source profile differs");
+    const auto option_changed = set_ui_markup_control_properties(options, 3, {{"selected", false}});
+    auto option_expected = options;
+    option_expected.erase(option_expected.find("selected"), std::string_view("selected").size());
+    check(option_changed == option_expected,
+          "Option flag removal changed interstitial source, caption or value bytes");
+    check(read("<rml><body><option>Orphan</option></body></rml>").properties.empty(),
+          "Orphan option advertised native dropdown properties");
+    const std::string plain = "<rml><body><button>Caption</button></body></rml>";
+    check(read(plain).properties.size() == 2,
+          "Generic button acquired native disabled/value properties");
+    rejects([&] { set_ui_markup_control_properties(plain, 2, {{"disabled", true}}); });
+    for (double value : {std::numeric_limits<double>::infinity(),
+                         std::numeric_limits<double>::quiet_NaN(), 1000001.})
+        rejects([&] { set_ui_markup_control_properties(initial, 2, {{"value", value}}); });
+    for (double value : {0., -1., 0.0000001})
+        rejects([&] { set_ui_markup_control_properties(initial, 2, {{"step", value}}); });
+    rejects([&] {
+        set_ui_markup_control_properties(initial, 2,
+                                         {{"min", 1.0}, {"orientation", std::string("diagonal")}});
+    });
+    rejects([&] { set_ui_markup_control_properties(initial, 2, {{"value", std::string("2")}}); });
+    rejects([&] { set_ui_markup_control_properties(initial, 2, {{"checked", true}}); });
+    rejects([&] {
+        set_ui_markup_control_properties(caption, 2, {{"value", std::string("{{dynamic}}")}});
+    });
+    rejects(
+        [&] { set_ui_markup_control_properties(caption, 2, {{"value", std::string(8193, 'a')}}); });
+    rejects(
+        [&] { set_ui_markup_control_properties(caption, 2, {{"value", std::string("a\0b", 3)}}); });
+}
+
 int main() {
     try {
         ranges();
@@ -908,6 +1058,7 @@ int main() {
         reusable_styles();
         style_value_literals();
         common_controls();
+        control_properties();
         std::cout << "Source-preserving outline/attributes and shared validator errors passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

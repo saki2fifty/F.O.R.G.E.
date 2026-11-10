@@ -3169,3 +3169,21 @@ record. The form guide reuses its existing native HUD views. No new image is
 fabricated or required merely for programmatic focus/key commands. Runtime
 keyboard/context/source-hidden behavior is tested separately; these captures do
 not establish physical keyboard, display-density or Windows acceptance.
+
+## Authored control properties
+
+`ui-source-control-properties.png` and `ui-source-control-flags.png` are exact
+700×950 production UiSourceEditor/DocumentWorkspace captures. Slider bounds, step,
+orientation/disabled and checkbox flag values are staged through actual controls;
+Staged change labels distinguish them from unchanged source defaults. Reproduce
+with forge_ui_source_editor_tests or ui_source_editor CTest. The fixture verifies
+stage/discard/reset/keep/apply, selected root, one Undo/Redo and no implicit Save.
+The control-properties checkpoint retains45unaltered PNGs at1180/700/400, exact
+source/font/executable hashes and the current native receipt. Eleven prior source
+canonical images are compared against their original hashes. This software SDL
+component evidence does not establish full Main/Windows/physical input/GPU/DPI
+acceptance. Pre-review images with misleading baseline labels are retained only
+as local technical evidence; canonical images show the corrected staging status.
+
+- `ui-source-control-properties.png`: `927fe63f6c6a4a1a75d87964a484b4f8fb68eb75e00209397e4766dafa7602b1`.
+- `ui-source-control-flags.png`: `1bfb26e55fe048c7d3786ed98b7d0db3e91f97854ec707e2b5a49d0822305b5e`.

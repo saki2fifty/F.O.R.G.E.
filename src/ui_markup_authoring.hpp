@@ -1,9 +1,11 @@
 #pragma once
 #include "ui_markup.hpp"
 #include <array>
+#include <map>
 #include <optional>
 #include <span>
 #include <utility>
+#include <variant>
 
 namespace forge {
 bool ui_markup_widget_editable(const UiMarkupElement&) noexcept;
@@ -121,6 +123,30 @@ struct UiMarkupControlEdit {
     std::string source;
     std::size_t element;
 };
+enum class UiControlPropertyType { Text, Flag, Number, Choice };
+using UiControlPropertyValue = std::variant<std::monostate, bool, double, std::string>;
+struct UiMarkupControlProperty {
+    std::string name, label;
+    UiControlPropertyType type = UiControlPropertyType::Text;
+    std::vector<std::string> choices;
+    UiControlPropertyValue value;
+    bool authored = false, available = false, editable = false;
+    std::string reason;
+};
+struct UiMarkupControlProperties {
+    std::string kind, label, reason;
+    std::vector<UiMarkupControlProperty> properties;
+};
+std::vector<std::string> ui_markup_control_property_names();
+// Authored literals/defaults, never computed or live native widget state.
+// Borrow the outline from inspect_ui_markup of this exact source snapshot.
+UiMarkupControlProperties read_ui_markup_control_properties(std::string_view,
+                                                            std::span<const UiMarkupElement>,
+                                                            std::size_t element);
+// Null removes an authored property. Compose privately; publish once through the draft owner.
+std::string
+set_ui_markup_control_properties(std::string_view, std::size_t element,
+                                 const std::map<std::string, UiControlPropertyValue>& properties);
 // Compose existing source candidates; the caller publishes one transaction.
 UiMarkupControlEdit insert_ui_markup_control(std::string_view, std::size_t parent,
                                              std::string_view kind, std::string_view literal = {},

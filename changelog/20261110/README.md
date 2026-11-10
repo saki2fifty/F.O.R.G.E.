@@ -1,5 +1,15 @@
 # 2026-11-10
 
+## Authored control properties
+
+Elements adds staged typed properties for existing form, button and range controls,
+using the same source view/candidate helper as two source automation/MCP methods.
+Flags follow native attribute presence; numbers preserve source/native-float
+semantics and equal-value spelling. Bindings, duplicates and unsupported forms
+remain explicit. Apply publishes one selected-root Undo transaction, with Save,
+resource refresh and runtime normalization retaining their owners. The panel
+separates source defaults, inline overrides, staged edits and reset intent.
+
 ## Native widget keyboard interaction
 
 Play and MCP expose scoped native focus and paired keys for checkbox/radio/select,

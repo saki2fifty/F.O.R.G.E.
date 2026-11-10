@@ -154,6 +154,19 @@ void exercise(const std::filesystem::path& root, const Json& source,
         };
         acknowledge("Resume");
         const auto instance = snapshot.at("documents")[0].at("instance").get<std::string>();
+        const auto forms = presenter.form_controls(instance);
+        Json authored_flag, authored_progress;
+        for (const auto& row : forms.at("controls")) {
+            if (row.at("id") == "native-check")
+                authored_flag = row;
+            if (row.at("id") == "native-progress")
+                authored_progress = row;
+        }
+        check(authored_flag.is_object() && authored_flag.at("checked") == true &&
+                  authored_flag.at("enabled") == false && authored_flag.at("editable") == false &&
+                  authored_progress.is_object() && authored_progress.at("value") == 1 &&
+                  authored_progress.at("max") == 1 && authored_progress.at("read_only") == true,
+              "Saved/exported authored properties lost native flag/clamp/fallback behavior");
         const auto buttons = presenter.buttons(instance);
         check(buttons.at("buttons").size() == 4 && !buttons.at("truncated").get<bool>(),
               "Saved/exported buttons lost native discovery");
@@ -174,7 +187,7 @@ void exercise(const std::filesystem::path& root, const Json& source,
                                          presenter.presentation_revision(), "range", "right");
         acknowledge("Step");
         const auto ranges = presenter.range_controls(instance);
-        check(ranges.at("ranges").size() == 1 && ranges.at("ranges")[0].at("value") == "2.000000",
+        check(ranges.at("ranges").size() == 1 && ranges.at("ranges")[0].at("value") == "4.000000",
               "Saved/exported slider lost its native value or range discovery");
         presenter.set_range_value(instance, "native-range", presenter.presentation_revision(), 7);
         acknowledge("Step");
@@ -581,6 +594,17 @@ int main(int argc, char** argv) {
             text = set_ui_markup_attribute(created.source, created.element, "id", "native-range");
             text = set_ui_markup_attribute(text, created.element, "data-event-change",
                                            "command('Step')");
+            text = set_ui_markup_control_properties(text, created.element,
+                                                    {{"min", -2.0}, {"max", 8.0}, {"step", 2.0}});
+            created = insert_ui_markup_control(text, by_id(text, "panel"), "checkbox", "yes");
+            text = set_ui_markup_attribute(created.source, created.element, "id", "native-check");
+            text = set_ui_markup_control_properties(text, created.element,
+                                                    {{"checked", true}, {"disabled", true}});
+            created = insert_ui_markup_control(text, by_id(text, "panel"), "progress");
+            text =
+                set_ui_markup_attribute(created.source, created.element, "id", "native-progress");
+            text = set_ui_markup_control_properties(text, created.element,
+                                                    {{"value", 20.0}, {"max", 0.0}});
             atomic_write(root / document_path, text);
             const auto published = register_ui_document(root, document_path);
             for (const auto& row : source.at("entities"))

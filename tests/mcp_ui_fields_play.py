@@ -79,8 +79,11 @@ input,textarea {display:block;width:300px;height:40px;font-family:Lato;pointer-e
     created = source_edit('control', parent=parent, kind='range', text='1')
     selected = created['selection'][0]
     assert '<input type="range" value="1"/>' in created['text']
-    for name, value in (('id', 'agent-range'), ('min', '-2'), ('max', '8'), ('step', '2'),
-                        ('data-event-change', "command('Step')")):
+    source_edit('control_values', element=selected, values=dict(min=-2, max=8, step=2))
+    authored_props = read('forge_ui_source_control_properties', **{
+        key: source_state[key] for key in ('path', 'session', 'revision', 'state')}, element=selected)
+    assert next(row for row in authored_props['properties'] if row['name'] == 'value')['value'] == 1
+    for name, value in (('id', 'agent-range'), ('data-event-change', "command('Step')")):
         source_edit('attribute', element=selected, name=name, value=value)
     source_edit('save')
     source_edit('close')

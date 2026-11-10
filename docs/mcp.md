@@ -2689,3 +2689,29 @@ value-change/command/gameplay acknowledgement. Tab can move to another family;
 read current views and focus an exact target before further keys. Read-only
 connections cannot discover or execute these mutations. Exported games use
 ordinary player/native keyboard input; no server is added to them.
+
+## Source control property tools
+
+forge_ui_source_control_properties requires assets.read and the current source
+path/session/revision/state guards plus element index. It returns the supported
+source kind, label, reason and property rows: name/label/type/choices/value,
+authored/available/editable/reason. Values are source literals/defaults at native
+float precision, not computed/live values. Unavailable rows do not fabricate a
+native result. The query changes no selection, history, source, registration or
+native initialization. Unsupported input types remain in raw source tools.
+
+forge_ui_source_control_values requires assets.write, the same guards/index and
+a values object. Keys come from shared metadata; booleans, strings, numbers and
+null are further checked against that element's profile. Null removes an authored
+attribute/inline override. Boolean false removes the flag; present false text is
+still native true. Finite number magnitude is at most1000000 and range step is
+at least0.000001; literals fit8192bytes without NUL/dynamic expressions. Unknown,
+wrong-kind/type, bound, duplicate and stale inputs reject without publication.
+Plain unsupported literals can be replaced explicitly. Native progress/range
+normalization stays native rather than changing the authored value.
+
+One native source transaction/Undo retains the target selection, unrelated bytes,
+IDs, resource references and bindings. Equal native-float numbers retain spelling.
+Save, resource refresh, Scene history, content cooking and Play keep their owners.
+Replay uses the existing source receipt. These two operations bring source tools
+to35 while preserving the existing33operations and18sourcekind strings.

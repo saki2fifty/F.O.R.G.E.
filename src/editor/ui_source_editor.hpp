@@ -48,6 +48,10 @@ class UiSourceEditor {
     static constexpr const char* source_drag_type = "FORGE_UI_SOURCE";
     int child_kind_ = 0;
     char child_text_[8193]{};
+    UiMarkupControlProperties control_property_view_;
+    std::map<std::string, UiControlPropertyValue> control_property_values_, control_property_edits_;
+    std::map<std::string, std::array<char, 8193>> control_property_text_;
+
     UiSourcePreviewFrame preview_frame_;
     int preview_width_ = 1000, preview_height_ = 700;
     float preview_density_ = 1;
@@ -74,6 +78,10 @@ class UiSourceEditor {
         const auto text = editor_.GetText();
         dirty_ = text != saved_;
         ++revision_;
+        control_property_view_ = {};
+        control_property_values_.clear();
+        control_property_edits_.clear();
+        control_property_text_.clear();
         selected_.clear();
         hierarchy_parent_ = hierarchy_before_ = UiMarkupElement::no_parent;
         outline_.clear();
@@ -101,6 +109,10 @@ class UiSourceEditor {
         preview_frame_ = {};
         if (close_preview)
             close_preview();
+        control_property_view_ = {};
+        control_property_values_.clear();
+        control_property_edits_.clear();
+        control_property_text_.clear();
         root_.clear();
         locator_.clear();
         disk_.clear();
@@ -549,6 +561,159 @@ class UiSourceEditor {
         ImGui::EndDisabled();
         style_controls(locked, true);
     }
+    void reset_control_property_value(const UiMarkupControlProperty& row) {
+        auto value = row.value;
+        if (!row.available) {
+            if (row.type == UiControlPropertyType::Text)
+                value = std::string{};
+            else if (row.type == UiControlPropertyType::Flag)
+                value = false;
+            else if (row.type == UiControlPropertyType::Number)
+                value = 0.0;
+            else
+                value = std::monostate{};
+        }
+        control_property_values_[row.name] = value;
+        if (row.type == UiControlPropertyType::Text) {
+            auto& buffer = control_property_text_[row.name];
+            const auto* text = std::get_if<std::string>(&value);
+            std::snprintf(buffer.data(), buffer.size(), "%s", text ? text->c_str() : "");
+        }
+    }
+    void discard_control_property_edits() {
+        control_property_edits_.clear();
+        control_property_values_.clear();
+        control_property_text_.clear();
+        for (const auto& row : control_property_view_.properties)
+            reset_control_property_value(row);
+    }
+    void read_control_property_controls() {
+        control_property_view_ = {};
+        control_property_edits_.clear();
+        control_property_values_.clear();
+        control_property_text_.clear();
+        const auto index = selected_element();
+        if (selected_.size() != 1 || index >= outline_.size())
+            return;
+        try {
+            control_property_view_ =
+                read_ui_markup_control_properties(editor_.GetText(), outline_, index);
+            discard_control_property_edits();
+        } catch (const std::exception& error) {
+            control_property_view_.reason = error.what();
+        }
+    }
+    bool control_property_controls(std::size_t index, bool locked) {
+        if (control_property_view_.properties.empty() ||
+            !ImGui::CollapsingHeader("Control properties", ImGuiTreeNodeFlags_DefaultOpen))
+            return false;
+        ImGui::PushID("source-control-properties");
+        ImGui::TextUnformatted(control_property_view_.label.c_str());
+        ImGui::TextWrapped(
+            "Authored source values. Changes are staged: Apply properties, then Save source.");
+        for (const auto& row : control_property_view_.properties) {
+            ImGui::PushID(row.name.c_str());
+            ImGui::Separator();
+            if (row.type != UiControlPropertyType::Flag || !row.editable)
+                ImGui::TextUnformatted(row.label.c_str());
+            const auto edit = control_property_edits_.find(row.name);
+            const bool reset = edit != control_property_edits_.end() &&
+                               std::holds_alternative<std::monostate>(edit->second);
+            if (edit != control_property_edits_.end())
+                ImGui::TextDisabled(reset ? "Override will be removed on Apply" : "Staged change");
+            else {
+                if (!row.authored && row.available)
+                    ImGui::TextDisabled(std::holds_alternative<std::monostate>(row.value)
+                                            ? "No inline override"
+                                            : "Native default");
+                if (!row.reason.empty())
+                    ImGui::TextWrapped("%s", row.reason.c_str());
+            }
+            if (row.editable) {
+                auto& value = control_property_values_.at(row.name);
+                bool edited = false;
+                ImGui::BeginDisabled(locked || reset);
+                if (!row.available && edit == control_property_edits_.end())
+                    ImGui::TextDisabled("Enter a replacement");
+                ImGui::SetNextItemWidth(-1);
+                if (row.type == UiControlPropertyType::Flag) {
+                    edited = ImGui::Checkbox(row.label.c_str(), &std::get<bool>(value));
+                } else if (row.type == UiControlPropertyType::Number) {
+                    edited = ImGui::InputDouble("##value", &std::get<double>(value), 0, 0, "%.6g");
+                } else if (row.type == UiControlPropertyType::Text) {
+                    auto& buffer = control_property_text_.at(row.name);
+                    if (std::string_view(buffer.data()).find('\n') != std::string_view::npos)
+                        edited = ImGui::InputTextMultiline("##value", buffer.data(), buffer.size(),
+                                                           {0, 48});
+                    else
+                        edited = ImGui::InputText("##value", buffer.data(), buffer.size());
+                    if (edited)
+                        value = std::string(buffer.data());
+                } else {
+                    const auto* text = std::get_if<std::string>(&value);
+                    const bool open =
+                        ImGui::BeginCombo("##value", text            ? text->c_str()
+                                                     : row.available ? "No inline override"
+                                                                     : "Choose replacement");
+                    FORGE_UI_PROBE("ui-source:control-property:" + row.name);
+                    if (open) {
+                        for (const auto& choice : row.choices) {
+                            if (ImGui::Selectable(choice.c_str(), text && *text == choice)) {
+                                value = choice;
+                                edited = true;
+                            }
+                            FORGE_UI_PROBE("ui-source:control-choice:" + row.name + ":" + choice);
+                        }
+                        ImGui::EndCombo();
+                    }
+                }
+                if (row.type != UiControlPropertyType::Choice)
+                    FORGE_UI_PROBE("ui-source:control-property:" + row.name);
+                ImGui::EndDisabled();
+                if (edited)
+                    control_property_edits_[row.name] = value;
+            }
+            ImGui::BeginDisabled(locked || !row.editable ||
+                                 (!row.authored && edit == control_property_edits_.end()));
+            const bool reset_clicked = button(reset ? "Keep override" : "Reset property",
+                                              "Stage removal of this authored attribute or inline "
+                                              "style; other source stays unchanged.");
+            FORGE_UI_PROBE("ui-source:control-reset:" + row.name);
+            ImGui::EndDisabled();
+            if (reset_clicked) {
+                if (reset) {
+                    reset_control_property_value(row);
+                    control_property_edits_.erase(row.name);
+                } else
+                    control_property_edits_[row.name] = std::monostate{};
+            }
+            ImGui::PopID();
+        }
+        ImGui::Separator();
+        ImGui::BeginDisabled(locked || control_property_edits_.empty());
+        const bool apply =
+            button("Apply properties",
+                   "Publish the complete control-property candidate as one source Undo step.");
+        FORGE_UI_PROBE("ui-source:control-apply");
+        const bool discard =
+            button("Discard staged properties",
+                   "Restore this panel's values without changing the source draft.");
+        FORGE_UI_PROBE("ui-source:control-discard");
+        ImGui::EndDisabled();
+        ImGui::PopID();
+        if (discard)
+            discard_control_property_edits();
+        if (apply) {
+            const auto changes = control_property_edits_;
+            attempt([&] {
+                control_values(index, changes);
+                discard_control_property_edits();
+            });
+            return true; // The draft owner may have rebuilt all outline/property observations.
+        }
+        return false;
+    }
+
     void selection_controls() {
         const auto index = selected_element();
         if (index == UiMarkupElement::no_parent)
@@ -570,6 +735,7 @@ class UiSourceEditor {
         std::snprintf(literal_, sizeof(literal_), "%s", text_editable_ ? content.c_str() : "");
         read_style_controls();
         read_class_controls();
+        read_control_property_controls();
     }
     void select(std::size_t index, bool toggle = false) {
         if (index >= outline_.size())
@@ -1149,6 +1315,9 @@ class UiSourceEditor {
             }
         ImGui::Separator();
         ImGui::Text("Selected: <%s>", tag.c_str());
+        if (control_property_controls(index, locked))
+            return;
+
         ImGui::BeginDisabled(locked);
         ImGui::BeginDisabled(!widget_editable);
         ImGui::InputTextWithHint("ID prefix", "Automatic", duplicate_prefix_,
@@ -1437,6 +1606,18 @@ class UiSourceEditor {
             return;
         replace_source_widget_text(editor_, value);
         changed();
+    }
+    UiMarkupControlProperties control_properties(std::size_t index) const {
+        if (locator_.extension() != ".rml")
+            throw AuthoringError("source_scope", "Open an RML document first");
+        return read_ui_markup_control_properties(editor_.GetText(), outline_, index);
+    }
+    void control_values(std::size_t index,
+                        const std::map<std::string, UiControlPropertyValue>& values) {
+        if (locator_.extension() != ".rml")
+            throw AuthoringError("source_scope", "Open an RML document first");
+        replace_selected(set_ui_markup_control_properties(editor_.GetText(), index, values),
+                         {index});
     }
     void attribute(std::size_t index, std::string_view name, std::optional<std::string> value) {
         replace_text(set_ui_markup_attribute(editor_.GetText(), index, name, std::move(value)));

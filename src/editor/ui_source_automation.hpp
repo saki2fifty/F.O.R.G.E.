@@ -1,4 +1,5 @@
 #pragma once
+#include "../ui_range_numeric.hpp"
 #include "automation_permissions.hpp"
 #include "automation_schema.hpp"
 #include "files.hpp"
@@ -12,6 +13,35 @@ struct UiSourceAutomation {
         if (editor.project() != project.project())
             return {{"open", false}};
         return editor.state();
+    }
+    static Json control_properties(const UiMarkupControlProperties& view) {
+        Json rows = Json::array();
+        for (const auto& item : view.properties) {
+            Json value;
+            if (const auto* flag = std::get_if<bool>(&item.value))
+                value = *flag;
+            else if (const auto* number = std::get_if<double>(&item.value))
+                value = *number;
+            else if (const auto* text = std::get_if<std::string>(&item.value))
+                value = *text;
+            const char* type = item.type == UiControlPropertyType::Flag     ? "boolean"
+                               : item.type == UiControlPropertyType::Number ? "number"
+                               : item.type == UiControlPropertyType::Choice ? "choice"
+                                                                            : "text";
+            rows.push_back({{"name", item.name},
+                            {"label", item.label},
+                            {"type", type},
+                            {"choices", item.choices},
+                            {"value", std::move(value)},
+                            {"authored", item.authored},
+                            {"available", item.available},
+                            {"editable", item.editable},
+                            {"reason", item.reason}});
+        }
+        return {{"kind", view.kind},
+                {"label", view.label},
+                {"reason", view.reason},
+                {"properties", std::move(rows)}};
     }
     static Json state(const ui::UiSourceEditor& editor, const SceneDocument& project) {
         auto value = document_state(editor, project);
@@ -102,6 +132,30 @@ struct UiSourceAutomation {
                          {"revision", automation_integer()},
                          {"state", automation_digest()}};
         const Json required{"path", "session", "revision", "state"};
+        {
+            auto properties = guard;
+            auto fields = required;
+            properties["element"] = automation_integer(0, 8191);
+            fields.push_back("element");
+            result.push_back(automation_method(
+                "ui.source.control_properties",
+                "Read typed authored/default control properties for one current RML source "
+                "element. "
+                "Uses native source guards and the same stateless helper as Elements. Reports "
+                "kind, "
+                "labels/types/choices, authored/available/editable facts and unsupported/binding "
+                "reasons. "
+                "Values are source literals/defaults, not computed/native Play state. Boolean "
+                "flags "
+                "use attribute presence; source numbers retain native-float precision. No source, "
+                "selection/history, Save, registration, native initialization or game execution.",
+                "assets.read", automation_object(std::move(properties), std::move(fields)), false,
+                [&files, &editor](const Json& request) {
+                    observed(editor, files.document, request);
+                    return control_properties(
+                        editor.control_properties(request.at("element").get<std::size_t>()));
+                }));
+        }
         for (const bool sheet : {false, true}) {
             const auto* index = sheet ? "rule" : "element";
             auto properties = guard;
@@ -292,7 +346,7 @@ struct UiSourceAutomation {
               "duplicate",     "reparent",      "remove",      "remove_group", "move",
               "save",          "undo",          "redo",        "reload",       "close",
               "rule_property", "rule_selector", "rule_insert", "rule_remove",  "rule_copy",
-              "rule_move",     "style_group",   "classes",     "control"}) {
+              "rule_move",     "style_group",   "classes",     "control",      "control_values"}) {
             const std::string action(operation);
             auto properties = guard;
             auto fields = required;
@@ -308,7 +362,8 @@ struct UiSourceAutomation {
             if (action == "rule_selector" || action == "rule_insert")
                 add("selector", automation_text(1024, 1));
             if (action == "attribute" || action == "style" || action == "text" ||
-                action == "duplicate" || action == "remove" || action == "move")
+                action == "duplicate" || action == "remove" || action == "move" ||
+                action == "control_values")
                 add("element", automation_integer(0, 8191));
             if (action == "duplicate")
                 add("prefix", automation_text(64), false);
@@ -327,6 +382,18 @@ struct UiSourceAutomation {
                 add("value", {{"oneOf", {automation_text(1024, 1), Json{{"type", "null"}}}}});
             if (action == "text" || action == "insert")
                 add("text", automation_text(256 * 1024), action == "text");
+            if (action == "control_values") {
+                Json values = Json::object();
+                const Json value{{"oneOf",
+                                  {Json{{"type", "null"}}, Json{{"type", "boolean"}},
+                                   Json{{"type", "number"},
+                                        {"minimum", -ui_range_magnitude},
+                                        {"maximum", ui_range_magnitude}},
+                                   automation_text(8192)}}};
+                for (const auto& name : ui_markup_control_property_names())
+                    values[name] = value;
+                add("values", automation_object(std::move(values)));
+            }
             if (action == "control") {
                 auto kinds = Json::array();
                 for (const auto& kind : ui_markup_control_kinds)
@@ -346,7 +413,23 @@ struct UiSourceAutomation {
                 add("discard", {{"type", "boolean"}}, false);
             result.push_back(automation_method(
                 "ui.source." + action,
-                action == "control"
+                action == "control_values"
+                    ? "Set typed authored properties on one current RML source control. Read "
+                      "control_properties first. Null removes an attribute/inline override; "
+                      "boolean "
+                      "flags use presence/removal. Numbers are finite native floats within "
+                      "+/-1000000; "
+                      "slider step is at least0.000001. Strings fit8192bytes without NUL/dynamic "
+                      "expressions; choices follow the property profile. Bound/ambiguous "
+                      "properties "
+                      "reject; explicit valid replacements can repair unsupported plain literals. "
+                      "Compose privately, validate and publish once through the native draft "
+                      "owner, "
+                      "retaining the selected element and one Undo. Preserve unrelated source, IDs "
+                      "and bindings; no runtime normalization/state, Save, catalog or Scene "
+                      "writes. "
+                      "Requires current source guards and assets.write; old raw tools remain."
+                : action == "control"
                     ? "Create one common RML control with parent/kind, optional initial text/value "
                       "and optional before-child index. Compose existing escaped source insert/"
                       "attribute/text candidates, validate before one Undo and select the new "
@@ -508,7 +591,24 @@ struct UiSourceAutomation {
                                       request.contains("before")
                                           ? std::optional(request.at("before").get<std::size_t>())
                                           : std::nullopt);
-                    else if (action == "control")
+                    else if (action == "control_values") {
+                        std::map<std::string, UiControlPropertyValue> values;
+                        for (const auto& [name, value] : request.at("values").items()) {
+                            if (value.is_null())
+                                values.emplace(name, std::monostate{});
+                            else if (value.is_boolean())
+                                values.emplace(name, value.get<bool>());
+                            else if (value.is_number())
+                                values.emplace(name, value.get<double>());
+                            else if (value.is_string())
+                                values.emplace(name, value.get<std::string>());
+                            else
+                                throw AuthoringError(
+                                    "invalid_arguments",
+                                    "Use null, boolean, number or string control values");
+                        }
+                        editor.control_values(request.at("element").get<std::size_t>(), values);
+                    } else if (action == "control")
                         editor.control(request.at("parent").get<std::size_t>(),
                                        request.at("kind").get<std::string>(),
                                        request.value("text", std::string{}),

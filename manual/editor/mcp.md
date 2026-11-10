@@ -58,6 +58,14 @@ even when its text stays equal. Read-only connections cannot set values. See
 [Form controls](ui-form-controls.md) for creation, numeric limits,
 saving and export.
 
+For source settings, `forge_ui_source_control_properties` reads one current
+source element's property profile using current source guards.
+`forge_ui_source_control_values` applies a typed patch to the same native draft
+owner. Null resets an authored override; flags use true/false. An applied batch
+has one source Undo step and still needs **Save source**. Bindings and unsupported
+forms keep their Source controls. See [UI source](ui-source.md) for the panel and
+source/default distinctions.
+
 `forge_play_ui_widget_focus` and `forge_play_ui_widget_key` test ordinary native
 keyboard input on non-text controls using their observed kind and current scope.
 Read `focusable` and `tab_stop` facts, focus the exact control, then send a paired
