@@ -2864,3 +2864,14 @@ reapplying selection. They use the same source selection owner as Elements and
 Preview and leave source revision/digest/dirty/Undo/Save/catalog/Scene unchanged.
 There are40source operations. No runtime widget input or persisted selection is
 introduced; selected elements still need each authoring operation's admission.
+
+
+## Source canvas shortcut equivalence
+
+The native canvas shortcuts use existing source operations: Ctrl+A is a replacement
+select_rectangle over the current viewport, Escape's idle clear is select with an
+empty list, Ctrl+D is single-subtree duplicate, and Delete is atomic remove_group.
+These same guarded tools remain available with their existing grants, source
+revisions, identity rules, history and explicit Save. Tool count stays40. Agents
+send source operations rather than UI key events; cancelling a local queued key
+request is a local transient workflow, not a new persisted authoring operation.

@@ -616,6 +616,32 @@ operation is refused. Source and history stay unchanged; refresh Preview after
 a rejected native candidate. To use a different reference, Ctrl+click it out of
 the selection, then Ctrl+click it again to add it last.
 
+## Select, duplicate and delete with the keyboard
+
+Click the **Preview** canvas to give it focus, finish any drag, and turn off
+**Click to place** before using these shortcuts. They work with **Box select**
+enabled or disabled.
+
+- **Ctrl+A** replaces selection with visible, uniquely named source elements whose whole border boxes fit inside the preview viewport, in source order. The 32-member limit still applies.
+- **Escape** clears selection. During a gesture or queued edit, it cancels that operation while keeping its existing selection.
+- **Ctrl+D** duplicates one selected source subtree and selects the copy. Select exactly one element first.
+- **Delete** removes the selected one to 32 sibling subtrees together.
+
+![The selected copied panel after using Ctrl+D in the focused Preview canvas](../images/ui-source-keyboard-duplicate.png)
+
+Duplication keeps the original element and its IDs. The copy receives unique IDs
+and remapped internal label targets through the same rules as **Duplicate** in
+Elements. It initially occupies the same layout position; move it after copying.
+Dynamic or protected source is refused. Delete requires distinct sibling roots;
+protected, nested or incompatible selections are refused together. Use
+**Undo** or **Redo** for one complete structural operation, then **Save source**
+when ready. Selection changes alone create no source Undo record.
+
+These shortcuts operate only when the canvas has focus and no text field is
+active. Source text, numeric fields and other panels retain their own keyboard
+input. **Escape**, changing views, source edits, focus loss or a task lock cancels
+queued canvas work before it changes source. Play and locked tasks disable it.
+
 ## Align controls to a pixel grid
 
 1. Select an editable control in **Preview**. Set **Grid (px)** in the Preview toolbar, then choose **Snap positions to grid** below the control's layout fields.

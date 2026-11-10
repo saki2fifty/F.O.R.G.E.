@@ -1,5 +1,13 @@
 # 2026-11-10
 
+## UI canvas editing shortcuts
+
+Focused Preview supports select-all, clear, single-subtree duplication and group
+deletion through its existing selection/source owners. Structural requests share
+the pre-image queue, validation, ID handling and one Undo with existing controls.
+Text fields and other panels keep their input; cancellation retains the original
+source and selection. Existing MCP tools expose the same authored results.
+
 ## UI rectangle and programmatic selection
 
 Preview's Box select mode selects fully enclosed named visible controls, with

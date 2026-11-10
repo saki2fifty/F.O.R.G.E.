@@ -213,6 +213,15 @@ They update the same selection shown in Elements and Preview without changing
 source revision, dirty state, Undo or Scene history. Selection does not grant
 layout editability; later authoring tools still validate their own prerequisites.
 
+The canvas keyboard workflows use these same owners. To select the same elements
+as Ctrl+A, pass a replacement rectangle from `(0,0)` to the current preview's
+`width,height`. Escape's selection-clear result is `forge_ui_source_select` with
+`elements:[]`. Use `forge_ui_source_duplicate` with one `element` and an optional
+`prefix` for Ctrl+D's authored result; use `forge_ui_source_remove_group` with
+the selected sibling `elements` for Delete. Structural calls need current source
+guards and write permission, create one source Undo and leave Save explicit.
+No key injection or keyboard-specific agent tool is required.
+
 To inspect the rendered draft, grant an output folder and call
 `forge_capture_ui_source`. Its `path` selects the output file inside that folder;
 its nested `source` contains the current source `path`, `session`, `revision`,

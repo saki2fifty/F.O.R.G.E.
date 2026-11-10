@@ -134,6 +134,18 @@ release dispatches through the existing deferred Preview envelope before image
 submission, preserving preview image lifetime. No DOM writer or second selection
 manager is introduced.
 
+Focused canvas selection and structural shortcuts extend that same deferred
+Preview envelope. Select-all uses the existing native rectangle selection;
+clear uses the existing ordered source selection. Duplicate calls the existing
+single-subtree owner and delete calls atomic sibling removal. Both retain their
+source admission, ID rules, history and Save behavior. Source/session guards and
+existing cancellation run before pre-image dispatch. Cancellation of a pending
+edit or gesture takes priority over Escape's idle selection-clear behavior.
+Native item focus and shortcut routing protect Source, fields and other panels.
+Existing guarded MCP selection/duplicate/remove operations already expose these
+authored results; no agent-specific editing implementation or input injection
+is introduced.
+
 Static subtree duplication and sibling-group removal extend these same source
 range, selection and history owners. Duplication retains original source/IDs and
 assigns collision-checked prefix IDs only to the new raw fragment. Literal internal

@@ -3455,3 +3455,45 @@ Refreshed `ui-source-keyboard.png`: `adf07db8e630cf464a2884f6a3b303f00494a3dd70c
 Refreshed `ui-source-drag-grid.png`: `7d3739da113a85893a5a5ef2a68905c64293dd469e11c2271c239321ae5a37ea`.
 
 Refreshed `ui-source-drag-aspect.png`: `417b6fe6f712a9032eb0effc493d491bf14e2564bc03032478c521f37d3b98b6`.
+
+## Focused UI canvas editing shortcuts
+
+Earlier capture records retain their checkpoint attribution and hashes. This
+section identifies the current refreshed Preview files.
+
+The keyboard-duplicate image is an unretouched700×950 production SourceEditor
+output after actual focused Ctrl+D. The selected copy-layout-b retains the original
+source layout and receives collision-safe IDs from the existing duplication owner.
+Native input at1180/700 also verifies Ctrl+A/Escape, group deletion, Undo/Redo,
+queued cancellation and normal select-all/Delete in a different text panel.
+
+Capture source is development based ona0ab113 with focused canvas shortcuts.
+Native softwareVulkan pixels are read back into the SDL component surface. The
+shortcut hint refreshes affected Preview images. Prior25Source CPU images keep
+frozen attribution; no unrelated oldGUI rerun is claimed. Exact input/executable/
+raw image digests remain in the local shortcut evidence owner. No full Main,
+Windows or physical-hardware acceptance is implied.
+
+- `ui-source-keyboard-duplicate.png`: `3d3c7f0ffe85d451753af192433044d8f3c7fee1622387f50f16073152c60b70`.
+
+Refreshed `ui-source-preview.png`: `ae65964ead579bf2295454d7d8197d795825eaeb1126b89d37a3bd363b5acddd`.
+
+Refreshed `ui-source-group-layout.png`: `4cfd099a7cf51c0574aedf1939897e617dc385ca4dbd69a355558dcb77e19a32`.
+
+Refreshed `ui-source-place-control.png`: `8a5b10174a87b4c40fecec592cd62e4e918c48a5a4b9ed0ae774c83b15f3ca16`.
+
+Refreshed `ui-source-placed-control.png`: `33e12fda8078019b2af250458b6581405b0883d818b648b75ac7d84b32bb5627`.
+
+Refreshed `ui-source-group-sizing.png`: `aee09f5af53d4a0d23bc241ee284082c5248d5f0431f3da13e33fb23cea2ee74`.
+
+Refreshed `ui-source-grid.png`: `b946a2d7ed8d7a0bd3efe3b1ce6c2098f46e5a9b57c7ae85688b92b8e51d7134`.
+
+Refreshed `ui-source-keyboard.png`: `a2fdd1777f08393f763289ae4f68cfd586b83101ac79df8c717eb991b5428004`.
+
+Refreshed `ui-source-drag-grid.png`: `408358d7e69fe5b85d70710d4079c293de2f6d1d5f904a70b5c01a64e6d39f10`.
+
+Refreshed `ui-source-drag-aspect.png`: `c34aa845c2c104debdad5532eb9abfcea9e01fead005ef637e9c829d64b2ab17`.
+
+Refreshed `ui-source-box-drag.png`: `2e9055a69c0fe680c7230d31a6b7a452548b14c11d440fb0377b3ab056d05188`.
+
+Refreshed `ui-source-box-selection.png`: `989fded9d58b8cd4192d3a80d62045b8f7b40f03977416d7becb48bd3fcd1e4b`.

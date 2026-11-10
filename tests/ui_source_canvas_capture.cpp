@@ -547,6 +547,128 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
             "Box-mode Ctrl-click did not remove its hit control");
     box_select(50, 80, 950, 370, false);
     input.click("ui-source:box-select");
+    const auto shortcut_start = editor.state();
+    const auto focus_canvas = [&] {
+        const auto canvas = test::ui_targets.at("ui-source:canvas");
+        const float fitted = (canvas.maximum.x - canvas.minimum.x) / 1000;
+        io.AddMousePosEvent(canvas.minimum.x + 470 * fitted, canvas.minimum.y + 180 * fitted);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
+        frame();
+    };
+    const auto shortcut = [&](ImGuiKey key, bool ctrl = false) {
+        io.AddKeyEvent(ImGuiMod_Ctrl, ctrl);
+        io.AddKeyEvent(key, true);
+        frame();
+        io.AddKeyEvent(key, false);
+        io.AddKeyEvent(ImGuiMod_Ctrl, false);
+        frame();
+        frame();
+    };
+    const auto selection_only = [&] {
+        for (const auto* key : {"text", "revision", "state", "dirty", "can_undo", "can_redo"})
+            require(editor.state().at(key) == shortcut_start.at(key),
+                    "Canvas selection shortcut changed source/history");
+    };
+    focus_canvas();
+    shortcut(ImGuiKey_Escape);
+    require(editor.state().at("selection").empty(), "Canvas Escape did not clear selection");
+    selection_only();
+    shortcut(ImGuiKey_A, true);
+    require(editor.state().at("selection") == shortcut_start.at("selection"),
+            "Canvas Ctrl+A did not use native named-element selection order");
+    selection_only();
+    shortcut(ImGuiKey_D, true);
+    require(editor.state().at("selection") == shortcut_start.at("selection"),
+            "Unsupported group duplication changed selection");
+    selection_only();
+    shortcut(ImGuiKey_Delete);
+    require(editor.dirty() && editor.state().at("selection").empty() &&
+                editor.preview_state(project, 1000, 700, 1, false).at("elements").empty(),
+            "Canvas Delete did not remove the complete selected group");
+    const auto removed_text = editor.state().at("text");
+    input.click("button:Undo");
+    require(editor.state().at("text") == shortcut_start.at("text"),
+            "Canvas group deletion needed more than one Undo");
+    input.click("button:Redo");
+    require(editor.state().at("text") == removed_text, "Canvas group deletion Redo failed");
+    input.click("button:Undo");
+    focus_canvas();
+    require(editor.state().at("selection") == Json::array({members[1]}),
+            "Single-duplicate fixture did not select its source control");
+    const auto before_duplicate = editor.state();
+    shortcut(ImGuiKey_D, true);
+    const auto duplicated = editor.state();
+    auto duplicated_preview = editor.preview_state(project, 1000, 700, 1, false);
+    require(duplicated.at("selection").size() == 1 && duplicated_preview.at("elements").size() == 4,
+            "Canvas Ctrl+D did not duplicate and select one source subtree");
+    const auto copied_index = duplicated.at("selection").at(0);
+    const auto copy = std::ranges::find_if(duplicated_preview.at("elements"), [&](const auto& row) {
+        return row.at("source_index") == copied_index;
+    });
+    require(copy != duplicated_preview.at("elements").end() && copy->at("id") != "layout-b" &&
+                copy->at("id_unique").get<bool>() &&
+                copy->at("bounds") == Json::array({430, 140, 220, 140}),
+            "Canvas duplication lost collision-safe native identity or geometry");
+    frame();
+    surface.save(output / ("ui-source-keyboard-duplicate-" + std::to_string(width) + ".png"));
+    input.click("button:Undo");
+    require(editor.state().at("text") == before_duplicate.at("text"),
+            "Canvas duplication needed more than one Undo");
+    input.click("button:Redo");
+    require(editor.state().at("text") == duplicated.at("text"), "Canvas duplication Redo failed");
+    input.click("button:Undo");
+    focus_canvas();
+    frame();
+    io.AddKeyEvent(ImGuiMod_Ctrl, true);
+    io.AddKeyEvent(ImGuiKey_D, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_D, false);
+    io.AddKeyEvent(ImGuiMod_Ctrl, false);
+    io.AddKeyEvent(ImGuiKey_Escape, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Escape, false);
+    frame();
+    require(editor.state().at("text") == shortcut_start.at("text") &&
+                editor.state().at("selection") == Json::array({members[1]}),
+            "Escape did not cancel queued duplication while retaining selection");
+    io.AddKeyEvent(ImGuiKey_Delete, true);
+    frame();
+    source_locked = true;
+    io.AddKeyEvent(ImGuiKey_Delete, false);
+    frame();
+    source_locked = false;
+    frame();
+    require(editor.state().at("text") == shortcut_start.at("text") &&
+                editor.state().at("selection") == Json::array({members[1]}),
+            "Task lock did not cancel queued source deletion");
+    input.click("ui-source:grid-spacing");
+    const auto field_selection = editor.state().at("selection");
+    shortcut(ImGuiKey_A, true);
+    shortcut(ImGuiKey_Delete);
+    require(editor.state().at("selection") == field_selection &&
+                editor.state().at("text") == shortcut_start.at("text"),
+            "Canvas shortcuts stole numeric-field input");
+    input.type("ui-source:grid-spacing", "8");
+    other_panel = true;
+    frame();
+    input.click("fixture:other-text");
+    shortcut(ImGuiKey_A, true);
+    shortcut(ImGuiKey_Delete);
+    require(other_text[0] == 0 && editor.state().at("selection") == field_selection &&
+                editor.state().at("text") == shortcut_start.at("text"),
+            "Another panel did not retain native select-all and text deletion");
+    other_panel = false;
+    frame();
+    frame();
+    focus_canvas();
+    shortcut(ImGuiKey_A, true);
+    require(editor.state().at("selection") == shortcut_start.at("selection") && !editor.dirty() &&
+                scene.snapshot() == authored,
+            "Canvas shortcut fixture did not restore unchanged source and selection");
     input.click("ui-source:preview-save-image");
     const auto wait = [&] {
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);

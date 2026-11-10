@@ -124,3 +124,17 @@ runtime controls.
 **Ctrl+Space** folds or expands Content, Build, Problems and Console. It is
 inactive while typing or capturing Game input. The status-bar Workspace button
 and Window menu provide the same operation.
+
+## UI Source Preview
+
+With the canvas focused, no text field active and **Click to place** off:
+
+- **Ctrl+A** selects visible uniquely named elements fully inside the viewport, up to 32.
+- **Escape** clears selection, or cancels an unfinished gesture or queued edit.
+- **Ctrl+D** duplicates one selected source subtree and selects the copy.
+- **Delete** removes the selected sibling subtrees as one Undo step.
+- **Arrow keys** move an editable selection one pixel; **Shift+arrow** moves it ten pixels.
+
+Structural edits retain **Undo**, **Redo** and explicit **Save source**. Source
+text and other panels receive their normal shortcuts. See [UI Source](ui-source.md)
+for selection, ID handling, cancellation and current editing limits.

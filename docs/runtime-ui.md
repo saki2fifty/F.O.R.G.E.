@@ -173,6 +173,13 @@ its own transient gesture alongside layout dragging, sharing cancellation and th
 existing pre-image deferred request. Automation/MCP borrow these same operations
 with source guards and, for rectangle geometry, native preview guards.
 
+Focused canvas structural shortcuts call the established source duplicate and
+sibling-removal owners. Their guarded requests join the same pre-image deferred
+envelope as selection, placement and nudges; they introduce no native DOM editing
+or runtime input behavior. Cancellation takes precedence over idle Escape clear.
+Existing automation/MCP operations expose each authored result; source selection,
+ID generation, history and Save retain their original ownership.
+
 The same CSS admission scanner optionally records inline declaration value ranges.
 Four-value candidates preserve unrelated bytes. Numeric changes validate native
 candidate geometry before source publication; mouse gestures retain transient

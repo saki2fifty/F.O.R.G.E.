@@ -61,10 +61,16 @@ class UiSourceEditor {
         UiPixelLayout viewport;
         bool add;
     };
+    struct SourceSelectionAction {
+        enum class Kind { Select, Duplicate, Remove } kind;
+        std::vector<std::size_t> elements;
+    };
     struct PreviewEdit {
         std::string session, instance;
         std::uint64_t source_revision, preview_revision;
-        std::variant<ControlPlacement, RectangleSelection, std::vector<UiMarkupLayoutEdit>> action;
+        std::variant<ControlPlacement, RectangleSelection, SourceSelectionAction,
+                     std::vector<UiMarkupLayoutEdit>>
+            action;
     };
     std::optional<PreviewEdit> pending_preview_edit_;
     void cancel_placement() {
@@ -1012,6 +1018,7 @@ class UiSourceEditor {
         return result;
     }
     void preview_controls(SceneDocument& project, bool locked) {
+        const bool had_gesture = gesture_active(), had_pending = pending_preview_edit_.has_value();
         if (locked || ImGui::GetIO().AppFocusLost || ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
             (pending_preview_edit_ &&
              !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)))
@@ -1033,7 +1040,23 @@ class UiSourceEditor {
                                                                 RectangleSelection>)
                                 select_rectangle(action.viewport, action.add, request.instance,
                                                  request.preview_revision);
-                            else
+                            else if constexpr (std::is_same_v<std::decay_t<decltype(action)>,
+                                                              SourceSelectionAction>) {
+                                switch (action.kind) {
+                                case SourceSelectionAction::Kind::Select:
+                                    selection(action.elements);
+                                    break;
+                                case SourceSelectionAction::Kind::Duplicate:
+                                    if (action.elements.size() != 1)
+                                        throw AuthoringError("source_element",
+                                                             "Select one element to duplicate");
+                                    duplicate(action.elements.front());
+                                    break;
+                                case SourceSelectionAction::Kind::Remove:
+                                    removes(action.elements);
+                                    break;
+                                }
+                            } else
                                 layouts(action, request.instance, request.preview_revision);
                         },
                         request.action);
@@ -1301,6 +1324,8 @@ class UiSourceEditor {
                     }))
                     ImGui::TextWrapped("%s", element.at("reason").get<std::string>().c_str());
         ImGui::EndChild();
+        ImGui::TextWrapped("Focus canvas: Ctrl+A selects visible named controls; Escape clears. "
+                           "Ctrl+D duplicates one control; Delete removes the selection.");
         if (!frame.state.contains("width") || !frame.state.contains("height"))
             return;
         const float width = frame.state.at("width").get<float>(),
@@ -1315,10 +1340,27 @@ class UiSourceEditor {
         ImGui::InvisibleButton("ui-source-canvas", size,
                                ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_EnableNav);
         FORGE_UI_PROBE("ui-source:canvas");
-        if (!locked && !gesture_active() && !place_controls_ && preview_current() && frame.image &&
-            !selected_.empty() && ImGui::IsItemFocused() && !ImGui::IsAnyItemActive() &&
-            !ImGui::GetIO().WantTextInput &&
-            ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
+        const auto queue = [&](auto action) {
+            pending_preview_edit_ = PreviewEdit{
+                session_, preview_frame_.state.at("instance").get<std::string>(), revision_,
+                preview_frame_.state.at("revision").get<std::uint64_t>(), std::move(action)};
+        };
+        const bool focused_canvas = !locked && !gesture_active() && !had_gesture && !had_pending &&
+                                    !place_controls_ && preview_current() && frame.image &&
+                                    ImGui::IsItemFocused() && !ImGui::IsAnyItemActive() &&
+                                    !ImGui::GetIO().WantTextInput &&
+                                    ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+        if (focused_canvas) {
+            if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_A))
+                queue(RectangleSelection{{0, 0, width, height}, false});
+            else if (ImGui::Shortcut(ImGuiKey_Escape) && !selected_.empty())
+                queue(SourceSelectionAction{SourceSelectionAction::Kind::Select, {}});
+            else if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_D) && !selected_.empty())
+                queue(SourceSelectionAction{SourceSelectionAction::Kind::Duplicate, selected_});
+            else if (ImGui::Shortcut(ImGuiKey_Delete) && !selected_.empty())
+                queue(SourceSelectionAction{SourceSelectionAction::Kind::Remove, selected_});
+        }
+        if (focused_canvas && !pending_preview_edit_ && !selected_.empty()) {
             const auto step = [](ImGuiKey key) {
                 const bool pressed = ImGui::Shortcut(key);
                 const bool shifted = ImGui::Shortcut(ImGuiMod_Shift | key);
@@ -1335,10 +1377,7 @@ class UiSourceEditor {
                         change.pixels.top += dy;
                         changes.push_back(change);
                     }
-                    pending_preview_edit_ = PreviewEdit{
-                        session_, preview_frame_.state.at("instance").get<std::string>(), revision_,
-                        preview_frame_.state.at("revision").get<std::uint64_t>(),
-                        std::move(changes)};
+                    queue(std::move(changes));
                 });
         }
         auto* draw = ImGui::GetWindowDrawList();
@@ -1359,15 +1398,12 @@ class UiSourceEditor {
                 error_ = "Enter a unique Element ID before placing the control";
             else if (selected_.size() == 1) {
                 const auto& kind = ui_markup_control_kinds[child_kind_];
-                pending_preview_edit_ = PreviewEdit{
-                    session_, preview_frame_.state.at("instance").get<std::string>(), revision_,
-                    preview_frame_.state.at("revision").get<std::uint64_t>(),
-                    ControlPlacement{selected_element(),
-                                     std::string(kind.id),
-                                     kind.accepts_text() ? child_text_ : "",
-                                     child_id_,
-                                     {(mouse.x - origin.x) / scale, (mouse.y - origin.y) / scale,
-                                      child_pixels_[2], child_pixels_[3]}}};
+                queue(ControlPlacement{selected_element(),
+                                       std::string(kind.id),
+                                       kind.accepts_text() ? child_text_ : "",
+                                       child_id_,
+                                       {(mouse.x - origin.x) / scale, (mouse.y - origin.y) / scale,
+                                        child_pixels_[2], child_pixels_[3]}});
             }
             return; // Apply next frame, before queuing any preview image for drawing.
         }

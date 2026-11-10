@@ -43,6 +43,15 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+The source canvas fixture also performs actual focused Ctrl+A/Escape/Ctrl+D/Delete
+at1180/700pixels. It verifies ordered selection without source history, unique
+copied native IDs/geometry, atomic group deletion, one-step Undo/Redo, queued
+Escape/task-lock cancellation and native select-all/Delete in a different text
+panel. Existing selection, dragging, keyboard nudging, image and placement checks
+run in that same fixture. Agents use existing guarded selection/duplicate/removal
+operations; no keyboard-specific tool or runtime input path is added.
+
+
 
 `mcp_ui_source_selection_stdio` checks both protocol envelopes against the actual
 source selection owner: source-only selection, fully enclosed native rectangles,
