@@ -32,7 +32,7 @@ Sources capture(const nlohmann::json& doc, const NavigationSettings& settings) {
         if (profile.empty() || !components.contains("forge.navigation_link"))
             return false;
         const auto& value = components.at("forge.navigation_link");
-        return value.at("plane") == unsigned(plane) && value.at("profile") == profile &&
+        return value.at("plane") == unsigned(plane) && value.at("profile") == Json(profile) &&
                value.at("enabled").get<bool>();
     };
     Sources g;

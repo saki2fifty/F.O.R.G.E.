@@ -1017,7 +1017,7 @@ Json Scene::unresolved_navigation_sources(const NavigationSettings& settings) co
             components.contains(marker) && components.at(marker).at("enabled").get<bool>();
         const bool link = !profile.empty() && components.contains("forge.navigation_link") &&
                           components.at("forge.navigation_link").at("plane") == unsigned(plane) &&
-                          components.at("forge.navigation_link").at("profile") == profile &&
+                          components.at("forge.navigation_link").at("profile") == Json(profile) &&
                           components.at("forge.navigation_link").at("enabled").get<bool>();
         const bool automatic = navigation_detail::collect_static_collider(components, settings);
         if ((!surface && !link && !automatic) || entity(item.at("id")))

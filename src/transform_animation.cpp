@@ -208,7 +208,7 @@ Json component_descriptor(const AnimationComponentBinding& binding, bool typed) 
 bool same_component(const Json& row, std::string_view component, std::string_view field,
                     std::span<const std::string> path, bool nested, std::span<const Json> elements,
                     bool collections) {
-    return row.at("component") == component && row.at("field") == field &&
+    return row.at("component") == Json(component) && row.at("field") == Json(field) &&
            (!nested || row.value("member_path", Json::array()) == Json(path)) &&
            (!collections || row.value("element_path", Json::array()) == Json(elements));
 }
