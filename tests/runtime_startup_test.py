@@ -43,7 +43,7 @@ try:
                     version=5, asset_id=str(uuid.uuid4()), entities=[]))
                 replacement = files[0].read_text(encoding='utf-8')
                 lines = replacement.splitlines()
-                assert 22 <= len(lines) <= 24 and len(replacement.encode()) <= 4096, replacement
+                assert len(lines) == 24 and len(replacement.encode()) <= 4096, replacement
                 parsed = [re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ '
                                       r'elapsed_ms=(\d+) phase=([a-z-]+)', line) for line in lines]
                 assert all(parsed), replacement
@@ -52,7 +52,8 @@ try:
                 assert [row.group(2) for row in parsed[8:]] == [
                     'replace-world-begin', 'replace-world-ready', 'replace-scene-begin',
                     'replace-scene-ready', 'replace-maps-begin', 'replace-maps-ready',
-                    'replace-physics-begin', 'replace-physics-ready', 'replace-audio-begin',
+                    'replace-physics-begin', 'replace-physics-ready', 'replace-resources-begin',
+                    'replace-resources-ready', 'replace-audio-begin',
                     'replace-audio-ready', 'replace-published', 'replace-retired',
                     'replace-state-ready', 'replace-response-queued']
                 checkpoint = state['recovery']

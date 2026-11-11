@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +41,33 @@ def report(values=(1, 2, 3), layouts=None):
 
 
 class BenchmarkTests(unittest.TestCase):
+    def test_configured_physics_source_location(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime, cache = root / 'runtime', root / 'CMakeCache.txt'
+            runtime.write_bytes(b'benchmark metadata fixture')
+            base = (f'CMAKE_BUILD_TYPE:STRING=Release\n'
+                    f'CMAKE_CXX_COMPILER:FILEPATH={sys.executable}\n')
+            for settings, expected in (
+                    ('', root / '_deps/jolt-src'),
+                    (f'FETCHCONTENT_BASE_DIR:PATH={root / "shared"}\n',
+                     root / 'shared/jolt-src'),
+                    (f'FETCHCONTENT_BASE_DIR:PATH={root / "shared"}\n'
+                     f'FETCHCONTENT_SOURCE_DIR_JOLT:PATH={root / "selected"}\n',
+                     root / 'selected')):
+                cache.write_text(base + settings, encoding='utf-8')
+
+                def output(command, **kwargs):
+                    if command[0] == runtime:
+                        return '{}' if command[1] == '--sdk-info' else 'metadata fixture'
+                    return 'a' * 40 if command[1:3] == ['rev-parse', 'HEAD'] else ''
+
+                with mock.patch.object(bench.subprocess, 'check_output', side_effect=output) as run:
+                    result = bench.metadata(runtime, cache, physics=True)
+                    run.assert_any_call(['git', 'rev-parse', 'HEAD'], cwd=expected, text=True)
+                    self.assertEqual(result['native_physics']['source_revision'], 'a' * 40)
+                    self.assertFalse(result['native_physics']['binary_origin_verified'])
+
     def test_fixtures_and_independent_parent_sums(self):
         scene, expected = bench.fixture('hierarchy', 8)
         rows = scene['entities']

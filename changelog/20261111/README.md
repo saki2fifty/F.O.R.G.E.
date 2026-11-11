@@ -1,5 +1,16 @@
 # 2026-11-11
 
+## Navigation loading and benchmark metadata
+
+Navigation retains pending static Mesh subscriptions until CPU resource admission
+finishes, allowing routes to become ready without restarting their loads.
+Physics benchmark provenance uses the configured shared dependency directory,
+with explicit source overrides retaining precedence.
+
+Regression fixtures cover current atomic Scene preparation, Dynamic Map previews,
+admitted Scene defaults and recovery/projection formats without changing saved
+example content.
+
 ## Project UI material effects
 
 UI documents can select a project Material with the native shader decorator. The

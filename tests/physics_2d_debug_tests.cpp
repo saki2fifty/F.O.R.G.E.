@@ -5,6 +5,7 @@
 #include <future>
 #include <iostream>
 #include <limits>
+#include <source_location>
 
 using namespace forge;
 namespace {
@@ -12,13 +13,15 @@ void require(bool condition, const char* text) {
     if (!condition)
         throw std::runtime_error(text);
 }
-template <class F> void rejects(F&& operation) {
+template <class F>
+void rejects(F&& operation, std::source_location at = std::source_location::current()) {
     try {
         operation();
     } catch (const std::exception&) {
         return;
     }
-    throw std::runtime_error("Invalid planar preview accepted");
+    throw std::runtime_error("Invalid planar preview accepted at line " +
+                             std::to_string(at.line()));
 }
 Json defaults(const char* name) {
     for (const auto& type : detail::builtins())
@@ -226,7 +229,8 @@ void tile_map_outlines() {
     rejects([&] { preview(invalid, {1, 1, 0}, &cells); });
     invalid = components;
     invalid["forge.physics_body_2d"]["motion"] = 2;
-    rejects([&] { preview(invalid, {1, 1, 0}, &cells); });
+    require(preview(invalid, {1, 1, 0}, &cells).lines == raw.lines,
+            "Dynamic Map preview differs from the same selected layer geometry");
     invalid = components;
     invalid["forge.physics_body_2d"]["sensor"] = true;
     for (unsigned motion : {0u, 1u}) {
@@ -239,6 +243,21 @@ void tile_map_outlines() {
     require(preview(invalid, {1, 1, 0}, &cells).lines.size() == raw.lines.size(),
             "Kinematic solid Map lost shared preview geometry");
     invalid["forge.physics_body_2d"]["one_way"] = true;
+    const auto one_way = preview(invalid, {1, 1, 0}, &cells);
+    require(one_way.lines.size() == 14 && !one_way.truncated,
+            "Kinematic one-way Map lost its two face arrows");
+    for (unsigned part = 0; part < 2; ++part) {
+        for (unsigned edge = 0; edge < 4; ++edge)
+            require(one_way.lines[7 * part + edge] == raw.lines[4 * part + edge],
+                    "One-way Map changed its collision rectangle outline");
+        const auto& arrow = one_way.lines[7 * part + 4];
+        require(arrow[1][1] > arrow[0][1] && arrow[1][0] == arrow[0][0],
+                "One-way Map arrow did not point along its solid face");
+    }
+    invalid["forge.physics_body_2d"]["motion"] = 2;
+    rejects([&] { preview(invalid, {1, 1, 0}, &cells); });
+    invalid["forge.physics_body_2d"]["motion"] = 1;
+    invalid["forge.physics_body_2d"]["sensor"] = true;
     rejects([&] { preview(invalid, {1, 1, 0}, &cells); });
     invalid = components;
     invalid["forge.box_collider_2d"] = {{"x", 1}, {"y", 1}};

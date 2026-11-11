@@ -214,6 +214,7 @@ def metadata(runtime, cache, physics=False):
     configuration = {}
     native_configuration = {}
     native_source = None
+    dependency_base = cache.parent / '_deps'
     native_options = {'DOUBLE_PRECISION', 'CROSS_PLATFORM_DETERMINISTIC',
                       'INTERPROCEDURAL_OPTIMIZATION', 'CPP_RTTI_ENABLED',
                       'FLOATING_POINT_EXCEPTIONS_ENABLED', 'USE_STATIC_MSVC_RUNTIME_LIBRARY'}
@@ -228,6 +229,8 @@ def metadata(runtime, cache, physics=False):
                 native_configuration[name] = value
             if name == 'FETCHCONTENT_SOURCE_DIR_JOLT' and value:
                 native_source = Path(value)
+            if name == 'FETCHCONTENT_BASE_DIR' and value:
+                dependency_base = Path(value)
             if name in keys or (name.startswith('FORGE_') and key.endswith(':BOOL')):
                 configuration[name] = value
     if not configuration.get('CMAKE_BUILD_TYPE') or not configuration.get('CMAKE_CXX_COMPILER'):
@@ -254,8 +257,8 @@ def metadata(runtime, cache, physics=False):
                                  logical_processors=os.cpu_count(), python=platform.python_version(),
                                  affinity=sorted(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else None))
     if physics:
-        # CMake can populate its default _deps checkout without a source override.
-        native_source = native_source or cache.parent / '_deps/jolt-src'
+        # Reuse CMake's configured shared dependency cache unless Jolt is overridden.
+        native_source = native_source or dependency_base / 'jolt-src'
         revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=native_source, text=True).strip()
         dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=native_source, text=True))
         if dirty or len(revision) != 40:

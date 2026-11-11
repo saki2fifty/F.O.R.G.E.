@@ -39,7 +39,7 @@ def copied_profiles(worker, state):
                            generation=row['generation'], revision=row['revision'],
                            base_generation=0, base_revision=0)['tile_projection']
     assert not reply['stale'] and reply['full']
-    assert reply['header']['definitions_version'] == (6 if custom_one_way else 2)
+    assert reply['header']['definitions_version'] == 6
     definitions = {tile['id']: tile['collision'] for tile in reply['header']['definitions']['tiles']}
     if custom_one_way:
         assert definitions[2]['kind'] == definitions[3]['kind'] == 'contours'

@@ -87,13 +87,16 @@ void inspect_color(const std::filesystem::path& root) {
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
     scene.restore_snapshot(source);
+    const auto admitted = scene.document();
     RuntimeSimulation simulation(engine.world(), scene);
     for (unsigned i = 0; i < 10; ++i)
         simulation.tick(1.f / 60);
     const auto frame = extract_render_scene(simulation.presentation(1));
     const auto cameras = prepare_game_cameras(frame, 384, 192);
-    check(scene.document() == source && frame.meshes.size() == 8 && cameras.cameras.size() == 1 &&
-              frame.diagnostics.empty() &&
+    if (scene.document() != admitted)
+        throw std::runtime_error("Gallery color Scene admission differs: " +
+                                 Json::diff(admitted, scene.document()).dump());
+    check(frame.meshes.size() == 8 && cameras.cameras.size() == 1 && frame.diagnostics.empty() &&
               frame.settings.color_adjustments ==
                   SceneColorAdjustments{true, {1.1f, .85f, .7f}, .8f, 1.15f},
           "Gallery69 runtime Scene, geometry, camera or authored grading changed");
@@ -105,12 +108,13 @@ AssetId inspect_distance_fog(const std::filesystem::path& root) {
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
     scene.restore_snapshot(source);
+    const auto admitted = scene.document();
     RuntimeSimulation simulation(engine.world(), scene);
     simulation.reset_presentation();
     const auto frame = extract_render_scene(simulation.presentation(1));
     check(frame.settings.distance_fog == SceneDistanceFog{true, {.25f, .35f, .5f}, 12, 34} &&
               frame.meshes.size() == 13 && frame.cameras.size() == 1 && frame.lights.size() == 1 &&
-              frame.diagnostics.empty() && scene.document() == source,
+              frame.diagnostics.empty() && scene.document() == admitted,
           "Distance fog Gallery runtime settings, geometry or Scene changed");
     return id;
 }
@@ -333,6 +337,7 @@ AssetId inspect_area_lights(const std::filesystem::path& root) {
     Scene authored(engine.world());
     // Runtime packages use remapped Scene paths, so resolve their ordinary catalog.
     authored.restore_snapshot(source);
+    const auto admitted = authored.document();
     RuntimeSimulation simulation(engine.world(), authored);
     simulation.reset_presentation();
     const auto frame = extract_render_scene(simulation.presentation(1));
@@ -354,7 +359,7 @@ AssetId inspect_area_lights(const std::filesystem::path& root) {
                   "Area Gallery lost Sphere radius or isolation mask");
         }
     }
-    check(rectangles == 1 && spheres == 1 && authored.document() == source,
+    check(rectangles == 1 && spheres == 1 && authored.document() == admitted,
           "Area Gallery extraction changed authored data or source kinds");
     for (const auto& mesh : frame.meshes)
         check(mesh.renderer.material_parameters.size() == 3,
@@ -374,6 +379,7 @@ NormalGallery inspect_normal_occlusion(const std::filesystem::path& root) {
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
     scene.restore_snapshot(source);
+    const auto admitted = scene.document();
     RuntimeSimulation simulation(engine.world(), scene);
     simulation.reset_presentation();
     const auto frame = extract_render_scene(simulation.presentation(1));
@@ -398,7 +404,7 @@ NormalGallery inspect_normal_occlusion(const std::filesystem::path& root) {
     check(texture.id == result.texture &&
               material->values.textures.at("normalTexture").semantic == TextureSemantic::Normal &&
               material->values.textures.at("normalTexture").scale == std::array<float, 2>{8, 4} &&
-              scene.document() == source,
+              scene.document() == admitted,
           "Normal AO Gallery changed mapped material values or authored Scene");
     return result;
 }

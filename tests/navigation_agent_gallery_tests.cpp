@@ -46,7 +46,8 @@ void exercise(const std::filesystem::path& root, const Json& source,
                 break;
             check(path.status == NavStatus::Unavailable,
                   "Cooked Gallery navigation failed admission");
-            check(std::chrono::steady_clock::now() < deadline, "Gallery Mesh load timed out");
+            if (std::chrono::steady_clock::now() >= deadline)
+                throw std::runtime_error("Navigation Mesh load timed out: " + path.diagnostic);
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }

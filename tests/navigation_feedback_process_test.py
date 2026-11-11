@@ -79,10 +79,17 @@ try:
         assert generation(replaced) == previous_generation
         assert debug(replaced)['sampled'] and debug(replaced)['diagnostic'] == ''
     else:
-        replaced = activate(client, bad, False)
-        assert debug(replaced)['diagnostic'] == ''
-        missing = client.request('step')
-        assert debug(missing)['phase'] == 'Failed' and 'Choose a NavMesh' in debug(missing)['diagnostic'], debug(missing)
+        # Ordinary replacement prepares the candidate before publishing it too.
+        previous_generation = generation(resumed)
+        try:
+            client.request('replace', scene=bad)
+        except RuntimeError as error:
+            assert 'Choose a NavMesh' in str(error), error
+        else:
+            raise AssertionError('Missing NavMesh candidate was published')
+        retained = client.request('snapshot')
+        assert generation(retained) == previous_generation
+        assert debug(retained) == debug(resumed), (retained, resumed)
     activate(client, scene, sdk_play)
     restored = client.request('step')
     assert debug(restored)['sampled'] and debug(restored)['diagnostic'] == ''

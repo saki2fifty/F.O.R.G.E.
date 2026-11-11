@@ -322,7 +322,9 @@ struct NavigationRuntime::Impl {
             state.legacy.clear();
             state.error = e.what();
         }
-        if (!state.error.empty() && name.empty() && plane == NavigationPlane::Spatial3D)
+        // Keep asynchronous subscriptions until adoption; releasing them restarts loading.
+        if (!state.loading && !state.error.empty() && name.empty() &&
+            plane == NavigationPlane::Spatial3D)
             release_meshes();
     }
     Cached& get(AssetRef<NavMeshAsset> ref) {

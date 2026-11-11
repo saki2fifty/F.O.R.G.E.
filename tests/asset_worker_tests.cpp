@@ -56,6 +56,16 @@ int main(int argc, char** argv) {
                 run_worker(WorkerKind::Import, executable, staging, cancel, limits);
             } catch (const std::exception& error) {
                 rejected = true;
+                if (std::string_view(mode) == "fail") {
+                    const std::string_view diagnostic = error.what();
+                    require(diagnostic.find("exit 7") != std::string_view::npos,
+                            "Worker rejection omitted its actual exit code");
+#ifdef _WIN32
+                    require(diagnostic.find("user CPU ") != std::string_view::npos &&
+                                diagnostic.find("kernel CPU ") != std::string_view::npos,
+                            "Windows worker rejection omitted process CPU times");
+#endif
+                }
                 if (!reject)
                     std::cerr << "Unexpected worker rejection: " << error.what() << '\n';
             }

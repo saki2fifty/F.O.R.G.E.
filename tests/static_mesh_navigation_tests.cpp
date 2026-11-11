@@ -110,7 +110,8 @@ struct Fixture {
             if (result.status == NavStatus::Success)
                 return;
             check(result.status == NavStatus::Unavailable, result.diagnostic);
-            check(std::chrono::steady_clock::now() < deadline, "Navigation Mesh load timed out");
+            if (std::chrono::steady_clock::now() >= deadline)
+                throw std::runtime_error("Navigation Mesh load timed out: " + result.diagnostic);
             std::this_thread::sleep_for(1ms);
         }
     }
