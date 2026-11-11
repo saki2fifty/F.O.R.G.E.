@@ -37,7 +37,8 @@ int main() {
         check(data.message("menu_play", "fr").fallback == false,
               "An exact locale was marked as fallback");
         const auto untranslated = data.message("literal", "fr");
-        check(untranslated.text == source.document["locales"]["en"]["messages"]["literal"] &&
+        check(nlohmann::json(untranslated.text) ==
+                      source.document["locales"]["en"]["messages"]["literal"] &&
                   untranslated.locale == "en" && untranslated.fallback && !untranslated.missing,
               "Missing translation changed literal bytes or bypassed the default locale");
         check(data.select_locale("de-CH") == "en" && data.message("menu_play", "de").fallback,

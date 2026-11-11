@@ -46,7 +46,7 @@ std::vector<ArtifactFile> execute_sprite_atlas_source(const ImportProcessRequest
                                                       std::stop_token stop) {
     const auto& payload = request.payload;
     if (!payload.is_object() || payload.size() != 3 ||
-        payload.at("recipe") != sprite_atlas_source_recipe ||
+        payload.at("recipe") != nlohmann::json(sprite_atlas_source_recipe) ||
         payload.at("revision") != sprite_atlas_source_revision())
         throw std::runtime_error("Atlas worker/toolchain revision mismatch");
     const auto settings = sprite_atlas_settings(payload.at("settings"));
@@ -75,7 +75,8 @@ std::vector<ArtifactFile> execute_sprite_atlas_source(const ImportProcessRequest
 std::vector<ArtifactFile> execute_sprite_atlas_recipe(const ImportProcessRequest& request,
                                                       std::stop_token stop) {
     const auto& p = request.payload;
-    if (!p.is_object() || p.size() != 4 || p.at("recipe") != sprite_atlas_importer_id ||
+    if (!p.is_object() || p.size() != 4 ||
+        p.at("recipe") != nlohmann::json(sprite_atlas_importer_id) ||
         p.at("revision") != sprite_atlas_source_revision() || request.inputs.empty() ||
         request.inputs.front().name != "source.bin" ||
         p.at("source_digest") != content_digest(request.inputs.front().bytes))

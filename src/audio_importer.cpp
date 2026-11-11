@@ -95,7 +95,7 @@ class AudioImporter final : public AssetImporter {
         const auto metadata = validate_audio_bundle(files);
         require(metadata.at("source_digest") == plan.input.source_digest,
                 "Audio worker returned another source revision");
-        require(metadata.at("source_format") == profile_.extension.substr(1),
+        require(metadata.at("source_format") == nlohmann::json(profile_.extension.substr(1)),
                 "Audio worker returned another source format");
         if (progress)
             progress(1., "AudioClip validated");
@@ -103,7 +103,7 @@ class AudioImporter final : public AssetImporter {
     }
     void validate(const CachedArtifact& candidate) const override {
         const auto metadata = validate_audio_bundle(candidate.files);
-        require(metadata.at("source_format") == profile_.extension.substr(1),
+        require(metadata.at("source_format") == nlohmann::json(profile_.extension.substr(1)),
                 "Audio artifact belongs to another source format");
     }
 };

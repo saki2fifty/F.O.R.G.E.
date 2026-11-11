@@ -1,5 +1,16 @@
 # 2026-11-11
 
+## Import and test portability
+
+Audio, image decoding, atlas generation, movie encoding, source copying,
+animation retargeting and foliage admission use explicit JSON operands when
+comparing string views or computed strings. Navigation fixture provenance and
+localization checks follow the same rule. These comparisons preserve their
+existing type, revision and corruption checks. Prefab editor fixtures pass the
+current Scene owner when opening a source, and the luminance presenter fixture
+declares its direct PNG dependency. Eighteen focused native and MCP consumer checks
+pass locally after rebuilding. Windows build and desktop acceptance remain pending.
+
 ## Shared artifact admission portability
 
 The common selected-artifact admission helper uses explicit JSON operands for

@@ -187,7 +187,7 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
     const auto record = prepare_navigation(root, document, settings, worker).publish(document);
     require(record.schema_version == 7 && record.metadata.at("settings") == Json(settings),
             "Collection policy did not reach the worker, envelope and catalog");
-    require(navigation_geometry_digest(root, document, record.metadata) ==
+    require(Json(navigation_geometry_digest(root, document, record.metadata)) ==
                 record.metadata.at("geometry_sha256"),
             "Published collected source does not match current selected provenance");
     const auto admitted = load(root, record);
@@ -231,7 +231,7 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
     else
         body.set<BoxCollider>({14, 1, 12});
     const auto changed = scene.effective_document();
-    require(navigation_geometry_digest(root, changed, record.metadata) !=
+    require(Json(navigation_geometry_digest(root, changed, record.metadata)) !=
                 record.metadata.at("geometry_sha256"),
             "Collected shape edit did not invalidate the saved navigation selection");
     rejects([&] { (void)prepared.publish(changed); });

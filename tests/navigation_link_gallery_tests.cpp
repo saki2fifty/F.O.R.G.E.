@@ -98,7 +98,7 @@ void prepare(const std::filesystem::path& root, const std::filesystem::path& wor
         if (const auto at = profiles.find(name); at != profiles.end()) {
             const auto& record = catalog.records().at(at->second);
             if (record.metadata.at("settings") == Json(settings) &&
-                navigation_geometry_digest(root, effective, record.metadata) ==
+                Json(navigation_geometry_digest(root, effective, record.metadata)) ==
                     record.metadata.at("geometry_sha256") &&
                 catalog.resolve(AssetRef<NavMeshAsset>{record.id}).state == AssetState::Available)
                 current = record;

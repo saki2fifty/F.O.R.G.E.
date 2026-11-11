@@ -230,7 +230,7 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
     auto map_record = changed.records().at(map);
     map_record.metadata["forge.import"]["key"] = std::string(64, 'b');
     changed.replace(map_record);
-    check(selected_geometry_digest(changed, copied, record.metadata) !=
+    check(Json(selected_geometry_digest(changed, copied, record.metadata)) !=
               record.metadata.at("geometry_sha256"),
           "Selected Map revision did not stale navigation geometry");
     changed = AssetCatalog::open_project(root);

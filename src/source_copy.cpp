@@ -104,7 +104,7 @@ source_revision(const ProjectPaths& paths, AssetId asset, const std::string& cat
                 paths.same_locator(identity.identity.source, source) &&
                 identity.identity.source_digest == revision.source_digest &&
                 identity.identity.entries.empty() &&
-                identity.settings.importer == imported->at("importer"),
+                nlohmann::json(identity.settings.importer) == imported->at("importer"),
             "Generated source identity/settings disagree with the catalog");
     cancel(stop);
     return {source, std::move(revision)};

@@ -16,8 +16,9 @@ std::vector<ArtifactFile> execute_avi_sequence_recipe(ImportProcessRequest reque
     const bool sound = payload.is_object() && payload.value("recipe", "") == avi_game_recipe;
     const auto& selected =
         sequence_encoding_profile(sound ? SequenceEncoding::AviGame : SequenceEncoding::AviMjpeg);
-    require(payload.is_object() && payload.size() == 8 && payload.at("recipe") == selected.recipe &&
-                payload.at("profile") == selected.profile,
+    require(payload.is_object() && payload.size() == 8 &&
+                payload.at("recipe") == nlohmann::json(selected.recipe) &&
+                payload.at("profile") == nlohmann::json(selected.profile),
             "Invalid AVI movie worker profile");
     auto integer = [&](const char* field, std::uint64_t maximum) {
         const auto& value = payload.at(field);

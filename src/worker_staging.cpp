@@ -99,7 +99,7 @@ Json cleanup_job(const std::filesystem::path& job, Budget& budget, std::stop_tok
                 "Unknown worker marker format or identity; retained for inspection");
         const auto kind = marker.at("kind").get<std::string>();
         const auto& shape = layout(kind);
-        require(marker.at("format") == shape.format &&
+        require(marker.at("format") == Json(shape.format) &&
                     job.parent_path().filename() == std::filesystem::path(shape.parent).filename(),
                 "Worker marker does not match staging layout");
         std::set<std::string> input_names;

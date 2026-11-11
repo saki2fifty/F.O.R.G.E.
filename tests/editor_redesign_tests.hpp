@@ -153,7 +153,7 @@ inline void test_redesign_drawers() {
     require(content.record(prefab_asset)->type == "prefab", "Prefab asset type lost in Content");
     {
         forge::PrefabEditor draft;
-        draft.edit_source(files.document, prefab_asset);
+        draft.edit_source(scene, files.document, prefab_asset);
         require(context.selection.kind() == forge::ui::SelectionKind::PrefabMember,
                 "Prefab member scope missing");
         draft.request_close();
@@ -284,7 +284,7 @@ inline void test_draft_ownership() {
     ProjectSettingsEditor settings;
     PrefabEditor source;
     settings.open();
-    source.edit_source(document, prefab);
+    source.edit_source(scene, document, prefab);
     std::string status;
     auto draw = [&] {
         ImGui::NewFrame();
@@ -301,7 +301,7 @@ inline void test_draft_ownership() {
             "Draft changes dirtied the scene or failed to mark their owner");
     document.save();
     require(settings.dirty() && source.dirty(), "Scene Save consumed another document's draft");
-    source.edit_source(document, prefab);
+    source.edit_source(scene, document, prefab);
     require(source.dirty(), "Reopening the same prefab lost the draft");
     settings.request_close();
     source.request_close();
@@ -325,14 +325,14 @@ inline void test_draft_ownership() {
             "Prefab Discard failed");
     require(document.prefabs().source(prefab).at("members")[0].at("name") != "Edited draft",
             "Discard published the draft");
-    source.edit_source(document, prefab);
+    source.edit_source(scene, document, prefab);
     source.rename_member("Published draft");
     require(source.resolve_close(ui::DraftResolution::Save, scene, document),
             "Prefab publication failed");
     require(document.prefabs().source(prefab).at("members")[0].at("name") == "Published draft" &&
                 !scene.can_undo(),
             "Prefab Save ownership/history boundary incorrect");
-    source.edit_source(document, prefab);
+    source.edit_source(scene, document, prefab);
     source.set_property("forge.local_scale", "x", -10001.0);
     const auto good = document.prefabs().source(prefab);
     require(!source.resolve_close(ui::DraftResolution::Save, scene, document) && source.is_open() &&

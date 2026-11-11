@@ -16,8 +16,8 @@ std::vector<ArtifactFile> execute_webp_sequence_recipe(ImportProcessRequest requ
     cancelled();
     const auto& payload = request.payload;
     require(payload.is_object() && payload.size() == 5 &&
-                payload.at("recipe") == webp_sequence_recipe &&
-                payload.at("profile") == webp_sequence_profile,
+                payload.at("recipe") == nlohmann::json(webp_sequence_recipe) &&
+                payload.at("profile") == nlohmann::json(webp_sequence_profile),
             "Invalid WebP animation worker profile");
     auto dimension = [&](const char* key) {
         const auto& value = payload.at(key);

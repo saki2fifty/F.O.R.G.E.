@@ -150,7 +150,7 @@ void prepare(const std::filesystem::path& root, const std::filesystem::path& wor
         if (value.type == NavMeshAsset::type &&
             value.metadata.at("source_scene").get<AssetId>() == scene.asset_id() &&
             value.metadata.at("settings") == Json(settings) &&
-            navigation_geometry_digest(root, document, value.metadata) ==
+            Json(navigation_geometry_digest(root, document, value.metadata)) ==
                 value.metadata.at("geometry_sha256") &&
             catalog.resolve(AssetRef<NavMeshAsset>{id}).state == AssetState::Available)
             current = value;

@@ -128,7 +128,7 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
     const auto replaced = selected_collision_revision(AssetCatalog::open_project(root), {asset});
     require(replaced != selected && source->source().asset() == asset,
             "Collision replacement changed identity or failed to select new bytes");
-    require(navigation_geometry_digest(root, scene.effective_document(), nav.metadata) !=
+    require(Json(navigation_geometry_digest(root, scene.effective_document(), nav.metadata)) !=
                 nav.metadata.at("geometry_sha256"),
             "Selected Collision replacement did not invalidate editor/source provenance");
     // Collision selections follow the existing physics refresh/adoption owner;

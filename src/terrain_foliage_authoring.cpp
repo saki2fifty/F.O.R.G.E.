@@ -117,7 +117,7 @@ Json prepare_foliage(const ProjectLease& lease, const Scene& scene, const Json& 
         });
         const auto bytes = asset_detail::read_bytes(
             ProjectPaths(lease.root()).resolve(record.source), terrain_source_byte_limit);
-        if (asset_detail::content_digest(bytes) != selected.at("source_digest"))
+        if (Json(asset_detail::content_digest(bytes)) != selected.at("source_digest"))
             throw AuthoringError(
                 "surface_source_changed",
                 "Save and publish the heightfield before projecting foliage; source "

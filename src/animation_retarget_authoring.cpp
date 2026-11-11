@@ -208,7 +208,7 @@ void prepare_animation_retarget_publication(AssetPublicationCandidate& candidate
     require(clip.asset == candidate.ticket.owner &&
                 clip.skeleton == plan.data.at("skeleton").get<AssetId>() &&
                 clip.model == plan.data.at("model").get<AssetId>() &&
-                clip.skeleton_revision == plan.data.at("skeleton_revision"),
+                Json(clip.skeleton_revision) == plan.data.at("skeleton_revision"),
             "Retarget candidate target binding differs from discovery");
     auto& identity = candidate.sidecar.identity;
     identity.owner = candidate.ticket.owner;

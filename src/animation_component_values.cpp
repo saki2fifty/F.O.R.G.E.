@@ -190,7 +190,7 @@ Json sample_animation_component(const Json& declaration, const Json& current,
         throw std::runtime_error("Animated component sample count differs from its bindings");
     for (std::size_t i = 0; i < clip.component_bindings.size(); ++i) {
         const auto& binding = clip.component_bindings[i];
-        if (binding.component != declaration.at("id"))
+        if (Json(binding.component) != declaration.at("id"))
             continue;
         if (binding.admission != declaration.at("admission"))
             throw std::runtime_error("Animated component schema has changed: " + binding.component);

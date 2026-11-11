@@ -30,7 +30,7 @@ load_audio_revision(const std::filesystem::path& project, const AssetRecord& rec
         const auto metadata = validate_audio_bundle(artifact.files);
         if (metadata != record.metadata.at("forge.audio") ||
             metadata.at("source_digest") != selected->at("source_digest") ||
-            metadata.at("source_format") != profile->extension.substr(1))
+            metadata.at("source_format") != nlohmann::json(profile->extension.substr(1)))
             throw std::runtime_error(
                 "Selected AudioClip metadata does not match its cooked revision");
         return artifact;
