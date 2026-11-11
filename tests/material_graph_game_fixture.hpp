@@ -36,7 +36,8 @@ inline void add_graph_game_material(const std::filesystem::path& project,
         shaders.prepare("Assets/Surface.shader.json"),
         [](auto& c, const auto& p, const auto&) { prepare_shader_publication(c, p); },
         no_live_consumers);
-    if (!shaders.wait_idle(std::chrono::seconds(65)))
+    if (!shaders.wait_idle(
+            std::chrono::seconds(forge::asset_detail::shader_worker_limits().seconds + 5)))
         throw std::runtime_error("Graph game Shader compile timed out");
     const auto shader_result = shaders.poll();
     if (shader_result.size() != 1 || !shader_result[0].published)

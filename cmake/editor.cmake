@@ -72,7 +72,7 @@ if(BUILD_TESTING)
  add_dependencies(forge_shader_worker_tests forge_shader_build_worker)
  copy_required_dlls(forge_shader_worker_tests)
  add_test(NAME shader_worker COMMAND forge_shader_worker_tests $<TARGET_FILE:forge_shader_build_worker> "${CMAKE_BINARY_DIR}/shader-worker-tests")
- set_tests_properties(shader_worker PROPERTIES TIMEOUT 180)
+ set_tests_properties(shader_worker PROPERTIES TIMEOUT 240)
  add_executable(forge_shader_editor_tests tests/shader_editor_tests.cpp)
  target_include_directories(forge_shader_editor_tests PRIVATE src src/editor)
  target_compile_definitions(forge_shader_editor_tests PRIVATE UNICODE _UNICODE NOMINMAX)
@@ -352,10 +352,10 @@ if(BUILD_TESTING)
  target_link_libraries(forge_viewport_tests PRIVATE forge_tile_asset_authoring forge_tile_map_cook forge_material_authoring forge_runtime_package)
  add_dependencies(forge_viewport_tests forge_asset_build_worker)
  add_test(NAME editor_viewport_render COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images")
- # Combined device-lifetime coverage already took 56-57s before the additional
- # volume-exit cases. Keep its assertions and individual case bounds; allow
- # headroom for the complete shader/readback workload on hosted WARP.
- set_tests_properties(editor_viewport_render PROPERTIES TIMEOUT 120)
+ # Combined device-lifetime coverage includes current graph/area shader variants.
+ # Keep every assertion and individual case bound while allowing the complete
+ # compiler/readback workload to finish on hosted WARP.
+ set_tests_properties(editor_viewport_render PROPERTIES TIMEOUT 300)
  foreach(render_case IN ITEMS morph skin frame optics sequence-frames sprites sprite-surfaces sprite-bloom tile-canvas tile-gallery physics-2d physics-tiles)
   add_test(NAME editor_render_${render_case} COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images/${render_case}" ${render_case})
   set_tests_properties(editor_render_${render_case} PROPERTIES TIMEOUT 60)

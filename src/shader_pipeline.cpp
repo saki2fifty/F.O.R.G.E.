@@ -191,8 +191,9 @@ WorkerLimits shader_worker_limits() {
     limits.file_bytes = 20ull * 1024 * 1024;
     limits.total_bytes = 32ull * 1024 * 1024;
     limits.files = 260;
-    limits.seconds = 60;
-    limits.cpu_seconds = 50;
+    // One supported Mesh program expands into 19 native output variants.
+    limits.seconds = 150;
+    limits.cpu_seconds = 120;
     limits.cancellation_grace_ms = 100;
     return limits;
 }

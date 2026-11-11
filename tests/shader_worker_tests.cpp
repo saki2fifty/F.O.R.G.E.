@@ -25,7 +25,9 @@ void write(const std::filesystem::path& path, std::string_view text) {
             "Shader worker fixture write failed");
 }
 AssetImportOutcome finish(AssetImportService& service) {
-    require(service.wait_idle(65s), "Shader worker did not finish within its limit");
+    require(service.wait_idle(
+                std::chrono::seconds(forge::asset_detail::shader_worker_limits().seconds + 5)),
+            "Shader worker did not finish within its limit");
     auto results = service.poll();
     require(results.size() == 1, "Shader completion count mismatch");
     return std::move(results.front());
@@ -138,13 +140,17 @@ float4 ps():SV_TARGET {return color();}
                 "Layout rejection replaced previous shader");
         write(root / "Shaders/color.hlsli", good);
         submit();
-        require(service.wait_idle(65s), "Shader stale test stalled");
+        require(service.wait_idle(
+                    std::chrono::seconds(forge::asset_detail::shader_worker_limits().seconds + 5)),
+                "Shader stale test stalled");
         write(root / "Shaders/color.hlsli", good + "// stale during publication\n");
         outcome = finish(service);
         require(!outcome.published, "Shader published after include changed");
         write(root / "Shaders/color.hlsli", good);
         auto job = submit();
-        require(service.wait_idle(65s), "Shader cancel test stalled");
+        require(service.wait_idle(
+                    std::chrono::seconds(forge::asset_detail::shader_worker_limits().seconds + 5)),
+                "Shader cancel test stalled");
         service.cancel(job);
         outcome = finish(service);
         require(!outcome.published && outcome.job.state == AssetJobState::Cancelled,

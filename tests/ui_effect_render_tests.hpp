@@ -29,7 +29,9 @@ inline void write(const std::filesystem::path& path, std::string_view text) {
 }
 inline AssetImportOutcome finish(AssetImportService& service) {
     using namespace std::chrono_literals;
-    check(service.wait_idle(65s), "UI effect import did not finish");
+    check(service.wait_idle(
+              std::chrono::seconds(forge::asset_detail::shader_worker_limits().seconds + 5)),
+          "UI effect import did not finish");
     auto outcomes = service.poll();
     check(outcomes.size() == 1, "UI effect import receipt missing");
     return std::move(outcomes.front());
@@ -72,7 +74,7 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
         check(compiled.published, "UI effect native compilation failed: " + compiled.diagnostic);
     }
     auto materials = std::make_unique<AssetImportService>(
-        lease, material_import_registry(), ImportTarget{"windows-x64", "d3d12", "fxc-5.1"}, 1);
+        lease, material_import_registry(), ImportTarget{"windows", "d3d12", "desktop"}, 1);
     const auto publish_material = [&] {
         write(root / "effect.material.json", material.document.dump());
         materials->submit(

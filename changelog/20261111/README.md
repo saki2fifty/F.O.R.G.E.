@@ -1,5 +1,12 @@
 # 2026-11-11
 
+## Complete Shader compilation budget
+
+The supervised compiler allows 120 CPU seconds and 150 wall seconds for a complete
+19-variant Mesh program. Memory, output and cancellation limits retain their
+existing bounds. Native fixture waits use the compiler owner's budget, and the
+combined WARP viewport check retains all its assertions within a 300-second gate.
+
 ## Incremental editor target checks
 
 Editor consumer link changes retain their compatible build environment cache.
