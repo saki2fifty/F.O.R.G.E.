@@ -1,5 +1,12 @@
 # 2026-11-11
 
+## Editor test object format
+
+The combined editor test target uses MSVC's larger object format, matching the
+editor and rendered fixture targets. This addresses the compiler section limit
+in its expanded document-owner test translation unit. Runtime and SDK compiler
+options remain unchanged. Windows compilation remains pending.
+
 ## Asset-tools-disabled test dependencies
 
 The Mesh texture-surface test keeps its CPU mapping checks in every profile;
