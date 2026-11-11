@@ -43,7 +43,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const float black[]{0, 0, 0, 1};
         context->ClearRenderTarget(rtv, black, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        const Viewport viewport{0, 0, 64, 64, 0, 1};
+        const Diligent::Viewport viewport{0, 0, 64, 64, 0, 1};
         context->SetViewports(1, &viewport, 64, 64);
         draw.bind_sprite_mip(image);
         draw.draw(context, world, view, {}, nullptr, nullptr, nullptr, {}, nullptr, {}, nullptr, {},
@@ -232,7 +232,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
         context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const float black[]{0, 0, 0, 1};
         context->ClearRenderTarget(rtv, black, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        const Viewport viewport{0, 0, 64, 64, 0, 1};
+        const Diligent::Viewport viewport{0, 0, 64, 64, 0, 1};
         context->SetViewports(1, &viewport, 64, 64);
         renderer.draw(scene, view, UINT32_MAX, color, dsv);
         presentation.end_frame(context);

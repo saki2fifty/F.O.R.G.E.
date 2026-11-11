@@ -1,5 +1,11 @@
 # 2026-11-11
 
+## Graphics fixture build dependencies
+
+The UI graphics fixture declares its presentation dependency directly, including
+the backend headers required by its project Material resources. Sprite fixtures
+qualify native viewport values consistently across compilers.
+
 ## Navigation loading and benchmark metadata
 
 Navigation retains pending static Mesh subscriptions until CPU resource admission
