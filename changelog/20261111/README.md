@@ -1,5 +1,15 @@
 # 2026-11-11
 
+## Shared artifact admission portability
+
+The common selected-artifact admission helper uses explicit JSON operands for
+string views and computed digests. Localization, application-state and render
+texture consumers keep the same provenance and corruption checks. State-graph
+layout admission uses the same explicit comparison for its format tag. Five
+focused consumer checks pass locally. Release Ninja
+jobs collect independent compiler failures in one pass and still require a fully
+successful build before tests run.
+
 ## Windows build compatibility
 
 Core compilation enables MSVC's larger object format for the expanded built-in

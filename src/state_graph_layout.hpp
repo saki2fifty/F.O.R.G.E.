@@ -13,7 +13,7 @@ inline bool has_state_graph_layout(const nlohmann::json& source,
                                    std::string_view format = "forge.animation-state-layout") {
     const auto at = source.find("editor_layout");
     return at != source.end() && at->is_object() && at->contains("format") &&
-           at->at("format") == format;
+           at->at("format") == nlohmann::json(format);
 }
 inline void validate_state_graph_layout(const nlohmann::json& source,
                                         std::string_view format = "forge.animation-state-layout",

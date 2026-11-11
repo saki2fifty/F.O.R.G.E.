@@ -163,7 +163,7 @@ jobs:
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: cmake --preset ${{ matrix.profile }} -DFORGE_BUILD_ID=${{ inputs.build_id || 'unassigned' }} -DFORGE_SOURCE_COMMIT=${{ github.sha }}
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
-      - run: cmake --build --preset ${{ matrix.profile }} --parallel 2
+      - run: cmake --build --preset ${{ matrix.profile }} --parallel 2 -- -k 0
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: ctest --preset ${{ matrix.profile }}
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
@@ -279,12 +279,12 @@ jobs:
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Build process controllers before renderer
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake --build ../AgentFiles/b --target forge_runtime forge_editor_tests forge_fault_runtime --parallel 2
+        run: cmake --build ../AgentFiles/b --target forge_runtime forge_editor_tests forge_fault_runtime --parallel 2 -- -k 0
       - name: Verify process controllers before renderer
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "editor_process_and_scale" --output-on-failure
       - id: editor-build
-        run: cmake --build ../AgentFiles/b --parallel 2
+        run: cmake --build ../AgentFiles/b --parallel 2 -- -k 0
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Install exact standalone runtime kit
         working-directory: ${{ runner.temp }}/forge-work/FORGE

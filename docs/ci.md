@@ -2,6 +2,10 @@
 
 Pushes and pull requests run Linux/Windows core tests, cache-invalidation tests, and formatting. They do not compile the D3D12 editor or publish a ZIP. Superseded push/PR runs on the same ref are cancelled; manual builds are not cancelled by a code push.
 
+The fixed Ninja build profiles continue independent compilation after an error,
+collecting remaining compiler diagnostics in the same job. A failed build still
+fails the gate; its test steps do not run against older executables.
+
 Fixed gameplay input recording uses `input_recording` for byte/tick/kind bounds,
 empty Finish, replay/cancel/exhaustion progress and rebinding guards.
 `input_recording_process` covers correlated normal-host admission and changed
