@@ -7,7 +7,8 @@
 #include <forge/flecs_script.hpp>
 #include <fstream>
 #include <iostream>
-#include <tuple>
+#include <string>
+#include <vector>
 using namespace forge;
 namespace {
 void check(bool ok, const char* why) {
@@ -107,8 +108,12 @@ int main(int argc, char** argv) {
                    .metadata.at("forge.ui_source")
                    .contains("runtime_features"),
               "Unfiltered UI acquired a runtime filter requirement");
-        for (const auto& [extension, text, profile, gradient] :
-             std::vector<std::tuple<std::string, std::string, unsigned, unsigned>>{
+        struct RequirementCase {
+            std::string extension, text;
+            unsigned filters, gradients, effects = 0;
+        };
+        for (const auto& [extension, text, profile, gradient, effect] :
+             std::vector<RequirementCase>{
                  {"rcss", "body {filter:blur(1px);}", 1u, 0u},
                  {"rcss", "body {box-shadow:#0008 8px 6px 4px 0px;}", 5u, 0u},
                  {"rcss", "body {box-/**/shadow:none;}", 5u, 0u},
@@ -132,7 +137,7 @@ int main(int argc, char** argv) {
                  {"rml",
                   "<rml><body><forge-shadow-panel data-style-decorator=\"effect\"/>"
                   "</body></rml>",
-                  7u, 2u},
+                  7u, 2u, 1u},
                  {"rcss", "body{forge-shadow-x:4px;mask-image:luminance(image(test.tga));}", 7u,
                   0u},
                  {"rcss", "body{mask-image:luminance(image(test.tga));forge-shadow-x:4px;}", 7u,
@@ -146,7 +151,7 @@ int main(int argc, char** argv) {
                   0u, 0u},
                  {"rcss", "body {font-family:'mask-image:linear-gradient(90deg,#0000,#ffff)';}", 0u,
                   0u},
-                 {"rml", "<rml><body data-style-mask-image=\"effect\"></body></rml>", 6u, 2u},
+                 {"rml", "<rml><body data-style-mask-image=\"effect\"></body></rml>", 6u, 2u, 1u},
                  {"rcss", "body {mask-image:luminance(linear-gradient(90deg,#000,#fff));}", 6u, 1u},
                  {"rcss", "body {mask-image:luminance(image(test.tga));}", 6u, 0u},
                  {"rcss", "body {mask-image:lu/**/minance(radial-gradient(circle,#000,#fff));}", 6u,
@@ -180,10 +185,15 @@ int main(int argc, char** argv) {
                  {"rcss", "/* decorator:radial-gradient(#f00,#00f); */ body {color:red;}", 0u, 0u},
                  {"rcss", "body {font-family:'conic-gradient(#f00,#00f)';}", 0u, 0u},
                  {"rcss", "body {decorator:image(test.tga);}", 0u, 0u},
+                 {"rcss",
+                  "body{decorator:shader(\"material:6b8a461e-bf35-4ff3-a24d-aad09481c59e\");}", 0u,
+                  0u, 1u},
+                 {"rcss", "/* decorator:shader(test); */ body{color:red;}", 0u, 0u},
+                 {"rcss", "body{font-family:'shader(test)';}", 0u, 0u},
                  {"rcss", "/* decorator:linear-gradient(90deg,#f00,#00f); */ body{color:red;}", 0u,
                   0u},
                  {"rcss", "body {font-family:'linear-gradient(90deg,#f00,#00f)';}", 0u, 0u},
-                 {"rml", "<rml><body data-style-decorator=\"effect\"></body></rml>", 6u, 2u},
+                 {"rml", "<rml><body data-style-decorator=\"effect\"></body></rml>", 6u, 2u, 1u},
                  {"rcss", "body {backdrop-filter:blur(1px);}", 3u, 0u},
                  {"rcss", "body {backdrop-/**/filter:none;}", 3u, 0u},
                  {"rcss", "body {font-family:'backdrop-filter:blur(1px)';}", 0u, 0u},
@@ -203,8 +213,9 @@ int main(int argc, char** argv) {
                  {"rcss", "/* filter:blur(3px); */ body {color:red;}", 0u, 0u},
                  {"rcss", "body {font-family:'filter:blur(3px)';}", 0u, 0u},
                  {"rml", "<rml><body style=\"filter:blur(1px)\"></body></rml>", 1u, 0u},
-                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 7u, 2u},
-                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 7u, 2u},
+                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 7u, 2u,
+                  1u},
+                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 7u, 2u, 1u},
                  {"rml", "<rml><head><style>body{filter:none;}</style></head><body/></rml>", 1u,
                   0u},
                  {"rml", "<rml><body data-style-filter=\"effect\"></body></rml>", 2u, 0u},
@@ -214,7 +225,7 @@ int main(int argc, char** argv) {
             asset_storage::replace(root / source, text);
             const auto feature = register_ui_source(writer, source);
             check(feature.metadata.at("forge.ui_source").contains("runtime_features") ==
-                      (profile != 0 || gradient),
+                      (profile != 0 || gradient || effect),
                   "UI feature evidence ignored declarations/bindings or interpreted comments/text");
             UiResources evidence(root);
             evidence.document({document.id});
@@ -224,12 +235,14 @@ int main(int argc, char** argv) {
                 ui_inspection_detail::decode(ui_inspection_detail::encode(observed));
             check(transported.sources == observed.sources,
                   "UI filter source evidence changed across inspection transport");
-            if (profile || gradient) {
+            if (profile || gradient || effect) {
                 nlohmann::json required = nlohmann::json::object();
                 if (profile)
                     required["filters"] = profile;
                 if (gradient)
                     required["gradients"] = gradient;
+                if (effect)
+                    required["effects"] = effect;
                 if (feature.metadata.at("forge.ui_source").at("runtime_features") != required)
                     throw std::runtime_error(
                         "UI source requirements differ for " + text + ": " +
