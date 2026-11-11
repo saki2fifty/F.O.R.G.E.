@@ -28,7 +28,8 @@ SamplerState sprite_frame_sampler(SamplerState state, TextureFilter mip) {
 }
 MaterialShader material_shader(const PbrMaterialProfile& material,
                                std::span<const unsigned> uv_sets, MaterialSamplerBinding binding,
-                               bool sprite_profile, std::optional<TextureFilter> sprite_mips) {
+                               bool sprite_profile, std::optional<TextureFilter> sprite_mips,
+                               bool fixed_values) {
     MaterialShader result;
     const auto canonical = prepare_pbr_material(material.values);
     const auto& values = canonical.values;
@@ -115,8 +116,23 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
         declarations += std::string("SamplerState ") + material_sampler_variable + "[" +
                         std::to_string(result.samplers.size()) + "];\n";
     require(result.uniforms.size() <= 128, "material uniform block exceeds the built-in profile");
-    result.source = "cbuffer ForgeMaterialValues {float4 g_MaterialValues[" +
-                    std::to_string(result.uniforms.size()) + "];};\n" + declarations + functions;
+    if (fixed_values) {
+        result.source = "static const float4 g_MaterialValues[" +
+                        std::to_string(result.uniforms.size()) + "]={";
+        for (const auto& row : result.uniforms) {
+            result.source += "float4(";
+            for (unsigned lane = 0; lane < 4; ++lane) {
+                if (lane)
+                    result.source += ',';
+                result.source += nlohmann::json(row[lane]).dump();
+            }
+            result.source += "),";
+        }
+        result.source += "};\n";
+    } else
+        result.source = "cbuffer ForgeMaterialValues {float4 g_MaterialValues[" +
+                        std::to_string(result.uniforms.size()) + "];};\n";
+    result.source += declarations + functions;
     return result;
 }
 } // namespace forge

@@ -313,8 +313,10 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
         require((fetch.normal && fetch.tangent) ||
                     profile.values.textures.contains("normalTexture"),
                 "anisotropy requires authored normal/tangent or a base normal map");
-    const auto material =
-        material_shader(profile, fetch.uv_sets, sampler_binding, sprite_profile, sprite_mips);
+    // Graph lighting uses fixed engine PBR defaults, independent of the graph's
+    // own adjustable surface parameters. Expose those constants to the optimizer.
+    const auto material = material_shader(profile, fetch.uv_sets, sampler_binding, sprite_profile,
+                                          sprite_mips, graph != nullptr);
     const auto decal_capacity =
         projected_decals && !shadow_pass && !sprite_profile
             ? decal_shader_capacity(graph ? graph->textures.size() : material.samplers.size(),

@@ -250,6 +250,27 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
                   "Failed live effect blocked an unrelated prepared UI scene");
             presenter.cancel_prepared(ticket);
             host->catalog(std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root)));
+            bool stale = false;
+            try {
+                (void)renderer.resources_ready();
+            } catch (const std::exception& error) {
+                stale = std::string_view(error.what())
+                            .find("Stale/conflicting resource source "
+                                  "generation") != std::string_view::npos;
+            }
+            check(stale, "UI effect accepted a catalog older than its observed source generation");
+            // The missing revision above deliberately observed a generation ahead of disk.
+            // Recover through real publications beyond it, preserving the pool's monotonicity.
+            material.document["overrides"]["parameters"]["speed"] = {
+                {"type", unsigned(MaterialParameterType::Scalar)}, {"value", {0.0}}};
+            const auto intermediate = publish_material();
+            check(intermediate.published,
+                  "UI effect recovery publication failed: " + intermediate.diagnostic);
+            material.document["overrides"]["parameters"].erase("speed");
+            const auto repaired = publish_material();
+            check(repaired.published,
+                  "UI effect final recovery publication failed: " + repaired.diagnostic);
+            host->catalog(std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root)));
             ready();
             draw(false, true);
         }

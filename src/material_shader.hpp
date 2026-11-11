@@ -34,8 +34,11 @@ SamplerState sprite_frame_sampler(SamplerState, TextureFilter);
 // Engine-owned shader binding adapter. Parameter values and UV transforms are
 // uniforms, so changing a factor never creates a new shader permutation.
 // Texture resources use native color-space views and independent binding samplers.
+// Graph wrappers may specialize their fixed engine defaults; authored graph
+// parameters remain in the separate surface uniform block.
 MaterialShader material_shader(const PbrMaterialProfile&, std::span<const unsigned> uv_sets,
                                MaterialSamplerBinding = MaterialSamplerBinding::Array,
                                bool sprite_profile = false,
-                               std::optional<TextureFilter> sprite_mips = {});
+                               std::optional<TextureFilter> sprite_mips = {},
+                               bool fixed_values = false);
 } // namespace forge

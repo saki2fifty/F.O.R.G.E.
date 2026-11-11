@@ -73,6 +73,10 @@ Windows/FXC5.1 and physical GPU acceptance remain pending.
 Exactly one output chooses the domain. Surface Output defines base color/alpha, metallic, roughness, normal,
 emission, occlusion and optional imported lightmap irradiance. Graph values feed the existing metallic/roughness PBR
 geometry/lighting helpers; this is not a copied BRDF or custom vertex deformation.
+The wrapper specializes its fixed engine lighting defaults as shader constants,
+so unused lighting layers can be removed during compilation. Authored graph
+parameters keep their reflected Material uniforms and remain adjustable without
+recompiling the Shader. Built-in Materials retain their uniform parameter path.
 Physical surface fields are bounded at their established shader boundary; output
 nonfinite checks provide the existing diagnostic color instead of nonfinite pixels.
 UV numbers remain logical semantics, projected to compact varyings. A graph with no

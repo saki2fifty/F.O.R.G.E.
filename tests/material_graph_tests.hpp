@@ -74,6 +74,11 @@ inline void lightmap_tests() {
                   std::string::npos &&
               depth.find("ForgeLightmapDiffuse") == std::string::npos,
           "Lightmap failed shared color/indirect classification or changed depth semantics");
+    check(pixel.find("cbuffer ForgeMaterialValues") == std::string::npos &&
+              pixel.find("static const float4 g_MaterialValues[") != std::string::npos &&
+              pixel.find("engine/forge.surface.hlsli") != std::string::npos &&
+              compiled.source.find("g_SurfaceParameter_lightmap_gain") != std::string::npos,
+          "Graph lighting defaults were not specialized or adjustable graph parameters vanished");
     auto wrong_type = authored;
     auto& target = wrong_type["edges"].back()["from"];
     const auto scalar = create_material_graph_node("constant", {0, 0});

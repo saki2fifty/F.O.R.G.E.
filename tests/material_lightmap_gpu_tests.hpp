@@ -246,7 +246,9 @@ Response main(float4 position:SV_Position) {
     pbr.model = "forge.gltf.metallic-roughness.v1";
     const auto builtins = material_shader(prepare_pbr_material(pbr), compiled.surface.uv_sets);
     const auto builtin_bytes = std::as_bytes(std::span(builtins.uniforms));
-    constants.at("ForgeMaterialValues").assign(builtin_bytes.begin(), builtin_bytes.end());
+    // Legacy wrappers reflect these defaults; current wrappers specialize them.
+    if (auto found = constants.find("ForgeMaterialValues"); found != constants.end())
+        found->second.assign(builtin_bytes.begin(), builtin_bytes.end());
     auto material = surface_material_defaults(compiled.surface);
     material.parameters.at("lightmap_gain").value = {.5f, 1, 2, 0};
     const auto base_key =

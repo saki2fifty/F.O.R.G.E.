@@ -115,18 +115,16 @@ float4 fixture_color(){return float4(0,.25,1,1);}
                   realized.data.surface_wrapper_version == current_surface_wrapper_version,
               "Graph lost shared surface output profiles");
         for (const auto& stage : compiled.data.stages)
-            (void)surface_binding_layout(graph.surface, stage.reflection,
-                                         area_surface_role(stage.role),
-                                         stage.role != ShaderEntryRole::SurfaceDepth, true);
+            (void)surface_binding_layout(graph.surface, stage.reflection, stage.role,
+                                         compiled.data.surface_wrapper_version);
         const auto rich = compile_material_graph(graph_tests::all_node_graph());
         auto rich_source = surface;
         rich_source.surface = rich.surface;
         const auto rich_compiled = compile_diligent_shader(
             device, rich_source, {{"engine/forge.graph.hlsl", rich.source}}, {});
         for (const auto& stage : rich_compiled.data.stages)
-            (void)surface_binding_layout(rich.surface, stage.reflection,
-                                         area_surface_role(stage.role),
-                                         stage.role != ShaderEntryRole::SurfaceDepth, true);
+            (void)surface_binding_layout(rich.surface, stage.reflection, stage.role,
+                                         rich_compiled.data.surface_wrapper_version);
         (void)realize_diligent_shader(device, decode_shader(encode_shader(rich_compiled.data)));
         auto relabeled = graph.surface;
         relabeled.labels.begin()->second = "Another label";
