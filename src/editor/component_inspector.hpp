@@ -9,8 +9,8 @@
 #include "model_variant_controls.hpp"
 #include "property_drawer.hpp"
 #include "rig_target_gesture.hpp"
-#include "sprite_inspector.hpp"
 #include "sound_cue.hpp"
+#include "sprite_inspector.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/authoring.hpp>

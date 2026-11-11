@@ -35,7 +35,8 @@ void run(const std::filesystem::path& root) {
     {
         GameSession silent(GameSessionConfig{});
         silent.mix_volumes(.5f, {.25f, .75f, 1}, audio_bus_volumes(defaults.at("audio")));
-        for (const auto& invalid : std::vector<AudioBusVolumes>{{{"rain", -1}}, {{"effects", .5f}}}) {
+        for (const auto& invalid :
+             std::vector<AudioBusVolumes>{{{"rain", -1}}, {{"effects", .5f}}}) {
             bool rejected = false;
             try {
                 silent.mix_volumes(1, {1, 1, 1}, invalid);

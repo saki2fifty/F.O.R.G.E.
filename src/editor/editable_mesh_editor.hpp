@@ -16,7 +16,6 @@
 #include <optional>
 #include <set>
 #include <utility>
-#include <utility>
 #include <vector>
 
 namespace forge {
@@ -551,11 +550,10 @@ class EditableMeshEditor {
     int ellipse_segments_ = 32, creation_knot_ = 0;
     double ellipse_opening_ = 0, curve_tolerance_ = .01;
     static constexpr double curve_handle_ = .5522847498307936;
-    std::vector<MeshCurveKnot> curve_knots_{
-        {{1, 0}, {0, -curve_handle_}, {0, curve_handle_}},
-        {{0, 1}, {curve_handle_, 0}, {-curve_handle_, 0}},
-        {{-1, 0}, {0, curve_handle_}, {0, -curve_handle_}},
-        {{0, -1}, {-curve_handle_, 0}, {curve_handle_, 0}}};
+    std::vector<MeshCurveKnot> curve_knots_{{{1, 0}, {0, -curve_handle_}, {0, curve_handle_}},
+                                            {{0, 1}, {curve_handle_, 0}, {-curve_handle_, 0}},
+                                            {{-1, 0}, {0, curve_handle_}, {0, -curve_handle_}},
+                                            {{0, -1}, {-curve_handle_, 0}, {curve_handle_, 0}}};
     std::string error_;
     SelectionMode mode_ = SelectionMode::Face;
     std::set<std::uint32_t> faces_;

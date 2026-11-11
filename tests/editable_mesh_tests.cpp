@@ -19,11 +19,11 @@ template <class F> void rejects(F fn) {
 }
 } // namespace
 #include "editable_mesh_brush_symmetry_tests.hpp"
+#include "editable_mesh_curved_tests.hpp"
 #include "editable_mesh_duplication_grid_tests.hpp"
 #include "editable_mesh_facing_tests.hpp"
-#include "editable_mesh_planar_tests.hpp"
 #include "editable_mesh_holes_tests.hpp"
-#include "editable_mesh_curved_tests.hpp"
+#include "editable_mesh_planar_tests.hpp"
 #include "editable_mesh_refinement_tests.hpp"
 #include "editable_mesh_shading_tests.hpp"
 #include "editable_mesh_topology_cleanup_tests.hpp"

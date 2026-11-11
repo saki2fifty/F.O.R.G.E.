@@ -351,7 +351,8 @@ EditableMeshSource EditableMeshSource::create_planar_with_holes(
     }
     std::vector<std::vector<std::size_t>> faces;
     for (const auto& triangle : geometry_detail::contour_detail::decompose_region(region))
-        faces.push_back({indices.at(triangle[0]), indices.at(triangle[1]), indices.at(triangle[2])});
+        faces.push_back(
+            {indices.at(triangle[0]), indices.at(triangle[1]), indices.at(triangle[2])});
     return planar_source(asset, vertices, faces);
 }
 EditableMeshSource EditableMeshSource::create_planar_ellipse(AssetId asset,

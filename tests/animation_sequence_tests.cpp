@@ -8,11 +8,11 @@
 #include <forge/application_state_components.hpp>
 #include <forge/application_states.hpp>
 #include <forge/authoring.hpp>
-#include <forge/sound_cue.hpp>
 #include <forge/prefab_authoring.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
 #include <forge/scene_identity.hpp>
+#include <forge/sound_cue.hpp>
 #include <iostream>
 #include <limits>
 #include <source_location>
@@ -590,7 +590,6 @@ void camera_shots(const std::filesystem::path& root) {
                  "typed duplicate-name references and exact recovery passed\n";
 }
 #include "audio_cue_tests.hpp"
-#include "sound_cue_prefab_tests.hpp"
 #include "child_sequence_loop_tests.hpp"
 #include "nested_sequence_audio_tests.hpp"
 #include "nested_sequence_tests.hpp"
@@ -598,6 +597,7 @@ void camera_shots(const std::filesystem::path& root) {
 #include "sequence_clip_blend_tests.hpp"
 #include "sequence_collection_runtime_tests.hpp"
 #include "sequence_property_blend_tests.hpp"
+#include "sound_cue_prefab_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {

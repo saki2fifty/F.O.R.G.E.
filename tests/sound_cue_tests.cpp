@@ -151,7 +151,8 @@ void timing() {
     auto legacy = sound_cue_json(example());
     for (auto& node : legacy["nodes"])
         node.erase("delay_seconds");
-    check(sound_cue_from_json(legacy) == example(), "Earlier node values did not default to zero delay");
+    check(sound_cue_from_json(legacy) == example(),
+          "Earlier node values did not default to zero delay");
     for (double invalid : {-1., 10.001, std::numeric_limits<double>::infinity(),
                            std::numeric_limits<double>::quiet_NaN()}) {
         cue.nodes[1].delay_seconds = invalid;

@@ -1490,13 +1490,14 @@ class AnimationSequenceEditor {
     void draw_audio_cues(const Json& snapshot, const AnimationSequence& config,
                          const std::string& selected) {
         ImGui::SeparatorText("Audio cues");
-        ImGui::TextWrapped(
-            "One-shot events during forward Play. Audio Sources own clips and gain; Sound Cues compose them. "
-            "Preview here is silent; sources keep their normal audio controls.");
+        ImGui::TextWrapped("One-shot events during forward Play. Audio Sources own clips and gain; "
+                           "Sound Cues compose them. "
+                           "Preview here is silent; sources keep their normal audio controls.");
         const auto source_actor = selected.empty() ? flecs::entity{} : scene_->entity(selected);
-        ImGui::BeginDisabled(pending_ || !source_actor ||
-                             (source_actor.has<AudioSource>() == source_actor.has<SoundCue>()) ||
-                             (source_actor.has<AudioSource>() && !source_actor.get<AudioSource>().clip.id));
+        ImGui::BeginDisabled(
+            pending_ || !source_actor ||
+            (source_actor.has<AudioSource>() == source_actor.has<SoundCue>()) ||
+            (source_actor.has<AudioSource>() && !source_actor.get<AudioSource>().clip.id));
         if (ui::button("Add cue from selected sound",
                        "Create a cue at the playhead in one Scene Undo step.")) {
             try {

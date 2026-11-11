@@ -100,8 +100,8 @@ void mesh_facing_tests() {
             "Cube connected surface omitted adjacent faces or changed canonical order");
     const auto original = source.document;
     for (const auto& selection : {std::vector<std::uint32_t>{}, std::vector<std::uint32_t>{13, 13},
-                                 std::vector<std::uint32_t>{0}, std::vector<std::uint32_t>{999},
-                                 std::vector<std::uint32_t>{13}}) {
+                                  std::vector<std::uint32_t>{0}, std::vector<std::uint32_t>{999},
+                                  std::vector<std::uint32_t>{13}}) {
         rejects([&] { source.reverse_faces(selection); });
         require(source.document == original, "Facing rejection changed source");
     }
