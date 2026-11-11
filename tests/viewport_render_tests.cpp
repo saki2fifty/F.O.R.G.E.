@@ -15,6 +15,7 @@
 #include "Graphics/GraphicsEngineD3D12/interface/RenderDeviceD3D12.h"
 #include "ImGuiImplDiligent.hpp"
 #include "authoring.hpp"
+#include "material_lightmap_gpu_tests.hpp"
 #include "physics_2d_editor_render_tests.hpp"
 #include "physics_2d_gallery_render_tests.hpp"
 #include "shader_diligent_tests.hpp"
@@ -255,7 +256,9 @@ int main(int argc, char** argv) {
         if (argc == 3) {
             const std::string selected = argv[2];
             forge::DiligentPresentation isolated(device);
-            if (selected == "morph") {
+            if (selected == "lightmaps")
+                forge::lightmap_test::exercise_gpu(isolated, context);
+            else if (selected == "morph") {
                 // Same fixture and generated source on the same WARP adapter.
                 // Retain both compiler results/captures without changing the
                 // production compiler or accepting an FXC device removal.

@@ -1108,8 +1108,13 @@ image pixels. Its independent point-sampling fixtures keep samples away from
 permitted fixed-point texel-boundary ties while checking every selected pixel.
 This reuses the editor audit's cache and capture machinery, compiling the material/
 shader test targets and running patch, material, shader, viewport, morph, skin,
-frame and optics checks. It uploads `FORGE-Editor-Source-Audit` with test logs and
+frame, optics and lightmap checks. The lightmap case reuses the numeric source
+rendering oracle, including negative/nonfinite irradiance and indirect-output
+overflow, on the native backend. It uploads `FORGE-Editor-Source-Audit` with test logs and
 captures. It does not reserve a build number or produce a delivery ZIP.
+The focused gate stops after its first failure for diagnostic feedback; acceptance
+requires every selected case to pass in one completed run. Unexecuted cases in a
+failed run are not passing evidence.
 
 The separate HLSL profile workflow verifies debug/optimized FXC with warnings as
 errors against the same staged dependency patch. The GPU differential reference

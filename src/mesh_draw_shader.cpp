@@ -421,13 +421,14 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     if (sprite_profile)
         ps += "float2 spriteDx,spriteDy;"
               "if(!ForgeSpriteImageCoordinates(input,spriteDx,spriteDy))discard;\n";
+    // Imported irradiance has its own shared validation after lighting setup.
+    // Keep that texture-dependent rejection out of pre-lighting control flow.
     if (graph)
         ps += "ForgeGraphValues graph=ForgeGraphSurface(input);\n"
               "if(!all(isfinite(graph.BaseColor)) || !isfinite(graph.Metallic) || "
               "!isfinite(graph.Roughness) || "
               "!all(isfinite(graph.Normal)) || !all(isfinite(graph.Emissive)) || "
-              "!isfinite(graph.Occlusion) || !all(isfinite(graph.LightmapIrradiance)) || "
-              "any(graph.LightmapIrradiance<0))return float4(1,0,1,1);\n";
+              "!isfinite(graph.Occlusion))return float4(1,0,1,1);\n";
     for (const auto& slot : material.textures) {
         ps += "bool ok_" + slot.role + ";float4 sample_" + slot.role + "=ForgeSample_" + slot.role +
               "(input.UV[" + std::to_string(slot.uv_slot) + "]," +

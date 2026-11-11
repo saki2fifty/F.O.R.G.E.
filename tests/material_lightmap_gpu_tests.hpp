@@ -87,7 +87,7 @@ float4 main():SV_Target0 {
                               RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         auto* rtv = target->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
         context->SetRenderTargets(1, &rtv, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        const Viewport viewport{0, 0, 2, 2, 0, 1};
+        const Diligent::Viewport viewport{0, 0, 2, 2, 0, 1};
         context->SetViewports(1, &viewport, 2, 2);
         context->SetPipelineState(pass);
         context->CommitShaderResources(binding, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -329,7 +329,7 @@ Response main(float4 position:SV_Position) {
         ITextureView* views[]{outputs[0]->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET),
                               outputs[1]->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET)};
         context->SetRenderTargets(2, views, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        const Viewport viewport{0, 0, 4, 2, 0, 1};
+        const Diligent::Viewport viewport{0, 0, 4, 2, 0, 1};
         context->SetViewports(1, &viewport, 4, 2);
         context->SetPipelineState(pass);
         context->CommitShaderResources(binding, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -392,6 +392,31 @@ Response main(float4 position:SV_Position) {
                             }
                         ++cases;
                     }
+    // The shared irradiance helper owns validation after lighting preparation.
+    // Poison only its reflected input to prove that deferred validation still
+    // reports diagnostic color and keeps invalid values out of the indirect MRT.
+    const auto gain_binding = std::find_if(layout.parameters.begin(), layout.parameters.end(),
+                                           [](const auto& p) { return p.name == "lightmap_gain"; });
+    check(gain_binding != layout.parameters.end() && gain_binding->width == 3,
+          "Lightmap gain reflection disappeared");
+    const Row dark_environment{0, 1, 0, 1};
+    std::memcpy(constants.at("ForgeEnvironment").data(), dark_environment.data(),
+                sizeof(dark_environment));
+    std::fill(constants.at("ForgeDistanceFog").begin(), constants.at("ForgeDistanceFog").end(),
+              std::byte{});
+    material.parameters.at("emissive").value = {0, 0, 0, 0};
+    for (const float poison :
+         {-1.f, std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity()}) {
+        auto values = surface_parameter_bytes(material, layout);
+        const std::array<float, 3> invalid{poison, poison, poison};
+        std::memcpy(values.data() + gain_binding->offset, invalid.data(), sizeof(invalid));
+        constants.at("ForgeSurfaceMaterial") = std::move(values);
+        const auto [color, indirect] = render();
+        for (unsigned i = 0; i < color.size(); ++i)
+            check(color[i] == Row{1, 0, 1, 1} && indirect[i] == Row{},
+                  "Invalid graph irradiance escaped its shared diagnostic/MRT guard");
+        ++cases;
+    }
     // Two finite contributions can overflow only when combined. Exercise each
     // component alone before asserting the graph's combined MRT failure path.
     presentation.begin_frame();

@@ -81,6 +81,9 @@ parameters keep their reflected Material uniforms and remain adjustable without
 recompiling the Shader. Built-in Materials retain their uniform parameter path.
 Physical surface fields are bounded at their established shader boundary; output
 nonfinite checks provide the existing diagnostic color instead of nonfinite pixels.
+Imported irradiance is checked by the shared lightmap helper after lighting setup,
+including negative/nonfinite input and finite-contribution overflow. Rejected
+irradiance produces diagnostic color and zero lightmap radiance in indirect output.
 UV numbers remain logical semantics, projected to compact varyings. A graph with no
 planar-coordinate consumer does not require mesh UV channels; cube/volume coordinates
 do not create an artificial UV0 requirement. An unconnected Normal Map UV input
