@@ -1,4 +1,6 @@
+#ifdef FORGE_TEST_ASSET_AUTHORING
 #include "fixtures/mesh_texture_paint_gallery.hpp"
+#endif
 #include "mesh_texture_surface.hpp"
 #include "paint_texture_source.hpp"
 #include <iostream>
@@ -22,6 +24,7 @@ template <class F> void rejects(F call) {
 } // namespace
 int main(int argc, char** argv) {
     try {
+#ifdef FORGE_TEST_ASSET_AUTHORING
         if (argc == 4 && std::string_view(argv[1]) == "--author") {
             std::cout << test::author_mesh_texture_paint_gallery(std::filesystem::absolute(argv[2]),
                                                                  std::filesystem::absolute(argv[3]))
@@ -29,7 +32,8 @@ int main(int argc, char** argv) {
                       << '\n';
             return 0;
         }
-        check(argc == 1, "Expected optional --author Gallery worker");
+#endif
+        check(argc == 1, "Unexpected Mesh surface test arguments");
         MeshPart part;
         part.vertices = 4;
         part.indices = {0, 1, 2, 2, 1, 3};

@@ -1,5 +1,16 @@
 # 2026-11-11
 
+## Asset-tools-disabled test dependencies
+
+The Mesh texture-surface test keeps its CPU mapping checks in every profile;
+its optional Gallery authoring command is compiled with asset tools. The two
+audio runtime tests that publish source fixtures are registered with asset tools,
+matching their publication-library dependency. Ordinary audio/runtime checks
+remain in the core profiles. Full tools-enabled profiles retain all three cases.
+Both tools-disabled profiles configure without undeclared FORGE link libraries.
+The Mesh test compiles and passes with tools disabled; all three tools-enabled
+cases also pass after rebuilding.
+
 ## Import and test portability
 
 Audio, image decoding, atlas generation, movie encoding, source copying,
