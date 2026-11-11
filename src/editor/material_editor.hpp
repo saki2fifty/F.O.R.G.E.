@@ -215,7 +215,7 @@ class MaterialEditor {
                 const auto next =
                     resolve_material_source(document_->source(), base_ ? &*base_ : nullptr,
                                             surface_ ? &*surface_->program.surface : nullptr);
-                if (update_preview)
+                if (update_preview && !ui_effect_material())
                     update_preview({document_->source().asset()},
                                    {next.values, next.textures, surface_, next.render_textures},
                                    catalog_);
@@ -267,6 +267,11 @@ class MaterialEditor {
                 ImGui::EndDisabled();
             };
             const auto preview = [&](bool stacked) {
+                if (ui_effect_material()) {
+                    ImGui::TextWrapped("This Material renders UI elements. Preview it in a UI "
+                                       "document or during Play.");
+                    return;
+                }
                 if (document_ && draw_preview)
                     try {
                         draw_preview(stacked);
@@ -392,6 +397,9 @@ class MaterialEditor {
     std::optional<std::filesystem::path> pending_source_;
     std::string requested_context_;
     std::optional<MaterialShaderSnapshot> surface_;
+    bool ui_effect_material() const {
+        return surface_ && surface_->program.surface && surface_->program.surface->ui_effect;
+    }
     std::optional<ResolvedMaterialSource> base_, resolved_;
     std::uint64_t evaluated_ = 0;
     AssetJobId job_ = 0;
@@ -582,6 +590,9 @@ inline void MaterialEditor::fields() {
     revert("model");
     ui::heading("Surface state",
                 "Alpha, culling and depth settings affect the actual material pipeline.");
+    if (ui_effect_material())
+        ImGui::TextWrapped(
+            "UI effects require Blend, Two-sided, Depth test off and Depth write off.");
     int alpha = overrides.value("alpha", unsigned(values.alpha));
     if (ImGui::Combo("Alpha", &alpha, "Opaque\0Mask\0Blend\0"))
         mutate("Change alpha mode", [&](auto& j) { j["overrides"]["alpha"] = alpha; });

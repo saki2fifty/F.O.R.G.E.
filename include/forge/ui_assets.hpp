@@ -63,6 +63,7 @@ class UiResources {
         std::vector<std::byte> bytes;
         unsigned filter_profile = 0;
         unsigned gradients = 0;
+        unsigned effects = 0;
     };
     std::map<std::string, File> files_;
     std::map<AssetId, std::filesystem::path> documents_;

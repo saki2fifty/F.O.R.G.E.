@@ -163,8 +163,22 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
             check();
         }
         DWORD code = 1;
-        if (!GetExitCodeProcess(child.value, &code) || code != 0)
-            throw std::runtime_error("Asset build failed; previous assets retained");
+        if (!GetExitCodeProcess(child.value, &code))
+            throw std::runtime_error("Cannot read asset worker exit status");
+        if (code != 0) {
+            auto message =
+                "Asset build failed; previous assets retained (exit " + std::to_string(code);
+            FILETIME created{}, exited{}, kernel{}, user{};
+            if (GetProcessTimes(child.value, &created, &exited, &kernel, &user)) {
+                const auto milliseconds = [](FILETIME value) {
+                    return ((std::uint64_t(value.dwHighDateTime) << 32) | value.dwLowDateTime) /
+                           10000;
+                };
+                message += ", user CPU " + std::to_string(milliseconds(user)) + " ms, kernel CPU " +
+                           std::to_string(milliseconds(kernel)) + " ms";
+            }
+            throw std::runtime_error(message + ")");
+        }
     } catch (...) {
         TerminateJobObject(job.value, 1);
         WaitForSingleObject(child.value, 5000);
@@ -260,7 +274,11 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
         throw;
     }
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-        throw std::runtime_error("Asset build failed; previous assets retained");
+        throw std::runtime_error("Asset build failed; previous assets retained (" +
+                                 (WIFSIGNALED(status)
+                                      ? "signal " + std::to_string(WTERMSIG(status))
+                                      : "exit " + std::to_string(WEXITSTATUS(status))) +
+                                 ")");
 #endif
     if (std::chrono::steady_clock::now() > deadline)
         throw std::runtime_error("Asset build exceeded its wall-time limit");

@@ -10,8 +10,8 @@
 #include <forge/shader_asset.hpp>
 
 namespace forge {
-// Raw UI/shader files have no in-editor text document. These operations use the
-// same leased, baseline-checked source storage as external editing; registration
+// Raw UI/shader text uses leased, baseline-checked source storage and the existing
+// editor ownership guards. Registration
 // and publication stay explicit in their existing owners. Scene/prefab/typed
 // source JSON, metadata, C++ and engine files cannot enter this path.
 struct ProjectSourceAutomation : ProjectTextSource {
@@ -160,22 +160,28 @@ struct ProjectSourceAutomation : ProjectTextSource {
             }));
         result.push_back(automation_method(
             "source.shader.create",
-            "Create a version1 shader-program descriptor with an engine-"
+            "Create a shader-program or optional surface-function descriptor with an engine-"
             "minted identity and validated stages, without overwriting a "
             "file or compiling. Edit HLSL with source.text.write; build "
             "through the existing shader importer.",
             "assets.write",
-            automation_object({{"path", automation_text(2047, 1)},
-                               {"source_root", automation_text(2047, 1)},
-                               {"stages",
-                                {{"type", "array"},
-                                 {"minItems", 1},
-                                 {"maxItems", 6},
-                                 {"items", automation_object({{"stage", automation_text(32, 1)},
-                                                              {"source", automation_text(2047, 1)},
-                                                              {"entry", automation_text(256, 1)}},
-                                                             {"stage", "source", "entry"})}}}},
-                              {"path", "source_root", "stages"}),
+            automation_object(
+                {{"path", automation_text(2047, 1)},
+                 {"source_root", automation_text(2047, 1)},
+                 {"surface",
+                  {{"type", "object"},
+                   {"maxProperties", 16},
+                   {"description", "Optional logical surface interface, validated by the Shader "
+                                   "owner. UI effects use interface version4 and domain ui."}}},
+                 {"stages",
+                  {{"type", "array"},
+                   {"minItems", 1},
+                   {"maxItems", 6},
+                   {"items", automation_object({{"stage", automation_text(32, 1)},
+                                                {"source", automation_text(2047, 1)},
+                                                {"entry", automation_text(256, 1)}},
+                                               {"stage", "source", "entry"})}}}},
+                {"path", "source_root", "stages"}),
             true, [&files, ready](const Json& request) {
                 ready();
                 const auto file = path(files, request);
@@ -189,10 +195,12 @@ struct ProjectSourceAutomation : ProjectTextSource {
                                          "Choose an existing contained source_root");
                 const auto id = AssetId::generate();
                 Json document{{"format", "forge.shader"},
-                              {"version", 1},
+                              {"version", request.contains("surface") ? 2 : 1},
                               {"asset_id", id},
                               {"source_root", path_utf8(root)},
                               {"stages", request.at("stages")}};
+                if (request.contains("surface"))
+                    document["surface"] = request.at("surface");
                 (void)shader_program_source(document);
                 const auto text = document.dump(2) + "\n";
                 asset_storage::replace(file, text);

@@ -35,6 +35,11 @@ the graph compiler supplies stages and surface metadata to the same bounded
 worker/publication pipeline. Graph sources do not also own an HLSL source root.
 The file/include rules below describe authored HLSL stage sources.
 
+The UI domain uses the version2 source with surface definition4 and wrapper17:
+one procedural Pixel function, numeric Material defaults and native UI geometry.
+It shares this compiler/publication path. General stage programs and Mesh/Sprite
+surface definitions retain their existing meaning. See [UI Material effects](../manual/editor/ui-material-effects.md).
+
 A `forge.shader` version1 source document has an AssetId and a list of stage,
 source-file and entry-point records. Its original JSON is the authored document;
 projection into compiler inputs does not remove unknown extension fields.

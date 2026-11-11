@@ -359,6 +359,7 @@ int main(int argc, char** argv) {
         test_material_watch(root / "watch-project");
         test_surface_material_pipeline(root / "surface-project");
         test_surface_material_pipeline(root / "sprite-surface-project", true);
+        test_surface_material_pipeline(root / "ui-effect-project", false, true);
         std::cout << "Material source/publication/resource/last-good/ancestry checks passed\n";
         return 0;
     } catch (const std::exception& e) {

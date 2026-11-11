@@ -57,6 +57,30 @@ does not change the C host table layout. The implemented recipe, editor, import,
 rendering and automation workflow is documented in the current
 [Sprite contract](../sprites.md).
 
+## Project UI Material domain — accepted additive extension
+
+2026-11-11: Procedural UI pixel effects reuse the existing Shader and Material
+asset families, supervised compiler, publication graph and immutable Material
+Shader snapshot. Surface definition4 explicitly selects `domain:"ui"`; wrapper17
+contains one `SurfaceUiColor` Pixel role. No parallel effect asset registry,
+runtime source compiler or agent-only authoring path is introduced.
+
+The UI host shares its project-scoped MeshResourceHost Material pool. Native UI
+owns element geometry, layout, clipping, opacity and handle retirement. The
+renderer realizes the retained cooked program through the existing presentation
+cache, with numeric Material parameters and per-element UV/size/presenter time.
+Candidate readiness uses non-owning shader observations in the existing native
+document set, so unrelated live replacement failures cannot block a new scene.
+UI Materials reject Mesh/Sprite geometry. The first domain has no texture bindings
+or authored vertex stage. See [surface interfaces](../surface-shaders.md).
+
+Runtime dependency declarations include the selected Material; its cooked bundle
+retains the exact Shader snapshot. UI source requirements record effects1, and
+runtime kits advertise `runtime_ui_effects:1`. Unsupported kits reject before
+publication/export. Old Mesh/Sprite interfaces and packet roles retain their
+meaning; this extension changes neither Scene identities nor the C host table.
+Native execution and delivery evidence remain separate validation gates.
+
 ## Current evidence and implementation boundary
 
 Current editor/viewport.cpp draws CPU blockout geometry and has no production

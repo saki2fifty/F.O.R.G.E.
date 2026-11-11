@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "texture_decode.h"
+#include "ui_effect_profile.hpp"
 #include "ui_filter_profile.hpp"
 #include "ui_font_profile.hpp"
 #include "ui_gradient_profile.hpp"
@@ -49,6 +50,7 @@ unsigned le(std::span<const std::byte> b, std::size_t p) {
 struct TextProfile {
     unsigned filters = 0;
     unsigned gradients = 0;
+    unsigned effects = 0;
 };
 TextProfile validate_text_profile(std::string_view text, bool markup,
                                   std::vector<UiMarkupElement>* elements = nullptr,
@@ -67,6 +69,7 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
     std::string property, token;
     unsigned filter_profile = 0;
     unsigned gradients = 0;
+    unsigned effects = 0;
     std::string declaration_name;
     auto value_begin = std::string_view::npos;
     auto declaration_begin = std::string_view::npos;
@@ -179,11 +182,13 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
                         filter_profile =
                             std::max(filter_profile, ui_filter_detail::box_shadow_profile_version);
                     if (name == "data-style-mask-image") {
+                        effects = ui_effect_detail::profile_version;
                         filter_profile =
                             std::max(filter_profile, ui_filter_detail::luminance_profile_version);
                         gradients = ui_gradient_detail::profile_version;
                     }
                     if (name == "data-style-decorator") {
+                        effects = ui_effect_detail::profile_version;
                         gradients = ui_gradient_detail::profile_version;
                         filter_profile =
                             std::max(filter_profile, ui_filter_detail::luminance_profile_version);
@@ -232,10 +237,12 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
                         if (style.find('&') != style.npos) {
                             filter_profile = ui_filter_detail::profile_version;
                             gradients = ui_gradient_detail::profile_version;
+                            effects = ui_effect_detail::profile_version;
                         }
                         const auto nested = validate_text_profile(style, false);
                         filter_profile = std::max(filter_profile, nested.filters);
                         gradients = std::max(gradients, nested.gradients);
+                        effects = std::max(effects, nested.effects);
                     }
                     if (a < attributes.size())
                         ++a;
@@ -273,6 +280,7 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
                         validate_text_profile(text.substr(end + 1, close - end - 1), false);
                     filter_profile = std::max(filter_profile, nested.filters);
                     gradients = std::max(gradients, nested.gradients);
+                    effects = std::max(effects, nested.effects);
                     i = close;
                     continue;
                 }
@@ -327,6 +335,8 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
                 if (token == "luminance")
                     filter_profile =
                         std::max(filter_profile, ui_filter_detail::luminance_profile_version);
+                if (token == "shader")
+                    effects = ui_effect_detail::profile_version;
                 if (token == "radial-gradient" || token == "repeating-radial-gradient" ||
                     token == "conic-gradient" || token == "repeating-conic-gradient")
                     gradients = ui_gradient_detail::profile_version;
@@ -419,7 +429,7 @@ TextProfile validate_text_profile(std::string_view text, bool markup,
     if (markup)
         require(nodes > 0 && text.find("<rml") != text.npos && text.find("<body") != text.npos,
                 "RML requires rml and body elements");
-    return {filter_profile, gradients};
+    return {filter_profile, gradients, effects};
 }
 } // namespace
 void validate_ui_text(std::string_view text, bool markup) {
@@ -577,7 +587,8 @@ const std::vector<std::byte>& UiResources::admit(const std::filesystem::path& lo
                 "UI collection font extension requires a collection header");
     }
     bytes_ += data.size();
-    return files_.emplace(key, File{std::move(data), profile.filters, profile.gradients})
+    return files_
+        .emplace(key, File{std::move(data), profile.filters, profile.gradients, profile.effects})
         .first->second.bytes;
 }
 std::filesystem::path UiResources::document_source(AssetRef<UiDocumentAsset> ref) const {
@@ -659,6 +670,8 @@ UiAssetSnapshot UiResources::snapshot() const {
             features["filters"] = file.filter_profile;
         if (file.gradients)
             features["gradients"] = file.gradients;
+        if (file.effects)
+            features["effects"] = file.effects;
         if (!features.empty())
             info.details["runtime_features"] = std::move(features);
         if (image_extension(extension)) {

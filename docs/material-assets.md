@@ -5,6 +5,13 @@ publication, the central Material document, native previews and mesh-slot assign
 are implemented. The [renderer contract](rendering-foundation.md) records executed
 WARP coverage; final combined package validation remains a release gate.
 
+Procedural UI Materials reuse these values, publication and resource owners with
+an explicit [UI surface domain](surface-shaders.md). They render native UI elements
+through the shared Material pool rather than Mesh/Sprite geometry. Their numeric
+parameters remain Material-owned; their compiled Shader snapshot stays embedded
+in the same immutable bundle. The Material document directs preview to a UI
+document or Play and requires Blend, two-sided, depth-test/write off.
+
 ## Asset selection and values
 
 A logical Material has an AssetId. Its selected immutable artifact stores a

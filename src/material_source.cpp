@@ -137,9 +137,9 @@ ResolvedMaterialSource resolve_material_source(const MaterialSource& source,
     result.shader = material_shader_reference(source, base);
     require(bool(result.shader) == bool(surface),
             "Material shader interface is missing or unexpected");
-    // A new Sprite root starts from its declared image-friendly render state.
+    // New Sprite/UI roots start from their domain's required render state.
     // Inherited and explicit fields remain ordinary Material intent below.
-    if (!base && surface && surface->sprite_image)
+    if (!base && surface && (surface->sprite_image || surface->ui_effect))
         result.values = surface_material_defaults(*surface);
     auto values = material_values_document(result.values);
     const auto& overrides = source.document.at("overrides");

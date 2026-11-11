@@ -54,6 +54,7 @@ GESTURES_ONLY = sys.argv[7:] == ['--gestures-only']
 TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 INPUT_RECORDING_ONLY = sys.argv[7:] == ['--input-recording-only']
+UI_EFFECTS_ONLY = sys.argv[7:] == ['--ui-effects-only']
 UI_CONTROL_PROPERTIES_ONLY = sys.argv[7:] == ['--ui-control-properties-only']
 UI_TYPOGRAPHY_ONLY = sys.argv[7:] == ['--ui-typography-only']
 UI_PLACEMENT_ONLY = sys.argv[7:] == ['--ui-placement-only']
@@ -377,6 +378,30 @@ for legacy in selected_protocols:
         def write(path, value):
             return ok('forge_source_text_write', path=path, state=text(path)['state'], text=value)
 
+        def ui_effect_sources():
+            ui_surface = dict(version=4, domain='ui', uv_sets=[0], parameters={}, textures={})
+            write('Assets/Shaders/UiEffect.hlsl',
+                  '#include "engine/forge.surface.hlsli"\n'
+                  'float4 Shade(ForgeUiInput input){return float4(input.UV,0.25,1);}\n')
+            ui_shader = ok('forge_source_shader_create', path='Assets/UiEffect.shader.json',
+                           source_root='Assets/Shaders', surface=ui_surface,
+                           stages=[dict(stage='pixel', source='UiEffect.hlsl', entry='Shade')])
+            ui_descriptor = json.loads(text('Assets/UiEffect.shader.json')['text'])
+            assert ui_descriptor['version'] == 2 and ui_descriptor['asset_id'] == ui_shader['asset']
+            assert ui_descriptor['surface'] == ui_surface
+            refused = mutate('forge_source_shader_create', path='Assets/InvalidUiEffect.shader.json',
+                             source_root='Assets/Shaders', surface=ui_surface,
+                             stages=[dict(stage='vertex', source='UiEffect.hlsl', entry='Shade')])
+            assert not refused['ok'] and not (root / 'Game/Assets/InvalidUiEffect.shader.json').exists()
+            for key, value in [('domain', 'sprite'), ('uv_sets', []),
+                               ('textures', {'image': {}}), ('lighting', 'metallic-roughness')]:
+                invalid_surface = dict(ui_surface, **{key: value})
+                path = 'Assets/InvalidUi-' + key + '.shader.json'
+                refused = mutate('forge_source_shader_create', path=path,
+                                 source_root='Assets/Shaders', surface=invalid_surface,
+                                 stages=[dict(stage='pixel', source='UiEffect.hlsl', entry='Shade')])
+                assert not refused['ok'] and not (root / 'Game' / path).exists(), refused
+
         def navigation_floor():
             floor = ok('forge_entity_create', arguments=dict(kind=0, name='Navigation floor'))['results'][0]['selected']
             floor_row = next(row for row in read('forge_scene_read')['entities'] if row['id'] == floor)
@@ -469,6 +494,17 @@ for legacy in selected_protocols:
                 assert 'forge_project_settings_edit' not in readable
             print(('legacy' if legacy else 'current') + ': UI shaping/editing settings, bool validation, '
                   'stale digest, Save/discard, Scene isolation and grant discovery passed')
+            continue
+        if UI_EFFECTS_ONLY:
+            ok('forge_source_folder_create', path='Assets/Shaders')
+            ui_effect_sources()
+            with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
+                readable = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
+                assert 'forge_source_shader_create' not in readable
+                denied = readonly.request('tools/call', dict(name='forge_source_shader_create', arguments={}))
+                assert 'error' in denied or denied['result']['isError'], denied
+            print(('legacy' if legacy else 'current') + ': UI effect descriptor identity, source, '
+                  'domain/stage validation, atomic refusal and write-grant discovery passed')
             continue
         if UI_SOURCE_ONLY:
             check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=UI_CONTROL_PROPERTIES_ONLY, typography_only=UI_TYPOGRAPHY_ONLY, placement_only=UI_PLACEMENT_ONLY, sizing_only=UI_SIZING_ONLY, transforms_only=UI_TRANSFORMS_ONLY, selection_only=UI_SELECTION_ONLY, fonts_only=UI_FONT_FACES_ONLY, stylesheets_only=UI_STYLESHEET_LINKS_ONLY, presets_only=UI_LAYOUT_PRESETS_ONLY, media_only=UI_MEDIA_RULES_ONLY)
@@ -2162,6 +2198,7 @@ for legacy in selected_protocols:
         shader = ok('forge_source_shader_create', path='Assets/Test.shader.json',
                     source_root='Assets/Shaders', stages=[dict(stage='vertex', source='test.hlsl', entry='main')])
         descriptor = text('Assets/Test.shader.json')
+        ui_effect_sources()
         broken = json.loads(descriptor['text']); broken['asset_id'] = '11111111-1111-4111-8111-111111111111'
         failed(mutate('forge_source_text_write', path='Assets/Test.shader.json',
                       state=descriptor['state'], text=json.dumps(broken)), 'identity_changed')

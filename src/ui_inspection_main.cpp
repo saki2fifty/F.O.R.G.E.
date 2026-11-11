@@ -1,9 +1,11 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
+#include "model_render_resource.hpp"
 #include "ui_filter_admission.hpp"
 #include "ui_gradient_admission.hpp"
 #include "ui_inspection_transport.hpp"
+#include "ui_material_effect.hpp"
 #include <RmlUi/Core.h>
 #include <forge/game_settings.hpp>
 #include <forge/project.hpp>
@@ -13,13 +15,29 @@ namespace {
 // Native parsing/layout/resource admission only. Geometry is bounded and retired
 // without allocating GPU objects; graphical readiness remains the game host's job.
 struct InspectionRenderer final : Rml::RenderInterface {
+    std::filesystem::path project;
+    forge::AssetCatalog catalog;
+    std::set<forge::AssetId> admitted_materials;
+    explicit InspectionRenderer(std::filesystem::path root)
+        : project(std::move(root)), catalog(forge::AssetCatalog::open_project(project)) {}
     std::uintptr_t next = 1;
     std::set<std::uintptr_t> geometry, textures, filters, gradients;
     Rml::CompiledShaderHandle CompileShader(const Rml::String& name,
                                             const Rml::Dictionary& parameters) override {
-        (void)forge::ui_gradient_detail::admit_gradient(name, parameters);
+        if (name == "shader") {
+            const auto effect = forge::ui_effect_detail::admit_material_effect(parameters);
+            if (!admitted_materials.contains(effect.material.id)) {
+                const auto material =
+                    forge::asset_detail::load_pbr_material(project, catalog, effect.material);
+                forge::validate_render_material(material);
+                if (!material.surface || !material.surface->program.surface->ui_effect)
+                    throw std::runtime_error("UI shader requires a cooked UI effect Material");
+                admitted_materials.insert(effect.material.id);
+            }
+        } else
+            (void)forge::ui_gradient_detail::admit_gradient(name, parameters);
         if (gradients.size() >= forge::ui_gradient_detail::max_shaders)
-            throw std::runtime_error("export.ui.limit: Compiled gradient count exceeds 256");
+            throw std::runtime_error("export.ui.limit: Compiled shader count exceeds 256");
         const auto id = next++;
         gradients.insert(id);
         return id;
@@ -90,7 +108,7 @@ int main(int argc, char** argv) {
         if (!root.is_absolute() || !font.is_absolute())
             throw std::runtime_error(
                 "export.ui.inspection: Absolute trusted worker paths required");
-        InspectionRenderer renderer;
+        InspectionRenderer renderer(root);
         const auto settings = ProjectSettings(root).document();
         UiPresenter presenter(
             renderer, root, asset_detail::read_bytes(font, 4 * 1024 * 1024), {}, nullptr,

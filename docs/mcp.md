@@ -1092,7 +1092,12 @@ Shaders. These external-style file writes require the exact disk digest (or
 JSON, metadata, C++ or engine files. Check logical paths before canonicalization
 so a contained alias cannot cross source ownership. Shader declaration changes
 preserve their identity; `source_shader_create` mints a new identity and validates
-stages. Compilation stays in the existing shader importer/worker. UI register and
+stages. Its optional `surface` object selects the existing version2 surface-function
+source; an omitted surface keeps a general version1 stage program. UI effects use
+surface version4, `domain:"ui"`, UV0, numeric defaults, no textures and one Pixel
+function. Existing text write, Shader import, Material source/publication and
+Runtime Dependencies tools complete the workflow; there is no separate compiler
+or effect database for agents. Compilation stays in the existing shader importer/worker. UI register and
 example tools use the existing UI catalog admission; live reload stays separate.
 A raw write to a file currently owned by UI Source rejects with `source_owned`,
 including a clean open file. Use its native document operations or close it first.

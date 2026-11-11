@@ -888,6 +888,7 @@ int main(int argc, char** argv) {
             viewport.resources({});
             game_viewport->resources({});
             play_presentation.set_mesh_resource_host({});
+            runtime_ui.resources({});
             mesh_resources.reset();
             try {
                 auto host = std::make_shared<forge::MeshResourceHost>(presentation, context,
@@ -898,6 +899,7 @@ int main(int argc, char** argv) {
                 game_viewport->resources(host);
                 mesh_resources = std::move(host);
                 play_presentation.set_mesh_resource_host(mesh_resources);
+                runtime_ui.resources(mesh_resources);
             } catch (const std::exception& e) {
                 message = std::string("Mesh resources unavailable: ") + e.what();
                 forge::ui::report_error("render.mesh.resource", message);

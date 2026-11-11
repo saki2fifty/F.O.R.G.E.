@@ -137,6 +137,12 @@ inline void test_material_source() {
     auto custom_base = resolve_material_source(custom, nullptr, &surface);
     check(custom_base.shader == shader && custom_base.values.model == surface_material_model &&
           custom_base.values.parameters == surface.parameters);
+    auto ui_surface = surface;
+    ui_surface.ui_effect = true;
+    ui_surface.uv_sets = {0};
+    const auto ui_values = resolve_material_source(custom, nullptr, &ui_surface);
+    check(ui_values.values == surface_material_defaults(ui_surface) && ui_values.shader == shader &&
+          ui_values.textures.empty());
     auto custom_child = MaterialSource::create(AssetId::generate());
     custom_child.document["base"] = custom.asset();
     const auto original = custom_child.document;

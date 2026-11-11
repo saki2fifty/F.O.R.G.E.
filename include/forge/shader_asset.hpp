@@ -6,7 +6,7 @@ namespace forge {
 // Stages admitted by the initial D3D12 / FXC shader-model5.1 compiler profile.
 // Admission is not a claim that every renderer pass uses each stage.
 enum class ShaderStage { Vertex, Pixel, Compute, Geometry, Hull, Domain };
-inline constexpr unsigned current_surface_wrapper_version = 16;
+inline constexpr unsigned current_surface_wrapper_version = 17;
 // Earlier publications predate explicit runtime-kit surface profile metadata.
 inline constexpr unsigned first_explicit_surface_runtime_profile = 15;
 enum class ShaderEntryRole {
@@ -31,7 +31,8 @@ enum class ShaderEntryRole {
     SurfaceWeightedColor,
     SurfaceAreaWeightedColor,
     SurfaceSpriteColor,
-    SurfaceSpriteMipColor
+    SurfaceSpriteMipColor,
+    SurfaceUiColor
 };
 inline constexpr bool sprite_surface_role(ShaderEntryRole role) {
     return role == ShaderEntryRole::SurfaceSpriteColor ||

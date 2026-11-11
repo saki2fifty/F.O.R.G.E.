@@ -20,6 +20,7 @@ class RuntimeUiHost {
     TextInputMethodEditor_SDL ime_; // Must outlive the presenter/context.
     std::unique_ptr<UiDiligentRenderer> renderer_;
     std::unique_ptr<UiPresenter> presenter_;
+    std::shared_ptr<MeshResourceHost> project_resources_;
     UiSurfaceCallbacks surface_callbacks_;
     std::string session_;
     std::uint64_t generation_ = 0, submitted_ = 0;
@@ -91,6 +92,7 @@ class RuntimeUiHost {
             return;
         }
         renderer_ = std::make_unique<UiDiligentRenderer>(device_);
+        renderer_->resources(project_resources_);
         UiPlatformCallbacks platform;
         platform.get_clipboard = [] {
             char* text = SDL_GetClipboardText();
@@ -144,6 +146,8 @@ class RuntimeUiHost {
                 throw std::runtime_error(presenter_->diagnostic());
             const auto revision = presenter_->presentation_revision();
             if (refresh || preview_attempted_ != revision) {
+                if (!renderer_->resources_ready())
+                    throw std::runtime_error("UI effect resources are still loading");
                 preview_attempted_ = revision;
                 auto layout = presenter_->preview_layout();
                 auto image = renderer_->draw_preview(*presenter_, context, unsigned(width),
@@ -274,6 +278,12 @@ class RuntimeUiHost {
                   UiSurfaceCallbacks surface_callbacks = {})
         : window_(w), device_(d), font_(std::move(font)),
           surface_callbacks_(std::move(surface_callbacks)) {}
+    void resources(std::shared_ptr<MeshResourceHost> host) {
+        if (host != project_resources_) {
+            retire_presenter();
+            project_resources_ = std::move(host);
+        }
+    }
     void clear(PlaySession& play) {
         retire_presenter();
         session_.clear();
@@ -584,7 +594,8 @@ class RuntimeUiHost {
         presenter_->update(frame_time(), w, h, density);
     }
     inline bool prepared_staged(std::uint64_t ticket) const {
-        return presenter_ && presenter_->prepared(ticket);
+        return presenter_ && presenter_->prepared(ticket) &&
+               renderer_->resources_ready(*presenter_, ticket);
     }
     inline void activate_staged(std::uint64_t ticket) {
         if (!presenter_ || !presenter_->activate_prepared(ticket))

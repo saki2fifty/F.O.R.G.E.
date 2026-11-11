@@ -2,8 +2,10 @@
 #include "asset_storage.hpp"
 #include "fixtures/texture_jpeg.hpp"
 #include "fixtures/ui_png.hpp"
+#include "material_authoring.hpp"
 #include "runtime_dependencies.hpp"
 #include "runtime_package.hpp"
+#include "surface_material_fixture.hpp"
 #include "texture_bundle_validation.hpp"
 #include "ui_asset_catalog.hpp"
 #include "ui_inspection.hpp"
@@ -169,6 +171,65 @@ int main(int argc, char** argv) {
         RuntimeUiInspector inspect = [&](AssetId id, std::stop_token stop) {
             return inspect_ui_dependencies(worker, font_path, project, id, stop);
         };
+        {
+            // CPU transport markers test native inspection and typed admission,
+            // never graphics realization or actual shader execution.
+            const auto effect_project = scratch / "effects";
+            std::filesystem::create_directories(effect_project / "Assets");
+            AssetCatalog effects(effect_project);
+            SurfaceShaderDefinition definition;
+            definition.ui_effect = true;
+            definition.uv_sets = {0};
+            const auto shader = AssetId::generate();
+            test::publish_surface_fixture(effect_project, effects, shader, definition);
+            auto source = MaterialSource::create(AssetId::generate());
+            source.document["version"] = 2;
+            source.document["overrides"]["shader"] = AssetRef<ShaderAsset>{shader};
+            asset_storage::replace(effect_project / "Assets/effect.material.json",
+                                   source.document.dump());
+            effects.add({source.asset(), "material", "Assets/effect.material.json"});
+            effects.save(AssetCatalog::project_index(effect_project));
+            auto lease = std::make_shared<ProjectLease>(effect_project);
+            AssetImportService service(lease, material_import_registry(),
+                                       {"windows", "d3d12", "desktop"});
+            const auto publish = [&] {
+                service.submit(
+                    service.prepare("Assets/effect.material.json"),
+                    [](auto& candidate, const auto& plan, const auto&) {
+                        prepare_material_publication(candidate, plan);
+                    },
+                    [](const auto&, const auto&) {});
+                check(service.wait_idle(std::chrono::seconds(5)), "UI Material import stalled");
+                const auto outcomes = service.poll();
+                check(outcomes.size() == 1 && outcomes.front().published,
+                      "UI inspection fixture Material did not publish");
+            };
+            publish();
+            const auto markup = [](AssetId material) {
+                return "<rml><head><style>body,div{display:block;}"
+                       "div{width:80px;height:40px;decorator:shader(\"material:" +
+                       material.str() + "\");}</style></head><body><div/></body></rml>";
+            };
+            asset_storage::replace(effect_project / "effect.rml", markup(source.asset()));
+            const auto asset = register_ui_document(effect_project, "effect.rml");
+            const auto inspected =
+                inspect_ui_dependencies(worker, font_path, effect_project, asset.id);
+            check(inspected.sources.front().details.at("runtime_features") == Json{{"effects", 1}},
+                  "Native UI inspection omitted its project effect capability");
+            asset_storage::replace(effect_project / "effect.rml", markup(AssetId::generate()));
+            rejects([&] { inspect_ui_dependencies(worker, font_path, effect_project, asset.id); },
+                    "Selected material is missing or has wrong type");
+            asset_storage::replace(effect_project / "effect.rml", markup(source.asset()));
+            effects = AssetCatalog::open_project(effect_project);
+            definition.ui_effect = false;
+            test::publish_surface_fixture(effect_project, effects, shader, definition, 2);
+            // A new Shader selection does not replace an embedded last-good UI
+            // program until Material publication explicitly adopts it.
+            (void)inspect_ui_dependencies(worker, font_path, effect_project, asset.id);
+            publish();
+            rejects([&] { inspect_ui_dependencies(worker, font_path, effect_project, asset.id); },
+                    "UI shader requires a cooked UI effect Material");
+        }
         {
             asset_storage::replace(
                 project / "filters.rml",

@@ -7,6 +7,7 @@
 #include "native_io_path.hpp"
 #include "runtime_execution_values.hpp"
 #include "runtime_reflection_profile.hpp"
+#include "ui_effect_profile.hpp"
 #include "ui_filter_profile.hpp"
 #include "ui_font_profile.hpp"
 #include "ui_gradient_profile.hpp"
@@ -393,6 +394,16 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             continue;
         require(features->is_object(), "Invalid UI source runtime features");
         for (const auto& [name, version] : features->items()) {
+            if (name == "effects") {
+                require(version.is_number_integer() && version == ui_effect_detail::profile_version,
+                        "Unsupported UI effect runtime profile");
+                const auto support = engine.find("runtime_ui_effects");
+                require(support != engine.end() && support->is_number_integer() &&
+                            *support == ui_effect_detail::profile_version,
+                        "Project UI shaders require the matching runtime kit packaged with this "
+                        "editor");
+                continue;
+            }
             if (name == "font_collections") {
                 require(version.is_number_integer() &&
                             version == ui_font_detail::collection_profile_version,

@@ -64,6 +64,9 @@ before assigning it to a Sprite. See [World sprites and image sheets](sprites.md
 Import a [material surface Shader](shaders.md), then choose it in **Surface Shader**.
 Its declared parameters and texture slots appear in the Material document.
 Generic vertex/pixel programs without a surface declaration cannot be assigned here.
+UI-domain surfaces use [UI Material effects](ui-material-effects.md) and preview
+inside a UI document or Play. Their transparent render state is required; they
+cannot be assigned to Mesh/Sprite geometry.
 
 Enter parameter values and press Enter. Assign every declared texture role, using
 the required image type and usage. Missing or incompatible fields show an error;

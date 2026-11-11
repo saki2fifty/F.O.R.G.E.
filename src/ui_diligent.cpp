@@ -4,11 +4,15 @@
 #include "Graphics/GraphicsEngine/interface/Sampler.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
+#include "mesh_render_host.hpp"
+#include "shader_runtime_backend.hpp"
 #include "ui_filter_layers.hpp"
 #include "ui_gradient_admission.hpp"
+#include "ui_material_effect.hpp"
 #include <RmlUi/Core.h>
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstring>
 #include <forge/ui_assets.hpp>
 #include <forge/ui_diligent.hpp>
@@ -50,7 +54,28 @@ struct UiDiligentRenderer::Impl final : Rml::RenderInterface {
     RefCntAutoPtr<IBuffer> constants;
     RefCntAutoPtr<IBuffer> gradient_constants;
     RefCntAutoPtr<ISampler> image_sampler, snapshot_sampler;
-    std::array<std::array<RefCntAutoPtr<IPipelineState>, 4>, 2> pipelines;
+    using Pipelines = std::array<std::array<RefCntAutoPtr<IPipelineState>, 4>, 2>;
+    Pipelines pipelines;
+    RefCntAutoPtr<IShader> vertex_shader;
+    std::shared_ptr<MeshResourceHost> project_resources;
+    struct EffectBundle {
+        ResourceLease<MaterialAsset> material;
+        SurfaceBindingLayout layout;
+        Pipelines pipelines;
+        std::array<std::array<RefCntAutoPtr<IShaderResourceBinding>, 4>, 2> bindings;
+        RefCntAutoPtr<IBuffer> parameters, state;
+    };
+    struct Effect {
+        ui_effect_detail::MaterialEffect value;
+        std::shared_ptr<EffectBundle> bundle;
+        std::optional<ResourceIdentity> failed;
+        std::string diagnostic;
+        ResourceTicket ticket{};
+        std::optional<std::uint64_t> request_epoch{};
+        std::weak_ptr<const asset_detail::MaterialPreviewSelection> request_preview{};
+    };
+    std::map<Rml::CompiledShaderHandle, Effect> effects;
+    std::map<ResourceIdentity, std::weak_ptr<EffectBundle>> effect_bundles;
     unsigned output_format = 0;
     std::uint64_t stencil_allocations = 0;
     struct ClippingImage {
@@ -186,8 +211,6 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         device->CreateBuffer(cb, nullptr, &gradient_constants);
         if (!gradient_constants)
             throw std::runtime_error("Runtime UI gradient constant allocation failed");
-        LayoutElement layout[] = {
-            {0, 0, 2, VT_FLOAT32, False}, {1, 0, 4, VT_UINT8, True}, {2, 0, 2, VT_FLOAT32, False}};
         static_assert(sizeof(Rml::Vertex) == 20);
         ShaderResourceVariableDesc variable{SHADER_TYPE_PIXEL, "ui_texture",
                                             SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
@@ -201,7 +224,25 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         device->CreateSampler(sampler, &snapshot_sampler);
         if (!image_sampler || !snapshot_sampler)
             throw std::runtime_error("Runtime UI sampler allocation failed");
-        for (unsigned format = 0; format < pipelines.size(); ++format) {
+        vertex_shader = vs;
+        pipelines = make_pipelines(vs, ps, std::span(&variable, 1), false);
+        for (auto& format : pipelines)
+            for (auto& pipeline : format) {
+                pipeline->GetStaticVariableByName(SHADER_TYPE_VERTEX, "UiData")->Set(constants);
+                pipeline->GetStaticVariableByName(SHADER_TYPE_PIXEL, "UiGradientData")
+                    ->Set(gradient_constants);
+            }
+        SetTransform(nullptr);
+        Rml::byte pixel[] = {255, 255, 255, 255};
+        white = GenerateTexture({pixel, 4}, {1, 1});
+    }
+    Pipelines make_pipelines(IShader* vs, IShader* ps,
+                             std::span<const ShaderResourceVariableDesc> variables,
+                             bool project_effect) {
+        Pipelines result;
+        LayoutElement layout[] = {
+            {0, 0, 2, VT_FLOAT32, False}, {1, 0, 4, VT_UINT8, True}, {2, 0, 2, VT_FLOAT32, False}};
+        for (unsigned format = 0; format < result.size(); ++format) {
             for (unsigned mode = 0; mode < 4; ++mode) {
                 GraphicsPipelineStateCreateInfo p;
                 p.PSODesc.Name = "FORGE runtime UI";
@@ -237,22 +278,17 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
                 blend.SrcBlendAlpha = BLEND_FACTOR_ONE;
                 blend.DestBlendAlpha = BLEND_FACTOR_INV_SRC_ALPHA;
                 blend.RenderTargetWriteMask = mode >= 2 ? COLOR_MASK_NONE : COLOR_MASK_ALL;
-                p.PSODesc.ResourceLayout.Variables = &variable;
-                p.PSODesc.ResourceLayout.NumVariables = 1;
-                device->CreateGraphicsPipelineState(p, &pipelines[format][mode]);
-                if (!pipelines[format][mode])
+                p.PSODesc.ResourceLayout.Variables = variables.data();
+                p.PSODesc.ResourceLayout.NumVariables = Uint32(variables.size());
+                if (project_effect && project_resources)
+                    project_resources->presentation_.graphics(p, &result[format][mode]);
+                else
+                    device->CreateGraphicsPipelineState(p, &result[format][mode]);
+                if (!result[format][mode])
                     throw std::runtime_error("Runtime UI pipeline creation failed");
-                pipelines[format][mode]
-                    ->GetStaticVariableByName(SHADER_TYPE_VERTEX, "UiData")
-                    ->Set(constants);
-                pipelines[format][mode]
-                    ->GetStaticVariableByName(SHADER_TYPE_PIXEL, "UiGradientData")
-                    ->Set(gradient_constants);
             }
         }
-        SetTransform(nullptr);
-        Rml::byte pixel[] = {255, 255, 255, 255};
-        white = GenerateTexture({pixel, 4}, {1, 1});
+        return result;
     }
     Rml::CompiledGeometryHandle CompileGeometry(Rml::Span<const Rml::Vertex> v,
                                                 Rml::Span<const int> i) override {
@@ -314,7 +350,7 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         TextureSubResData sub;
         sub.pData = data.data();
         sub.Stride = size.x * 4;
-        TextureData initial;
+        Diligent::TextureData initial;
         initial.pSubResources = &sub;
         initial.NumSubresources = 1;
         device->CreateTexture(desc, &initial, &t.texture);
@@ -401,18 +437,182 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         bind_current();
         return handle;
     }
+    std::shared_ptr<EffectBundle> effect_bundle(ResourceLease<MaterialAsset> material) {
+        std::erase_if(effect_bundles, [](const auto& row) { return row.second.expired(); });
+        if (const auto found = effect_bundles.find(material.identity());
+            found != effect_bundles.end())
+            if (auto existing = found->second.lock())
+                return existing;
+        validate_render_material(material.get());
+        if (!material->surface || !material->surface->program.surface->ui_effect)
+            throw std::runtime_error("UI shader requires a cooked UI effect Material");
+        const auto& data = material->surface->program;
+        auto native = realize_renderer_shader(project_resources->presentation_, data);
+        auto result = std::make_shared<EffectBundle>();
+        result->material = std::move(material);
+        result->layout =
+            surface_binding_layout(*data.surface, data.stages.front().reflection,
+                                   ShaderEntryRole::SurfaceUiColor, data.surface_wrapper_version);
+        std::vector<ShaderResourceVariableDesc> variables{
+            {SHADER_TYPE_VERTEX, "UiData", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
+        const auto buffer = [&](const char* name, unsigned size, const void* bytes,
+                                RefCntAutoPtr<IBuffer>& out) {
+            BufferDesc desc;
+            desc.Name = name;
+            desc.Size = size;
+            desc.BindFlags = BIND_UNIFORM_BUFFER;
+            desc.Usage = bytes ? USAGE_IMMUTABLE : USAGE_DYNAMIC;
+            desc.CPUAccessFlags = bytes ? CPU_ACCESS_NONE : CPU_ACCESS_WRITE;
+            BufferData initial;
+            initial.pData = bytes;
+            initial.DataSize = size;
+            device->CreateBuffer(desc, bytes ? &initial : nullptr, &out);
+            if (!out)
+                throw std::runtime_error("UI effect buffer allocation failed");
+        };
+        if (result->layout.parameter_bytes) {
+            const auto bytes = surface_parameter_bytes(result->material->values, result->layout);
+            buffer("FORGE UI Material parameters", unsigned(bytes.size()), bytes.data(),
+                   result->parameters);
+            variables.push_back(
+                {SHADER_TYPE_PIXEL, "ForgeSurfaceMaterial", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+        }
+        if (result->layout.settings) {
+            buffer("FORGE UI element state", 16, nullptr, result->state);
+            variables.push_back(
+                {SHADER_TYPE_PIXEL, "ForgeUiState", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+        }
+        result->pipelines = make_pipelines(
+            vertex_shader, native.stages.at({ShaderStage::Pixel, ShaderEntryRole::SurfaceUiColor}),
+            variables, true);
+        for (unsigned format = 0; format < result->pipelines.size(); ++format)
+            for (unsigned mode = 0; mode < 4; ++mode) {
+                auto& binding = result->bindings[format][mode];
+                result->pipelines[format][mode]->CreateShaderResourceBinding(&binding, true);
+                if (!binding)
+                    throw std::runtime_error("UI effect resource binding allocation failed");
+                binding->GetVariableByName(SHADER_TYPE_VERTEX, "UiData")->Set(constants);
+                if (result->parameters)
+                    binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeSurfaceMaterial")
+                        ->Set(result->parameters);
+                if (result->state)
+                    binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeUiState")
+                        ->Set(result->state);
+            }
+        effect_bundles[result->material.identity()] = result;
+        return result;
+    }
+    bool refresh_effect(Effect& effect) {
+        try {
+            if (!project_resources)
+                throw std::runtime_error("UI effect requires the visual host's project resources");
+            project_resources->check_thread();
+            std::shared_ptr<const asset_detail::MaterialPreviewSelection> preview;
+            if (const auto& candidate = project_resources->material_preview_;
+                candidate && candidate->asset == effect.value.material)
+                preview = candidate;
+            // Retain one observation per admitted host snapshot. Requesting a
+            // failed pool revision again is an explicit retry, not a poll.
+            if (effect.request_epoch != project_resources->epoch_ ||
+                effect.request_preview.owner_before(preview) ||
+                preview.owner_before(effect.request_preview)) {
+                effect.request_epoch = project_resources->epoch_;
+                effect.request_preview = preview;
+                effect.ticket = {};
+                effect.diagnostic.clear();
+                effect.ticket = asset_detail::request_model_pbr_material(
+                    project_resources->materials_, project_resources->project_,
+                    project_resources->catalog_, effect.value.material, std::move(preview));
+            }
+            if (!effect.ticket)
+                return false;
+            const auto info = effect.ticket.inspect();
+            if (!effect.failed || *effect.failed != info.identity)
+                effect.diagnostic.clear();
+            auto selected = project_resources->materials_.acquire(effect.ticket);
+            if (selected) {
+                const auto identity = selected.identity();
+                if (effect.bundle && effect.bundle->material.identity() == identity) {
+                    effect.diagnostic.clear();
+                    return true;
+                }
+                if (effect.failed != identity) {
+                    try {
+                        auto next_bundle = effect_bundle(std::move(selected));
+                        effect.bundle = std::move(next_bundle);
+                        effect.failed.reset();
+                        effect.diagnostic.clear();
+                        return true;
+                    } catch (const std::exception& e) {
+                        effect.failed = identity;
+                        effect.diagnostic = e.what();
+                    }
+                }
+            } else {
+                if (info.state == ResourceState::Failed ||
+                    info.state == ResourceState::DependencyFailed ||
+                    info.state == ResourceState::Cancelled)
+                    effect.diagnostic = "UI effect Material: " + info.diagnostic;
+            }
+        } catch (const std::exception& e) {
+            effect.diagnostic = e.what();
+        }
+        return false;
+    }
+    bool checked_effect_ready(Effect& effect) {
+        const bool ready = refresh_effect(effect);
+        if (!effect.diagnostic.empty())
+            throw std::runtime_error(effect.diagnostic);
+        return ready;
+    }
     Rml::CompiledShaderHandle CompileShader(const Rml::String& name,
                                             const Rml::Dictionary& parameters) override {
+        if (gradients.size() + effects.size() >= ui_gradient_detail::max_shaders)
+            throw std::runtime_error("UI compiled shader count exceeds 256");
+        if (name == "shader") {
+            auto value = ui_effect_detail::admit_material_effect(parameters);
+            if (!project_resources)
+                throw std::runtime_error("Project UI shaders require project visual resources");
+            const auto handle = next++;
+            effects.emplace(handle, Effect{std::move(value), {}, {}, {}});
+            return handle;
+        }
         const auto gradient = ui_gradient_detail::admit_gradient(name, parameters);
-        if (gradients.size() >= ui_gradient_detail::max_shaders)
-            throw std::runtime_error("UI compiled gradient shader count exceeds 256");
         const auto handle = next++;
         gradients.emplace(handle, gradient);
         return handle;
     }
-    void ReleaseShader(Rml::CompiledShaderHandle shader) override { gradients.erase(shader); }
+    void ReleaseShader(Rml::CompiledShaderHandle shader) override {
+        gradients.erase(shader);
+        effects.erase(shader);
+        std::erase_if(effect_bundles, [](const auto& row) { return row.second.expired(); });
+    }
     void RenderShader(Rml::CompiledShaderHandle shader, Rml::CompiledGeometryHandle geometry,
                       Rml::Vector2f translation, Rml::TextureHandle texture) override {
+        if (const auto found = effects.find(shader); found != effects.end()) {
+            if (texture)
+                throw std::runtime_error("UI Material effects require untextured native geometry");
+            if (!context)
+                return;
+            auto& effect = found->second;
+            const bool ready = refresh_effect(effect);
+            if (effect.bundle) {
+                if (effect.bundle->state) {
+                    const auto time = float(Rml::GetSystemInterface()->GetElapsedTime());
+                    if (!std::isfinite(time))
+                        throw std::runtime_error("UI effect presentation time exceeds float range");
+                    MapHelper<std::array<float, 4>> values(context, effect.bundle->state, MAP_WRITE,
+                                                           MAP_FLAG_DISCARD);
+                    *values = {effect.value.dimensions[0], effect.value.dimensions[1], time, 0};
+                }
+                draw(geometry, translation, 0, clip ? 1 : 0, nullptr, effect.bundle.get());
+            }
+            if (!effect.diagnostic.empty())
+                throw std::runtime_error(effect.diagnostic);
+            if (!ready && !effect.bundle)
+                throw std::runtime_error("UI effect Material is still loading");
+            return;
+        }
         const auto found = gradients.find(shader);
         if (found == gradients.end() || texture)
             throw std::runtime_error("UI gradient requires a live untextured shader handle");
@@ -453,14 +653,16 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
     }
     void EnableClipMask(bool enabled) override { clip = enabled; }
     void draw(Rml::CompiledGeometryHandle h, Rml::Vector2f offset, Rml::TextureHandle tex,
-              unsigned mode, const ui_gradient_detail::Gradient* gradient = nullptr) {
+              unsigned mode, const ui_gradient_detail::Gradient* gradient = nullptr,
+              const EffectBundle* effect = nullptr) {
         if (!context)
             return;
         auto g = geometry.find(h);
         auto t = textures.find(tex ? tex : white);
         if (g == geometry.end() || t == textures.end())
             return;
-        context->SetPipelineState(pipelines[output_format][mode]);
+        context->SetPipelineState(effect ? effect->pipelines[output_format][mode]
+                                         : pipelines[output_format][mode]);
         {
             MapHelper<Constants> cb(context, constants, MAP_WRITE, MAP_FLAG_DISCARD);
             std::memcpy(cb->matrix, transform.data(), 64);
@@ -497,7 +699,8 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         context->SetVertexBuffers(0, 1, &vb, &start, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                                   SET_VERTEX_BUFFERS_FLAG_RESET);
         context->SetIndexBuffer(g->second.indices, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        context->CommitShaderResources(t->second.bindings,
+        context->CommitShaderResources(effect ? effect->bindings[output_format][mode]
+                                              : t->second.bindings,
                                        RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         DrawIndexedAttribs draw;
         draw.NumIndices = g->second.count;
@@ -535,6 +738,35 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
 UiDiligentRenderer::UiDiligentRenderer(IRenderDevice* d) : impl_(std::make_unique<Impl>(d)) {}
 UiDiligentRenderer::~UiDiligentRenderer() = default;
 Rml::RenderInterface& UiDiligentRenderer::render_interface() { return *impl_; }
+void UiDiligentRenderer::resources(std::shared_ptr<MeshResourceHost> host) {
+    auto& s = *impl_;
+    if (host == s.project_resources)
+        return;
+    if (!s.effects.empty())
+        throw std::runtime_error("Retire UI documents before replacing project visual resources");
+    if (host) {
+        host->check_thread();
+        if (host->presentation_.device() != s.device.RawPtr())
+            throw std::runtime_error("UI visual resources belong to another graphics device");
+    }
+    s.project_resources = std::move(host);
+    s.effect_bundles.clear();
+}
+bool UiDiligentRenderer::resources_ready() {
+    bool ready = true;
+    for (auto& [handle, effect] : impl_->effects) {
+        (void)handle;
+        ready = impl_->checked_effect_ready(effect) && ready;
+    }
+    return ready;
+}
+bool UiDiligentRenderer::resources_ready(const UiPresenter& presenter, std::uint64_t ticket) {
+    bool ready = true;
+    for (const auto handle : presenter.prepared_shader_handles(ticket))
+        if (auto effect = impl_->effects.find(handle); effect != impl_->effects.end())
+            ready = impl_->checked_effect_ready(effect->second) && ready;
+    return ready;
+}
 void UiDiligentRenderer::begin(IDeviceContext* c, ITextureView* color, unsigned w, unsigned h) {
     auto& s = *impl_;
     if (!c || !color || !w || !h || w > 8192 || h > 8192)

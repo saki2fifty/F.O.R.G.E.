@@ -238,8 +238,9 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
     auto compiled_sources = sources;
     if (program.surface) {
         const auto sprite = program.surface->sprite_image.has_value();
-        const auto header = sprite ? sprite_surface_shader_header(*program.surface, false)
-                                   : surface_shader_header(*program.surface);
+        const auto header = program.surface->ui_effect ? ui_surface_shader_header(*program.surface)
+                            : sprite ? sprite_surface_shader_header(*program.surface, false)
+                                     : surface_shader_header(*program.surface);
         require(compiled_sources.emplace("engine/forge.surface.hlsli", header).second,
                 "Shader source attempts to replace the generated surface interface");
         if (sprite)
@@ -248,7 +249,7 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
                                  sprite_surface_shader_header(*program.surface, true))
                         .second,
                     "Shader source attempts to replace the generated Sprite mip interface");
-        else
+        else if (!program.surface->ui_effect)
             require(compiled_sources
                         .emplace("engine/forge.surface.temporal.hlsli",
                                  surface_shader_header(*program.surface, false, true))
@@ -264,7 +265,7 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
                                     &factory);
     require(bool(factory), "Shader source snapshot factory creation failed");
     RefCntAutoPtr<IShaderSourceInputStreamFactory> graph_factory;
-    if (program.surface && program.surface->physically_based) {
+    if (program.surface && (program.surface->physically_based || program.surface->ui_effect)) {
         IShaderSourceInputStreamFactory* factories[]{
             factory, &DiligentFXShaderSourceStreamFactory::GetInstance()};
         CreateCompoundShaderSourceFactory({factories, 2}, &graph_factory);
@@ -300,7 +301,9 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
                 const bool indirect = indirect_surface_role(role);
                 const bool reflection_output = reflection_surface_role(role);
                 const bool normal_output = normal_surface_role(role);
-                if (sprite_surface_role(role))
+                if (role == ShaderEntryRole::SurfaceUiColor)
+                    wrapper = ui_surface_shader_wrapper(entry.source, entry.entry);
+                else if (sprite_surface_role(role))
                     wrapper = sprite_surface_shader_wrapper(
                         entry.source, entry.entry, role == ShaderEntryRole::SurfaceSpriteMipColor);
                 else

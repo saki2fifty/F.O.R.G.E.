@@ -15,6 +15,7 @@ inline ShaderData surface_fixture_program(const SurfaceShaderDefinition& definit
     data.compiler_digest = std::string(64, 'c');
     data.surface = definition;
     data.surface_wrapper_version = wrapper_version           ? wrapper_version
+                                   : definition.ui_effect    ? 17
                                    : definition.sprite_image ? 14
                                                              : 1;
     const nlohmann::json reflection{

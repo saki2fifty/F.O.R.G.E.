@@ -45,6 +45,27 @@ gh workflow run build.yml --ref forge/windows-build -f windows_package=true -f b
 
 Reserve the build identifier with the release coordinator before dispatch; the example above is a placeholder. The coordinator maintains one persistent, monotonically increasing counter and never reuses failed reservations. Use your intended branch in place of `forge/windows-build`. GitHub's Run workflow UI requires the workflow on the default branch; branch-specific dispatch can also be requested through the API/CLI. The complete user-facing artifact is FORGE-Windows-x64; it includes the editor, exact Native SDK, shared runtime kit and reference game. No new package is needed merely to validate documentation or portable code edits.
 
+## UI Material effect validation
+
+`ui_effect_profile` checks native typed Material references and dimensions.
+`material_pipeline` covers UI-domain publication, inheritance, retained Shader
+snapshots, source-hidden Material packages and corrupt/cancelled inputs.
+`runtime_ui_package` runs the disposable non-drawing inspector with UI Materials,
+missing references and wrong-domain refusal. `material_editor` checks native UI
+parameter controls, source Undo and routing away from Mesh preview. The focused
+`mcp_ui_effect_sources_stdio` exercises both protocol formats, descriptor identity,
+source text, domain/stage validation, atomic refusal and write-grant discovery.
+
+Windows `shader_worker` includes a real single-entry UI effect, copied reflection,
+cache reuse and source-free Shader relocation. `ui_effect_render` compiles through
+that same worker and imports its Material before checking display/HDR pixels,
+UV/size/presentation time, clipping, opacity, parameter replacement,
+failed-publication retention, isolated candidate readiness and relocated
+source-free rendering. Both full editor and shader-only acceptance
+select this case; the audit artifact retains `ui-effect-render` outputs. Local
+CPU markers and built-in software-Vulkan pixels do not establish native project
+shader execution. Windows/physical acceptance requires its own actual evidence.
+
 ## Test profiles
 
 Preview navigation extends the native canvas case at1180/700pixels with1:1/2x

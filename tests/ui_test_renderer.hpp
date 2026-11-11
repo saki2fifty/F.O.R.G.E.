@@ -1,6 +1,7 @@
 #pragma once
 #include "../src/ui_filter_admission.hpp"
 #include "../src/ui_gradient_admission.hpp"
+#include "../src/ui_material_effect.hpp"
 #include <RmlUi/Core.h>
 #include <algorithm>
 #include <forge/ui_presenter.hpp>
@@ -24,21 +25,42 @@ struct UiTestRenderer final : Rml::RenderInterface {
     unsigned mask_saves = 0;
     unsigned gradient_draws = 0;
     std::map<Rml::CompiledShaderHandle, forge::ui_gradient_detail::Gradient> gradients;
+    bool effects_supported = false;
+    unsigned effect_draws = 0;
+    std::map<Rml::CompiledShaderHandle, forge::ui_effect_detail::MaterialEffect> effects;
     Rml::CompiledShaderHandle CompileShader(const Rml::String& name,
                                             const Rml::Dictionary& parameters) override {
+        if (name == "shader") {
+            if (!effects_supported)
+                return 0;
+            const auto value = forge::ui_effect_detail::admit_material_effect(parameters);
+            check(gradients.size() + effects.size() < forge::ui_gradient_detail::max_shaders,
+                  "Bounded compiled shader count");
+            const auto id = next++;
+            effects.emplace(id, value);
+            return id;
+        }
         if (!gradients_supported)
             return 0;
         const auto value = forge::ui_gradient_detail::admit_gradient(name, parameters);
-        check(gradients.size() < forge::ui_gradient_detail::max_shaders, "Bounded gradient count");
+        check(gradients.size() + effects.size() < forge::ui_gradient_detail::max_shaders,
+              "Bounded compiled shader count");
         const auto id = next++;
         gradients.emplace(id, value);
         return id;
     }
     void ReleaseShader(Rml::CompiledShaderHandle shader) override {
+        if (effects.erase(shader))
+            return;
         check(gradients.erase(shader) == 1, "Gradient retired once");
     }
     void RenderShader(Rml::CompiledShaderHandle shader, Rml::CompiledGeometryHandle h,
                       Rml::Vector2f, Rml::TextureHandle texture) override {
+        if (effects.contains(shader)) {
+            check(geometry.contains(h) && !texture, "Live native UI effect geometry");
+            ++effect_draws;
+            return;
+        }
         check(gradients.contains(shader) && geometry.contains(h) && !texture,
               "Live native gradient geometry");
         ++gradient_draws;

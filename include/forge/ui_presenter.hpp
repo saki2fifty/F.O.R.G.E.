@@ -1,12 +1,14 @@
 #pragma once
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <forge/loading_state.hpp>
 #include <forge/ui_assets.hpp>
 #include <forge/ui_protocol.hpp>
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 namespace Rml {
 class RenderInterface;
 class TextInputHandler;
@@ -64,6 +66,9 @@ class UiPresenter {
     // One candidate; a new request retires the old candidate even on failure.
     std::uint64_t prepare(const nlohmann::json& snapshot);
     bool prepared(std::uint64_t ticket) const;
+    // Host readiness observations only, borrowed until this candidate is retired
+    // or replaced. Handles remain owned by its native documents.
+    std::span<const std::uintptr_t> prepared_shader_handles(std::uint64_t ticket) const;
     // Owner-thread, nonthrowing publication of an already admitted candidate.
     // False means stale/wrong-thread; no resource loading occurs here.
     bool activate_prepared(std::uint64_t ticket) noexcept;

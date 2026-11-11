@@ -5,6 +5,7 @@
 #include "shader_authoring.hpp"
 #include "shader_diligent.hpp"
 #include "shader_pipeline.hpp"
+#include "ui_effect_fixture.hpp"
 #include <forge/material_graph.hpp>
 #include <forge/shader_resource.hpp>
 #include <fstream>
@@ -270,6 +271,54 @@ float4 ps():SV_TARGET {return color();}
                                              "lightmap.shader.json"),
                 "Relocated lightmap Shader lost its cooked program or retained graph source");
         std::filesystem::remove_all(relocated_lightmap);
+        // One project-authored UI Pixel entry, compiled by the same supervised
+        // worker and loaded again without its descriptor or HLSL source.
+        const auto ui = AssetId::generate();
+        const auto ui_definition = test::ui_effect_definition();
+        write(root / "ui.shader.json", test::ui_effect_document(ui).dump());
+        write(root / "Shaders/ui.hlsl", test::ui_effect_source);
+        catalog.add({ui, "shader", "ui.shader.json", 1, {}});
+        catalog.save(AssetCatalog::project_index(root));
+        service.submit(service.prepare("ui.shader.json"), prepare, no_live_consumers);
+        const auto ui_outcome = finish(service);
+        require(ui_outcome.published && !ui_outcome.cache_hit,
+                "UI effect worker compilation failed: " + ui_outcome.diagnostic);
+        catalog = AssetCatalog::open_project(root);
+        const auto ui_ticket = request_shader(resources, root, catalog, {ui});
+        require(resources.wait(ui_ticket, 5s), "Compiled UI effect did not load");
+        const auto ui_program = resources.acquire(ui_ticket);
+        require(ui_program && ui_program->surface == ui_definition &&
+                    ui_program->surface_wrapper_version == current_surface_wrapper_version &&
+                    ui_program->stages.size() == 1 &&
+                    ui_program->stages.front().stage == ShaderStage::Pixel &&
+                    ui_program->stages.front().role == ShaderEntryRole::SurfaceUiColor,
+                "UI worker publication lost its domain, capability or single Pixel entry");
+        const auto ui_layout = surface_binding_layout(
+            ui_definition, ui_program->stages.front().reflection, ShaderEntryRole::SurfaceUiColor,
+            current_surface_wrapper_version);
+        require(ui_layout.settings && ui_layout.parameter_bytes &&
+                    ui_layout.parameters.size() == ui_definition.parameters.size(),
+                "Real UI reflection lost element state or Material parameters");
+        service.submit(service.prepare("ui.shader.json"), prepare, no_live_consumers);
+        const auto ui_cached = finish(service);
+        require(ui_cached.published && ui_cached.cache_hit,
+                "UI effect did not reuse its immutable compilation recipe");
+        const auto ui_package = root.parent_path() / ("ui-content-" + AssetId::generate().str());
+        const std::array ui_roots{ui};
+        (void)package_runtime_content(root, ui_package, ui_roots, {"windows", "d3d12"});
+        const auto relocated_ui = ui_package.string() + "-relocated";
+        std::filesystem::rename(ui_package, relocated_ui);
+        const auto ui_catalog = open_runtime_content(relocated_ui, {"windows", "d3d12"});
+        ResourcePool<ShaderAsset> ui_resources;
+        const auto packaged_ui = request_shader(ui_resources, relocated_ui, ui_catalog, {ui});
+        require(
+            ui_resources.wait(packaged_ui, 5s) &&
+                encode_shader(ui_resources.acquire(packaged_ui).get()) ==
+                    encode_shader(ui_program.get()) &&
+                !std::filesystem::exists(std::filesystem::path(relocated_ui) / "Shaders") &&
+                !std::filesystem::exists(std::filesystem::path(relocated_ui) / "ui.shader.json"),
+            "Relocated UI effect lost cooked bytes or retained project shader sources");
+        std::filesystem::remove_all(relocated_ui);
         const auto milliseconds = [](auto duration) {
             return std::chrono::duration<double, std::milli>(duration).count();
         };

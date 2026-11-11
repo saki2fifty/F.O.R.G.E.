@@ -76,6 +76,7 @@ inline void check_surface_shader() {
                        {"dimension", "texture2d"}},
                       {{"name", "g_SurfaceSamplers"}, {"kind", "sampler"}, {"array_size", 2}}})}};
     const auto layout = surface_binding_layout(definition, reflection);
+    const auto reflected_material = reflection.at("resources")[0];
     const auto packed = surface_parameter_bytes(material, layout);
     std::array<float, 8> values;
     std::memcpy(values.data(), packed.data(), packed.size());
@@ -276,4 +277,102 @@ inline void check_surface_shader() {
                   roles[1] == ShaderEntryRole::SurfaceDepth,
               "Legacy Mesh surface entry capability changed");
     }
+    auto ui = definition;
+    ui.ui_effect = true;
+    ui.uv_sets = {0};
+    ui.textures.clear();
+    ui.labels = {{"amount", "Amount"}};
+    const auto ui_document = surface_definition_document(ui);
+    check(ui_document.at("version") == 4 && ui_document.at("domain") == "ui" &&
+              surface_definition(ui_document) == ui,
+          "UI surface domain/labels did not round trip");
+    auto ui_material = surface_material_defaults(ui);
+    validate_surface_material(ui_material, ui);
+    check(ui_material.alpha == MaterialAlpha::Blend && !ui_material.depth_test &&
+              !ui_material.depth_write && ui_material.double_sided,
+          "UI effect default render state differs from native composition");
+    ui_material.depth_test = true;
+    reject([&] { validate_surface_material(ui_material, ui); });
+    ui_material = surface_material_defaults(ui);
+    for (unsigned mode = 0; mode < 4; ++mode) {
+        auto invalid_ui = ui;
+        if (mode == 0)
+            invalid_ui.physically_based = true;
+        else if (mode == 1)
+            invalid_ui.uv_sets.clear();
+        else if (mode == 2)
+            invalid_ui.textures = definition.textures;
+        else
+            invalid_ui.sprite_image = "color";
+        reject([&] { validate_surface_definition(invalid_ui); });
+    }
+    check(surface_shader_roles(ui, 17).size() == 1 &&
+              surface_shader_roles(ui, 17)[0] == ShaderEntryRole::SurfaceUiColor &&
+              shader_entry_role("surface_ui_color") == ShaderEntryRole::SurfaceUiColor,
+          "UI surface dispatch gained geometry/lighting stages");
+    reject([&] { surface_shader_roles(ui, 16); });
+    reject([&] { surface_shader_header(ui); });
+    const auto ui_header = ui_surface_shader_header(ui);
+    const auto ui_wrapper = ui_surface_shader_wrapper("effects/pulse.hlsl", "Pulse");
+    check(ui_header.find("ForgeUiInput") != ui_header.npos &&
+              ui_header.find("ForgeParameter_amount") != ui_header.npos &&
+              ui_header.find("Texture2D") == ui_header.npos &&
+              ui_wrapper.find("value.a=saturate(value.a)*saturate(color.a)") != ui_wrapper.npos &&
+              ui_wrapper.find("LinearToSRGB") != ui_wrapper.npos &&
+              ui_wrapper.find("value.rgb*=value.a") != ui_wrapper.npos,
+          "UI shader interface lost numeric defaults, native opacity or target color transfer");
+    reject([&] { ui_surface_shader_wrapper("bad\".hlsl", "Pulse"); });
+    reject([&] { ui_surface_shader_wrapper("pulse.hlsl", "Pulse()"); });
+    auto ui_field = field("element", 0, 4);
+    ui_field["name"] = "g_ForgeUiElement";
+    Json ui_reflection{{"stage", "pixel"},
+                       {"threads", Json{0, 0, 0}},
+                       {"resources", Json::array({reflected_material,
+                                                  {{"name", "ForgeUiState"},
+                                                   {"kind", "constant_buffer"},
+                                                   {"array_size", 1},
+                                                   {"size", 16},
+                                                   {"variables", Json::array({ui_field})}}})}};
+    unsigned register_index = 0;
+    for (auto& resource : ui_reflection["resources"]) {
+        resource["register"] = register_index++;
+        resource["space"] = 0;
+        resource["dimension"] = "unknown";
+    }
+    const auto ui_layout =
+        surface_binding_layout(ui, ui_reflection, ShaderEntryRole::SurfaceUiColor, 17);
+    check(ui_layout.settings && ui_layout.parameter_bytes == 32 &&
+              surface_parameter_bytes(ui_material, ui_layout) == packed,
+          "UI Material values did not reuse reflected parameter packing");
+    reject([&] { surface_binding_layout(ui, ui_reflection, ShaderEntryRole::SurfaceColor, 17); });
+    for (unsigned mode = 0; mode < 4; ++mode) {
+        auto invalid_reflection = ui_reflection;
+        auto& state = invalid_reflection["resources"][1];
+        if (mode == 0)
+            state["name"] = "ForgeSurfaceState";
+        else if (mode == 1)
+            state["variables"][0]["offset"] = 4;
+        else if (mode == 2)
+            state["size"] = 32;
+        else
+            invalid_reflection["resources"].push_back(state);
+        reject([&] {
+            surface_binding_layout(ui, invalid_reflection, ShaderEntryRole::SurfaceUiColor, 17);
+        });
+    }
+    // Structural envelope proof, not native bytecode compilation or GPU execution.
+    ShaderData ui_program;
+    ui_program.build_key = std::string(64, 'a');
+    ui_program.compiler_digest = std::string(64, 'b');
+    ui_program.surface = ui;
+    ui_program.surface_wrapper_version = 17;
+    ui_program.stages.push_back({ShaderStage::Pixel,
+                                 "ForgeSurfaceUiColor",
+                                 {std::byte{1}},
+                                 ui_reflection,
+                                 ShaderEntryRole::SurfaceUiColor});
+    const auto ui_restored = decode_shader(encode_shader(ui_program));
+    check(ui_restored.surface == ui && ui_restored.surface_wrapper_version == 17 &&
+              ui_restored.stages.size() == 1 && ui_restored.stages[0].reflection == ui_reflection,
+          "Cooked UI domain/role/reflection did not round trip");
 }

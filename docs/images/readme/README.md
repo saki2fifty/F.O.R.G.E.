@@ -3714,3 +3714,13 @@ attribution. The native long-label lists use available width and hover tooltips.
 - manual/images/ui-source-font-face.png: 648c01014315927f54bfcc2790d19e06a51f30d08a8abae2bab477d8ac5dd099.
 - manual/images/ui-source-media-widths.png: 5b53a560a4c71d593a3c9894994c7099989883f9fb17f7ecbc8b687e0da8f12d.
 - manual/images/ui-source-media-child.png: 85831df019e3ca2ba32ac25b5f93c3819cbc1a8d566175cf13939631b8108fb6.
+
+## UI Material effect guide image reuse
+
+The UI Material guide reuses `manual/images/shader-import.png` for the unchanged
+Shader import controls. Its original full-editor source/build/run/artifact and
+raw PPM attribution remain in Manual workflow illustrations above. The canonical
+PNG remains byte-identical: SHA256
+`c235b94f109ba67d872c8060748df94f51bfdfa1a3fc53abc5d5524519417c9d`.
+This image explains importing a program; it is not a capture of a project UI
+effect or evidence of that effect's GPU execution. No duplicate image was made.

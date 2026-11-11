@@ -9,6 +9,9 @@
 #include "ui_snapshot_render_tests.hpp"
 #include "ui_source_preview_render_tests.hpp"
 #include "ui_text_shaping_render_tests.hpp"
+#ifndef FORGE_UI_VULKAN_TEST
+#include "ui_effect_render_tests.hpp"
+#endif
 // Independent RmlUi/Diligent host: deliberately no ImGui/editor linkage.
 #include "Common/interface/Float16.hpp"
 #include "Common/interface/RefCntAutoPtr.hpp"
@@ -72,8 +75,9 @@ int main(int argc, char** argv) {
         const bool shaping_only = argc == 5 && std::string_view(argv[4]) == "--text-shaping-only";
         const bool preview_only = argc == 5 && std::string_view(argv[4]) == "--source-preview-only";
         const bool forms_only = argc == 5 && std::string_view(argv[4]) == "--forms-only";
+        const bool effect_only = argc == 6 && std::string_view(argv[4]) == "--material-effect-only";
         require(argc == 3 || argc == 4 || states_only || conditions_only || luminance_only ||
-                    shadow_motion_only || shaping_only || preview_only || forms_only,
+                    shadow_motion_only || shaping_only || preview_only || forms_only || effect_only,
                 "Need image output, font, optional Gallery and application-state profile");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
@@ -110,6 +114,22 @@ int main(int argc, char** argv) {
         require(device && context, "Diligent device attachment failed");
 #endif
 
+#ifndef FORGE_UI_VULKAN_TEST
+        if (effect_only) {
+            forge::test_ui_effect::exercise(
+                device, context, images, argv[2], argv[3], argv[5],
+                [&](ITextureView* view) { return readback(device, context, view); },
+                [&](ITextureView* view) {
+                    return readback_pixels<std::array<Diligent::Float16, 4>>(
+                        device, context, view, TEX_FORMAT_RGBA16_FLOAT);
+                },
+                save);
+            std::cout << "Native project UI effect and relocated source-free pixels passed\n";
+            return 0;
+        }
+#else
+        require(!effect_only, "Project UI effects require the Windows cooked-shader backend");
+#endif
         if (preview_only) {
             forge::test_ui_preview_pixels::exercise(device, context, images, argv[2], argv[3],
                                                     readback, save);

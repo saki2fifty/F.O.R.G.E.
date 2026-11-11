@@ -269,7 +269,7 @@ Filters also work in UI assigned to a camera image. Save the sources and Scene,
 select the Scene as startup, and export with the runtime kit supplied with this
 editor. An older kit without filter support is rejected before replacing an
 existing export. No C++ module is needed. Drop shadows use the workflow below;
-backdrop filters and linear gradients use the workflows below. Alpha masks and box shadows use the workflows below. Other shader decorators are unavailable.
+backdrop filters and linear gradients use the workflows below. Alpha masks and box shadows use the workflows below. Procedural pixel effects use [UI Materials](ui-material-effects.md). Other custom decorator forms are unavailable.
 
 ## Add a drop shadow
 
@@ -405,7 +405,7 @@ use finite coordinates within ±65,536 pixels. Resolved stop positions, measured
 relative to the gradient line, are bounded to ±65,536. The line must have nonzero
 length, and a repeating gradient needs a nonzero repeat interval. At most 256 compiled gradient records
 can be live across UI contexts. Reduce stops or elements if admission reports a
-limit. Radial and conic gradients use the workflow below. Alpha masks use the workflow below. Arbitrary shaders are unavailable.
+limit. Radial and conic gradients use the workflow below. Alpha masks use the workflow below. Procedural pixel effects use [UI Materials](ui-material-effects.md); unrestricted shader stages are unavailable.
 
 Main Game UI and UI assigned to camera images use the same gradient source.
 Save the sources and Scene, select the startup Scene, then export with the runtime
@@ -533,7 +533,7 @@ Ordinary filters on the element run before its final alpha mask. Main Game UI
 and UI assigned to camera images use the same source workflow. Save the source
 and Scene before exporting with the runtime kit supplied with this editor. Older
 kits without mask support reject before replacing a preceding export. No C++
-module is needed. Luminance masks use the workflow below. Arbitrary shaders are unavailable.
+module is needed. Luminance masks use the workflow below. Procedural pixel effects use [UI Materials](ui-material-effects.md); unrestricted shader stages are unavailable.
 
 ## Mask with image brightness
 
@@ -747,7 +747,7 @@ enable the separate [Edit whole UI characters](ui-text-input.md) setting.
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts or `.ttc`/`.otc` collections using an RCSS `@font-face` declaration, with suitable redistribution rights. Select collection faces using zero-based `-rmlui-face-index`; see [Shape game UI text](ui-text-shaping.md). Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.
 
-Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Linear, radial and conic gradients use the workflows above. Alpha and luminance masks use the workflows above. Box shadows use the workflow above. Other shader decorators are unavailable.
+Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Linear, radial and conic gradients use the workflows above. Alpha and luminance masks use the workflows above. Box shadows use the workflow above. Procedural pixel effects use [UI Materials](ui-material-effects.md). Other custom decorator forms are unavailable.
 
 `px` means game render-target pixels; `dp` follows display density. The editor's interface scale remains separate. Check text input and sizing on the displays and input languages used by your game.
 

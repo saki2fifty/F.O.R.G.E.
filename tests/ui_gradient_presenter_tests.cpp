@@ -3,6 +3,7 @@
 #include <forge/runtime_ui.hpp>
 #include <fstream>
 #include <iostream>
+#include <vector>
 namespace {
 void check(bool ok, const char* message) {
     if (!ok)
@@ -200,9 +201,80 @@ body,div {display:block;} body {margin:0;font-family:Lato;}
             presenter.cancel_prepared(ticket);
             check(Rml::GetNumContexts() == 2 && renderer.gradients.size() == live,
                   "Cancelled gradient candidate retained handles");
+            const auto material = AssetId::generate();
+            const auto effect_source =
+                std::string("<rml><head><style>body,div{display:block;}body{margin:0;}"
+                            "#panel{width:160px;height:80px;decorator:shader(\"material:") +
+                material.str() + "\");}</style></head><body><div id=\"panel\"/></body></rml>";
+            renderer.effects_supported = true;
+            write(effect_source);
+            check(presenter.reload(), presenter.diagnostic().c_str());
+            check(renderer.gradients.empty() && renderer.effects.size() == 2,
+                  "Native shader decorator did not prepare the main/output element handles");
+            for (const auto& [handle, effect] : renderer.effects) {
+                (void)handle;
+                check(effect.material.id == material &&
+                          effect.dimensions == std::array{160.f, 80.f},
+                      "Native shader decorator changed its Material or element dimensions");
+            }
+            const auto* assets = presenter.asset_snapshot();
+            check(assets && std::any_of(
+                                assets->sources.begin(), assets->sources.end(),
+                                [](const auto& source) {
+                                    return source.source == "Gradient.rml" &&
+                                           source.details.at("runtime_features").at("effects") == 1;
+                                }),
+                  "Native shader source did not record its required runtime feature");
+            check(renderer.effect_draws == 0, "UI effect preparation drew a framebuffer");
+            draw();
+            check(renderer.effect_draws >= 2, "Main/output native effect draws were omitted");
+            const auto effects_drawn = renderer.effect_draws;
+            std::vector<std::uintptr_t> live_effects;
+            for (const auto& [handle, effect] : renderer.effects) {
+                (void)effect;
+                live_effects.push_back(handle);
+            }
+            const auto effect_ticket = presenter.prepare(candidate);
+            check(presenter.prepared(effect_ticket) && renderer.effects.size() == 4 &&
+                      renderer.effect_draws == effects_drawn,
+                  "Staged UI effect candidate drew or omitted its handles");
+            const auto handles = presenter.prepared_shader_handles(effect_ticket);
+            check(handles.size() == 2 && std::all_of(handles.begin(), handles.end(),
+                                                     [&](auto h) {
+                                                         return renderer.effects.contains(h) &&
+                                                                std::find(live_effects.begin(),
+                                                                          live_effects.end(),
+                                                                          h) == live_effects.end();
+                                                     }),
+                  "UI candidate readiness included the visible set or omitted an output");
+            presenter.cancel_prepared(effect_ticket);
+            check(renderer.effects.size() == 2,
+                  "Cancelled UI effect candidate retained its native handles");
+            bool stale_handles = false;
+            try {
+                (void)presenter.prepared_shader_handles(effect_ticket);
+            } catch (const std::exception&) {
+                stale_handles = true;
+            }
+            check(stale_handles, "Retired candidate exposed stale native shader observations");
+            write("<rml><head><style>body,div{display:block;}div{width:80px;height:40px;"
+                  "background-color:red;}</style></head><body><div/></body></rml>");
+            const auto plain_ticket = presenter.prepare(candidate);
+            check(presenter.prepared_shader_handles(plain_ticket).empty() &&
+                      renderer.effects.size() == 2 && renderer.effect_draws == effects_drawn,
+                  "Plain candidate borrowed live effect readiness or replaced visible UI");
+            presenter.cancel_prepared(plain_ticket);
+            auto invalid_effect = effect_source;
+            invalid_effect.replace(invalid_effect.find("material:"), 9, "invalid:");
+            const auto effect_context = Rml::GetContext(0);
+            write(invalid_effect);
+            check(!presenter.reload() && Rml::GetContext(0) == effect_context &&
+                      renderer.effects.size() == 2,
+                  "Invalid native UI effect replaced the last usable documents");
             presenter.reset("retired", 2);
             check(Rml::GetNumContexts() == 0 && renderer.gradients.empty() &&
-                      renderer.geometry.empty() && renderer.textures.empty(),
+                      renderer.effects.empty() && renderer.geometry.empty() &&
+                      renderer.textures.empty(),
                   "Gradient retirement retained native resources");
         }
         std::filesystem::remove_all(root);

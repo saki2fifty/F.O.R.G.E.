@@ -195,6 +195,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     if (surface) {
         validate_shader(surface->program);
         require(surface->program.surface.has_value(), "Shader has no surface interface");
+        require(!surface->program.surface->ui_effect,
+                "UI effect Materials require native UI element geometry");
         validate_surface_material(source, *surface->program.surface);
         require(sprite_ == surface->program.surface->sprite_image.has_value(),
                 "Surface Shader domain does not match this draw profile");

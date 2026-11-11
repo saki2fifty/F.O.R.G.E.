@@ -19,6 +19,9 @@ struct SurfaceShaderDefinition {
     // Explicit Sprite domain and its stable primary-image binding key.
     // An absent value retains the existing Mesh surface contract.
     std::optional<std::string> sprite_image = {};
+    // Pixel effects on native UI element geometry. Shared numeric defaults stay
+    // on Material assets; this domain does not admit Mesh/Sprite resources.
+    bool ui_effect = false;
     bool operator==(const SurfaceShaderDefinition&) const = default;
 };
 void validate_surface_definition(const SurfaceShaderDefinition&);
@@ -35,6 +38,8 @@ std::string sprite_surface_shader_header(const SurfaceShaderDefinition&, bool fr
                                          bool emulated_samplers = false);
 std::string sprite_surface_shader_wrapper(std::string_view source, std::string_view function,
                                           bool frame_mips);
+std::string ui_surface_shader_header(const SurfaceShaderDefinition&);
+std::string ui_surface_shader_wrapper(std::string_view source, std::string_view function);
 std::string surface_shader_wrapper(std::string_view source, std::string_view function,
                                    bool depth_only, bool indirect_output = false,
                                    bool reflection_output = false, bool normal_output = false);

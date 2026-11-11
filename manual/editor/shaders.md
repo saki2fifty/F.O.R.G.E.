@@ -4,6 +4,8 @@ A Shader asset is a prepared shader program. The current document compiles an
 existing project `.shader.json` program and its HLSL files for the Windows D3D12
 profile. This is a programmer-facing import workflow. Programs with a material
 surface declaration can be selected in the [Material editor](materials.md).
+For a procedural effect inside a UI element, use the
+[UI Material effect workflow](ui-material-effects.md).
 
 ![Shader import document with compilation settings](../images/shader-import.png)
 

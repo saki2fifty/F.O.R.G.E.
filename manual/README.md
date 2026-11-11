@@ -85,6 +85,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Audio: import, stream, create ordered playlists, event sound cues, offsets, repeating and finite runs, filters, source/shared bus effects, impulse responses, buses/sends, live mixing and music/UI pause](editor/audio.md)
 - [Runtime UI: HUDs, interactive quad/animated-mesh surfaces, camera-image panels, menus, animation, filters, shadows, backdrops, gradients, alpha/luminance masks and static/animated panel shadows](editor/runtime-ui.md)
 - [Animate named UI values with a Scene sequence](editor/sequence-ui.md)
+- [Create procedural UI Material effects](editor/ui-material-effects.md)
 - [Create UI controls, zoom and scroll Preview, select with a rectangle or keyboard, duplicate and delete, choose or drop project images, link and order stylesheets, declare project fonts and collection faces with weight, style and missing-glyph fallback, edit properties and styles, center or stretch controls with layout presets, author viewport-width stylesheet rules, align or size groups, snap and constrain drags, retain visible aspect and move with arrow keys](editor/ui-source.md)
 - [Shape game UI text: ligatures, script runs, collections, weights and layered color glyphs](editor/ui-text-shaping.md)
 - [Edit and select whole UI characters: arrows, words, lines/pages, deletion, agent testing and native input limits](editor/ui-text-input.md)

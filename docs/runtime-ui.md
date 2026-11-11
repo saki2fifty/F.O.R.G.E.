@@ -553,7 +553,7 @@ presentation state or access to arbitrary DOM/script/engine files.
 
 Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, PNG/JPEG/TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
 
-Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie, RCSS imports/templates, free-space3D UI layout, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Other shader decorators remain unsupported and diagnosed. Box shadows use the extension below. Alpha masks use the profile below. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
+Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie, RCSS imports/templates, free-space3D UI layout, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Project UI Material effects use the explicit UI surface domain described below; other custom decorator forms remain unsupported and diagnosed. Box shadows use the extension below. Alpha masks use the profile below. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
 
 ## Upstream evidence
 
@@ -776,7 +776,7 @@ RGBA8 and linearRGBA16F camera output use their existing destination domain.
 Opacity, clipping, candidate/last-good, output failure and retirement policies
 remain with the existing presenter/resource owners. Gallery163 supplies original
 foreground/background and live/presentation-time comparisons, authored and
-exported with the same source/model/MCP workflow. Other shader decorators remain unsupported; linear gradients and box shadows use the profiles below.
+exported with the same source/model/MCP workflow. Project UI Material effects use the explicit UI surface domain below; linear gradients and box shadows use their own profiles.
 
 
 ## Native linear-gradient profile
@@ -1103,3 +1103,21 @@ boundaries at densities1/2 in both text modes. The saved/source-hidden runtime
 fixture independently checks active/inactive styling with identities retained.
 Custom conditions, nested child at-rules and unrestricted responsive design are
 not exposed by this bounded adapter.
+
+## Project UI Material effects
+
+A native shader decorator selects `material:<UUID>`, a logical published Material
+with the explicit UI surface domain. Shader definition4/wrapper17 adds one cooked
+Pixel entry with numeric Material defaults, UV0, element size and presentation
+time. The existing compiler/publication/resource owners remain authoritative;
+there is no runtime HLSL compilation. Geometry, layout, clipping, native opacity
+and target color conversion remain with UI presentation. Mesh/Sprite assignments
+and texture bindings are outside this domain. See [surface interfaces](surface-shaders.md)
+and the [UI Material manual](../manual/editor/ui-material-effects.md).
+
+Native non-drawing inspection admits the same typed reference and retained cooked
+UI Material. Source snapshots record effects1; runtime kits advertise
+`runtime_ui_effects:1` and older kits reject that requirement. Explicit Runtime
+Dependencies include the Material, whose cooked bundle embeds its immutable
+Shader snapshot. Observing a preview does not declare an export dependency.
+Existing declaration, project-scope, history, Save and publication guards remain.

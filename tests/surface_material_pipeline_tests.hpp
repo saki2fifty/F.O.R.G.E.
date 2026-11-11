@@ -2,13 +2,17 @@
 #include "runtime_package.hpp"
 #include "sprite_material_profile.hpp"
 #include "surface_material_fixture.hpp"
-inline void test_surface_material_pipeline(const std::filesystem::path& root, bool sprite = false) {
+inline void test_surface_material_pipeline(const std::filesystem::path& root, bool sprite = false,
+                                           bool ui_effect = false) {
     using namespace forge;
     using namespace forge::asset_detail;
     using namespace std::chrono_literals;
     std::filesystem::create_directories(root / "Assets");
     AssetCatalog catalog(root);
     SurfaceShaderDefinition definition;
+    definition.ui_effect = ui_effect;
+    if (ui_effect)
+        definition.uv_sets = {0};
     definition.parameters["tint"] = {MaterialParameterType::LinearColor4, {.2f, .4f, .8f, 1}};
     AssetId image;
     if (sprite) {
@@ -50,6 +54,13 @@ inline void test_surface_material_pipeline(const std::filesystem::path& root, bo
                     good.data.textures.at("image").id == image &&
                     good.data.values.alpha == MaterialAlpha::Blend && !good.data.values.depth_write,
                 "Sprite publication lost its image binding or transparent defaults");
+    if (ui_effect)
+        require(good.data.surface->program.surface->ui_effect &&
+                    good.data.surface->program.surface_wrapper_version == 17 &&
+                    good.data.values.alpha == MaterialAlpha::Blend &&
+                    good.data.values.double_sided && !good.data.values.depth_test &&
+                    !good.data.values.depth_write,
+                "UI Material publication lost its domain, capability or native render state");
     require(catalog.dependency_graph().invalidated_by(shader) == std::vector{source.asset()},
             "Surface Shader has no material Build invalidation edge");
     auto inherited = MaterialSource::create(AssetId::generate());

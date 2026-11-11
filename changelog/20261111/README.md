@@ -1,11 +1,31 @@
 # 2026-11-11
 
-## Editor test object format
+## Project UI material effects
 
-The combined editor test target uses MSVC's larger object format, matching the
-editor and rendered fixture targets. This addresses the compiler section limit
-in its expanded document-owner test translation unit. Runtime and SDK compiler
-options remain unchanged. Windows compilation remains pending.
+UI documents can select a project Material with the native shader decorator. The
+new UI surface domain supplies UV coordinates, element dimensions and presentation
+time to a procedural pixel function with numeric Material parameters. Native
+geometry, clipping, opacity and output color conversion remain in the UI renderer.
+Mesh and Sprite surfaces reject this domain.
+
+Source creation, Material editing, dependency inspection and runtime packaging
+share the existing asset and automation owners. Runtime kits declare UI effect
+support explicitly. Focused native, protocol and sanitizer checks pass locally;
+project-effect compilation and pixels on Windows remain under validation.
+
+## MSVC object section format
+
+Concrete FORGE C++ targets use the extended MSVC object format through one build
+policy. Dependency directories and downstream SDK consumers retain their compiler
+settings. This covers the combined editor tests, animation registrations and Tile
+tests without scattered target exceptions. C++ ABI and SDK consumer options remain
+unchanged; Windows compiler acceptance is pending.
+
+## Worker failure diagnostics
+
+Failed asset workers retain their process exit code or terminating signal in the
+existing error. On Windows, available user/kernel CPU times accompany a nonzero
+exit. Compiler/resource limits and last-good publication rules are unchanged.
 
 ## Asset-tools-disabled test dependencies
 

@@ -177,6 +177,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         std::map<AssetId, Rml::Context*> outputs;
         std::shared_ptr<UiResources> resources;
         UiAssetSnapshot assets;
+        std::vector<std::uintptr_t> shaders;
         Json localization;
         Json application_states;
         const UiLocalizationData* messages = nullptr;
@@ -204,6 +205,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         Rml::RenderInterface& target;
         std::string& error;
         bool preparing = false;
+        std::vector<std::uintptr_t>* preparation_shaders = nullptr;
         struct Layer {
             bool forwarded, valid;
         };
@@ -384,7 +386,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                                                 const Rml::Dictionary& parameters) override {
             const auto handle = call([&] { return target.CompileShader(name, parameters); });
             if (!handle)
-                fail("UI gradient could not be admitted by this renderer");
+                fail("UI shader decorator could not be admitted by this renderer");
             return handle;
         }
         void ReleaseShader(Rml::CompiledShaderHandle shader) override {
@@ -392,6 +394,10 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         }
         void RenderShader(Rml::CompiledShaderHandle shader, Rml::CompiledGeometryHandle geometry,
                           Rml::Vector2f translation, Rml::TextureHandle texture) override {
+            if (preparing && preparation_shaders &&
+                std::find(preparation_shaders->begin(), preparation_shaders->end(), shader) ==
+                    preparation_shaders->end())
+                preparation_shaders->push_back(shader);
             if (!preparing && !blocked())
                 call([&] { target.RenderShader(shader, geometry, translation, texture); });
         }
@@ -1197,12 +1203,14 @@ body { width:100%; height:100%; z-index:65536; }
             if (!error.empty())
                 throw std::runtime_error(error);
             renderer.preparing = true;
+            renderer.preparation_shaders = &candidate->shaders;
             renderer.render(*candidate->context);
             for (const auto& [output, context] : candidate->outputs) {
                 (void)output;
                 renderer.render(*context);
             }
             renderer.preparing = false;
+            renderer.preparation_shaders = nullptr;
             for (auto& d : candidate->docs)
                 if (!d->descriptor.at("visible").get<bool>())
                     d->document->Hide();
@@ -1213,6 +1221,7 @@ body { width:100%; height:100%; z-index:65536; }
             return candidate;
         } catch (const std::exception& e) {
             renderer.preparing = false;
+            renderer.preparation_shaders = nullptr;
             loading_prefix.clear();
             const std::string failure = e.what();
             retire(candidate);
@@ -1473,6 +1482,13 @@ bool UiPresenter::prepared(std::uint64_t ticket) const {
     const auto& s = *impl_;
     s.check();
     return s.staged && s.staged->ticket == ticket;
+}
+std::span<const std::uintptr_t> UiPresenter::prepared_shader_handles(std::uint64_t ticket) const {
+    const auto& s = *impl_;
+    s.check();
+    if (!s.staged || s.staged->ticket != ticket)
+        throw std::runtime_error("UI preparation candidate was superseded");
+    return s.staged->set->shaders;
 }
 bool UiPresenter::activate_prepared(std::uint64_t ticket) noexcept {
     auto& s = *impl_;

@@ -73,6 +73,8 @@ struct GamePresentation::Candidate final : GameScenePreparation {
         }
         if (!host.ui_.prepared(ui_ticket))
             throw std::runtime_error("Scene preparation: UI candidate was superseded");
+        if (!host.ui_renderer_.resources_ready(host.ui_, ui_ticket))
+            return {false, "ui", 3, 4};
         return {true, "ready", 4, 4};
     }
     void activate() noexcept override {
@@ -92,6 +94,7 @@ GamePresentation::GamePresentation(DiligentPresentation& p, Diligent::IDeviceCon
       ui_(ui_renderer_.render_interface(), root_, std::move(font), std::move(callbacks), ime,
           shape_text, grapheme_editing) {
     resources_->catalog(std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root_)));
+    ui_renderer_.resources(resources_);
     ui_.surface_input(ui_surface_callbacks([this] { return active_.get(); }));
 }
 GamePresentation::~GamePresentation() {

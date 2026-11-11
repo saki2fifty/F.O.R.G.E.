@@ -3,6 +3,7 @@
 #include "material_graph_document_tests.hpp"
 #include "mesh_material_inspector.hpp"
 #include "surface_material_fixture.hpp"
+#include <algorithm>
 #include <iostream>
 using namespace forge;
 namespace {
@@ -260,6 +261,72 @@ int main(int argc, char** argv) {
             require(scene.document() == authored_before_custom,
                     "Custom material source editing changed authored scene state");
         }
+#ifdef FORGE_UI_FIXTURE
+        {
+            const auto authored = scene.document();
+            auto selected = AssetCatalog::open_project(root);
+            SurfaceShaderDefinition definition;
+            definition.ui_effect = true;
+            definition.uv_sets = {0};
+            definition.parameters["tint"] = {MaterialParameterType::LinearColor4, {1, 1, 1, 1}};
+            const auto existing = std::find_if(
+                selected.records().begin(), selected.records().end(),
+                [](const auto& row) { return row.second.source == "Assets/surface.shader.json"; });
+            require(existing != selected.records().end(), "Existing Shader fixture was lost");
+            const auto shader = existing->first;
+            test::publish_surface_fixture(root, selected, shader, definition, 2);
+            auto ui_source =
+                MaterialDocument::create(project.writer_guard(), "Assets/ui.material.json");
+            ui_source->edit(ui_source->revision(), "Select UI Shader", [&](auto& j) {
+                j["version"] = 2;
+                j["overrides"]["shader"] = AssetRef<ShaderAsset>{shader};
+            });
+            ui_source->save();
+            MaterialEditor ui_editor;
+            unsigned mesh_updates = 0, mesh_draws = 0;
+            ui_editor.update_preview = [&](auto, auto, auto) { ++mesh_updates; };
+            ui_editor.draw_preview = [&](bool) { ++mesh_draws; };
+            ui_editor.open(project, ui_source->locator());
+            io.DisplaySize = {1180, 1200};
+            test::observe_ui = true;
+            const auto pump = [&] {
+                test::ui_targets.clear();
+                ui_editor.poll(project, message);
+                ImGui::NewFrame();
+                ImGui::SetNextWindowSize({1100, 1100}, ImGuiCond_Always);
+                ui_editor.draw(project, false);
+                ImGui::Render();
+            };
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+            do {
+                pump();
+                require(std::chrono::steady_clock::now() < deadline,
+                        "UI Material editor did not expose its typed parameter control");
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } while (!test::ui_targets.contains("material:parameter:tint"));
+            mesh_updates = mesh_draws = 0;
+            pump();
+            require(test::ui_targets.at("material:parameter:tint").enabled && !mesh_updates &&
+                        !mesh_draws,
+                    "UI Material used Mesh preview or disabled its numeric parameter controls");
+            const auto before_tuning = ui_editor.document()->source().document;
+            ui_editor.edit(ui_editor.document()->revision(), "UI tint", [](auto& j) {
+                j["overrides"]["parameters"]["tint"] = {
+                    {"type", unsigned(MaterialParameterType::LinearColor4)},
+                    {"value", {.25, .5, 1, .75}}};
+            });
+            pump();
+            require(ui_editor.dirty() && ui_editor.can_undo() && !mesh_updates && !mesh_draws,
+                    "UI parameter edit lost its source/history owner or submitted Mesh preview");
+            ui_editor.undo();
+            pump();
+            require(ui_editor.document()->source().document == before_tuning &&
+                        scene.document() == authored,
+                    "UI Material Undo changed Scene state or retained the parameter override");
+            test::observe_ui = false;
+            io.DisplaySize = {1000, 900};
+        }
+#endif
         test::material_graph_documents(project, scene);
         ImGui::DestroyContext();
         return 0;

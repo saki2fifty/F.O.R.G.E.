@@ -545,6 +545,12 @@ registration and shader compilation use their existing tools. These raw files do
 not have Scene or document Undo. Typed material/mesh/animation/terrain/tile/particle
 sources continue to use their normal source documents and history.
 
+`forge_source_shader_create` accepts an optional surface declaration for a
+[procedural UI Material effect](ui-material-effects.md). Use a UI-domain Pixel
+function, then import the Shader, publish its Material and declare that Material
+as a runtime dependency of the UI document. The same source, compilation and
+Material tools are used by the editor and MCP.
+
 For variable UI weights, register the project font and read `forge_asset_read`.
 Its optional face `axes` list includes recorded tags, names and design ranges.
 Use the UI source tools to set numeric `font-weight` on an element, save the

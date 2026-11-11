@@ -54,6 +54,7 @@ class MeshResourceHost {
     friend class MeshSceneRenderer;
     friend class CameraRenderTextures;
     friend class RuntimeReflectionCaptures;
+    friend class UiDiligentRenderer;
     void check_thread() const;
     const std::thread::id thread_ = std::this_thread::get_id();
     DiligentPresentation& presentation_;

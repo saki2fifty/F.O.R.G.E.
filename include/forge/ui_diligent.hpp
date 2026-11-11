@@ -12,6 +12,7 @@ struct ITextureView;
 } // namespace Diligent
 namespace forge {
 class UiPresenter;
+class MeshResourceHost;
 class UiDiligentRenderer {
   public:
     explicit UiDiligentRenderer(Diligent::IRenderDevice*);
@@ -19,6 +20,15 @@ class UiDiligentRenderer {
     UiDiligentRenderer(const UiDiligentRenderer&) = delete;
     UiDiligentRenderer& operator=(const UiDiligentRenderer&) = delete;
     Rml::RenderInterface& render_interface();
+    // Share the visual host's project-scoped Material pool. Retire native
+    // documents before replacing this host; their compiled handles borrow it.
+    void resources(std::shared_ptr<MeshResourceHost>);
+    // Called after native preparation. Pending immutable resources delay scene
+    // activation; terminal admission failures propagate to the existing owner.
+    bool resources_ready();
+    // A scene candidate waits only for its own native shaders, independently of
+    // the still-visible document set and any failed live replacement.
+    bool resources_ready(const UiPresenter&, std::uint64_t ticket);
     void begin(Diligent::IDeviceContext*, Diligent::ITextureView* color, unsigned width,
                unsigned height);
     void end();
