@@ -75,6 +75,8 @@ emission, occlusion and optional imported lightmap irradiance. Graph values feed
 geometry/lighting helpers; this is not a copied BRDF or custom vertex deformation.
 The wrapper specializes its fixed engine lighting defaults as shader constants,
 so unused lighting layers can be removed during compilation. Authored graph
+outputs do not expose clearcoat or iridescence, so graph wrappers omit those
+fixed-zero layers before native lighting helper expansion. Authored graph
 parameters keep their reflected Material uniforms and remain adjustable without
 recompiling the Shader. Built-in Materials retain their uniform parameter path.
 Physical surface fields are bounded at their established shader boundary; output

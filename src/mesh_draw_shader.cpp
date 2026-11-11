@@ -362,10 +362,11 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
     }
     std::string ps =
         "#define USE_IBL 1\n#define USE_HDR_IBL_CUBEMAPS 1\n#define TEX_COLOR_CONVERSION_MODE 0\n";
-    ps += std::string("#define ENABLE_CLEAR_COAT ") +
-          (profile.workflow == PbrWorkflow::MetallicRoughness ? "1\n" : "0\n");
-    ps += std::string("#define ENABLE_IRIDESCENCE ") +
-          (profile.workflow == PbrWorkflow::MetallicRoughness ? "1\n" : "0\n");
+    // Graph outputs do not expose coating/film layers; their fixed defaults are
+    // zero. Omit those layers before FXC expands the lighting helpers.
+    const bool layered = profile.workflow == PbrWorkflow::MetallicRoughness && !graph;
+    ps += std::string("#define ENABLE_CLEAR_COAT ") + (layered ? "1\n" : "0\n");
+    ps += std::string("#define ENABLE_IRIDESCENCE ") + (layered ? "1\n" : "0\n");
     ps += std::string("#define ENABLE_SHEEN ") + (sheen ? "1\n" : "0\n");
     ps += std::string("#define ENABLE_ANISOTROPY ") + (anisotropy ? "1\n" : "0\n");
     ps += std::string("#define ENABLE_TRANSMISSION ") + (transmission ? "1\n" : "0\n");
@@ -379,7 +380,7 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
               (sampler_binding == MaterialSamplerBinding::NamedElements ? "1\n" : "0\n");
         ps += "#include \"ForgeDecals.fxh\"\n#include \"ForgeLightImages.fxh\"\n";
     }
-    if (profile.workflow == PbrWorkflow::MetallicRoughness)
+    if (layered)
         ps += "#include \"Iridescence.fxh\"\n";
     ps += object_source + skin + varyings + material.source;
     if (graph)
@@ -539,14 +540,15 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
                 "specular=min(ForgeDielectricF0()*specular,1)/.04;\n"
                 "s.BaseLayer.Srf=GetSurfaceReflectanceMR(base.rgb,metal,rough,specular,weight);\n";
 
-            ps += "float film=ForgeParameter_iridescenceFactor();"
-                  "float thickness=ForgeParameter_iridescenceThicknessMaximum();\n";
-            sample("iridescenceTexture", "film*=sample_iridescenceTexture.r");
-            sample("iridescenceThicknessTexture",
-                   "thickness=lerp(ForgeParameter_iridescenceThicknessMinimum(),"
-                   "ForgeParameter_iridescenceThicknessMaximum(),sample_"
-                   "iridescenceThicknessTexture.g)");
-            ps += R"(
+            if (layered) {
+                ps += "float film=ForgeParameter_iridescenceFactor();"
+                      "float thickness=ForgeParameter_iridescenceThicknessMaximum();\n";
+                sample("iridescenceTexture", "film*=sample_iridescenceTexture.r");
+                sample("iridescenceThicknessTexture",
+                       "thickness=lerp(ForgeParameter_iridescenceThicknessMinimum(),"
+                       "ForgeParameter_iridescenceThicknessMaximum(),sample_"
+                       "iridescenceThicknessTexture.g)");
+                ps += R"(
     if(film>0 && thickness>0) {
         float filmIor=ForgeParameter_iridescenceIor();
         float3 dielectricFilm=EvalIridescence(1,filmIor,s.BaseLayer.NdotV,thickness,dielectric);
@@ -556,6 +558,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         s.Iridescence.Thickness=thickness;
     }
 )";
+            }
         } else {
             ps += "float4 "
                   "physical=float4(ForgeParameter_specularFactor(),ForgeParameter_glossinessFactor("
@@ -592,7 +595,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     s.Anisotropy.AlphaRoughnessB=alpha;
 )";
         }
-        if (profile.workflow == PbrWorkflow::MetallicRoughness) {
+        if (layered) {
             ps += "float "
                   "coat=ForgeParameter_clearcoatFactor(),coatRough=ForgeParameter_"
                   "clearcoatRoughnessFactor();\n";

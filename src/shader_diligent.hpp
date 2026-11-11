@@ -13,9 +13,11 @@ std::string diligent_shader_compiler_digest();
 bool diligent_shader_compiler_debug();
 // Detached native preparation. No selected material/pipeline/resource changes.
 // Project-source callers must execute this inside the bounded shader worker.
+using ShaderCompileProgress = std::function<void(std::string_view entry, bool completed)>;
 DiligentShaderProgram compile_diligent_shader(Diligent::IRenderDevice*, const ShaderProgramSource&,
                                               const ShaderSources&,
-                                              const std::map<std::string, std::string>&);
+                                              const std::map<std::string, std::string>&,
+                                              const ShaderCompileProgress& = {});
 // Re-reflects native bytecode and compares copied metadata before adoption. No
 // source compiler is invoked by this cooked-runtime path.
 using ShaderCreation = std::function<void(const Diligent::ShaderCreateInfo&, Diligent::IShader**)>;

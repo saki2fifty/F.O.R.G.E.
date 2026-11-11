@@ -227,10 +227,11 @@ bool diligent_shader_compiler_debug() {
     return false;
 #endif
 }
-DiligentShaderProgram
-compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSource& program,
-                        const ShaderSources& sources,
-                        const std::map<std::string, std::string>& permutation) {
+DiligentShaderProgram compile_diligent_shader(Diligent::IRenderDevice* device,
+                                              const ShaderProgramSource& program,
+                                              const ShaderSources& sources,
+                                              const std::map<std::string, std::string>& permutation,
+                                              const ShaderCompileProgress& progress) {
     const auto compiler = diligent_shader_compiler_digest();
     const auto input = shader_build_input(program, sources, permutation, compiler,
                                           diligent_shader_compiler_debug());
@@ -346,6 +347,8 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
             ci.pShaderSourceStreamFactory = factory;
             RefCntAutoPtr<IShader> shader;
             RefCntAutoPtr<IDataBlob> errors;
+            if (progress)
+                progress(ci.EntryPoint, false);
             device->CreateShader(ci, &shader, &errors);
             if (!shader)
                 throw std::runtime_error(entry.source + " (" + shader_stage_name(entry.stage) +
@@ -362,6 +365,8 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
             data.bytecode.assign(begin, begin + size);
             result.data.stages.push_back(std::move(data));
             result.stages.emplace(ShaderStageKey{entry.stage, role}, std::move(shader));
+            if (progress)
+                progress(ci.EntryPoint, true);
         }
     }
     validate_shader(result.data);

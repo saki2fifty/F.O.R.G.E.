@@ -15,6 +15,7 @@ diligent_shaders(Diligent::IRenderDevice* device, Diligent::IDeviceContext* cont
                  const std::function<void(Diligent::ITextureView*, const std::string&)>& capture) {
     using namespace Diligent;
     using namespace asset_detail;
+    using Json = nlohmann::json;
     auto check = [](bool ok, const char* why) {
         if (!ok)
             throw std::runtime_error(why);
@@ -107,8 +108,17 @@ float4 fixture_color(){return float4(0,.25,1,1);}
         ShaderProgramSource surface;
         surface.stages = {{ShaderStage::Pixel, "engine/forge.graph.hlsl", "ForgeGraphSurface"}};
         surface.surface = graph.surface;
+        const auto started = std::chrono::steady_clock::now();
+        std::string_view fixture = "default graph";
+        const auto progress = [&](std::string_view entry, bool done) {
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started)
+                                     .count();
+            std::cout << fixture << ": " << entry << (done ? " completed" : " started") << " at "
+                      << elapsed << " wall ms" << std::endl;
+        };
         const auto compiled = compile_diligent_shader(
-            device, surface, {{"engine/forge.graph.hlsl", graph.source}}, {});
+            device, surface, {{"engine/forge.graph.hlsl", graph.source}}, {}, progress);
         const auto realized =
             realize_diligent_shader(device, decode_shader(encode_shader(compiled.data)));
         check(realized.stages.size() == 19 &&
@@ -120,8 +130,9 @@ float4 fixture_color(){return float4(0,.25,1,1);}
         const auto rich = compile_material_graph(graph_tests::all_node_graph());
         auto rich_source = surface;
         rich_source.surface = rich.surface;
+        fixture = "all-node graph";
         const auto rich_compiled = compile_diligent_shader(
-            device, rich_source, {{"engine/forge.graph.hlsl", rich.source}}, {});
+            device, rich_source, {{"engine/forge.graph.hlsl", rich.source}}, {}, progress);
         for (const auto& stage : rich_compiled.data.stages)
             (void)surface_binding_layout(rich.surface, stage.reflection, stage.role,
                                          rich_compiled.data.surface_wrapper_version);

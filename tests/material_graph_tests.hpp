@@ -79,6 +79,11 @@ inline void lightmap_tests() {
               pixel.find("engine/forge.surface.hlsli") != std::string::npos &&
               compiled.source.find("g_SurfaceParameter_lightmap_gain") != std::string::npos,
           "Graph lighting defaults were not specialized or adjustable graph parameters vanished");
+    check(pixel.find("#define ENABLE_CLEAR_COAT 0") != std::string::npos &&
+              pixel.find("#define ENABLE_IRIDESCENCE 0") != std::string::npos &&
+              pixel.find("EvalIridescence(") == std::string::npos &&
+              pixel.find("GetSurfaceReflectanceClearCoat(") == std::string::npos,
+          "Graph wrapper expanded unsupported fixed-zero lighting layers");
     auto wrong_type = authored;
     auto& target = wrong_type["edges"].back()["from"];
     const auto scalar = create_material_graph_node("constant", {0, 0});

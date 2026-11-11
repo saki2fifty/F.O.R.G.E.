@@ -7,6 +7,7 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "shader_diligent.hpp"
 #include "shader_pipeline.hpp"
+#include <chrono>
 int main(int argc, char** argv) {
     if (argc != 2 || std::string_view(argv[1]) != "--build-asset")
         return 2;
@@ -53,8 +54,20 @@ int main(int argc, char** argv) {
         require(device && context, "Shader Diligent device failed");
         const auto input = decode_shader_process_request(
             request, {diligent_shader_compiler_digest(), diligent_shader_compiler_debug()});
-        const auto compiled =
-            compile_diligent_shader(device, input.program, input.sources, input.permutation);
+        const auto start = std::chrono::steady_clock::now();
+        unsigned completed = 0;
+        const auto compiled = compile_diligent_shader(
+            device, input.program, input.sources, input.permutation,
+            [&](std::string_view entry, bool done) {
+                completed += unsigned(done);
+                const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                         std::chrono::steady_clock::now() - start)
+                                         .count();
+                write_import_process_status(
+                    staging, std::string(entry) + (done ? " completed" : " started") +
+                                 "; elapsed wall ms=" + std::to_string(elapsed) +
+                                 "; completed entries=" + std::to_string(completed));
+            });
         require(compiled.data.build_key == input.build_key,
                 "Shader compiler input identity changed");
         require(!std::filesystem::exists(staging / "cancel.request"),

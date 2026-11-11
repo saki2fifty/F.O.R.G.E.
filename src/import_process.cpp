@@ -145,6 +145,13 @@ std::vector<ArtifactFile> run_import_process(const std::filesystem::path& execut
                               error.at("message").get<std::string>();
         } catch (...) { /* Preserve the supervisor error when no valid diagnostic exists. */
         }
+        try {
+            const auto status = read_json(job.path / "status.json", 16 * 1024);
+            if (status.at("format") == "forge.import-status" && status.at("version") == 1)
+                diagnostic += "; last worker checkpoint: " +
+                              status.at("message").get<std::string>().substr(0, 1024);
+        } catch (...) { /* A missing/partial checkpoint never replaces the supervisor error. */
+        }
         diagnostic.resize(std::min<std::size_t>(8192, diagnostic.size()));
         throw std::runtime_error(diagnostic);
     }
@@ -334,6 +341,15 @@ void write_import_process_error(const std::filesystem::path& staging, std::strin
                                             {"version", 1},
                                             {"code", code.substr(0, 128)},
                                             {"message", message.substr(0, 8192)}});
+    } catch (...) {
+    }
+}
+void write_import_process_status(const std::filesystem::path& staging,
+                                 std::string_view message) noexcept {
+    try {
+        write_json(staging / "status.json", {{"format", "forge.import-status"},
+                                             {"version", 1},
+                                             {"message", message.substr(0, 1024)}});
     } catch (...) {
     }
 }

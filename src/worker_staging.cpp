@@ -141,8 +141,10 @@ Json cleanup_job(const std::filesystem::path& job, Budget& budget, std::stop_tok
             root_files = {"source.json", "navigation.fnav", "error.txt"};
         } else {
             root_files = {"request.json", "result.json", "error.json"};
-            if (kind == "import")
+            if (kind == "import") {
                 root_files.erase("result.json");
+                root_files.insert("status.json");
+            }
             if (kind == "script")
                 root_files.erase("error.json");
         }

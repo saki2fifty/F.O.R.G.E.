@@ -41,8 +41,15 @@ int worker() {
     const auto mode = request.payload.at("mode").get<std::string>();
     const auto control = std::filesystem::u8path(request.payload.at("control").get<std::string>());
     write(control / "stage", path_utf8(stage));
-    if (mode == "fail")
+    if (mode == "fail") {
+        write_import_process_status(stage, "fixture pending entry");
+        write_import_process_error(stage, "fixture.failed", "expected worker diagnostic");
         return 7;
+    }
+    if (mode == "partial-status") {
+        write(stage / "status.json", "{unfinished");
+        return 7;
+    }
     if (mode == "unknown")
         write(stage / "user-notes.txt", "retain for inspection");
 #ifdef __linux__
@@ -146,17 +153,31 @@ int main(int argc, char** argv) {
                 check(files.size() == 1 && files[0].name == "result.bin" &&
                           files[0].bytes == std::vector{std::byte{42}},
                       "Import completion changed output");
-            } catch (const std::exception&) {
+            } catch (const std::exception& error) {
                 if (!reject)
                     throw;
+                if (std::string_view(mode) == "fail") {
+                    const std::string_view message(error.what());
+                    check(message.find("exit 7") != message.npos &&
+                              message.find("fixture.failed: expected worker diagnostic") !=
+                                  message.npos &&
+                              message.find("last worker checkpoint: fixture pending entry") !=
+                                  message.npos,
+                          "Worker checkpoint replaced the exit/error diagnostic or was lost");
+                } else if (std::string_view(mode) == "partial-status") {
+                    const std::string_view message(error.what());
+                    check(message.find("exit 7") != message.npos &&
+                              message.find("last worker checkpoint") == message.npos,
+                          "Partial worker checkpoint obscured the supervisor failure");
+                }
                 rejected = true;
             }
             check(rejected == reject, "Import failure was not reported");
             return std::filesystem::u8path(read(control / "stage"));
         };
         if (std::string_view(argv[2]) == "ordinary") {
-            for (const auto mode : {"normal", "fail"}) {
-                const auto stage = run(mode, std::string_view(mode) == "fail");
+            for (const auto mode : {"normal", "fail", "partial-status"}) {
+                const auto stage = run(mode, std::string_view(mode) != "normal");
                 check(!std::filesystem::exists(stage), "Retired recognized stage was retained");
             }
             const auto stage = run("unknown");

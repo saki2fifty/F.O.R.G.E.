@@ -28,4 +28,8 @@ void write_import_process_result(const std::filesystem::path& staging,
                                  const std::vector<ArtifactFile>& files, WorkerLimits limits);
 void write_import_process_error(const std::filesystem::path& staging, std::string_view code,
                                 std::string_view message) noexcept;
+// Optional bounded diagnostic checkpoint, retained in supervisor failure messages.
+// It never declares success or contributes a published artifact.
+void write_import_process_status(const std::filesystem::path& staging,
+                                 std::string_view message) noexcept;
 } // namespace forge::asset_detail
