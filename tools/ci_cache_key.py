@@ -18,10 +18,13 @@ def cache_key(root, environment):
         digest.update(f'{name}={environment.get(name, default)}\n'.encode())
     for command in (['cmake', '--version'], ['ninja', '--version']):
         digest.update(subprocess.check_output(command))
-    for path in sorted([root/'CMakeLists.txt', root/'CMakePresets.json', *root.glob('cmake/*.cmake'), *root.glob('cmake/patches/*.patch'), *root.glob('cmake/patches/*.json'), root/'tools/stage_diligentfx_patch.py']):
+    # Editor consumer targets are always reconfigured by CMake. Their link/input
+    # changes belong to Ninja; dependency declarations and environment stay keyed.
+    fragments = [p for p in root.glob('cmake/*.cmake') if p.name != 'editor.cmake']
+    for path in sorted([root/'CMakeLists.txt', root/'CMakePresets.json', *fragments, *root.glob('cmake/patches/*.patch'), *root.glob('cmake/patches/*.json'), root/'tools/stage_diligentfx_patch.py']):
         digest.update(path.relative_to(root).as_posix().encode())
         digest.update(path.read_bytes())
-    return 'forge-editor-release-v1-' + digest.hexdigest()
+    return 'forge-editor-release-v2-' + digest.hexdigest()
 
 
 if __name__ == '__main__':

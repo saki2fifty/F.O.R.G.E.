@@ -822,6 +822,15 @@ production editor command-line arguments and project input remain unchanged.
 
 ## Content-verified incremental Windows inputs
 
+The Windows environment key includes compiler/SDK/runner identity, paths, CRT and
+linkage profiles, global configuration and dependency declarations/patches. Editor
+consumer declarations in `cmake/editor.cmake` are reconfigured instead of changing
+that environment key. Ninja rebuilds or relinks their changed inputs. The cache
+regression performs a real CMake library switch, including a preserved input
+timestamp, and verifies changed execution without recompiling the consumer object.
+The version2 key starts a new cache namespace; no older cache is treated as accepted
+validation evidence. Every restored build still configures, compiles and tests.
+
 The audit and package editor jobs store `forge-source-stamps.json` with the build
 cache after configuration/build work. It records SHA-256, byte size and modification
 time for tracked regular source files. On compatible cache restore, unchanged bytes

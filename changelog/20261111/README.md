@@ -1,5 +1,12 @@
 # 2026-11-11
 
+## Incremental editor target checks
+
+Editor consumer link changes retain their compatible build environment cache.
+CMake and Ninja still reconfigure and rebuild the affected targets; dependency,
+compiler, SDK, global configuration and CRT changes remain separately keyed.
+The viewport graphics fixture also declares its runtime packaging dependency.
+
 ## Graphics fixture build dependencies
 
 The UI graphics fixture declares its presentation dependency directly, including

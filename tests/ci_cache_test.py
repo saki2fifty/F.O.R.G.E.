@@ -69,6 +69,8 @@ class CacheIdentity(unittest.TestCase):
             shader_patch.write_text('reviewed patch A')
             dependency = root/'cmake/dependencies.cmake'
             dependency.write_text('pinned dependency A')
+            consumer = root/'cmake/editor.cmake'
+            consumer.write_text('target_link_libraries(app PRIVATE first)')
             environment = dict(ImageVersion='image1', VCToolsVersion='msvc1',
                                WindowsSDKVersion='sdk1', RUNNER_ARCH='X64')
             first = cache.cache_key(root, environment)
@@ -76,6 +78,11 @@ class CacheIdentity(unittest.TestCase):
                 self.assertNotEqual(first, cache.cache_key(root, dict(environment, **{key: value})))
             (root/'main.cpp').write_text('new product code')
             self.assertEqual(first, cache.cache_key(root, environment))
+            consumer.write_text('target_link_libraries(app PRIVATE second)')
+            self.assertEqual(first, cache.cache_key(root, environment))
+            (root/'CMakeLists.txt').write_text('changed global compiler options')
+            self.assertNotEqual(first, cache.cache_key(root, environment))
+            (root/'CMakeLists.txt').write_text('project(FORGE)')
             for key in environment:
                 changed = dict(environment, **{key: 'different'})
                 self.assertNotEqual(first, cache.cache_key(root, changed))
@@ -89,6 +96,49 @@ class CacheIdentity(unittest.TestCase):
             with patch.object(cache.subprocess, 'check_output', return_value=b'changed tools'):
                 changed_tools = cache.cache_key(root, environment)
             self.assertNotEqual(changed_tools, cache.cache_key(root, environment))
+
+    def test_reconfigured_consumer_relinks_cached_objects(self):
+        cmake = shutil.which('cmake')
+        ninja = shutil.which('ninja')
+        self.assertIsNotNone(cmake, 'CMake is required for cached consumer checks')
+        self.assertIsNotNone(ninja, 'Ninja is required for cached consumer checks')
+        work = source.parent/'AgentFiles'
+        work.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=work, prefix='cached target ') as directory:
+            root = Path(directory)
+            (root/'cmake').mkdir()
+            (root/'CMakeLists.txt').write_text(
+                'cmake_minimum_required(VERSION 3.25)\nproject(CacheConsumer LANGUAGES CXX)\n'
+                'add_library(first STATIC first.cpp)\nadd_library(second STATIC second.cpp)\n'
+                'add_executable(consumer main.cpp)\ninclude(cmake/editor.cmake)\n', encoding='utf-8')
+            (root/'first.cpp').write_text('int value() { return 1; }', encoding='utf-8')
+            (root/'second.cpp').write_text('int value() { return 2; }', encoding='utf-8')
+            (root/'main.cpp').write_text(
+                '#include <cstdio>\nint value(); int main() { std::printf("%d", value()); }',
+                encoding='utf-8')
+            consumer = root/'cmake/editor.cmake'
+            consumer.write_text('target_link_libraries(consumer PRIVATE first)', encoding='utf-8')
+            subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
+            subprocess.run(['git', 'add', '.'], cwd=root, check=True)
+            build = root/'build'
+            subprocess.run([cmake, '-S', str(root), '-B', str(build), '-G', 'Ninja',
+                            '-DCMAKE_MAKE_PROGRAM=' + ninja], check=True, capture_output=True)
+            subprocess.run([cmake, '--build', str(build)], check=True, capture_output=True)
+            executable = build/('consumer.exe' if os.name == 'nt' else 'consumer')
+            self.assertEqual(subprocess.check_output([executable], text=True), '1')
+            objects = list((build/'CMakeFiles/consumer.dir').glob('main.cpp.*'))
+            self.assertEqual(len(objects), 1, objects)
+            original_time = objects[0].stat().st_mtime_ns
+            manifest = root/'stamps.json'
+            stamps.record(root, manifest)
+            recorded = json.loads(manifest.read_text())['files']['cmake/editor.cmake']['mtime_ns']
+            consumer.write_text('target_link_libraries(consumer PRIVATE second)', encoding='utf-8')
+            os.utime(consumer, ns=(recorded, recorded))
+            stamps.restore(root, manifest)
+            subprocess.run([cmake, '--build', str(build)], check=True, capture_output=True)
+            self.assertEqual(subprocess.check_output([executable], text=True), '2')
+            self.assertEqual(objects[0].stat().st_mtime_ns, original_time,
+                             'Consumer source was unnecessarily recompiled')
 
     def test_content_verified_incremental_inputs(self):
         ninja = shutil.which('ninja')
