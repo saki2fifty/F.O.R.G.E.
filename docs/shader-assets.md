@@ -68,6 +68,8 @@ Diligent's native memory source factory exposes only an immutable captured sourc
 set. Its native include implementation resolves parent-relative includes and runs
 the real preprocessor, including conditional branches and include guards. There is
 no fallback filesystem factory. Missing or escaping include paths fail compilation.
+Generated Mesh wrappers also resolve pinned engine helper streams for lit and
+unlit surfaces, including weighted color; UI effects use those same streams.
 The build key currently includes all captured files, conservatively invalidating
 when any changes; this is not yet a minimal compiler-discovered include graph.
 Source discovery/watch and publication must retain the shared asset dependency

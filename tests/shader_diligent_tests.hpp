@@ -104,6 +104,63 @@ float4 fixture_color(){return float4(0,.25,1,1);}
     check(loaded.data.layout_digest() == selected.data.layout_digest(),
           "Cooked shader layout changed");
     {
+        ShaderProgramSource surface;
+        surface.stages = {{ShaderStage::Pixel, "surface/main.hlsl", "Shade"}};
+        surface.surface.emplace();
+        surface.surface->uv_sets = {0};
+        surface.surface->parameters["tint"] = {MaterialParameterType::LinearColor4,
+                                               {1, .25f, .5f, 1}};
+        surface.surface->textures["color"].semantic = TextureSemantic::Color;
+        ShaderSources body{{"surface/main.hlsl",
+                            "float4 Shade(ForgeSurfaceInput input){return "
+                            "ForgeParameter_tint()*ForgeSample_color(input);}"}};
+        const auto native_surface = compile_diligent_shader(device, surface, body, {});
+        auto realized =
+            realize_diligent_shader(device, decode_shader(encode_shader(native_surface.data)));
+        check(native_surface.data.surface_wrapper_version == current_surface_wrapper_version &&
+                  realized.data.surface_wrapper_version == current_surface_wrapper_version &&
+                  realized.stages.size() == 19 &&
+                  realized.stages.contains(
+                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceWeightedColor}) &&
+                  realized.stages.contains(
+                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceAreaWeightedColor}) &&
+                  realized.stages.contains({ShaderStage::Pixel, ShaderEntryRole::SurfaceColor}) &&
+                  realized.stages.contains({ShaderStage::Pixel, ShaderEntryRole::SurfaceDepth}) &&
+                  realized.stages.contains(
+                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceTemporalColor}) &&
+                  realized.stages.contains(
+                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceIndirectColor}) &&
+                  realized.stages.contains(
+                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceTemporalIndirectColor}) &&
+                  realized.stages.contains(
+                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceReflectionColor}) &&
+                  realized.stages.contains(
+                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceTemporalReflectionColor}),
+              "Cooked surface lost color/depth programs");
+        for (const auto& stage : native_surface.data.stages) {
+            const auto binding =
+                surface_binding_layout(*surface.surface, stage.reflection, stage.role,
+                                       native_surface.data.surface_wrapper_version);
+            const auto& resources = stage.reflection.at("resources");
+            const auto fog =
+                std::find_if(resources.begin(), resources.end(), [](const auto& resource) {
+                    return resource.at("name") == "ForgeDistanceFog";
+                });
+            check((fog != resources.end()) == (stage.role != ShaderEntryRole::SurfaceDepth),
+                  "Fog buffer missing from cooked surface color or retained by depth");
+            check(binding.parameter_bytes == 16 && binding.settings && binding.uv_bytes == 32 &&
+                      binding.sampler_count == 1 &&
+                      binding.textures == std::vector<std::string>{"color"},
+                  "Native surface reflection does not match material bindings");
+        }
+        auto broken_surface = body;
+        broken_surface["surface/main.hlsl"] =
+            "float4 Shade(ForgeSurfaceInput input){return Missing();}";
+        rejected([&] { compile_diligent_shader(device, surface, broken_surface, {}); });
+        check(realized.data.layout_digest() == native_surface.data.layout_digest(),
+              "Rejected surface compile changed selected program");
+    }
+    {
         const auto graph = compile_material_graph(create_material_graph());
         ShaderProgramSource surface;
         surface.stages = {{ShaderStage::Pixel, "engine/forge.graph.hlsl", "ForgeGraphSurface"}};
@@ -143,63 +200,6 @@ float4 fixture_color(){return float4(0,.25,1,1);}
         copy.surface = relabeled;
         check(copy.layout_digest() == compiled.data.layout_digest(),
               "Graph label changed the GPU binding layout");
-    }
-    {
-        ShaderProgramSource surface;
-        surface.stages = {{ShaderStage::Pixel, "surface/main.hlsl", "Shade"}};
-        surface.surface.emplace();
-        surface.surface->uv_sets = {0};
-        surface.surface->parameters["tint"] = {MaterialParameterType::LinearColor4,
-                                               {1, .25f, .5f, 1}};
-        surface.surface->textures["color"].semantic = TextureSemantic::Color;
-        ShaderSources body{{"surface/main.hlsl",
-                            "float4 Shade(ForgeSurfaceInput input){return "
-                            "ForgeParameter_tint()*ForgeSample_color(input);}"}};
-        const auto native_surface = compile_diligent_shader(device, surface, body, {});
-        auto realized =
-            realize_diligent_shader(device, decode_shader(encode_shader(native_surface.data)));
-        check(native_surface.data.surface_wrapper_version == current_surface_wrapper_version &&
-                  realized.data.surface_wrapper_version == current_surface_wrapper_version &&
-                  realized.stages.size() == 19 &&
-                  realized.stages.contains(
-                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceWeightedColor}) &&
-                  realized.stages.contains(
-                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceAreaWeightedColor}) &&
-                  realized.stages.contains({ShaderStage::Pixel, ShaderEntryRole::SurfaceColor}) &&
-                  realized.stages.contains({ShaderStage::Pixel, ShaderEntryRole::SurfaceDepth}) &&
-                  realized.stages.contains(
-                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceTemporalColor}) &&
-                  realized.stages.contains(
-                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceIndirectColor}) &&
-                  realized.stages.contains(
-                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceTemporalIndirectColor}) &&
-                  realized.stages.contains(
-                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceReflectionColor}) &&
-                  realized.stages.contains(
-                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceTemporalReflectionColor}),
-              "Cooked surface lost color/depth programs");
-        for (const auto& stage : native_surface.data.stages) {
-            const auto binding = surface_binding_layout(
-                *surface.surface, stage.reflection, area_surface_role(stage.role),
-                stage.role != ShaderEntryRole::SurfaceDepth, true);
-            const auto& resources = stage.reflection.at("resources");
-            const auto fog =
-                std::find_if(resources.begin(), resources.end(), [](const auto& resource) {
-                    return resource.at("name") == "ForgeDistanceFog";
-                });
-            check((fog != resources.end()) == (stage.role != ShaderEntryRole::SurfaceDepth),
-                  "Fog buffer missing from cooked surface color or retained by depth");
-            check(binding.parameter_bytes == 16 && binding.settings && binding.uv_bytes == 32 &&
-                      binding.sampler_count == 1 &&
-                      binding.textures == std::vector<std::string>{"color"},
-                  "Native surface reflection does not match material bindings");
-        }
-        auto broken_surface = body;
-        broken_surface["surface/main.hlsl"] =
-            "float4 Shade(ForgeSurfaceInput input){return Missing();}";
-        rejected([&] { compile_diligent_shader(device, surface, broken_surface, {}); });
-        check(realized.data.layout_digest() == native_surface.data.layout_digest(),
-              "Rejected surface compile changed selected program");
     }
     auto broken = sources;
     broken.at("fixtures/color.hlsli") = "not valid hlsl @";

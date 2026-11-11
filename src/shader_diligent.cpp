@@ -265,13 +265,15 @@ DiligentShaderProgram compile_diligent_shader(Diligent::IRenderDevice* device,
     CreateMemoryShaderSourceFactory({files.data(), static_cast<Uint32>(files.size()), false},
                                     &factory);
     require(bool(factory), "Shader source snapshot factory creation failed");
-    RefCntAutoPtr<IShaderSourceInputStreamFactory> graph_factory;
-    if (program.surface && (program.surface->physically_based || program.surface->ui_effect)) {
+    RefCntAutoPtr<IShaderSourceInputStreamFactory> surface_factory;
+    // Every Mesh surface has weighted entries, including unlit surfaces. Their
+    // generated wrapper needs the pinned transparency helper too.
+    if (program.surface && !program.surface->sprite_image) {
         IShaderSourceInputStreamFactory* factories[]{
             factory, &DiligentFXShaderSourceStreamFactory::GetInstance()};
-        CreateCompoundShaderSourceFactory({factories, 2}, &graph_factory);
-        require(bool(graph_factory), "Pinned graph lighting factory creation failed");
-        factory = graph_factory;
+        CreateCompoundShaderSourceFactory({factories, 2}, &surface_factory);
+        require(bool(surface_factory), "Pinned surface helper factory creation failed");
+        factory = surface_factory;
     }
     std::vector<ShaderMacro> macros;
     for (const auto& [name, value] : defines)
