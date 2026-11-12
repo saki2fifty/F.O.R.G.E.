@@ -1,8 +1,9 @@
 # Shader-backed material surfaces
 
-Phase 7 implementation; native Windows/WARP surface fixtures pass. Final package acceptance remains separate. This
-extends the existing asset publication, dependency graph, resource leases and
-complete GPU candidate path. It adds no scene identity, ECS hierarchy or ABI1 change.
+Mesh, Sprite and procedural UI surfaces share the existing asset publication,
+dependency graph, resource leases and complete GPU candidate path. Selected native
+Windows/WARP fixtures pass; final package and physical GPU acceptance remain
+separate. The interface adds no scene identity, ECS hierarchy or ABI1 change.
 
 ## Logical interface and geometry ownership
 

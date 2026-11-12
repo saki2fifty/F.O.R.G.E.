@@ -22,9 +22,11 @@ retain 4096 bytes. Capability 6 supplies the prior nine roles.
 Versions 1–10 remain readable with their original bytes. Rebuild physical Shader
 and dependent Material cooks to use newer receiver capabilities. Role/layout
 mismatches reject before realization. The reader, writer and validator share the
-19-stage bound. Current Windows worker and cooked-runtime acceptance remain pending;
-previous worker/WARP evidence covers earlier capabilities. Final combined package
-validation remains a release gate. See the [shader manual](../manual/editor/shaders.md)
+19-stage bound. Selected Windows/WARP fixtures cover native compilation, reflection,
+cooked realization and source-hidden Shader package loading, including all19Mesh
+roles. Procedural UI pixels and relocated UI Material closure are also covered.
+Final combined-package validation and physical GPU review remain separate gates.
+See the [shader manual](../manual/editor/shaders.md)
 for the end-user workflow.
 
 ## Source and compilation profile

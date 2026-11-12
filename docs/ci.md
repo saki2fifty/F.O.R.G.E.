@@ -1121,6 +1121,12 @@ on that same device after compilation. `editor_viewport_render` retains the shar
 device across the remaining renderer consumers. Both bounded cases are required;
 shader assertions are not omitted from either the focused or full selection.
 
+[The native acceptance run at f37df45](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/43133480312)
+passes all17 selected cases, including the complete shader lifecycle, shared-device
+viewport, numeric lightmap rejection/overflow, native worker relocation and project
+UI pixels/source-hidden relocation. This establishes the selected Windows/WARP
+fixture coverage; installed-package and physical GPU acceptance are separate.
+
 The separate HLSL profile workflow verifies debug/optimized FXC with warnings as
 errors against the same staged dependency patch. The GPU differential reference
 intentionally compiles the original upstream function with its original warning;
