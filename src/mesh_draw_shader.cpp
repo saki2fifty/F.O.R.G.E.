@@ -666,8 +666,9 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     valid=ForgeApplyLocalIrradiance(input.World,g_Environment.x,s,lighting)&&valid;
 )";
         if (graph)
-            ps += "float3 lightmapDiffuse;valid=ForgeLightmapDiffuse(graph.LightmapIrradiance,s,"
-                  "lightmapDiffuse)&&valid;\n";
+            ps += "float3 lightmapDiffuse;"
+                  "if(!ForgeLightmapDiffuse(graph.LightmapIrradiance,s,lightmapDiffuse))"
+                  "return float4(1,0,1,1);\n";
         ps += "float3 color=ResolveLighting(s,lighting);\n";
         if (graph)
             ps += "color+=lightmapDiffuse;\n";
