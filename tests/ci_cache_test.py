@@ -193,5 +193,73 @@ class CacheIdentity(unittest.TestCase):
                 stamps.restore(root, manifest)
 
 
+class NativeRegressionRunner(unittest.TestCase):
+    def test_cold_build_then_reuses_native_executables(self):
+        """Exercise the diagnostic driver, not engine feature acceptance."""
+        cmake, ctest, ninja = (shutil.which(name) for name in ('cmake', 'ctest', 'ninja'))
+        self.assertTrue(cmake and ctest and ninja, 'CMake, CTest and Ninja are required')
+        path = source/'tools/run_core_regressions.py'
+        spec = importlib.util.spec_from_file_location('core_regressions', path)
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory(prefix='core regression runner ') as directory:
+            root = Path(directory)
+            build = root/'build'
+            (root/'probe.cpp').write_text('int main() { return 0; }\n', encoding='utf-8')
+            wrapper = root/'asset_publication_test.py'
+            wrapper.write_text('import subprocess,sys\nsubprocess.run([sys.argv[1]],check=True)\n',
+                               encoding='utf-8')
+            targets = sorted(set(runner.CASES.values()) |
+                             {'forge_asset_build_worker', 'forge_nav_build', 'gltf2ozz'})
+            lines = ['cmake_minimum_required(VERSION 3.25)',
+                     'project(RegressionRunnerProbe LANGUAGES CXX)', 'enable_testing()']
+            lines += [f'add_executable({target} probe.cpp)' for target in targets]
+            for case, target in runner.CASES.items():
+                if case == 'asset_publication':
+                    command = (f'"{Path(sys.executable).as_posix()}" "{wrapper.as_posix()}" '
+                               f'$<TARGET_FILE:{target}> "{root.as_posix()}"')
+                else:
+                    command = f'$<TARGET_FILE:{target}>'
+                lines.append(f'add_test(NAME {case} COMMAND {command})')
+            (root/'CMakeLists.txt').write_text('\n'.join(lines)+'\n', encoding='utf-8')
+            subprocess.run([cmake, '-S', str(root), '-B', str(build), '-G', 'Ninja',
+                            '-DCMAKE_MAKE_PROGRAM='+ninja], check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            suffix = '.exe' if os.name == 'nt' else ''
+            executables = [build/(target+suffix) for target in targets]
+            self.assertFalse(any(path.exists() for path in executables))
+            command = [sys.executable, str(path), '--build', str(build), '--cmake', cmake,
+                       '--ctest', ctest, '--jobs', '2']
+            subprocess.run(command, check=True, stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT, text=True)
+            selection = json.loads((build/'grid-test-images/core-regressions/selection.json')
+                                   .read_text(encoding='utf-8'))
+            self.assertEqual(selection['cases'], list(runner.CASES))
+            self.assertEqual(selection['targets'], targets)
+            registry = json.loads(subprocess.check_output(
+                [ctest, '--test-dir', str(build), '--show-only=json-v1'], text=True))
+            runner.select_tests(registry, require_commands=True)
+            for mutation in ('missing', 'duplicate', 'wrong_target', 'unbuilt'):
+                changed = json.loads(json.dumps(registry))
+                if mutation == 'missing':
+                    changed['tests'].pop()
+                elif mutation == 'duplicate':
+                    changed['tests'].append(changed['tests'][0])
+                elif mutation == 'wrong_target':
+                    native = next(test for test in changed['tests']
+                                  if test['name'] == 'application_state_gates')
+                    native['command'][0] = 'forge_wrong_target'
+                else:
+                    native = next(test for test in changed['tests']
+                                  if test['name'] == 'application_state_gates')
+                    del native['command']
+                with self.assertRaises(ValueError, msg=mutation):
+                    runner.select_tests(changed, require_commands=True)
+            times = {path: path.stat().st_mtime_ns for path in executables}
+            subprocess.run(command, check=True, stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT, text=True)
+            self.assertEqual(times, {path: path.stat().st_mtime_ns for path in executables})
+
+
 if __name__ == '__main__':
     unittest.main()
