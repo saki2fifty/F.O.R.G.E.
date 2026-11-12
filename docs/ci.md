@@ -1115,6 +1115,11 @@ captures. It does not reserve a build number or produce a delivery ZIP.
 The focused gate stops after its first failure for diagnostic feedback; acceptance
 requires every selected case to pass in one completed run. Unexecuted cases in a
 failed run are not passing evidence.
+`editor_render_shaders` owns the complete native stage/graph compile, reflection,
+cooked reload, failed-candidate and device-reuse checks. It performs a GUI render
+on that same device after compilation. `editor_viewport_render` retains the shared
+device across the remaining renderer consumers. Both bounded cases are required;
+shader assertions are not omitted from either the focused or full selection.
 
 The separate HLSL profile workflow verifies debug/optimized FXC with warnings as
 errors against the same staged dependency patch. The GPU differential reference

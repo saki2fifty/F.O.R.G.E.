@@ -200,6 +200,19 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
     }
     require(checked >= 2, "Axis fixture does not cover visible world coordinates");
 }
+void check_shader_assets(IRenderDevice* device, IDeviceContext* context,
+                         const std::filesystem::path& images) {
+    forge::test::diligent_shaders(
+        device, context, [&](ITextureView* view, const std::string& name) {
+            const auto pixels = readback(device, context, view);
+            unsigned colored = 0;
+            for (const auto& pixel : pixels)
+                colored += pixel[0] > 250 && pixel[1] >= 63 && pixel[1] <= 65 && pixel[2] == 0;
+            require(colored > 1000, "Shader asset stage fixture produced incorrect pixels");
+            save(pixels, 64, 64, images / (name + ".ppm"));
+        });
+    check_imgui(device, context, images);
+}
 } // namespace
 #include "diligentfx_patch_gpu_tests.hpp"
 #include "display_resolve_tests.hpp"
@@ -280,6 +293,8 @@ int main(int argc, char** argv) {
                         data << metadata.dump(2);
                         require(bool(data.flush()), "Lightmap failure metadata write failed");
                     });
+            else if (selected == "shaders")
+                check_shader_assets(device, context, images);
             else if (selected == "morph") {
                 // Same fixture and generated source on the same WARP adapter.
                 // Retain both compiler results/captures without changing the
@@ -431,15 +446,6 @@ int main(int argc, char** argv) {
             std::cout << "Isolated rendering case passed: " << selected << "\n";
             return 0;
         }
-        forge::test::diligent_shaders(
-            device, context, [&](ITextureView* view, const std::string& name) {
-                const auto pixels = readback(device, context, view);
-                unsigned colored = 0;
-                for (const auto& pixel : pixels)
-                    colored += pixel[0] > 250 && pixel[1] >= 63 && pixel[1] <= 65 && pixel[2] == 0;
-                require(colored > 1000, "Shader asset stage fixture produced incorrect pixels");
-                save(pixels, 64, 64, images / (name + ".ppm"));
-            });
         check_imgui(device, context, images);
         forge::DiligentPresentation presentation(device);
         forge::test_tile_editor_render::exercise(

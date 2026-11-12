@@ -352,10 +352,12 @@ if(BUILD_TESTING)
  add_test(NAME editor_render_lightmaps COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images/lightmaps" lightmaps)
  add_test(NAME shader_worker COMMAND forge_shader_worker_tests $<TARGET_FILE:forge_shader_build_worker> "${CMAKE_BINARY_DIR}/shader-worker-tests")
  set_tests_properties(shader_worker PROPERTIES TIMEOUT 420)
+ add_test(NAME editor_render_shaders COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images/shaders" shaders)
+ set_tests_properties(editor_render_shaders PROPERTIES TIMEOUT 600)
  add_test(NAME editor_viewport_render COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images")
- # Combined device-lifetime coverage includes current graph/area shader variants.
- # Keep every assertion and individual case bound while allowing the complete
- # compiler/readback workload to finish on hosted WARP.
+ # Shader lifecycle acceptance retains the complete graph/area families and a
+ # post-compilation device render. The viewport case shares its device across
+ # the remaining renderer consumers, without repeating those long compilations.
  set_tests_properties(editor_viewport_render PROPERTIES TIMEOUT 600)
  foreach(render_case IN ITEMS morph skin frame optics sequence-frames sprites sprite-surfaces sprite-bloom tile-canvas tile-gallery physics-2d physics-tiles)
   add_test(NAME editor_render_${render_case} COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images/${render_case}" ${render_case})
