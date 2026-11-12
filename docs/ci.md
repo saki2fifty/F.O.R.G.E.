@@ -438,10 +438,10 @@ Both full editor jobs allow 150 minutes overall. A cold Windows source audit
 measured 6 minutes of configuration, 63 minutes of compilation and 20.5 minutes of
 acceptance before standalone/benchmark work, exhausting the previous 90-minute
 job limit. That job-level increase does not change test deadlines or selections.
-Core/SDK matrix jobs allow 75 minutes: a cold Windows core run completed all 145
-tests and Runtime installation just before its former 45-minute cleanup deadline,
-but the overall job was still cancelled. The additional budget covers complete
-cold compilation, testing, installation and cleanup without relaxing any test.
+Core/SDK matrix jobs allow 120 minutes. A cold Windows core build measured
+67 minutes of compilation before its expanded 490-case suite, so the former
+75-minute job limit could expire during validation. The job budget covers cold
+compilation, testing, installation and cleanup without relaxing individual tests.
 The Tile Map source fixture keeps all 262144-cell capacity, sixteen-stroke
 Undo/Redo, identity, Save/reopen and four-million-event checks. The complete
 [Windows Debug diagnosis](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39480854995)
@@ -1117,7 +1117,7 @@ errors and unclassified waits fail the fixture. Raw diagnostics remain visible;
 see [backend limits](render-backends.md#hosted-warp-frame-wait-diagnostics) and
 [source-attributed performance evidence](editor-performance.md).
 
-The numbered editor job allows 90 minutes for a cold native build plus its complete
+The numbered editor job allows 150 minutes for a cold native build plus its complete
 regression suite. After a successful compilation, reusable compilation outputs may
 be cached even if a later test fails. Such a cache is not accepted delivery evidence:
 subsequent runs still configure, rebuild changed inputs, and run all required tests
