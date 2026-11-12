@@ -718,7 +718,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
 )";
         }
         ps += R"(
-    if(!valid||!all(isfinite(color)))return float4(1,0,1,1);
+    if(!valid||!ForgeFinite3(color))return float4(1,0,1,1);
     return ForgeApplyDistanceFog(float4(color,base.a),input.World);
 })";
     }
@@ -750,7 +750,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
                 graph ? "\nfloat3 "
                         "lightmapIndirect=(ForgeIndirectRadiance(s,lighting)+lightmapDiffuse)*"
                         "ForgeDistanceFogTransmittance(input.World);\n"
-                        "bool indirectValid=all(isfinite(lightmapIndirect));"
+                        "bool indirectValid=ForgeFinite3(lightmapIndirect);"
                         "valid=indirectValid&&valid;indirect=indirectValid?lightmapIndirect:0;\n"
                       : "\nindirect=ForgeIndirectRadiance(s,lighting)*"
                         "ForgeDistanceFogTransmittance(input.World);\n";

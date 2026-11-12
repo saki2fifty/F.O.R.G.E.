@@ -84,6 +84,9 @@ nonfinite checks provide the existing diagnostic color instead of nonfinite pixe
 Imported irradiance is checked by the shared lightmap helper after lighting setup,
 including negative/nonfinite input and finite-contribution overflow. Rejected
 irradiance produces diagnostic color and zero lightmap radiance in indirect output.
+These bounds use the shared binary32 classification helpers, preserving NaN/Inf
+rejection under native finite-math optimization. Invalid operands are replaced
+before diffuse multiplication; the helper assigns its output once on every path.
 UV numbers remain logical semantics, projected to compact varyings. A graph with no
 planar-coordinate consumer does not require mesh UV channels; cube/volume coordinates
 do not create an artificial UV0 requirement. An unconnected Normal Map UV input

@@ -413,8 +413,12 @@ Response main(float4 position:SV_Position) {
         constants.at("ForgeSurfaceMaterial") = std::move(values);
         const auto [color, indirect] = render();
         for (unsigned i = 0; i < color.size(); ++i)
-            check(color[i] == Row{1, 0, 1, 1} && indirect[i] == Row{},
-                  "Invalid graph irradiance escaped its shared diagnostic/MRT guard");
+            if (color[i] != Row{1, 0, 1, 1} || indirect[i] != Row{})
+                throw std::runtime_error(
+                    "Invalid graph irradiance escaped its shared diagnostic/MRT guard: poison=" +
+                    std::to_string(poison) + ", pixel=" + std::to_string(i) +
+                    ", color=" + nlohmann::json(color[i]).dump() +
+                    ", indirect=" + nlohmann::json(indirect[i]).dump());
         ++cases;
     }
     // Two finite contributions can overflow only when combined. Exercise each
