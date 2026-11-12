@@ -1,6 +1,8 @@
+#include "asset_storage.hpp"
 #include "model_render_resource.hpp"
 #include "runtime_package.hpp"
 #include <algorithm>
+#include <chrono>
 #include <forge/animation.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/material_source.hpp>
@@ -9,9 +11,11 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <thread>
 using namespace forge;
 namespace {
+using Catalog = std::shared_ptr<const AssetCatalog>;
 void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
@@ -35,9 +39,8 @@ Json read(const std::filesystem::path& path) {
         }
     return result;
 }
-void inspect(const std::filesystem::path& root, const Json& source,
+void inspect(const std::filesystem::path& root, const Catalog& catalog, const Json& source,
              const std::array<AssetId, 2>& materials) {
-    const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     EngineContext engine(WorldRole::Runtime);
     Scene scene(engine.world());
     scene.restore_snapshot(source);
@@ -80,10 +83,9 @@ void inspect(const std::filesystem::path& root, const Json& source,
                   "Bloom Gallery emissive color differs");
     }
 }
-void inspect_color(const std::filesystem::path& root) {
-    const auto catalog = AssetCatalog::open_project(root);
+void inspect_color(const std::filesystem::path& root, const Catalog& catalog) {
     const auto id = AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a");
-    const auto source = read(root / catalog.records().at(id).source);
+    const auto source = read(root / catalog->records().at(id).source);
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
     scene.restore_snapshot(source);
@@ -101,10 +103,9 @@ void inspect_color(const std::filesystem::path& root) {
                   SceneColorAdjustments{true, {1.1f, .85f, .7f}, .8f, 1.15f},
           "Gallery69 runtime Scene, geometry, camera or authored grading changed");
 }
-AssetId inspect_distance_fog(const std::filesystem::path& root) {
-    const auto catalog = AssetCatalog::open_project(root);
+AssetId inspect_distance_fog(const std::filesystem::path& root, const Catalog& catalog) {
     const auto id = AssetId::parse("da66d15d-42ed-4342-94ce-19d67de0e105");
-    const auto source = read(root / catalog.records().at(id).source);
+    const auto source = read(root / catalog->records().at(id).source);
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
     scene.restore_snapshot(source);
@@ -118,11 +119,10 @@ AssetId inspect_distance_fog(const std::filesystem::path& root) {
           "Distance fog Gallery runtime settings, geometry or Scene changed");
     return id;
 }
-AssetId inspect_exposure(const std::filesystem::path& root) {
-    const auto catalog = AssetCatalog::open_project(root);
+AssetId inspect_exposure(const std::filesystem::path& root, const Catalog& catalog) {
     const auto found =
-        catalog.records().find(AssetId::parse("43420ace-33d5-4768-ae3f-771fd7ec384a"));
-    check(found != catalog.records().end(), "Gallery96 Scene is missing");
+        catalog->records().find(AssetId::parse("43420ace-33d5-4768-ae3f-771fd7ec384a"));
+    check(found != catalog->records().end(), "Gallery96 Scene is missing");
     const auto source = read(root / found->second.source);
     EngineContext engine(WorldRole::Runtime, false, {animation_module(root)});
     Scene scene(engine.world());
@@ -155,11 +155,11 @@ AssetId inspect_exposure(const std::filesystem::path& root) {
           "Gallery96 admission changed authored rendering settings");
     return found->first;
 }
-AssetId inspect_temporal(const std::filesystem::path& root, bool motion = false) {
-    const auto catalog = AssetCatalog::open_project(root);
+AssetId inspect_temporal(const std::filesystem::path& root, const Catalog& catalog,
+                         bool motion = false) {
     const auto id = AssetId::parse(motion ? "38a4d328-ee99-4b5e-88b0-907902377829"
                                           : "4df8a08b-a5e1-407b-8321-5f80efa720e2");
-    const auto source = read(root / catalog.records().at(id).source);
+    const auto source = read(root / catalog->records().at(id).source);
     EngineContext engine(WorldRole::Runtime, false, {animation_module(root)});
     Scene scene(engine.world());
     scene.restore_snapshot(source);
@@ -186,14 +186,13 @@ AssetId inspect_temporal(const std::filesystem::path& root, bool motion = false)
         for (const auto& b : second.meshes)
             moved += a.entity == b.entity && a.world != b.world;
     check((motion ? moved == 128 : moved != 0) &&
-              read(root / catalog.records().at(id).source) == source,
+              read(root / catalog->records().at(id).source) == source,
           "Temporal Gallery did not animate independently of its saved Scene");
     return id;
 }
-AssetId inspect_focus(const std::filesystem::path& root) {
-    const auto catalog = AssetCatalog::open_project(root);
+AssetId inspect_focus(const std::filesystem::path& root, const Catalog& catalog) {
     const auto id = AssetId::parse("4af485f2-660b-45e6-a9d5-a33a80ba8983");
-    const auto source = read(root / catalog.records().at(id).source);
+    const auto source = read(root / catalog->records().at(id).source);
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
     scene.restore_snapshot(source);
@@ -214,14 +213,13 @@ AssetId inspect_focus(const std::filesystem::path& root) {
           ("Focus Gallery depth planes differ: " + Json(planes).dump()).c_str());
     if (!frame.diagnostics.empty())
         throw std::runtime_error("Focus Gallery: " + frame.diagnostics.front().text);
-    check(read(root / catalog.records().at(id).source) == source,
+    check(read(root / catalog->records().at(id).source) == source,
           "Focus Gallery admission rewrote its saved Scene");
     return id;
 }
-AssetId inspect_occlusion(const std::filesystem::path& root) {
-    const auto catalog = AssetCatalog::open_project(root);
+AssetId inspect_occlusion(const std::filesystem::path& root, const Catalog& catalog) {
     const auto id = AssetId::parse("d4b6e7a5-5c2a-4ee0-852d-cb53ffc7319a");
-    const auto source = read(root / catalog.records().at(id).source);
+    const auto source = read(root / catalog->records().at(id).source);
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
     scene.restore_snapshot(source);
@@ -249,15 +247,15 @@ AssetId inspect_occlusion(const std::filesystem::path& root) {
                                                    {.9f, .45f, .12f, 1},
                                                    {.25f, .36f, .48f, 1}},
           "Ambient Gallery object colors differ from its saved comparison");
-    check(read(root / catalog.records().at(id).source) == source,
+    check(read(root / catalog->records().at(id).source) == source,
           "Ambient Gallery admission rewrote the saved Scene");
     return id;
 }
-AssetId inspect_reflections(const std::filesystem::path& root, bool rough = false) {
-    const auto catalog = AssetCatalog::open_project(root);
+AssetId inspect_reflections(const std::filesystem::path& root, const Catalog& catalog,
+                            bool rough = false) {
     const auto id = AssetId::parse(rough ? "03d7f430-77ba-4c78-b75a-ff3a638ea3d9"
                                          : "120a1fb2-f8af-4fad-a644-eb598988ffab");
-    const auto source = read(root / catalog.records().at(id).source);
+    const auto source = read(root / catalog->records().at(id).source);
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
     scene.restore_snapshot(source);
@@ -288,7 +286,7 @@ AssetId inspect_reflections(const std::filesystem::path& root, bool rough = fals
         receivers += values.at("metallicFactor").value[0] == 1 &&
                      values.at("roughnessFactor").value[0] == (rough ? .38f : .07f);
     }
-    check(receivers == 1 && read(root / catalog.records().at(id).source) == source,
+    check(receivers == 1 && read(root / catalog->records().at(id).source) == source,
           "Reflection Gallery lost its single smooth metal receiver or rewrote Scene");
     return id;
 }
@@ -296,10 +294,9 @@ struct ProbeGallery {
     AssetId scene;
     std::array<AssetId, 2> maps;
 };
-ProbeGallery inspect_local_probes(const std::filesystem::path& root) {
-    const auto catalog = AssetCatalog::open_project(root);
+ProbeGallery inspect_local_probes(const std::filesystem::path& root, const Catalog& catalog) {
     ProbeGallery result{AssetId::parse("1f955498-5eaa-46a7-9958-9678072dc24b"), {}};
-    const auto source = read(root / catalog.records().at(result.scene).source);
+    const auto source = read(root / catalog->records().at(result.scene).source);
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
     scene.restore_snapshot(source);
@@ -318,20 +315,19 @@ ProbeGallery inspect_local_probes(const std::filesystem::path& root) {
                   value.half_extent_y == 3 && value.half_extent_z == 4 &&
                   value.blend_distance == 1 && value.rotation_degrees == 0 &&
                   value.box_projection &&
-                  catalog.records().at(value.texture.id).type == TextureAsset::type,
+                  catalog->records().at(value.texture.id).type == TextureAsset::type,
               "Local probe Gallery changed its box, fade, priority or typed image reference");
     }
     check(result.maps[0] != result.maps[1] && priorities == std::set<int>{0, 1} &&
-              read(root / catalog.records().at(result.scene).source) == source,
+              read(root / catalog->records().at(result.scene).source) == source,
           "Local probe Gallery maps, ordering or source identities changed");
     std::sort(result.maps.begin(), result.maps.end());
     return result;
 }
-AssetId inspect_area_lights(const std::filesystem::path& root) {
-    const auto catalog = AssetCatalog::open_project(root);
+AssetId inspect_area_lights(const std::filesystem::path& root, const Catalog& catalog) {
     const auto id = AssetId::parse("19f69809-0eea-4a0b-a360-dd4b7c90f2be");
-    const auto source = read(root / catalog.records().at(id).source);
-    check(catalog.records().at(id).type == SceneAsset::type,
+    const auto source = read(root / catalog->records().at(id).source);
+    check(catalog->records().at(id).type == SceneAsset::type,
           "Area Gallery lost its Scene asset identity");
     EngineContext engine(WorldRole::Runtime, false);
     Scene authored(engine.world());
@@ -370,8 +366,7 @@ struct NormalGallery {
     AssetId scene, material, texture;
     auto operator<=>(const NormalGallery&) const = default;
 };
-NormalGallery inspect_normal_occlusion(const std::filesystem::path& root) {
-    const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+NormalGallery inspect_normal_occlusion(const std::filesystem::path& root, const Catalog& catalog) {
     NormalGallery result{AssetId::parse("277f080c-b97b-4202-bd31-5cded7e4dd18"),
                          AssetId::parse("7ed3592a-fab7-41d2-a5c4-c4c7c5eda387"),
                          AssetId::parse("45cb1cd6-c3ae-4f51-a7ff-314eea5cc26f")};
@@ -411,7 +406,17 @@ NormalGallery inspect_normal_occlusion(const std::filesystem::path& root) {
 } // namespace
 int main(int argc, char** argv) {
     const char* stage = "copy and initial content inspection";
+    const auto started = std::chrono::steady_clock::now();
+    const auto progress = [&](const char* name) {
+        stage = name;
+        std::cout
+            << "Gallery stage: " << stage << " after "
+            << std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count()
+            << "s\n"
+            << std::flush;
+    };
     try {
+        progress(stage);
         check(argc == 3, "Need Feature Gallery and scratch root");
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
@@ -421,29 +426,46 @@ int main(int argc, char** argv) {
         const std::array paths{"Assets/Bloom/WarmGlow.material.json",
                                "Assets/Bloom/CoolGlow.material.json"};
         std::array<AssetId, 2> materials;
-        const auto catalog = AssetCatalog::open_project(root);
+        const auto index = AssetCatalog::project_index(root);
+        const auto original_index = asset_storage::read(index);
+        const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
         for (unsigned i = 0; i < materials.size(); ++i) {
             MaterialSource material{read(root / paths[i])};
             material.validate();
             materials[i] = material.asset();
-            const auto& selected = catalog.records().at(materials[i]).metadata.at("forge.import");
+            const auto& selected = catalog->records().at(materials[i]).metadata.at("forge.import");
             check(selected.at("platform") == "windows" && selected.at("backend") == "d3d12",
                   "Bloom Gallery selected wrong material target");
         }
-        inspect(root, source, materials);
-        inspect_color(root);
-        const auto exposure_scene = inspect_exposure(root);
-        const auto fog_scene = inspect_distance_fog(root);
-        const auto temporal_scene = inspect_temporal(root);
-        const auto focus_scene = inspect_focus(root);
-        const auto motion_scene = inspect_temporal(root, true);
-        const auto occlusion_scene = inspect_occlusion(root);
-        const auto reflection_scene = inspect_reflections(root);
-        const auto rough_scene = inspect_reflections(root, true);
-        const auto probes = inspect_local_probes(root);
-        stage = "mapped normal content inspection";
-        const auto normals = inspect_normal_occlusion(root);
-        const auto area_scene = inspect_area_lights(root);
+        progress("bloom source inspection");
+        inspect(root, catalog, source, materials);
+        progress("color source inspection");
+        inspect_color(root, catalog);
+        progress("exposure source inspection");
+        const auto exposure_scene = inspect_exposure(root, catalog);
+        progress("distance_fog source inspection");
+        const auto fog_scene = inspect_distance_fog(root, catalog);
+        progress("temporal source inspection");
+        const auto temporal_scene = inspect_temporal(root, catalog);
+        progress("focus source inspection");
+        const auto focus_scene = inspect_focus(root, catalog);
+        progress("temporal source inspection");
+        const auto motion_scene = inspect_temporal(root, catalog, true);
+        progress("occlusion source inspection");
+        const auto occlusion_scene = inspect_occlusion(root, catalog);
+        progress("reflections source inspection");
+        const auto reflection_scene = inspect_reflections(root, catalog);
+        progress("reflections source inspection");
+        const auto rough_scene = inspect_reflections(root, catalog, true);
+        progress("local_probes source inspection");
+        const auto probes = inspect_local_probes(root, catalog);
+        progress("mapped normal content inspection");
+        progress("normal_occlusion source inspection");
+        const auto normals = inspect_normal_occlusion(root, catalog);
+        progress("area_lights source inspection");
+        const auto area_scene = inspect_area_lights(root, catalog);
+        check(asset_storage::read(index) == original_index,
+              "Read-only Gallery inspections changed the shared catalog snapshot");
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a"),
                                exposure_scene,
@@ -460,15 +482,16 @@ int main(int argc, char** argv) {
                                area_scene};
         {
             auto lease = std::make_shared<ProjectLease>(root);
-            stage = "runtime catalog preparation";
+            progress("runtime catalog preparation");
             prepare_runtime_content_catalog(*lease, roots, {});
         }
         const auto package = root.parent_path() / (root.filename().string() + "-export");
-        stage = "runtime content packaging";
+        progress("runtime content packaging");
         (void)package_runtime_content(root, package, roots, {"windows", "d3d12"});
         const auto moved = std::filesystem::path(package.string() + "-relocated");
         std::filesystem::rename(package, moved);
-        const auto shipped = open_runtime_content(moved, {"windows", "d3d12"});
+        const auto shipped =
+            std::make_shared<const AssetCatalog>(open_runtime_content(moved, {"windows", "d3d12"}));
         std::set<AssetId> expected(roots.begin(), roots.end());
         expected.insert(materials.begin(), materials.end());
         expected.insert(probes.maps.begin(), probes.maps.end());
@@ -479,7 +502,7 @@ int main(int argc, char** argv) {
         expected.insert(AssetId::parse("399c3c5e-f4e9-4ccb-94b3-bc0e518c1ece"));
         expected.insert(AssetId::parse("da50e938-f21b-4a87-b116-860bbbb7fdf3"));
         std::set<AssetId> actual;
-        for (const auto& [id, record] : shipped.records()) {
+        for (const auto& [id, record] : shipped->records()) {
             (void)record;
             actual.insert(id);
         }
@@ -490,40 +513,40 @@ int main(int argc, char** argv) {
         for (const auto path : paths)
             check(!std::filesystem::exists(moved / path),
                   "Bloom material source leaked into export");
-        stage = "source-free content inspection";
-        const auto exported_source = read(moved / shipped.records().at(roots[0]).source);
+        progress("source-free content inspection");
+        const auto exported_source = read(moved / shipped->records().at(roots[0]).source);
         std::filesystem::rename(root, std::filesystem::path(root.string() + "-source-offline"));
-        inspect(moved, exported_source, materials);
-        inspect_color(moved);
-        check(inspect_exposure(moved) == exposure_scene,
+        inspect(moved, shipped, exported_source, materials);
+        inspect_color(moved, shipped);
+        check(inspect_exposure(moved, shipped) == exposure_scene,
               "Gallery96 relocation changed its stable Scene identity");
-        check(inspect_distance_fog(moved) == fog_scene,
+        check(inspect_distance_fog(moved, shipped) == fog_scene,
               "Gallery98 relocation changed fog settings or stable Scene identity");
-        check(inspect_temporal(moved) == temporal_scene &&
+        check(inspect_temporal(moved, shipped) == temporal_scene &&
                   !std::filesystem::exists(moved / "Assets/Platform.animation.json"),
               "Temporal Gallery relocation changed identity or leaked its animation source");
-        check(inspect_focus(moved) == focus_scene,
+        check(inspect_focus(moved, shipped) == focus_scene,
               "Focus Gallery relocation changed its Scene identity or depth planes");
-        check(inspect_temporal(moved, true) == motion_scene &&
+        check(inspect_temporal(moved, shipped, true) == motion_scene &&
                   !std::filesystem::exists(moved / "Assets/Physics2D/Platform.animation.json"),
               "Motion Gallery relocation changed identity, motion or leaked clip source");
-        check(inspect_occlusion(moved) == occlusion_scene,
+        check(inspect_occlusion(moved, shipped) == occlusion_scene,
               "Ambient Gallery source-free relocation changed lighting or Scene identity");
-        check(inspect_reflections(moved, true) == rough_scene,
+        check(inspect_reflections(moved, shipped, true) == rough_scene,
               "Rough reflection Gallery source-free relocation changed settings or identity");
-        check(inspect_reflections(moved) == reflection_scene,
+        check(inspect_reflections(moved, shipped) == reflection_scene,
               "Reflection Gallery source-free relocation changed material response or identity");
-        const auto relocated_probes = inspect_local_probes(moved);
+        const auto relocated_probes = inspect_local_probes(moved, shipped);
         check(relocated_probes.scene == probes.scene && relocated_probes.maps == probes.maps &&
                   !std::filesystem::exists(moved / "Assets/ReflectionProbes/WarmRoom.png") &&
                   !std::filesystem::exists(moved / "Assets/ReflectionProbes/CoolRoom.png"),
               "Local probe relocation changed map identity or copied editable image sources");
-        check(inspect_normal_occlusion(moved) == normals &&
+        check(inspect_normal_occlusion(moved, shipped) == normals &&
                   !std::filesystem::exists(moved / "Assets/OcclusionNormals/RippleNormals.png") &&
                   !std::filesystem::exists(moved /
                                            "Assets/OcclusionNormals/RippleWall.material.json"),
               "Normal AO Gallery relocation changed identities or leaked authoring sources");
-        check(inspect_area_lights(moved) == area_scene,
+        check(inspect_area_lights(moved, shipped) == area_scene,
               "Area Gallery source-free relocation changed Scene identity or fields");
         std::cout << "Gallery112 area lights, Gallery111 soft shadows, Gallery109 rough reflection "
                      "and Gallery108 normal "

@@ -164,7 +164,7 @@ jobs:
           if($LASTEXITCODE) { throw 'Installed painted collision SDK consumer failed' }
           cmake --install "$b/module-build" --component GameplayRuntime --prefix "$b/module-kits"
           if($LASTEXITCODE) { throw 'Module kit install failed' }
-          ctest --test-dir $b -R '^(standalone_manifest|standalone_module_export|runtime_ui_package|native_sdk|native_sdk_package|tile_assets_sdk|tile_gallery|physics_2d_gallery|tile_play_transport|native_sdk_tile_maps_installed|standalone_game_workflow|game_frame_statistics|ui_frame_statistics|presentation_rate|game_launch|audio_mix_transport)$' --output-on-failure
+          ctest --test-dir $b -R '^(standalone_manifest|standalone_module_export|runtime_ui_package|native_sdk|native_sdk_package|tile_assets_sdk|tile_gallery|physics_2d_gallery|physics_2d_joints_gallery|physics_2d_one_way_gallery|tile_play_transport|native_sdk_tile_maps_installed|standalone_game_workflow|game_frame_statistics|ui_frame_statistics|presentation_rate|game_launch|audio_mix_transport)$' --output-on-failure
           if($LASTEXITCODE) { throw 'Shared standalone regressions failed' }
           python tests/standalone_package_test.py --build $b --kit "$b/runtime-kit" --module-kit "$b/module-kits/project.example" --evidence "$b/grid-test-images/shared-game" --source . --retain "$b/standalone-delivery/game"
           if($LASTEXITCODE) { throw 'Shared standalone export failed' }

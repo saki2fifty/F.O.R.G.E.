@@ -12,6 +12,7 @@
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <string_view>
 #include <thread>
 using namespace forge;
 using namespace forge::navigation_detail;
@@ -254,14 +255,22 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4, "Need Gallery, scratch root and worker");
+        check(argc == 4 || argc == 5, "Need Gallery, scratch root, worker and optional scope");
+        const std::string_view mode = argc == 5 ? argv[4] : "all";
+        check(mode == "all" || mode == "floor" || mode == "obstacle" || mode == "collected" ||
+                  mode == "dynamic",
+              "Unknown Tile Map navigation fixture scope");
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
-        exercise(root, std::filesystem::absolute(argv[3]), false);
-        exercise(root, std::filesystem::absolute(argv[3]), true);
-        exercise(root, std::filesystem::absolute(argv[3]), true, true);
-        exercise(root, std::filesystem::absolute(argv[3]), true, true, true);
+        if (mode == "all" || mode == "floor")
+            exercise(root, std::filesystem::absolute(argv[3]), false);
+        if (mode == "all" || mode == "obstacle")
+            exercise(root, std::filesystem::absolute(argv[3]), true);
+        if (mode == "all" || mode == "collected")
+            exercise(root, std::filesystem::absolute(argv[3]), true, true);
+        if (mode == "all" || mode == "dynamic")
+            exercise(root, std::filesystem::absolute(argv[3]), true, true, true);
         std::filesystem::remove_all(root);
         std::cout << "Map source resources/native capture, floor/mask routes, provenance and "
                      "last-good PASS\n";

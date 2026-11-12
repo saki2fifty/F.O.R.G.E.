@@ -447,14 +447,15 @@ on/off image checks run inside the existing D3D12 viewport acceptance. The input
 walkthrough exercises default-off GPU collection, Start/Stop/Clear and captures
 at 100/150/200%. Software WARP results do not establish physical GPU performance.
 
-Both full editor jobs allow 150 minutes overall. A cold Windows source audit
-measured 6 minutes of configuration, 63 minutes of compilation and 20.5 minutes of
-acceptance before standalone/benchmark work, exhausting the previous 90-minute
-job limit. That job-level increase does not change test deadlines or selections.
-Core/SDK matrix jobs allow 120 minutes. A cold Windows core build measured
-67 minutes of compilation before its expanded 490-case suite, so the former
-75-minute job limit could expire during validation. The job budget covers cold
-compilation, testing, installation and cleanup without relaxing individual tests.
+Both full editor jobs allow 240 minutes overall. The cold numbered Windows build
+[261112-000220](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/43180960961)
+took approximately 140 minutes to compile and link before editor acceptance began,
+leaving insufficient time under the former 150-minute limit. Focused source-audit
+modes retain their 150-minute budget. Windows Debug/core allows 180 minutes; the
+other core/SDK jobs retain 120 minutes. The same Debug run used about 52 minutes
+for setup/build and 68 minutes for 310 of 398 tests before its former 120-minute
+job limit expired. These overall budgets cover compilation, complete testing,
+installation and cleanup; the test selection and individual guards remain explicit.
 The core/SDK CTest invocation gives otherwise unbounded tests a default of 600 seconds.
 Explicit per-case limits retain precedence, including the 900-second Debug Tile Map
 stress case. A stalled native process therefore fails its case rather than consuming
@@ -495,10 +496,31 @@ and interruption-recovery assertions and flushed reader/replacement stages. It
 cannot be combined with shader, capture or performance modes, records its limited
 scope and does not replace editor acceptance, the core/SDK matrix or a release gate.
 
+The Tile Map navigation Gallery fixture registers four independent CTest scopes:
+`navigation_tile_sources` (floor), `navigation_tile_obstacles`,
+`navigation_tile_colliders` and `navigation_tile_dynamic`. Each retains its full
+900-tick authored/source-hidden playback and provenance/recovery assertions within
+90 seconds. The 2D Gallery fixture similarly registers `physics_2d_gallery` (bodies),
+`physics_2d_joints_gallery` and `physics_2d_one_way_gallery`, each within 120 seconds.
+All original playback ticks, source-free relocation and exact package-closure
+checks remain. Direct invocation without a scope still executes the entire fixture.
+The HDR/Bloom fixture shares one read-only catalog snapshot per unchanged authored
+or relocated runtime root, verifies unchanged catalog bytes, and retains all Scene
+inspections and the exact 24-record source-free package closure within 60 seconds.
+Its flushed stage timings distinguish catalog admission, inspection and packaging. A single serial
+before/after run on a local Linux QEMU virtual CPU with GCC12 measured the unchanged
+HDR workload at 48.54→42.91 seconds in Debug and 8.12→6.91 seconds in Release. These
+fixture observations include catalog and package work; they do not establish
+Windows timing, gameplay frame rate or physical hardware performance.
+The Windows Debug `animation_sequence` and `navigation` cases allow 120 seconds
+after measured passes at 88.81 and 81.51 seconds against their former 90-second
+limits; other configurations retain 90 seconds. These are functional fixture
+watchdogs, not gameplay performance thresholds.
+
 For the explicit portable-owner regression group, dispatch `editor-audit.yml` with
 an immutable `source_commit`, `workflow_only=true` and `core_regressions_only=true`.
 The existing Windows Release configuration and compatible compilation cache are
-reused. `tools/run_core_regressions.py` requires all 22 named cases in the configured
+reused. `tools/run_core_regressions.py` requires all 25 named cases in the configured
 CTest registry, builds their native executables and required workers, and executes
 the complete selection. Missing or duplicate registrations fail before execution.
 The selected cases and targets are retained under `grid-test-images/core-regressions`.
@@ -1139,7 +1161,7 @@ errors and unclassified waits fail the fixture. Raw diagnostics remain visible;
 see [backend limits](render-backends.md#hosted-warp-frame-wait-diagnostics) and
 [source-attributed performance evidence](editor-performance.md).
 
-The numbered editor job allows 150 minutes for a cold native build plus its complete
+The numbered editor job allows 240 minutes for a cold native build plus its complete
 regression suite. After a successful compilation, reusable compilation outputs may
 be cached even if a later test fails. Such a cache is not accepted delivery evidence:
 subsequent runs still configure, rebuild changed inputs, and run all required tests
@@ -2204,7 +2226,7 @@ retention, Agent distance budgets, layer-change holds and exact recovery. Direct
 links compose with collected sources while another named profile remains isolated.
 `navigation_collection_resources` replaces a selected Collision revision through
 normal publication/physics refresh and checks that stale-route movement holds.
-`navigation_tile_sources` retains marked cases and adds collected Map sources,
+The four `navigation_tile_*` scopes cover marked and collected Map sources,
 runtime cell invalidation/reset, recovery and source-hidden content relocation.
 
 `navigation_link_editor` also checks collection/layer controls at100/150/200percent

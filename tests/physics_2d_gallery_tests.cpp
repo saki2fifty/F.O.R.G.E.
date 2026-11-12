@@ -11,7 +11,9 @@
 #include <iostream>
 #include <map>
 #include <set>
+#include <string_view>
 #include <thread>
+#include <vector>
 
 using namespace forge;
 namespace {
@@ -201,7 +203,13 @@ void playback(const std::filesystem::path& root, const AssetCatalog& catalog, As
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3, "Need Gallery and scratch root");
+        check(argc == 3 || argc == 4, "Need Gallery, scratch root and optional scope");
+        const std::string_view mode = argc == 4 ? argv[3] : "all";
+        check(mode == "all" || mode == "bodies" || mode == "joints" || mode == "one-way",
+              "Unknown 2D Gallery fixture scope");
+        const bool bodies = mode == "all" || mode == "bodies";
+        const bool joints = mode == "all" || mode == "joints";
+        const bool one_way_enabled = mode == "all" || mode == "one-way";
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         struct Cleanup {
             std::filesystem::path root;
@@ -229,57 +237,78 @@ int main(int argc, char** argv) {
             const auto lease = std::make_shared<ProjectLease>(root);
             EngineContext author(WorldRole::Authoring, false, {physics_module()});
             Scene schema(author.world());
-            const std::array roots{scene, connected, one_way};
+            std::vector<AssetId> roots;
+            if (bodies)
+                roots.push_back(scene);
+            if (joints)
+                roots.push_back(connected);
+            if (one_way_enabled)
+                roots.push_back(one_way);
             prepare_runtime_content_catalog(*lease, roots, {}, schema.schema());
         }
         catalog = AssetCatalog::open_project(root);
-        playback(root, catalog, scene);
-        connected_playback(root, connected);
-        one_way_playback(root, one_way);
+        if (bodies)
+            playback(root, catalog, scene);
+        if (joints)
+            connected_playback(root, connected);
+        if (one_way_enabled)
+            one_way_playback(root, one_way);
         const auto package = scratch / "prepared content";
         const std::array roots{scene};
-        package_runtime_content(root, package, roots, {"windows", "d3d12"});
+        if (bodies)
+            package_runtime_content(root, package, roots, {"windows", "d3d12"});
         const auto connected_package = scratch / "connected prepared content";
         const std::array connected_roots{connected};
-        package_runtime_content(root, connected_package, connected_roots, {"windows", "d3d12"});
+        if (joints)
+            package_runtime_content(root, connected_package, connected_roots, {"windows", "d3d12"});
         const auto one_way_package = scratch / "one-way prepared content";
         const std::array one_way_roots{one_way};
-        package_runtime_content(root, one_way_package, one_way_roots, {"windows", "d3d12"});
+        if (one_way_enabled)
+            package_runtime_content(root, one_way_package, one_way_roots, {"windows", "d3d12"});
         std::filesystem::remove_all(root);
-        const auto moved = scratch / "relocated source-free content";
-        std::filesystem::rename(package, moved);
-        const auto packed = open_runtime_content(moved, {"windows", "d3d12"});
-        const std::set<AssetId> expected{scene, solid, badge, clip, texture};
-        std::set<AssetId> actual;
-        for (const auto& [id, record] : packed.records())
-            actual.insert(id);
-        check(actual == expected, "2D Gallery package lost its closure or pulled unrelated assets");
-        for (const auto& entry : std::filesystem::recursive_directory_iterator(moved)) {
-            const auto name = path_utf8(entry.path().filename());
-            check(!name.ends_with(".png") && !name.ends_with(".material.json") &&
-                      !name.ends_with(".animation.json") && !name.ends_with(".cpp") &&
-                      !name.ends_with(".hpp"),
-                  "2D Gallery runtime package leaked authored assets or C++ source");
+        if (bodies) {
+            const auto moved = scratch / "relocated source-free content";
+            std::filesystem::rename(package, moved);
+            const auto packed = open_runtime_content(moved, {"windows", "d3d12"});
+            const std::set<AssetId> expected{scene, solid, badge, clip, texture};
+            std::set<AssetId> actual;
+            for (const auto& [id, record] : packed.records())
+                actual.insert(id);
+            check(actual == expected,
+                  "2D Gallery package lost its closure or pulled unrelated assets");
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(moved)) {
+                const auto name = path_utf8(entry.path().filename());
+                check(!name.ends_with(".png") && !name.ends_with(".material.json") &&
+                          !name.ends_with(".animation.json") && !name.ends_with(".cpp") &&
+                          !name.ends_with(".hpp"),
+                      "2D Gallery runtime package leaked authored assets or C++ source");
+            }
+            playback(moved, packed, scene);
         }
-        playback(moved, packed, scene);
-        const auto connected_moved = scratch / "connected relocated source-free content";
-        std::filesystem::rename(connected_package, connected_moved);
-        const auto connected_packed = open_runtime_content(connected_moved, {"windows", "d3d12"});
-        std::set<AssetId> connected_actual;
-        for (const auto& [id, record] : connected_packed.records())
-            connected_actual.insert(id);
-        check(connected_actual == std::set<AssetId>{connected, solid},
-              "Connected Gallery source-free package lost its exact closure");
-        for (const auto& entry : std::filesystem::recursive_directory_iterator(connected_moved)) {
-            const auto name = path_utf8(entry.path().filename());
-            check(!name.ends_with(".material.json") && !name.ends_with(".cpp") &&
-                      !name.ends_with(".hpp"),
-                  "Connected Gallery package leaked authored source");
+        if (joints) {
+            const auto connected_moved = scratch / "connected relocated source-free content";
+            std::filesystem::rename(connected_package, connected_moved);
+            const auto connected_packed =
+                open_runtime_content(connected_moved, {"windows", "d3d12"});
+            std::set<AssetId> connected_actual;
+            for (const auto& [id, record] : connected_packed.records())
+                connected_actual.insert(id);
+            check(connected_actual == std::set<AssetId>{connected, solid},
+                  "Connected Gallery source-free package lost its exact closure");
+            for (const auto& entry :
+                 std::filesystem::recursive_directory_iterator(connected_moved)) {
+                const auto name = path_utf8(entry.path().filename());
+                check(!name.ends_with(".material.json") && !name.ends_with(".cpp") &&
+                          !name.ends_with(".hpp"),
+                      "Connected Gallery package leaked authored source");
+            }
+            connected_playback(connected_moved, connected);
         }
-        connected_playback(connected_moved, connected);
-        const auto one_way_moved = scratch / "relocated one-way source-free content";
-        std::filesystem::rename(one_way_package, one_way_moved);
-        one_way_playback(one_way_moved, one_way);
+        if (one_way_enabled) {
+            const auto one_way_moved = scratch / "relocated one-way source-free content";
+            std::filesystem::rename(one_way_package, one_way_moved);
+            one_way_playback(one_way_moved, one_way);
+        }
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

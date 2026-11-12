@@ -108,9 +108,9 @@ jobs:
         profile: [core, native-sdk]
     runs-on: ${{ matrix.os }}
     # Clean core and SDK builds need room for the complete suite after compilation.
-    # Cold Windows SDK compilation measured67 minutes before the490-case suite.
+    # Windows Debug used52 minutes to build and68 minutes for310of398 tests.
     # Keep the full selection and child deadlines, including installed consumers.
-    timeout-minutes: 120
+    timeout-minutes: ${{ matrix.os == 'windows-2022' && matrix.profile == 'core' && 180 || 120 }}
     env:
       PYTHONDONTWRITEBYTECODE: "1"
       CC: ${{ matrix.os == 'ubuntu-22.04' && 'gcc-12' || 'cl' }}
@@ -186,8 +186,8 @@ jobs:
   editor:
     if: github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile
     runs-on: windows-2022
-    # Match the source gate's measured cold-build/acceptance budget.
-    timeout-minutes: 150
+    # Cold build measured140 minutes before acceptance; retain the complete gate.
+    timeout-minutes: 240
     env:
       FORGE_BUILD_ID: ${{ inputs.build_id }}
       FORGE_SOURCE_COMMIT: ${{ github.sha }}
