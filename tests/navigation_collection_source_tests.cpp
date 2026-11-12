@@ -227,7 +227,6 @@ void exercise(NavigationPlane plane) {
         body.set<SphereCollider>({1});
         rejects([&] { (void)sources(); });
     }
-    candidates.destruct();
 }
 void unresolved_intent(NavigationPlane plane) {
     EngineContext engine;
@@ -284,7 +283,6 @@ void unresolved_intent(NavigationPlane plane) {
     require(scene.unresolved_navigation_sources(settings).empty() &&
                 capture_native(engine.world(), scene, candidates, settings).surfaces.size() == 1,
             "Unselected unresolved physical intent poisoned a legacy profile");
-    candidates.destruct();
 }
 } // namespace
 int main() {

@@ -40,6 +40,13 @@ Static placement comes from evaluated world transforms. Kinematic targets use up
 
 Config changes are compared against realized settings at a safe boundary. Compatible motion-type rebuilds preserve linear/angular velocity and activation. Motion-type changes initialize new state. Unchanged bodies are not ordinarily recreated or reactivated. Retiring or rebuilding a solid Static/Kinematic body wakes moving bodies intersecting its previous world bounds, so sleeping bodies respond when support is removed or its collision mask changes. Sensors do not trigger this support wake. Invalid realization is diagnosed; no approximation discards shear. Dynamic direct transform writes are rejected; gameplay must use explicit teleport. Teleport writes supported local channels and resets existing presentation history after the tick.
 
+After rigid-body creation or replacement, synchronization balances the existing
+native broadphase before owner-thread queries can consume the admitted bodies.
+Recovery also balances its reconstructed body batch before restoring solver state.
+Unchanged ticks retain the native incremental update path. This keeps dense,
+coincident body admissions within the supported query profile without suppressing
+native diagnostics or changing body, activation or checkpoint ownership.
+
 ## Detached synchronization preflight
 
 After preparing required collision assets, each synchronization captures one

@@ -472,12 +472,11 @@ endif()
 # Render the actual editor UI on WARP in a disposable project/preferences directory.
 if(BUILD_TESTING)
  add_executable(forge_editor_fixture src/editor/main.cpp src/editor/viewport.cpp src/editor/play_presentation.cpp)
- get_target_property(editor_links forge_editor LINK_LIBRARIES)
  get_target_property(editor_includes forge_editor INCLUDE_DIRECTORIES)
  get_target_property(editor_definitions forge_editor COMPILE_DEFINITIONS)
  target_include_directories(forge_editor_fixture PRIVATE tests ${editor_includes})
  target_compile_definitions(forge_editor_fixture PRIVATE ${editor_definitions} FORGE_UI_FIXTURE=1)
- target_link_libraries(forge_editor_fixture PRIVATE ${editor_links} d3d12 dxgi)
+ target_link_libraries(forge_editor_fixture PRIVATE "$<TARGET_GENEX_EVAL:forge_editor,$<TARGET_PROPERTY:forge_editor,LINK_LIBRARIES>>" d3d12 dxgi)
  target_sources(forge_editor_fixture PRIVATE "${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp")
  # Fixture inherits forge_editor's transitive forge_game_platform
  # link; forge_editor already FATAL_ERRORs under FORGE_BUILD_GAME_PLATFORM=OFF.

@@ -131,11 +131,18 @@ class CacheIdentity(unittest.TestCase):
             original_time = objects[0].stat().st_mtime_ns
             manifest = root/'stamps.json'
             stamps.record(root, manifest)
-            recorded = json.loads(manifest.read_text())['files']['cmake/editor.cmake']['mtime_ns']
+            snapshot = json.loads(manifest.read_text())
+            recorded = snapshot['files']['cmake/editor.cmake']['mtime_ns']
             consumer.write_text('target_link_libraries(consumer PRIVATE second)', encoding='utf-8')
             os.utime(consumer, ns=(recorded, recorded))
-            stamps.restore(root, manifest)
-            subprocess.run([cmake, '--build', str(build)], check=True, capture_output=True)
+            restore_ns = snapshot['recorded_ns'] + 1_000_000
+            with patch.object(stamps.time, 'time_ns', return_value=restore_ns):
+                stamps.restore(root, manifest)
+            self.assertGreater(consumer.stat().st_mtime_ns, snapshot['recorded_ns'])
+            self.assertLessEqual(consumer.stat().st_mtime_ns, restore_ns,
+                                 'Future-dated CMake inputs can repeat regeneration indefinitely')
+            result = subprocess.run([cmake, '--build', str(build)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(subprocess.check_output([executable], text=True), '2')
             self.assertEqual(objects[0].stat().st_mtime_ns, original_time,
                              'Consumer source was unnecessarily recompiled')
@@ -188,6 +195,13 @@ class CacheIdentity(unittest.TestCase):
             manifest.write_text(json.dumps(recorded), encoding='utf-8')
             stamps.restore(root, manifest)
             self.assertEqual(outside.stat().st_mtime_ns, outside_time)
+            recorded['recorded_ns'] = stamps.time.time_ns() + 1_000_000_000
+            manifest.write_text(json.dumps(recorded), encoding='utf-8')
+            before = {name: (root/name).stat().st_mtime_ns for name in stamps.tracked(root)}
+            with self.assertRaises(ValueError):
+                stamps.restore(root, manifest)
+            self.assertEqual(before, {name: (root/name).stat().st_mtime_ns
+                                      for name in stamps.tracked(root)})
             manifest.write_text('{bad json', encoding='utf-8')
             with self.assertRaises(ValueError):
                 stamps.restore(root, manifest)

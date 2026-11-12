@@ -27,6 +27,14 @@ void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
 }
+template <class F> void stage(const char* name, F action) {
+    std::cout << "Sequence stage: " << name << " started\n" << std::flush;
+    const auto start = std::chrono::steady_clock::now();
+    action();
+    const auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start);
+    std::cout << "Sequence stage: " << name << " passed in " << elapsed.count() << "s\n"
+              << std::flush;
+}
 void near(double a, double b, const std::source_location& where = std::source_location::current()) {
     if (!(std::abs(a - b) < 1e-5))
         throw std::runtime_error(std::string(where.file_name()) + ":" +
@@ -608,16 +616,32 @@ int main(int argc, char** argv) {
         const bool child_loops_only =
             argc == 3 && std::string_view(argv[2]) == "--child-loops-only";
         const bool placements_only = argc == 3 && std::string_view(argv[2]) == "--placements-only";
+        const bool retirement_only =
+            argc == 3 && std::string_view(argv[2]) == "--pair-retirement-only";
         check(argc == 2 || properties_only || collections_only || child_loops_only ||
-                  placements_only,
-              "Need sequence scratch root and optional property mode");
+                  placements_only || retirement_only,
+              "Need sequence scratch root and optional fixture scope");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);
         AssetImportService imports(lease, transform_animation_import_registry(),
                                    {"windows", "d3d12", "desktop"});
         if (collections_only) {
-            sequence_collection_runtime_tests(root, lease, imports);
+            stage("collections", [&] { sequence_collection_runtime_tests(root, lease, imports); });
+            const auto motion = clip(lease, imports, "Assets/Motion.animation.json", false);
+            const auto pulse = clip(lease, imports, "Assets/Pulse.animation.json", true);
+            const auto held = clip(lease, imports, "Assets/Held.animation.json", false, true);
+            stage("clip blends",
+                  [&] { sequence_clip_blend_tests(root, lease, imports, motion, pulse, held); });
+            return 0;
+        }
+        if (retirement_only) {
+            const auto motion = clip(lease, imports, "Assets/Motion.animation.json", false);
+            const auto pulse = clip(lease, imports, "Assets/Pulse.animation.json", true);
+            const auto held = clip(lease, imports, "Assets/Held.animation.json", false, true);
+            stage("pair resource retirement", [&] {
+                sequence_clip_blend_tests(root, lease, imports, motion, pulse, held, true);
+            });
             return 0;
         }
         if (properties_only) {
@@ -635,21 +659,16 @@ int main(int argc, char** argv) {
             }
             return 0;
         }
-        camera_shot_identity(root);
-        camera_shots(root);
-        audio_cue_tests(root);
-        sound_cue_prefab_tests(root);
+        stage("camera identity", [&] { camera_shot_identity(root); });
+        stage("camera shots", [&] { camera_shots(root); });
+        stage("audio cues", [&] { audio_cue_tests(root); });
+        stage("sound cue Prefab", [&] { sound_cue_prefab_tests(root); });
         const auto motion = clip(lease, imports, "Assets/Motion.animation.json", false);
         const auto pulse = clip(lease, imports, "Assets/Pulse.animation.json", true);
         const auto held = clip(lease, imports, "Assets/Held.animation.json", false, true);
-        nested_audio_cue_tests(root);
-        nested_sequence_tests(root, motion, pulse);
-        child_sequence_loop_tests(root, motion, pulse);
-        child_sequence_loop_audio_tests(root);
-        repeated_sequence_placement_tests(root, motion, pulse);
-        sequence_clip_blend_tests(root, lease, imports, motion, pulse, held);
-        sequence_property_blend_tests(root, lease, imports);
-        persistence(root, motion);
+        stage("nested audio", [&] { nested_audio_cue_tests(root); });
+        stage("nested sequence", [&] { nested_sequence_tests(root, motion, pulse); });
+        stage("persistence", [&] { persistence(root, motion); });
         EngineContext author;
         Scene scene(author.world());
         auto create = [&](const char* name) {

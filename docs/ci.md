@@ -442,6 +442,10 @@ Core/SDK matrix jobs allow 120 minutes. A cold Windows core build measured
 67 minutes of compilation before its expanded 490-case suite, so the former
 75-minute job limit could expire during validation. The job budget covers cold
 compilation, testing, installation and cleanup without relaxing individual tests.
+The core/SDK CTest invocation gives otherwise unbounded tests a default of 600 seconds.
+Explicit per-case limits retain precedence, including the 900-second Debug Tile Map
+stress case. A stalled native process therefore fails its case rather than consuming
+the entire remaining matrix-job budget.
 The Tile Map source fixture keeps all 262144-cell capacity, sixteen-stroke
 Undo/Redo, identity, Save/reopen and four-million-event checks. The complete
 [Windows Debug diagnosis](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39480854995)
@@ -849,8 +853,10 @@ production editor command-line arguments and project input remain unchanged.
 The Windows environment key includes compiler/SDK/runner identity, paths, CRT and
 linkage profiles, global configuration and dependency declarations/patches. Editor
 consumer declarations in `cmake/editor.cmake` are reconfigured instead of changing
-that environment key. Ninja rebuilds or relinks their changed inputs. The cache
-regression performs a real CMake library switch, including a preserved input
+that environment key. Ninja rebuilds or relinks their changed inputs. The acceptance
+fixture reads the editor's final direct link dependencies during generation, so
+features composed later in configuration remain linked into the acceptance host.
+The cache regression performs a real CMake library switch, including a preserved input
 timestamp, and verifies changed execution without recompiling the consumer object.
 The version2 key starts a new cache namespace; no older cache is treated as accepted
 validation evidence. Every restored build still configures, compiles and tests.
@@ -862,6 +868,9 @@ recover their original input times, so a fresh Git checkout does not force Ninja
 recompile the whole project. Changed/new inputs are newer than the cached completed
 build even if a file copy preserved an older timestamp. Deleted files remain deleted;
 symlinks and paths outside the checkout are not modified.
+Changed inputs use the restoration time rather than a future offset, so CMake's
+generated build manifest can become newer than its inputs. A recording time that
+does not precede restoration is rejected before any input timestamps are changed.
 
 This does not change dependency/toolchain/CRT compatibility keys or skip configure,
 build or tests. An older cache without a manifest uses normal rebuild behavior and
@@ -2208,9 +2217,15 @@ before making those claims.
 
 ## Sequence pair consumer checks
 
-`animation_sequence` checks deterministic two-clip blends, gap and held cuts,
-controller seeks/wraps, bounded resource turnover, portable Prefabs and recovery
-against exact clip revisions. `animation_sequence_editor` drives Timeline timing,
+`animation_sequence_collections` checks deterministic two-clip blends, gap and held
+cuts, controller seeks/wraps and recovery against exact clip revisions, alongside
+the multi-clip collection checks. `animation_sequence_retirement` performs all 67
+successive asset replacements beyond the 64-entry resource-pool bound in its own
+bounded case. The existing child-loop, placement and property cases own their
+checks once; the main sequence case retains clocks, persistence, camera/cue and
+nested-graph checks. The depth fixture admits the complete 64/65-node snapshots
+through the runtime without repeatedly reconciling editor creation transactions.
+`animation_sequence_editor` drives Timeline timing,
 pickers, Undo, copied preview and frame samples at three scales and two sizes.
 `animation_sequence_gallery` checks the original Gallery145 and source-hidden
 relocated cooked content, including the next clip's dependency closure.

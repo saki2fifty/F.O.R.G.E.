@@ -3,7 +3,7 @@
 void sequence_clip_blend_tests(const std::filesystem::path& root,
                                const std::shared_ptr<ProjectLease>& lease,
                                AssetImportService& imports, AssetId motion, AssetId pulse,
-                               AssetId held) {
+                               AssetId held, bool retirement_only = false) {
     auto reject = [&](const std::string& label, auto operation) {
         bool failed = false;
         try {
@@ -17,15 +17,6 @@ void sequence_clip_blend_tests(const std::filesystem::path& root,
             throw std::runtime_error("Sequence pair " + label + " accepted invalid state");
     };
     const auto next = clip(lease, imports, "Assets/SequenceNext.animation.json", false);
-    const auto short_clip = clip(lease, imports, "Assets/SequenceShort.animation.json", false,
-                                 false, animation_timebase / 4);
-    const auto channels = clip(
-        lease, imports, "Assets/SequenceChannels.animation.json", false, false, animation_timebase,
-        [](auto& value) { value.document["channels"] = {"forge.local_translation"}; });
-    const auto properties = clip(lease, imports, "Assets/SequenceProperties.animation.json", false,
-                                 false, animation_timebase, [](auto& value) {
-                                     value.add_property(AnimationProperty::LightIntensity, 1);
-                                 });
     EngineContext author;
     Scene scene(author.world());
     const auto controller =
@@ -52,6 +43,46 @@ void sequence_clip_blend_tests(const std::filesystem::path& root,
     auto position = [&](const Runtime& runtime) {
         return runtime.scene.entity(actor).get<LocalTranslation>().x;
     };
+    if (retirement_only) {
+        // More than the pool's 64-asset budget can be selected serially. Retired
+        // requests must leave the existing resource owner rather than accumulate.
+        Runtime turnover(root, source);
+        for (unsigned index = 0; index < 67; ++index) {
+            const auto replacement =
+                clip(lease, imports,
+                     "Assets/SequenceTurnover" + std::to_string(index) + ".animation.json", false);
+            turnover.animation->catalog(
+                std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root)));
+            auto selection = track;
+            selection.sequence_next_clip = {replacement};
+            turnover.scene.entity(actor).set(selection);
+            check(!turnover.animation->prepare_initial_pose(),
+                  "New pair resource did not use asynchronous admission");
+            near(position(turnover), 0);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+            while (!turnover.animation->prepare_initial_pose()) {
+                near(position(turnover), 0);
+                check(std::chrono::steady_clock::now() < deadline,
+                      "Pair resource retirement timed out");
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            check(turnover.animation->checkpoint().at("transform_entries")[0].at(
+                      "sequence_next_clip") == Json(replacement),
+                  "Pair resource selection kept a retired request");
+        }
+        std::cout
+            << "67 sequence pair resource replacements retired without accumulating pool entries\n";
+        return;
+    }
+    const auto short_clip = clip(lease, imports, "Assets/SequenceShort.animation.json", false,
+                                 false, animation_timebase / 4);
+    const auto channels = clip(
+        lease, imports, "Assets/SequenceChannels.animation.json", false, false, animation_timebase,
+        [](auto& value) { value.document["channels"] = {"forge.local_translation"}; });
+    const auto properties = clip(lease, imports, "Assets/SequenceProperties.animation.json", false,
+                                 false, animation_timebase, [](auto& value) {
+                                     value.add_property(AnimationProperty::LightIntensity, 1);
+                                 });
     Runtime runtime(root, source);
     // Two distinct 0->4, one-second clips, offset by half a second. Their
     // crossfade holds x=2 during overlap, then continues along the second clip.
@@ -136,32 +167,6 @@ void sequence_clip_blend_tests(const std::filesystem::path& root,
         }
     });
     near(position(runtime), 2);
-    // More than the pool's 64-asset budget can be selected serially. Retired
-    // requests must leave the existing resource owner rather than accumulate.
-    Runtime turnover(root, source);
-    for (unsigned index = 0; index < 67; ++index) {
-        const auto replacement =
-            clip(lease, imports,
-                 "Assets/SequenceTurnover" + std::to_string(index) + ".animation.json", false);
-        turnover.animation->catalog(
-            std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root)));
-        auto selection = track;
-        selection.sequence_next_clip = {replacement};
-        turnover.scene.entity(actor).set(selection);
-        check(!turnover.animation->prepare_initial_pose(),
-              "New pair resource did not use asynchronous admission");
-        near(position(turnover), 0);
-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
-        while (!turnover.animation->prepare_initial_pose()) {
-            near(position(turnover), 0);
-            check(std::chrono::steady_clock::now() < deadline,
-                  "Pair resource retirement timed out");
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-        check(turnover.animation->checkpoint().at("transform_entries")[0].at(
-                  "sequence_next_clip") == Json(replacement),
-              "Pair resource selection kept a retired request");
-    }
     runtime.scene.entity(actor).set(track);
     for (unsigned tries = 0; !runtime.animation->prepare_initial_pose(); ++tries) {
         check(tries < 1000, "Corrected sequence pair did not recover");

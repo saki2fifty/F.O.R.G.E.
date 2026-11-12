@@ -202,8 +202,14 @@ void maximum() {
     }
     const auto bytes = cook_tile_set(source);
     const auto data = decode_cooked_tile_set(bytes, source.asset());
+    std::size_t retained_limit = 1152 * 1024;
+#if defined(_ITERATOR_DEBUG_LEVEL) && _ITERATOR_DEBUG_LEVEL != 0
+    // The supported 64-bit checked-library layout adds two 8-byte container
+    // owners per definition, one per image, and two on the shared row holder.
+    retained_limit += 16 * tile_set_definition_limit + 8 * tile_set_image_limit + 16;
+#endif
     if (!(data.images().size() == 16 && data.tiles().size() == 4096 && bytes.size() < 1024 * 1024 &&
-          data.resident_bytes() < 1152 * 1024))
+          data.resident_bytes() < retained_limit))
         throw std::runtime_error("Maximum Tile Set profile exceeds cooked/retained envelope: " +
                                  std::to_string(bytes.size()) + " cooked, " +
                                  std::to_string(data.resident_bytes()) + " retained bytes");
@@ -211,7 +217,11 @@ void maximum() {
         require(data.tile(17 + i).image == i % 16 + 1 && data.tile(17 + i).frame == i % 256,
                 "Maximum Tile Set lookups differ from independent numeric-key oracle");
     std::cout << "maximum_tile_set_cooked_bytes=" << bytes.size()
-              << " retained_estimate_bytes=" << data.resident_bytes() << '\n';
+              << " retained_estimate_bytes=" << data.resident_bytes()
+              << " retained_limit_bytes=" << retained_limit
+              << " definition_bytes=" << sizeof(TileSetDefinition)
+              << " image_bytes=" << sizeof(TileSetImage) << " rows_bytes=" << sizeof(TileSetRows)
+              << '\n';
 }
 } // namespace
 int main() {

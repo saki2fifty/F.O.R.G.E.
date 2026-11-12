@@ -59,6 +59,11 @@ def restore(root, manifest):
     epoch = data.get('recorded_ns')
     if type(epoch) is not int or epoch <= 0:
         raise ValueError('Invalid source stamp recording time')
+    changed_ns = time.time_ns()
+    if epoch >= changed_ns:
+        raise ValueError('Source stamp recording time must precede restoration')
+    # Future-dated CMake inputs can keep Ninja regenerating its build manifest.
+    # The current time already follows all outputs in the recorded completed build.
     # Only current Git-tracked regular files are eligible. Cached paths cannot
     # target arbitrary filesystem locations, and new/deleted files stay new/deleted.
     restored = 0
@@ -68,7 +73,7 @@ def restore(root, manifest):
         if path is None:
             continue
         if not isinstance(entry, dict):
-            os.utime(path, ns=(path.stat().st_atime_ns, max(time.time_ns(), epoch + 1_000_000_000)))
+            os.utime(path, ns=(path.stat().st_atime_ns, changed_ns))
             continue
         stamp = entry.get('mtime_ns')
         current = fingerprint(path)
@@ -76,7 +81,7 @@ def restore(root, manifest):
                 entry.get('bytes') != current['bytes'] or entry.get('sha256') != current['sha256']):
             # A changed file must be newer than the cached completed build even
             # if a copy operation happened to preserve its old timestamp.
-            os.utime(path, ns=(path.stat().st_atime_ns, max(time.time_ns(), epoch + 1_000_000_000)))
+            os.utime(path, ns=(path.stat().st_atime_ns, changed_ns))
             continue
         os.utime(path, ns=(path.stat().st_atime_ns, stamp))
         restored += 1

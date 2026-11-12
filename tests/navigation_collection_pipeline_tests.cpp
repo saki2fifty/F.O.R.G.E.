@@ -309,7 +309,6 @@ void linked(const std::filesystem::path& root, const std::filesystem::path& work
     require(sources.connections.size() == 1 && sources.connections == native.connections &&
                 source_digest(sources, Json::array()) == source_digest(native, Json::array()),
             "Collected sources and authored links diverged between capture paths");
-    candidates.destruct();
     const Double3 start{-3, 0, xy ? 13. : 0.}, end{3, xy ? 0. : 2., xy ? 13. : 0.};
     Query connected(load(root, selected).mesh), isolated(load(root, other).mesh);
     const auto route = connected.route(start, end);

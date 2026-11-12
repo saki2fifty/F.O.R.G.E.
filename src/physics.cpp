@@ -1978,6 +1978,10 @@ void PhysicsRuntime::synchronize(float dt) {
         }
         it->second.last = pose;
     }
+    // Owner-thread queries can run before the next solver Update. Rebuild after
+    // native body admission so dense insertions do not retain a degenerate tree.
+    if (!prepared.empty())
+        s.system.OptimizeBroadPhase();
     if (s.native_2d)
         s.native_2d->synchronize(desired_2d, initial_2d, dt, commanded, s.snaps, desired_joints_2d);
     for (const auto& cmd : s.commands) {
@@ -3193,6 +3197,8 @@ void PhysicsRuntime::restore(const Json& payload) {
         s.characters.emplace(id, Impl::CharacterRecord{ref, config, pose, std::move(owner),
                                                        item.at("shape_blocked").get<bool>()});
     }
+    if (!pending.empty() || !character_data.empty())
+        s.system.OptimizeBroadPhase();
     JPH::StateRecorderImpl recorder;
     recorder.WriteBytes(bytes.data(), bytes.size());
     recorder.Rewind();

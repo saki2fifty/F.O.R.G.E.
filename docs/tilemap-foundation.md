@@ -375,8 +375,13 @@ The 16-image/4096-definition fixture, with maximum-length tile names, cooks to
 estimate is1087128 bytes in Linux GCC12 with the current profile layout. The
 optional shared contour holder adds16 bytes per definition (65536 bytes for4096
 rows) without allocating prepared geometry for full-cell definitions. The focused
-static-fixture estimate envelope is1152KiB; existing16MiB Set-pool and64MiB aggregate
-runtime budgets are unchanged and admit actual complete values separately;
+static-fixture estimate envelope is 1152 KiB for the ordinary library layout.
+The supported checked MSVC layout adds 65,680 bytes at these fixed row counts:
+two 8-byte container owners per definition, one per image and two on the row holder.
+Its fixture allowance adds exactly that bookkeeping while retaining the same
+payload margin. Recorded MSVC estimates are 1,148,568 bytes in Release and 1,214,248
+bytes with checked containers. Existing 16 MiB Set-pool and 64 MiB aggregate
+runtime budgets admit actual complete values separately;
 this is not a process RSS or cross-platform allocator guarantee. Publication
 separately admits the Material profile and actual selected image extent.
 

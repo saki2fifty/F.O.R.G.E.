@@ -946,9 +946,11 @@ int main(int argc, char** argv) {
             for (const auto& entry : std::filesystem::directory_iterator(scratch))
                 if (path_utf8(entry.path().filename()).starts_with(".forge-export-"))
                     for (const auto& staged : std::filesystem::directory_iterator(entry.path()))
-                        check(!path_utf8(staged.path().filename()).starts_with("work-") &&
-                                  staged.path().filename() != "transaction.json",
-                              "Cancelled export left owned scratch or a promotion journal");
+                        if (path_utf8(staged.path().filename()).starts_with("work-") ||
+                            staged.path().filename() == "transaction.json")
+                            throw std::runtime_error(
+                                "Export left owned scratch or a promotion journal: " +
+                                path_utf8(staged.path()));
             asset_storage::replace(kit / "forge_game", "corrupt");
             reject([&] { export_standalone_game(lease, request); });
             check(asset_storage::read(exported / "forge.standalone.json") == first,

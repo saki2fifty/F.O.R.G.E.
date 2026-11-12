@@ -2,6 +2,7 @@
 #include "asset_worker.hpp"
 #include "collision_selection.hpp"
 #include "model_render_resource.hpp"
+#include "native_io_path.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_sources.hpp"
 #include "navigation_tile_geometry.hpp"
@@ -21,7 +22,7 @@ std::string index_digest(const std::filesystem::path& index) {
                                           : "absent";
 }
 void write(const std::filesystem::path& p, std::span<const std::byte> data) {
-    std::ofstream out(p, std::ios::binary | std::ios::trunc);
+    std::ofstream out(native_io_path(p), std::ios::binary | std::ios::trunc);
     if (!out ||
         !out.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size())) ||
         !out.flush())
@@ -269,10 +270,11 @@ AssetRecord NavigationCandidate::publish(const Json& current) {
     (void)admit(data);
     ProjectPaths paths(c.root);
     auto destination = paths.resolve(c.record.source);
-    std::filesystem::create_directories(destination.parent_path());
-    if (std::filesystem::exists(destination))
+    const auto native_destination = native_io_path(destination);
+    std::filesystem::create_directories(native_destination.parent_path());
+    if (std::filesystem::exists(native_destination))
         throw std::runtime_error("Navigation artifact revision already exists");
-    std::filesystem::rename(c.work.path / "navigation.fnav", destination);
+    std::filesystem::rename(native_io_path(c.work.path / "navigation.fnav"), native_destination);
     try {
         if (c.catalog.records().contains(c.record.id))
             c.catalog.replace(c.record);
@@ -281,7 +283,7 @@ AssetRecord NavigationCandidate::publish(const Json& current) {
         c.catalog.save(index);
     } catch (...) {
         std::error_code ec;
-        std::filesystem::remove(destination, ec);
+        std::filesystem::remove(native_destination, ec);
         throw;
     }
     c.published = true;

@@ -85,13 +85,13 @@ struct Output {
             require(digest(previous / "forge.standalone.json") == previous_hash,
                     "Previous export changed; refusing cleanup");
             (void)verify_distribution_files(previous, "forge.standalone.json", "forge.standalone");
-            std::filesystem::remove_all(previous);
+            std::filesystem::remove_all(asset_detail::native_io_path(previous));
         }
         if (std::filesystem::exists(stage)) {
             require(digest(stage / "forge.standalone.json") == candidate_hash,
                     "Candidate changed; recovery preserved it");
             (void)verify_distribution_files(stage, "forge.standalone.json", "forge.standalone");
-            std::filesystem::remove_all(stage);
+            std::filesystem::remove_all(asset_detail::native_io_path(stage));
         }
         asset_storage::erase_file(control / "transaction.json");
     }
@@ -279,7 +279,7 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
         ~Cleanup() {
             std::error_code e;
             if (!path.empty())
-                std::filesystem::remove_all(path, e);
+                std::filesystem::remove_all(asset_detail::native_io_path(path), e);
         }
     } cleanup{scratch};
     ProjectPaths staging(scratch);

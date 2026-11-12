@@ -165,7 +165,7 @@ jobs:
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: cmake --build --preset ${{ matrix.profile }} --parallel 2 -- -k 0
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
-      - run: ctest --preset ${{ matrix.profile }}
+      - run: ctest --preset ${{ matrix.profile }} --timeout 600
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: cmake --install ../AgentFiles/build/core --prefix ../AgentFiles/install/core --component Runtime
         if: matrix.profile == 'core'

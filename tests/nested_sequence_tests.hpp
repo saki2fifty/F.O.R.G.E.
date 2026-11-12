@@ -353,22 +353,29 @@ void nested_sequence_tests(const std::filesystem::path& root, AssetId motion, As
 
     EngineContext budget_engine;
     Scene budget(budget_engine.world());
+    const auto prototype =
+        authoring_command(budget, "entity.create", {{"recipe", "animation.sequence"}})
+            .at("selected")
+            .get<std::string>();
+    budget.entity(prototype).set<AnimationSequence>({});
+    auto candidate = budget.snapshot();
+    const auto base = row(candidate, prototype);
+    candidate["entities"] = Json::array();
     EntityRef previous;
     for (unsigned depth = 0; depth < 65; ++depth) {
-        const auto id =
-            authoring_command(budget, "entity.create", {{"recipe", "animation.sequence"}})
-                .at("selected")
-                .get<std::string>();
-        AnimationSequence config;
-        config.sequence = previous;
-        budget.entity(id).set(config);
-        previous = {budget.asset_id(), EntityId::parse(id)};
+        const auto id = EntityId::generate();
+        auto item = base;
+        item["id"] = id;
+        if (previous.entity)
+            item["components"]["forge.animation_sequence"]["sequence"] = previous;
+        candidate["entities"].push_back(std::move(item));
+        previous = {budget.asset_id(), id};
         if (depth == 63) {
-            Runtime at_limit(root, budget.snapshot());
+            Runtime at_limit(root, candidate);
             near(at_limit.animation->playback(previous)->time, 0);
         }
     }
-    Runtime over_limit(root, budget.snapshot(), false);
+    Runtime over_limit(root, candidate, false);
     rejects([&] { over_limit.animation->prepare_initial_pose(); });
     std::cout
         << "Nested sequences: derived clocks, controls, cold recovery, camera/scalar boundaries, "
