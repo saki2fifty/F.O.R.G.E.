@@ -29,13 +29,14 @@ template <class F> void rejects(F action) {
     throw std::runtime_error("Invalid native stream was accepted");
 }
 template <class F>
-void until(F ready, const std::source_location& location = std::source_location::current()) {
+void until(F ready, std::chrono::milliseconds poll = std::chrono::milliseconds(1),
+           const std::source_location& location = std::source_location::current()) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!ready()) {
         if (std::chrono::steady_clock::now() >= deadline)
             throw std::runtime_error("Native stream preparation stalled at line " +
                                      std::to_string(location.line()));
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(poll);
     }
 }
 struct Engine {
@@ -162,11 +163,20 @@ int main(int argc, char** argv) {
                 vfs.fail_reads = true;
                 unsigned fault_mixes = 0;
                 try {
-                    until([&] {
-                        ++fault_mixes;
-                        checked(ma_engine_read_pcm_frames(&engine.value, pcm.data(), 256, nullptr));
-                        return source->read_error() != MA_SUCCESS;
-                    });
+                    until(
+                        [&] {
+                            // Drain healthy cached frames independently of the host's
+                            // sleep granularity before observing the failed worker page.
+                            for (unsigned block = 0; block < 16; ++block) {
+                                ++fault_mixes;
+                                checked(ma_engine_read_pcm_frames(&engine.value, pcm.data(), 256,
+                                                                  nullptr));
+                                if (source->read_error() != MA_SUCCESS)
+                                    return true;
+                            }
+                            return false;
+                        },
+                        std::chrono::milliseconds(16));
                 } catch (const std::exception& error) {
                     throw std::runtime_error(
                         std::string(error.what()) + " channels=" + std::to_string(channels) +
@@ -178,8 +188,13 @@ int main(int argc, char** argv) {
                         " playing=" + std::to_string(ma_sound_is_playing(&sound.value)) +
                         " ended=" + std::to_string(ma_sound_at_end(&sound.value)));
                 }
+                require(vfs.failed_reads > 0,
+                        "Native fault observation did not exercise IO failure");
                 require(source->read_error() != MA_BUSY,
                         "Permanent native read failure was confused with temporary starvation");
+                std::cout << "Native permanent fault: channels=" << channels
+                          << " failed_reads=" << vfs.failed_reads << " mixes=" << fault_mixes
+                          << " read_error=" << source->read_error() << '\n';
             }
             until([&] { return slots->reserved == 0; });
             vfs.fail_reads = true;
