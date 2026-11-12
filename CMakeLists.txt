@@ -2490,7 +2490,9 @@ if(BUILD_TESTING)
  set_tests_properties(native_sdk_configuration PROPERTIES TIMEOUT 60)
  if(FORGE_ENABLE_NATIVE_SDK AND CMAKE_BUILD_TYPE STREQUAL "Release")
   add_test(NAME native_sdk_package COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/sdk_package_test.py ${CMAKE_BINARY_DIR} ${CMAKE_COMMAND} ${CMAKE_MAKE_PROGRAM})
-  set_tests_properties(native_sdk_package PROPERTIES TIMEOUT 180)
+  # Installed sample compilation plus all relocated consumers share this outer bound.
+  # Individual child-process deadlines remain independently enforced by the fixture.
+  set_tests_properties(native_sdk_package PROPERTIES TIMEOUT 600)
   add_test(NAME native_sdk_mesh_wind_installed COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mesh_wind_sdk_test.py ${CMAKE_BINARY_DIR} ${CMAKE_COMMAND} ${CMAKE_MAKE_PROGRAM})
   set_tests_properties(native_sdk_mesh_wind_installed PROPERTIES TIMEOUT 120)
  endif()

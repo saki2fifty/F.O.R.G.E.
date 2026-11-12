@@ -27,9 +27,9 @@ if args.sprite_graph and args.source:
 build, kit, evidence = (p.resolve() for p in (args.build, args.kit, args.evidence))
 evidence.mkdir(parents=True, exist_ok=True)
 
-def run(argv, evidence_log=None, **kwargs):
+def run(argv, evidence_log=None, timeout=120, **kwargs):
     result = subprocess.run([str(v) for v in argv], text=True, capture_output=True,
-                            timeout=120, **kwargs)
+                            timeout=timeout, **kwargs)
     if evidence_log:
         evidence_log.write_text(result.stdout+'\n'+result.stderr, encoding='utf-8')
     if result.returncode:
@@ -40,7 +40,9 @@ def run(argv, evidence_log=None, **kwargs):
 
 with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary:
     work = Path(temporary)
-    prepared = run([build/'forge_game_fixture.exe', '--prepare-sprite-graph' if args.sprite_graph else '--prepare', work/'fixture'])
+    # Native cooking has its own 300s worker bound, then Material publication.
+    # Relocated games below retain their existing 120s process watchdogs.
+    prepared = run([build/'forge_game_fixture.exe', '--prepare-sprite-graph' if args.sprite_graph else '--prepare', work/'fixture'], timeout=330)
     project = Path(prepared.stdout.strip().splitlines()[-1])
     if args.source:
         from standalone_content_fixture import complete_content

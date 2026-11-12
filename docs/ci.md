@@ -652,6 +652,14 @@ and the native C++ material-animation probe when that SDK profile is enabled.
 The installed SDK package test compiles and runs its delivered
 `material_animation_gameplay` sample from the relocated host. Shader-only audit
 scope remains focused on shader/material compilation and rendering.
+The complete installed-SDK test has an aggregate watchdog of 600 seconds for installation,
+the installed sample build and relocated consumer probes; child deadlines remain
+independent. Standalone graph preparation permits 330 seconds around the supervised
+native cook (300 seconds) and Material publication. The two direct game fixtures
+permit 420 seconds, with their gameplay watchdog (90 seconds) starting after
+preparation; package workflows permit 600 seconds while retaining limits of
+120 seconds for exported-game processes. These are test
+workload bounds, not startup or runtime performance claims.
 The same installed SDK gate runs `sequence_gameplay` through Gallery62 and 68,
 checking typed camera-shot references, copied camera selection, sequence controls
 and fresh-worker recovery. The native editor input workflow creates camera shots

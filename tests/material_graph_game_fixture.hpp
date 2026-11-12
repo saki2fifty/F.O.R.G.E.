@@ -11,6 +11,7 @@
 #include <forge/primitive_catalog.hpp>
 #include <forge/render_components.hpp>
 #include <forge/scene.hpp>
+#include <iostream>
 namespace forge::test {
 inline void add_graph_game_material(const std::filesystem::path& project,
                                     const std::filesystem::path& worker, bool sprite = false) {
@@ -32,6 +33,8 @@ inline void add_graph_game_material(const std::filesystem::path& project,
     // These are new assets with no live consumers yet. Preparation validates
     // their cooked content; there is no active binding compatibility to check.
     const auto no_live_consumers = [](const auto&, const auto&) {};
+    std::cout << "Preparing standalone " << (sprite ? "Sprite" : "Mesh")
+              << " graph with supervised native compiler" << std::endl;
     shaders.submit(
         shaders.prepare("Assets/Surface.shader.json"),
         [](auto& c, const auto& p, const auto&) { prepare_shader_publication(c, p); },
@@ -44,6 +47,7 @@ inline void add_graph_game_material(const std::filesystem::path& project,
         throw std::runtime_error(
             "Graph game Shader failed: " +
             (shader_result.empty() ? std::string("no result") : shader_result[0].diagnostic));
+    std::cout << "Standalone graph Shader published" << std::endl;
     auto material = MaterialSource::create(AssetId::generate());
     material.document["version"] = 2;
     material.document["overrides"]["model"] = surface_material_model;

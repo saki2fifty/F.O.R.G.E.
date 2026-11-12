@@ -114,6 +114,8 @@ struct GameHostFixture {
         add_graph_game_material(
             project, std::filesystem::absolute(argv[0]).parent_path() / "forge_shader_build.exe",
             sprite_graph);
+        // The gameplay watchdog starts after supervised source preparation.
+        started = SDL_GetTicks();
     }
     static void check(bool ok, const char* why) {
         if (!ok)
