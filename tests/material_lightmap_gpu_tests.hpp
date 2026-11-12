@@ -4,13 +4,18 @@
 #include "hdr_bloom_gpu_tests.hpp"
 #include "material_lightmap_fixture.hpp"
 #include "mesh_draw_shader.hpp"
+#include <functional>
 #include <map>
 #include <numbers>
 #include <tuple>
 namespace forge::lightmap_test {
-inline void exercise_graph_gpu(DiligentPresentation&, Diligent::IDeviceContext*);
+using FailureCapture =
+    std::function<void(Diligent::IShader*, std::string_view, const nlohmann::json&)>;
+inline void exercise_graph_gpu(DiligentPresentation&, Diligent::IDeviceContext*,
+                               const FailureCapture& = {});
 // Source-level native execution, separate from the Windows cooked Shader path.
-inline void exercise_gpu(DiligentPresentation& presentation, Diligent::IDeviceContext* context) {
+inline void exercise_gpu(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
+                         const FailureCapture& failure_capture = {}) {
     using namespace Diligent;
     using test_bloom::check;
     using Row = test_bloom::Pixel;
@@ -132,10 +137,11 @@ float4 main():SV_Target0 {
     }
     std::cout << "Imported irradiance native source: " << cases
               << " analytical/invalid cases, worst absolute error " << worst << '\n';
-    exercise_graph_gpu(presentation, context);
+    exercise_graph_gpu(presentation, context, failure_capture);
 }
 inline void exercise_graph_gpu(DiligentPresentation& presentation,
-                               Diligent::IDeviceContext* context) {
+                               Diligent::IDeviceContext* context,
+                               const FailureCapture& failure_capture) {
     using namespace Diligent;
     using test_bloom::check;
     using Row = test_bloom::Pixel;
@@ -413,12 +419,50 @@ Response main(float4 position:SV_Position) {
         constants.at("ForgeSurfaceMaterial") = std::move(values);
         const auto [color, indirect] = render();
         for (unsigned i = 0; i < color.size(); ++i)
-            if (color[i] != Row{1, 0, 1, 1} || indirect[i] != Row{})
+            if (color[i] != Row{1, 0, 1, 1} || indirect[i] != Row{}) {
+                if (failure_capture) {
+                    BufferDesc desc;
+                    desc.Name = "FORGE lightmap failure input readback";
+                    desc.Size = constants.at("ForgeSurfaceMaterial").size();
+                    desc.Usage = USAGE_STAGING;
+                    desc.CPUAccessFlags = CPU_ACCESS_READ;
+                    RefCntAutoPtr<IBuffer> copy;
+                    device->CreateBuffer(desc, nullptr, &copy);
+                    check(bool(copy), "Lightmap diagnostic readback allocation failed");
+                    context->CopyBuffer(buffers.at("ForgeSurfaceMaterial"), 0,
+                                        RESOURCE_STATE_TRANSITION_MODE_TRANSITION, copy, 0,
+                                        desc.Size, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                    context->WaitForIdle();
+                    void* mapped = nullptr;
+                    context->MapBuffer(copy, MAP_READ, MAP_FLAG_DO_NOT_WAIT, mapped);
+                    check(mapped != nullptr, "Lightmap diagnostic readback unavailable");
+                    std::array<float, 3> gain;
+                    std::memcpy(gain.data(),
+                                static_cast<const std::byte*>(mapped) + gain_binding->offset,
+                                sizeof(gain));
+                    context->UnmapBuffer(copy, MAP_READ);
+                    nlohmann::json parameters = nlohmann::json::array();
+                    for (const auto& p : layout.parameters)
+                        parameters.push_back(
+                            {{"name", p.name}, {"offset", p.offset}, {"width", p.width}});
+                    nlohmann::json material_values = nlohmann::json::object();
+                    for (const auto& [name, value] : material.parameters)
+                        material_values[name] = value.value;
+                    failure_capture(pixel, pixel_source,
+                                    {{"poison", std::to_string(poison)},
+                                     {"pixel", i},
+                                     {"gpu_gain", gain},
+                                     {"parameters", parameters},
+                                     {"material", material_values},
+                                     {"color", color[i]},
+                                     {"indirect", indirect[i]}});
+                }
                 throw std::runtime_error(
                     "Invalid graph irradiance escaped its shared diagnostic/MRT guard: poison=" +
                     std::to_string(poison) + ", pixel=" + std::to_string(i) +
                     ", color=" + nlohmann::json(color[i]).dump() +
                     ", indirect=" + nlohmann::json(indirect[i]).dump());
+            }
         ++cases;
     }
     // Two finite contributions can overflow only when combined. Exercise each

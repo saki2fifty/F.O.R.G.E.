@@ -110,6 +110,18 @@ void save(const Pixels& pixels, unsigned width, unsigned height,
         output.write(reinterpret_cast<const char*>(p.data()), 3);
     require(bool(output.flush()), "Render evidence could not be written");
 }
+void save_shader_assembly(IShader* shader, const std::filesystem::path& path) {
+    const void* bytecode = nullptr;
+    Uint64 size = 0;
+    shader->GetBytecode(&bytecode, size);
+    ComPtr<ID3DBlob> assembly;
+    check(D3DDisassemble(bytecode, SIZE_T(size), 0, nullptr, &assembly),
+          "Native comparison disassembly failed");
+    std::ofstream file(path, std::ios::binary);
+    file.write(static_cast<const char*>(assembly->GetBufferPointer()),
+               std::streamsize(assembly->GetBufferSize()));
+    require(bool(file.flush()), "Native comparison disassembly write failed");
+}
 void check_imgui(IRenderDevice* device, IDeviceContext* context,
                  const std::filesystem::path& images) {
     TextureDesc desc;
@@ -257,7 +269,17 @@ int main(int argc, char** argv) {
             const std::string selected = argv[2];
             forge::DiligentPresentation isolated(device);
             if (selected == "lightmaps")
-                forge::lightmap_test::exercise_gpu(isolated, context);
+                forge::lightmap_test::exercise_gpu(
+                    isolated, context,
+                    [&](IShader* shader, std::string_view source, const nlohmann::json& metadata) {
+                        save_shader_assembly(shader, images / "lightmap-failure.asm");
+                        std::ofstream code(images / "lightmap-failure.hlsl", std::ios::binary);
+                        code << source;
+                        require(bool(code.flush()), "Lightmap failure source write failed");
+                        std::ofstream data(images / "lightmap-failure.json", std::ios::binary);
+                        data << metadata.dump(2);
+                        require(bool(data.flush()), "Lightmap failure metadata write failed");
+                    });
             else if (selected == "morph") {
                 // Same fixture and generated source on the same WARP adapter.
                 // Retain both compiler results/captures without changing the
@@ -375,23 +397,10 @@ int main(int argc, char** argv) {
                                 selected.ShaderCompiler = compiler;
                                 selected.ShaderOptimizationLevel = optimization;
                                 isolated.shader(selected, result);
-                                if (compiler == SHADER_COMPILER_FXC && *result) {
-                                    const void* bytecode = nullptr;
-                                    Uint64 size = 0;
-                                    (*result)->GetBytecode(&bytecode, size);
-                                    ComPtr<ID3DBlob> assembly;
-                                    check(D3DDisassemble(bytecode, SIZE_T(size), 0, nullptr,
-                                                         &assembly),
-                                          "Bloom comparison disassembly failed");
-                                    std::ofstream file(images / ("bloom-" + profile + "-" +
-                                                                 source.Desc.Name + ".asm"),
-                                                       std::ios::binary);
-                                    file.write(
-                                        static_cast<const char*>(assembly->GetBufferPointer()),
-                                        std::streamsize(assembly->GetBufferSize()));
-                                    require(bool(file.flush()),
-                                            "Bloom comparison disassembly write failed");
-                                }
+                                if (compiler == SHADER_COMPILER_FXC && *result)
+                                    save_shader_assembly(*result,
+                                                         images / ("bloom-" + profile + "-" +
+                                                                   source.Desc.Name + ".asm"));
                             },
                             [&](const auto& source, auto** result) {
                                 isolated.graphics(source, result);
