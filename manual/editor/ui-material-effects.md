@@ -148,7 +148,10 @@ Every declared texture slot needs an assignment before the effect can load.
 coordinates, call `ForgeSample_image(float2(...))`. Both forms apply the Material's
 UV offset, scale and rotation and its sampler. Changing and publishing the image
 updates its UI use without changing the Material assignment. A pending or failed
-replacement keeps the previous complete effect; inspect Problems for the reason.
+replacement keeps the previous complete effect; inspect Problems for the reason. When a
+valid replacement becomes ready, the live rendering fault clears. A source import
+or UI document error still needs its source problem corrected and published or
+reloaded.
 
 ## Include the effect in an exported game
 

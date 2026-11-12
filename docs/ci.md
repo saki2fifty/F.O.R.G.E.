@@ -48,6 +48,11 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 ## UI Material effect validation
 
 `ui_effect_profile` checks native typed Material references and dimensions.
+`ui_gradient_presenter` injects actual main/camera shader-callback faults, checks
+recovery without document reload and preserves failed source diagnostics while
+the prior native contexts render. The Windows Texture failure fixture uses an
+unsigned generation and requires the real Texture-request failure prefix before
+checking retained pixels and recovery.
 `material_pipeline` covers UI-domain publication, inheritance, retained Shader
 snapshots, source-hidden Material packages and corrupt/cancelled inputs.
 `runtime_ui_package` runs the disposable non-drawing inspector with UI Materials,

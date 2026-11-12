@@ -63,6 +63,25 @@ body,div {display:block;} body {margin:0;font-family:Lato;}
             draw();
             check(renderer.gradient_draws >= 2,
                   "Native gradient callbacks did not draw both groups");
+            renderer.fail_shader = true;
+            presenter.render();
+            check(presenter.diagnostic() == "fixture.ui.shader.realization",
+                  "Live callback failure lost its diagnostic");
+            renderer.fail_shader = false;
+            presenter.render();
+            check(presenter.diagnostic().empty(), "Recovered live callback retained a stale error");
+            renderer.fail_shader = true;
+            bool output_failed = false;
+            try {
+                presenter.render_output({output});
+            } catch (const std::exception&) {
+                output_failed = true;
+            }
+            check(output_failed && presenter.diagnostic() == "fixture.ui.shader.realization",
+                  "Camera UI callback failure did not retain its native diagnostic");
+            renderer.fail_shader = false;
+            presenter.render_output({output});
+            check(presenter.diagnostic().empty(), "Recovered camera UI retained a stale error");
             auto* first = Rml::GetContext(0);
             auto* second = Rml::GetContext(1);
             publish(180);
@@ -99,7 +118,10 @@ body,div {display:block;} body {margin:0;font-family:Lato;}
                           presenter.asset_snapshot()->sources == sources &&
                           Rml::GetContext(0) == first && Rml::GetContext(1) == second,
                       "Failed gradient candidate drew or retained resources");
+                const auto source_error = presenter.diagnostic();
                 draw();
+                check(presenter.diagnostic() == source_error,
+                      "Rendering the valid predecessor cleared its failed source diagnostic");
             }
             write(original);
             check(presenter.reload(), "Corrected gradient source did not reload");

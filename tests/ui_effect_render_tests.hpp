@@ -282,7 +282,7 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
                     draw(linear, true);
                 auto broken_texture = changed_texture;
                 auto missing = broken_texture.records().at(image);
-                missing.metadata["forge.import"]["generation"] = 3;
+                missing.metadata["forge.import"]["generation"] = std::uint64_t{3};
                 missing.metadata["forge.import"]["key"] = std::string(64, 'e');
                 broken_texture.replace(missing);
                 host->catalog(std::make_shared<const AssetCatalog>(std::move(broken_texture)));
@@ -291,7 +291,9 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
                 while (!failed_texture) {
                     try {
                         (void)renderer.resources_ready();
-                    } catch (const std::exception&) {
+                    } catch (const std::exception& error) {
+                        check(std::string_view(error.what()).starts_with("UI effect Texture: "),
+                              "Texture failure did not reach its real resource request");
                         failed_texture = true;
                     }
                     check(std::chrono::steady_clock::now() < deadline,

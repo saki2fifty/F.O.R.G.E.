@@ -27,6 +27,7 @@ struct UiTestRenderer final : Rml::RenderInterface {
     std::map<Rml::CompiledShaderHandle, forge::ui_gradient_detail::Gradient> gradients;
     bool effects_supported = false;
     unsigned effect_draws = 0;
+    bool fail_shader = false;
     std::map<Rml::CompiledShaderHandle, forge::ui_effect_detail::MaterialEffect> effects;
     Rml::CompiledShaderHandle CompileShader(const Rml::String& name,
                                             const Rml::Dictionary& parameters) override {
@@ -56,6 +57,7 @@ struct UiTestRenderer final : Rml::RenderInterface {
     }
     void RenderShader(Rml::CompiledShaderHandle shader, Rml::CompiledGeometryHandle h,
                       Rml::Vector2f, Rml::TextureHandle texture) override {
+        check(!fail_shader, "fixture.ui.shader.realization");
         if (effects.contains(shader)) {
             check(geometry.contains(h) && !texture, "Live native UI effect geometry");
             ++effect_draws;

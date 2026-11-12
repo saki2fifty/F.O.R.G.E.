@@ -1127,7 +1127,10 @@ Existing declaration, project-scope, history, Save and publication guards remain
 Source style controls offer a staged UI Material picker for the `decorator`
 property. A read-only authoring adapter loads the current cooked Material through
 the existing model/material selection owner, checks shared UI-domain admission,
-and formats one literal. The same guarded `ui.source.material_reference` query is
+and formats one literal. Live native callback diagnostics clear after a successful
+presentation walk; source/admission diagnostics remain until their source problem
+is resolved, even while the valid predecessor renders. These diagnostics share
+the existing presenter owner and public query. The same guarded `ui.source.material_reference` query is
 available through MCP; existing single/group/rule writers remain authoritative.
 Selection neither declares dependencies nor validates GPU realization. Custom
 decorator lists remain literal source; Clear stages `none` while removing the

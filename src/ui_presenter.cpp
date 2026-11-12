@@ -204,6 +204,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     struct RenderGate final : Rml::RenderInterface {
         Rml::RenderInterface& target;
         std::string& error;
+        bool& presentation_error;
         bool preparing = false;
         std::vector<std::uintptr_t>* preparation_shaders = nullptr;
         struct Layer {
@@ -211,10 +212,13 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         };
         std::vector<Layer> layers;
         Rml::LayerHandle virtual_layer = 1;
-        RenderGate(Rml::RenderInterface& r, std::string& e) : target(r), error(e) {}
+        RenderGate(Rml::RenderInterface& r, std::string& e, bool& transient)
+            : target(r), error(e), presentation_error(transient) {}
         void fail(std::string_view message) {
-            if (error.empty())
+            if (error.empty()) {
                 error.assign(message.substr(0, 2048));
+                presentation_error = true;
+            }
         }
         template <class F> auto call(F action) -> std::invoke_result_t<F> {
             try {
@@ -237,7 +241,9 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         // diagnostic when the usable predecessor rendered successfully.
         template <class F> void checked(F action, bool propagate = true) {
             auto previous = std::move(error);
+            const bool previous_presentation = presentation_error;
             error.clear();
+            presentation_error = false;
             try {
                 action();
                 if (!error.empty())
@@ -248,7 +254,8 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                     throw;
                 return;
             }
-            error = std::move(previous);
+            if (!previous_presentation)
+                error = std::move(previous);
         }
         bool blocked() const {
             return std::any_of(layers.begin(), layers.end(),
@@ -403,6 +410,15 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         }
     };
     std::string session, error, loading_prefix, failed_structure;
+    bool presentation_error = false;
+    void source_error(std::string message) {
+        error = std::move(message);
+        presentation_error = false;
+    }
+    void clear_error() {
+        error.clear();
+        presentation_error = false;
+    }
     std::unique_ptr<Rml::FontEngineInterface> shaped_font;
     std::unique_ptr<UiTextInput> text_input;
     LoadingState loading;
@@ -624,7 +640,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                 throw std::runtime_error("UI surface hit has invalid scope or coordinates");
             return hit;
         } catch (const std::exception& e) {
-            error = e.what();
+            source_error(e.what());
             return {};
         }
     }
@@ -648,7 +664,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             const auto point = surface_callbacks.project(hit);
             return point && std::isfinite((*point)[0]) && std::isfinite((*point)[1]);
         } catch (const std::exception& e) {
-            error = e.what();
+            source_error(e.what());
             return false;
         }
     }
@@ -693,7 +709,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     Impl(Rml::RenderInterface& r, std::filesystem::path p, std::vector<std::byte> f,
          UiPlatformCallbacks hooks, Rml::TextInputHandler* text_handler, bool shape_text,
          bool grapheme_editing)
-        : renderer(r, error), platform(std::move(hooks)), project(std::move(p)),
+        : renderer(r, error, presentation_error), platform(std::move(hooks)), project(std::move(p)),
           font(std::move(f)) {
         if (presenter_active)
             throw std::runtime_error(
@@ -783,7 +799,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                                    float(std::clamp((*top)[1], 0., double(this->height - 1))),
                                    float(std::clamp(extent, 1., double(this->height))));
         } catch (const std::exception& e) {
-            error = e.what();
+            source_error(e.what());
             if (platform.deactivate_text)
                 platform.deactivate_text();
         }
@@ -795,7 +811,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     bool LogMessage(Rml::Log::Type type, const Rml::String& message) override {
         if (error.empty() && (type == Rml::Log::LT_ERROR || type == Rml::Log::LT_ASSERT ||
                               type == Rml::Log::LT_WARNING))
-            error = message.substr(0, 2048);
+            source_error(message.substr(0, 2048));
         return true;
     }
     void JoinPath(Rml::String& out, const Rml::String& base, const Rml::String& path) override {
@@ -810,7 +826,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             out = prefix + "/" + resource->second->join(base.substr(slash + 1), path);
         } catch (const std::exception& e) {
             if (error.empty())
-                error = e.what();
+                source_error(e.what());
             out = "invalid/blocked";
         }
     }
@@ -855,7 +871,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             return handle;
         } catch (const std::exception& e) {
             if (error.empty())
-                error = e.what();
+                source_error(e.what());
             return 0;
         }
     }
@@ -912,14 +928,14 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             return false;
         const auto& allowed = doc.descriptor.at("commands");
         if (std::find(allowed.begin(), allowed.end(), Json(name)) == allowed.end()) {
-            error = "UI command is not registered: " + name;
+            source_error("UI command is not registered: " + name);
             return false;
         }
         if (value) {
             try {
                 ui_protocol::validate_value(*value);
             } catch (const std::exception& e) {
-                error = e.what();
+                source_error(e.what());
                 return false;
             }
         }
@@ -991,7 +1007,7 @@ body { width:100%; height:100%; z-index:65536; }
         candidate->localization = state.value("localization", Json());
         candidate->application_states = state.value("application_states", Json());
         resources[candidate->name] = candidate->resources;
-        error.clear();
+        clear_error();
         loading_prefix = candidate->name;
         try {
             if (draft)
@@ -1225,7 +1241,7 @@ body { width:100%; height:100%; z-index:65536; }
             loading_prefix.clear();
             const std::string failure = e.what();
             retire(candidate);
-            error = failure;
+            source_error(failure);
             return {};
         }
     }
@@ -1448,7 +1464,7 @@ void UiPresenter::reset(std::string session, std::uint64_t generation) {
     s.current = nullptr;
     s.preview_request.clear();
     s.prepared_outputs.clear();
-    s.error.clear();
+    s.clear_error();
     s.failed_structure.clear();
     s.replica.reset(s.session, generation);
 }
@@ -1508,7 +1524,7 @@ bool UiPresenter::activate_prepared(std::uint64_t ticket) noexcept {
     s.pending.clear();
     s.command_id = 0;
     s.failed_structure.clear();
-    s.error.clear();
+    s.clear_error();
     ++s.presentation_revision;
     return true;
 }
@@ -1853,7 +1869,7 @@ bool UiPresenter::text(const std::string& t) {
     try {
         ui_protocol::validate_value(t);
     } catch (const std::exception& e) {
-        s.error = e.what();
+        s.source_error(e.what());
         return true;
     }
     auto* context = s.input_context(s.focus_output);
@@ -2448,7 +2464,7 @@ void UiPresenter::acknowledge(const Json& ack) {
         ack.at("id") != s.pending.front().at("id"))
         return;
     if (!ack.at("ok").get<bool>())
-        s.error = ack.value("error", "UI command rejected");
+        s.source_error(ack.value("error", "UI command rejected"));
     s.pending.pop_front();
 }
 const std::string& UiPresenter::diagnostic() const { return impl_->error; }
