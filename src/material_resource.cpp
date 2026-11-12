@@ -10,6 +10,8 @@ void validate_render_material(const MaterialResourceData& data) {
             throw std::runtime_error("Material has an invalid cooked surface dependency");
         validate_shader(data.surface->program);
         validate_surface_material(data.values, *data.surface->program.surface);
+        if (data.surface->program.surface->ui_effect && !data.render_textures.empty())
+            throw std::runtime_error("UI effect Materials require ordinary published Textures");
     } else
         (void)prepare_pbr_material(data.values);
 }

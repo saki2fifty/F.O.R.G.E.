@@ -222,7 +222,7 @@ body,div {display:block;} body {margin:0;font-family:Lato;}
                                 assets->sources.begin(), assets->sources.end(),
                                 [](const auto& source) {
                                     return source.source == "Gradient.rml" &&
-                                           source.details.at("runtime_features").at("effects") == 1;
+                                           source.details.at("runtime_features").at("effects") == 2;
                                 }),
                   "Native shader source did not record its required runtime feature");
             check(renderer.effect_draws == 0, "UI effect preparation drew a framebuffer");

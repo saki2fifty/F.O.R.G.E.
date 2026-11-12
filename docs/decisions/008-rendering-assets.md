@@ -81,6 +81,21 @@ publication/export. Old Mesh/Sprite interfaces and packet roles retain their
 meaning; this extension changes neither Scene identities nor the C host table.
 Native execution and delivery evidence remain separate validation gates.
 
+2026-11-12 additive Texture extension: definition5/wrapper18 adds ordinary 2D
+Material Texture slots to the same single UI Pixel role. Definition4/wrapper17
+retains its numeric meaning; no authored identities or C host table change.
+The existing host's Texture pool and GPU residency supply complete immutable
+Material/Texture selections. UI bundles include all resource identities, refresh
+on independent Texture publication, retain last-good selections through failure
+and mark sampled GPU use at every draw. Native UI still owns geometry/opacity.
+Array/cube/volume and camera RenderTexture sampling remain outside this domain.
+
+UI snapshots now require effects2 and kits advertise runtime_ui_effects:2. The
+exporter accepts prior effects1 records through the matching new kit. Requiring
+that kit conservatively also protects a retained newer Material Shader snapshot
+whose current logical Shader publication has changed or is omitted from closure.
+There is no alternate authoring or dependency database for this extension.
+
 ## Current evidence and implementation boundary
 
 Current editor/viewport.cpp draws CPU blockout geometry and has no production

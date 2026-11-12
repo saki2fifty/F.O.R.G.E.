@@ -1094,8 +1094,11 @@ so a contained alias cannot cross source ownership. Shader declaration changes
 preserve their identity; `source_shader_create` mints a new identity and validates
 stages. Its optional `surface` object selects the existing version2 surface-function
 source; an omitted surface keeps a general version1 stage program. UI effects use
-surface version4, `domain:"ui"`, UV0, numeric defaults, no textures and one Pixel
-function. Existing text write, Shader import, Material source/publication and
+`domain:"ui"`, UV0 and one Pixel function: surface version4 has numeric defaults
+and no textures; version5 adds ordinary 2D Material Texture slots with the same
+sampler/UV value representation. Empty version5 and textured version4 reject.
+The existing guarded Material reference query and single/group/rule source writers
+also accept published textured UI Materials. Existing text write, Shader import, Material source/publication and
 Runtime Dependencies tools complete the workflow; there is no separate compiler
 or effect database for agents. Compilation stays in the existing shader importer/worker. UI register and
 example tools use the existing UI catalog admission; live reload stays separate.

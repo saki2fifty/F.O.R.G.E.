@@ -1,6 +1,7 @@
 #pragma once
 #include "mesh_shader_input.hpp"
 #include <cstring>
+#include <forge/material_resource.hpp>
 #include <forge/shader_asset.hpp>
 #include <forge/surface_shader.hpp>
 inline void check_surface_shader() {
@@ -375,4 +376,101 @@ inline void check_surface_shader() {
     check(ui_restored.surface == ui && ui_restored.surface_wrapper_version == 17 &&
               ui_restored.stages.size() == 1 && ui_restored.stages[0].reflection == ui_reflection,
           "Cooked UI domain/role/reflection did not round trip");
+    auto textured_ui = ui;
+    textured_ui.textures["image"].semantic = TextureSemantic::Color;
+    textured_ui.textures["image"].scale = {-2, 0};
+    textured_ui.textures["image"].offset = {3, 4};
+    const auto textured_document = surface_definition_document(textured_ui);
+    check(textured_document.at("version") == 5 &&
+              surface_definition(textured_document) == textured_ui,
+          "Textured UI interface lost its explicit capability or signed/zero UV intent");
+    auto invalid_document = textured_document;
+    invalid_document["version"] = 4;
+    reject([&] { surface_definition(invalid_document); });
+    invalid_document = ui_document;
+    invalid_document["version"] = 5;
+    reject([&] { surface_definition(invalid_document); });
+    auto invalid_textured_ui = textured_ui;
+    invalid_textured_ui.textures.at("image").dimension = TextureDimension::D2Array;
+    reject([&] { validate_surface_definition(invalid_textured_ui); });
+    reject([&] { surface_shader_roles(textured_ui, 17); });
+    check(surface_shader_roles(textured_ui, 18).size() == 1,
+          "Textured UI gained non-UI geometry stages");
+    const auto textured_header = ui_surface_shader_header(textured_ui);
+    check(
+        textured_header.find("Texture2D<float4> g_SurfaceTexture_image") != textured_header.npos &&
+            textured_header.find("ForgeSample_image(ForgeUiInput input)") != textured_header.npos &&
+            textured_header.find("ForgeSample_image(ForgeUV0(input))") != textured_header.npos &&
+            textured_header.find("input.UV[") == textured_header.npos &&
+            textured_header.find("ForgeSurfaceInput") == textured_header.npos,
+        "UI Texture helpers lost native UV input or introduced Mesh geometry");
+    auto textured_reflection = ui_reflection;
+    auto uv_field = field("unused", 0, 4);
+    uv_field["name"] = "g_SurfaceUvRows";
+    uv_field["array_size"] = 2;
+    textured_reflection["resources"].push_back({{"name", "ForgeSurfaceUV"},
+                                                {"kind", "constant_buffer"},
+                                                {"array_size", 1},
+                                                {"size", 32},
+                                                {"variables", Json::array({uv_field})},
+                                                {"register", 2},
+                                                {"space", 0},
+                                                {"dimension", "unknown"}});
+    textured_reflection["resources"].push_back({{"name", "g_SurfaceTexture_image"},
+                                                {"kind", "texture_srv"},
+                                                {"array_size", 1},
+                                                {"dimension", "texture2d"},
+                                                {"register", 0},
+                                                {"space", 0}});
+    textured_reflection["resources"].push_back({{"name", "g_SurfaceSamplers"},
+                                                {"kind", "sampler"},
+                                                {"array_size", 1},
+                                                {"register", 0},
+                                                {"space", 0},
+                                                {"dimension", "unknown"}});
+    const auto textured_layout = surface_binding_layout(textured_ui, textured_reflection,
+                                                        ShaderEntryRole::SurfaceUiColor, 18);
+    check(textured_layout.uv_bytes == 32 && textured_layout.sampler_count == 1 &&
+              textured_layout.textures == std::vector<std::string>{"image"} &&
+              surface_uv_rows(surface_material_defaults(textured_ui), textured_ui) ==
+                  std::vector<std::array<float, 4>>{{-2, 0, 3, 0}, {0, 0, 4, 0}},
+          "UI Texture reflection or shared UV packing differs from Material intent");
+    reject([&] {
+        surface_binding_layout(textured_ui, textured_reflection, ShaderEntryRole::SurfaceUiColor,
+                               17);
+    });
+    for (unsigned mode = 0; mode < 5; ++mode) {
+        auto malformed = textured_reflection;
+        if (mode == 0)
+            malformed["resources"][3]["dimension"] = "texture3d";
+        else if (mode == 1)
+            malformed["resources"][3]["name"] = "g_SurfaceTexture_undeclared";
+        else if (mode == 2)
+            malformed["resources"][4]["array_size"] = 2;
+        else if (mode == 3)
+            malformed["resources"][2]["variables"][0]["offset"] = 16;
+        else
+            malformed["resources"][2]["size"] = 16;
+        reject([&] {
+            surface_binding_layout(textured_ui, malformed, ShaderEntryRole::SurfaceUiColor, 18);
+        });
+    }
+    auto textured_program = ui_program;
+    textured_program.surface = textured_ui;
+    textured_program.surface_wrapper_version = 18;
+    textured_program.stages[0].reflection = textured_reflection;
+    check(decode_shader(encode_shader(textured_program)).surface == textured_ui,
+          "Cooked UI Texture capability/reflection did not round trip");
+    MaterialResourceData textured_material;
+    textured_material.values = surface_material_defaults(textured_ui);
+    textured_material.surface =
+        MaterialShaderSnapshot{{AssetId::generate()}, std::string(64, 'c'), textured_program};
+    reject([&] { validate_ui_effect_material(textured_material); });
+    textured_material.textures["image"] = {AssetId::generate()};
+    validate_ui_effect_material(textured_material);
+    auto invalid_resource = textured_material;
+    invalid_resource.textures.clear();
+    invalid_resource.render_textures["image"] = {AssetId::generate()};
+    reject([&] { validate_render_material(invalid_resource); });
+    reject([&] { validate_ui_effect_material(invalid_resource); });
 }

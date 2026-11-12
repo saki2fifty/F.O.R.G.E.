@@ -395,7 +395,8 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
         require(features->is_object(), "Invalid UI source runtime features");
         for (const auto& [name, version] : features->items()) {
             if (name == "effects") {
-                require(version.is_number_integer() && version == ui_effect_detail::profile_version,
+                require(version.is_number_integer() && version >= 1 &&
+                            version <= ui_effect_detail::profile_version,
                         "Unsupported UI effect runtime profile");
                 const auto support = engine.find("runtime_ui_effects");
                 require(support != engine.end() && support->is_number_integer() &&

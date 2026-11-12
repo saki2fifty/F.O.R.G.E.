@@ -214,7 +214,7 @@ int main(int argc, char** argv) {
             const auto asset = register_ui_document(effect_project, "effect.rml");
             const auto inspected =
                 inspect_ui_dependencies(worker, font_path, effect_project, asset.id);
-            check(inspected.sources.front().details.at("runtime_features") == Json{{"effects", 1}},
+            check(inspected.sources.front().details.at("runtime_features") == Json{{"effects", 2}},
                   "Native UI inspection omitted its project effect capability");
             asset_storage::replace(effect_project / "effect.rml", markup(AssetId::generate()));
             rejects([&] { inspect_ui_dependencies(worker, font_path, effect_project, asset.id); },

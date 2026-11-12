@@ -172,7 +172,8 @@ struct ProjectSourceAutomation : ProjectTextSource {
                   {{"type", "object"},
                    {"maxProperties", 16},
                    {"description", "Optional logical surface interface, validated by the Shader "
-                                   "owner. UI effects use interface version4 and domain ui."}}},
+                                   "owner. UI effects use domain ui: version4 is numeric; version5 "
+                                   "adds ordinary 2D Textures."}}},
                  {"stages",
                   {{"type", "array"},
                    {"minItems", 1},

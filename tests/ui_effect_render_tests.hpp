@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "material_authoring.hpp"
 #include "mesh_render_host.hpp"
+#include "published_texture_fixture.hpp"
 #include "runtime_dependencies.hpp"
 #include "runtime_package.hpp"
 #include "shader_authoring.hpp"
@@ -15,6 +16,7 @@
 #include <forge/ui_diligent.hpp>
 #include <forge/ui_presenter.hpp>
 #include <fstream>
+#include <set>
 #include <thread>
 
 namespace forge::test_ui_effect {
@@ -40,22 +42,61 @@ template <class Read8, class Read16, class Save>
 void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context,
               const std::filesystem::path& images, const std::filesystem::path& font,
               const std::filesystem::path& worker, const std::filesystem::path& inspector,
-              Read8 read8, Read16 read16, Save save) {
+              Read8 read8, Read16 read16, Save save, bool textured = false) {
     using namespace Diligent;
     using namespace asset_detail;
     using namespace std::chrono_literals;
+    std::filesystem::create_directories(images);
     const auto root = images / ("project-" + AssetId::generate().str());
     std::filesystem::create_directories(root / "Shaders");
     const auto shader = AssetId::generate();
-    write(root / "effect.shader.json", test::ui_effect_document(shader).dump());
-    write(root / "Shaders/ui.hlsl", test::ui_effect_source);
+    write(root / "effect.shader.json", test::ui_effect_document(shader, textured).dump());
+    write(root / "Shaders/ui.hlsl",
+          textured ? test::ui_texture_effect_source() : std::string(test::ui_effect_source));
     auto material = MaterialSource::create(AssetId::generate());
     material.document["version"] = 2;
     material.document["overrides"]["shader"] = AssetRef<ShaderAsset>{shader};
     write(root / "effect.material.json", material.document.dump());
     AssetCatalog catalog(root);
-    catalog.add({shader, "shader", "effect.shader.json", 1, {}});
-    catalog.add({material.asset(), "material", "effect.material.json", 1, {}});
+    catalog.add(
+        {shader, "shader", "effect.shader.json", 1, {}, nlohmann::json::object(), {}, {}, {}});
+    catalog.add({material.asset(),
+                 "material",
+                 "effect.material.json",
+                 1,
+                 {},
+                 nlohmann::json::object(),
+                 {},
+                 {},
+                 {}});
+    const auto image = AssetId::generate();
+    const auto pixel = [](unsigned index, unsigned channel, bool alternate) {
+        return ((index == channel || index == 3) != alternate) ? 1. : 0.;
+    };
+    const auto publish_image = [&](AssetCatalog& selected, unsigned generation, bool alternate) {
+        TextureData texture;
+        texture.width = texture.height = 2;
+        texture.format = TextureFormat::RGBA8Srgb;
+        texture.semantic = TextureSemantic::Color;
+        texture.alpha = TextureAlpha::Straight;
+        auto& bytes = texture.subresources.emplace_back();
+        for (unsigned at = 0; at < 4; ++at) {
+            for (unsigned channel = 0; channel < 3; ++channel)
+                bytes.push_back(pixel(at, channel, alternate) ? std::byte{255} : std::byte{0});
+            bytes.push_back(std::byte{255});
+        }
+        test::publish_texture_fixture(root, selected, image, texture, generation);
+    };
+    if (textured) {
+        publish_image(catalog, 1, false);
+        material.document["overrides"]["textures"]["image"] = {
+            {"asset", image},
+            {"slot",
+             material_values_document(surface_material_defaults(test::ui_effect_definition(true)))
+                 .at("textures")
+                 .at("image")}};
+        write(root / "effect.material.json", material.document.dump());
+    }
     catalog.save(AssetCatalog::project_index(root));
     auto lease = std::make_shared<ProjectLease>(root);
     {
@@ -133,7 +174,9 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
             }
         };
         ready();
-        const auto draw = [&](bool linear, bool green, bool timed = false) {
+        bool alternate_image = false;
+        const auto draw = [&](bool linear, bool green, bool timed = false,
+                              bool expect_diagnostic = false) {
             TextureDesc desc;
             desc.Name = "FORGE project UI effect oracle";
             desc.Type = RESOURCE_DIM_TEX_2D;
@@ -151,13 +194,16 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
             renderer.begin(context, view, 320, 160);
             presenter.render();
             renderer.end();
-            check(presenter.diagnostic().empty(), presenter.diagnostic());
+            check(expect_diagnostic ? !presenter.diagnostic().empty()
+                                    : presenter.diagnostic().empty(),
+                  "UI effect diagnostic state differs: " + presenter.diagnostic());
             const auto bytes = linear ? decltype(read8(view)){} : read8(view);
             const auto halves = linear ? read16(view) : decltype(read16(view)){};
             const auto srgb = [](double value) {
                 return value <= .0031308 ? value * 12.92 : 1.055 * std::pow(value, 1 / 2.4) - .055;
             };
-            for (const auto point : {std::pair{60, 40}, {100, 60}, {150, 40}, {60, 90}, {10, 10}}) {
+            for (const auto& point :
+                 {std::pair{60, 40}, {100, 60}, {150, 40}, {60, 90}, {10, 10}}) {
                 const auto [x, y] = point;
                 const bool inside = x >= 20 && x < 140 && y >= 20 && y < 80;
                 std::array<double, 4> expected{0, 0, 1, 1};
@@ -166,6 +212,13 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
                     const auto u = (x + .5 - 20) / 160 + (timed ? .25 : 0);
                     std::array<double, 3> color{green ? 0 : u - std::floor(u), (y + .5 - 20) / 80,
                                                 green ? 0. : 1.};
+                    if (textured) {
+                        const auto raw_u = (x + .5 - 20) / 160;
+                        const auto raw_v = (y + .5 - 20) / 80;
+                        const unsigned index = unsigned((1 - raw_u) * 2) + unsigned(raw_v * 2) * 2;
+                        for (unsigned c = 0; c < 3; ++c)
+                            color[c] *= pixel(index, c, alternate_image);
+                    }
                     for (unsigned c = 0; c < 3; ++c)
                         expected[c] = (linear ? color[c] : srgb(color[c])) * alpha +
                                       background[c] * (1 - alpha);
@@ -207,6 +260,54 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
             ready();
             for (const bool linear : {false, true})
                 draw(linear, true);
+            if (textured) {
+                auto changed_texture = AssetCatalog::open_project(root);
+                const auto material_record = [&](const AssetCatalog& selected) {
+                    const auto document = selected.document();
+                    for (const auto& row : document.at("assets"))
+                        if (row.at("id").get<AssetId>() == material.asset())
+                            return nlohmann::json(row);
+                    throw std::runtime_error("UI Material fixture record is missing");
+                };
+                const auto material_before = material_record(changed_texture);
+                publish_image(changed_texture, 2, true);
+                changed_texture.save(AssetCatalog::project_index(root));
+                check(material_record(changed_texture) == material_before,
+                      "Texture-only fixture changed its Material publication");
+                host->catalog(std::make_shared<const AssetCatalog>(changed_texture));
+                draw(false, true); // No owner pump: retain the old complete image.
+                ready();
+                alternate_image = true;
+                for (bool linear : {false, true})
+                    draw(linear, true);
+                auto broken_texture = changed_texture;
+                auto missing = broken_texture.records().at(image);
+                missing.metadata["forge.import"]["generation"] = 3;
+                missing.metadata["forge.import"]["key"] = std::string(64, 'e');
+                broken_texture.replace(missing);
+                host->catalog(std::make_shared<const AssetCatalog>(std::move(broken_texture)));
+                bool failed_texture = false;
+                const auto deadline = std::chrono::steady_clock::now() + 10s;
+                while (!failed_texture) {
+                    try {
+                        (void)renderer.resources_ready();
+                    } catch (const std::exception&) {
+                        failed_texture = true;
+                    }
+                    check(std::chrono::steady_clock::now() < deadline,
+                          "Missing UI Texture revision did not report failure");
+                    host->pump();
+                    std::this_thread::sleep_for(1ms);
+                }
+                draw(false, true, false,
+                     true); // Failed candidate retains sampled last-good pixels.
+                publish_image(changed_texture, 4, false);
+                changed_texture.save(AssetCatalog::project_index(root));
+                host->catalog(std::make_shared<const AssetCatalog>(changed_texture));
+                ready();
+                alternate_image = false;
+                draw(false, true);
+            }
             const auto before =
                 read_bytes(AssetCatalog::project_index(root), max_asset_index_bytes);
             material.document["overrides"]["parameters"]["tint"]["type"] =
@@ -288,8 +389,14 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
     const auto relocated = images / ("relocated-content-" + document.id.str());
     std::filesystem::rename(packaged, relocated);
     const auto cooked = open_runtime_content(relocated, {"windows", "d3d12"});
-    check(cooked.records().contains(material.asset()) &&
-              !std::filesystem::exists(relocated / "Shaders") &&
+    std::set<AssetId> expected{document.id, material.asset()}, actual;
+    if (textured)
+        expected.insert(image);
+    for (const auto& [id, record] : cooked.records()) {
+        (void)record;
+        actual.insert(id);
+    }
+    check(actual == expected && !std::filesystem::exists(relocated / "Shaders") &&
               !std::filesystem::exists(relocated / "effect.shader.json") &&
               !std::filesystem::exists(relocated / "effect.material.json"),
           "UI effect package lost its Material closure or retained authored sources");

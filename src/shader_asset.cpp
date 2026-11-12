@@ -477,7 +477,8 @@ std::span<const ShaderEntryRole> surface_shader_roles(const SurfaceShaderDefinit
     require(version >= 1 && version <= current_surface_wrapper_version,
             "Unsupported surface entry capability");
     if (definition.ui_effect) {
-        require(version >= 17, "UI surfaces require their UI wrapper capability");
+        require(version >= (definition.textures.empty() ? 17u : 18u),
+                "UI surfaces require their UI Texture wrapper capability");
         static constexpr ShaderEntryRole ui[]{ShaderEntryRole::SurfaceUiColor};
         return ui;
     }

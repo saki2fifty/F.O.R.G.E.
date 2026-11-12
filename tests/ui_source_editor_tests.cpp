@@ -126,9 +126,12 @@ void exercise(const std::filesystem::path& output, int width,
     };
     if (mode == SourceControls::MaterialEffects) {
         const auto fixture = test::ui_material_authoring_fixture(project.writer_guard());
-        const auto material = fixture.at("ui").get<AssetId>();
+        const auto material = fixture.at("ui_texture").get<AssetId>();
         resource_catalog = std::make_shared<AssetCatalog>(AssetCatalog::open_project(root));
         const auto published = asset_storage::read(root / "forge.assets.json");
+        check(ui_material_reference(*resource_catalog, fixture.at("ui").get<AssetId>())
+                      .at("shader") == fixture.at("shader"),
+              "Procedural UI Material compatibility changed");
         const auto reference = ui_material_reference(*resource_catalog, material);
         const auto value = reference.at("value").get<std::string>();
         check(reference.at("shader") == fixture.at("shader") &&

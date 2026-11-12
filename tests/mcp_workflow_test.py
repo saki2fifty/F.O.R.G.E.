@@ -403,6 +403,25 @@ for legacy in selected_protocols:
                                  stages=[dict(stage='pixel', source='UiEffect.hlsl', entry='Shade')])
                 assert not refused['ok'] and not (root / 'Game' / path).exists(), refused
 
+            # The same guarded source operation carries the additive UI Texture profile.
+            ui_image = dict(semantic=0, dimension=0, uv_set=0, offset=[.25, .5], scale=[-2, 0],
+                            rotation=0, sampler=dict(min=1, mag=1, mip=1, u=0, v=0, w=0,
+                            compare=0, anisotropy=1, lod_bias=0, min_lod=0, max_lod=1000,
+                            border=[0, 0, 0, 0]))
+            ui_textured = dict(ui_surface, version=5, textures=dict(image=ui_image))
+            textured = ok('forge_source_shader_create', path='Assets/UiTexture.shader.json',
+                          source_root='Assets/Shaders', surface=ui_textured,
+                          stages=[dict(stage='pixel', source='UiEffect.hlsl', entry='Shade')])
+            descriptor = json.loads(text('Assets/UiTexture.shader.json')['text'])
+            assert descriptor['asset_id'] == textured['asset'] and descriptor['surface'] == ui_textured
+            for version, bindings in [(4, dict(image=ui_image)), (5, {})]:
+                path = 'Assets/InvalidUiTexture-' + str(version) + '.shader.json'
+                refused = mutate('forge_source_shader_create', path=path,
+                                 source_root='Assets/Shaders',
+                                 surface=dict(ui_surface, version=version, textures=bindings),
+                                 stages=[dict(stage='pixel', source='UiEffect.hlsl', entry='Shade')])
+                assert not refused['ok'] and not (root / 'Game' / path).exists(), refused
+
         def navigation_floor():
             floor = ok('forge_entity_create', arguments=dict(kind=0, name='Navigation floor'))['results'][0]['selected']
             floor_row = next(row for row in read('forge_scene_read')['entities'] if row['id'] == floor)

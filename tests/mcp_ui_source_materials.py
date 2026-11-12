@@ -8,9 +8,11 @@ def check_material_source(read, ok, mutate, root, advertised, client, arguments,
     initial = read('forge_ui_source_read')
     catalog = (root / 'Game/forge.assets.json').read_bytes()
     disk = (root / 'Game/Assets/Hud.rml').read_bytes()
-    reference = read('forge_ui_source_material_reference', **guard(), asset=fixture['ui'])
-    assert reference['asset'] == fixture['ui'] and reference['shader'] == fixture['shader']
-    assert reference['value'] == 'shader("material:' + fixture['ui'] + '")'
+    procedural = read('forge_ui_source_material_reference', **guard(), asset=fixture['ui'])
+    assert procedural['shader'] == fixture['shader'] and procedural['asset'] == fixture['ui']
+    reference = read('forge_ui_source_material_reference', **guard(), asset=fixture['ui_texture'])
+    assert reference['asset'] == fixture['ui_texture'] and reference['shader'] == fixture['shader']
+    assert reference['value'] == 'shader("material:' + fixture['ui_texture'] + '")'
     assert len(reference['shader_revision']) == 64
     assert advertised['forge_ui_source_material_reference']['annotations']['readOnlyHint']
     assert read('forge_ui_source_read') == initial
@@ -21,11 +23,11 @@ def check_material_source(read, ok, mutate, root, advertised, client, arguments,
         failed(client.tool('forge_ui_source_material_reference',
                            target=arguments()['target'], **guard(), asset=asset), 'ui_material_reference')
         assert read('forge_ui_source_read') == initial
-    path = root / 'Game/Assets/Effect.material.json'
+    path = root / 'Game/Assets/TexturedEffect.material.json'
     hidden = path.with_suffix('.hidden')
     path.rename(hidden)
     try:
-        assert read('forge_ui_source_material_reference', **guard(), asset=fixture['ui']) == reference
+        assert read('forge_ui_source_material_reference', **guard(), asset=fixture['ui_texture']) == reference
     finally:
         hidden.rename(path)
     paragraph = next(row['index'] for row in initial['elements'] if row['tag'] == 'p')
@@ -36,7 +38,7 @@ def check_material_source(read, ok, mutate, root, advertised, client, arguments,
     assert first['ok'] and replay['ok'] and first['result'] == replay['result']
     assigned = read('forge_ui_source_read')
     failed(client.tool('forge_ui_source_material_reference', target=args['target'],
-                       **old, asset=fixture['ui']), 'stale_ui_source')
+                       **old, asset=fixture['ui_texture']), 'stale_ui_source')
     assert read('forge_ui_source_style_read', **guard(), element=paragraph,
                 name='decorator')['value'] == reference['value']
     assert edit('undo')['text'] == initial['text']
@@ -56,7 +58,7 @@ def check_material_source(read, ok, mutate, root, advertised, client, arguments,
     ok('forge_source_text_write', path='Assets/Effects.rcss', state='missing', text=css)
     opened = ok('forge_ui_source_open', path='Assets/Effects.rcss')
     assert (root / 'Game/Assets/Effects.rcss').read_bytes() == css.encode()
-    assert read('forge_ui_source_material_reference', **guard(), asset=fixture['ui']) == reference
+    assert read('forge_ui_source_material_reference', **guard(), asset=fixture['ui_texture']) == reference
     edit('rule_property', rule=0, name='decorator', value=reference['value'])
     changed = read('forge_ui_source_read')
     assert changed['dirty'] and '/*keep*/' in changed['text']

@@ -3741,3 +3741,15 @@ production Main window or physical Windows/GPU acceptance. The publication uses
 opaque CPU Shader markers, never GPU submission; no effect-rendering proof follows
 from this control screenshot. Prior Shader import and other canonical figures
 retain their existing attribution.
+
+
+## UI Material Texture guide image reuse
+
+The 2D Texture section uses the existing Shader import and UI Material picker
+captures already attributed above; their visible controls and the procedural
+example remain supported. No controls or image pixels were retouched. Texture
+assignment uses the existing Material Texture slots workflow. Offline browser
+review covers the assignment, new texture example and export/limits sections at
+1180 and700pixels; these are manual-page layout captures, not new editor or
+physical GPU acceptance. Actual Windows textured sampling/replacement/relocation
+runs through the native `ui_effect_render` fixture as a separate gate.

@@ -1,6 +1,6 @@
 # Shader-backed material surfaces
 
-Mesh, Sprite and procedural UI surfaces share the existing asset publication,
+Mesh, Sprite and UI surfaces share the existing asset publication,
 dependency graph, resource leases and complete GPU candidate path. Selected native
 Windows/WARP fixtures pass; final package and physical GPU acceptance remain
 separate. The interface adds no scene identity, ECS hierarchy or ABI1 change.
@@ -37,28 +37,41 @@ interface does not silently insert the built-in PBR lighting calculation.
 ## UI pixel interface
 
 Surface definition4 requires `domain:"ui"`, unlit output, UV set `[0]`, numeric
-parameters and an empty texture map. Optional labels use existing parameter keys.
+parameters and an empty texture map. Additive definition5 requires a nonempty map
+of ordinary 2D Texture slots with the existing semantic, UV transform and sampler
+values. Definition4 retains its original meaning and bytes; definition5 cannot be
+used to reinterpret an old numeric declaration. Optional labels use existing parameter keys.
 A version2 Shader source declares exactly one Pixel function, for example
 `float4 Shade(ForgeUiInput input)`. `engine/forge.surface.hlsli` exposes `input.UV`,
 `input.Size` in native element pixels, `input.Time` in presentation seconds,
 `ForgeUV0(input)` and the existing `ForgeParameter_name()` getters. Time continues
 with presentation updates rather than depending on the simulation step.
 
-Wrapper17 emits only `SurfaceUiColor` / `ForgeSurfaceUiColor`. Native UI keeps
+Wrapper17 emits only `SurfaceUiColor` / `ForgeSurfaceUiColor`; textured definition5
+requires wrapper18 with that same single Pixel role. `ForgeSample_name(input)`
+uses native UV0; its explicit-coordinate overload takes `float2`. Both apply the
+Material's signed/zero UV transform and sampler through shared surface helpers.
+Native UI keeps
 vertex generation, transforms, clipping and geometry ownership. The wrapper
 admits finite linear RGBA, substitutes diagnostic magenta for nonfinite output,
 clamps alpha, applies native opacity and premultiplies once. Display targets use
 the existing linear-to-sRGB helper; linear targets retain linear RGB. UI Material
 state is Blend, two-sided, depth-test/write off. Mesh and Sprite consumers reject
-this domain; there are no texture bindings, authored vertex stages, mesh lights
-or mesh fog in this interface.
+this domain. Array/cube/volume Textures, camera RenderTextures, authored vertex
+stages, mesh lights and mesh fog are outside this UI interface.
 
 RML/RCSS selects the logical Material with
 `decorator:shader("material:<Material UUID>")`. The native callback admits the
 typed reference and finite element dimensions through one shared helper. UI and
 gradient handles share the existing256-handle bound. Material preparation uses
 the visual host's existing project-scoped resource pool; native pipelines and
-bindings retain strong immutable Material leases. Pending preparation delays
+bindings retain strong immutable Material and Texture leases. The bundle cache key
+contains every selected resource identity, including independently published Texture
+revisions. A catalog/preview observation prepares the entire detached CPU selection
+and all GPU bindings before adoption; failure retains the whole previous bundle.
+Textures share MeshResourceHost's existing pool, GPU budget and fence retirement;
+every UI draw marks its retained GPU images as used. Native bindings are destroyed
+before their resource leases. Pending preparation delays
 staged activation, and failed replacement keeps a live last-good bundle. A scene
 candidate checks only shader handles observed during its own native preparation,
 including camera-output documents. Borrowed observations retire with its ticket;
@@ -69,8 +82,11 @@ Non-drawing export inspection validates the same reference and cooked UI Materia
 without realizing GPU objects. Explicit Runtime Dependencies include the Material;
 its existing cooked bundle retains the exact Shader program, even after a newer
 incompatible Shader publication. Package execution needs neither authored HLSL nor
-Material source. UI snapshots require effects1; runtime kits declare
-`runtime_ui_effects:1`. Compilation remains in the Windows/D3D12/FXC worker.
+Material or image source. UI snapshots require effects2; matching runtime kits
+declare `runtime_ui_effects:2`. Earlier effects1 records remain readable through
+the matching new kit. A new kit is required even for legacy numeric declarations,
+because an embedded Shader snapshot can require newer Texture semantics while its
+currently published Shader record has changed to a different interface. Compilation remains in the Windows/D3D12/FXC worker.
 CPU envelope/native-admission checks and software-Vulkan built-in UI regressions
 do not establish execution of a project-authored UI program.
 

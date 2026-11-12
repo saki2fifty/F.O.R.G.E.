@@ -124,6 +124,14 @@ int main(int argc, char** argv) {
                         device, context, view, TEX_FORMAT_RGBA16_FLOAT);
                 },
                 save);
+            forge::test_ui_effect::exercise(
+                device, context, images / "textures", argv[2], argv[3], argv[5],
+                [&](ITextureView* view) { return readback(device, context, view); },
+                [&](ITextureView* view) {
+                    return readback_pixels<std::array<Diligent::Float16, 4>>(
+                        device, context, view, TEX_FORMAT_RGBA16_FLOAT);
+                },
+                save, true);
             std::cout << "Native project UI effect and relocated source-free pixels passed\n";
             return 0;
         }

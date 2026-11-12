@@ -58,24 +58,35 @@ struct UiDiligentRenderer::Impl final : Rml::RenderInterface {
     Pipelines pipelines;
     RefCntAutoPtr<IShader> vertex_shader;
     std::shared_ptr<MeshResourceHost> project_resources;
-    struct EffectBundle {
+    using EffectKey = std::vector<ResourceIdentity>;
+    struct EffectCandidate {
         ResourceLease<MaterialAsset> material;
+        std::map<std::string, ResourceTicket> tickets;
+        std::map<std::string, ResourceLease<TextureAsset>> textures;
+    };
+    struct EffectBundle {
+        // Native bindings are destroyed before their retained CPU/GPU revisions.
+        ResourceLease<MaterialAsset> material;
+        std::map<std::string, ResourceLease<TextureAsset>> textures;
+        std::map<std::string, GpuLease<TextureAsset>> images;
+        std::vector<RefCntAutoPtr<ISampler>> samplers;
         SurfaceBindingLayout layout;
         Pipelines pipelines;
         std::array<std::array<RefCntAutoPtr<IShaderResourceBinding>, 4>, 2> bindings;
-        RefCntAutoPtr<IBuffer> parameters, state;
+        RefCntAutoPtr<IBuffer> parameters, state, uv;
     };
     struct Effect {
         ui_effect_detail::MaterialEffect value;
         std::shared_ptr<EffectBundle> bundle;
-        std::optional<ResourceIdentity> failed;
+        std::optional<EffectCandidate> candidate;
+        bool current = false, failed = false;
         std::string diagnostic;
         ResourceTicket ticket{};
         std::optional<std::uint64_t> request_epoch{};
         std::weak_ptr<const asset_detail::MaterialPreviewSelection> request_preview{};
     };
     std::map<Rml::CompiledShaderHandle, Effect> effects;
-    std::map<ResourceIdentity, std::weak_ptr<EffectBundle>> effect_bundles;
+    std::map<EffectKey, std::weak_ptr<EffectBundle>> effect_bundles;
     unsigned output_format = 0;
     std::uint64_t stencil_allocations = 0;
     struct ClippingImage {
@@ -437,17 +448,30 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         bind_current();
         return handle;
     }
-    std::shared_ptr<EffectBundle> effect_bundle(ResourceLease<MaterialAsset> material) {
+    std::shared_ptr<EffectBundle> effect_bundle(EffectCandidate candidate) {
+        EffectKey key{candidate.material.identity()};
+        for (const auto& [name, texture] : candidate.textures) {
+            (void)name;
+            key.push_back(texture.identity());
+        }
         std::erase_if(effect_bundles, [](const auto& row) { return row.second.expired(); });
-        if (const auto found = effect_bundles.find(material.identity());
-            found != effect_bundles.end())
+        if (const auto found = effect_bundles.find(key); found != effect_bundles.end())
             if (auto existing = found->second.lock())
                 return existing;
-        validate_ui_effect_material(material.get());
-        const auto& data = material->surface->program;
+        validate_ui_effect_material(candidate.material.get());
+        const auto& data = candidate.material->surface->program;
         auto native = realize_renderer_shader(project_resources->presentation_, data);
         auto result = std::make_shared<EffectBundle>();
-        result->material = std::move(material);
+        result->material = std::move(candidate.material);
+        result->textures = std::move(candidate.textures);
+        for (const auto& [name, slot] : result->material->values.textures) {
+            const auto& texture = result->textures.at(name);
+            if (texture.identity().asset != result->material->textures.at(name).id ||
+                texture->dimension != slot.dimension || texture->semantic != slot.semantic)
+                throw std::runtime_error("UI effect Texture identity/semantic/dimension mismatch");
+            result->images.emplace(name, project_resources->gpu_textures_.acquire(texture));
+            result->samplers.push_back(upload_sampler(device, slot.sampler));
+        }
         result->layout =
             surface_binding_layout(*data.surface, data.stages.front().reflection,
                                    ShaderEntryRole::SurfaceUiColor, data.surface_wrapper_version);
@@ -480,6 +504,26 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
             variables.push_back(
                 {SHADER_TYPE_PIXEL, "ForgeUiState", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
         }
+        if (result->layout.uv_bytes) {
+            const auto rows = surface_uv_rows(result->material->values, *data.surface);
+            if (rows.size() * sizeof(rows.front()) != result->layout.uv_bytes)
+                throw std::runtime_error("UI effect UV layout differs from its Material");
+            buffer("FORGE UI Material UV transforms", result->layout.uv_bytes, rows.data(),
+                   result->uv);
+            variables.push_back(
+                {SHADER_TYPE_PIXEL, "ForgeSurfaceUV", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+        }
+        // Pipeline descriptors borrow these names only through creation.
+        std::vector<std::string> texture_names;
+        texture_names.reserve(result->layout.textures.size());
+        for (const auto& name : result->layout.textures)
+            texture_names.push_back("g_SurfaceTexture_" + name);
+        for (const auto& name : texture_names)
+            variables.push_back(
+                {SHADER_TYPE_PIXEL, name.c_str(), SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+        if (result->layout.sampler_count)
+            variables.push_back(
+                {SHADER_TYPE_PIXEL, "g_SurfaceSamplers", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
         result->pipelines = make_pipelines(
             vertex_shader, native.stages.at({ShaderStage::Pixel, ShaderEntryRole::SurfaceUiColor}),
             variables, true);
@@ -496,8 +540,23 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
                 if (result->state)
                     binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeUiState")
                         ->Set(result->state);
+                if (result->uv)
+                    binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeSurfaceUV")
+                        ->Set(result->uv);
+                for (const auto& name : result->layout.textures)
+                    binding
+                        ->GetVariableByName(SHADER_TYPE_PIXEL, ("g_SurfaceTexture_" + name).c_str())
+                        ->Set(result->images.at(name).get()->GetDefaultView(
+                            TEXTURE_VIEW_SHADER_RESOURCE));
+                if (result->layout.sampler_count) {
+                    std::vector<IDeviceObject*> samplers;
+                    for (const auto& sampler : result->samplers)
+                        samplers.push_back(sampler.RawPtr());
+                    binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_SurfaceSamplers")
+                        ->SetArray(samplers.data(), 0, result->layout.sampler_count);
+                }
             }
-        effect_bundles[result->material.identity()] = result;
+        effect_bundles[std::move(key)] = result;
         return result;
     }
     bool refresh_effect(Effect& effect) {
@@ -506,53 +565,70 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
                 throw std::runtime_error("UI effect requires the visual host's project resources");
             project_resources->check_thread();
             std::shared_ptr<const asset_detail::MaterialPreviewSelection> preview;
-            if (const auto& candidate = project_resources->material_preview_;
-                candidate && candidate->asset == effect.value.material)
-                preview = candidate;
-            // Retain one observation per admitted host snapshot. Requesting a
-            // failed pool revision again is an explicit retry, not a poll.
+            if (const auto& selection = project_resources->material_preview_;
+                selection && selection->asset == effect.value.material)
+                preview = selection;
+            // One complete observation per catalog/preview selection. A Texture
+            // publication must refresh even when the Material revision is unchanged.
             if (effect.request_epoch != project_resources->epoch_ ||
                 effect.request_preview.owner_before(preview) ||
                 preview.owner_before(effect.request_preview)) {
                 effect.request_epoch = project_resources->epoch_;
                 effect.request_preview = preview;
+                effect.candidate.reset();
+                effect.current = effect.failed = false;
                 effect.ticket = {};
                 effect.diagnostic.clear();
                 effect.ticket = asset_detail::request_model_pbr_material(
                     project_resources->materials_, project_resources->project_,
                     project_resources->catalog_, effect.value.material, std::move(preview));
             }
-            if (!effect.ticket)
+            if (effect.current)
+                return true;
+            if (effect.failed || !effect.ticket)
                 return false;
-            const auto info = effect.ticket.inspect();
-            if (!effect.failed || *effect.failed != info.identity)
-                effect.diagnostic.clear();
-            auto selected = project_resources->materials_.acquire(effect.ticket);
-            if (selected) {
-                const auto identity = selected.identity();
-                if (effect.bundle && effect.bundle->material.identity() == identity) {
-                    effect.diagnostic.clear();
-                    return true;
+            const auto acquire = [](auto& pool, const ResourceTicket& ticket, const char* kind) {
+                auto lease = pool.acquire(ticket);
+                if (!lease) {
+                    const auto info = ticket.inspect();
+                    if (info.state == ResourceState::Failed ||
+                        info.state == ResourceState::DependencyFailed ||
+                        info.state == ResourceState::Cancelled)
+                        throw std::runtime_error(std::string("UI effect ") + kind + ": " +
+                                                 info.diagnostic);
                 }
-                if (effect.failed != identity) {
-                    try {
-                        auto next_bundle = effect_bundle(std::move(selected));
-                        effect.bundle = std::move(next_bundle);
-                        effect.failed.reset();
-                        effect.diagnostic.clear();
-                        return true;
-                    } catch (const std::exception& e) {
-                        effect.failed = identity;
-                        effect.diagnostic = e.what();
-                    }
-                }
-            } else {
-                if (info.state == ResourceState::Failed ||
-                    info.state == ResourceState::DependencyFailed ||
-                    info.state == ResourceState::Cancelled)
-                    effect.diagnostic = "UI effect Material: " + info.diagnostic;
+                return lease;
+            };
+            if (!effect.candidate) {
+                auto material = acquire(project_resources->materials_, effect.ticket, "Material");
+                if (!material)
+                    return false;
+                validate_ui_effect_material(material.get());
+                EffectCandidate candidate;
+                candidate.material = std::move(material);
+                for (const auto& [name, ref] : candidate.material->textures)
+                    candidate.tickets.emplace(
+                        name, asset_detail::request_texture(
+                                  project_resources->textures_, project_resources->project_,
+                                  project_resources->catalog_, ref,
+                                  candidate.material->values.textures.at(name).semantic));
+                effect.candidate = std::move(candidate);
             }
+            for (const auto& [name, ticket] : effect.candidate->tickets) {
+                auto texture = acquire(project_resources->textures_, ticket, "Texture");
+                if (!texture)
+                    return false;
+                effect.candidate->textures.insert_or_assign(name, std::move(texture));
+            }
+            auto complete = effect_bundle(std::move(*effect.candidate));
+            effect.bundle = std::move(complete);
+            effect.candidate.reset();
+            effect.current = true;
+            effect.diagnostic.clear();
+            return true;
         } catch (const std::exception& e) {
+            effect.failed = true;
+            effect.candidate.reset();
             effect.diagnostic = e.what();
         }
         return false;
@@ -572,7 +648,9 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
             if (!project_resources)
                 throw std::runtime_error("Project UI shaders require project visual resources");
             const auto handle = next++;
-            effects.emplace(handle, Effect{std::move(value), {}, {}, {}});
+            Effect effect;
+            effect.value = std::move(value);
+            effects.emplace(handle, std::move(effect));
             return handle;
         }
         const auto gradient = ui_gradient_detail::admit_gradient(name, parameters);
@@ -595,6 +673,10 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
             auto& effect = found->second;
             const bool ready = refresh_effect(effect);
             if (effect.bundle) {
+                for (const auto& [name, image] : effect.bundle->images) {
+                    (void)name;
+                    (void)image.get(); // Retain submission/fence use on every draw.
+                }
                 if (effect.bundle->state) {
                     const auto time = float(Rml::GetSystemInterface()->GetElapsedTime());
                     if (!std::isfinite(time))

@@ -1,8 +1,8 @@
-# Create a procedural UI Material effect
+# Create a UI Material effect
 
 A UI Material draws a custom color effect inside a UI element. It can use the
-element's UV coordinates, size, presentation time and saved numeric Material
-values. The element keeps its normal layout, clipping and opacity.
+element's UV coordinates, size, presentation time, saved numeric Material
+values and ordinary 2D textures. The element keeps its normal layout, clipping and opacity.
 
 This workflow requires the Windows D3D12 editor, a project with a registered RML
 document, and the matching runtime kit for export. It uses HLSL rather than a
@@ -100,6 +100,56 @@ surface domains. To change the effect, edit the HLSL and reimport the Shader,
 then save/rebuild its Material. A failed publication keeps the previous published
 Material usable.
 
+## Sample a texture
+
+Import the image as a **Texture** with the required usage, then wait for its
+publication. For a color image, use **Color**. See [Texture import](textures.md).
+Use surface version5 and declare an `image` slot in the Shader's `surface` object:
+
+```json
+{
+  "version": 5,
+  "domain": "ui",
+  "uv_sets": [0],
+  "parameters": {
+    "tint": {"type": 5, "value": [1, 1, 1, 1]}
+  },
+  "textures": {
+    "image": {
+      "semantic": 0, "dimension": 0, "uv_set": 0,
+      "offset": [0, 0], "scale": [1, 1], "rotation": 0,
+      "sampler": {
+        "min": 1, "mag": 1, "mip": 1, "u": 0, "v": 0, "w": 0,
+        "compare": 0, "anisotropy": 1, "lod_bias": 0,
+        "min_lod": 0, "max_lod": 1000, "border": [0, 0, 0, 0]
+      }
+    }
+  },
+  "labels": {"tint": "Tint", "image": "Image"}
+}
+```
+
+This slot is a 2D Color texture with linear filtering and repeating coordinates.
+Change the HLSL function to sample it:
+
+```hlsl
+#include "engine/forge.surface.hlsli"
+float4 Panel(ForgeUiInput input) {
+    return ForgeSample_image(input) * ForgeParameter_tint();
+}
+```
+
+Reimport the Shader. In the Material document, expand **Texture slots → Image**,
+choose the published Texture or drag it from Content, then **Save**. Assign the
+Material to the UI element using the same **UI Material** control shown above.
+Every declared texture slot needs an assignment before the effect can load.
+
+`ForgeSample_image(input)` uses the element's UV0 coordinates. To compute your own
+coordinates, call `ForgeSample_image(float2(...))`. Both forms apply the Material's
+UV offset, scale and rotation and its sampler. Changing and publishing the image
+updates its UI use without changing the Material assignment. A pending or failed
+replacement keeps the previous complete effect; inspect Problems for the reason.
+
 ## Include the effect in an exported game
 
 Select the registered UI document in **Content**. In **Inspector → Runtime
@@ -108,13 +158,15 @@ then choose **Save declarations**. Review declarations after editing the source.
 Previewing a reference does not add it to required runtime content.
 
 Save the UI source and Material before exporting. The exported Material contains
-its exact compiled Shader; the game runs without HLSL or Material source files.
+its exact compiled Shader and declared Texture closure; the game runs without
+HLSL, Material or image source files.
 Use a runtime kit with UI effect support. An older kit is rejected before replacing
 the export destination.
 
 ## Limits and troubleshooting
 
-- Use one Pixel function, UV0 and numeric Material parameters. UI effects do not accept textures, custom vertex stages, mesh lighting or a Mesh/Sprite assignment.
+- Use one Pixel function, UV0, numeric Material parameters and ordinary 2D Texture slots. Array/cube/volume textures, live camera RenderTextures, custom vertex stages, mesh lighting and Mesh/Sprite assignments are unsupported.
+- Keep an empty texture map with surface version4. Use version5 only with a nonempty map of 2D slots. Other combinations report a declaration error.
 - A missing or incompatible Material reports an admission error. Check the UUID, publication, UI Shader domain and Runtime Dependencies declaration.
 - The UI render state is transparent, two-sided and has depth testing/writing off. Incompatible values prevent publication.
 - UI effects and native gradients share a maximum of256 compiled handles. Reduce the number of distinct decorated elements if the handle limit is reported.

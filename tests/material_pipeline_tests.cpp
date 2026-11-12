@@ -3,6 +3,7 @@
 #include "material_selection.hpp"
 #include "material_watch_tests.hpp"
 #include "model_render_resource.hpp"
+#include "published_texture_fixture.hpp"
 #include "runtime_package.hpp"
 #include "runtime_resource_tests.hpp"
 #include "texture_bundle_validation.hpp"
@@ -47,42 +48,8 @@ AssetId texture_fixture(const std::filesystem::path& root, AssetCatalog& catalog
     texture.alpha = alpha;
     texture.subresources.resize(dimension == TextureDimension::Cube ? 6 : 1,
                                 std::vector<std::byte>(4, std::byte{255}));
-    const auto bytes = encode_texture(texture);
-    TextureBundleIndex index;
-    index.variants = {{texture.semantic, texture_variant_file(texture.semantic),
-                       content_digest(bytes), bytes.size()}};
-    AssetBuildInput input;
-    input.source_digest = content_digest(bytes);
-    input.importer = "forge.texture.fixture";
-    input.importer_revision = std::string(64, 'a');
-    input.output_format = "forge.texture-bundle";
-    input.platform = target.platform;
-    input.backend = target.backend;
-    input.profile = target.profile;
-    DerivedDataCache cache(root);
-    auto artifact = cache.publish(
-        input,
-        {{"texture.json", encode_texture_bundle_index(index)}, {index.variants[0].file, bytes}},
-        [](const auto& a) { (void)validate_texture_bundle(a.files); });
     const auto id = AssetId::generate();
-    catalog.add({id,
-                 "texture",
-                 "Assets/" + id.str() + ".texture",
-                 1,
-                 {},
-                 {{"forge.import",
-                   {{"version", 1},
-                    {"generation", std::uint64_t(1)},
-                    {"key", input.key()},
-                    {"source_digest", input.source_digest},
-                    {"importer", input.importer},
-                    {"importer_revision", input.importer_revision},
-                    {"output_format", input.output_format},
-                    {"output_version", 1},
-                    {"platform", input.platform},
-                    {"backend", input.backend},
-                    {"profile", input.profile},
-                    {"artifact_digest", asset_build_digest(artifact.manifest.at("files"))}}}}});
+    test::publish_texture_fixture(root, catalog, id, texture, 1, target);
     return id;
 }
 } // namespace
@@ -360,6 +327,7 @@ int main(int argc, char** argv) {
         test_surface_material_pipeline(root / "surface-project");
         test_surface_material_pipeline(root / "sprite-surface-project", true);
         test_surface_material_pipeline(root / "ui-effect-project", false, true);
+        test_surface_material_pipeline(root / "ui-texture-project", false, true, true);
         std::cout << "Material source/publication/resource/last-good/ancestry checks passed\n";
         return 0;
     } catch (const std::exception& e) {

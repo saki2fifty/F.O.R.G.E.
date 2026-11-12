@@ -65,7 +65,14 @@ and has a 120-second limit.
 `mcp_ui_materials_stdio` exercises both protocols, read-only discovery, source
 guards, source-hidden/retained Shader selection, refusal without mutations and
 single/group/rule writers with replay, Undo and CRLF-preserving Save.
-The CPU publication markers used by these authoring fixtures never enter graphics.
+The same native controls and guarded MCP queries/writers also exercise a textured
+UI Material after the logical Shader changes to another domain; procedural
+compatibility remains checked. CPU publication markers never enter graphics.
+`material_asset` validates definition4/5 boundaries, ordinary2D admission, copied
+Texture/sampler/UV reflection and old17/new18 cooked round trips. `material_pipeline`
+checks retained textured UI Shader snapshots and exact source-free Texture closure.
+Runtime compatibility admits prior effects1 records only through the matching
+effects2 kit and rejects older/incompatible kit values.
 
 Capture provenance is recorded in [the screenshot record](images/readme/README.md).
 
@@ -74,7 +81,12 @@ cache reuse and source-free Shader relocation. `ui_effect_render` compiles throu
 that same worker and imports its Material before checking display/HDR pixels,
 UV/size/presentation time, clipping, opacity, parameter replacement,
 failed-publication retention, isolated candidate readiness and relocated
-source-free rendering. Both full editor and shader-only acceptance
+source-free rendering. Its additional textured path uses original2x2 pixels through
+the same compiler/Material/pool/render owners, checks signed UV transforms, samplers,
+independent Texture publication with unchanged Material bytes, old-bundle sampling
+while pending/failed, recovery and relocated source-hidden image content. The native
+fixture's portable template is syntax-checked locally with the real graphics flags;
+that does not establish Windows compilation or execution. Both full editor and shader-only acceptance
 select this case; the audit artifact retains `ui-effect-render` outputs. Local
 CPU markers and built-in software-Vulkan pixels do not establish native project
 shader execution. Windows/physical acceptance requires its own actual evidence.

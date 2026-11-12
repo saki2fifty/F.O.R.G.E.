@@ -1109,15 +1109,17 @@ not exposed by this bounded adapter.
 A native shader decorator selects `material:<UUID>`, a logical published Material
 with the explicit UI surface domain. Shader definition4/wrapper17 adds one cooked
 Pixel entry with numeric Material defaults, UV0, element size and presentation
-time. The existing compiler/publication/resource owners remain authoritative;
+time. Definition5/wrapper18 adds ordinary 2D Material Texture slots, shared sampler/
+UV transforms and complete Texture revision replacement. The existing compiler/publication/resource owners remain authoritative;
 there is no runtime HLSL compilation. Geometry, layout, clipping, native opacity
 and target color conversion remain with UI presentation. Mesh/Sprite assignments
-and texture bindings are outside this domain. See [surface interfaces](surface-shaders.md)
+and camera/array/cube/volume Texture bindings are outside this UI domain. See [surface interfaces](surface-shaders.md)
 and the [UI Material manual](../manual/editor/ui-material-effects.md).
 
 Native non-drawing inspection admits the same typed reference and retained cooked
-UI Material. Source snapshots record effects1; runtime kits advertise
-`runtime_ui_effects:1` and older kits reject that requirement. Explicit Runtime
+UI Material. Source snapshots record effects2; matching runtime kits advertise
+`runtime_ui_effects:2`. Earlier effects1 records remain readable, but the exporter
+requires the matching new kit even for them. Older kits reject before publication. Explicit Runtime
 Dependencies include the Material, whose cooked bundle embeds its immutable
 Shader snapshot. Observing a preview does not declare an export dependency.
 Existing declaration, project-scope, history, Save and publication guards remain.

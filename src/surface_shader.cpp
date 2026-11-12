@@ -121,9 +121,14 @@ void validate_surface_definition(const SurfaceShaderDefinition& d) {
         uv_intent(slot, d);
     }
     if (d.ui_effect)
-        require(!d.physically_based && !d.sprite_image && d.uv_sets == std::vector<unsigned>{0} &&
-                    d.textures.empty(),
-                "UI effects require unlit UV0 and numeric parameters without texture bindings");
+        require(!d.physically_based && !d.sprite_image && d.uv_sets == std::vector<unsigned>{0},
+                "UI effects require unlit UV0 without Mesh or Sprite geometry");
+    if (d.ui_effect)
+        for (const auto& [name, slot] : d.textures) {
+            (void)name;
+            require(slot.dimension == TextureDimension::D2,
+                    "UI effects require ordinary 2D Texture bindings");
+        }
     if (d.sprite_image) {
         identifier(*d.sprite_image);
         require(!d.physically_based && d.uv_sets == std::vector<unsigned>{0},
@@ -136,7 +141,7 @@ void validate_surface_definition(const SurfaceShaderDefinition& d) {
 Json surface_definition_document(const SurfaceShaderDefinition& d) {
     validate_surface_definition(d);
     const auto values = material_values_document(surface_material_defaults(d));
-    Json result{{"version", d.ui_effect          ? 4
+    Json result{{"version", d.ui_effect          ? (d.textures.empty() ? 4 : 5)
                             : d.sprite_image     ? 3
                             : d.physically_based ? 2
                                                  : 1},
@@ -159,12 +164,12 @@ Json surface_definition_document(const SurfaceShaderDefinition& d) {
 SurfaceShaderDefinition surface_definition(const Json& j) {
     require(j.is_object() && j.size() <= 16 && j.at("version").is_number_integer() &&
                 (j.at("version") == 1 || j.at("version") == 2 || j.at("version") == 3 ||
-                 j.at("version") == 4),
+                 j.at("version") == 4 || j.at("version") == 5),
             "Unsupported surface interface version");
     require(j.at("uv_sets").is_array() && j.at("uv_sets").size() <= 32,
             "Surface UV declaration count exceeds admission budget");
     SurfaceShaderDefinition d;
-    if (j.at("version") == 4) {
+    if (j.at("version") == 4 || j.at("version") == 5) {
         require(j.at("domain") == "ui" && !j.contains("lighting") && !j.contains("image"),
                 "Unsupported UI surface domain");
         d.ui_effect = true;
@@ -187,6 +192,10 @@ SurfaceShaderDefinition surface_definition(const Json& j) {
     auto values = material_values_document(surface_material_defaults(d));
     values["parameters"] = j.at("parameters");
     values["textures"] = j.at("textures");
+    if (d.ui_effect)
+        require(j.at("textures").is_object() &&
+                    (j.at("version") == 5 ? !j.at("textures").empty() : j.at("textures").empty()),
+                "UI surface version must match its declared Texture capability");
     auto parsed = material_values_from_document(values);
     d.parameters = std::move(parsed.parameters);
     d.textures = std::move(parsed.textures);
@@ -238,7 +247,9 @@ std::string surface_value_source(std::string_view function, bool depth) {
 }
 std::string surface_resource_source(const SurfaceShaderDefinition& d, bool emulated,
                                     bool frame_mips) {
-    const std::string input_type = d.sprite_image ? "ForgeSpriteInput" : "ForgeSurfaceInput";
+    const std::string input_type = d.ui_effect      ? "ForgeUiInput"
+                                   : d.sprite_image ? "ForgeSpriteInput"
+                                                    : "ForgeSurfaceInput";
     std::string s;
     if (!d.parameters.empty()) {
         s += "cbuffer ForgeSurfaceMaterial {\n";
@@ -314,7 +325,7 @@ float2 ForgeUV0(ForgeSpriteInput input) {
                  "].xyz;coordinate.xy=float2(dot(u.xy,coordinate.xy)+u.z,dot(v.xy,coordinate.xy)+v."
                  "z);\n";
         s += "return g_SurfaceTexture_" + name + ".Sample(" + sampler + ",coordinate);}\n";
-        const auto uv = d.sprite_image
+        const auto uv = d.sprite_image || d.ui_effect
                             ? "ForgeUV0(input)"
                             : "input.UV[(uint)g_SurfaceUvRows[" + std::to_string(i * 2) + "].w]";
         if (slot.dimension == TextureDimension::D2)
@@ -503,8 +514,11 @@ SurfaceBindingLayout binding_layout(const SurfaceShaderDefinition& d, const Json
                 "Duplicate/invalid surface resource");
         const auto kind = resource.at("kind").get<std::string>();
         if (d.ui_effect)
-            require(name == "ForgeSurfaceMaterial" || name == "ForgeUiState",
-                    "UI effects admit only their numeric Material and element state buffers");
+            require(name == "ForgeSurfaceMaterial" || name == "ForgeUiState" ||
+                        (!d.textures.empty() && wrapper_version >= 18 &&
+                         (name == "ForgeSurfaceUV" || name == "g_SurfaceSamplers" ||
+                          name.starts_with("g_SurfaceTexture_"))),
+                    "UI effect resource is outside its declared Material/Texture interface");
         if (name == "ForgeUiState") {
             require(d.ui_effect && kind == "constant_buffer" && resource.at("array_size") == 1 &&
                         resource.at("size") == 16,
@@ -780,7 +794,8 @@ SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
     require((role == ShaderEntryRole::SurfaceUiColor) == d.ui_effect,
             "Surface binding role does not match its UI domain");
     if (d.ui_effect) {
-        require(wrapper_version >= 17, "UI bindings require their UI wrapper capability");
+        require(wrapper_version >= (d.textures.empty() ? 17u : 18u),
+                "UI bindings require their UI Texture wrapper capability");
         return binding_layout(d, reflection, false, 0, wrapper_version);
     }
     require(sprite_surface_role(role) == d.sprite_image.has_value(),

@@ -5,6 +5,16 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source also adds 2D Texture sampling to project UI Materials through surface
+definition5/wrapper18. Existing numeric definition4/wrapper17 values stay readable.
+Complete Material/Texture candidates reuse the shared resource and GPU owners;
+independent Texture publication, failed replacement and explicit export dependencies
+keep their existing ownership. UI source controls and guarded MCP operations support
+the same publications. Matching effects2 runtime kits are required. Focused local
+CPU/MCP/scoped sanitizer/software/manual evidence and actual Windows Shader/GPU
+acceptance are distinct gates; the latter remains pending for this extension.
+See [surface contracts](surface-shaders.md) and [the guide](../manual/editor/ui-material-effects.md).
+
 Local source adds optional horizontal UI text shaping through a public native
 font interface and the same saved Project Settings/MCP/host/export owners.
 Existing projects retain their previous font backend. The UiTextShaping sibling

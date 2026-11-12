@@ -39,6 +39,8 @@ The file/include rules below describe authored HLSL stage sources.
 
 The UI domain uses the version2 source with surface definition4 and wrapper17:
 one procedural Pixel function, numeric Material defaults and native UI geometry.
+Definition5/wrapper18 adds ordinary 2D Texture sampling to that same Pixel role;
+older numeric declarations and cooked wrapper17 programs remain readable.
 It shares this compiler/publication path. General stage programs and Mesh/Sprite
 surface definitions retain their existing meaning. See [UI Material effects](../manual/editor/ui-material-effects.md).
 
