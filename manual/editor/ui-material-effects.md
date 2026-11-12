@@ -65,8 +65,20 @@ Use Shader import to publish the declaration and its HLSL source.
 1. Choose **Content → Create / Register → New material...** and create `Assets/Panel.material.json`.
 2. In the Material document, select the imported Shader in **Surface Shader**.
 3. Adjust **Tint** and choose **Save** to publish the Material. Keep transparency at **Blend**, enable **Two-sided**, and leave **Depth test** and **Depth write** off.
-4. Find this Material's AssetId in its source or Content inspection. The decorator uses the Material UUID, which differs from the Shader UUID.
-5. Add a class to your registered RML/RCSS, replacing the placeholder below with the Material UUID. Save the source and inspect it in UI Preview or Play.
+4. Open the registered RML document, select an element in **Elements**, and expand **Inline style**. For selected siblings use **Group inline style**; in RCSS select a flat rule or a width-conditioned child rule and expand **Rule properties**.
+5. Choose `decorator` from **Common**, then select the published Material in **UI Material**. You can search its path or drop it from Content. The Material must use the UI surface domain; unpublished, incompatible or damaged publications are rejected.
+6. Choose **Set property** to replace the decorator value in one source Undo step, then **Save source**. Refresh the RML Preview or restart/reload UI in Play to inspect the result. Selecting a Material stages the CSS value without saving or changing the source.
+
+![UI Source style controls with a published UI Material staged for assignment](../images/ui-source-material-effect.png)
+
+The picker replaces the complete decorator value, including any existing gradient
+or decorator list. Keep custom combinations in **CSS value** or **Source**. **None /
+Clear** stages `none`, which disables decorators when applied. **Remove property**
+removes this declaration so the stylesheet cascade can supply another value.
+Reading mixed or unsupported CSS never replaces it automatically.
+
+For direct source editing, use the Material UUID, which differs from the Shader
+UUID. This example gives an element a class and an explicit size:
 
 ```css
 body, div { display: block; }

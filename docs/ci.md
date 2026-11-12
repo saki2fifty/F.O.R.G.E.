@@ -56,6 +56,17 @@ parameter controls, source Undo and routing away from Mesh preview. The focused
 `mcp_ui_effect_sources_stdio` exercises both protocol formats, descriptor identity,
 source text, domain/stage validation, atomic refusal and write-grant discovery.
 
+`ui_source_material_effects` drives the shared decorator Material picker at
+1180/700/400 pixels: publication/domain refusal, staged assignment, actual Content
+UUID drop, exact no-op, source Undo/Redo, Clear/Remove and Save isolation. The
+existing image-property case also exercises the shared drop fixture.
+`mcp_ui_materials_stdio` exercises both protocols, read-only discovery, source
+guards, source-hidden/retained Shader selection, refusal without mutations and
+single/group/rule writers with replay, Undo and CRLF-preserving Save.
+The CPU publication markers used by these authoring fixtures never enter graphics.
+
+Capture provenance is recorded in [the screenshot record](images/readme/README.md).
+
 Windows `shader_worker` includes a real single-entry UI effect, copied reflection,
 cache reuse and source-free Shader relocation. `ui_effect_render` compiles through
 that same worker and imports its Material before checking display/HDR pixels,

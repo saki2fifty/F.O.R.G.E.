@@ -20,6 +20,7 @@ struct MaterialResourceData {
     std::size_t resident_bytes() const;
 };
 void validate_render_material(const MaterialResourceData&);
+void validate_ui_effect_material(const MaterialResourceData&);
 template <> struct ResourceTraits<MaterialAsset> {
     using Data = MaterialResourceData;
 };

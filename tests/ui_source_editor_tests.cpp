@@ -1,6 +1,7 @@
 #include "editor/ui_source_editor.hpp"
 #include "imgui_input_driver.hpp"
 #include "imgui_software_capture.hpp"
+#include "ui_material_authoring_fixture.hpp"
 #include <imgui_internal.h>
 #include <iostream>
 
@@ -29,7 +30,8 @@ enum class SourceControls {
     FontFaces,
     StylesheetLinks,
     LayoutPresets,
-    MediaRules
+    MediaRules,
+    MaterialEffects
 };
 void exercise(const std::filesystem::path& output, int width,
               SourceControls mode = SourceControls::All,
@@ -55,7 +57,7 @@ void exercise(const std::filesystem::path& output, int width,
     std::shared_ptr<const AssetCatalog> resource_catalog;
     editor.resource_catalog = [&] { return resource_catalog; };
     bool show_content = false;
-    AssetId dragged_image;
+    AssetId dragged_asset;
     ui::style(1);
     auto& io = ImGui::GetIO();
     io.ConfigInputTrickleEventQueue = false;
@@ -72,13 +74,13 @@ void exercise(const std::filesystem::path& output, int width,
         if (show_content) {
             ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
             ImGui::SetNextWindowSize({200, 90}, ImGuiCond_Always);
-            ImGui::Begin("Content image fixture");
-            ImGui::Button("Project image source");
-            FORGE_UI_PROBE("test:image-source");
+            ImGui::Begin("Content resource fixture");
+            ImGui::Button("Project resource");
+            FORGE_UI_PROBE("test:resource-source");
             if (ImGui::BeginDragDropSource()) {
-                const auto payload = dragged_image.str();
+                const auto payload = dragged_asset.str();
                 ImGui::SetDragDropPayload("FORGE_ASSET", payload.c_str(), payload.size() + 1);
-                ImGui::TextUnformatted("Project image source");
+                ImGui::TextUnformatted("Project resource");
                 ImGui::EndDragDropSource();
             }
             ImGui::End();
@@ -95,6 +97,105 @@ void exercise(const std::filesystem::path& output, int width,
     const auto old_clipboard = ImGui::GetPlatformIO().Platform_GetClipboardTextFn;
     const auto old_data = ImGui::GetPlatformIO().Platform_ClipboardUserData;
     test::ImGuiInputDriver input(frame);
+    const auto drop_asset = [&](const char* target_name, AssetId asset) {
+        dragged_asset = asset;
+        input.click(target_name);
+        io.AddKeyEvent(ImGuiKey_Escape, true);
+        frame();
+        io.AddKeyEvent(ImGuiKey_Escape, false);
+        show_content = true;
+        frame();
+        const auto start = test::ui_targets.at("test:resource-source");
+        const auto target = test::ui_targets.at(target_name);
+        io.AddMousePosEvent((start.minimum.x + start.maximum.x) / 2,
+                            (start.minimum.y + start.maximum.y) / 2);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMousePosEvent((start.minimum.x + start.maximum.x) / 2 + 20,
+                            (start.minimum.y + start.maximum.y) / 2 + 10);
+        frame();
+        io.AddMousePosEvent((target.minimum.x + target.maximum.x) / 2,
+                            (target.minimum.y + target.maximum.y) / 2);
+        frame();
+        frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
+        show_content = false;
+        frame();
+    };
+    if (mode == SourceControls::MaterialEffects) {
+        const auto fixture = test::ui_material_authoring_fixture(project.writer_guard());
+        const auto material = fixture.at("ui").get<AssetId>();
+        resource_catalog = std::make_shared<AssetCatalog>(AssetCatalog::open_project(root));
+        const auto published = asset_storage::read(root / "forge.assets.json");
+        const auto reference = ui_material_reference(*resource_catalog, material);
+        const auto value = reference.at("value").get<std::string>();
+        check(reference.at("shader") == fixture.at("shader") &&
+                  read_ui_material_style(value) == material,
+              "Picker lost the Material's retained UI Shader snapshot");
+        for (const auto key : {"mesh", "unpublished", "shader"})
+            rejects(
+                [&] { ui_material_reference(*resource_catalog, fixture.at(key).get<AssetId>()); });
+        rejects([&] { ui_material_reference(*resource_catalog, AssetId::generate()); });
+        for (const auto* literal : {"none", "blur(2px)", "shader(\"material:bad\")",
+                                    "shader(\"material:00000000-0000-0000-0000-000000000000\")"})
+            check(!read_ui_material_style(literal),
+                  "Custom decorator was treated as a picker literal");
+        input.click("ui-source:elements-tab");
+        input.click("ui-source:element:2");
+        input.click("ui-source:style-open");
+        input.type("ui-source:style-name", "decorator");
+        input.type("ui-source:style-value", "blur(2px)");
+        const auto before = editor.state();
+        input.click("asset-picker:material:UI Material");
+        input.select(("picker-option:" + material.str()).c_str());
+        check(editor.state() == before && asset_storage::read(file) == source,
+              "Material staging changed source/history/disk before Set property");
+        frame();
+        capture.save(output / ("ui-source-material-effect-" + std::to_string(width) + ".png"));
+        input.click("ui-source:style-set");
+        const auto assigned = editor.state();
+        const auto style = [&] {
+            return editor.read_styles(std::array<std::size_t, 1>{2}, "decorator").front();
+        };
+        check(style() == value, "Native Material picker did not publish the shared literal");
+        input.click("button:Undo");
+        check(editor.state().at("text") == before.at("text"),
+              "Material picker required extra Undo");
+        input.click("button:Redo");
+        check(editor.state().at("text") == assigned.at("text"), "Material picker Redo lost source");
+        input.click("ui-source:element:2");
+        input.click("ui-source:style-read");
+        const auto staged_before = editor.state();
+        input.click("asset-picker:material:UI Material");
+        input.select(("picker-option:" + fixture.at("mesh").get<AssetId>().str()).c_str());
+        check(editor.state() == staged_before &&
+                  !test::ui_targets.at("ui-source:style-set").enabled,
+              "Non-UI Material selection changed the authored source");
+        input.click("asset-picker:material:UI Material");
+        input.select(("picker-option:" + material.str()).c_str());
+        check(test::ui_targets.at("ui-source:style-set").enabled,
+              "A valid Material selection did not recover the control");
+        input.type("ui-source:style-value", "none");
+        drop_asset("asset-picker:material:UI Material", material);
+        check(editor.state() == staged_before, "Material drop changed source before Set property");
+        input.click("ui-source:style-set");
+        check(editor.state() == staged_before, "Material drop lost the exact no-op assignment");
+        input.click("asset-picker:material:UI Material");
+        input.select("asset-clear:material:UI Material");
+        check(editor.state() == staged_before, "Clearing staged value mutated source early");
+        input.click("ui-source:style-set");
+        check(style() == "none", "Clear did not stage native none");
+        input.click("ui-source:style-remove");
+        check(!style(), "Remove did not restore CSS cascade");
+        editor.save(project);
+        check(!editor.dirty() && scene.snapshot() == authored && scene.revision() == revision &&
+                  asset_storage::read(root / "forge.assets.json") == published,
+              "UI Material source edits changed Scene or dependency ownership");
+        editor.request_close();
+        return;
+    }
     if (mode == SourceControls::MediaRules) {
         const auto css = root / "Assets/Layout.rcss";
         const std::string baseline = "/*keep*/ .base{color:red;}\n";
@@ -454,7 +555,7 @@ void exercise(const std::filesystem::path& output, int width,
         const auto image_path = std::filesystem::u8path("Assets/Badge & 'résumé'.tga");
         asset_storage::replace(root / image_path, tga);
         const auto registered = register_ui_source(*project.writer_guard(), image_path);
-        dragged_image = registered.id;
+        dragged_asset = registered.id;
         resource_catalog = std::make_shared<AssetCatalog>(AssetCatalog::open_project(root));
         const auto image_catalog = asset_storage::read(root / "forge.assets.json");
         editor.control(1, "image", "");
@@ -481,30 +582,7 @@ void exercise(const std::filesystem::path& output, int width,
               "Image picker Redo changed the reference");
         input.click("button:Undo");
         input.click("ui-source:element:3");
-        // Bring the existing picker target into view, then drive the Content UUID payload.
-        input.click("asset-picker:texture:Project image");
-        io.AddKeyEvent(ImGuiKey_Escape, true);
-        frame();
-        io.AddKeyEvent(ImGuiKey_Escape, false);
-        show_content = true;
-        frame();
-        const auto start = test::ui_targets.at("test:image-source");
-        const auto target = test::ui_targets.at("asset-picker:texture:Project image");
-        io.AddMousePosEvent((start.minimum.x + start.maximum.x) / 2,
-                            (start.minimum.y + start.maximum.y) / 2);
-        frame();
-        io.AddMouseButtonEvent(0, true);
-        frame();
-        io.AddMousePosEvent((start.minimum.x + start.maximum.x) / 2 + 20,
-                            (start.minimum.y + start.maximum.y) / 2 + 10);
-        frame();
-        io.AddMousePosEvent((target.minimum.x + target.maximum.x) / 2,
-                            (target.minimum.y + target.maximum.y) / 2);
-        frame();
-        frame();
-        io.AddMouseButtonEvent(0, false);
-        frame();
-        show_content = false;
+        drop_asset("asset-picker:texture:Project image", registered.id);
         check(editor.state().at("text") == before.at("text"),
               "Image drop wrote source before Apply");
         input.click("ui-source:control-apply");
@@ -1550,7 +1628,9 @@ int main(int argc, char** argv) {
         auto mode = SourceControls::All;
         if (argc >= 3) {
             const auto flag = std::string_view(argv[2]);
-            if (flag == "--media-rules-only")
+            if (flag == "--material-effects-only")
+                mode = SourceControls::MaterialEffects;
+            else if (flag == "--media-rules-only")
                 mode = SourceControls::MediaRules;
             else if (flag == "--layout-presets-only")
                 mode = SourceControls::LayoutPresets;

@@ -273,3 +273,13 @@ selection/history owner handle append/update/remove/adjacent order, including
 explicit missing-head insertion/self-closing expansion. Current registered RCSS
 references share the existing source-info/path admission with images. No native
 DOM serialization, persisted link identity or parallel document/resource owner.
+
+The optional decorator Material picker is another literal style adapter. Its
+read-only authoring helper uses the existing published Material loader and the
+shared UI-domain Material validator also used by inspection and GPU realization.
+It observes the Material's immutable embedded Shader snapshot, with no compilation
+or GPU-readiness claim. Native controls and a guarded MCP reference query share
+that helper; existing single/group/rule source replacement, one Undo and explicit
+Save remain authoritative. Clear stages `none`; property removal restores cascade.
+No dependency declaration, separate CSS parser, native style serialization or
+runtime catalog/resource ownership is introduced.

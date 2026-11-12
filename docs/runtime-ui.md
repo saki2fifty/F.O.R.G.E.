@@ -1121,3 +1121,13 @@ UI Material. Source snapshots record effects1; runtime kits advertise
 Dependencies include the Material, whose cooked bundle embeds its immutable
 Shader snapshot. Observing a preview does not declare an export dependency.
 Existing declaration, project-scope, history, Save and publication guards remain.
+
+Source style controls offer a staged UI Material picker for the `decorator`
+property. A read-only authoring adapter loads the current cooked Material through
+the existing model/material selection owner, checks shared UI-domain admission,
+and formats one literal. The same guarded `ui.source.material_reference` query is
+available through MCP; existing single/group/rule writers remain authoritative.
+Selection neither declares dependencies nor validates GPU realization. Custom
+decorator lists remain literal source; Clear stages `none` while removing the
+declaration restores cascade. The UI asset catalog remains independent of this
+authoring-only Material dependency.

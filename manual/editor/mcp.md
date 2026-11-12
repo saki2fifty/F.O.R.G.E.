@@ -551,6 +551,17 @@ function, then import the Shader, publish its Material and declare that Material
 as a runtime dependency of the UI document. The same source, compilation and
 Material tools are used by the editor and MCP.
 
+With an RML or RCSS source open, call `forge_ui_source_material_reference` with its
+current `path`, `session`, `revision`, `state` guards and a published Material's
+`asset` UUID. The read-only result contains `value`, the Material and embedded
+Shader identities, and the embedded Shader revision. Apply `value` to the
+`decorator` property through `forge_ui_source_style`, `forge_ui_source_style_group`
+or `forge_ui_source_rule_property`, then Save source. These existing writers
+retain Undo and revision/replay guards. The complete decorator list is replaced;
+use `none` to disable it or remove the property to restore the cascade. Resolving a
+reference does not compile a Shader, establish GPU readiness or declare Runtime
+Dependencies. A Material retains its embedded Shader until it is republished.
+
 For variable UI weights, register the project font and read `forge_asset_read`.
 Its optional face `axes` list includes recorded tags, names and design ranges.
 Use the UI source tools to set numeric `font-weight` on an element, save the

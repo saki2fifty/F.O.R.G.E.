@@ -209,6 +209,33 @@ struct UiSourceAutomation {
                     }
                 }));
         }
+        {
+            auto properties = guard;
+            properties["asset"] = automation_uuid();
+            auto fields = required;
+            fields.push_back("asset");
+            result.push_back(automation_method(
+                "ui.source.material_reference",
+                "Resolve a published UI-domain Material into a decorator CSS value using the "
+                "shared cooked Material loader and UI-domain admission. Requires current source "
+                "guards/assets.read. Returns asset/value/shader/shader_revision; the Shader is "
+                "the immutable snapshot embedded in that Material. Missing, unpublished, corrupt "
+                "or non-UI Materials fail. No source changes, registration, publication, GPU "
+                "readiness or dependency declaration. Use style/style_group/rule_property with "
+                "name decorator to author value, then Save source. Runtime Dependencies remain "
+                "explicit; assigning replaces the complete decorator list.",
+                "assets.read", automation_object(std::move(properties), std::move(fields)), false,
+                [&files, &editor](const Json& request) {
+                    observed(editor, files.document, request);
+                    try {
+                        return ui_material_reference(
+                            AssetCatalog::open_project(files.document.project()),
+                            request.at("asset").get<AssetId>());
+                    } catch (const std::exception& error) {
+                        throw AuthoringError("ui_material_reference", error.what());
+                    }
+                }));
+        }
         for (const std::string action :
              {"stylesheet_reference", "stylesheet_links", "stylesheet_link",
               "stylesheet_link_remove", "stylesheet_link_move"}) {

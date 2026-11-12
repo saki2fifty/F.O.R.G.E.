@@ -1360,8 +1360,12 @@ void typography_literals() {
 }
 void responsive_layout_literals() {
     using namespace forge;
-    check(ui_common_style_properties.size() == 53,
+    check(ui_common_style_properties.size() == 54,
           "Responsive layout controls changed the shared menu unexpectedly");
+    const auto decorator = *ui_style_literal_profile("decorator");
+    check(decorator.keywords.size() == 1 && decorator.keywords.front() == "none" &&
+              decorator.units.empty() && !decorator.color,
+          "Decorator source controls fabricated numeric/color parameters");
     for (const auto* name : {"display", "flex-direction", "flex-wrap", "justify-content",
                              "align-content", "align-items", "align-self"}) {
         const auto profile = ui_style_literal_profile(name);

@@ -280,6 +280,18 @@ as text. Opening a color control preserves the existing spelling and precision;
 an edited color is rounded to eight bits per channel. An invalid numeric entry
 keeps the previous CSS value and disables property publication until corrected.
 
+## Assign a UI Material effect
+
+Select an element or sibling group, or a stylesheet rule, and open its style
+controls. Choose `decorator` from **Common**. Select a published UI-domain Material
+in **UI Material**, or drop it from Content. Choose **Set property**, then **Save
+source**. The picker stages the complete decorator value; other decorators are
+replaced only when you apply it. **None / Clear** stages `none`; **Remove property**
+removes the declaration and restores the cascade. Invalid Material selection leaves
+the staged value intact and reports a reason; choose a valid Material or edit
+**CSS value** to recover. See [UI Material effects](ui-material-effects.md) for
+Shader creation, preview, explicit Runtime Dependencies and export.
+
 ## Style text with presets
 
 1. Select one text control in **Elements** and expand **Inline style**. For several siblings, select them together and use **Group inline style**. A stylesheet rule uses the same controls in **Rule properties**.

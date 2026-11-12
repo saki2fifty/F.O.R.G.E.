@@ -443,9 +443,7 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
             found != effect_bundles.end())
             if (auto existing = found->second.lock())
                 return existing;
-        validate_render_material(material.get());
-        if (!material->surface || !material->surface->program.surface->ui_effect)
-            throw std::runtime_error("UI shader requires a cooked UI effect Material");
+        validate_ui_effect_material(material.get());
         const auto& data = material->surface->program;
         auto native = realize_renderer_shader(project_resources->presentation_, data);
         auto result = std::make_shared<EffectBundle>();

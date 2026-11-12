@@ -29,9 +29,7 @@ struct InspectionRenderer final : Rml::RenderInterface {
             if (!admitted_materials.contains(effect.material.id)) {
                 const auto material =
                     forge::asset_detail::load_pbr_material(project, catalog, effect.material);
-                forge::validate_render_material(material);
-                if (!material.surface || !material.surface->program.surface->ui_effect)
-                    throw std::runtime_error("UI shader requires a cooked UI effect Material");
+                forge::validate_ui_effect_material(material);
                 admitted_materials.insert(effect.material.id);
             }
         } else

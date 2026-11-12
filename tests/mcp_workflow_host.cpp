@@ -16,6 +16,7 @@
 #include "texture_authoring.hpp"
 #include "tile_asset_reimport_routes.hpp"
 #include "ui_localization_authoring.hpp"
+#include "ui_material_authoring_fixture.hpp"
 #include "ui_source_automation.hpp"
 #include "ui_test_renderer.hpp"
 #include <chrono>
@@ -72,6 +73,11 @@ int main(int argc, char** argv) {
                                   std::filesystem::copy_options::recursive);
         else
             forge::SceneDocument::create_project(root / "Game", "MCP game workflows");
+        if (mode == "ui_materials") {
+            const auto fixture = forge::test::ui_material_authoring_fixture(
+                std::make_shared<forge::ProjectLease>(root / "Game"));
+            forge::asset_storage::replace(root / "ui-material-fixture.json", fixture.dump());
+        }
         if (mode == "application_states") {
             std::ifstream input(root / "Game/forge.project.json");
             const auto settings = forge::Json::parse(input);
@@ -383,9 +389,10 @@ int main(int argc, char** argv) {
         permissions.assets = mode != "read";
         permissions.execute = mode == "full" || mode == "execute" || mode == "gamepads" ||
                               mode == "ui_localization" || mode == "application_states" ||
-                              mode == "clocked_audio";
+                              mode == "clocked_audio" || mode == "ui_materials";
         permissions.export_game = mode == "full" || mode == "output" || mode == "gamepads" ||
-                                  mode == "ui_localization" || mode == "application_states";
+                                  mode == "ui_localization" || mode == "application_states" ||
+                                  mode == "ui_materials";
         if (permissions.export_game)
             permissions.export_root = root / "Output";
         const auto inspection_deadline =

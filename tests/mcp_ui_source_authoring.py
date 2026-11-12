@@ -5,9 +5,10 @@ from mcp_ui_source_fonts import check_font_source
 from mcp_ui_source_stylesheets import check_stylesheet_source
 from mcp_ui_source_presets import check_layout_presets
 from mcp_ui_source_media import check_media_rules
+from mcp_ui_source_materials import check_material_source
 
 
-def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False, placement_only=False, sizing_only=False, transforms_only=False, selection_only=False, fonts_only=False, stylesheets_only=False, presets_only=False, media_only=False):
+def check_ui_source_authoring(read, ok, mutate, root, advertised, client, arguments, properties_only=False, typography_only=False, placement_only=False, sizing_only=False, transforms_only=False, selection_only=False, fonts_only=False, stylesheets_only=False, presets_only=False, media_only=False, materials_only=False):
     required = {'forge_ui_source_' + operation for operation in
                 ('read', 'open', 'replace', 'attribute', 'text', 'insert', 'remove', 'move',
                  'save', 'undo', 'redo', 'reload', 'close', 'preview', 'layout', 'arrange',
@@ -15,9 +16,9 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                  'rule_property', 'rule_selector', 'rule_insert', 'rule_remove',
                  'style_group_read', 'classes_read', 'style_group', 'classes', 'rule_copy', 'rule_move', 'control', 'control_properties', 'control_values', 'style_profile', 'place_control', 'transform')}
     assert required <= advertised.keys()
-    assert sum(name.startswith('forge_ui_source_') for name in advertised) == 55
+    assert sum(name.startswith('forge_ui_source_') for name in advertised) == 56
     assert {'forge_ui_source_select', 'forge_ui_source_select_rectangle',
-            'forge_ui_source_image_reference'} <= advertised.keys()
+            'forge_ui_source_image_reference', 'forge_ui_source_material_reference'} <= advertised.keys()
     assert not read('forge_ui_source_read')['open']
     if not (root / 'Game/Assets').exists():
         ok('forge_source_folder_create', path='Assets')
@@ -40,6 +41,9 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
         return next(node['index'] for node in read('forge_ui_source_read')['elements']
                     if node['tag'] == tag)
 
+    if materials_only:
+        check_material_source(read, ok, mutate, root, advertised, client, arguments, guard, edit, before_scene)
+        return
     if media_only:
         check_media_rules(read, ok, mutate, root, advertised, client, arguments, guard, edit, before_scene)
         return
@@ -239,7 +243,7 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
         profile = read('forge_ui_source_style_profile', **guard(), name='font-weight')
         assert profile['known'] and profile['kind'] == 'number' and profile['keywords'] == ['normal', 'bold']
         assert profile['numeric'] == dict(units=[''], minimum=1, maximum=1000, integer=True, initial_literal='400')
-        assert len(profile['common_properties']) == len(set(profile['common_properties'])) == 53
+        assert len(profile['common_properties']) == len(set(profile['common_properties'])) == 54
         assert read('forge_ui_source_read') == before, 'Literal profile query changed the draft'
         for name, keywords in [('display', ['none', 'block', 'inline', 'inline-block', 'flow-root', 'flex', 'inline-flex']),
                                ('flex-direction', ['row', 'row-reverse', 'column', 'column-reverse']),

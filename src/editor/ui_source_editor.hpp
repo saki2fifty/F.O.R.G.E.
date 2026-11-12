@@ -2,6 +2,7 @@
 #include "../project_text_source.hpp"
 #include "../ui_asset_catalog.hpp"
 #include "../ui_markup_authoring.hpp"
+#include "../ui_material_authoring.hpp"
 #include "../ui_resource_rules.hpp"
 #include "automation_schema.hpp"
 #include "document.hpp"
@@ -762,6 +763,34 @@ class UiSourceEditor {
             }
         };
         const std::string_view property(style_name_);
+        if (property == "decorator") {
+            const auto catalog = resource_catalog ? resource_catalog() : nullptr;
+            if (catalog && ProjectPaths(catalog->project_root()).root() == root_) {
+                const auto current = read_ui_material_style(style_value_);
+                Json selected = current ? Json(*current) : Json(nullptr);
+                if (asset_ref_picker(*catalog, selected, MaterialAsset::type, "UI Material",
+                                     false)) {
+                    try {
+                        const auto value =
+                            selected.is_null()
+                                ? std::string("none")
+                                : ui_material_reference(*catalog, selected.get<AssetId>())
+                                      .at("value")
+                                      .get<std::string>();
+                        std::snprintf(style_value_, sizeof(style_value_), "%s", value.c_str());
+                        style_control_error_.clear();
+                    } catch (const std::exception& error) {
+                        style_control_error_ = error.what();
+                    }
+                }
+                ImGui::TextWrapped(
+                    "Choose or drop a published UI-domain Material. This replaces "
+                    "the entire decorator value when you Set property. Clear stages "
+                    "none; Remove property restores the cascade. Runtime Dependencies "
+                    "remain explicit.");
+            } else
+                ImGui::TextDisabled("Refresh Content to choose a UI Material.");
+        }
         const auto profile = ui_style_literal_profile(property);
         if (profile && !profile->keywords.empty()) {
             const auto current = std::string_view(style_value_);

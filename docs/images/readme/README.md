@@ -3724,3 +3724,20 @@ PNG remains byte-identical: SHA256
 `c235b94f109ba67d872c8060748df94f51bfdfa1a3fc53abc5d5524519417c9d`.
 This image explains importing a program; it is not a capture of a project UI
 effect or evidence of that effect's GPU execution. No duplicate image was made.
+
+
+## Guided UI Material selection
+
+`manual/images/ui-source-material-effect.png` is the unaltered1180x950 capture
+from `forge_ui_source_editor_tests --material-effects-only`, development based
+on175cabb on2026-11-12. The actual native SourceEditor stages a published UI
+Material before Set property. The1180/700/400control case passes, including real
+Content drop, source history and Save isolation. Capture source:
+`ui-source-material-effect-captures/ui-source-material-effect-1180.png` beside
+the native test executable. SHA256: `8f8ad9e4289a11319c2485a2dcf074e3cbef686743bdae47cb7c88846c90baeb`.
+
+The test window uses the existing SDL software component renderer. It is not the
+production Main window or physical Windows/GPU acceptance. The publication uses
+opaque CPU Shader markers, never GPU submission; no effect-rendering proof follows
+from this control screenshot. Prior Shader import and other canonical figures
+retain their existing attribution.

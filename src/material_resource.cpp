@@ -13,6 +13,11 @@ void validate_render_material(const MaterialResourceData& data) {
     } else
         (void)prepare_pbr_material(data.values);
 }
+void validate_ui_effect_material(const MaterialResourceData& data) {
+    validate_render_material(data);
+    if (!data.surface || !data.surface->program.surface->ui_effect)
+        throw std::runtime_error("UI shader requires a cooked UI effect Material");
+}
 std::size_t MaterialResourceData::resident_bytes() const {
     std::size_t bytes = sizeof(*this) - sizeof(values) + values.resident_bytes();
     for (const auto& [name, ref] : textures) {

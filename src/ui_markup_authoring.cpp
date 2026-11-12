@@ -484,6 +484,8 @@ std::optional<UiStyleLiteralProfile> ui_style_literal_profile(std::string_view p
         profile.keywords = styles;
     else if (property == "text-align")
         profile.keywords = alignment;
+    else if (property == "decorator")
+        profile.keywords = none;
     else if (property == "text-decoration")
         profile.keywords = decoration;
     else if (property == "text-transform")
