@@ -11,6 +11,7 @@
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <thread>
 using namespace forge;
 void check(bool v, const char* why) {
@@ -175,11 +176,12 @@ int main(int argc, char** argv) {
             check(read(staging / "navigation.fnav") == output,
                   "Repaired navigation request changed the generated tile");
         }
-        auto candidate = prepare();
+        auto candidate = std::optional{prepare()};
         scene.entity("obstacle").set<LocalTranslation>({1, 2, 0});
-        reject([&] { candidate.publish(scene.effective_document()); });
+        reject([&] { candidate->publish(scene.effective_document()); });
         check(read(AssetCatalog::project_index(root)) == baseline,
               "Stale candidate changed catalog");
+        candidate.reset(); // Retire writer ownership before source-offline export checks.
         scene.entity("obstacle").set<LocalTranslation>({0, 2, 0});
         reject([&] { prepare({.4f, 2, .4f, 45, .001f, .1f}); });
         check(read(AssetCatalog::project_index(root)) == baseline, "Bad settings changed catalog");

@@ -1188,7 +1188,7 @@ std::string set_ui_markup_stylesheet_link(std::string_view source, std::optional
     require(!reference.empty() && reference.size() <= 1024 &&
                 reference.find_first_of(":\r\n?#") == reference.npos &&
                 reference.find("{{") == reference.npos && reference.find("}}") == reference.npos &&
-                std::filesystem::u8path(reference).is_relative(),
+                reference.front() != '\\' && !std::filesystem::u8path(reference).has_root_path(),
             "Use one literal document-relative RCSS reference");
     const auto path = std::filesystem::u8path(reference);
     require(Rml::StringUtilities::ToLower(path.extension().string()) == ".rcss",

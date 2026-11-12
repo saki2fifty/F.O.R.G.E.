@@ -851,9 +851,10 @@ AssetCatalog open_runtime_content(const std::filesystem::path& package,
             directories.insert(parent);
     }
     // Reject unlisted authoring/debug files rather than accidentally shipping them.
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
+    const auto native_root = native_io_path(root);
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(native_root)) {
         ordinary(entry.path());
-        const auto path = entry.path().lexically_relative(root);
+        const auto path = entry.path().lexically_relative(native_root);
         require(entry.is_directory() ? directories.contains(path)
                                      : entry.is_regular_file() && files.contains(path),
                 "Unmanifested runtime content: " + path_utf8(path));

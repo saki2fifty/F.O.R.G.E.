@@ -947,6 +947,9 @@ An adapter composes the public native data-source APIs. Mixer reads only record
 atomic starvation/read-error observations. Owner servicing emits at most one
 starvation and one read-error diagnostic per source incarnation; no callback
 fileIO, logging, World access, FORGE work allocation or worker wait is introduced.
+The adapter observes resource-manager page results before generic looping can
+rewind the source. EOF during looping, or an observed EOF before the immutable
+clip's end, is a read error; a completed non-looping clip retains its normal end.
 The explicit offline consumer alone gates page readiness and reads bounded256frame
 quanta outside the callback. The page gate covers authored pitch and the existing
 bounded native Doppler profile. Offline checks do not establish physical-device

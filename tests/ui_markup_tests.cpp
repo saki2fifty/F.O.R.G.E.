@@ -946,8 +946,10 @@ void stylesheet_link_sources() {
     rejects([&] { forge::move_ui_markup_stylesheet_link(source, 3, 0); });
     rejects([&] { forge::remove_ui_markup_stylesheet_link(source, 2); });
     rejects([&] { forge::set_ui_markup_stylesheet_link(source, 6, "theme.rcss"); });
-    for (const auto* reference : {"/outside.rcss", "https://host/theme.rcss", "a.css", "x.rcss?q",
-                                  "a{{x}}.rcss", "a}}.rcss", "line\nbreak.rcss"})
+    for (const auto* reference :
+         {"/outside.rcss", "\\outside.rcss", "//host/theme.rcss", "\\\\host\\theme.rcss",
+          "C:theme.rcss", "https://host/theme.rcss", "a.css", "x.rcss?q", "a{{x}}.rcss", "a}}.rcss",
+          "line\nbreak.rcss"})
         rejects([&] { forge::set_ui_markup_stylesheet_link(source, 3, reference); });
     for (const auto* invalid :
          {"<rml><head/><head/><body/></rml>", "<rml><body/></rml><rml><body/></rml>",

@@ -4,6 +4,7 @@
 #include "authored_inspection.hpp"
 #include "bounded_json.hpp"
 #include "gameplay_source_identity.hpp"
+#include "native_io_path.hpp"
 #include "publish_directory.hpp"
 #include "standalone_manifest.hpp"
 #include <forge/game_settings.hpp>
@@ -124,7 +125,8 @@ void copy_checked(const ProjectPaths& from, const std::filesystem::path& locator
 Json inventory(const std::filesystem::path& root, std::stop_token stop) {
     Json files = Json::object();
     std::uint64_t total = 0;
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
+    const auto native_root = asset_detail::native_io_path(root);
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(native_root)) {
         cancel(stop);
         const auto status = entry.symlink_status();
         require(!std::filesystem::is_symlink(status), "Output contains a link");
@@ -135,7 +137,7 @@ Json inventory(const std::filesystem::path& root, std::stop_token stop) {
         const auto bytes = asset_detail::read_bytes(entry.path(), 512ull * 1024 * 1024);
         total += bytes.size();
         require(total <= 4ull * 1024 * 1024 * 1024, "Output exceeds 4 GiB development budget");
-        files[path_utf8(entry.path().lexically_relative(root))] = {
+        files[path_utf8(entry.path().lexically_relative(native_root))] = {
             {"bytes", bytes.size()}, {"sha256", asset_detail::content_digest(bytes)}};
     }
     return files;

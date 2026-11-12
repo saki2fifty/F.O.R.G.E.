@@ -105,17 +105,21 @@ bool AudioStreamSource::ready() {
     static const ma_data_source_vtable observed_table{
         [](ma_data_source* value, void* output, ma_uint64 count, ma_uint64* read) {
             auto& owner = *static_cast<ObservedSource*>(value)->owner;
-            const auto result = ma_data_source_read_pcm_frames(&owner.source_, output, count, read);
+            // Native pages already own looping. Observe their result before the
+            // generic data-source reader can turn EOF into another queued seek.
+            const auto result = ma_resource_manager_data_source_read_pcm_frames(
+                &owner.source_, output, count, read);
             if (result == MA_BUSY)
                 owner.underruns_.fetch_add(1, std::memory_order_relaxed);
             else if (result == MA_AT_END) {
                 // Native page filling can turn a later decoder/IO failure into
                 // EOF. The validated immutable clip supplies an independent end
-                // boundary; an earlier EOF is invalid, rather than a quiet finish.
+                // boundary. A looping voice cannot finish normally at that boundary.
                 ma_uint64 cursor = 0;
-                if (ma_data_source_get_cursor_in_pcm_frames(&owner.source_, &cursor) ==
-                        MA_SUCCESS &&
-                    cursor < owner.info().frames)
+                if (ma_data_source_is_looping(&owner.source_) ||
+                    (ma_data_source_get_cursor_in_pcm_frames(&owner.source_, &cursor) ==
+                         MA_SUCCESS &&
+                     cursor < owner.info().frames))
                     owner.read_error_.store(MA_INVALID_DATA, std::memory_order_relaxed);
             } else if (result != MA_SUCCESS && result != MA_AT_END)
                 owner.read_error_.store(result, std::memory_order_relaxed);
