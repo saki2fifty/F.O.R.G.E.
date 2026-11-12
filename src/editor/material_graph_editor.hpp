@@ -158,10 +158,11 @@ class MaterialGraphEditor {
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::InputText("Graph file", path_, sizeof(path_));
             FORGE_UI_PROBE("graph:new-path");
-            ImGui::Combo("Domain", &new_domain_, "Mesh\0Sprite\0");
+            ImGui::Combo("Domain", &new_domain_, "Mesh\0Sprite\0UI\0");
             FORGE_UI_PROBE("graph:new-domain");
             ui::help("Mesh graphs output a lit surface. Sprite graphs output final color and "
-                     "sample one primary image in logical frame UV0.");
+                     "sample one primary image in logical frame UV0. UI graphs output final "
+                     "color and straight alpha inside a UI element.");
             ui::help("A new .shader.json source inside an existing project folder. Material graphs "
                      "use the existing Shader asset and publication pipeline.");
             ImGui::BeginDisabled(locked || dirty() || preview_job_.valid());
@@ -170,8 +171,9 @@ class MaterialGraphEditor {
                 try {
                     auto created = MaterialGraphDocument::create(
                         project.writer_guard(), std::filesystem::u8path(path_), [this](AssetId id) {
-                            return new_domain_ == 1 ? MaterialGraphSource::create_sprite(id)
-                                                    : MaterialGraphSource::create(id);
+                            return new_domain_ == 2   ? MaterialGraphSource::create_ui(id)
+                                   : new_domain_ == 1 ? MaterialGraphSource::create_sprite(id)
+                                                      : MaterialGraphSource::create(id);
                         });
                     const auto source = created->locator();
                     created.reset();
@@ -206,6 +208,7 @@ class MaterialGraphEditor {
                 auto program = preview_job_.get();
                 if (document_ && requested_generation_ == generation_ &&
                     !cancel_.stop_requested()) {
+                    preview_ui_ = program.surface->ui_effect;
                     auto values = surface_material_defaults(*program.surface);
                     MaterialTextureBindings bindings;
                     if (preview_source_) {
@@ -230,7 +233,7 @@ class MaterialGraphEditor {
                                                                      program.build_key,
                                                                      std::move(program)}};
                     validate_render_material(data);
-                    if (update_preview)
+                    if (update_preview && !preview_ui_)
                         update_preview(std::move(data), catalog_);
                     preview_ready_ = true;
                     ready_generation_ = requested_generation_;
@@ -350,7 +353,8 @@ class MaterialGraphEditor {
             FORGE_UI_PROBE("graph:close");
             ImGui::SameLine();
             ImGui::TextUnformatted(wants_preview_ || preview_job_.valid() ? "Compiling preview..."
-                                   : preview_current()                    ? "Preview ready"
+                                   : preview_current()
+                                       ? (preview_ui_ ? "UI Shader compiled" : "Preview ready")
                                    : preview_ready_ ? "Previous preview retained"
                                                     : "Preparing preview");
             ui::help("The last usable preview remains visible while compilation or resource "
@@ -401,7 +405,12 @@ class MaterialGraphEditor {
                                  "material document.");
                     }
                 }
-                draw_preview(stacked);
+                if (preview_ui_)
+                    ui::help("UI effects preview on a UI element. Save & Compile this Shader, "
+                             "assign it to a Material, then select that Material in UI Source "
+                             "or Play. Geometry preview is for Mesh and Sprite domains.");
+                else
+                    draw_preview(stacked);
                 ImGui::EndChild();
                 if (!stacked)
                     ImGui::SameLine();
@@ -595,8 +604,8 @@ class MaterialGraphEditor {
     std::function<asset_detail::ShaderCompilerProfile()> compiler_;
     std::future<ShaderData> preview_job_;
     std::stop_source cancel_;
-    bool wants_preview_ = false, preview_ready_ = false, save_ = false, close_ = false,
-         focus_ = false, publishing_ = false, needs_publish_ = false;
+    bool wants_preview_ = false, preview_ready_ = false, preview_ui_ = false, save_ = false,
+         close_ = false, focus_ = false, publishing_ = false, needs_publish_ = false;
     uint64_t generation_ = 0, requested_generation_ = 0, ready_generation_ = 0;
     std::chrono::steady_clock::time_point edited_;
     struct PendingSource {
@@ -731,7 +740,7 @@ class MaterialGraphEditor {
         preview_textures_.clear();
         canvas.reset();
         save_ = close_ = focus_ = publishing_ = needs_publish_ = wants_preview_ = preview_ready_ =
-            false;
+            preview_ui_ = false;
         error_.clear();
         preview_error_.clear();
         if (release_preview)

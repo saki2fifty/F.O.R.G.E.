@@ -3753,3 +3753,16 @@ review covers the assignment, new texture example and export/limits sections at
 1180 and700pixels; these are manual-page layout captures, not new editor or
 physical GPU acceptance. Actual Windows textured sampling/replacement/relocation
 runs through the native `ui_effect_render` fixture as a separate gate.
+
+## UI Material graph controls
+
+`manual/images/ui-material-graph.png` is the unaltered1180x820 full native canvas
+capture from `material_graph_geometry_editor`, produced beside the700-pixel view
+in `material-geometry-ui-data/ui-material-graph-1180.png`. The case displays Tint
+connected to UI Output, checks that drawing preserves source/domain, and reuses
+the actual graph canvas/property controls. Both widths were visually reviewed.
+Capture provenance and executable/source hashes are recorded in the local UI graph
+evidence owner. This SDL software component window is not full Main, native
+Windows graph compilation or physical GPU acceptance. It has no fabricated
+controls or retouched pixels. Existing Mesh/Sprite and UI Material captures keep
+their original attribution.

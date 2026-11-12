@@ -1106,6 +1106,13 @@ not exposed by this bounded adapter.
 
 ## Project UI Material effects
 
+The Shader may be an HLSL source or a UI-domain Material Graph. UI Output emits
+the same linear RGBA Pixel function; UI Time/Size read the existing native inputs.
+Graph compilation, typed diagnostics, functions/history, publication and Material
+assignment use the existing owners. Geometry preview serves Mesh/Sprite; assigned
+UI effects are inspected in the actual UI document. See
+[Material graphs](material-graphs.md) for domain limits and automation access.
+
 A native shader decorator selects `material:<UUID>`, a logical published Material
 with the explicit UI surface domain. Shader definition4/wrapper17 adds one cooked
 Pixel entry with numeric Material defaults, UV0, element size and presentation
@@ -1145,3 +1152,8 @@ Shader/Materials remain uncooked until that preparation. Source-free content kee
 the Scene, UI document/stylesheet, both immutable Materials and the Texture, with
 the compiled Shader retained inside each Material. See the
 [Gallery instructions](../samples/projects/FeatureGallery/README.md).
+
+Scene214 demonstrates the visual graph path with UV0, UI Time/Size, typed math,
+Tint/speed and the same imported Badge image. It reuses the existing sample
+author/inspect/cook/export owner, shared panel stylesheet and exact six-record
+per-Scene runtime closure. Both examples retain separate Materials and UI documents.

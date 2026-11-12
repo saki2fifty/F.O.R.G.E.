@@ -1,7 +1,7 @@
 #pragma once
 #include <forge/material_graph.hpp>
 namespace forge::graph_tests {
-// Keep each schema reachable so actual compilers check its projected expression.
+// Keep each Mesh schema reachable; UI-only schemas use the native UI graph fixture.
 inline nlohmann::json all_node_graph() {
     using Json = nlohmann::json;
     auto graph = create_material_graph();
@@ -33,7 +33,7 @@ inline nlohmann::json all_node_graph() {
     Json sum;
     for (const auto& schema : material_graph_node_schemas()) {
         if (schema.key == "surface" || schema.key == "sprite_output" ||
-            schema.key.starts_with("function"))
+            schema.key.starts_with("ui_") || schema.key.starts_with("function"))
             continue;
         auto n = create_material_graph_node(schema.key, {0, 0});
         if (schema.key == "parameter" || schema.key == "constant") {

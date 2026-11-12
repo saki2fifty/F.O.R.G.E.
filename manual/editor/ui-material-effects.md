@@ -5,8 +5,9 @@ element's UV coordinates, size, presentation time, saved numeric Material
 values and ordinary 2D textures. The element keeps its normal layout, clipping and opacity.
 
 This workflow requires the Windows D3D12 editor, a project with a registered RML
-document, and the matching runtime kit for export. It uses HLSL rather than a
-visual graph. See [UI source editing](ui-source.md) to open and save RML/RCSS files.
+document, and the matching runtime kit for export. Create the Shader with a
+visual Material Graph or an HLSL function. See [UI source editing](ui-source.md)
+to open and save RML/RCSS files.
 
 To try an existing effect, open the bundled Feature Gallery's
 `Scenes/213-ui-material-effects.scene.json` and press Play. It compares a still
@@ -16,7 +17,28 @@ and open `Assets/UI/MaterialEffects/Motion.material.json` in Content to change
 restart Play. The Scene includes its Camera and export dependencies; no project
 C++ module or Light is required. Set it as startup and save before exporting.
 
-## Create and import the Shader
+`Scenes/214-ui-material-graphs.scene.json` uses a visual graph for its textured
+gradients. Open `Assets/UI/GraphEffects/Panel.shader.json` to inspect or edit
+UVs, presentation time, element size and typed math feeding UI Output. Its two
+Materials and export dependencies are included. See the
+[Material Graph guide](material-graphs.md).
+
+## Create a visual UI graph
+
+1. In Content, choose **Create / Register → New material graph...**.
+2. Enter a new `.shader.json` path and choose **Domain → UI**, then **Create graph**.
+3. Select the **Tint** parameter to change its color and alpha. It connects to **UI Output → color**.
+4. Use **Add node** for **UV Coordinates**, **UI Time**, **UI Size**, ordinary **Texture 2D** samples and typed math. UV0 is the element's coordinates; UI Time is presentation seconds and UI Size is the element's size in pixels. Use Component/Combine/Convert nodes for explicit type changes.
+5. Choose **Save & Compile**. Wait for publication, then create and assign the Material as described below.
+
+UI Output returns linear color and straight alpha. Native UI applies clipping,
+opacity and target color conversion. UI Time continues while simulation is paused.
+The graph's geometry preview is for Mesh and Sprite domains; inspect the assigned
+UI Material in UI Source Preview or Play. Mesh geometry inputs, other UV sets and
+array/cube/volume Texture nodes are rejected, including in unused function bodies.
+See [Material Graph](material-graphs.md) for connections, functions and history.
+
+## Create and import an HLSL Shader
 
 1. Stop Play. Create the project folders `Assets` and `Shaders` if needed.
 2. Create `Assets/Panel.shader.json` with the declaration below. Replace the example `asset_id` with a fresh UUID, then keep that UUID for this Shader.
@@ -104,8 +126,9 @@ body, div { display: block; }
 The panel fades from black to the chosen tint across its width. Changing element
 opacity or parent clipping still affects the result. UI Materials preview in the
 UI document or Play; the Material document's geometry preview is for other
-surface domains. To change the effect, edit the HLSL and reimport the Shader,
-then save/rebuild its Material. A failed publication keeps the previous published
+surface domains. To change a graph effect, edit its nodes and **Save & Compile**.
+For an HLSL effect, edit the function and reimport the Shader. Then save/rebuild
+the Material. A failed publication keeps the previous published
 Material usable.
 
 ## Sample a texture

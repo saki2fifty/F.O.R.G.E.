@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**214-ui-material-graphs** uses a visual graph for still and animated textured
+UI panels. Stop Play and open `Assets/UI/GraphEffects/Panel.shader.json` in the
+Material Graph workspace to inspect its laid-out UV, UI Time/Size, image and math
+nodes. Save & Compile changes, save/rebuild its two Materials and restart Play.
+The Camera and dependencies are included; choose this Scene as startup before
+export. See [UI Material effects](../editor/ui-material-effects.md).
+
 **213-ui-material-effects** compares still and animated textured UI panels with
 shared HLSL, clipping, flipped UVs and opacity. Press Play, then Stop to edit
 **Motion speed**, **Tint** or the image slot in

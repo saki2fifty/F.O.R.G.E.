@@ -8,7 +8,8 @@ import sys
 import tempfile
 import time
 import wave
-from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
+from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host, protocol_cases
+from mcp_ui_graph_workflow import check_ui_graph_workflow
 from mcp_prefab_workflow import check_prefab_workflow, check_prefab_nested
 from mcp_prefab_source_layers import check_prefab_source_layers
 from mcp_terrain_foliage_workflow import check_terrain_foliage_workflow
@@ -36,6 +37,7 @@ COLLISION_ONLY = "--tile-collision-only" in sys.argv[5:]
 ATLAS_ONLY = "--atlas-only" in sys.argv[5:]
 SPRITE_GRAPH_ONLY = "--sprite-graph-only" in sys.argv[5:]
 LIGHTMAP_GRAPH_ONLY = "--lightmap-graph-only" in sys.argv[5:]
+UI_GRAPH_ONLY = "--ui-graph-only" in sys.argv[5:]
 NAVIGATION_BEHAVIOR_ONLY = "--navigation-behavior-only" in sys.argv[5:]
 UI_LOCALIZATION_ONLY = "--ui-localization-only" in sys.argv[5:]
 UI_VALUES_ONLY = "--ui-values-only" in sys.argv[5:]
@@ -127,7 +129,7 @@ def check_audio_settings(read, mutate, root):
 
 
 
-for legacy in (False, True):
+for legacy in protocol_cases():
     with editor('read') as (root, process, config), Client(config, legacy) as client:
         readonly_tools = client.request('tools/list')['result']['tools']
         names = {tool['name'] for tool in readonly_tools}
@@ -257,6 +259,9 @@ for legacy in (False, True):
         if LIGHTMAP_GRAPH_ONLY:
             check_lightmap_graph_workflow(read, mutate, edit, status, content, failed, root)
             continue
+        if UI_GRAPH_ONLY:
+            check_ui_graph_workflow(read, mutate, edit, status, content, failed, root)
+            continue
         output_catalog = read('forge_asset_render_texture_catalog')
         assert output_catalog['editor'] == 'render_texture' and output_catalog['asset_type'] == 'render_texture'
         assert output_catalog['limits']['outputs'] == 4 and output_catalog['limits']['maximum_dimension'] == 2048
@@ -287,8 +292,8 @@ for legacy in (False, True):
         assert sprite_output['node']['data']['tint'] and not sprite_output['outputs']
         assert sprite_output['inputs'][0]['key'] == 'color'
         schemas = {tool['name']: tool['inputSchema']['properties'] for tool in declared_tools}
-        assert schemas['forge_asset_document_template']['domain']['enum'] == ['mesh', 'sprite']
-        assert schemas['forge_asset_document_create']['domain']['enum'] == ['mesh', 'sprite']
+        assert schemas['forge_asset_document_template']['domain']['enum'] == ['mesh', 'sprite', 'ui']
+        assert schemas['forge_asset_document_create']['domain']['enum'] == ['mesh', 'sprite', 'ui']
         assert not {'domain', 'textures', 'tile_set', 'patch'} & schemas['forge_asset_document_open'].keys()
         wrong_domain_owner = client.tool('forge_asset_document_template',
                                         target=discovery()['result']['target'],
@@ -301,6 +306,8 @@ for legacy in (False, True):
         wrong_creation = mutate('forge_asset_document_create', editor='material',
                                 path='Assets/Rejected-domain.material.json', domain='sprite')
         assert not wrong_creation['ok'] and not (root / 'Game/Assets/Rejected-domain.material.json').exists()
+        if not any(argument.endswith('-only') for argument in sys.argv[5:]):
+            check_ui_graph_workflow(read, mutate, edit, status, content, failed, root)
         # A Tile Set source can be authored before its dependent Tile Map.
         kinds.sort(key=lambda item: item['editor'] == 'tile_map')
         if COLLISION_ONLY:
@@ -945,4 +952,5 @@ for legacy in (False, True):
 
 
 write_capture(sys.argv[4])
-print('MCP shared source editors, history, validation and publication passed')
+print('MCP UI graph discovery, source history and revision guards passed' if UI_GRAPH_ONLY
+      else 'MCP shared source editors, history, validation and publication passed')

@@ -96,6 +96,12 @@ that kit conservatively also protects a retained newer Material Shader snapshot
 whose current logical Shader publication has changed or is omitted from closure.
 There is no alternate authoring or dependency database for this extension.
 
+The additive visual UI graph authoring path lowers UI Output/Time/Size and ordinary
+typed math/Texture2D nodes through that same UI surface definition and Pixel wrapper.
+It retains graph version1/Shader source version3, existing schema discovery,
+identity/history/worker/publication and Material/export ownership. UI graphs do
+not introduce geometry deformation, a runtime graph VM or another preview backend.
+
 ## Current evidence and implementation boundary
 
 Current editor/viewport.cpp draws CPU blockout geometry and has no production

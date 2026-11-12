@@ -157,9 +157,9 @@ class MaterialGraphCanvas {
             for (const auto& schema : material_graph_node_schemas()) {
                 if (schema.key == "function" || schema.key == "function_input" ||
                     schema.key == "function_output" ||
-                    (function_scope &&
-                     (schema.key == "surface" || schema.key == "sprite_output" ||
-                      schema.key == "parameter" || schema.key.starts_with("texture"))))
+                    (function_scope && (schema.key == "surface" || schema.key == "sprite_output" ||
+                                        schema.key == "ui_output" || schema.key == "parameter" ||
+                                        schema.key.starts_with("texture"))))
                     continue;
                 auto label = schema.category + " / " + schema.label;
                 if (!filter.empty() &&

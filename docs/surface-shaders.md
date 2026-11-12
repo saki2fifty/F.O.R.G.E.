@@ -60,6 +60,12 @@ state is Blend, two-sided, depth-test/write off. Mesh and Sprite consumers rejec
 this domain. Array/cube/volume Textures, camera RenderTextures, authored vertex
 stages, mesh lights and mesh fog are outside this UI interface.
 
+UI Output in a Material Graph lowers to that same UI function and wrapper, without
+authored HLSL beside the graph. UI Time/Size and UV0 map to the existing input
+fields; parameters and ordinary Texture2D nodes use the same Material bindings.
+Graph/source versions and runtime capability remain unchanged. See
+[Material graphs](material-graphs.md) for domain checks and source authoring.
+
 RML/RCSS selects the logical Material with
 `decorator:shader("material:<Material UUID>")`. The native callback admits the
 typed reference and finite element dimensions through one shared helper. UI and

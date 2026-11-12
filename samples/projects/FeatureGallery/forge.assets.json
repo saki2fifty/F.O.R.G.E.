@@ -1802,6 +1802,16 @@
       "type": "scene"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "12fcc384-3a15-4338-8b63-924e679bedbe",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/UI/GraphEffects/Panel.shader.json",
+      "source_dependencies": [],
+      "type": "shader"
+    },
+    {
       "dependencies": [
         "cf8130ea-5707-491c-90e9-a371c5ed9039"
       ],
@@ -4221,6 +4231,16 @@
       "source": "Assets/Planar/ClockwiseL.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "29a4aa8a-d7a5-4370-a1ef-72fd68330238",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/UI/GraphEffects/Still.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [],
@@ -8296,6 +8316,41 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "29a4aa8a-d7a5-4370-a1ef-72fd68330238",
+        "e03984b3-427d-4ec8-b574-4f7e0aa2c586"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "declared:Still panel",
+          "target": "29a4aa8a-d7a5-4370-a1ef-72fd68330238",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "declared:Motion panel",
+          "target": "e03984b3-427d-4ec8-b574-4f7e0aa2c586",
+          "type": "material"
+        }
+      ],
+      "id": "60bfdc4d-8c6f-471a-b7be-c1149b9f3f45",
+      "metadata": {
+        "forge.runtime_declarations": {
+          "sources": {
+            "Assets/UI/GraphEffects/Lab.rml": "01cf0b729e27644c4079f61bb680d7804fba05687b8be5af15b8db7990f3689d"
+          },
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/GraphEffects/Lab.rml",
+      "source_dependencies": [],
+      "type": "ui_document"
     },
     {
       "dependencies": [
@@ -17146,6 +17201,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "d576f1a8-3615-4d51-9c87-6b8d7384953e",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/214-ui-material-graphs.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "d5c8296e-9d95-4029-a081-931fb0e873c6",
       "metadata": {
         "forge.import": {
@@ -17991,6 +18056,16 @@
       "source": "Assets/AnimationGraphs/Layered.animgraph.json",
       "source_dependencies": [],
       "type": "animation_graph"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e03984b3-427d-4ec8-b574-4f7e0aa2c586",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/UI/GraphEffects/Motion.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [],

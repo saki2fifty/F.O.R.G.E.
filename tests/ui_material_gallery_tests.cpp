@@ -5,6 +5,7 @@
 #include "runtime_dependencies.hpp"
 #include "runtime_package.hpp"
 #include "shader_pipeline.hpp"
+#include "ui_effect_fixture.hpp"
 #include "ui_inspection.hpp"
 #ifdef FORGE_GALLERY_SHADER_COOK
 #include "shader_authoring.hpp"
@@ -23,11 +24,23 @@
 
 using namespace forge;
 namespace {
-constexpr auto scene_path = "Scenes/213-ui-material-effects.scene.json";
-constexpr auto shader_path = "Assets/UI/MaterialEffects/Panel.shader.json";
-constexpr auto document_path = "Assets/UI/MaterialEffects/Lab.rml";
-constexpr std::array material_paths{"Assets/UI/MaterialEffects/Still.material.json",
-                                    "Assets/UI/MaterialEffects/Motion.material.json"};
+struct GalleryExample {
+    const char* scene;
+    const char* shader;
+    const char* document;
+    std::array<const char*, 2> materials;
+};
+constexpr std::array examples{GalleryExample{"Scenes/213-ui-material-effects.scene.json",
+                                             "Assets/UI/MaterialEffects/Panel.shader.json",
+                                             "Assets/UI/MaterialEffects/Lab.rml",
+                                             {"Assets/UI/MaterialEffects/Still.material.json",
+                                              "Assets/UI/MaterialEffects/Motion.material.json"}},
+                              GalleryExample{"Scenes/214-ui-material-graphs.scene.json",
+                                             "Assets/UI/GraphEffects/Panel.shader.json",
+                                             "Assets/UI/GraphEffects/Lab.rml",
+                                             {"Assets/UI/GraphEffects/Still.material.json",
+                                              "Assets/UI/GraphEffects/Motion.material.json"}}};
+
 void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
@@ -47,10 +60,11 @@ SurfaceShaderDefinition definition() {
     value.textures["image"].semantic = TextureSemantic::Color;
     return value;
 }
-void author(const std::filesystem::path& root) {
-    check(!std::filesystem::exists(root / scene_path), "UI Material Gallery already exists");
-    const auto directory = root / "Assets/UI/MaterialEffects";
-    std::filesystem::create_directories(directory / "Shaders");
+void author(const std::filesystem::path& root, bool graph = false) {
+    const auto& example = examples[graph ? 1 : 0];
+    check(!std::filesystem::exists(root / example.scene), "UI Material Gallery already exists");
+    const auto directory = (root / example.shader).parent_path();
+    std::filesystem::create_directories(graph ? directory : directory / "Shaders");
     auto catalog = AssetCatalog::open_project(root);
     AssetId texture;
     for (const auto& [id, record] : catalog.records())
@@ -58,7 +72,7 @@ void author(const std::filesystem::path& root) {
             texture = id;
     check(bool(texture), "UI Material Gallery requires the published Badge Texture");
     const auto shader = AssetId::generate();
-    const Json declaration{
+    Json declaration{
         {"format", "forge.shader"},
         {"version", 2},
         {"asset_id", shader},
@@ -66,9 +80,39 @@ void author(const std::filesystem::path& root) {
         {"surface", surface_definition_document(definition())},
         {"stages",
          Json::array({{{"stage", "pixel"}, {"source", "panel.hlsl"}, {"entry", "GalleryPanel"}}})}};
+    if (graph) {
+        declaration = test::ui_effect_graph_document(shader);
+        const std::array<std::array<double, 2>, 19> positions{{{1500, 600},
+                                                               {2100, 360},
+                                                               {0, 40},
+                                                               {300, 40},
+                                                               {300, 220},
+                                                               {0, 430},
+                                                               {0, 600},
+                                                               {300, 430},
+                                                               {600, 40},
+                                                               {900, 40},
+                                                               {0, 820},
+                                                               {300, 820},
+                                                               {300, 1000},
+                                                               {600, 820},
+                                                               {900, 820},
+                                                               {1200, 250},
+                                                               {1200, 600},
+                                                               {1500, 250},
+                                                               {1800, 360}}};
+        auto& nodes = declaration["graph"]["nodes"];
+        check(nodes.size() == positions.size(), "Gallery graph layout no longer matches its nodes");
+        for (std::size_t i = 0; i < nodes.size(); ++i) {
+            nodes[i]["position"] = positions[i];
+            if (nodes[i]["data"].value("key", std::string{}) == "speed")
+                nodes[i]["data"]["label"] = "Motion speed";
+        }
+    }
     (void)shader_program_source(declaration);
-    atomic_write(root / shader_path, declaration.dump(2));
-    atomic_write(directory / "Shaders/panel.hlsl", R"hlsl(#include "engine/forge.surface.hlsli"
+    atomic_write(root / example.shader, declaration.dump(2));
+    if (!graph)
+        atomic_write(directory / "Shaders/panel.hlsl", R"hlsl(#include "engine/forge.surface.hlsli"
 float4 GalleryPanel(ForgeUiInput input) {
     float speed = ForgeParameter_speed();
     float band = 0.65 + 0.35 * cos(6.2831853 * (input.UV.x - input.Time * speed));
@@ -77,7 +121,7 @@ float4 GalleryPanel(ForgeUiInput input) {
                   image.a * ForgeParameter_tint().a);
 }
 )hlsl");
-    catalog.add({shader, "shader", shader_path, 1, {}});
+    catalog.add({shader, "shader", example.shader, 1, {}});
     std::array<AssetId, 2> materials;
     for (unsigned i = 0; i < materials.size(); ++i) {
         auto material = MaterialSource::create(AssetId::generate());
@@ -98,18 +142,25 @@ float4 GalleryPanel(ForgeUiInput input) {
             {"asset", texture},
             {"slot", material_values_document(values).at("textures").at("image")}};
         material.validate();
-        atomic_write(root / material_paths[i], material.document.dump(2));
-        catalog.add({materials[i], "material", material_paths[i], 1, {}});
+        atomic_write(root / example.materials[i], material.document.dump(2));
+        catalog.add({materials[i], "material", example.materials[i], 1, {}});
     }
     catalog.save(AssetCatalog::project_index(root));
-    atomic_write(root / document_path,
-                 "<rml><head><link type=\"text/rcss\" href=\"Lab.rcss\" /></head>"
-                 "<body><div id=\"lab\"><p class=\"eyebrow\">FORGE / UI MATERIALS</p>"
-                 "<h1>One Shader. Two Materials.</h1>"
-                 "<p>The same image uses a still band on the left and a moving, flipped band on "
-                 "the right.</p>"
-                 "<div class=\"comparison\"><div class=\"card\"><h2>Still</h2>"
-                 "<div class=\"clip\"><div id=\"still\" style='decorator:shader(\"material:" +
+    const std::string stylesheet = graph ? "../MaterialEffects/Lab.rcss" : "Lab.rcss";
+    const std::string intro = graph ? "UVs, presentation time and element size feed these "
+                                      "graph-authored textured gradients."
+                                    : "The same image uses a still band on the left and a moving, "
+                                      "flipped band on the right.";
+    atomic_write(root / example.document,
+                 "<rml><head><link type=\"text/rcss\" href=\"" + stylesheet +
+                     "\" /></head>"
+                     "<body><div id=\"lab\"><p class=\"eyebrow\">FORGE / UI MATERIALS</p>"
+                     "<h1>One Shader. Two Materials.</h1>"
+                     "<p>" +
+                     intro +
+                     "</p>"
+                     "<div class=\"comparison\"><div class=\"card\"><h2>Still</h2>"
+                     "<div class=\"clip\"><div id=\"still\" style='decorator:shader(\"material:" +
                      materials[0].str() +
                      "\");' /></div><p>Speed 0 / normal UVs</p></div>"
                      "<div class=\"card\"><h2>Motion</h2><div class=\"clip\">"
@@ -121,7 +172,8 @@ float4 GalleryPanel(ForgeUiInput input) {
                      "<p>Presentation time continues while simulation is paused. No C++ module is "
                      "required.</p>"
                      "</div></body></rml>\n");
-    atomic_write(directory / "Lab.rcss", R"rcss(body,div,p,h1,h2 {display:block;}
+    if (!graph)
+        atomic_write(directory / "Lab.rcss", R"rcss(body,div,p,h1,h2 {display:block;}
 body {width:100%;height:100%;font-family:Lato;font-size:17px;color:#e8f1f6;}
 #lab {position:absolute;left:4%;top:4%;width:92%;max-width:920px;max-height:92%;box-sizing:border-box;padding:24px;background-color:#162a39;overflow:auto;}
 .eyebrow {font-size:13px;color:#70d7bd;} h1 {font-size:28px;} h2 {font-size:21px;}
@@ -130,11 +182,12 @@ p {margin:12px 0;line-height:1.35;} .comparison {display:flex;gap:24px;flex-wrap
 #still,#motion {width:320px;height:180px;} #motion {opacity:0.75;}
 scrollbarvertical {width:10px;background-color:#0a1a27;} scrollbarvertical sliderbar {background-color:#477b90;}
 )rcss");
-    const auto document = register_ui_document(root, document_path);
+    const auto document = register_ui_document(root, example.document);
     auto lease = std::make_shared<ProjectLease>(root);
     catalog = AssetCatalog::open_project(root);
-    catalog.add(
-        {AssetId::generate(), "ui_stylesheet", "Assets/UI/MaterialEffects/Lab.rcss", 1, {}});
+    if (!graph)
+        catalog.add(
+            {AssetId::generate(), "ui_stylesheet", "Assets/UI/MaterialEffects/Lab.rcss", 1, {}});
     catalog.save(AssetCatalog::project_index(root));
     declare_runtime_dependencies(
         *lease, document.id,
@@ -154,18 +207,21 @@ scrollbarvertical {width:10px;background-color:#0a1a27;} scrollbarvertical slide
     camera.set<Camera>({});
     camera.set<LocalTranslation>({0, 0, -8});
     create("UI Material comparison").set<UiDocument>({{document.id}, true, true, 0});
-    scene.save(root / scene_path);
+    scene.save(root / example.scene);
     catalog = AssetCatalog::open_project(root);
-    catalog.add_scene(scene_path);
+    catalog.add_scene(example.scene);
     catalog.save(AssetCatalog::project_index(root));
 }
-void inspect(const std::filesystem::path& root) {
-    const auto shader = read(root / shader_path);
-    const auto captured = asset_detail::capture_shader_source(root, shader_path);
-    check(captured.project_sources.size() == 1 && captured.sources.contains("panel.hlsl"),
+void inspect(const std::filesystem::path& root, bool graph = false) {
+    const auto& example = examples[graph ? 1 : 0];
+    const auto shader = read(root / example.shader);
+    const auto captured = asset_detail::capture_shader_source(root, example.shader);
+    check(graph ? (captured.project_sources.empty() &&
+                   captured.sources.contains("engine/forge.graph.hlsl"))
+                : (captured.project_sources.size() == 1 && captured.sources.contains("panel.hlsl")),
           "Gallery UI Shader lost its captured HLSL source");
-    const auto surface = surface_definition(shader.at("surface"));
-    check(surface.ui_effect && shader.at("surface").at("version") == 5 &&
+    const auto surface = *captured.program.surface;
+    check(surface.ui_effect && surface_definition_document(surface).at("version") == 5 &&
               surface.textures.size() == 1 &&
               surface.textures.at("image").semantic == TextureSemantic::Color,
           "Gallery UI Shader lost its ordinary Color Texture interface");
@@ -173,7 +229,7 @@ void inspect(const std::filesystem::path& root) {
     std::array<AssetId, 2> materials;
     for (unsigned i = 0; i < materials.size(); ++i) {
         const auto source = MaterialSource::parse(
-            asset_detail::read_bytes(root / material_paths[i], material_source_byte_limit));
+            asset_detail::read_bytes(root / example.materials[i], material_source_byte_limit));
         materials[i] = source.asset();
         const auto& overrides = source.document.at("overrides");
         check(overrides.at("shader").get<AssetId>() == shader.at("asset_id").get<AssetId>() &&
@@ -183,17 +239,17 @@ void inspect(const std::filesystem::path& root) {
         const auto& slot = overrides.at("textures").at("image").at("slot");
         check(slot.at("scale").at(0) == (i ? -1. : 1.) &&
                   slot.at("offset").at(0) == (i ? 1. : 0.) &&
-                  catalog.records().at(materials[i]).source == material_paths[i],
+                  catalog.records().at(materials[i]).source == example.materials[i],
               "Gallery UI Material identity or saved UV transform differs");
         check(catalog.records().at(texture).source == "Assets/Sprites/Badge.png",
               "Gallery UI Material does not use the real imported Badge Texture");
     }
-    const auto scene_source = read(root / scene_path);
+    const auto scene_source = read(root / example.scene);
     WorldContext world;
     Scene scene(world);
-    scene.load(root / scene_path);
+    scene.load(root / example.scene);
     const auto& records = catalog.records();
-    check(records.at(scene.asset_id()).source == scene_path &&
+    check(records.at(scene.asset_id()).source == example.scene &&
               scene_source.at("entities").size() == 2 &&
               std::count_if(scene_source.at("entities").begin(), scene_source.at("entities").end(),
                             [](const auto& row) {
@@ -204,7 +260,7 @@ void inspect(const std::filesystem::path& root) {
     for (const auto& row : scene_source.at("entities"))
         if (row.at("components").contains("forge.ui_document"))
             document = row.at("components").at("forge.ui_document").at("document").get<AssetId>();
-    check(bool(document) && records.at(document).source == document_path,
+    check(bool(document) && records.at(document).source == example.document,
           "Gallery Scene lost its UI document");
     for (auto id : materials)
         check(std::any_of(records.at(document).dependency_edges.begin(),
@@ -219,9 +275,10 @@ void inspect(const std::filesystem::path& root) {
         << "UI Material Gallery sources, identities, Texture and export declarations admitted\n";
 }
 void prepare(const std::filesystem::path& root, const std::filesystem::path& worker,
-             const std::filesystem::path& font) {
+             const std::filesystem::path& font, bool graph = false) {
 #ifdef FORGE_GALLERY_SHADER_COOK
-    inspect(root);
+    const auto& example = examples[graph ? 1 : 0];
+    inspect(root, graph);
     auto lease = std::make_shared<ProjectLease>(root);
     const auto directory = worker.parent_path();
     auto registry = std::make_shared<AssetImporterRegistry>();
@@ -230,44 +287,58 @@ void prepare(const std::filesystem::path& root, const std::filesystem::path& wor
                                                  asset_detail::diligent_shader_compiler_debug()}));
     registry->seal();
     AssetImportService shaders(lease, registry, {"windows-x64", "d3d12", "fxc-5.1"});
-    test::publish_gallery_asset(shaders, shader_path, prepare_shader_publication);
+    test::publish_gallery_asset(shaders, example.shader, prepare_shader_publication);
     AssetImportService materials(lease, material_import_registry(),
                                  {"windows", "d3d12", "desktop"});
-    for (auto path : material_paths)
+    for (auto path : example.materials)
         test::publish_gallery_asset(materials, path, prepare_material_publication);
     WorldContext world;
     Scene scene(world);
-    scene.load(root / scene_path);
+    scene.load(root / example.scene);
     const std::array roots{scene.asset_id()};
-    prepare_runtime_content_catalog(
-        *lease, roots,
-        [&](AssetId id, std::stop_token stop) {
-            return inspect_ui_dependencies(directory / "forge_ui_inspect.exe", font, root, id,
-                                           stop);
-        },
-        scene.schema());
+    const auto inspect_ui = [&](AssetId id, std::stop_token stop) {
+        return inspect_ui_dependencies(directory / "forge_ui_inspect.exe", font, root, id, stop);
+    };
+    // Publication makes the UI Materials available to native source inspection.
+    // Review the full observed stylesheet set before checking export declarations.
+    const auto catalog = AssetCatalog::open_project(root);
+    AssetId document;
+    for (const auto& [id, record] : catalog.records())
+        if (record.source == example.document)
+            document = id;
+    check(bool(document), "UI Material Gallery document missing after publication");
+    const auto observed = inspect_ui(document, {});
+    std::vector<AssetDependency> declarations;
+    for (const auto& edge : catalog.records().at(document).dependency_edges)
+        if (declared_runtime_edge(edge))
+            declarations.push_back(edge);
+    declare_runtime_dependencies(*lease, document, std::move(declarations), catalog.document(),
+                                 &observed);
+    prepare_runtime_content_catalog(*lease, roots, inspect_ui, scene.schema());
     std::cout << "UI Material Gallery cooked and inspected with the matching Windows build\n";
 #else
     (void)root;
     (void)worker;
     (void)font;
+    (void)graph;
     throw std::runtime_error("UI Material Gallery cooking requires the Windows Shader profile");
 #endif
 }
 void verify_export(const std::filesystem::path& root, const std::filesystem::path& worker,
-                   const std::filesystem::path& font) {
-    prepare(root, worker, font);
+                   const std::filesystem::path& font, bool graph = false) {
+    const auto& example = examples[graph ? 1 : 0];
+    prepare(root, worker, font, graph);
     const auto catalog = AssetCatalog::open_project(root);
     std::set<AssetId> expected;
     AssetId scene, document;
     for (const auto& [id, record] : catalog.records()) {
-        if (record.source == scene_path)
+        if (record.source == example.scene)
             scene = id;
-        if (record.source == document_path)
+        if (record.source == example.document)
             document = id;
-        if (record.source == scene_path || record.source == document_path ||
+        if (record.source == example.scene || record.source == example.document ||
             record.source == "Assets/UI/MaterialEffects/Lab.rcss" ||
-            record.source == material_paths[0] || record.source == material_paths[1] ||
+            record.source == example.materials[0] || record.source == example.materials[1] ||
             record.source == "Assets/Sprites/Badge.png")
             expected.insert(id);
     }
@@ -290,9 +361,9 @@ void verify_export(const std::filesystem::path& root, const std::filesystem::pat
         (void)record;
         actual.insert(id);
     }
-    check(actual == expected && !std::filesystem::exists(relocated / shader_path) &&
-              !std::filesystem::exists(relocated / material_paths[0]) &&
-              !std::filesystem::exists(relocated / material_paths[1]),
+    check(actual == expected && !std::filesystem::exists(relocated / example.shader) &&
+              !std::filesystem::exists(relocated / example.materials[0]) &&
+              !std::filesystem::exists(relocated / example.materials[1]),
           "UI Material Gallery export closure or authored-source removal differs");
     const auto snapshot =
         inspect_ui_dependencies(directory / "forge_ui_inspect.exe", font, relocated, document);
@@ -312,13 +383,19 @@ int main(int argc, char** argv) {
         const auto action = std::string_view(argv[1]);
         if (action == "--author")
             author(root);
-        else if (action == "--inspect")
+        else if (action == "--author-graph")
+            author(root, true);
+        else if (action == "--inspect") {
             inspect(root);
-        else if (action == "--verify-export")
+            inspect(root, true);
+        } else if (action == "--verify-export")
             verify_export(root, worker, font);
+        else if (action == "--verify-graph-export")
+            verify_export(root, worker, font, true);
         else {
             check(action == "--prepare", "Unknown UI Material Gallery action");
             prepare(root, worker, font);
+            prepare(root, worker, font, true);
         }
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

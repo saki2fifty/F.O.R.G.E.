@@ -39,7 +39,8 @@ int main(int argc, char** argv) {
             std::this_thread::sleep_for(std::chrono::seconds(10));
             return 1;
         }
-        check(argc == 2, "Need graph lifecycle scratch root");
+        check(argc == 2 || argc == 3,
+              "Need graph lifecycle scratch root and optional fault worker");
         const auto root = std::filesystem::absolute(argv[1]);
         const auto first = root / "First", second = root / "Second";
         std::filesystem::create_directories(first / "Assets");
@@ -143,7 +144,7 @@ int main(int argc, char** argv) {
 
         project.open_project(first, true);
         graph.poll(project, message);
-        MaterialGraphEditor preview(std::filesystem::absolute(argv[0]), [] {
+        MaterialGraphEditor preview(std::filesystem::absolute(argc == 3 ? argv[2] : argv[0]), [] {
             return asset_detail::ShaderCompilerProfile{std::string(64, 'a'), false};
         });
         unsigned preview_adoptions = 0;
@@ -151,8 +152,15 @@ int main(int argc, char** argv) {
         preview.open(project, source);
         std::this_thread::sleep_for(std::chrono::milliseconds(310));
         preview.poll(project, message);
-        await([&] { return std::filesystem::exists(first / "preview-worker-started"); },
-              "Actual preview worker did not start");
+        await(
+            [&] {
+                preview.poll(project, message);
+                if (!preview.pending() && !preview.diagnostic().empty())
+                    throw std::runtime_error("Preview worker stopped before startup: " +
+                                             preview.diagnostic());
+                return std::filesystem::exists(first / "preview-worker-started");
+            },
+            "Actual preview worker did not start");
         check(preview.pending(), "Preview future was not retained");
         project.open_project(second, true);
         preview.poll(project, message); // Cancel and close without waiting for the child.

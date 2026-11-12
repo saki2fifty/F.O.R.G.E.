@@ -42,7 +42,7 @@ template <class Read8, class Read16, class Save>
 void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context,
               const std::filesystem::path& images, const std::filesystem::path& font,
               const std::filesystem::path& worker, const std::filesystem::path& inspector,
-              Read8 read8, Read16 read16, Save save, bool textured = false) {
+              Read8 read8, Read16 read16, Save save, bool textured = false, bool graph = false) {
     using namespace Diligent;
     using namespace asset_detail;
     using namespace std::chrono_literals;
@@ -50,9 +50,12 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
     const auto root = images / ("project-" + AssetId::generate().str());
     std::filesystem::create_directories(root / "Shaders");
     const auto shader = AssetId::generate();
-    write(root / "effect.shader.json", test::ui_effect_document(shader, textured).dump());
-    write(root / "Shaders/ui.hlsl",
-          textured ? test::ui_texture_effect_source() : std::string(test::ui_effect_source));
+    write(root / "effect.shader.json", (graph ? test::ui_effect_graph_document(shader)
+                                              : test::ui_effect_document(shader, textured))
+                                           .dump());
+    if (!graph)
+        write(root / "Shaders/ui.hlsl",
+              textured ? test::ui_texture_effect_source() : std::string(test::ui_effect_source));
     auto material = MaterialSource::create(AssetId::generate());
     material.document["version"] = 2;
     material.document["overrides"]["shader"] = AssetRef<ShaderAsset>{shader};

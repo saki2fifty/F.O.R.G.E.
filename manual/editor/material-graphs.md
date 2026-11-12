@@ -20,6 +20,37 @@ The preview uses the same material renderer as the scene. Its geometry, camera a
 lighting do not change your scene. Widen the workspace for a split view; in a narrow
 workspace the preview stacks above the graph. Ctrl+Plus/Minus scales the interface.
 
+## Create a UI Material graph
+
+Choose **Domain → UI** when creating a graph. The workspace starts with **Tint**
+connected to **UI Output → color**. The output is linear RGBA with straight alpha;
+UI presentation applies element opacity, clipping and target conversion.
+
+![Material Graph canvas with Tint connected to UI Output's color input](../images/ui-material-graph.png)
+
+Connect a linear RGBA value to UI Output, then view the assigned Material in a UI element.
+
+For an editable textured example, open the Feature Gallery's
+`Scenes/214-ui-material-graphs.scene.json`. Its Shader source is
+`Assets/UI/GraphEffects/Panel.shader.json`; the two Materials in that folder store
+independent speeds and image transforms. Save & Compile the graph, save/rebuild
+the Materials, then restart Play to test changes. The Scene includes a Camera
+and export dependencies; no project C++ module is required.
+
+Add **UI Time** for presentation seconds, **UI Size** for element pixels, or
+**UV Coordinates** for the element's UV0. These values connect through the normal
+typed math, Component, Combine and Convert nodes. Ordinary **Texture 2D** nodes
+use Material Texture assignments, samplers and UV transforms. Other Texture
+dimensions, Mesh geometry/Vertex Color and nonzero UV sets are unavailable in UI
+graphs. Functions share these domain checks, including uncalled definitions.
+
+Choose **Save & Compile**, then assign the Shader to a Material and save its
+parameters/textures. Select that published Material in a UI element's
+**decorator → UI Material** control. Declare the Material in the UI document's
+Runtime Dependencies before export. The graph's geometry preview serves Mesh
+and Sprite domains; view UI effects in UI Source Preview or Play. UI Time keeps
+advancing while simulation is paused. See [UI Material effects](ui-material-effects.md).
+
 ## Create a Sprite material graph
 
 Custom Sprite graphs use the Windows/D3D12 Shader compiler. A graph describes
@@ -119,7 +150,7 @@ Constants describe values shared by the graph itself.
 1. Create or open a material in Content.
 2. Choose the compiled graph in **Surface Shader**.
 3. Edit its named parameters and texture slots, then save the material.
-4. Assign the material to a Mesh slot or Sprite material field in the Inspector, according to the graph's domain.
+4. Assign the Material to a Mesh slot or Sprite material field in the Inspector. For a UI graph, select the Material in a UI element's source styles as described above.
 
 An imported model can have a grouping root and separate mesh children. Select the
 mesh child to assign its material. A flat mesh may disappear when viewed from its

@@ -96,11 +96,12 @@ select this case; the audit artifact retains `ui-effect-render` outputs. Local
 CPU markers and built-in software-Vulkan pixels do not establish native project
 shader execution. Windows/physical acceptance requires its own actual evidence.
 
-`ui_material_gallery_source` admits Scene213's real Shader/Material declarations,
-shared imported Badge Texture, Camera/HUD and explicit Runtime Dependencies.
-`ui_material_gallery_export` copies the Gallery privately, cooks the Shader with
-the matching Windows worker, publishes both Materials, inspects the native UI and
-packages exactly six runtime assets. It moves the source project offline, relocates
+`ui_material_gallery_source` admits Scene213/214's real HLSL/graph Shader and
+Material declarations, shared imported Badge Texture, Camera/HUD and explicit
+Runtime Dependencies. `ui_material_gallery_export` and
+`ui_material_graph_gallery_export` each copy the Gallery privately, cook their
+Shader with the matching Windows worker, publish both Materials, inspect native
+UI and package exactly six runtime assets. Each moves its source project offline, relocates
 the package and reinspects the cooked UI without Shader/Material sources. Both
 full editor and shader-only acceptance select these checks; source-checkout
 inspection is distinct from native cooking and physical GPU review. Windows
@@ -108,6 +109,31 @@ packaging uses the same preparer on its existing private Gallery staging copy.
 The shared Gallery publication helper also serves the existing lightmap sample.
 No new authoring operation is introduced; existing Shader, Material, UI source and
 dependency automation/MCP operations serve these sources unchanged.
+
+The Gallery preparer compiles/publishes its UI Materials, obtains a real native
+document/stylesheet snapshot and records the explicit dependency review through
+declare_runtime_dependencies before preparing the runtime catalog. It preserves
+the stale-review guard: linked stylesheets participate in the reviewed source set,
+and no raw metadata override or dependency validation bypass is used.
+
+UI graph compiler tests admit numeric/textured UI outputs and context fields,
+located domain errors, functions (including uncalled bodies), duplication and
+source round trips. `material_graph_geometry_editor` captures the real UI Output
+canvas at1180/700. `mcp_ui_graph_stdio` exercises discovery, creation, source
+history, stale revisions and wrong-owner refusal through both protocol formats;
+full source acceptance retains that workflow. The existing protocol_cases owner
+selects explicitly requested framings without duplicating a default both-format run.
+Native ui_effect_render additionally lowers a connected UI graph through the real
+worker and applies its existing pixel/Texture/recovery/source-free relocation
+oracles. Its graph capture path is separate from the unchanged HLSL outputs.
+
+Graph lifecycle sanitizer runs instrument the parent and use an explicit normal
+fault-worker executable. That worker intentionally blocks for the cancellation
+oracle and remains under the production memory/CPU limits. Its forced cancellation
+is not child sanitizer/leak acceptance; instrumented parents must still exit
+cleanly with full leak/error checks. A self-executing instrumented worker would
+conflict with the bounded virtual-address profile. Ordinary fixture invocations
+keep their existing self-worker default and project/cancellation assertions.
 
 ## Test profiles
 

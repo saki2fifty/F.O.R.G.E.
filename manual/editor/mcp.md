@@ -551,6 +551,14 @@ function, then import the Shader, publish its Material and declare that Material
 as a runtime dependency of the UI document. The same source, compilation and
 Material tools are used by the editor and MCP.
 
+For a visual UI graph, use `forge_asset_document_template` or
+`forge_asset_document_create` with `editor:"material.graph"` and `domain:"ui"`.
+The graph catalog exposes **UI Output**, **UI Time** and **UI Size** alongside
+ordinary typed math and Texture 2D nodes. Patch the graph through its source
+document session/revision guards and existing Undo/Redo/Save operations. It uses
+the same Material assignment and explicit Runtime Dependencies as an HLSL effect.
+Mesh and Sprite remain available through their existing domain values.
+
 With an RML or RCSS source open, call `forge_ui_source_material_reference` with its
 current `path`, `session`, `revision`, `state` guards and a published Material's
 `asset` UUID. The read-only result contains `value`, the Material and embedded

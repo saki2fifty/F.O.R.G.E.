@@ -106,7 +106,27 @@ logical UV0 is available. Primary explicit-coordinate sampling carries the Sprit
 input context through frame/fill/trim/turn/mip mapping; auxiliary texture helpers
 retain ordinary Material UV/sampler behavior. World Normal, Normal Map and nonzero
 UV sets reject across authored nodes and unused functions. Cube sampling requires
-an explicit direction. A graph cannot mix Mesh and Sprite outputs.
+an explicit direction. A graph cannot mix domain outputs.
+
+UI Output emits final linear RGBA over the existing ForgeUiInput. It selects the
+same numeric definition4/wrapper17 or ordinary2D Texture definition5/wrapper18
+interfaces as UI HLSL sources. UI Time and UI Size lower to the existing presenter
+time and element-pixel fields; UV0 lowers to the element's coordinates. Typed
+math/functions/parameters and ordinary Texture2D helpers remain the existing graph
+implementation. Mesh geometry, Vertex Color, other UV sets and non2D Texture nodes
+reject with located ui_domain diagnostics, across disconnected authored nodes and
+uncalled function definitions. Mesh/Sprite graphs reject UI Time/Size. UI Output
+cannot be extracted into a function or mixed with another domain output.
+
+create_ui_material_graph and MaterialGraphSource::create_ui provide a numeric Tint
+factory. The graph/source versions and identities remain unchanged; new schema
+keys use ordinary version1 node discovery/opaque-future preservation. No generated
+HLSL is stored as a second authority. Editor Domain UI and automation/MCP domain ui
+use the same factory/document/history/publication path. Compilation still uses the
+normal isolated worker and Shader/Material/runtime dependency owners. Geometry
+preview remains for Mesh/Sprite; UI compilation reports its distinct status and
+does not send UI Materials into that preview renderer. UI effects are viewed in
+the assigned UI element through existing Source Preview/Play.
 
 Copying a texture declaration creates a new binding key. A copied Sprite Output
 remaps its primary-image reference only when that declaration was copied too;

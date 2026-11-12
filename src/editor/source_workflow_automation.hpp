@@ -523,7 +523,9 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         "asset.document.template",
         "Inspect a validated initial source shape. Its preview UUID is not reserved; creation "
         "allocates its own identity. Tile Maps require tile_set; Sprite atlases require textures. "
-        "Material graphs accept domain mesh (default) or sprite. Navigation behaviors accept "
+        "Material graphs accept domain mesh (default), sprite or ui. UI graphs output linear "
+        "color/straight alpha with UV0, UI Time, UI Size and ordinary Texture2D slots. Navigation "
+        "behaviors accept "
         "behavior_profile state_graph (default) or tree. Editable Mesh accepts mesh_profile "
         "cube (default), sculpt_sphere, planar_quad with positive mesh_size [width,height], "
         "planar_polygon with a strictly convex outline, planar_outline with a simple "
@@ -542,7 +544,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         automation_object(
             {{"editor", editor_schema},
              {"tile_set", automation_uuid()},
-             {"domain", {{"type", "string"}, {"enum", {"mesh", "sprite"}}}},
+             {"domain", {{"type", "string"}, {"enum", {"mesh", "sprite", "ui"}}}},
              {"behavior_profile", {{"type", "string"}, {"enum", {"state_graph", "tree"}}}},
              {"mesh_profile", mesh_profile},
              {"mesh_size", mesh_size},
@@ -605,7 +607,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         if (create) {
             properties["tile_set"] = automation_uuid();
             properties["textures"] = automation_array(automation_uuid(), 512, 1);
-            properties["domain"] = {{"type", "string"}, {"enum", {"mesh", "sprite"}}};
+            properties["domain"] = {{"type", "string"}, {"enum", {"mesh", "sprite", "ui"}}};
             properties["behavior_profile"] = {{"type", "string"},
                                               {"enum", {"state_graph", "tree"}}};
             properties["patch"] = patch;
@@ -627,7 +629,9 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "first. Create supports a validated initial patch; Tile Maps "
                 "require tile_set; Sprite atlases require textures. It does not "
                 "publish until Save. Material graph creation accepts domain mesh "
-                "(default) or sprite. Navigation behaviors accept behavior_profile "
+                "(default), sprite or ui. UI graphs output linear color/straight alpha with "
+                "UV0, UI Time, UI Size and ordinary Texture2D slots. Navigation behaviors accept "
+                "behavior_profile "
                 "state_graph (default) or tree. Editable Mesh accepts mesh_profile cube, "
                 "sculpt_sphere, planar_quad (positive mesh_size [width,height]), planar_polygon "
                 "(strictly convex outline), planar_outline (simple concave-capable outline), or "

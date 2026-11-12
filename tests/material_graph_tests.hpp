@@ -3,6 +3,7 @@
 #include "material_graph_geometry_tests.hpp"
 #include "material_graph_sprite_tests.hpp"
 #include "material_graph_threshold_tests.hpp"
+#include "material_graph_ui_tests.hpp"
 #include "material_lightmap_fixture.hpp"
 #include "mesh_draw_shader.hpp"
 #include <forge/material_graph.hpp>
@@ -94,6 +95,7 @@ inline void lightmap_tests() {
 inline void run() {
     lightmap_tests();
     sprite_tests();
+    ui_tests();
     threshold_tests();
     geometry_tests();
     (void)compile_material_graph(all_node_graph());

@@ -1,14 +1,21 @@
 """Cook real Gallery UI Materials and inspect their relocated source-free closure."""
 from pathlib import Path
+import argparse
 import shutil
 import subprocess
-import sys
 import tempfile
 
-fixture, gallery, worker, scratch, font = (Path(value).resolve() for value in sys.argv[1:])
+parser = argparse.ArgumentParser(description=__doc__)
+for name in ('fixture', 'gallery', 'worker', 'scratch', 'font'):
+    parser.add_argument(name, type=Path)
+parser.add_argument('--graph', action='store_true')
+arguments = parser.parse_args()
+fixture, gallery, worker, scratch, font = (getattr(arguments, name).resolve()
+                                          for name in ('fixture', 'gallery', 'worker', 'scratch', 'font'))
 scratch.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='ui-material-', dir=scratch) as temporary:
     source = Path(temporary) / 'source'
     shutil.copytree(gallery, source)
-    subprocess.run([str(fixture), '--verify-export', str(source), str(worker), str(font)],
+    action = '--verify-graph-export' if arguments.graph else '--verify-export'
+    subprocess.run([str(fixture), action, str(source), str(worker), str(font)],
                    check=True, timeout=150)

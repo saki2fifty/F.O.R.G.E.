@@ -1,5 +1,26 @@
 # Feature Gallery
 
+## Visual UI Material graphs
+
+Open `Scenes/214-ui-material-graphs.scene.json` and press Play. Still and moving
+textured gradients use two Materials and one visual UI graph. Stop Play and open
+`Assets/UI/GraphEffects/Panel.shader.json` in Content's Material Graph workspace.
+The laid-out nodes connect UV0, UI Time, UI Size, speed, Tint and the Badge image
+to UI Output. Pan/zoom or Frame graph to inspect the flow. Save & Compile after
+changing nodes, then save/rebuild the two Materials and restart Play.
+
+`Still.material.json` and `Motion.material.json` in the same folder store their
+own Motion speed, Tint and image UV transform. Negative speed reverses the moving
+gradient. The right panel uses flipped UVs and75%opacity. UI Time continues while
+simulation is paused. Both panels reuse `Assets/UI/MaterialEffects/Lab.rcss` for
+layout; editing that stylesheet also affects Scene213. Save UI source changes
+and review Runtime Dependencies before export. Camera, image and Material
+declarations are included; no Light or project C++ module is needed. Set this
+Scene as startup and use the matching runtime kit. Source-checkout copies require
+native Shader import/Material publication; the Windows package prepares both.
+See [UI Material effects](../../../manual/editor/ui-material-effects.md) and
+[Material Graph](../../../manual/editor/material-graphs.md).
+
 ## Textured UI Material effects
 
 Open `Scenes/213-ui-material-effects.scene.json` and press Play. The left panel

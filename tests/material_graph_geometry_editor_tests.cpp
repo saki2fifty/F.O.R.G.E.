@@ -260,7 +260,33 @@ int main(int argc, char** argv) {
             }
             capture.save(std::filesystem::absolute(argv[1]) / "sprite-material-graph.png");
         }
-        std::cout << "Actual material vector geometry "
+        for (int width : {1180, 700}) {
+            test::ImGuiSoftwareCapture capture(width, 820);
+            ui::style(1);
+            ui::EditorUiContext context;
+            ui::ContextScope scope(context);
+            MaterialGraphCanvas canvas;
+            auto source = create_ui_material_graph();
+            canvas.selection = {source.at("nodes").at(1).at("id").get<GraphNodeId>()};
+            const auto original = source;
+            const MaterialGraphCanvas::Edit edit = [&](std::string, const auto& operation) {
+                operation(source);
+            };
+            for (unsigned frame = 0; frame < 4; ++frame) {
+                capture.new_frame();
+                ImGui::SetNextWindowPos({8, 8}, ImGuiCond_Always);
+                ImGui::SetNextWindowSize({float(width - 16), 804}, ImGuiCond_Always);
+                ImGui::Begin("UI Material graph");
+                canvas.draw(source, 1, edit, false);
+                ImGui::End();
+                capture.render();
+            }
+            check(source == original && compile_material_graph(source).surface.ui_effect,
+                  "Native UI graph controls changed source or domain merely by displaying");
+            capture.save(std::filesystem::absolute(argv[1]) /
+                         ("ui-material-graph-" + std::to_string(width) + ".png"));
+        }
+        std::cout << "Actual material vector geometry and UI Output "
                      "discovery/type/history/readonly/save100/150/200% passed\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

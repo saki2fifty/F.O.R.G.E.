@@ -98,10 +98,11 @@ struct AssetDocumentAutomation {
     }
     static MaterialGraphSource graph_source(AssetId id, const Json& request) {
         const auto domain = request.value("domain", std::string("mesh"));
-        if (domain != "mesh" && domain != "sprite")
+        if (domain != "mesh" && domain != "sprite" && domain != "ui")
             throw AuthoringError("invalid_argument", "Unknown material graph domain");
-        return domain == "sprite" ? MaterialGraphSource::create_sprite(id)
-                                  : MaterialGraphSource::create(id);
+        return domain == "ui"       ? MaterialGraphSource::create_ui(id)
+               : domain == "sprite" ? MaterialGraphSource::create_sprite(id)
+                                    : MaterialGraphSource::create(id);
     }
     static std::vector<AssetId> atlas_images(const Json& request) {
         if (!request.contains("textures") || !request.at("textures").is_array() ||

@@ -127,6 +127,7 @@ class Compiler {
     std::string body_;
     CompiledMaterialGraph result_;
     bool sprite_ = false;
+    bool ui_ = false;
     Expression input(GraphNodeId id, const MaterialGraphPort& p, std::string fallback) {
         const auto edge = edges_.find({id, p.key});
         if (edge == edges_.end())
@@ -243,7 +244,11 @@ class Compiler {
             const auto uv = uv_index(node.at("data"));
             result_.surface.uv_sets.push_back(uv);
             expression = "FORGE_GRAPH_UV_" + std::to_string(uv) + "_END";
-        } else if (key == "world_normal")
+        } else if (key == "ui_time")
+            expression = "input.Time";
+        else if (key == "ui_size")
+            expression = "input.Size";
+        else if (key == "world_normal")
             expression = "input.Normal";
         else if (key == "world_position")
             expression = "input.World";
@@ -384,16 +389,22 @@ class Compiler {
                      "Node type/version is unavailable; source is preserved");
         }
         for (const auto& node : graph_.at("nodes"))
-            if (kind(node) == "surface" || kind(node) == "sprite_output") {
+            if (kind(node) == "surface" || kind(node) == "sprite_output" ||
+                kind(node) == "ui_output") {
                 if (output)
                     fail(node.at("id").get<GraphNodeId>(), "", "multiple_surfaces",
-                         "Use exactly one Surface Output or Sprite Output");
+                         "Use exactly one Surface Output, Sprite Output or UI Output");
                 output = &node;
             }
         if (!output)
-            throw std::runtime_error("Material graph requires one Surface Output or Sprite Output");
+            throw std::runtime_error(
+                "Material graph requires one Surface Output, Sprite Output or UI Output");
         const auto id = output->at("id").get<GraphNodeId>();
         sprite_ = kind(*output) == "sprite_output";
+        ui_ = kind(*output) == "ui_output";
+        result_.surface.ui_effect = ui_;
+        if (ui_)
+            result_.surface.uv_sets = {0};
         bool apply_tint = true;
         if (sprite_) {
             try {
@@ -408,7 +419,7 @@ class Compiler {
                                                   "input.Normal",          "float3(0,0,0)", "1.0",
                                                   "float3(0,0,0)"};
         std::vector<std::string> expressions;
-        if (sprite_)
+        if (sprite_ || ui_)
             expressions.push_back(
                 input(id, material_graph_inputs(*output).at(0), "float4(1,1,1,1)").value);
         else
@@ -417,7 +428,7 @@ class Compiler {
         // Validate disconnected authored nodes too: hidden schema/type/cycle errors
         // cannot silently disappear merely because an output is currently unused.
         for (const auto& [node, n] : nodes_)
-            if (kind(*n) != "surface" && kind(*n) != "sprite_output")
+            if (kind(*n) != "surface" && kind(*n) != "sprite_output" && kind(*n) != "ui_output")
                 (void)expression(node);
         for (const auto& [target, e] : edges_) {
             (void)e;
@@ -440,8 +451,10 @@ class Compiler {
             if (at == uv.end())
                 continue;
             const auto old = "FORGE_GRAPH_UV_" + std::to_string(i) + "_END";
-            const auto replacement =
-                sprite_ ? "ForgeUV0(input)" : "input.UV[" + std::to_string(at - uv.begin()) + "]";
+            const auto replacement = ui_ ? "input.UV"
+                                     : sprite_
+                                         ? "ForgeUV0(input)"
+                                         : "input.UV[" + std::to_string(at - uv.begin()) + "]";
             if (old != replacement) {
                 size_t pos = 0;
                 while ((pos = body_.find(old, pos)) != std::string::npos) {
@@ -449,6 +462,16 @@ class Compiler {
                     pos += replacement.size();
                 }
             }
+        }
+        if (ui_) {
+            result_.source = "float4 ForgeGraphSurface(ForgeUiInput input) {\n" + body_ +
+                             "return " + expressions.at(0) + ";\n}\n";
+            try {
+                validate_surface_definition(result_.surface);
+            } catch (const std::exception& error) {
+                fail(id, "", "invalid_ui_surface", error.what());
+            }
+            return std::move(result_);
         }
         if (sprite_) {
             result_.source = "float4 ForgeGraphSurface(ForgeSpriteInput input) {\n" + body_ +
@@ -497,6 +520,11 @@ const std::vector<MaterialGraphNodeSchema>& material_graph_node_schemas() {
         {"sprite_output", "Sprite Output", "Output",
          "Final Sprite color with one primary image binding and optional Inspector Tint. UV0 is "
          "the logical frame; Mesh normals and lighting are unavailable."},
+        {"ui_output", "UI Output", "Output",
+         "Final linear UI color and straight alpha. Native UI owns layout, clipping and opacity. "
+         "Use UV0, presentation time, element size and ordinary Texture2D samples."},
+        {"ui_time", "UI Time", "UI", "Presentation seconds; continues while simulation is paused."},
+        {"ui_size", "UI Size", "UI", "UI element content size in pixels as a Vector2."},
         {"constant", "Constant", "Values", "A typed scalar, vector or linear-color constant."},
         {"parameter", "Parameter", "Values",
          "Stable material binding key with an editable instance value."},
@@ -642,6 +670,14 @@ Json create_sprite_material_graph() {
             {"edges", Json::array({edge(image, multiply, "a"), edge(color, multiply, "b"),
                                    edge(multiply, output, "color")})}};
 }
+Json create_ui_material_graph() {
+    auto result = create_material_graph();
+    result["nodes"][1] = create_material_graph_node("ui_output", {400, 60});
+    result["nodes"][0]["data"]["value"] = {.2, .6, 1., .75};
+    result["nodes"][0]["data"]["label"] = "Tint";
+    result["edges"][0]["to"] = {{"node", result["nodes"][1].at("id")}, {"port", "color"}};
+    return result;
+}
 void validate_material_graph_document(const Json& graph) {
     persistable(graph);
     require(graph.is_object() && graph.at("format") == "forge.material.graph" &&
@@ -696,7 +732,7 @@ std::vector<MaterialGraphPort> material_graph_inputs(const Json& node) {
     const auto k = kind(node);
     if (k == "surface")
         return surface_ports;
-    if (k == "sprite_output")
+    if (k == "sprite_output" || k == "ui_output")
         return {port("color", Type::LinearColor4)};
     if (k == "function") {
         std::vector<MaterialGraphPort> ports;
@@ -769,7 +805,7 @@ std::vector<MaterialGraphPort> material_graph_inputs(const Json& node) {
 }
 std::vector<MaterialGraphPort> material_graph_outputs(const Json& node) {
     const auto k = kind(node);
-    if (k == "surface" || k == "sprite_output" || k == "function_output")
+    if (k == "surface" || k == "sprite_output" || k == "ui_output" || k == "function_output")
         return {};
     if (k.starts_with("texture"))
         return {port("out", (node.at("data").value("semantic", std::string("color")) == "color" ||
@@ -778,6 +814,10 @@ std::vector<MaterialGraphPort> material_graph_outputs(const Json& node) {
                                 : Type::Vector4)};
     if (k == "uv")
         return {port("out", Type::Vector2)};
+    if (k == "ui_size")
+        return {port("out", Type::Vector2)};
+    if (k == "ui_time")
+        return {port("out", Type::Scalar)};
     if (k == "component" || k == "dot3" || k == "length" || k == "distance")
         return {port("out", Type::Scalar)};
     if (k == "cross3" || k == "normalize3" || k == "reflect3" || k == "refract3" ||
@@ -789,22 +829,37 @@ std::vector<MaterialGraphPort> material_graph_outputs(const Json& node) {
 }
 CompiledMaterialGraph compile_material_graph(const Json& graph) {
     validate_material_graph_document(graph);
-    if (std::any_of(graph.at("nodes").begin(), graph.at("nodes").end(), [](const auto& n) {
+    const bool ui =
+        std::any_of(graph.at("nodes").begin(), graph.at("nodes").end(),
+                    [](const auto& n) { return kind(n) == "ui_output" && available_schema(n); });
+    const bool sprite =
+        std::any_of(graph.at("nodes").begin(), graph.at("nodes").end(), [](const auto& n) {
             return kind(n) == "sprite_output" && available_schema(n);
-        })) {
+        });
+    {
         // Check authored and unused function nodes before expansion: domain
         // errors must not hide in disconnected or currently uncalled dataflow.
-        const auto validate = [](const Json& source) {
+        const auto validate = [ui, sprite](const Json& source) {
             for (const auto& node : source.at("nodes")) {
                 if (!available_schema(node))
                     continue; // Unknown versions stay opaque; normal schema admission reports them.
                 const auto key = kind(node);
                 const auto id = node.at("id").template get<GraphNodeId>();
-                if (key == "world_normal" || key == "normal_map")
+                if (sprite && (key == "world_normal" || key == "normal_map"))
                     fail(id, "", "sprite_domain", "Sprite graphs have no Mesh normal frame");
-                if ((key == "uv" || key == "texture2d" || key == "texture2d_array") &&
+                if (sprite && (key == "uv" || key == "texture2d" || key == "texture2d_array") &&
                     uv_index(node.at("data")) != 0)
                     fail(id, "", "sprite_domain", "Sprite graphs expose logical UV0 only");
+                if (!ui && (key == "ui_time" || key == "ui_size"))
+                    fail(id, "", "ui_domain", "UI Time and UI Size require a UI Output graph");
+                if (ui && (key == "world_normal" || key == "world_position" ||
+                           key == "normal_map" || key == "vertex_color"))
+                    fail(id, "", "ui_domain",
+                         "UI graphs have no Mesh geometry or vertex-color inputs");
+                if (ui && key.starts_with("texture") && key != "texture2d")
+                    fail(id, "", "ui_domain", "UI graphs support ordinary Texture2D slots only");
+                if (ui && (key == "uv" || key == "texture2d") && uv_index(node.at("data")) != 0)
+                    fail(id, "", "ui_domain", "UI graphs expose logical UV0 only");
             }
         };
         validate(graph);
@@ -967,6 +1022,12 @@ MaterialGraphSource MaterialGraphSource::create(AssetId id) {
 MaterialGraphSource MaterialGraphSource::create_sprite(AssetId id) {
     auto result = create(id);
     result.document["graph"] = create_sprite_material_graph();
+    result.validate();
+    return result;
+}
+MaterialGraphSource MaterialGraphSource::create_ui(AssetId id) {
+    auto result = create(id);
+    result.document["graph"] = create_ui_material_graph();
     result.validate();
     return result;
 }
