@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**213-ui-material-effects** compares still and animated textured UI panels with
+shared HLSL, clipping, flipped UVs and opacity. Press Play, then Stop to edit
+**Motion speed**, **Tint** or the image slot in
+`Assets/UI/MaterialEffects/Motion.material.json`. Save and restart Play. Its Camera
+and Runtime Dependencies are included; select this Scene as startup before
+export. See [UI Material effects](../editor/ui-material-effects.md).
+
 **211-ui-layout-preview** contains a blue panel with an editable inline pixel
 layout. Stop Play and open `Assets/UI/Layout/layout.rml` from Content with
 **Edit UI source**. Select **Preview**, use a 1000 by 700 viewport and click the

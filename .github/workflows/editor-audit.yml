@@ -276,11 +276,11 @@ jobs:
       - name: Build shader and material acceptance targets
         if: inputs.shader_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake --build ../AgentFiles/b --target forge_viewport_tests forge_material_asset_tests forge_material_pipeline_tests forge_material_editor_tests forge_shader_tests forge_shader_pipeline_tests forge_shader_worker_tests forge_shader_editor_tests forge_ui_render_tests --parallel 2 -- -k 0
+        run: cmake --build ../AgentFiles/b --target forge_viewport_tests forge_material_asset_tests forge_material_pipeline_tests forge_material_editor_tests forge_shader_tests forge_shader_pipeline_tests forge_shader_worker_tests forge_shader_editor_tests forge_ui_render_tests forge_ui_material_gallery_tests --parallel 2 -- -k 0
       - name: Execute shader and material GPU acceptance
         if: inputs.shader_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "^(diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_editor|material_asset|material_pipeline|material_editor|ui_effect_render|editor_render_shaders|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics|editor_render_lightmaps|editor_render_sprites)$" --output-on-failure --stop-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "^(diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_editor|material_asset|material_pipeline|material_editor|ui_material_gallery_source|ui_material_gallery_export|ui_effect_render|editor_render_shaders|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics|editor_render_lightmaps|editor_render_sprites)$" --output-on-failure --stop-on-failure
       - name: Repeat additive pose diagnostics
         if: ${{ inputs.workflow_only && !inputs.capture_only && !inputs.publication_only && !inputs.mcp_only && !inputs.core_regressions_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE

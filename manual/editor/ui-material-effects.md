@@ -8,6 +8,14 @@ This workflow requires the Windows D3D12 editor, a project with a registered RML
 document, and the matching runtime kit for export. It uses HLSL rather than a
 visual graph. See [UI source editing](ui-source.md) to open and save RML/RCSS files.
 
+To try an existing effect, open the bundled Feature Gallery's
+`Scenes/213-ui-material-effects.scene.json` and press Play. It compares a still
+textured panel with an animated panel using flipped UVs and 75% opacity. Stop Play
+and open `Assets/UI/MaterialEffects/Motion.material.json` in Content to change
+**Motion speed**, **Tint** or the image slot's UV transform. Save the Material and
+restart Play. The Scene includes its Camera and export dependencies; no project
+C++ module or Light is required. Set it as startup and save before exporting.
+
 ## Create and import the Shader
 
 1. Stop Play. Create the project folders `Assets` and `Shaders` if needed.

@@ -96,6 +96,19 @@ select this case; the audit artifact retains `ui-effect-render` outputs. Local
 CPU markers and built-in software-Vulkan pixels do not establish native project
 shader execution. Windows/physical acceptance requires its own actual evidence.
 
+`ui_material_gallery_source` admits Scene213's real Shader/Material declarations,
+shared imported Badge Texture, Camera/HUD and explicit Runtime Dependencies.
+`ui_material_gallery_export` copies the Gallery privately, cooks the Shader with
+the matching Windows worker, publishes both Materials, inspects the native UI and
+packages exactly six runtime assets. It moves the source project offline, relocates
+the package and reinspects the cooked UI without Shader/Material sources. Both
+full editor and shader-only acceptance select these checks; source-checkout
+inspection is distinct from native cooking and physical GPU review. Windows
+packaging uses the same preparer on its existing private Gallery staging copy.
+The shared Gallery publication helper also serves the existing lightmap sample.
+No new authoring operation is introduced; existing Shader, Material, UI source and
+dependency automation/MCP operations serve these sources unchanged.
+
 ## Test profiles
 
 Preview navigation extends the native canvas case at1180/700pixels with1:1/2x

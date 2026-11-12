@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
+#include "gallery_asset_publication.hpp"
 #include "material_authoring.hpp"
 #include "material_lightmap_fixture.hpp"
 #include "model_render_resource.hpp"
@@ -35,18 +36,7 @@ Json read(const std::filesystem::path& path) {
     return value;
 }
 #endif
-template <class Prepare>
-void publish(AssetImportService& service, const std::filesystem::path& source, Prepare prepare) {
-    service.submit(
-        service.prepare(source),
-        [&](auto& candidate, const auto& plan, const auto&) { prepare(candidate, plan); },
-        [](const auto&, const auto&) {});
-    check(service.wait_idle(std::chrono::seconds(90)), "Lightmap Gallery publication timed out");
-    const auto results = service.poll();
-    check(results.size() == 1 && results[0].published,
-          "Lightmap Gallery publication failed: " +
-              (results.empty() ? std::string("missing result") : results[0].diagnostic));
-}
+using test::publish_gallery_asset;
 void author(const std::filesystem::path& root, const std::filesystem::path& worker) {
     check(!std::filesystem::exists(root / scene_path), "Lightmap Gallery already exists");
     std::filesystem::create_directories(root / "Assets/Lightmaps");
@@ -66,7 +56,7 @@ void author(const std::filesystem::path& root, const std::filesystem::path& work
     }
     auto lease = std::make_shared<ProjectLease>(root);
     AssetImportService textures(lease, texture_import_registry(worker), desktop_texture_target());
-    publish(textures, image_path, prepare_texture_publication);
+    publish_gallery_asset(textures, image_path, prepare_texture_publication);
     auto catalog = AssetCatalog::open_project(root);
     AssetId texture;
     for (const auto& [id, record] : catalog.records())
@@ -178,10 +168,10 @@ void prepare(const std::filesystem::path& root, const std::filesystem::path& wor
                                                  asset_detail::diligent_shader_compiler_debug()}));
     registry->seal();
     AssetImportService shaders(lease, registry, {"windows-x64", "d3d12", "fxc-5.1"});
-    publish(shaders, shader_path, prepare_shader_publication);
+    publish_gallery_asset(shaders, shader_path, prepare_shader_publication);
     AssetImportService materials(lease, material_import_registry(),
                                  {"windows", "d3d12", "desktop"});
-    publish(materials, material_path, prepare_material_publication);
+    publish_gallery_asset(materials, material_path, prepare_material_publication);
     WorldContext world;
     Scene scene(world);
     scene.load(root / scene_path);

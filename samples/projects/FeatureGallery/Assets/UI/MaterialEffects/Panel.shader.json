@@ -1,0 +1,76 @@
+{
+  "asset_id": "c6185e15-c9ce-419b-bdf3-159eabf63ae8",
+  "format": "forge.shader",
+  "source_root": "Assets/UI/MaterialEffects/Shaders",
+  "stages": [
+    {
+      "entry": "GalleryPanel",
+      "source": "panel.hlsl",
+      "stage": "pixel"
+    }
+  ],
+  "surface": {
+    "domain": "ui",
+    "labels": {
+      "speed": "Motion speed",
+      "tint": "Tint"
+    },
+    "parameters": {
+      "speed": {
+        "type": 0,
+        "value": [
+          0.0
+        ]
+      },
+      "tint": {
+        "type": 5,
+        "value": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    "textures": {
+      "image": {
+        "dimension": 0,
+        "offset": [
+          0.0,
+          0.0
+        ],
+        "rotation": 0.0,
+        "sampler": {
+          "anisotropy": 1,
+          "border": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "compare": 0,
+          "lod_bias": 0.0,
+          "mag": 1,
+          "max_lod": 1000.0,
+          "min": 1,
+          "min_lod": 0.0,
+          "mip": 1,
+          "u": 0,
+          "v": 0,
+          "w": 0
+        },
+        "scale": [
+          1.0,
+          1.0
+        ],
+        "semantic": 0,
+        "uv_set": 0
+      }
+    },
+    "uv_sets": [
+      0
+    ],
+    "version": 5
+  },
+  "version": 2
+}

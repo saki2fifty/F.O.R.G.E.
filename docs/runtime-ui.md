@@ -1136,3 +1136,12 @@ Selection neither declares dependencies nor validates GPU realization. Custom
 decorator lists remain literal source; Clear stages `none` while removing the
 declaration restores cascade. The UI asset catalog remains independent of this
 authoring-only Material dependency.
+
+The editable Feature Gallery Scene213 compares two Materials using one UI-domain
+Shader and the ordinary imported Badge Texture. Its source document declares both
+Materials explicitly. The Windows package preparer uses normal supervised Shader
+compilation, Material publication and native source inspection; source-checkout
+Shader/Materials remain uncooked until that preparation. Source-free content keeps
+the Scene, UI document/stylesheet, both immutable Materials and the Texture, with
+the compiled Shader retained inside each Material. See the
+[Gallery instructions](../samples/projects/FeatureGallery/README.md).

@@ -1,5 +1,25 @@
 # Feature Gallery
 
+## Textured UI Material effects
+
+Open `Scenes/213-ui-material-effects.scene.json` and press Play. The left panel
+has a still brightness band; the right panel moves the band over a flipped image
+with 75% opacity. Both use the same Shader and the existing Badge Texture. Parent
+clipping trims both images. Presentation time continues while simulation is paused.
+
+Stop Play and open `Assets/UI/MaterialEffects/Motion.material.json` in Content.
+Change **Motion speed** (negative reverses motion), **Tint**, the image Texture,
+sampler or UV transform, then Save and restart Play. `Still.material.json` is an
+independent set of values. Edit `Shaders/panel.hlsl` to change the pixel function,
+reimport `Panel.shader.json`, then save/rebuild both Materials. `Lab.rml` and
+`Lab.rcss` control the panel layout and Material assignment.
+
+The Scene includes a Camera and explicit Material Runtime Dependencies. No Light
+or project C++ module is required. Set this Scene as startup and save before
+exporting with the matching runtime kit. The Windows package contains cooked
+Shader/Materials; source-checkout copies require native Shader import first.
+See [UI Material effects](../../../manual/editor/ui-material-effects.md).
+
 ## Native form controls
 
 Open `Scenes/212-ui-form-controls.scene.json`, press Play and capture Game input.

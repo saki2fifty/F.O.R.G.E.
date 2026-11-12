@@ -5601,6 +5601,41 @@
       "type": "scene"
     },
     {
+      "dependencies": [
+        "b036298c-4a29-4e09-805d-78ee65fee4eb",
+        "fc9f4ed2-3bc5-48db-a10f-dc743f9d7984"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "declared:Motion panel",
+          "target": "b036298c-4a29-4e09-805d-78ee65fee4eb",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "declared:Still panel",
+          "target": "fc9f4ed2-3bc5-48db-a10f-dc743f9d7984",
+          "type": "material"
+        }
+      ],
+      "id": "3a877a52-a70a-4888-9157-015a3f16e319",
+      "metadata": {
+        "forge.runtime_declarations": {
+          "sources": {
+            "Assets/UI/MaterialEffects/Lab.rml": "96c237ba1f780a7d3d5911720cb903594793f645c965309671ac0a59a0a95488"
+          },
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/MaterialEffects/Lab.rml",
+      "source_dependencies": [],
+      "type": "ui_document"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "3b154f5f-6910-452d-8919-519b9fa895a7",
@@ -13892,6 +13927,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "a410ba7d-e861-4124-80fb-929d4cabd06c",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/UI/MaterialEffects/Lab.rcss",
+      "source_dependencies": [],
+      "type": "ui_stylesheet"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "a41dd585-9c44-4992-b0dd-0de91a05472b",
       "metadata": {
         "forge.import": {
@@ -14588,6 +14633,16 @@
       "source": "Scenes/153-camera-transitions.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b036298c-4a29-4e09-805d-78ee65fee4eb",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/UI/MaterialEffects/Motion.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [
@@ -16119,6 +16174,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c6185e15-c9ce-419b-bdf3-159eabf63ae8",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/UI/MaterialEffects/Panel.shader.json",
+      "source_dependencies": [],
+      "type": "shader"
     },
     {
       "dependencies": [],
@@ -19397,6 +19462,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "f6145130-aac3-42be-8b1b-fcc786fba5da",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/213-ui-material-effects.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "f650b673-0140-4625-917d-95a113b993ba",
       "metadata": {
         "forge.import": {
@@ -20064,6 +20139,16 @@
       "source": "Assets/MotionPlane.blendspace.json",
       "source_dependencies": [],
       "type": "animation_blend_space"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "fc9f4ed2-3bc5-48db-a10f-dc743f9d7984",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/UI/MaterialEffects/Still.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [],

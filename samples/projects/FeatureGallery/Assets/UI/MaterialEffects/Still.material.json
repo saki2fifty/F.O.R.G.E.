@@ -1,0 +1,54 @@
+{
+  "asset_id": "fc9f4ed2-3bc5-48db-a10f-dc743f9d7984",
+  "kind": "forge.material",
+  "overrides": {
+    "parameters": {
+      "speed": {
+        "type": 0,
+        "value": [
+          0.0
+        ]
+      }
+    },
+    "shader": "c6185e15-c9ce-419b-bdf3-159eabf63ae8",
+    "textures": {
+      "image": {
+        "asset": "0c07b499-c865-4e5b-838d-8021bb7a99d3",
+        "slot": {
+          "dimension": 0,
+          "offset": [
+            0.0,
+            0.0
+          ],
+          "rotation": 0.0,
+          "sampler": {
+            "anisotropy": 1,
+            "border": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "compare": 0,
+            "lod_bias": 0.0,
+            "mag": 1,
+            "max_lod": 1000.0,
+            "min": 1,
+            "min_lod": 0.0,
+            "mip": 1,
+            "u": 0,
+            "v": 0,
+            "w": 0
+          },
+          "scale": [
+            1.0,
+            1.0
+          ],
+          "semantic": 0,
+          "uv_set": 0
+        }
+      }
+    }
+  },
+  "version": 2
+}
