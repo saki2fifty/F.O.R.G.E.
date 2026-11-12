@@ -59,7 +59,9 @@ source text, domain/stage validation, atomic refusal and write-grant discovery.
 `ui_source_material_effects` drives the shared decorator Material picker at
 1180/700/400 pixels: publication/domain refusal, staged assignment, actual Content
 UUID drop, exact no-op, source Undo/Redo, Clear/Remove and Save isolation. The
-existing image-property case also exercises the shared drop fixture.
+existing image-property case also exercises the shared drop fixture. The native
+Material control case is selected explicitly by full Windows editor acceptance
+and has a 120-second limit.
 `mcp_ui_materials_stdio` exercises both protocols, read-only discovery, source
 guards, source-hidden/retained Shader selection, refusal without mutations and
 single/group/rule writers with replay, Undo and CRLF-preserving Save.
