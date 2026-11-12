@@ -13,6 +13,7 @@ struct AudioStreamVfs {
     std::atomic<unsigned> owner_io{0}, consumer_io{0}, worker_io{0};
     std::atomic<unsigned> delay_read_ms{0};
     std::atomic<bool> fail_reads{false};
+    std::atomic<unsigned> failed_reads{0};
     void hit() {
         if (consuming)
             ++consumer_io;
@@ -41,6 +42,7 @@ struct AudioStreamVfs {
             if (const auto delay = fixture.delay_read_ms.exchange(0))
                 std::this_thread::sleep_for(std::chrono::milliseconds(delay));
             if (fixture.fail_reads) {
+                ++fixture.failed_reads;
                 if (r)
                     *r = 0;
                 return MA_IO_ERROR;

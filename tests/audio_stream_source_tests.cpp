@@ -160,10 +160,24 @@ int main(int argc, char** argv) {
                             std::ranges::any_of(pcm, [](float v) { return std::abs(v) > .01f; }),
                         "Native stream did not recover after worker starvation");
                 vfs.fail_reads = true;
-                until([&] {
-                    checked(ma_engine_read_pcm_frames(&engine.value, pcm.data(), 256, nullptr));
-                    return source->read_error() != MA_SUCCESS;
-                });
+                unsigned fault_mixes = 0;
+                try {
+                    until([&] {
+                        ++fault_mixes;
+                        checked(ma_engine_read_pcm_frames(&engine.value, pcm.data(), 256, nullptr));
+                        return source->read_error() != MA_SUCCESS;
+                    });
+                } catch (const std::exception& error) {
+                    throw std::runtime_error(
+                        std::string(error.what()) + " channels=" + std::to_string(channels) +
+                        " failed_reads=" + std::to_string(vfs.failed_reads.load()) +
+                        " mixes=" + std::to_string(fault_mixes) +
+                        " cursor=" + std::to_string(source->cursor()) +
+                        " available=" + std::to_string(source->available_frames()) +
+                        " underruns=" + std::to_string(source->underruns()) +
+                        " playing=" + std::to_string(ma_sound_is_playing(&sound.value)) +
+                        " ended=" + std::to_string(ma_sound_at_end(&sound.value)));
+                }
                 require(source->read_error() != MA_BUSY,
                         "Permanent native read failure was confused with temporary starvation");
             }
