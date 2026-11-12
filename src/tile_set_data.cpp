@@ -180,6 +180,8 @@ TileSetRows tile_detail::decode_tile_set_rows(const Json& images, const Json& ti
                 tiles.size() <= tile_set_definition_limit,
             "Tile Set exceeds image/definition limits");
     TileSetRows result;
+    result.images.reserve(images.size());
+    result.tiles.reserve(tiles.size());
     std::set<std::uint64_t> keys;
     std::map<std::uint64_t, std::uint64_t> frames;
     for (const auto& row : images) {

@@ -7,6 +7,7 @@
 #include <condition_variable>
 #include <forge/identity.hpp>
 #include <iostream>
+#include <source_location>
 #include <thread>
 #include <vector>
 
@@ -27,10 +28,13 @@ template <class F> void rejects(F action) {
     }
     throw std::runtime_error("Invalid native stream was accepted");
 }
-template <class F> void until(F ready) {
+template <class F>
+void until(F ready, const std::source_location& location = std::source_location::current()) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!ready()) {
-        require(std::chrono::steady_clock::now() < deadline, "Native stream preparation stalled");
+        if (std::chrono::steady_clock::now() >= deadline)
+            throw std::runtime_error("Native stream preparation stalled at line " +
+                                     std::to_string(location.line()));
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }

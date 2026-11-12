@@ -106,8 +106,8 @@ void frame_source(const std::filesystem::path& gallery, const std::filesystem::p
         for (const auto& row : preview.at("entities"))
             if (row.at("id") == moving) {
                 found = true;
-                near(row.at("components").at("forge.local_translation").at("x"),
-                     -2 + 4 * u * u * (3 - 2 * u));
+                expect_close(row.at("components").at("forge.local_translation").at("x"),
+                             -2 + 4 * u * u * (3 - 2 * u));
             }
         check(found, "Frame preview lost its moving actor");
         const auto rendered = extract_render_scene(scene.preview_document(preview));
@@ -206,11 +206,12 @@ void camera_transition_frame_source(const std::filesystem::path& gallery,
               "Stopped transition preview changed its incoming identity");
         const double linear = time - 2, weight = linear * linear * (3 - 2 * linear);
         for (unsigned i : {3u, 7u, 11u})
-            near(row(source, incoming).at("world_affine").at(i),
-                 std::lerp(row(resolved, outgoing).at("world_affine").at(i).get<double>(),
-                           row(resolved, incoming).at("world_affine").at(i).get<double>(), weight));
-        near(render.cameras[0].camera.vertical_fov,
-             std::lerp(scene.entity(outgoing).get<Camera>().vertical_fov, 1.2, weight));
+            expect_close(row(source, incoming).at("world_affine").at(i),
+                         std::lerp(row(resolved, outgoing).at("world_affine").at(i).get<double>(),
+                                   row(resolved, incoming).at("world_affine").at(i).get<double>(),
+                                   weight));
+        expect_close(render.cameras[0].camera.vertical_fov,
+                     std::lerp(scene.entity(outgoing).get<Camera>().vertical_fov, 1.2, weight));
         check(row(source, incoming).at("components").at("forge.local_translation") ==
                   row(authored, incoming).at("components").at("forge.local_translation"),
               "Stopped camera blend wrote its local transform");

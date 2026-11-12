@@ -73,7 +73,8 @@ void codec_tests(const std::filesystem::path& root, bool direct,
                               : importer->import_and_cook(request, plan, {}, {});
             };
             const auto files = cook();
-            check(validate_audio_bundle(files).at("source_format") == profile.extension.substr(1),
+            check(validate_audio_bundle(files).at("source_format").get<std::string>() ==
+                      profile.extension.substr(1),
                   "Codec metadata reports a different source format");
             check(audio_bundle_clip(files).pcm == decoded.pcm &&
                       cook().front().bytes == files.front().bytes,

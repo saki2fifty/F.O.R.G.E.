@@ -165,7 +165,8 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
             "asset.read", automation_object({{"operation", automation_uuid()}}, {"operation"}),
             false, [&scene, &project, clearance, cancel](const Json& request) {
                 project.check_ownership();
-                if (clearance->state().value("operation", "") != request.at("operation"))
+                if (clearance->state().value("operation", "") !=
+                    request.at("operation").get<std::string>())
                     throw AuthoringError("wrong_operation",
                                          "Foliage clearance operation does not match");
                 if (cancel)

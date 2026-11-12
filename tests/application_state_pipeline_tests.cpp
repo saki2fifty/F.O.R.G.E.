@@ -228,13 +228,14 @@ void pipeline(const std::filesystem::path& root) {
     live.unload(RuntimeClock::Time{});
     document.reset();
     std::filesystem::remove_all(moved);
-    std::filesystem::remove_all(root);
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
         check(argc == 2, "Need state pipeline scratch root");
-        pipeline(std::filesystem::absolute(argv[1]) / AssetId::generate().str());
+        const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
+        pipeline(root);
+        std::filesystem::remove_all(root);
         std::cout
             << "Application states: source/scene history, publication, provenance, typed runtime "
                "loading, last-good selection and source-free relocated content passed\n";

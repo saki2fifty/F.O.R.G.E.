@@ -8,49 +8,51 @@ void check(bool ok, const std::string& why) {
     if (!ok)
         throw std::runtime_error(why);
 }
-void near(double a, double b) { check(std::abs(a - b) < .00005, "Timeline view numeric mismatch"); }
+void expect_close(double a, double b) {
+    check(std::abs(a - b) < .00005, "Timeline view numeric mismatch");
+}
 void view_math() {
     AnimationTimelineView view;
     view.reconcile(64000000);
     view.zoom(2, .25);
-    near(view.first, 8000000);
-    near(view.span, 32000000);
-    near(view.time(.25), 16000000);
+    expect_close(view.first, 8000000);
+    expect_close(view.span, 32000000);
+    expect_close(view.time(.25), 16000000);
     view.pan(-1e20);
-    near(view.first, 0);
+    expect_close(view.first, 0);
     view.pan(1e20);
-    near(view.first, 32000000);
+    expect_close(view.first, 32000000);
     view.fit(8000000, 16000000);
-    near(view.first, 7200000);
-    near(view.span, 9600000);
+    expect_close(view.first, 7200000);
+    expect_close(view.span, 9600000);
     check(view.visible(8000000) && !view.visible(0), "View visibility differs");
     const auto before = view;
     view.zoom(std::numeric_limits<double>::quiet_NaN(), .5);
     view.pan(std::numeric_limits<double>::infinity());
     view.fit(5, 4);
     view.reconcile(0);
-    near(view.first, before.first);
-    near(view.span, before.span);
+    expect_close(view.first, before.first);
+    expect_close(view.span, before.span);
     view.fit(0, 0);
     check(view.first == 0 && view.span > 1 && view.span < view.duration,
           "Single-key fit missing margin");
     view.reconcile(1);
-    near(view.first, 0);
-    near(view.span, 1);
+    expect_close(view.first, 0);
+    expect_close(view.span, 1);
     view.zoom(1e20, .5);
-    near(view.span, 1);
+    expect_close(view.span, 1);
     view.fit_clip();
     view.reconcile(3600000000.);
-    near(view.span, 3600000000.);
+    expect_close(view.span, 3600000000.);
     view.zoom(1e20, 1);
-    near(view.first, 3599999999.);
-    near(view.span, 1);
-    near(view.time(1), 3600000000.);
+    expect_close(view.first, 3599999999.);
+    expect_close(view.span, 1);
+    expect_close(view.time(1), 3600000000.);
     view.reconcile(100);
-    near(view.first, 99);
+    expect_close(view.first, 99);
     view.fit_clip();
     view.reconcile(200);
-    near(view.span, 200);
+    expect_close(view.span, 200);
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -227,11 +229,11 @@ int main(int argc, char** argv) {
                 const auto preview = editor.preview(scene.document());
                 for (const auto& row : preview.at("entities"))
                     if (row.at("id").get<EntityId>().str() == actor)
-                        near(row.at("components")
-                                 .at("forge.local_translation")
-                                 .at("x")
-                                 .get<double>(),
-                             expected);
+                        expect_close(row.at("components")
+                                         .at("forge.local_translation")
+                                         .at("x")
+                                         .get<double>(),
+                                     expected);
             };
             scrub(.35, 7.2, 9.6);
             click("Fit clip");

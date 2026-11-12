@@ -478,6 +478,22 @@ and interruption-recovery assertions and flushed reader/replacement stages. It
 cannot be combined with shader, capture or performance modes, records its limited
 scope and does not replace editor acceptance, the core/SDK matrix or a release gate.
 
+For the explicit portable-owner regression group, dispatch `editor-audit.yml` with
+an immutable `source_commit`, `workflow_only=true` and `core_regressions_only=true`.
+The existing Windows Release configuration and compatible compilation cache are
+reused. `tools/run_core_regressions.py` requires all 22 named cases in the configured
+CTest registry, builds their native executables and required workers, and executes
+the complete selection. Missing or duplicate registrations fail before execution.
+The selected cases and targets are retained under `grid-test-images/core-regressions`.
+This scope cannot combine with other diagnostic modes and does not replace the
+Debug/core, installed SDK, graphical, editor or complete-package gates.
+The publication fixture also checks unchanged metadata bytes through native Windows
+extended and short path spellings, missing-path admission without directory creation,
+and directory-link refusal. Link creation restrictions are reported explicitly.
+The shared IO guard compares host spellings without changing persisted locators or
+asset identity; Windows short-name expansion uses
+[GetLongPathNameW](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getlongpathnamew).
+
 Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
 source gate exercises the same acceptance selection before allocating a new
 delivery number. The shared selection includes source publication, reviewed

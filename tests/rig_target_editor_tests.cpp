@@ -9,7 +9,7 @@ void check(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
 }
-void near(double a, double b, double tolerance = 1e-4) {
+void expect_close(double a, double b, double tolerance = 1e-4) {
     if (!std::isfinite(a) || std::abs(a - b) >= tolerance)
         throw std::runtime_error(std::string(stage) + ": " + std::to_string(a) + " differs from " +
                                  std::to_string(b));
@@ -58,7 +58,7 @@ int main() {
                 const auto delta =
                     projected_axis_drag(camera, world, basis, *first, *last, 1000, 800);
                 check(bool(delta), "Parented mirrored/nonuniform rig axis unavailable");
-                near(*delta, .4, 3e-4);
+                expect_close(*delta, .4, 3e-4);
             }
         }
         scene.restore_snapshot(snapshot);
@@ -66,14 +66,14 @@ int main() {
         check(gesture.begin(scene, actor, "forge.two_bone_ik", 0), "Rig gesture did not begin");
         const auto before = scene.snapshot();
         check(gesture.update(.45, true, .25), "Rig snap rejected");
-        near(gesture.target().target[0], 1.5);
+        expect_close(gesture.target().target[0], 1.5);
         check(scene.snapshot() == before, "Rig draft changed authored scene");
         check(gesture.commit(scene), "Rig target did not commit");
-        near(target_x(scene, actor), 1.5);
+        expect_close(target_x(scene, actor), 1.5);
         check(scene.undo() && scene.snapshot() == before,
               "One Undo did not restore the entire target drag");
         check(scene.redo(), "Rig target Redo failed");
-        near(target_x(scene, actor), 1.5);
+        expect_close(target_x(scene, actor), 1.5);
         scene.undo();
         check(gesture.begin(scene, actor, "forge.two_bone_ik", 0) && gesture.update(.3, false, 1),
               "Rig cancel draft failed");
@@ -268,18 +268,19 @@ int main() {
                     io.AddMousePosEvent(10 + end[0], 40 + end[1]);
                     frame();
                     check(scene.snapshot() == original, "Actual target mouse draft changed source");
-                    near(tools.rig.target().target[axis], target.target[axis] + .4,
-                         cursor_tolerance);
+                    expect_close(tools.rig.target().target[axis], target.target[axis] + .4,
+                                 cursor_tolerance);
                     const auto draft = scene.preview_document(tools.preview(scene.document()));
-                    near(rig_target_view(draft, actor, type)->target[axis],
-                         tools.rig.target().target[axis]);
+                    expect_close(rig_target_view(draft, actor, type)->target[axis],
+                                 tools.rig.target().target[axis]);
                     check(!tools.selection_matches({actor, parent}),
                           "Active rig target allowed an unrelated selection");
                     io.AddMouseButtonEvent(0, false);
                     frame();
                     check(!tools.active(), "Rig mouse release retained gesture capture");
-                    near(rig_target_view(scene.effective_document(), actor, type)->target[axis],
-                         target.target[axis] + .4, cursor_tolerance);
+                    expect_close(
+                        rig_target_view(scene.effective_document(), actor, type)->target[axis],
+                        target.target[axis] + .4, cursor_tolerance);
                     check(scene.undo() && scene.snapshot() == original,
                           "Mouse target drag did not use one Undo entry");
                     if (scale == 1.f) {
@@ -358,7 +359,7 @@ int main() {
         check(gesture.begin(scene, instance, "forge.two_bone_ik", 0) &&
                   gesture.update(.25, false, 1) && gesture.commit(scene),
               "Inherited rig target could not be manipulated");
-        near(target_x(scene, instance), 1.25);
+        expect_close(target_x(scene, instance), 1.25);
         check(scene.prefab_sources().at(prefab.asset()) == prefab.source,
               "Rig target manipulation rewrote the prefab source");
         check(scene.undo() && scene.snapshot() == inherited &&

@@ -8,7 +8,7 @@ void require(bool value, const std::string& message) {
     if (!value)
         throw std::runtime_error(message);
 }
-void exercise(const std::filesystem::path& scratch, float scale, bool small) {
+void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root / "Assets");
     EngineContext engine;
@@ -16,7 +16,7 @@ void exercise(const std::filesystem::path& scratch, float scale, bool small) {
     SceneDocument project(scene);
     project.open_project(root, true);
     const std::filesystem::path source = "Assets/Original.particles.json";
-    const bool legacy = scale == 1 && !small;
+    const bool legacy = scale == 1 && !compact;
     auto created = ParticleEffectDocument::create(project.writer_guard(), source, [&](AssetId id) {
         auto result = ParticleEffectSource::create(id);
         if (legacy) {
@@ -42,7 +42,7 @@ void exercise(const std::filesystem::path& scratch, float scale, bool small) {
     ImGui::CreateContext();
     auto& io = ImGui::GetIO();
     io.IniFilename = nullptr;
-    io.DisplaySize = small ? ImVec2{780, 820} : ImVec2{1500, 1800};
+    io.DisplaySize = compact ? ImVec2{780, 820} : ImVec2{1500, 1800};
     io.DeltaTime = 1.f / 60;
     io.ConfigInputTrickleEventQueue = false;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -81,7 +81,7 @@ void exercise(const std::filesystem::path& scratch, float scale, bool small) {
         for (unsigned attempt = 0; attempt < 80; ++attempt) {
             require(test::ui_targets.contains(id), "Particle control missing: " + id +
                                                        " scale=" + std::to_string(scale) +
-                                                       " compact=" + std::to_string(small));
+                                                       " compact=" + std::to_string(compact));
             const auto box = test::ui_targets.at(id);
             require(box.enabled, "Particle control disabled: " + id);
             if (box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y) {
@@ -250,7 +250,7 @@ void exercise(const std::filesystem::path& scratch, float scale, bool small) {
     require(editor.preview_time() == 1.25 && !editor.preview_playing(),
             "Preview seek did not pause at the requested time: actual=" +
                 std::to_string(editor.preview_time()) + " scale=" + std::to_string(scale) +
-                " compact=" + std::to_string(small) + " diagnostic=" + editor.diagnostic());
+                " compact=" + std::to_string(compact) + " diagnostic=" + editor.diagnostic());
     const auto source_before_preview = editor.document()->source().document;
     click("particles:preview_play");
     require(editor.preview_playing(), "Particle preview Play did not start");
@@ -326,8 +326,8 @@ int main(int argc, char** argv) {
         require(argc == 2, "Need particle UI scratch root");
         const auto scratch = std::filesystem::absolute(argv[1]);
         for (float scale : {1.f, 1.5f, 2.f})
-            for (bool small : {false, true})
-                exercise(scratch, scale, small);
+            for (bool compact : {false, true})
+                exercise(scratch, scale, compact);
         std::cout
             << "Particle actual mouse/key controls at100/150/200%, full/compact panes, "
                "history, preview clock isolation, publication, attach and dirty close passed\n";

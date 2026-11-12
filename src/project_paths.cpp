@@ -15,6 +15,50 @@ std::string path_utf8(const std::filesystem::path& path) {
     const auto s = path.generic_u8string();
     return {s.begin(), s.end()};
 }
+bool asset_detail::ordinary_io_path(const std::filesystem::path& path) {
+    if (std::filesystem::is_symlink(path))
+        return false;
+#ifdef _WIN32
+    // Expand OS aliases without adopting a resolved target as the input locator.
+    // The canonical path still has to match; links into other locations reject.
+    const auto spelling = [](std::filesystem::path value) {
+        value = native_io_path(value);
+        std::filesystem::path suffix;
+        while (!std::filesystem::exists(value)) {
+            const auto parent = value.parent_path();
+            if (parent == value || parent.empty())
+                throw std::runtime_error("Cannot inspect the existing IO path prefix");
+            suffix = suffix.empty() ? value.filename() : value.filename() / suffix;
+            value = parent;
+        }
+        std::wstring buffer(512, L'\0');
+        for (;;) {
+            const auto count = GetLongPathNameW(value.c_str(), buffer.data(), DWORD(buffer.size()));
+            if (!count)
+                throw std::filesystem::filesystem_error(
+                    "Cannot inspect the long IO path spelling", value,
+                    std::error_code(GetLastError(), std::system_category()));
+            if (count >= buffer.size()) {
+                if (count > 32768)
+                    throw std::runtime_error("IO path spelling exceeds Windows limits");
+                buffer.resize(count);
+                continue;
+            }
+            buffer.resize(count);
+            auto result = std::filesystem::path(buffer);
+            if (!suffix.empty())
+                result /= suffix;
+            return native_io_path(result);
+        }
+    };
+    const auto requested = spelling(path);
+    const auto resolved = spelling(std::filesystem::weakly_canonical(path));
+    const ProjectLocatorLess less;
+    return !less(requested, resolved) && !less(resolved, requested);
+#else
+    return std::filesystem::weakly_canonical(path) == path;
+#endif
+}
 bool ProjectLocatorLess::operator()(const std::filesystem::path& a,
                                     const std::filesystem::path& b) const {
 #ifdef _WIN32

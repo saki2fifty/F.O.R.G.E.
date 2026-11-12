@@ -68,7 +68,7 @@ button,input {display:block;width:260px;height:30px;}
 <input id="upper-check" type="CHECKBOX" value="Fallback text"/>
 <input id="upper-radio" type="RADIO" value="Fallback text"/>
 </body></rml>)rml";
-    std::ofstream(root / "buttons.rml") << markup;
+    std::ofstream(root / "buttons.rml", std::ios::binary) << markup;
     const auto asset = register_ui_document(root, "buttons.rml");
     const auto catalog = asset_detail::read_bytes(root / "forge.assets.json", 4 * 1024 * 1024);
     Json state{{"version", 1},

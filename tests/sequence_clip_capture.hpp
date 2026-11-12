@@ -125,20 +125,20 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
                             for (const auto& value : values) {
                                 const auto& lanes = value.at("parameter").at("value");
                                 if (value.at("key") == "baseColorFactor") {
-                                    near(lanes[0], .1 + .8 * weight);
-                                    near(lanes[1], .2 + .1 * weight);
-                                    near(lanes[2], .9 - .85 * weight);
-                                    near(lanes[3], 1);
+                                    expect_close(lanes[0], .1 + .8 * weight);
+                                    expect_close(lanes[1], .2 + .1 * weight);
+                                    expect_close(lanes[2], .9 - .85 * weight);
+                                    expect_close(lanes[3], 1);
                                 } else {
                                     check(value.at("key") == "roughnessFactor",
                                           "Unexpected Material track");
-                                    near(lanes[0], .1 + .8 * weight);
+                                    expect_close(lanes[0], .1 + .8 * weight);
                                 }
                             }
                         } else {
                             const auto& value = components.at("forge.light");
-                            near(value.at("intensity"), 2 + 2 * weight);
-                            near(value.at("color_r"), .1 + .9 * weight);
+                            expect_close(value.at("intensity"), 2 + 2 * weight);
+                            expect_close(value.at("color_r"), .1 + .9 * weight);
                         }
                         light = true;
                     }
@@ -146,13 +146,13 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
                         const auto& values = components.at("forge.ui_values").at("values");
                         check(values.size() == 2, "Binding preview resized UI Values");
                         for (const auto& value : values)
-                            near(value.at("value"), value.at("name") == "amount"
-                                                        ? .2 + .6 * weight
-                                                        : 80 + 140 * weight);
+                            expect_close(value.at("value"), value.at("name") == "amount"
+                                                                ? .2 + .6 * weight
+                                                                : 80 + 140 * weight);
                         sprite = true;
                     } else if (!binding_pair && components.contains("forge.sprite_renderer")) {
-                        near(components.at("forge.sprite_renderer").at("frame"),
-                             seconds < 1.5 ? 0 : 3);
+                        expect_close(components.at("forge.sprite_renderer").at("frame"),
+                                     seconds < 1.5 ? 0 : 3);
                         sprite = true;
                     }
                 }

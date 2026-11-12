@@ -267,7 +267,7 @@ void exercise(const std::filesystem::path& scratch, float scale) {
               scene.entity(actor).get<PhysicsBody2D>().mass == 12 && scene.document() == dynamic,
           "World-bound Dynamic Map did not survive Save/reopen");
     inspector.fixture_focus_component = "forge.tile_map_collider_2d";
-    prefab.edit_source(project, prefab_asset);
+    prefab.edit_source(scene, project, prefab_asset);
     prefab_mode = true;
     frame();
     frame();

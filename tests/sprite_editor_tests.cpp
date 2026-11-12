@@ -547,7 +547,7 @@ void exercise(const std::filesystem::path& scratch, float scale) {
                                                     "Assets/Sheet.prefab.json");
     const auto published_prefab = project.prefabs().source(prefab_id);
     const auto instance_before = scene.document();
-    prefab.edit_source(project, prefab_id);
+    prefab.edit_source(scene, project, prefab_id);
     prefab_mode = true;
     click("sprite:choose-frame");
     key(ImGuiKey_Home);

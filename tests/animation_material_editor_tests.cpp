@@ -9,7 +9,7 @@ void check(bool value, const std::string& why) {
     if (!value)
         throw std::runtime_error(why);
 }
-void near(double value, double expected, const char* why) {
+void expect_close(double value, double expected, const char* why) {
     check(std::abs(value - expected) < 1e-6,
           std::string(why) + ": " + std::to_string(value) + " vs " + std::to_string(expected));
 }
@@ -168,10 +168,10 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     check(clip.material_bindings[roughness].type == MaterialParameterType::Scalar &&
               clip.material_bindings[color].type == MaterialParameterType::LinearColor4,
           "Material Timeline lost scalar/linear RGBA semantics");
-    near(clip.keys.front().materials[roughness].values[0], .25,
-         "Initial authored override capture");
-    near(clip.keys.front().materials[color].values[0], 1,
-         "Initial shared material default capture");
+    expect_close(clip.keys.front().materials[roughness].values[0], .25,
+                 "Initial authored override capture");
+    expect_close(clip.keys.front().materials[color].values[0], 1,
+                 "Initial shared material default capture");
     for (const char* channel : {"Position", "Rotation", "Scale"})
         click(std::string("animation:channel:") + channel);
     check(editor.document()->source().clip().channels == 0,
@@ -183,8 +183,8 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     clip = editor.document()->source().clip();
     check(clip.keys.size() == 2 && clip.keys.back().time == 2 * animation_timebase,
           "Material Timeline did not create the endpoint key");
-    near(clip.keys.back().materials[roughness].values[0], .75, "Typed roughness endpoint");
-    near(clip.keys.back().materials[color].values[0], .5, "Typed linear red endpoint");
+    expect_close(clip.keys.back().materials[roughness].values[0], .75, "Typed roughness endpoint");
+    expect_close(clip.keys.back().materials[color].values[0], .5, "Typed linear red endpoint");
     click("button:Play preview");
     click("button:Pause preview");
     type("animation:key_time", "1");
@@ -199,8 +199,10 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
         check(at != values.end(), std::string("Preview omitted ") + key);
         return *at;
     };
-    near(preview_value("roughnessFactor").at("parameter").at("value")[0], .5, "Midpoint roughness");
-    near(preview_value("baseColorFactor").at("parameter").at("value")[0], .75, "Midpoint red");
+    expect_close(preview_value("roughnessFactor").at("parameter").at("value")[0], .5,
+                 "Midpoint roughness");
+    expect_close(preview_value("baseColorFactor").at("parameter").at("value")[0], .75,
+                 "Midpoint red");
     check(preview_value("roughnessFactor").at("future_owner") == "preserve" &&
               preview_value("roughnessFactor").at("parameter").at("future_value") == true &&
               scene.document() == authored && scene.revision() == revision &&
@@ -231,10 +233,10 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
           "Fourth color lane did not retain its cubic mode at " + std::to_string(scale) + ", " +
               std::to_string(display.x) + "x" + std::to_string(display.y) + ": " +
               editor.document()->source().document.at("keys").dump());
-    near(clip.keys.front().materials[color].curves[3].outgoing, -.4, "RGBA alpha slope");
+    expect_close(clip.keys.front().materials[color].curves[3].outgoing, -.4, "RGBA alpha slope");
     std::array<AnimationMaterialValues, 2> samples;
     clip.sample_materials(animation_timebase, samples);
-    near(samples[color][3], .9, "Independent cubic alpha midpoint");
+    expect_close(samples[color][3], .9, "Independent cubic alpha midpoint");
     click("button:Fit curve and handles");
     const auto tangent = target("animation:tangent_out");
     const ImVec2 handle{(tangent.minimum.x + tangent.maximum.x) / 2,
@@ -264,18 +266,21 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     mouse(cancel_handle, false);
     check(editor.document()->source().document == curved, "Material tangent Escape changed source");
     click("button:Flat tangents");
-    near(editor.document()->source().clip().keys.front().materials[color].curves[3].outgoing, 0,
-         "Material flat preset");
+    expect_close(
+        editor.document()->source().clip().keys.front().materials[color].curves[3].outgoing, 0,
+        "Material flat preset");
     editor.undo();
     frame();
     click("button:Linear tangents");
-    near(editor.document()->source().clip().keys.front().materials[color].curves[3].outgoing, 0,
-         "Material linear preset");
+    expect_close(
+        editor.document()->source().clip().keys.front().materials[color].curves[3].outgoing, 0,
+        "Material linear preset");
     editor.undo();
     frame();
     click("button:Smooth tangents");
-    near(editor.document()->source().clip().keys.front().materials[color].curves[3].outgoing, 0,
-         "Material smooth preset");
+    expect_close(
+        editor.document()->source().clip().keys.front().materials[color].curves[3].outgoing, 0,
+        "Material smooth preset");
     editor.undo();
     frame();
     type("animation:key_time", "2");
@@ -283,10 +288,10 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
              "Material capture resources did not become ready");
     click("button:Capture authored pose");
     click("button:Add / Update key at playhead");
-    near(editor.document()->source().clip().keys.back().materials[roughness].values[0], .25,
-         "Capture current authored override");
-    near(editor.document()->source().clip().keys.back().materials[color].values[0], 1,
-         "Capture current shared default");
+    expect_close(editor.document()->source().clip().keys.back().materials[roughness].values[0], .25,
+                 "Capture current authored override");
+    expect_close(editor.document()->source().clip().keys.back().materials[color].values[0], 1,
+                 "Capture current shared default");
     editor.undo();
     frame();
     check(editor.document()->source().document == curved, "Material capture Undo lost source");

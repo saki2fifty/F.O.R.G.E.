@@ -16,8 +16,8 @@ void sequence_collection_editor_workflow(Scene& scene, AnimationTimelineEditor& 
         input.click("sequence:add_clip");
         check(scene.entity(actor).get<Animator>().sequence_extra_clips.size() == i + 1,
               "Timeline Add clip did not append one native placement");
-        near(scene.entity(actor).get<Animator>().sequence_extra_clips.back().start_seconds,
-             1.5 + i);
+        expect_close(scene.entity(actor).get<Animator>().sequence_extra_clips.back().start_seconds,
+                     1.5 + i);
     }
     frame();
     check(!test::ui_targets.at("sequence:add_clip").enabled,
@@ -39,9 +39,9 @@ void sequence_collection_editor_workflow(Scene& scene, AnimationTimelineEditor& 
     input.type("sequence:extra_start:0", "1.75");
     check(scene.document() == eight, "Pending collection timing edited the Scene");
     input.click("sequence:apply_start");
-    near(scene.entity(actor).get<Animator>().sequence_start_seconds, .25);
-    near(scene.entity(actor).get<Animator>().sequence_next_start_seconds, .75);
-    near(scene.entity(actor).get<Animator>().sequence_extra_clips[0].start_seconds, 1.75);
+    expect_close(scene.entity(actor).get<Animator>().sequence_start_seconds, .25);
+    expect_close(scene.entity(actor).get<Animator>().sequence_next_start_seconds, .75);
+    expect_close(scene.entity(actor).get<Animator>().sequence_extra_clips[0].start_seconds, 1.75);
     editor.undo();
     frame();
     check(scene.document() == eight, "Collection timing was not one complete Undo transaction");

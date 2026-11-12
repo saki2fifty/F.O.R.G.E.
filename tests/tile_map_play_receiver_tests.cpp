@@ -358,10 +358,12 @@ int main() {
                 try {
                     step(large_source, large_receiver);
                     if (!first_four_fit)
+                        // Requests follow native entity-key order, independent of
+                        // this randomly identified fixture's insertion order.
                         first_four_fit =
-                            std::all_of(large.begin(), large.begin() + 4, [&](const auto& value) {
+                            std::count_if(large.begin(), large.end(), [&](const auto& value) {
                                 return bool(bound(large_receiver, scene, value).cells);
-                            });
+                            }) >= 4;
                 } catch (const std::runtime_error& error) {
                     capped =
                         std::string(error.what()).find("cache exceeds 64 MiB") != std::string::npos;

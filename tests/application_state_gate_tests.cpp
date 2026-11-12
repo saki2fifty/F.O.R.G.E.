@@ -102,7 +102,8 @@ void native_conditions() {
     }
     root.enable();
     auto last = world.entity().child_of(root);
-    for (int i = 0; i < 1500; ++i)
+    // ChildOf creation must also fit the pinned native Debug hierarchy limit.
+    for (int i = 0; i < FLECS_DAG_DEPTH_MAX - 8; ++i)
         last = world.entity().child_of(last);
     {
         ApplicationStateActivation view(context);

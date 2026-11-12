@@ -13,6 +13,7 @@
 #include <forge/runtime_resources.hpp>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <thread>
 using namespace forge;
 using namespace std::chrono_literals;
@@ -199,17 +200,18 @@ int main(int argc, char** argv) {
                   nav.dependency_edges[1].kind == AssetDependencyKind::Build,
               "Mesh bake recorded a different revision or dependency");
         const auto original_nav = nav.id;
-        auto candidate = prepare();
+        auto candidate = std::optional{prepare()};
         // Translate all vertices instead: retain planar faces during an actual new cook.
         source = EditableMeshSource::create_cube(mesh_id);
         source.translate_vertices(std::array<std::uint32_t, 8>{1, 2, 3, 4, 5, 6, 7, 8},
                                   {.01, 0, 0});
         publish_mesh();
         const auto after_import = read(AssetCatalog::project_index(root));
-        reject([&] { candidate.publish(scene.effective_document()); });
+        reject([&] { candidate->publish(scene.effective_document()); });
         check(read(AssetCatalog::project_index(root)) == after_import &&
                   after_import.at("assets").size() == 2,
               "Stale navigation candidate changed published selections");
+        candidate.reset(); // A discarded candidate must release writer ownership before relocation.
         nav = prepare().publish(scene.effective_document());
         check(nav.id == original_nav, "Rebuild changed NavMesh identity");
         scene.entity(agent).set<NavigationAgent>({{nav.id}, true, true, 2, .1f, 8, .1, 0});

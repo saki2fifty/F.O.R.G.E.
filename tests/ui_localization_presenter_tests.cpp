@@ -42,143 +42,149 @@ button {display:block;width:160px;height:32px;} input {display:block;width:180px
 <button id="french" data-event-click="command('forge.locale', 'fr')">Français</button>
 </body></rml>)rml");
         const auto document = register_ui_document(root, "hud.rml");
-        const auto lease = std::make_shared<ProjectLease>(root);
-        const auto first =
-            test_ui_localization::publish(lease, "Assets/First.localization.json", messages);
-        const auto second =
-            test_ui_localization::publish(lease, "Assets/Second.localization.json", [](AssetId id) {
-                auto source = messages(id);
-                source.document["locales"]["fr"]["messages"]["menu_play"] = "Continuer";
-                return source;
-            });
-        EngineContext engine(WorldRole::Runtime, false, {ui_module(root)});
-        Scene scene(engine.world());
-        scene.restore_snapshot(
-            {{"version", 1},
-             {"entities",
-              Json::array(
-                  {{{"id", "hud"}, {"name", "HUD"}, {"components", Json::object()}},
-                   {{"id", "language"}, {"name", "Language"}, {"components", Json::object()}}})}});
-        scene.entity("hud").set<UiDocument>({{document.id}, true, true, 0});
-        scene.entity("language").set<UiLocalization>({{first}, "en"});
-        auto ui = std::static_pointer_cast<UiRuntime>(engine.services().ui());
-        ui->publish(scene.reference("hud").entity, "counter", 999);
-        auto state = ui->snapshot(scene, "native-localization", 1, 0, true);
-        UiTestRenderer renderer;
         {
-            UiPresenter presenter(renderer, root,
-                                  asset_detail::read_bytes(argv[2], 4 * 1024 * 1024));
-            presenter.reset("native-localization", 1);
-            check(presenter.accept(state), presenter.diagnostic().c_str());
-            presenter.update(.1, 800, 600);
-            presenter.render();
-            auto* context = Rml::GetContext(0);
-            auto* dom = context->GetDocument(0);
-            check(text(dom, "title") == "Play" && text(dom, "missing") == "[[absent]]",
-                  "Native text did not receive translated or missing-key values");
-            check(text(dom, "literal") == "Crème <b>café</b> & {{counter}} &lt;",
-                  "Translation interpreted markup, entities or another data expression");
-            check(renderer.draws > 0 && !renderer.textures.empty(),
-                  "Native layout/font geometry did not reach the recording render interface");
-            auto* field = dom->GetElementById("field");
-            dom->GetElementById("french")->DispatchEvent("click", Rml::Dictionary{});
-            check(presenter.pending_command().has_value(),
-                  "Native locale button did not queue a command");
-            ui_protocol::CommandGate gate;
-            gate.reset("native-localization", 1);
-            const auto ack = gate.dispatch(*presenter.pending_command(), [&](const auto& command) {
-                ui->command(scene, command, [](const auto&) {
-                    throw std::runtime_error("Locale command advanced a clock control");
+            const auto lease = std::make_shared<ProjectLease>(root);
+            const auto first =
+                test_ui_localization::publish(lease, "Assets/First.localization.json", messages);
+            const auto second = test_ui_localization::publish(
+                lease, "Assets/Second.localization.json", [](AssetId id) {
+                    auto source = messages(id);
+                    source.document["locales"]["fr"]["messages"]["menu_play"] = "Continuer";
+                    return source;
                 });
-            });
-            check(ack.at("ok"), "Native locale command was rejected");
-            presenter.acknowledge(ack);
-            check(field->Focus() && presenter.wants_text(), "Native text field did not focus");
-            presenter.text("kept");
-            const auto revision = presenter.presentation_revision();
-            state = ui->snapshot(scene, "native-localization", 1, 0, true);
-            check(presenter.accept(state), presenter.diagnostic().c_str());
-            presenter.update(.2, 800, 600);
-            presenter.render();
-            check(Rml::GetContext(0) == context && context->GetFocusElement() == field &&
-                      presenter.wants_text() && presenter.presentation_revision() > revision,
-                  "Locale change replaced context/focus or retained a stale presentation revision");
-            check(text(dom, "title") == "Jouer" &&
-                      presenter.localization_state().at("selected_locale") == "fr" &&
-                      presenter.localization_state().at("fallback_messages") == 1,
-                  "Paused locale switch or default-message fallback did not reach native text");
-            auto config = scene.entity("language").get<UiLocalization>();
-            config.catalog.id = AssetId::generate();
-            scene.entity("language").set(config);
-            state = ui->snapshot(scene, "native-localization", 1, 0, true);
-            check(!presenter.accept(state) && Rml::GetContext(0) == context &&
-                      presenter.localization_state().at("asset") == Json(first) &&
-                      text(dom, "title") == "Jouer",
-                  "Failed table replacement lost or mixed the complete predecessor");
-            config.catalog.id = second;
-            scene.entity("language").set(config);
-            state = ui->snapshot(scene, "native-localization", 1, 0, true);
-            check(presenter.accept(state), presenter.diagnostic().c_str());
-            presenter.update(.3, 800, 600);
-            auto* replacement = Rml::GetContext(0);
-            check(text(replacement->GetDocument(0), "title") == "Continuer" &&
-                      presenter.localization_state().at("asset") == Json(second),
-                  "Repair did not admit the newly selected catalog");
-            auto candidate = state;
-            candidate["revision"] = candidate.at("revision").get<std::uint64_t>() + 1;
-            candidate["localization"]["asset"] = first;
-            candidate["localization"]["locale"] = "en";
-            const auto ticket = presenter.prepare(candidate);
-            check(presenter.prepared(ticket) && Rml::GetNumContexts() == 2 &&
-                      presenter.localization_state().at("selected_locale") == "fr" &&
-                      text(replacement->GetDocument(0), "title") == "Continuer",
-                  "Staged localization leaked into the active context");
-            presenter.cancel_prepared(ticket);
-            check(Rml::GetNumContexts() == 1, "Canceled localization context survived");
-            // Every output context needs its own native transform registry.
-            // The two documents share one immutable catalog and copied locale.
-            auto routed = state.at("documents").at(0);
-            const auto output = AssetId::generate();
-            routed["entity"] = EntityId::generate();
-            routed["instance"] = routed.at("entity").get<EntityId>().str() + ":output";
-            routed["render_texture"] = output;
-            routed["layer"] = 1u;
-            state["documents"].push_back(routed);
-            state["version"] = 2u;
-            state["revision"] = state.at("revision").get<std::uint64_t>() + 1;
-            const bool grouped = presenter.accept(state);
-            check(grouped, presenter.diagnostic().c_str());
-            presenter.update(.4, 800, 600, 2);
-            presenter.update_output({output}, 320, 160);
-            presenter.render();
-            presenter.render_output({output});
-            check(Rml::GetNumContexts() == 2, "Localized output did not create one native group");
-            for (int i = 0; i < Rml::GetNumContexts(); ++i)
-                check(text(Rml::GetContext(i)->GetDocument(0), "title") == "Continuer",
-                      "Translation transform did not reach every native output context");
-            auto* first_context = Rml::GetContext(0);
-            auto* second_context = Rml::GetContext(1);
-            state["localization"]["locale"] = "en";
-            state["revision"] = state.at("revision").get<std::uint64_t>() + 1;
-            const bool switched = presenter.accept(state);
-            check(switched, presenter.diagnostic().c_str());
-            presenter.update(.5, 800, 600);
-            presenter.update_output({output}, 320, 160);
-            check(Rml::GetContext(0) == first_context && Rml::GetContext(1) == second_context,
-                  "Output language switch replaced the live native groups");
-            for (int i = 0; i < Rml::GetNumContexts(); ++i)
-                check(text(Rml::GetContext(i)->GetDocument(0), "title") == "Play",
-                      "Paused locale selection did not update output text");
-            auto prepared_state = state;
-            prepared_state["revision"] = state.at("revision").get<std::uint64_t>() + 1;
-            const auto grouped_ticket = presenter.prepare(prepared_state);
-            check(presenter.prepared(grouped_ticket) && Rml::GetNumContexts() == 4,
-                  "Staged localized outputs lost a native group");
-            presenter.cancel_prepared(grouped_ticket);
-            check(Rml::GetNumContexts() == 2, "Canceled localized output groups survived");
-        }
-        check(renderer.geometry.empty() && renderer.textures.empty(),
-              "Localized native contexts retained render handles");
+            EngineContext engine(WorldRole::Runtime, false, {ui_module(root)});
+            Scene scene(engine.world());
+            scene.restore_snapshot(
+                {{"version", 1},
+                 {"entities",
+                  Json::array({{{"id", "hud"}, {"name", "HUD"}, {"components", Json::object()}},
+                               {{"id", "language"},
+                                {"name", "Language"},
+                                {"components", Json::object()}}})}});
+            scene.entity("hud").set<UiDocument>({{document.id}, true, true, 0});
+            scene.entity("language").set<UiLocalization>({{first}, "en"});
+            auto ui = std::static_pointer_cast<UiRuntime>(engine.services().ui());
+            ui->publish(scene.reference("hud").entity, "counter", 999);
+            auto state = ui->snapshot(scene, "native-localization", 1, 0, true);
+            UiTestRenderer renderer;
+            {
+                UiPresenter presenter(renderer, root,
+                                      asset_detail::read_bytes(argv[2], 4 * 1024 * 1024));
+                presenter.reset("native-localization", 1);
+                check(presenter.accept(state), presenter.diagnostic().c_str());
+                presenter.update(.1, 800, 600);
+                presenter.render();
+                auto* context = Rml::GetContext(0);
+                auto* dom = context->GetDocument(0);
+                check(text(dom, "title") == "Play" && text(dom, "missing") == "[[absent]]",
+                      "Native text did not receive translated or missing-key values");
+                check(text(dom, "literal") == "Crème <b>café</b> & {{counter}} &lt;",
+                      "Translation interpreted markup, entities or another data expression");
+                check(renderer.draws > 0 && !renderer.textures.empty(),
+                      "Native layout/font geometry did not reach the recording render interface");
+                auto* field = dom->GetElementById("field");
+                dom->GetElementById("french")->DispatchEvent("click", Rml::Dictionary{});
+                check(presenter.pending_command().has_value(),
+                      "Native locale button did not queue a command");
+                ui_protocol::CommandGate gate;
+                gate.reset("native-localization", 1);
+                const auto ack =
+                    gate.dispatch(*presenter.pending_command(), [&](const auto& command) {
+                        ui->command(scene, command, [](const auto&) {
+                            throw std::runtime_error("Locale command advanced a clock control");
+                        });
+                    });
+                check(ack.at("ok"), "Native locale command was rejected");
+                presenter.acknowledge(ack);
+                check(field->Focus() && presenter.wants_text(), "Native text field did not focus");
+                presenter.text("kept");
+                const auto revision = presenter.presentation_revision();
+                state = ui->snapshot(scene, "native-localization", 1, 0, true);
+                check(presenter.accept(state), presenter.diagnostic().c_str());
+                presenter.update(.2, 800, 600);
+                presenter.render();
+                check(Rml::GetContext(0) == context && context->GetFocusElement() == field &&
+                          presenter.wants_text() && presenter.presentation_revision() > revision,
+                      "Locale change replaced context/focus or retained a stale presentation "
+                      "revision");
+                check(text(dom, "title") == "Jouer" &&
+                          presenter.localization_state().at("selected_locale") == "fr" &&
+                          presenter.localization_state().at("fallback_messages") == 1,
+                      "Paused locale switch or default-message fallback did not reach native text");
+                auto config = scene.entity("language").get<UiLocalization>();
+                config.catalog.id = AssetId::generate();
+                scene.entity("language").set(config);
+                state = ui->snapshot(scene, "native-localization", 1, 0, true);
+                check(!presenter.accept(state) && Rml::GetContext(0) == context &&
+                          presenter.localization_state().at("asset") == Json(first) &&
+                          text(dom, "title") == "Jouer",
+                      "Failed table replacement lost or mixed the complete predecessor");
+                config.catalog.id = second;
+                scene.entity("language").set(config);
+                state = ui->snapshot(scene, "native-localization", 1, 0, true);
+                check(presenter.accept(state), presenter.diagnostic().c_str());
+                presenter.update(.3, 800, 600);
+                auto* replacement = Rml::GetContext(0);
+                check(text(replacement->GetDocument(0), "title") == "Continuer" &&
+                          presenter.localization_state().at("asset") == Json(second),
+                      "Repair did not admit the newly selected catalog");
+                auto candidate = state;
+                candidate["revision"] = candidate.at("revision").get<std::uint64_t>() + 1;
+                candidate["localization"]["asset"] = first;
+                candidate["localization"]["locale"] = "en";
+                const auto ticket = presenter.prepare(candidate);
+                check(presenter.prepared(ticket) && Rml::GetNumContexts() == 2 &&
+                          presenter.localization_state().at("selected_locale") == "fr" &&
+                          text(replacement->GetDocument(0), "title") == "Continuer",
+                      "Staged localization leaked into the active context");
+                presenter.cancel_prepared(ticket);
+                check(Rml::GetNumContexts() == 1, "Canceled localization context survived");
+                // Every output context needs its own native transform registry.
+                // The two documents share one immutable catalog and copied locale.
+                auto routed = state.at("documents").at(0);
+                const auto output = AssetId::generate();
+                routed["entity"] = EntityId::generate();
+                routed["instance"] = routed.at("entity").get<EntityId>().str() + ":output";
+                routed["render_texture"] = output;
+                routed["layer"] = 1u;
+                state["documents"].push_back(routed);
+                state["version"] = 2u;
+                state["revision"] = state.at("revision").get<std::uint64_t>() + 1;
+                const bool grouped = presenter.accept(state);
+                check(grouped, presenter.diagnostic().c_str());
+                presenter.update(.4, 800, 600, 2);
+                presenter.update_output({output}, 320, 160);
+                presenter.render();
+                presenter.render_output({output});
+                check(Rml::GetNumContexts() == 2,
+                      "Localized output did not create one native group");
+                for (int i = 0; i < Rml::GetNumContexts(); ++i)
+                    check(text(Rml::GetContext(i)->GetDocument(0), "title") == "Continuer",
+                          "Translation transform did not reach every native output context");
+                auto* first_context = Rml::GetContext(0);
+                auto* second_context = Rml::GetContext(1);
+                state["localization"]["locale"] = "en";
+                state["revision"] = state.at("revision").get<std::uint64_t>() + 1;
+                const bool switched = presenter.accept(state);
+                check(switched, presenter.diagnostic().c_str());
+                presenter.update(.5, 800, 600);
+                presenter.update_output({output}, 320, 160);
+                check(Rml::GetContext(0) == first_context && Rml::GetContext(1) == second_context,
+                      "Output language switch replaced the live native groups");
+                for (int i = 0; i < Rml::GetNumContexts(); ++i)
+                    check(text(Rml::GetContext(i)->GetDocument(0), "title") == "Play",
+                          "Paused locale selection did not update output text");
+                auto prepared_state = state;
+                prepared_state["revision"] = state.at("revision").get<std::uint64_t>() + 1;
+                const auto grouped_ticket = presenter.prepare(prepared_state);
+                check(presenter.prepared(grouped_ticket) && Rml::GetNumContexts() == 4,
+                      "Staged localized outputs lost a native group");
+                presenter.cancel_prepared(grouped_ticket);
+                check(Rml::GetNumContexts() == 2, "Canceled localized output groups survived");
+            }
+            check(renderer.geometry.empty() && renderer.textures.empty(),
+                  "Localized native contexts retained render handles");
+        } // Release project writers and native/resource owners before deleting the source.
         std::filesystem::remove_all(root);
         std::cout << "Native localized text/literal boundaries, paused focus, candidate and "
                      "last-good lifetime passed\n";

@@ -55,7 +55,7 @@ bool replace_open_file(HANDLE staged, const std::filesystem::path& from,
 } // namespace
 #endif
 void ordinary(const std::filesystem::path& path) {
-    if (std::filesystem::weakly_canonical(path) != path || std::filesystem::is_symlink(path))
+    if (!asset_detail::ordinary_io_path(path))
         throw std::runtime_error("Asset publication metadata must not redirect: " +
                                  path_utf8(path));
 }

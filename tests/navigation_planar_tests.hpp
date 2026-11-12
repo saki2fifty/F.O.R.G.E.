@@ -1,3 +1,4 @@
+#include <optional>
 #pragma once
 void planar_runtime_tests(const std::filesystem::path& root, Scene& authored, AssetId asset) {
     authored.entity("agent").set<LocalTranslation>({-8, 0, 37.125});
@@ -145,10 +146,10 @@ void planar_asset_tests(const std::filesystem::path& base, const std::filesystem
     const auto prepare = [&] {
         return prepare_navigation(root, scene.effective_document(), settings, worker);
     };
-    auto candidate = prepare();
+    auto candidate = std::optional{prepare()};
     // Visual depth is not part of the navigation source geometry.
     floor.set<LocalTranslation>({0, 0, -7});
-    const auto record = candidate.publish(scene.effective_document());
+    const auto record = candidate->publish(scene.effective_document());
     check(record.schema_version == 3 && record.metadata.at("geometry_version") == 3 &&
               record.metadata.at("settings").at("plane") == 1 &&
               record.metadata.at("mesh_inputs").empty(),
@@ -159,9 +160,9 @@ void planar_asset_tests(const std::filesystem::path& base, const std::filesystem
     for (const auto& point : navigation_triangles(root, {record.id}))
         check(point[2] == 0, "Published planar triangles leaked native vertical height");
     const auto baseline = read(AssetCatalog::project_index(root));
-    auto stale = prepare();
+    auto stale = std::optional{prepare()};
     obstacle.set<NavigationRegion2D>({true, true, 3, 4});
-    reject([&] { stale.publish(scene.effective_document()); });
+    reject([&] { stale->publish(scene.effective_document()); });
     check(read(AssetCatalog::project_index(root)) == baseline,
           "Stale planar candidate replaced the catalog");
     obstacle.set<NavigationRegion2D>({true, true, 2, 4});
@@ -222,6 +223,8 @@ void planar_asset_tests(const std::filesystem::path& base, const std::filesystem
     check(rebuilt.id == record.id && rebuilt.source != record.source &&
               std::filesystem::is_regular_file(root / record.source),
           "Planar rebuild lost logical identity or the previous artifact");
+    candidate.reset();
+    stale.reset(); // End writer ownership before the runtime takes source files offline.
     planar_runtime_tests(root, scene, record.id);
     std::cout << "Planar worker/publication/staleness/cancellation/retained output PASS\n";
 }

@@ -15,7 +15,7 @@ void check(bool ok, const std::string& why) {
     if (!ok)
         throw std::runtime_error(why);
 }
-void near(double a, double b) {
+void expect_close(double a, double b) {
     check(std::abs(a - b) < 1e-5,
           "Sequence UI numeric oracle differs: " + std::to_string(a) + " vs " + std::to_string(b));
 }
@@ -184,15 +184,15 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     check(scene.entity(actor).get<TransformAnimator>().clip.id == clip,
           "Typed asset picker did not assign clip");
     type("sequence:start", "1");
-    near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 0);
+    expect_close(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 0);
     click("sequence:apply_start");
-    near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1);
+    expect_close(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1);
     editor.undo();
     frame();
-    near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 0);
+    expect_close(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 0);
     editor.redo();
     frame();
-    near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1);
+    expect_close(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1);
     click("sequence:refresh");
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
     while (!test::ui_targets.contains("sequence:preview") ||
@@ -225,7 +225,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     bool found = false;
     for (const auto& row : preview.at("entities"))
         if (row.at("id") == actor) {
-            near(row.at("components").at("forge.local_translation").at("x"), expected_x);
+            expect_close(row.at("components").at("forge.local_translation").at("x"), expected_x);
             found = true;
         }
     check(found && scene.document() == authored && scene.revision() == revision,
@@ -270,10 +270,10 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
               !test::ui_targets.at("asset-picker:transform_animation:Clip").enabled,
           "Pending start could be silently discarded by another arrangement edit");
     click("sequence:apply_start");
-    near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1);
+    expect_close(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1);
     editor.undo();
     frame();
-    near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1);
+    expect_close(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1);
     type("sequence:start", "1.5");
     editor.request_close();
     frame();
@@ -281,7 +281,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     check(editor.sequence_mode(), "Pending-field close cancel lost the view");
     editor.request_save();
     frame();
-    near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1.5);
+    expect_close(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1.5);
     check(!project.dirty(), "Sequence Save did not use Scene persistence");
     locked = true;
     frame();
@@ -297,7 +297,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     click("picker-option:" + clip.str());
     check(scene.entity(actor).get<TransformAnimator>().sequence_next_clip.id == clip,
           "Next clip picker did not use the selected asset identity");
-    near(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds, 1.5);
+    expect_close(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds, 1.5);
     // The prior preview is stale after Save; a new slot starts at the primary
     // offset when no current admitted duration is available.
     const auto before_timing = scene.document();
@@ -305,8 +305,8 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     type("sequence:next_start", "2.75");
     check(scene.document() == before_timing, "Pending pair timing edited the Scene");
     click("sequence:apply_start");
-    near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1.75);
-    near(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds, 2.75);
+    expect_close(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1.75);
+    expect_close(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds, 2.75);
     editor.undo();
     frame();
     check(scene.document() == before_timing, "Pair timing was not one Undo transaction");
@@ -314,7 +314,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     frame();
     type("sequence:next_start", "1");
     click("sequence:apply_start");
-    near(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds, 2.75);
+    expect_close(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds, 2.75);
     click("button:Reset pending timing");
     click("sequence:refresh");
     {
@@ -333,7 +333,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
         bool found = false;
         for (const auto& row : pair_preview.at("entities"))
             if (row.at("id") == actor) {
-                near(row.at("components").at("forge.local_translation").at("x"), 1.375);
+                expect_close(row.at("components").at("forge.local_translation").at("x"), 1.375);
                 found = true;
             }
         check(found, "Pair frame sample lost its actor");
@@ -397,14 +397,14 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     const auto blend_text = std::to_string(blend);
     type("sequence:shot_blend", blend_text.c_str());
     click("sequence:apply_shot");
-    near(scene.entity(shot).get<CameraShot>().blend_in_seconds, blend);
+    expect_close(scene.entity(shot).get<CameraShot>().blend_in_seconds, blend);
     editor.undo();
     frame();
     check(scene.entity(shot).get<CameraShot>() == initial_shot,
           "Shot blend edit was not one Scene Undo transaction");
     editor.redo();
     frame();
-    near(scene.entity(shot).get<CameraShot>().blend_in_seconds, blend);
+    expect_close(scene.entity(shot).get<CameraShot>().blend_in_seconds, blend);
     editor.undo();
     frame();
     type("sequence:shot_blend", "9999");
@@ -418,8 +418,8 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
               !test::ui_targets.at("sequence:add_shot").enabled,
           "Pending shot fields were published or discarded by another action");
     click("sequence:apply_shot");
-    near(scene.entity(shot).get<CameraShot>().start_seconds, 3);
-    near(scene.entity(shot).get<CameraShot>().end_seconds, 4);
+    expect_close(scene.entity(shot).get<CameraShot>().start_seconds, 3);
+    expect_close(scene.entity(shot).get<CameraShot>().end_seconds, 4);
     editor.undo();
     frame();
     check(scene.entity(shot).get<CameraShot>() == initial_shot,
@@ -430,11 +430,11 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     authoring_command(scene, "entity.rename", {{"entity", actor}, {"name", "Renamed door"}});
     frame();
     click("sequence:apply_shot");
-    near(scene.entity(shot).get<CameraShot>().start_seconds, 3);
+    expect_close(scene.entity(shot).get<CameraShot>().start_seconds, 3);
     click("sequence:reset_shot");
     type("sequence:shot_end", "7");
     click("sequence:apply_shot");
-    near(scene.entity(shot).get<CameraShot>().end_seconds, 4);
+    expect_close(scene.entity(shot).get<CameraShot>().end_seconds, 4);
     click("sequence:reset_shot");
     click("sequence:shot_camera");
     check(!test::ui_targets.contains("entity-picker-row:" + actor),
@@ -484,7 +484,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     check(editor.sequence_mode(), "Pending shot close cancelled the sequence view");
     editor.undo();
     frame();
-    near(scene.entity(shot).get<CameraShot>().start_seconds, 3);
+    expect_close(scene.entity(shot).get<CameraShot>().start_seconds, 3);
     click("sequence:track:" + actor);
     // One central workspace keeps the two document owners' pending choices distinct.
     progress("camera shots passed");
@@ -528,7 +528,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
               !test::ui_targets.at("sequence:remove_cue").enabled,
           "Pending cue fields changed Scene intent or could be silently discarded");
     click("sequence:apply_cue");
-    near(scene.entity(cue).get<AudioCue>().time_seconds, 4);
+    expect_close(scene.entity(cue).get<AudioCue>().time_seconds, 4);
     editor.undo();
     frame();
     check(scene.entity(cue).get<AudioCue>() == original_cue,
@@ -539,11 +539,11 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     authoring_command(scene, "entity.rename", {{"entity", actor}, {"name", "Cue stale door"}});
     frame();
     click("sequence:apply_cue");
-    near(scene.entity(cue).get<AudioCue>().time_seconds, 4);
+    expect_close(scene.entity(cue).get<AudioCue>().time_seconds, 4);
     click("sequence:reset_cue");
     type("sequence:cue_time", "7");
     click("sequence:apply_cue");
-    near(scene.entity(cue).get<AudioCue>().time_seconds, 4);
+    expect_close(scene.entity(cue).get<AudioCue>().time_seconds, 4);
     click("sequence:reset_cue");
     click("sequence:cue_source");
     check(!test::ui_targets.contains("entity-picker-row:" + actor),
@@ -574,7 +574,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     check(editor.sequence_mode(), "Cancelling cue close lost its pending draft");
     editor.request_save();
     frame();
-    near(scene.entity(cue).get<AudioCue>().time_seconds, 3.5);
+    expect_close(scene.entity(cue).get<AudioCue>().time_seconds, 3.5);
     check(!project.dirty(), "Cue Save did not use Scene persistence");
     click("sequence:track:" + actor);
     progress("audio cues passed");
@@ -611,7 +611,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     click("button:Keep editing");
     frame();
     check(editor.sequence_mode(), "Queued clip opened after pending sequence field was retained");
-    near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1.75);
+    expect_close(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1.75);
     editor.undo();
     frame();
     type("sequence:start", "2");

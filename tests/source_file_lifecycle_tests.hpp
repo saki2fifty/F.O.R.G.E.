@@ -31,7 +31,7 @@ inline void test_source_file_lifecycle(forge::ui::DocumentWorkspace& documents,
         for (;;) {
             files.poll(project, scene, imports, message);
             const auto state = files.automation_status();
-            if (state.at("state") == expected)
+            if (state.at("state").get<std::string>() == expected)
                 return state;
             require(state.at("diagnostic") == "", "File operation: " + state.dump());
             require(std::chrono::steady_clock::now() < end, "File operation timed out");

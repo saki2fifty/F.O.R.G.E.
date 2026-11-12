@@ -45,8 +45,8 @@ void nested_editor_workflow(SceneDocument& project, Scene& scene, AnimationTimel
     click("sequence:nested_loop");
     check(scene.document() == timing, "Pending nested start changed the Scene");
     click("sequence:apply_nested");
-    near(scene.entity(child).get<AnimationSequence>().sequence_start_seconds, 1);
-    near(scene.entity(child).get<AnimationSequence>().sequence_rate, 2);
+    expect_close(scene.entity(child).get<AnimationSequence>().sequence_start_seconds, 1);
+    expect_close(scene.entity(child).get<AnimationSequence>().sequence_rate, 2);
     check(scene.entity(child).get<AnimationSequence>().sequence_loop,
           "Timeline placement loop did not reach the typed controller");
     editor.undo();
@@ -61,10 +61,10 @@ void nested_editor_workflow(SceneDocument& project, Scene& scene, AnimationTimel
     click("sequence:reset_nested");
     type("sequence:nested_rate", "1");
     click("sequence:apply_nested");
-    near(scene.entity(child).get<AnimationSequence>().sequence_rate, 1);
+    expect_close(scene.entity(child).get<AnimationSequence>().sequence_rate, 1);
     type("sequence:nested_start", "7");
     click("sequence:apply_nested");
-    near(scene.entity(child).get<AnimationSequence>().sequence_start_seconds, 1);
+    expect_close(scene.entity(child).get<AnimationSequence>().sequence_start_seconds, 1);
     check(!test::ui_targets.at("sequence:open_nested").enabled &&
               !test::ui_targets.at("sequence:remove_nested").enabled,
           "Pending nested start could be silently discarded");
@@ -116,7 +116,7 @@ void nested_editor_workflow(SceneDocument& project, Scene& scene, AnimationTimel
     bool found = false;
     for (const auto& row : preview.at("entities"))
         if (row.at("id") == actor) {
-            near(row.at("components").at("forge.local_translation").at("x"), 0);
+            expect_close(row.at("components").at("forge.local_translation").at("x"), 0);
             found = true;
         }
     check(found && scene.document() == authored,
@@ -132,7 +132,7 @@ void nested_editor_workflow(SceneDocument& project, Scene& scene, AnimationTimel
     preview = editor.preview(scene.document());
     for (const auto& row : preview.at("entities"))
         if (row.at("id") == actor)
-            near(row.at("components").at("forge.local_translation").at("x"), 0);
+            expect_close(row.at("components").at("forge.local_translation").at("x"), 0);
     editor.end_frame_export(local);
     click("sequence:open_parent");
     ready();

@@ -10,7 +10,7 @@ void require(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
 }
-void near(Double3 value, Double3 expected, const char* message) {
+void expect_close(Double3 value, Double3 expected, const char* message) {
     for (unsigned i = 0; i < 3; ++i)
         require(std::abs(value[i] - expected[i]) < 1e-5, message);
 }
@@ -216,10 +216,10 @@ void exercise(const std::filesystem::path& root, float scale) {
     require(guide && guide->valid && guide->planar && guide->kind == 4,
             "2D Slider guide unavailable");
     // Independent T(10,20,7) Rz90 S(-2,3,0), then child T(1,2,5) S(-1,1,1).
-    near(guide->bodies[0].anchor, {5.5, 19, 7}, "Flat reflected ancestry changed anchor A");
-    near(guide->bodies[1].anchor, {6, 4, 9}, "Reflected rotated body changed anchor B");
-    near(guide->bodies[0].axes[0], {0, 1, 0}, "Joint frame A included signed scale");
-    near(guide->bodies[1].axes[0], {1, 0, 0}, "Joint frame B ignored its authored angle");
+    expect_close(guide->bodies[0].anchor, {5.5, 19, 7}, "Flat reflected ancestry changed anchor A");
+    expect_close(guide->bodies[1].anchor, {6, 4, 9}, "Reflected rotated body changed anchor B");
+    expect_close(guide->bodies[0].axes[0], {0, 1, 0}, "Joint frame A included signed scale");
+    expect_close(guide->bodies[1].axes[0], {1, 0, 0}, "Joint frame B ignored its authored angle");
     ui::PhysicsOverlay overlay;
     EditorCamera camera;
     camera.target = {5, 10, 8};

@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "game_export.hpp"
+#include "native_io_path.hpp"
 #include "standalone_manifest.hpp"
 #include <cmath>
 #include <forge/game_content.hpp>
@@ -45,13 +46,17 @@ std::vector<float> samples(const std::filesystem::path& root, const Json& settin
 }
 } // namespace
 int main(int argc, char** argv) {
+    const char* stage = "setup";
     try {
         check(argc == 4, "Need sample project, scratch and font");
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto source = scratch / "Source", kit = scratch / "Kit", output = scratch / "Game";
         std::filesystem::create_directories(scratch);
-        std::filesystem::copy(std::filesystem::absolute(argv[1]), source,
+        stage = "copy editable source";
+        std::filesystem::copy(asset_detail::native_io_path(std::filesystem::absolute(argv[1])),
+                              asset_detail::native_io_path(source),
                               std::filesystem::copy_options::recursive);
+        stage = "sample impulse processing";
         const auto settings = ProjectSettings(source).document();
         const auto& audio = settings.at("game").at("audio");
         const auto responses = audio_bus_impulse_assets(audio_routing_settings(audio));
@@ -87,6 +92,7 @@ int main(int argc, char** argv) {
                        {"runtime_audio_routing", audio_routing_profile_version},
                        {"runtime_audio_bus_effects", audio_bus_effects_profile_version}}},
                      {"files", Json::object()}};
+        stage = "inventory runtime kit";
         for (const auto& entry : std::filesystem::recursive_directory_iterator(kit))
             if (entry.is_regular_file()) {
                 const auto bytes = asset_detail::read_bytes(entry.path(), 16 * 1024 * 1024);
@@ -116,20 +122,24 @@ int main(int argc, char** argv) {
             }
             check(rejected, "A kit without impulse support accepted the example");
         };
+        stage = "reject incompatible kit";
         reject_export();
         check(!std::filesystem::exists(output), "Failed first export published a distribution");
         runtime["engine"]["runtime_audio_bus_impulse"] = audio_bus_impulse_profile_version;
         write_kit();
         {
+            stage = "export compatible kit";
             ProjectLease lease(source);
             (void)export_standalone_game(lease, request);
         }
         const auto manifest = asset_storage::read(output / "forge.standalone.json");
         runtime["engine"].erase("runtime_audio_bus_impulse");
         write_kit();
+        stage = "reject incompatible replacement";
         reject_export();
         check(asset_storage::read(output / "forge.standalone.json") == manifest,
               "Rejected kit replaced the last good impulse distribution");
+        stage = "relocate source-free distribution";
         std::filesystem::rename(source, scratch / "HiddenSource");
         const auto relocated = scratch / "Relocated";
         std::filesystem::rename(output, relocated);
@@ -154,7 +164,7 @@ int main(int argc, char** argv) {
                          .dump()
                   << '\n';
     } catch (const std::exception& error) {
-        std::cerr << error.what() << '\n';
+        std::cerr << "Audio impulse export during " << stage << ": " << error.what() << '\n';
         return 1;
     }
 }

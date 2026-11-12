@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
+#include "native_io_path.hpp"
 #include "native_read_file.hpp"
 #include <cstdlib>
 #include <forge/asset_publication.hpp>
@@ -32,6 +33,44 @@ template <class F> void rejects(F fn) {
 std::string read(const std::filesystem::path& path) {
     const auto bytes = asset_detail::read_bytes(path, 256 * 1024 * 1024);
     return {reinterpret_cast<const char*>(bytes.data()), bytes.size()};
+}
+void io_spellings(const std::filesystem::path& root) {
+    std::filesystem::create_directories(root);
+    const auto file = root / "metadata.json";
+    asset_storage::replace(file, "initial");
+    asset_storage::ordinary(root / "missing intermediate/leaf.json");
+    require(!std::filesystem::exists(root / "missing intermediate"),
+            "Path admission created directories");
+#ifdef _WIN32
+    const auto native = asset_detail::native_io_path(root);
+    asset_storage::replace(native / "metadata.json", "extended");
+    require(read(file) == "extended", "Extended IO spelling selected different metadata");
+    std::wstring short_name(32768, L'\0');
+    const auto count =
+        GetShortPathNameW(native.c_str(), short_name.data(), DWORD(short_name.size()));
+    require(count && count < short_name.size(), "Cannot inspect the native short path spelling");
+    short_name.resize(count);
+    const auto alias = std::filesystem::path(short_name);
+    asset_storage::replace(alias / "metadata.json", "short-name");
+    require(read(file) == "short-name", "Short IO spelling selected different metadata");
+    std::cout << "Native extended/short spelling IO checked; distinct short alias="
+              << (alias != native) << std::endl;
+#endif
+    const auto target = root / "Target";
+    std::filesystem::create_directory(target);
+    asset_storage::replace(target / "metadata.json", "retained");
+    const auto link = root / "Redirect";
+    std::error_code error;
+    std::filesystem::create_directory_symlink(target, link, error);
+    if (!error) {
+        rejects([&] { asset_storage::ordinary(link / "metadata.json"); });
+        rejects([&] { asset_storage::replace(link / "metadata.json", "changed"); });
+        require(read(target / "metadata.json") == "retained",
+                "Rejected linked metadata write changed its target");
+        std::filesystem::remove(link);
+    } else {
+        std::cout << "Directory-link fixture unavailable: " << error.message() << std::endl;
+    }
 }
 AssetImporterDescriptor fixture_descriptor() {
     AssetImporterDescriptor d;
@@ -297,6 +336,7 @@ int main(int argc, char** argv) {
         const auto root = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(root);
         if (argc == 2) {
+            io_spellings(root / "IO spelling with long directory names");
             unit(root);
             std::cout << "Asset candidate publication/last-good/stale/ownership checks passed\n";
             return 0;

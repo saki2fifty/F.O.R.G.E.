@@ -96,13 +96,13 @@ void skeletal_sequence_editor(const std::filesystem::path& gallery,
         input.click("asset-picker:animation_clip:Next clip");
         input.type("asset-search:animation_clip:Next clip", "LocomotionColumn");
         input.select(("picker-option:" + selected.bindings.at("/animations/1").str()).c_str());
-        near(scene.entity(actor).get<Animator>().sequence_next_start_seconds, .5);
+        expect_close(scene.entity(actor).get<Animator>().sequence_next_start_seconds, .5);
         const auto before = scene.document();
         input.type("sequence:start", "1");
         input.type("sequence:next_start", "1.5");
         input.click("sequence:apply_start");
-        near(scene.entity(actor).get<Animator>().sequence_start_seconds, 1);
-        near(scene.entity(actor).get<Animator>().sequence_next_start_seconds, 1.5);
+        expect_close(scene.entity(actor).get<Animator>().sequence_start_seconds, 1);
+        expect_close(scene.entity(actor).get<Animator>().sequence_next_start_seconds, 1.5);
         editor.undo();
         frame();
         check(scene.document() == before, "Skeletal timing was not one complete Undo transaction");
@@ -180,14 +180,15 @@ void skeletal_sequence_editor(const std::filesystem::path& gallery,
             input.click("asset-picker:transform_animation:Next clip");
             input.type("asset-search:transform_animation:Next clip", "LightAndSound");
             input.select(("picker-option:" + property_clip.str()).c_str());
-            near(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds, 1);
-            near(scene.entity(actor).get<Animator>().sequence_next_start_seconds, .5);
+            expect_close(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds,
+                         1);
+            expect_close(scene.entity(actor).get<Animator>().sequence_next_start_seconds, .5);
             const auto mixed = scene.document();
             input.type("sequence:start", ".25");
             input.type("sequence:next_start", "1.25");
             input.click("sequence:apply_start");
-            near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, .25);
-            near(scene.entity(actor).get<Animator>().sequence_start_seconds, 0);
+            expect_close(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, .25);
+            expect_close(scene.entity(actor).get<Animator>().sequence_start_seconds, 0);
             editor.undo();
             frame();
             check(scene.document() == mixed,

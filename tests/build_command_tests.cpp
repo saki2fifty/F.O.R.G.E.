@@ -79,7 +79,9 @@ int main(int argc, char** argv) {
         check(finish(command, output) == 7, "Native command exit status changed");
         const auto line = output.substr(0, output.find('\n'));
         const auto echoed = nlohmann::json::parse(line);
-        check(echoed.at("args") == values && echoed.at("cwd") == path_utf8(root) &&
+        check(echoed.at("args") == values &&
+                  std::filesystem::equivalent(
+                      std::filesystem::u8path(echoed.at("cwd").get<std::string>()), root) &&
                   echoed.at("environment") == "café" && echoed.at("stdin") == "" &&
                   output.find("merged target stderr") != std::string::npos,
               "Native command argv/cwd/environment/output changed");

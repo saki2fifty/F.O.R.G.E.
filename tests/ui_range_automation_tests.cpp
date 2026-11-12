@@ -64,7 +64,7 @@ body {font-family:Lato;font-size:18px;} input {display:block;width:260px;height:
 <input id="field" type="text"/><input id="check" type="checkbox"/>
 <button id="button">Button</button>
 </body></rml>)rml";
-    std::ofstream(root / "ranges.rml") << markup;
+    std::ofstream(root / "ranges.rml", std::ios::binary) << markup;
     const auto asset = register_ui_document(root, "ranges.rml");
     const auto catalog = asset_detail::read_bytes(root / "forge.assets.json", 4 * 1024 * 1024);
     Json state{{"version", 1},

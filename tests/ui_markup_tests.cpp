@@ -6,6 +6,7 @@
 #include <forge/ui_assets.hpp>
 #include <iostream>
 #include <limits>
+#include <source_location>
 #include <stdexcept>
 #include <vector>
 
@@ -90,14 +91,18 @@ void invalid() {
         check(rejected, "Incomplete markup produced an editable outline");
     }
 }
-template <class F> void rejects(F&& operation) {
+template <class F>
+void rejects(F&& operation,
+             const std::source_location& location = std::source_location::current()) {
     bool rejected = false;
     try {
         operation();
     } catch (const std::exception&) {
         rejected = true;
     }
-    check(rejected, "Invalid structured source edit was accepted");
+    if (!rejected)
+        throw std::runtime_error("Invalid structured source edit was accepted at " +
+                                 std::to_string(location.line()));
 }
 std::size_t find(const std::string& text, std::string_view tag) {
     const auto nodes = forge::inspect_ui_markup(text);

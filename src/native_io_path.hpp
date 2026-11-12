@@ -1,6 +1,9 @@
 #pragma once
 #include <filesystem>
 namespace forge::asset_detail {
+// Metadata/package locations must not redirect. Host-only spelling differences
+// (Windows extended prefixes, case and short names) are not persistent identities.
+bool ordinary_io_path(const std::filesystem::path&);
 // An OS-call argument only: never serialize this spelling or use it as logical
 // asset identity. C++ file streams do not automatically opt into Win32 long paths.
 inline std::filesystem::path native_io_path(const std::filesystem::path& path) {

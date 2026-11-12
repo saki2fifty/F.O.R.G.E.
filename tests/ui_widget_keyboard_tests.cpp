@@ -64,7 +64,7 @@ body{font-family:Lato;font-size:18px;} input,button,select{display:block;width:2
 <input id="secret" type="password" value="widget-private-secret"/>
 <progress id="progress" value="0.5"/>
 </body></rml>)";
-    std::ofstream(root / "keys.rml") << markup;
+    std::ofstream(root / "keys.rml", std::ios::binary) << markup;
     const auto asset = register_ui_document(root, "keys.rml");
     const auto catalog = asset_detail::read_bytes(root / "forge.assets.json", 4 * 1024 * 1024);
     Json state{{"version", 1},

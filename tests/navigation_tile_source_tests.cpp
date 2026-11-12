@@ -210,9 +210,11 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
     std::ifstream(root / path) >> unchanged;
     check(unchanged == saved, "Runtime Map edits or movement modified the authored Scene file");
     {
-        ProjectLease lease(root);
         const std::array roots{scene.asset_id()};
-        prepare_runtime_content_catalog(lease, roots, {}, scene.schema());
+        {
+            ProjectLease lease(root);
+            prepare_runtime_content_catalog(lease, roots, {}, scene.schema());
+        } // End writer ownership before taking the source offline.
         const auto exported = root.parent_path() / AssetId::generate().str();
         package_runtime_content(root, exported, roots, {"windows", "d3d12"});
         const auto offline = root.parent_path() / AssetId::generate().str();
