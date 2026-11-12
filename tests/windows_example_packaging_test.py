@@ -22,7 +22,8 @@ class GalleryPackageTest(unittest.TestCase):
     def setUp(self):
         self.scratch = tempfile.TemporaryDirectory()
         self.addCleanup(self.scratch.cleanup)
-        self.root = Path(self.scratch.name)
+        # Native preparer arguments use canonical paths, including Windows TEMP aliases.
+        self.root = Path(self.scratch.name).resolve()
         self.source, self.build, self.dependencies = (self.root/name for name in ('source', 'build', 'dependencies'))
         self.build.mkdir()
         self.archive = self.root/'editor.zip'
