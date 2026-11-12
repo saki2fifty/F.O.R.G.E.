@@ -1,5 +1,6 @@
 """Native project/source/Play/UI/navigation/export owners through actual MCP."""
 from contextlib import contextmanager
+from gallery_project_fixture import copy_gallery_project
 import json
 import os
 from pathlib import Path
@@ -129,43 +130,8 @@ def state_project_template(root):
 
 
 def selected_project_template(root, sources, folder):
-    """Copy a bounded published dependency closure for one MCP workflow."""
     gallery = Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'
-    output = root/folder
-    output.mkdir()
-    catalog = json.loads((gallery/'forge.assets.json').read_text(encoding='utf-8'))
-    records = {row['id']: row for row in catalog['assets']}
-    pending = [row['id'] for row in records.values() if row['source'] in sources]
-    assert {records[asset]['source'] for asset in pending} == set(sources)
-    selected = set()
-    while pending:
-        asset = pending.pop()
-        if asset in selected or asset not in records:
-            continue
-        selected.add(asset)
-        pending.extend(records[asset]['dependencies'])
-        if records[asset].get('subasset'):
-            pending.append(records[asset]['subasset']['owner'])
-    catalog['assets'] = [row for row in catalog['assets'] if row['id'] in selected]
-    settings = json.loads((gallery/'forge.project.json').read_text(encoding='utf-8'))
-    paths = {settings['startup_scene']['source']}
-    for row in catalog['assets']:
-        paths.add(row['source'])
-        paths.update(edge['source'] for edge in row.get('source_dependencies', []))
-        sidecar = row['source']+'.forge-import.json'
-        if (gallery/sidecar).exists():
-            paths.add(sidecar)
-        imported = row.get('metadata', {}).get('forge.import')
-        if imported:
-            cache = Path('.forge/cache/derived')/imported['key']
-            shutil.copytree(gallery/cache, output/cache, dirs_exist_ok=True)
-    for relative in paths:
-        target = output/relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(gallery/relative, target)
-    (output/'forge.assets.json').write_text(json.dumps(catalog), encoding='utf-8')
-    (output/'forge.project.json').write_text(json.dumps(settings), encoding='utf-8')
-    return output
+    return copy_gallery_project(gallery, root/folder, sources)
 
 
 def message_project_template(root):
@@ -297,7 +263,7 @@ def editor(mode='full'):
             command.append(str(audio_profile_project_template(root)))
         elif SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK or UI_FONT_COLLECTIONS_SDK:
+        if (AUDIO_PAUSE_ONLY and os.environ.get('FORGE_MCP_TEST_SDK') == '1') or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK or UI_FONT_COLLECTIONS_SDK:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,

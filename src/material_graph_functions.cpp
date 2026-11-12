@@ -205,7 +205,10 @@ Json expand_material_graph_functions(const Json& graph) {
         }
         return g;
     };
-    // Unused definitions are validated as well, without creating unused bindings.
+    const bool ui = std::any_of(graph.at("nodes").begin(), graph.at("nodes").end(),
+                                [](const auto& node) { return node.at("type") == "ui_output"; });
+    // Unused definitions retain their owning UI context during validation,
+    // without creating unused bindings in the compiled parent graph.
     for (const auto& [id, f] : definitions) {
         auto expanded = expand(f->at("graph"), {id}, id.str());
         validate_material_graph_document(expanded);
@@ -224,10 +227,11 @@ Json expand_material_graph_functions(const Json& graph) {
                 n["data"]["type"] = "color4";
             }
         }
-        auto surface = create_material_graph_node("surface", {600, 0});
-        expanded["edges"].push_back({{"id", GraphEdgeId::generate()},
-                                     {"from", {{"node", returned}, {"port", "out"}}},
-                                     {"to", {{"node", surface.at("id")}, {"port", "base_color"}}}});
+        auto surface = create_material_graph_node(ui ? "ui_output" : "surface", {600, 0});
+        expanded["edges"].push_back(
+            {{"id", GraphEdgeId::generate()},
+             {"from", {{"node", returned}, {"port", "out"}}},
+             {"to", {{"node", surface.at("id")}, {"port", ui ? "color" : "base_color"}}}});
         expanded["nodes"].push_back(surface);
         (void)compile_material_graph(expanded);
     }

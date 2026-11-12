@@ -225,7 +225,9 @@ int main(int argc, char** argv) {
         files.document.save();
         // Copying a project preserves its scene UUID. The second project has no
         // baked navigation, despite containing the same authored Scene identity.
-        const auto scene_path = files.document.path().lexically_relative(first);
+        const auto scene_path = files.document.path().lexically_relative(files.document.project());
+        check(!scene_path.empty() && *scene_path.begin() != "..",
+              "Saved Scene must remain inside the first project");
         std::filesystem::copy_file(first / scene_path, second / scene_path,
                                    std::filesystem::copy_options::overwrite_existing);
         std::filesystem::copy_file(first / "forge.project.json", second / "forge.project.json",

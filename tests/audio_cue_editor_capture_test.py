@@ -1,8 +1,8 @@
 """Actual native sequence Timeline with a cue selected through widget input."""
 import hashlib
 import json
+from gallery_project_fixture import copy_capture_project
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -11,7 +11,7 @@ fixture, gallery, evidence = (Path(p).resolve() for p in sys.argv[1:4])
 evidence.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='audio-cue-capture-') as scratch:
     project = Path(scratch) / 'Gallery'
-    shutil.copytree(gallery, project)
+    copy_capture_project(gallery, project, 'audio_cue')
     scene = project / 'Scenes/70-sequence-audio-cues.scene.json'
     before = hashlib.sha256(scene.read_bytes()).hexdigest()
     result = subprocess.run([fixture, evidence, '--audio-cues', project],

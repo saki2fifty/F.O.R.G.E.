@@ -20,9 +20,55 @@ std::string create(Scene& scene, const char* name) {
 double target_x(Scene& scene, const std::string& id) {
     return scene.entity(id).get<TwoBoneIK>().target_x;
 }
+void root_motion_inspector(const std::filesystem::path& root) {
+    stage = "pending root-motion Inspector";
+    EngineContext engine;
+    Scene scene(engine.world());
+    SceneDocument project(scene);
+    project.open_project(root);
+    std::string actor;
+    const auto snapshot = scene.snapshot();
+    for (const auto& row : snapshot.at("entities"))
+        if (row.at("components").contains("forge.animator") &&
+            row.at("components").at("forge.animator").value("root_motion", 0u) == 1)
+            actor = row.at("id");
+    check(!actor.empty(), "Gallery root-motion actor is missing");
+    const auto authored = scene.document();
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {1800, 1000};
+    io.DeltaTime = 1.f / 60;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    ComponentInspector inspector;
+    inspector.fixture_focus_component = "forge.animator";
+    test::observe_ui = true;
+    for (unsigned frame = 0; frame < 3; ++frame) {
+        test::ui_targets.clear();
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({0, 0});
+        ImGui::SetNextWindowSize(io.DisplaySize);
+        ImGui::Begin("Inspector");
+        inspector.draw(scene, project, actor);
+        ImGui::End();
+        ImGui::Render();
+    }
+    check(test::ui_targets.contains("component-field:forge.animator:root_motion"),
+          "Root-motion Inspector did not visit its authored mode control");
+    check(scene.document() == authored, "Unedited root-motion Inspector changed the Scene");
+    ImGui::DestroyContext();
+}
 } // namespace
-int main() {
+int main(int argc, char** argv) {
     try {
+        if (argc == 2) {
+            root_motion_inspector(std::filesystem::u8path(argv[1]));
+            return 0;
+        }
+        if (argc != 1)
+            return 2;
         EngineContext engine;
         Scene scene(engine.world());
         const auto parent = create(scene, "Parent"), actor = create(scene, "Rig");

@@ -1,6 +1,7 @@
 """Drive the actual Windows sheet chooser, pending selection, Undo and Cancel."""
 import hashlib
 import json
+from gallery_project_fixture import copy_capture_project
 from pathlib import Path
 import shutil
 import subprocess
@@ -44,7 +45,7 @@ if baseline_folder.exists():
 
 with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='sprite-frame-editor-') as scratch:
     project = Path(scratch) / 'Gallery'
-    shutil.copytree(gallery, project)
+    copy_capture_project(gallery, project, 'sprite_frame')
     original = authored_files(project)
     original_ids = identities(project)
     result = subprocess.run([fixture, evidence, '--sprite-frames', project],

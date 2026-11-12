@@ -81,9 +81,9 @@ with tempfile.TemporaryDirectory(dir=scratch) as temporary:
     second = None
     try:
         first.request('hello', simulation_hz=60)
-        pending = first.request('replace', scene=scene)
-        assert pending['recovery'] is None, pending
-        ready = pending
+        # Loading may finish before Replace returns. Poll readiness rather than
+        # depending on the scheduler to expose an intermediate pending response.
+        ready = first.request('replace', scene=scene)
         deadline = time.monotonic() + 15
         while (pose(ready) is None or ready['recovery'] is None) and time.monotonic() < deadline:
             time.sleep(.002)

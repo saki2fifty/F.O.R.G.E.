@@ -939,6 +939,10 @@ Valid Unicode is preserved. The underlying process buffers and compiler-page
 byte offsets remain unchanged; this conversion does not alter authored data or
 relax structured protocol validation.
 
+`forge_play_tune` uses the existing runtime validation for Audio Source fields in
+ordinary and shared SDK Play. An invalid value preserves the running source and
+returns its normal tuning acknowledgement; authored values remain unchanged.
+
 `watch` selects an Inspector entity for native audio/animation observation.
 `audio_control`/`animation_control` require the exact watched entity; a human
 selection change cannot redirect them. Mix and CPU controls use their native

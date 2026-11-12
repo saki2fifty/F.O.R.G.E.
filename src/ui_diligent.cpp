@@ -166,7 +166,7 @@ Out main(float2 v:ATTRIB0,float4 color:ATTRIB1,float2 uv:ATTRIB2){Out o;float4 p
 Texture2D ui_texture;SamplerState ui_texture_sampler;
 cbuffer UiGradientData {float4 gradient_line;float4 gradient_info;
 float4 gradient_positions[4];float4 gradient_colors[16];};
-float stop_position(int i) {return gradient_positions[i/4][i%4];}
+float stop_position(int i) {return gradient_positions[i>>2][i&3];}
 float4 gradient_color(float2 uv,float kind) {
     float t=dot(uv-gradient_line.xy,gradient_line.zw);
     if(kind>2.5) {
@@ -181,14 +181,17 @@ float4 gradient_color(float2 uv,float kind) {
         t=gradient_info.z+frac((t-gradient_info.z)/period)*period;
     }
     if(t<stop_position(0)) return gradient_colors[0];
-    for(int i=1;i<count;++i) {
+    float4 result=gradient_colors[count-1];
+    for(int i=1;i<16;++i) {
+        if(i>=count) break;
         float right=stop_position(i);
         if(t<right) {
             float left=stop_position(i-1);
-            return lerp(gradient_colors[i-1],gradient_colors[i],saturate((t-left)/(right-left)));
+            result=lerp(gradient_colors[i-1],gradient_colors[i],saturate((t-left)/(right-left)));
+            break;
         }
     }
-    return gradient_colors[count-1];
+    return result;
 }
 float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
             nointerpolation float2 flags:TEXCOORD1):SV_TARGET {

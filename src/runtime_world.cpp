@@ -81,9 +81,9 @@ Json RuntimeWorld::tune_property(EntityRef target, const std::string& type,
         return std::static_pointer_cast<NavigationRuntime>(engine.services().navigation())
             ->tune(target, type, property, value);
     }
-    if (type == "forge.audio_source" && !engine.services().available(Capability::Audio))
+    if (RuntimePropertyTune::audio_type(type) && !engine.services().available(Capability::Audio))
         throw std::runtime_error("Live audio tuning requires enabled audio");
-    if (type == "forge.audio_source" && property == "custom_bus") {
+    if (RuntimePropertyTune::audio_type(type) && property == "custom_bus") {
         if (!value.is_string())
             throw std::runtime_error("Custom audio bus must be a project-defined key or empty");
         AudioSourceAccess::validate_route(
@@ -93,7 +93,7 @@ Json RuntimeWorld::tune_property(EntityRef target, const std::string& type,
     auto applied = scene.tune_runtime_property(target.entity.str(), type, property, value);
     if (RuntimePropertyTune::state_condition_type(type))
         simulation.reconcile_state_conditions();
-    if (type == "forge.audio_source")
+    if (RuntimePropertyTune::audio_type(type))
         std::static_pointer_cast<AudioRuntime>(engine.services().audio())->refresh_sources();
     return applied;
 }

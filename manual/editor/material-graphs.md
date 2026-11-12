@@ -171,7 +171,7 @@ Planar textures and an unconnected Normal Map UV input require the selected mesh
 ## Reuse a function
 
 Select a pure calculation with one outgoing result and choose **Extract function**.
-Leave parameter/texture declarations and Surface Output outside the selection.
+Leave parameter/texture declarations and all output nodes outside the selection.
 Use **Functions** to add calls or open a function's interior; **Back to surface**
 returns to the main graph. Edit its name and press Enter to rename it.
 

@@ -136,7 +136,7 @@ Mesh preview geometry choices retained for Mesh materials.
 
 Extract Function turns a selected pure calculation with one outward result into
 a reusable typed function inside the same Shader document. Parameters, textures
-and either output stay outside functions. Calls share pure code, not mutable
+and domain outputs stay outside functions. Calls share pure code, not mutable
 runtime state. Function inputs/output keep stable ports and cached signatures;
 unsupported signature changes reject compilation rather than silently reconnecting
 edges. The current editor supports extraction, call creation, interior editing and

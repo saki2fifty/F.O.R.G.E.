@@ -42,6 +42,7 @@ class EditorInputWorkflow {
     std::size_t index_ = 0;
     unsigned frame_ = 0, play_click_retries_ = 0;
     unsigned play_invocations_before_ = 0;
+    unsigned action_invocations_before_ = 0;
     bool menu_proxy_ = false;
     Uint64 since_ = 0, checkpoint_ = 0;
     ImVec2 pointer_{-FLT_MAX, -FLT_MAX};
@@ -1212,6 +1213,12 @@ class EditorInputWorkflow {
         probe.check("runtime-tuning-ready");
         return probe;
     }
+    static EditorInputWorkflow action_click_probe(const std::string& id) {
+        EditorInputWorkflow probe(false, {});
+        observe_ui = true;
+        probe.click("action:" + id);
+        return probe;
+    }
     explicit EditorInputWorkflow(bool enabled, const std::filesystem::path& evidence,
                                  const std::filesystem::path& physics_project = {},
                                  bool sdk_onboarding = false, bool shortcut_reopen = false,
@@ -2322,6 +2329,8 @@ class EditorInputWorkflow {
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
             if (step.kind == Kind::Click && step.value == "icon:play")
                 play_invocations_before_ = play_action_invocations;
+            if (step.kind == Kind::Click && step.value.starts_with("action:"))
+                action_invocations_before_ = action_invocations[step.value.substr(7)];
             auto target =
                 step.value == "saved-cube-row"         ? "entity:" + cube_
                 : step.value == "graph-parameter-node" ? "graph:node:" + graph_parameter_
@@ -2523,9 +2532,20 @@ class EditorInputWorkflow {
                     {"available_controls", available}});
             throw std::runtime_error(failure_);
         }
-        if (frame_ < 8 || SDL_GetTicks() - since_ < 100)
-            return;
         const auto& step = steps_[index_];
+        const bool action_click = step.kind == Kind::Click && step.value.starts_with("action:");
+        const bool action_observed =
+            action_click && action_invocations[step.value.substr(7)] > action_invocations_before_;
+        // A completed action can start expensive native realization in this frame.
+        // Observe its real callback rather than waiting additional frames and
+        // misclassifying completed input as a timeout on the next iteration.
+        if ((!action_observed && frame_ < 8) || SDL_GetTicks() - since_ < 100 ||
+            (action_click && !action_observed))
+            return;
+        if (action_observed)
+            trace_.push_back({{"step", index_},
+                              {"operation", "Action callback observed"},
+                              {"value", step.value}});
         if (menu_proxy_) {
             trace_.push_back(
                 {{"step", index_}, {"operation", "open compact menu"}, {"value", step.value}});

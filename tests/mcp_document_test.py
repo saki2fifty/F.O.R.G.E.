@@ -61,6 +61,22 @@ def wait_for(predicate):
         time.sleep(.01)
 
 
+def check_catalog(catalog, discovery):
+    """Every advertised native method/command has exactly one MCP projection."""
+    detail = discovery['result']
+    names = [item['name'] for item in catalog]
+    expected = {'forge_' + method.replace('.', '_') for method in detail['methods']}
+    if 'scene.apply' in detail['methods']:
+        for command in detail['commands']:
+            name = 'forge_' + command['id'].replace('.', '_')
+            expected.add(name)
+            tool = next(item for item in catalog if item['name'] == name)
+            assert tool['inputSchema']['properties']['arguments'] == command['input_schema']
+            assert not tool['annotations']['readOnlyHint']
+    assert len(names) == len(set(names)), names
+    assert set(names) == expected, (set(names) - expected, expected - set(names))
+
+
 for legacy in (False, True):
     with editor() as (root, process, config), Client(config, legacy) as client:
         project = root / 'Game'
@@ -85,8 +101,8 @@ for legacy in (False, True):
             return result['result']
 
         catalog = client.request('tools/list')['result']['tools']
-        assert len(catalog) == 43, len(catalog)
         state = discover()
+        check_catalog(catalog, state)
         probe_schema = next(c for c in state['result']['schema']['components']
                             if c['id'] == 'forge.reflection_probe')
         probe_fields = {field['id']: field for field in probe_schema['fields']}
@@ -768,12 +784,12 @@ if FAST_AA_ONLY:
     print('MCP fast AA: both framings, schema, replay, history, save and graceful native exits passed')
     raise SystemExit(0)
 
-for mode, count in (('read', 5), ('edit', 39)):
+for mode in ('read', 'edit'):
     with editor(mode) as (root, process, config), Client(config) as client:
         catalog = client.request('tools/list')['result']['tools']
-        assert len(catalog) == count
         assert not any(item['name'].startswith('forge_document_') for item in catalog)
         state = client.tool('forge_discover')
+        check_catalog(catalog, state)
         assert client.tool('forge_project_read', target=state['result']['target'])['ok']
         if mode == 'read':
             assert not any(item['name'] == 'forge_scene_rendering_set' for item in catalog)

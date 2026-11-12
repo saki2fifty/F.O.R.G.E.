@@ -81,6 +81,7 @@ int main(int argc, char** argv) {
         if (mode == "application_states") {
             std::ifstream input(root / "Game/forge.project.json");
             const auto settings = forge::Json::parse(input);
+            input.close();
             (void)forge::test::application_state_fixture(
                 root / "Game", settings.value("modules", forge::Json::array()));
         }

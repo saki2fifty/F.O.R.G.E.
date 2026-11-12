@@ -12,6 +12,7 @@
 #include <forge/asset_publication.hpp>
 #include <forge/material_graph.hpp>
 #include <forge/material_source.hpp>
+#include <forge/navigation_behavior.hpp>
 #include <forge/render_texture.hpp>
 #include <forge/scene_identity.hpp>
 #include <forge/transform_animation.hpp>
@@ -497,6 +498,20 @@ int main(int argc, char** argv) {
         check(!inspect_asset_references(reference_scene.schema(), opaque_masks, {rig})
                    .uninspected.empty(),
               "Mask extensions falsely claimed complete reference coverage");
+        auto tree = NavigationBehaviorSource::create_tree(AssetId::generate());
+        tree.document["nodes"][0]["name"] = rig.str();
+        const std::array tree_documents{
+            AssetReferenceDocument{"Assets/Patrol.behavior.json", tree.document}};
+        const auto tree_impact =
+            inspect_asset_references(reference_scene.schema(), tree_documents, {rig});
+        check(tree_impact.references.empty() && tree_impact.uninspected.empty(),
+              "Behavior tree fields were mistaken for state rows or asset references");
+        tree.document["nodes"][0]["future"] = rig;
+        const std::array opaque_trees{
+            AssetReferenceDocument{"Assets/Patrol.behavior.json", tree.document}};
+        check(!inspect_asset_references(reference_scene.schema(), opaque_trees, {rig})
+                   .uninspected.empty(),
+              "Behavior tree extensions falsely claimed complete reference coverage");
         auto space = AnimationBlendSpaceSource::create(AssetId::generate());
         space.document["skeleton"] = rig;
         const auto sample = AssetId::generate();

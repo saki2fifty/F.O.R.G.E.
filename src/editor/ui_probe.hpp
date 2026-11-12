@@ -15,9 +15,13 @@ struct UiTarget {
 };
 inline bool observe_ui = false;
 inline unsigned play_action_invocations = 0;
+inline std::map<std::string, unsigned> action_invocations;
 inline void observe_action(const std::string& id) {
-    if (observe_ui && id == "play")
-        ++play_action_invocations;
+    if (observe_ui) {
+        ++action_invocations[id];
+        if (id == "play")
+            ++play_action_invocations;
+    }
 }
 inline std::map<std::string, UiTarget> ui_targets;
 inline void observe_item(const std::string& name) {

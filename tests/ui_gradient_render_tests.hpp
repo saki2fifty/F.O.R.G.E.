@@ -221,13 +221,24 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
                     for (unsigned c = 0; c < 4; ++c) {
                         const double actual =
                             linear ? float(halves.at(at)[c]) : bytes.at(at)[c] / 255.;
-                        if (std::abs(actual - expected[c]) >= (linear ? .004 : .01))
+                        if (std::abs(actual - expected[c]) >= (linear ? .004 : .01)) {
+                            if (!linear) {
+                                std::ofstream failure(
+                                    root / ("gradient-" + std::to_string(kind) + "-failed.ppm"),
+                                    std::ios::binary);
+                                failure << "P6\n64 32\n255\n";
+                                for (const auto& pixel : bytes)
+                                    failure.write(reinterpret_cast<const char*>(pixel.data()), 3);
+                                check(bool(failure),
+                                      "Native gradient failure capture write failed");
+                            }
                             throw std::runtime_error(
                                 "Native gradient oracle differs: kind=" + std::to_string(kind) +
                                 " linear=" + std::to_string(linear) + " x=" + std::to_string(x) +
                                 " y=" + std::to_string(y) + " channel=" + std::to_string(c) +
                                 " actual=" + std::to_string(actual) +
                                 " expected=" + std::to_string(expected[c]));
+                        }
                     }
                 }
         }

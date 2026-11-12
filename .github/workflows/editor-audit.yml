@@ -62,7 +62,7 @@ on:
         type: boolean
         default: false
       capture_only:
-        description: Requires workflow_only; only sheet and waveform captures, never a full gate
+        description: Requires workflow_only; native UI rendering and capture regressions, never a full gate
         type: boolean
         default: false
       clean_build:
@@ -80,11 +80,14 @@ jobs:
     if: inputs.performance_source_run == '' || inputs.capture_only || inputs.publication_only || inputs.core_regressions_only
     runs-on: windows-2022
     # The full cold editor build measured140 minutes before acceptance began.
-    # Focused diagnostic modes retain their existing150-minute budget.
-    timeout-minutes: ${{ !inputs.workflow_only && !inputs.shader_only && 240 || 150 }}
+    # Capture regressions also build Main and retain240 minutes for that cold build.
+    # Other focused diagnostic modes retain their existing150-minute budget.
+    timeout-minutes: ${{ (!inputs.workflow_only && !inputs.shader_only || inputs.capture_only) && 240 || 150 }}
     env:
       FORGE_BUILD_ID: unassigned
       FORGE_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      FORGE_SHADER_ACCEPTANCE_REGEX: '^(diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_editor|material_asset|material_pipeline|material_editor|ui_material_gallery_source|ui_material_gallery_export|ui_material_graph_gallery_export|ui_effect_render|editor_render_shaders|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics|editor_render_lightmaps|editor_render_sprites)$'
+      FORGE_SHADER_ACCEPTANCE_TARGETS: forge_viewport_tests forge_material_asset_tests forge_material_pipeline_tests forge_material_editor_tests forge_shader_tests forge_shader_pipeline_tests forge_shader_worker_tests forge_shader_editor_tests forge_ui_render_tests forge_ui_material_gallery_tests
       GIT_CONFIG_COUNT: "1"
       GIT_CONFIG_KEY_0: core.longpaths
       GIT_CONFIG_VALUE_0: "true"
@@ -248,10 +251,13 @@ jobs:
         if: inputs.mcp_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: cmake --build ../AgentFiles/b --target forge_mcp_document_host forge_mcp_asset_host forge_mcp_source_host forge_prefab_source_draft_tests forge_mcp_project_host forge_mcp_code_source_tests forge_mcp_workflow_host forge_mcp_image_host forge_mcp_configuration_tests forge_live_tests forge_runtime forge_tools forge_ui_inspect forge_game forge_nav_build forge_asset_build_worker --parallel 2
-      - name: Build sheet and waveform capture fixtures
+      - name: Build native rendering and capture regression fixtures
         if: inputs.capture_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake --build ../AgentFiles/b --target forge_editor_fixture forge_asset_build gltf2ozz --parallel 2
+        shell: pwsh
+        run: |
+          $targets = @($env:FORGE_SHADER_ACCEPTANCE_TARGETS -split ' ') + @('forge_editor_fixture', 'forge_editor_play_input_tests', 'forge_rig_target_editor_tests', 'forge_asset_build', 'gltf2ozz')
+          cmake --build ../AgentFiles/b --target $targets --parallel 2 -- -k 0
       - name: Build actual editor with audit fixture
         if: ${{ !inputs.workflow_only && !inputs.shader_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -276,11 +282,14 @@ jobs:
       - name: Build shader and material acceptance targets
         if: inputs.shader_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake --build ../AgentFiles/b --target forge_viewport_tests forge_material_asset_tests forge_material_pipeline_tests forge_material_editor_tests forge_shader_tests forge_shader_pipeline_tests forge_shader_worker_tests forge_shader_editor_tests forge_ui_render_tests forge_ui_material_gallery_tests --parallel 2 -- -k 0
+        shell: pwsh
+        run: |
+          $targets = $env:FORGE_SHADER_ACCEPTANCE_TARGETS -split ' '
+          cmake --build ../AgentFiles/b --target $targets --parallel 2 -- -k 0
       - name: Execute shader and material GPU acceptance
         if: inputs.shader_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "^(diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_editor|material_asset|material_pipeline|material_editor|ui_material_gallery_source|ui_material_gallery_export|ui_material_graph_gallery_export|ui_effect_render|editor_render_shaders|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics|editor_render_lightmaps|editor_render_sprites)$" --output-on-failure --stop-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "$env:FORGE_SHADER_ACCEPTANCE_REGEX" --output-on-failure --stop-on-failure
       - name: Repeat additive pose diagnostics
         if: ${{ inputs.workflow_only && !inputs.capture_only && !inputs.publication_only && !inputs.mcp_only && !inputs.core_regressions_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -293,10 +302,13 @@ jobs:
         if: inputs.mcp_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "^mcp_" --output-on-failure
-      - name: Execute sheet and waveform capture diagnostics
+      - name: Execute native rendering and capture regressions
         if: inputs.capture_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "^(editor_sprite_frames|editor_audio_preview)$" --output-on-failure
+        shell: pwsh
+        run: |
+          $captures = '^(root_motion_inspector|editor_play_input|runtime_ui_render|editor_animation_root_motion|editor_audio_mixer|editor_audio_preview|editor_view_images|editor_sequence_frames|editor_sprite_frames|editor_sequence_audio_cues|editor_input_workflow)$'
+          ctest --test-dir ../AgentFiles/b -R "$env:FORGE_SHADER_ACCEPTANCE_REGEX|$captures" --output-on-failure --no-tests=error
       - name: Record exact source and audit identity
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -329,6 +341,7 @@ jobs:
           path: |
             ${{ runner.temp }}/forge-work/AgentFiles/b/grid-test-images
             ${{ runner.temp }}/forge-work/AgentFiles/b/ui-effect-render
+            ${{ runner.temp }}/forge-work/AgentFiles/b/ui-test-images
             ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTest.log
           if-no-files-found: error
           retention-days: 14

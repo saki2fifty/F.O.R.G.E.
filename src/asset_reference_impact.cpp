@@ -489,28 +489,47 @@ struct Inspect {
             NavigationBehaviorSource{doc}.validate();
             // Graph rows use numeric IDs. Scene target/anchor references belong to
             // the reflected component, never to this asset's recognized fields.
-            opaque_fields(doc, {"format", "version", "asset_id", "entry", "next_id", "states",
-                                "editor_layout"});
-            for (const auto& s : doc.at("states")) {
-                const auto scope = "states." + std::to_string(s.at("id").get<std::uint32_t>());
-                opaque_fields(s, {"id", "name", "action", "transitions"}, scope);
-                const auto& action = s.at("action");
-                if (action.at("kind") == "move_to_point")
-                    opaque_fields(action, {"kind", "point"}, scope + ".action");
-                else
-                    opaque_fields(action, {"kind"}, scope + ".action");
-                for (const auto& e : s.at("transitions")) {
-                    const auto edge =
-                        scope + ".transitions." + std::to_string(e.at("id").get<std::uint32_t>());
-                    opaque_fields(e, {"id", "to", "condition"}, edge);
-                    const auto& condition = e.at("condition");
-                    if (condition.at("kind") == "elapsed")
-                        opaque_fields(condition, {"kind", "seconds"}, edge + ".condition");
-                    else if (condition.at("kind") == "target_near" ||
-                             condition.at("kind") == "target_far")
-                        opaque_fields(condition, {"kind", "distance"}, edge + ".condition");
+            const bool tree = doc.at("version") == 2;
+            if (tree) {
+                opaque_fields(doc, {"format", "version", "asset_id", "entry", "next_id", "nodes",
+                                    "editor_layout"});
+                for (const auto& node : doc.at("nodes")) {
+                    const auto scope =
+                        "nodes." + std::to_string(node.at("id").get<std::uint32_t>());
+                    const auto& kind = node.at("kind");
+                    if (kind == "wait")
+                        opaque_fields(node, {"id", "name", "kind", "children", "seconds"}, scope);
+                    else if (kind == "target_near" || kind == "target_far")
+                        opaque_fields(node, {"id", "name", "kind", "children", "distance"}, scope);
+                    else if (kind == "move_to_point")
+                        opaque_fields(node, {"id", "name", "kind", "children", "point"}, scope);
                     else
-                        opaque_fields(condition, {"kind"}, edge + ".condition");
+                        opaque_fields(node, {"id", "name", "kind", "children"}, scope);
+                }
+            } else {
+                opaque_fields(doc, {"format", "version", "asset_id", "entry", "next_id", "states",
+                                    "editor_layout"});
+                for (const auto& s : doc.at("states")) {
+                    const auto scope = "states." + std::to_string(s.at("id").get<std::uint32_t>());
+                    opaque_fields(s, {"id", "name", "action", "transitions"}, scope);
+                    const auto& action = s.at("action");
+                    if (action.at("kind") == "move_to_point")
+                        opaque_fields(action, {"kind", "point"}, scope + ".action");
+                    else
+                        opaque_fields(action, {"kind"}, scope + ".action");
+                    for (const auto& e : s.at("transitions")) {
+                        const auto edge = scope + ".transitions." +
+                                          std::to_string(e.at("id").get<std::uint32_t>());
+                        opaque_fields(e, {"id", "to", "condition"}, edge);
+                        const auto& condition = e.at("condition");
+                        if (condition.at("kind") == "elapsed")
+                            opaque_fields(condition, {"kind", "seconds"}, edge + ".condition");
+                        else if (condition.at("kind") == "target_near" ||
+                                 condition.at("kind") == "target_far")
+                            opaque_fields(condition, {"kind", "distance"}, edge + ".condition");
+                        else
+                            opaque_fields(condition, {"kind"}, edge + ".condition");
+                    }
                 }
             }
             if (doc.contains("editor_layout")) {

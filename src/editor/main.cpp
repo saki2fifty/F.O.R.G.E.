@@ -3920,6 +3920,8 @@ int main(int argc, char** argv) {
             }
             if (!fixture.workflow && !fixture.sdk_play && !fixture.mcp_authoring &&
                 !fixture.sequence_frames && !fixture.prepared) {
+                if (fixture.root_motion && fixture.frames == 0)
+                    forge::test::fixture_breadcrumb("root-motion-before-prepare");
                 bool ready = true;
                 switch (fixture.stage) {
                 case 0:
@@ -5607,6 +5609,8 @@ int main(int argc, char** argv) {
                     break;
                 }
                 fixture.prepared = ready;
+                if (fixture.root_motion && fixture.frames == 0)
+                    forge::test::fixture_breadcrumb("root-motion-after-prepare");
             }
 #endif
             const auto panels_before = workspace.settings();
@@ -6196,6 +6200,10 @@ int main(int argc, char** argv) {
                 if (const auto watch = forge::physics_debug_character_watch(
                         play.effective_snapshot(), scene.asset_id(), selected))
                     play.physics_debug_selection = *watch;
+#ifdef FORGE_UI_FIXTURE
+            if (fixture.root_motion && fixture.frames == 0)
+                forge::test::fixture_breadcrumb("root-motion-before-inspector");
+#endif
             const bool live_inspector_ready =
                 play.active() && inspect_live_scene && editor.selection.entity_count() == 1 &&
                 forge::ComponentInspector::has_runtime_inspection(play.effective_snapshot(),
@@ -6421,6 +6429,10 @@ int main(int argc, char** argv) {
             } else {
                 blockout.cancel();
             }
+#ifdef FORGE_UI_FIXTURE
+            if (fixture.root_motion && fixture.frames == 0)
+                forge::test::fixture_breadcrumb("root-motion-after-inspector");
+#endif
             game_visible = false;
             // The Game panel's focus flag is sampled below ONLY inside
             // the (game_view && view_visible) branch. If the Game tab

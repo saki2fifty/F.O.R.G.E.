@@ -88,6 +88,54 @@ void exercise(bool reject_start, bool reject_every_click) {
                 "Unaccepted Play click did not recover through the real toolbar");
     ImGui::DestroyContext();
 }
+void action_receipt(bool reject_click) {
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {400, 300};
+    io.DeltaTime = 1.f / 60;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    const std::string id = "Create / Cube";
+    test::action_invocations.clear();
+    auto workflow = test::EditorInputWorkflow::action_click_probe(id);
+    unsigned calls = 0, frames = 0, draws = 0;
+    ui::EditorActions actions;
+    ui::EditorAction action;
+    action.id = id;
+    action.label = "Cube";
+    action.execute = [&] {
+        ++calls;
+        SDL_Delay(110); // Downstream realization outlasts the minimum input dwell.
+    };
+    actions.entries.push_back(std::move(action));
+    const auto draw = [&] {
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({0, 0});
+        ImGui::SetNextWindowSize({400, 300});
+        ImGui::Begin("Actions");
+        actions.entries.front().available = !reject_click || draws == 0;
+        ++draws;
+        actions.item(id);
+        ImGui::End();
+        ImGui::Render();
+    };
+    draw();
+    for (; frames < 12 && !workflow.done(); ++frames) {
+        workflow.input();
+        draw();
+        workflow.finish(Json::object(), [](const auto&) {}, [](const Json&) {});
+        SDL_Delay(15);
+    }
+    if (reject_click)
+        require(!workflow.done() && calls == 0,
+                "Action input completed without observing its real callback");
+    else
+        require(workflow.done() && calls == 1 && frames < 8,
+                "Completed action waited for extra frames instead of its callback");
+    ImGui::DestroyContext();
+}
 void menu_input(bool compact) {
     ImGui::CreateContext();
     auto& io = ImGui::GetIO();
@@ -149,6 +197,8 @@ int main() {
         exercise(false, false);
         exercise(true, false);
         exercise(false, true);
+        action_receipt(false);
+        action_receipt(true);
         menu_input(false);
         menu_input(true);
         SDL_Quit();

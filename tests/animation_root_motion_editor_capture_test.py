@@ -1,8 +1,8 @@
 """Native root mode and durable-joint Inspector controls at actual UI scales."""
+from gallery_project_fixture import copy_capture_project
 from pathlib import Path
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -16,7 +16,7 @@ for pattern in ('editor-*.ppm', 'chrome-*.json', 'stalled-*.ppm',
             previous.unlink()
 with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-capture-') as scratch:
     project = Path(scratch)/'Gallery'
-    shutil.copytree(gallery, project)
+    copy_capture_project(gallery, project, 'animation_root_motion')
     try:
         result = subprocess.run([fixture, evidence, '--root-motion', project],
                                 capture_output=True, text=True, encoding='utf-8', timeout=630)

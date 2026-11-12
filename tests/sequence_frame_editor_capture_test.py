@@ -1,6 +1,7 @@
 """Drive the real native Timeline, Game focus, settings, Cancel and PNG batch."""
 import hashlib
 import json
+from gallery_project_fixture import copy_capture_project
 from pathlib import Path
 import shutil
 import struct
@@ -34,7 +35,7 @@ for pattern in ('editor-sequence-frame-*.ppm', 'sequence-frame-workflow.json',
 
 with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='sequence-frame-editor-') as scratch:
     project = Path(scratch) / 'Gallery'
-    shutil.copytree(gallery, project)
+    copy_capture_project(gallery, project, 'sequence_frame')
     original = authored_files(project)
     result = subprocess.run([fixture, evidence, '--sequence-frames', project],
                             capture_output=True, text=True, timeout=340)

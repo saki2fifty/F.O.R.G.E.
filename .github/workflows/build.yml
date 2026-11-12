@@ -33,7 +33,7 @@ on:
         type: boolean
         default: false
       audit_capture_only:
-        description: For audit_source, run only Sprite sheet and audio-preview capture diagnostics (partial audit)
+        description: For audit_source, run native UI rendering and capture regressions (partial audit)
         type: boolean
         default: false
       standalone_audit:
@@ -161,11 +161,23 @@ jobs:
       - name: Test build-cache invalidation
         run: python tests/ci_cache_test.py
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
-      - run: cmake --preset ${{ matrix.profile }} -DFORGE_BUILD_ID=${{ inputs.build_id || 'unassigned' }} -DFORGE_SOURCE_COMMIT=${{ github.sha }}
+      - run: cmake --preset ${{ matrix.profile }} -DFORGE_BUILD_MCP_EDITOR_TESTS=OFF -DFORGE_BUILD_ID=${{ inputs.build_id || 'unassigned' }} -DFORGE_SOURCE_COMMIT=${{ github.sha }}
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: cmake --build --preset ${{ matrix.profile }} --parallel 2 -- -k 0
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: ctest --preset ${{ matrix.profile }} --timeout 600
+        working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
+      - name: Configure shared SDK MCP acceptance
+        if: matrix.profile == 'native-sdk'
+        run: cmake --preset native-sdk -DFORGE_BUILD_MCP_EDITOR_TESTS=ON
+        working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
+      - name: Build shared SDK MCP owners
+        if: matrix.profile == 'native-sdk'
+        run: cmake --build --preset native-sdk --target forge_tools forge_runtime forge_mcp_workflow_host forge_nav_build forge_ui_font_collection_tests --parallel 2 -- -k 0
+        working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
+      - name: Test shared SDK MCP workflows
+        if: matrix.profile == 'native-sdk'
+        run: ctest --test-dir ../AgentFiles/build/native-sdk -R "^(mcp_workflow_profile|mcp_(audio_pause|audio_stream_play|audio_routing_play|sound_cues_play|finite_sound_cues_play|sound_playlist|ui_forms_sdk|ui_fields_sdk|ui_font_collections_sdk|mesh_wind_sdk|animation_graph_sdk|fog_volumes_sdk)_stdio)$" --output-on-failure --no-tests=error
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: cmake --install ../AgentFiles/build/core --prefix ../AgentFiles/install/core --component Runtime
         if: matrix.profile == 'core'

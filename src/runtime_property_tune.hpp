@@ -10,6 +10,7 @@ namespace forge {
 struct RuntimePropertyTune {
     EntityRef target;
     std::string type, property;
+    static bool audio_type(std::string_view type) { return type == "forge.audio_source"; }
     static bool animation_graph_type(std::string_view type) { return type == "forge.animator"; }
     static unsigned animation_graph_slot(std::string_view property) {
         for (unsigned slot = 1; slot <= 4; ++slot)

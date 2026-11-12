@@ -1,7 +1,7 @@
 """Capture actual source routing and project volume controls from a gallery copy."""
+from gallery_project_fixture import copy_capture_project
 from pathlib import Path
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -13,7 +13,7 @@ startup.mkdir(exist_ok=True)
 environment = dict(os.environ, FORGE_SDK_DIAGNOSTIC_DIR=str(startup))
 with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='audio-mixer-capture-') as scratch:
     project = Path(scratch)/'Gallery'
-    shutil.copytree(gallery, project)
+    copy_capture_project(gallery, project, 'audio_mixer')
     result = subprocess.run([fixture, evidence, '--audio-mixer', project],
                             capture_output=True, text=True, timeout=160, env=environment)
     (evidence/'capture.log').write_text(result.stdout+result.stderr)

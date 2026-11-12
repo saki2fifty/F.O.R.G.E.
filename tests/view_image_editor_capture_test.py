@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+from gallery_project_fixture import copy_capture_project
 from pathlib import Path
 import shutil
 import struct
@@ -40,7 +41,7 @@ for scale in (100, 150, 200):
 
 with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='view-image-capture-') as scratch:
     project = Path(scratch) / 'Gallery'
-    shutil.copytree(gallery, project)
+    copy_capture_project(gallery, project, 'view_image')
     original = authored_files(project)
     diagnostics = evidence / 'startup-diagnostics'
     diagnostics.mkdir(exist_ok=True)

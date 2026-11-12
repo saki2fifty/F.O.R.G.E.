@@ -506,8 +506,9 @@ at 100/150/200%. Software WARP results do not establish physical GPU performance
 Both full editor jobs allow 240 minutes overall. The cold numbered Windows build
 [261112-000220](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/43180960961)
 took approximately 140 minutes to compile and link before editor acceptance began,
-leaving insufficient time under the former 150-minute limit. Focused source-audit
-modes retain their 150-minute budget. Windows Debug/core allows 180 minutes; the
+leaving insufficient time under the former 150-minute limit. The combined rendering
+and capture diagnostic also builds Main and allows240 minutes. Other focused
+source-audit modes retain150 minutes. Windows Debug/core allows 180 minutes; the
 other core/SDK jobs retain 120 minutes. The same Debug run used about 52 minutes
 for setup/build and 68 minutes for 310 of 398 tests before its former 120-minute
 job limit expired. These overall budgets cover compilation, complete testing,
@@ -1083,13 +1084,28 @@ before that baseline. Every admitted source/catalog/sidecar byte must then stay
 unchanged through the full picker workflow. Per-action and process deadlines
 remain; startup preparation has a separate90-second bound.
 
-For sheet-picker or waveform regressions, `audit_capture_only=true` selects only
-`editor_sprite_frames` and `editor_audio_preview`, using their actual editor host,
-asset worker and converter. The root workflow also sets `workflow_only=true`;
-this remains a partial audit in the artifact and cannot replace full acceptance.
-Direct calls to the reusable workflow must set both flags. Shader and benchmark
-scopes cannot be combined with this capture mode. The complete source gate remains
-required before integration or delivery.
+`audit_capture_only=true` combines the20Shader/Material checks with native UI
+rendering, the input-receipt and pending root-motion Inspector units, and eight
+Main editor capture/workflow checks. The31-case union retains the original sheet-picker and waveform cases. Both
+diagnostic routes share the Shader target/selection constants in the reusable
+workflow. The root workflow also sets `workflow_only=true`; direct calls must set
+both flags. This is a partial audit, cannot combine with the separate Shader-only
+or benchmark modes, and does not replace complete acceptance before delivery.
+
+Native capture wrappers stage the original Gallery sources, identities, declared
+dependencies and caches needed by their workflow. Legacy Scene references are
+retained conservatively without registering new identities. This avoids importing
+unrelated examples before a focused capture. `gallery_project_fixture` verifies
+the source bytes, records and edges of all seven capture projects.
+
+Core CI explicitly disables editor-owner fixtures before its complete core suite,
+including after restoring a cache used by the SDK supplement. Shared SDK CI then
+configures the GPU-independent MCP owners after that suite,
+then runs12Play workflows and `mcp_workflow_profile` against the real shared SDK
+runtime. Six SDK-only UI/render variants are absent from static configurations;
+audio runs in both profiles with an explicit fixture environment selector.
+`mcp_workflow_profile` checks that routing and all six audio selectors. No profile,
+source-identity or runtime admission guard is bypassed.
 
 No package/build-number allocation is needed for a source audit.
 

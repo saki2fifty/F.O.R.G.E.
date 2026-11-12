@@ -1,6 +1,6 @@
 """Capture the actual AudioClip tab; no audio device or autoplay is requested."""
+from gallery_project_fixture import copy_capture_project
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -9,7 +9,7 @@ fixture, gallery, evidence = (Path(p).resolve() for p in sys.argv[1:4])
 evidence.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='audio-preview-capture-') as scratch:
     project = Path(scratch)/'Gallery'
-    shutil.copytree(gallery, project)
+    copy_capture_project(gallery, project, 'audio_preview')
     result = subprocess.run([fixture, evidence, '--audio-preview', project],
                             capture_output=True, text=True, timeout=120)
     (evidence/'capture.log').write_text(result.stdout+result.stderr)

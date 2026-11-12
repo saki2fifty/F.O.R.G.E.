@@ -61,64 +61,69 @@ inline void ui_tests() {
         return Json{{"id", GraphEdgeId::generate()},
                     {"from", {{"node", from.at("id")}, {"port", "out"}}},
                     {"to", {{"node", to.at("id")}, {"port", port}}}};
-        auto image = create_material_graph_node("texture2d", {0, 200});
-        auto uv = create_material_graph_node("uv", {0, 400});
-        graph["nodes"].push_back(image);
-        graph["nodes"].push_back(uv);
-        graph["edges"] =
-            Json::array({edge(uv, image, "uv"), edge(image, graph["nodes"][1], "color")});
-        const auto textured = compile_material_graph(graph);
-        check(textured.surface.textures.size() == 1 && textured.surface.ui_effect &&
-                  surface_definition_document(textured.surface).at("version") == 5 &&
-                  textured.source.find("input.UV") != std::string::npos &&
-                  textured.source.find("ForgeSample_") != std::string::npos &&
-                  textured.source.find("FORGE_GRAPH_UV_") == std::string::npos,
-              "UI graph lost ordinary Texture2D binding or explicit UV0 lowering");
-        for (const auto* schema : {"ui_time", "ui_size"}) {
-            auto contextual = original;
-            contextual["nodes"].push_back(create_material_graph_node(schema, {0, 300}));
-            const auto result = compile_material_graph(contextual);
-            check(result.source.find(schema == std::string_view("ui_time")
-                                         ? "input.Time"
-                                         : "input.Size") != std::string::npos,
-                  "UI contextual node did not lower to its native field");
-            for (auto other : {create_material_graph(), create_sprite_material_graph()}) {
-                other["nodes"].push_back(create_material_graph_node(schema, {0, 300}));
-                rejects(other, "ui_domain");
-            }
+    };
+    auto image = create_material_graph_node("texture2d", {0, 200});
+    auto uv = create_material_graph_node("uv", {0, 400});
+    graph["nodes"].push_back(image);
+    graph["nodes"].push_back(uv);
+    graph["edges"] = Json::array({edge(uv, image, "uv"), edge(image, graph["nodes"][1], "color")});
+    const auto textured = compile_material_graph(graph);
+    check(textured.surface.textures.size() == 1 && textured.surface.ui_effect &&
+              surface_definition_document(textured.surface).at("version") == 5 &&
+              textured.source.find("input.UV") != std::string::npos &&
+              textured.source.find("ForgeSample_") != std::string::npos &&
+              textured.source.find("FORGE_GRAPH_UV_") == std::string::npos,
+          "UI graph lost ordinary Texture2D binding or explicit UV0 lowering");
+    for (const auto* schema : {"ui_time", "ui_size"}) {
+        auto contextual = original;
+        contextual["nodes"].push_back(create_material_graph_node(schema, {0, 300}));
+        const auto result = compile_material_graph(contextual);
+        check(result.source.find(schema == std::string_view("ui_time")
+                                     ? "input.Time"
+                                     : "input.Size") != std::string::npos,
+              "UI contextual node did not lower to its native field");
+        for (auto other : {create_material_graph(), create_sprite_material_graph()}) {
+            other["nodes"].push_back(create_material_graph_node(schema, {0, 300}));
+            rejects(other, "ui_domain");
         }
-        for (const auto* schema :
-             {"world_normal", "world_position", "normal_map", "vertex_color", "texturecube",
-              "texturecube_array", "texture2d_array", "texture3d"}) {
-            auto invalid = original;
-            invalid["nodes"].push_back(create_material_graph_node(schema, {0, 300}));
-            rejects(invalid, "ui_domain");
-        }
-        for (const auto* schema : {"uv", "texture2d"}) {
-            auto invalid = original;
-            auto node = create_material_graph_node(schema, {0, 300});
-            node["data"]["uv_set"] = 1;
-            invalid["nodes"].push_back(node);
-            rejects(invalid, "ui_domain");
-        }
-        auto mixed = original;
-        mixed["nodes"].push_back(create_material_graph_node("surface", {0, 300}));
-        rejects(mixed, "multiple_surfaces");
-        auto function_graph = original;
-        auto time = create_material_graph_node("ui_time", {0, 300});
-        auto convert = create_material_graph_node("convert", {200, 300});
-        convert["data"]["from"] = "scalar";
-        convert["data"]["type"] = "color4";
-        function_graph["nodes"].push_back(time);
-        function_graph["nodes"].push_back(convert);
-        function_graph["edges"] = Json::array(
-            {edge(time, convert, "value"), edge(convert, function_graph["nodes"][1], "color")});
-        const auto function = extract_material_graph_function(
-            function_graph, {time.at("id").get<GraphNodeId>()}, "UI clock");
-        check(bool(function) && compile_material_graph(function_graph).surface.ui_effect,
-              "UI graph lost contextual function expansion");
-        auto invalid = create_material_graph();
+    }
+    for (const auto* schema :
+         {"world_normal", "world_position", "normal_map", "vertex_color", "texturecube",
+          "texturecube_array", "texture2d_array", "texture3d"}) {
+        auto invalid = original;
+        invalid["nodes"].push_back(create_material_graph_node(schema, {0, 300}));
+        rejects(invalid, "ui_domain");
+    }
+    for (const auto* schema : {"uv", "texture2d"}) {
+        auto invalid = original;
+        auto node = create_material_graph_node(schema, {0, 300});
+        node["data"]["uv_set"] = 1;
+        invalid["nodes"].push_back(node);
+        rejects(invalid, "ui_domain");
+    }
+    auto mixed = original;
+    mixed["nodes"].push_back(create_material_graph_node("surface", {0, 300}));
+    rejects(mixed, "multiple_surfaces");
+    auto function_graph = original;
+    auto time = create_material_graph_node("ui_time", {0, 300});
+    auto convert = create_material_graph_node("convert", {200, 300});
+    convert["data"]["from"] = "scalar";
+    convert["data"]["type"] = "color4";
+    function_graph["nodes"].push_back(time);
+    function_graph["nodes"].push_back(convert);
+    function_graph["edges"] = Json::array(
+        {edge(time, convert, "value"), edge(convert, function_graph["nodes"][1], "color")});
+    const auto function = extract_material_graph_function(
+        function_graph, {time.at("id").get<GraphNodeId>()}, "UI clock");
+    check(bool(function) && compile_material_graph(function_graph).surface.ui_effect,
+          "UI graph lost contextual function expansion");
+    auto uncalled = original;
+    uncalled["functions"] = function_graph.at("functions");
+    check(compile_material_graph(uncalled).surface.parameters == compiled.surface.parameters,
+          "Uncalled UI function changed the parent binding contract");
+    for (auto invalid : {create_material_graph(), create_sprite_material_graph()}) {
         invalid["functions"] = function_graph.at("functions");
         rejects(invalid, "ui_domain");
     }
+}
 } // namespace forge::graph_tests
