@@ -60,6 +60,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='view-image-capture
             chrome = json.loads((evidence / f'chrome-{stage}.json').read_text())
             assert chrome['controls_ready'] and chrome['document_in_front'], chrome
             assert chrome['maximum_view_extent'] == 512, chrome
+            assert chrome['fixture_capture_frame_pause_ms'] == 500, chrome
             assert chrome['stable_control_frames'] >= 3, chrome
             assert chrome['file_picker_injected'] and not chrome['native_file_picker_executed']
             assert chrome['file_picker_deliveries'] == group * 2 + mode, chrome

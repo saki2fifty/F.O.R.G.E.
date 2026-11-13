@@ -15,6 +15,10 @@ and actual image readback on the hosted software adapter; they do not establish
 full-resolution or physical GPU performance. Dedicated renderer checks retain
 their own render dimensions. The shipping editor's 4096-pixel viewport limit,
 explicit output sizes and five-second GPU backlog watchdog remain unchanged.
+The Save image fixture also leaves 500 milliseconds between submissions on the
+hosted software adapter. Its metadata records `fixture_capture_frame_pause_ms`.
+This functional command/readback test retains all three UI scales, the 512-pixel
+raster bound, actual encoded-image comparisons and authored-source preservation.
 
 For a focused Inspector correction, `editor-audit.yml` accepts `inspector_only`
 with both `workflow_only` and `capture_only`. It builds the same native fixture
