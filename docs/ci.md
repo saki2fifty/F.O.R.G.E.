@@ -40,6 +40,9 @@ The default `all` retains all seven cases. The recorded audit scope
 identifies the exact diagnostic selection. It does not
 replace the complete editor or Windows package gate; unchanged renderer evidence
 can retain its original source and environment attribution.
+Selections containing the input walkthrough install the matching standalone
+runtime kit before testing so its real export steps use the built host. The
+`captures` Inspector group omits this unused prerequisite.
 
 Root-motion captures reveal the complete required control range before accepting
 stable layout. Their timeout report retains geometry and readiness from the last

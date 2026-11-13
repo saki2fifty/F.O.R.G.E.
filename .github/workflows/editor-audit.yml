@@ -289,7 +289,7 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: cmake --build ../AgentFiles/b --parallel 2
       - name: Install exact standalone runtime kit
-        if: ${{ !inputs.shader_only && !inputs.capture_only && !inputs.publication_only && !inputs.core_regressions_only }}
+        if: ${{ !inputs.shader_only && !inputs.publication_only && !inputs.core_regressions_only && (!inputs.capture_only || !inputs.inspector_only || inputs.inspector_group != 'captures') }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
