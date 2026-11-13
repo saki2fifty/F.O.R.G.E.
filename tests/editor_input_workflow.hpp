@@ -1229,6 +1229,11 @@ class EditorInputWorkflow {
         probe.check(condition);
         return probe;
     }
+    static EditorInputWorkflow capture_probe() {
+        EditorInputWorkflow probe(false, {});
+        probe.capture("prepared-frame");
+        return probe;
+    }
     static EditorInputWorkflow create_menu_probe() {
         EditorInputWorkflow probe(false, {});
         observe_ui = true;
@@ -2294,9 +2299,12 @@ class EditorInputWorkflow {
         }
         const auto& step = steps_[index_];
         const auto limit =
+            // Captures include first-use native frame preparation, not just input.
+            // Match the ordinary staged-capture budget; the GPU watchdog still applies.
+            step.kind == Kind::Capture ? 45000u
             // Mesh graph workers own a300s wall budget for19native variants.
             // Allow their result to reach the UI without extending the worker watchdog.
-            step.kind == Kind::Check &&
+            : step.kind == Kind::Check &&
                     (step.value == "graph-ready" || step.value == "graph-rejected")
                 ? 315000u
             : step.kind == Kind::Check &&

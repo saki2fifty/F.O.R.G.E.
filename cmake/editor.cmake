@@ -508,6 +508,6 @@ if(BUILD_TESTING)
  # The 941-action authoring/export scenario includes native compilation and
  # three graph-worker preparations, each with the native compiler's300s budget.
  # Retain aggregate room for those owners and the real941-action UI/export path.
- # Per-action12s, compiler180s and worker/child watchdogs remain unchanged.
+ # Input12s, capture45s, compiler180s and worker/child watchdogs remain explicit.
  set_tests_properties(editor_input_workflow PROPERTIES TIMEOUT 1500)
 endif()

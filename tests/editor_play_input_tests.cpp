@@ -235,6 +235,30 @@ void readiness() {
             "Accepted graph retained its compiler wait");
     ImGui::DestroyContext();
 }
+void capture_preparation() {
+    ImGui::CreateContext();
+    auto workflow = test::EditorInputWorkflow::capture_probe();
+    const Json state{{"ui_scale", 1.0}};
+    unsigned images = 0;
+    bool recorded = false;
+    workflow.input();
+    // A completed native render frame can outlast the ordinary input deadline.
+    SDL_Delay(12500);
+    for (unsigned frame = 0; frame < 8 && !workflow.done(); ++frame) {
+        if (frame)
+            workflow.input();
+        workflow.finish(
+            state,
+            [&](const auto& name) {
+                if (name == "0-prepared-frame")
+                    ++images;
+            },
+            [&](const Json& report) { recorded = report.at("ok").get<bool>(); });
+    }
+    require(workflow.done() && recorded && images == 1,
+            "Completed capture was charged to the ordinary input deadline");
+    ImGui::DestroyContext();
+}
 } // namespace
 int main() {
     try {
@@ -249,6 +273,7 @@ int main() {
         menu_input(false, true, true);
         menu_input(true, true);
         readiness();
+        capture_preparation();
         SDL_Quit();
         std::cout << "Real toolbar receipt/retry bound/startup failure preservation passed\n";
     } catch (const std::exception& e) {

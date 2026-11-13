@@ -22,8 +22,11 @@ raster bound, actual encoded-image comparisons and authored-source preservation.
 The input walkthrough leaves 100 milliseconds between ordinary submissions and
 200 milliseconds while awaiting its isolated graph publisher. Its recorded state
 includes `fixture_workflow_frame_pause_ms`, `fixture_shader_wait_pause_ms` and the
-number of graph-wait frames. All 941 actions, input/readiness assertions and
-per-action, compiler, worker and GPU watchdogs remain in force.
+number of graph-wait frames. All 941 actions and input/readiness assertions remain
+required. Input retains its 12-second deadline; capture preparation uses the
+ordinary staged-capture 45-second budget because a cold native frame can outlast
+an input gesture. Compiler, worker, GPU and aggregate walkthrough watchdogs remain
+unchanged.
 
 For a focused Inspector correction, `editor-audit.yml` accepts `inspector_only`
 with both `workflow_only` and `capture_only`. It builds the same native fixture
