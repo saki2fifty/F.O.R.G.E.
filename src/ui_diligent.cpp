@@ -180,17 +180,18 @@ float4 gradient_color(float2 uv,float kind) {
         float period=gradient_info.w-gradient_info.z;
         t=gradient_info.z+frac((t-gradient_info.z)/period)*period;
     }
-    if(t<stop_position(0)) return gradient_colors[0];
     float4 result=gradient_colors[count-1];
+    // Keep every lane on the same fixed walk, including either side of a stop.
+    [unroll]
     for(int i=1;i<16;++i) {
-        if(i>=count) break;
-        float right=stop_position(i);
-        if(t<right) {
+        if(i<count) {
             float left=stop_position(i-1);
-            result=lerp(gradient_colors[i-1],gradient_colors[i],saturate((t-left)/(right-left)));
-            break;
+            float right=stop_position(i);
+            if(t>=left && t<right)
+                result=lerp(gradient_colors[i-1],gradient_colors[i],saturate((t-left)/(right-left)));
         }
     }
+    if(t<stop_position(0)) result=gradient_colors[0];
     return result;
 }
 float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,

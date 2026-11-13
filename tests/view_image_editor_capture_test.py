@@ -59,6 +59,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='view-image-capture
             assert screen.is_file() and screen.stat().st_size > 1920 * 1080, screen
             chrome = json.loads((evidence / f'chrome-{stage}.json').read_text())
             assert chrome['controls_ready'] and chrome['document_in_front'], chrome
+            assert chrome['maximum_view_extent'] == 512, chrome
             assert chrome['stable_control_frames'] >= 3, chrome
             assert chrome['file_picker_injected'] and not chrome['native_file_picker_executed']
             assert chrome['file_picker_deliveries'] == group * 2 + mode, chrome
@@ -72,7 +73,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='view-image-capture
                 report = chrome['saved_view']
                 assert report['matches_view'] and report['width'] == width
                 assert report['height'] == height and report['encoded_bytes'] == len(data)
-                assert 100 < width <= 4096 and 100 < height <= 4096
+                assert 100 < width <= 512 and 100 < height <= 512
                 if mode == 2:
                     assert report['png_sources'] and report['jpeg_sources'], report
                     assert report['ui_changed_pixels'] >= 100, report

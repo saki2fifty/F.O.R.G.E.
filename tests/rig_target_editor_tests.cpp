@@ -1,4 +1,6 @@
+#include "editor/blockout.hpp"
 #include "editor/component_inspector.hpp"
+#include "editor/prefabs.hpp"
 #include "editor/scene_tools.hpp"
 #include <forge/prefab_authoring.hpp>
 #include <iostream>
@@ -34,6 +36,10 @@ void root_motion_inspector(const std::filesystem::path& root) {
             actor = row.at("id");
     check(!actor.empty(), "Gallery root-motion actor is missing");
     const auto authored = scene.document();
+    ui::EditorUiContext editor;
+    editor.scene = &scene;
+    ui::ContextScope editor_scope(editor);
+    editor.selection.select_entity(actor);
     ImGui::CreateContext();
     auto& io = ImGui::GetIO();
     io.IniFilename = nullptr;
@@ -43,6 +49,9 @@ void root_motion_inspector(const std::filesystem::path& root) {
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
     ComponentInspector inspector;
+    BlockoutProperties transform;
+    PrefabEditor prefab;
+    std::string status;
     inspector.fixture_focus_component = "forge.animator";
     test::observe_ui = true;
     for (unsigned frame = 0; frame < 3; ++frame) {
@@ -51,7 +60,12 @@ void root_motion_inspector(const std::filesystem::path& root) {
         ImGui::SetNextWindowPos({0, 0});
         ImGui::SetNextWindowSize(io.DisplaySize);
         ImGui::Begin("Inspector");
+        transform.draw(scene, actor, status);
+        check(status.empty(), status.c_str());
         inspector.draw(scene, project, actor);
+        for (const auto& row : authored.at("entities"))
+            if (row.at("id") == actor)
+                prefab.inspector(scene, project, row);
         ImGui::End();
         ImGui::Render();
     }

@@ -6416,9 +6416,21 @@ int main(int argc, char** argv) {
                                 forge::ui::field_error(message);
                             }
                             blockout.draw(scene, selected, message);
+#ifdef FORGE_UI_FIXTURE
+                            if (fixture.root_motion && fixture.frames == 0)
+                                forge::test::fixture_breadcrumb("root-motion-after-transform");
+#endif
                             ImGui::BeginDisabled(blockout.active());
                             component_inspector.draw(scene, files.document, selected);
+#ifdef FORGE_UI_FIXTURE
+                            if (fixture.root_motion && fixture.frames == 0)
+                                forge::test::fixture_breadcrumb("root-motion-after-components");
+#endif
                             prefab_editor.inspector(scene, files.document, e);
+#ifdef FORGE_UI_FIXTURE
+                            if (fixture.root_motion && fixture.frames == 0)
+                                forge::test::fixture_breadcrumb("root-motion-after-prefab");
+#endif
                             ImGui::EndDisabled();
                         }
                     ImGui::EndDisabled();
@@ -6934,8 +6946,14 @@ int main(int argc, char** argv) {
                             spatial_helpers.update(rendered, view_cache.generation(), guide_width,
                                                    guide_height, read_published_tile_map,
                                                    read_camera_output);
+                        float maximum_view_extent = 4096;
+#ifdef FORGE_UI_FIXTURE
+                        // These workflows exercise native controls and readback on software GPUs.
+                        // Keep their UI full-sized and their Scene/Game raster workload bounded.
+                        maximum_view_extent = float(fixture.maximum_view_extent());
+#endif
                         const float render_scale =
-                            std::min(1.0f, 4096.0f / std::max(size.x, size.y));
+                            std::min(1.0f, maximum_view_extent / std::max(size.x, size.y));
                         const auto scene_submit = forge::ui::Performance::Clock::now();
                         const auto render_width =
                             fixed_extent ? fixed_extent->width
@@ -9057,6 +9075,7 @@ int main(int argc, char** argv) {
                                                {"content_y", w->DC.CursorStartPos.y}};
                         metrics["scale"] = forge::ui::interface_scale;
                         metrics["scene_image_y"] = fixture.scene_image_y;
+                        metrics["maximum_view_extent"] = fixture.maximum_view_extent();
                         if (fixture.root_motion || fixture.audio_cues || fixture.view_images) {
                             metrics["build_id"] = forge::build_id;
                             metrics["source_commit"] = forge::source_commit;

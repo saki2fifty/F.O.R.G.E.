@@ -6,6 +6,16 @@ The fixed Ninja build profiles continue independent compilation after an error,
 collecting remaining compiler diagnostics in the same job. A failed build still
 fails the gate; its test steps do not run against older executables.
 
+The editor input, Sprite/sequence frame, root-motion, mixer, audio preview,
+sequence cue and Save image fixtures keep the full editor window and controls at
+their requested scale while limiting Scene/Game raster images to 512 pixels along the
+longer axis. The limit preserves aspect ratio and is recorded as
+`maximum_view_extent` in capture metadata. These fixtures test controls, routing
+and actual image readback on the hosted software adapter; they do not establish
+full-resolution or physical GPU performance. Dedicated renderer checks retain
+their own render dimensions. The shipping editor's 4096-pixel viewport limit,
+explicit output sizes and five-second GPU backlog watchdog remain unchanged.
+
 Fixed gameplay input recording uses `input_recording` for byte/tick/kind bounds,
 empty Finish, replay/cancel/exhaustion progress and rebinding guards.
 `input_recording_process` covers correlated normal-host admission and changed

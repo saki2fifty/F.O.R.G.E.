@@ -34,6 +34,12 @@ struct EditorFixture {
     bool scene_create = false, hierarchy_create = false, shortcut_reopen = false,
          audio_cues = false, view_images = false, sequence_frames = false, sprite_frames = false;
     bool mcp_authoring = false;
+    unsigned maximum_view_extent() const {
+        return workflow || sequence_frames || root_motion || view_images || audio_cues ||
+                       audio_preview || audio_mixer
+                   ? 512u
+                   : 4096u;
+    }
     unsigned mcp_frames = 0;
     std::filesystem::path mcp_connection;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> view_image_target;

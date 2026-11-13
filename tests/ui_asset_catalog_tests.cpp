@@ -3,6 +3,7 @@
 #include "fixtures/texture_jpeg.hpp"
 #include "fixtures/ui_png.hpp"
 #include "ui_asset_catalog.hpp"
+#include "ui_effect_profile.hpp"
 #include "ui_inspection_transport.hpp"
 #include <forge/flecs_script.hpp>
 #include <fstream>
@@ -242,7 +243,7 @@ int main(int argc, char** argv) {
                 if (gradient)
                     required["gradients"] = gradient;
                 if (effect)
-                    required["effects"] = effect;
+                    required["effects"] = ui_effect_detail::profile_version;
                 if (feature.metadata.at("forge.ui_source").at("runtime_features") != required)
                     throw std::runtime_error(
                         "UI source requirements differ for " + text + ": " +

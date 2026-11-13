@@ -190,6 +190,20 @@ void menu_input(bool compact) {
             "Native input driver did not open File through the actual responsive menu");
     ImGui::DestroyContext();
 }
+void readiness() {
+    ImGui::CreateContext();
+    auto workflow = test::EditorInputWorkflow::readiness_probe("cube");
+    Json state{{"scene", {{"entities", Json::array()}}}, {"selected", ""}};
+    workflow.input();
+    workflow.finish(state, [](const auto&) {}, [](const Json&) {});
+    require(!workflow.done(), "Readiness passed before the authored result existed");
+    state["scene"]["entities"].push_back({{"id", "cube"}});
+    state["selected"] = "cube";
+    workflow.input();
+    workflow.finish(state, [](const auto&) {}, [](const Json&) {});
+    require(workflow.done(), "Ready authored state waited for unrelated input frames");
+    ImGui::DestroyContext();
+}
 } // namespace
 int main() {
     try {
@@ -201,6 +215,7 @@ int main() {
         action_receipt(true);
         menu_input(false);
         menu_input(true);
+        readiness();
         SDL_Quit();
         std::cout << "Real toolbar receipt/retry bound/startup failure preservation passed\n";
     } catch (const std::exception& e) {

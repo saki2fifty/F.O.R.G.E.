@@ -1219,6 +1219,11 @@ class EditorInputWorkflow {
         probe.click("action:" + id);
         return probe;
     }
+    static EditorInputWorkflow readiness_probe(const std::string& condition) {
+        EditorInputWorkflow probe(false, {});
+        probe.check(condition);
+        return probe;
+    }
     explicit EditorInputWorkflow(bool enabled, const std::filesystem::path& evidence,
                                  const std::filesystem::path& physics_project = {},
                                  bool sdk_onboarding = false, bool shortcut_reopen = false,
@@ -2539,8 +2544,9 @@ class EditorInputWorkflow {
         // A completed action can start expensive native realization in this frame.
         // Observe its real callback rather than waiting additional frames and
         // misclassifying completed input as a timeout on the next iteration.
-        if ((!action_observed && frame_ < 8) || SDL_GetTicks() - since_ < 100 ||
-            (action_click && !action_observed))
+        const bool readiness = step.kind == Kind::Check;
+        if ((!readiness && !action_observed && frame_ < 8) ||
+            (!readiness && SDL_GetTicks() - since_ < 100) || (action_click && !action_observed))
             return;
         if (action_observed)
             trace_.push_back({{"step", index_},
