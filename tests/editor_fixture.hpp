@@ -45,6 +45,7 @@ struct EditorFixture {
     Diligent::RefCntAutoPtr<Diligent::ITextureView> view_image_target;
     ViewImageReference view_image_background;
     Json view_image_report;
+    Json inspector_capture = Json::object();
     std::filesystem::path view_image_path;
     unsigned view_image_ready_frames = 0;
     bool source_baseline_ready = false;

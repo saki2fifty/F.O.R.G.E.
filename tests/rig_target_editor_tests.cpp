@@ -2,6 +2,7 @@
 #include "editor/component_inspector.hpp"
 #include "editor/prefabs.hpp"
 #include "editor/scene_tools.hpp"
+#include "editor_capture_layout.hpp"
 #include <forge/prefab_authoring.hpp>
 #include <iostream>
 using namespace forge;
@@ -45,6 +46,10 @@ void root_motion_inspector(const std::filesystem::path& root) {
     io.IniFilename = nullptr;
     io.DisplaySize = {1800, 1000};
     io.DeltaTime = 1.f / 60;
+    const auto font = std::filesystem::path(__FILE__).parent_path().parent_path() /
+                      "resources/ui/LatoLatin-Regular.ttf";
+    io.FontDefault = io.Fonts->AddFontFromFileTTF(path_utf8(font).c_str(), 16.f);
+    check(io.FontDefault, "Packaged editor font is unavailable");
     unsigned char* pixels;
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
@@ -57,7 +62,7 @@ void root_motion_inspector(const std::filesystem::path& root) {
     std::string status;
     inspector.fixture_focus_component = "forge.animator";
     test::observe_ui = true;
-    for (unsigned frame = 0; frame < 3; ++frame) {
+    const auto draw = [&] {
         test::ui_targets.clear();
         ImGui::NewFrame();
         ImGui::SetNextWindowPos({0, 0});
@@ -71,7 +76,9 @@ void root_motion_inspector(const std::filesystem::path& root) {
                 prefab.inspector(scene, project, row);
         ImGui::End();
         ImGui::Render();
-    }
+    };
+    for (unsigned frame = 0; frame < 3; ++frame)
+        draw();
     check(test::ui_targets.contains("component-field:forge.animator:root_motion"),
           "Root-motion Inspector did not visit its authored mode control");
     for (const auto* id : {"component-field:forge.animator:root_motion",
@@ -83,6 +90,31 @@ void root_motion_inspector(const std::filesystem::path& root) {
                   field->second.maximum.y <= field->second.clip_maximum.y,
               "Root-motion controls do not fit the Inspector capture");
     }
+    inspector.fixture_focus_component.clear();
+    bool reproduced = false, recovered = false;
+    for (unsigned frame = 0; frame < 12; ++frame) {
+        draw();
+        auto* window = ImGui::FindWindowByName("Inspector");
+        const auto& mode = test::ui_targets.at("component-field:forge.animator:root_motion");
+        const auto& joint = test::ui_targets.at("component-field:forge.animator:root_joint");
+        if (!frame) {
+            // The last field can be visible while the first control is clipped.
+            ImGui::SetScrollY(window, window->Scroll.y + mode.minimum.y - mode.clip_minimum.y + 12);
+            continue;
+        }
+        reproduced |= mode.minimum.y < mode.clip_minimum.y &&
+                      joint.minimum.y >= joint.clip_minimum.y &&
+                      joint.maximum.y <= joint.clip_maximum.y;
+        if (test::reveal_capture_range(window, std::min(mode.minimum.y, joint.minimum.y),
+                                       std::max(mode.maximum.y, joint.maximum.y),
+                                       std::max(mode.clip_minimum.y, joint.clip_minimum.y),
+                                       std::min(mode.clip_maximum.y, joint.clip_maximum.y))) {
+            recovered = true;
+            break;
+        }
+    }
+    check(reproduced && recovered,
+          "Root capture failed to reveal both controls from a scrolled view");
     check(scene.document() == authored, "Unedited root-motion Inspector changed the Scene");
     check(timeline_opens == 0, "Unlinked Animator opened a sequence Timeline");
     ImGui::DestroyContext();

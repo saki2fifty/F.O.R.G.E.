@@ -3852,34 +3852,7 @@ int main(int argc, char** argv) {
                 stalled["runtime_ui_alive"] = runtime_ui.presenter_alive();
                 stalled["runtime_ui_diagnostic"] = runtime_ui.diagnostic();
                 stalled["runtime_ui_sources"] = forge::Json::array();
-                stalled["selected"] = selected;
-                stalled["selected_entities"] = editor.selection.entities();
-                stalled["root_motion_controls"] = forge::Json::object();
-                for (const auto* id : {"component-field:forge.animator:root_motion",
-                                       "component-field:forge.animator:root_joint"})
-                    if (const auto found = forge::test::ui_targets.find(id);
-                        found != forge::test::ui_targets.end()) {
-                        const auto& box = found->second;
-                        stalled["root_motion_controls"][id] = {
-                            {"enabled", box.enabled},
-                            {"rect", {box.minimum.x, box.minimum.y, box.maximum.x, box.maximum.y}},
-                            {"clip",
-                             {box.clip_minimum.x, box.clip_minimum.y, box.clip_maximum.x,
-                              box.clip_maximum.y}}};
-                    }
-                if (const auto* window = ImGui::FindWindowByName("Inspector")) {
-                    const auto* focused = ImGui::GetCurrentContext()->NavWindow;
-                    stalled["inspector_window"] = {
-                        {"active", window->Active},
-                        {"hidden", window->Hidden},
-                        {"collapsed", window->Collapsed},
-                        {"dock_active", window->DockIsActive},
-                        {"dock_visible", window->DockTabIsVisible},
-                        {"focused", focused && focused->RootWindow == window->RootWindow},
-                        {"position", {window->Pos.x, window->Pos.y}},
-                        {"size", {window->Size.x, window->Size.y}},
-                        {"scroll", window->Scroll.y}};
-                }
+                stalled.update(fixture.inspector_capture);
                 if (const auto* assets = runtime_ui.asset_snapshot())
                     for (const auto& source : assets->sources)
                         stalled["runtime_ui_sources"].push_back(
@@ -8674,13 +8647,13 @@ int main(int argc, char** argv) {
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
                         ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
                         ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
-                        const auto& target = joint->second;
-                        if (target.maximum.y > target.clip_maximum.y)
-                            ImGui::SetScrollY(w, w->Scroll.y + target.maximum.y -
-                                                     target.clip_maximum.y + 12);
-                        else if (target.minimum.y < target.clip_minimum.y)
-                            ImGui::SetScrollY(w, w->Scroll.y + target.minimum.y -
-                                                     target.clip_minimum.y - 12);
+                        const auto& first = mode->second;
+                        const auto& last = joint->second;
+                        captured_document_visible &= forge::test::reveal_capture_range(
+                            w, std::min(first.minimum.y, last.minimum.y),
+                            std::max(first.maximum.y, last.maximum.y),
+                            std::max(first.clip_minimum.y, last.clip_minimum.y),
+                            std::min(first.clip_maximum.y, last.clip_maximum.y));
                         for (const auto* control : {&mode->second, &joint->second})
                             captured_document_visible &=
                                 control->enabled && control->minimum.y >= control->clip_minimum.y &&
@@ -9035,6 +9008,44 @@ int main(int argc, char** argv) {
                         stable_frames = 0;
                     capture_settled = stable_frames >= 3;
                     stable_control_frames = stable_frames;
+                }
+                if (fixture.root_motion) {
+                    auto& capture = fixture.inspector_capture = forge::Json::object();
+                    capture["readiness"] = {{"sample", "completed UI draw"},
+                                            {"stage", fixture.stage},
+                                            {"frame", fixture.frames},
+                                            {"prepared", fixture.prepared},
+                                            {"document_visible", captured_document_visible},
+                                            {"stable_control_frames", stable_control_frames}};
+                    capture["selected"] = selected;
+                    capture["selected_entities"] = editor.selection.entities();
+                    capture["root_motion_controls"] = forge::Json::object();
+                    for (const auto* id : {"component-field:forge.animator:root_motion",
+                                           "component-field:forge.animator:root_joint"})
+                        if (const auto found = forge::test::ui_targets.find(id);
+                            found != forge::test::ui_targets.end()) {
+                            const auto& box = found->second;
+                            capture["root_motion_controls"][id] = {
+                                {"enabled", box.enabled},
+                                {"rect",
+                                 {box.minimum.x, box.minimum.y, box.maximum.x, box.maximum.y}},
+                                {"clip",
+                                 {box.clip_minimum.x, box.clip_minimum.y, box.clip_maximum.x,
+                                  box.clip_maximum.y}}};
+                        }
+                    if (const auto* window = ImGui::FindWindowByName("Inspector")) {
+                        const auto* focused = ImGui::GetCurrentContext()->NavWindow;
+                        capture["inspector_window"] = {
+                            {"active", window->Active},
+                            {"hidden", window->Hidden},
+                            {"collapsed", window->Collapsed},
+                            {"dock_active", window->DockIsActive},
+                            {"dock_visible", window->DockTabIsVisible},
+                            {"focused", focused && focused->RootWindow == window->RootWindow},
+                            {"position", {window->Pos.x, window->Pos.y}},
+                            {"size", {window->Size.x, window->Size.y}},
+                            {"scroll", window->Scroll.y}};
+                    }
                 }
                 if (fixture.stage >= 47 && fixture.stage <= 49 &&
                     !audio_imports.diagnostic().empty())

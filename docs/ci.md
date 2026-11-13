@@ -26,6 +26,11 @@ walkthrough. The default `all` retains all five cases. The recorded audit scope
 identifies the exact diagnostic selection. It does not
 replace the complete editor or Windows package gate; unchanged renderer evidence
 can retain its original source and environment attribution.
+Root-motion captures reveal the complete required control range before accepting
+stable layout. Their timeout report retains geometry and readiness from the last
+completed UI draw, before the next frame clears observations. The CPU regression
+uses the packaged editor font and exercises recovery from a partially clipped
+control range.
 
 Fixed gameplay input recording uses `input_recording` for byte/tick/kind bounds,
 empty Finish, replay/cancel/exhaustion progress and rebinding guards.

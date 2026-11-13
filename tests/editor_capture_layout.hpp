@@ -4,6 +4,18 @@
 #include <imgui_internal.h>
 
 namespace forge::test {
+inline bool reveal_capture_range(ImGuiWindow* window, float first, float last, float clip_first,
+                                 float clip_last) {
+    if (last > clip_last) {
+        ImGui::SetScrollY(window, window->Scroll.y + last - clip_last + 8);
+        return false;
+    }
+    if (first < clip_first) {
+        ImGui::SetScrollY(window, window->Scroll.y + first - clip_first - 8);
+        return false;
+    }
+    return true;
+}
 inline void fit_capture_window(const char* name, float scale) {
     if (auto* window = ImGui::FindWindowByName(name); window && !window->DockIsActive) {
         const auto* viewport = ImGui::GetMainViewport();
