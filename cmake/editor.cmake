@@ -504,8 +504,8 @@ if(BUILD_TESTING)
  set_tests_properties(editor_sequence_audio_cues PROPERTIES TIMEOUT 660)
  add_test(NAME editor_input_workflow COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor-workflow" --workflow)
  # The 941-action authoring/export scenario includes native compilation and
- # three graph-worker preparations. A slow WARP runner reached action877 at360s
- # without a stalled action. Keep aggregate headroom; per-action12s and compiler/
- # graph180s deadlines remain unchanged in the driver.
- set_tests_properties(editor_input_workflow PROPERTIES TIMEOUT 480)
+ # three graph-worker preparations, each with the native compiler's300s budget.
+ # Retain aggregate room for those owners and the real941-action UI/export path.
+ # Per-action12s, compiler180s and worker/child watchdogs remain unchanged.
+ set_tests_properties(editor_input_workflow PROPERTIES TIMEOUT 1500)
 endif()

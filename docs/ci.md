@@ -9,8 +9,7 @@ fails the gate; its test steps do not run against older executables.
 The editor input, Sprite/sequence frame, root-motion, mixer, audio preview,
 sequence cue and Save image fixtures keep the full editor window and controls at
 their requested scale while limiting Scene/Game raster images to 512 pixels along
-the longer axis. Save image uses 768 pixels to leave room for both bitmap examples
-in its initial scroll-panel view. The limit preserves aspect ratio and is recorded as
+the longer axis. The limit preserves aspect ratio and is recorded as
 `maximum_view_extent` in capture metadata. These fixtures test controls, routing
 and actual image readback on the hosted software adapter; they do not establish
 full-resolution or physical GPU performance. Dedicated renderer checks retain
@@ -21,7 +20,10 @@ For a focused Inspector correction, `editor-audit.yml` accepts `inspector_only`
 with both `workflow_only` and `capture_only`. It builds the same native fixture
 owners and runs `root_motion_inspector`, `editor_play_input`,
 `editor_animation_root_motion`, `editor_view_images` and `editor_input_workflow`.
-The recorded audit scope identifies this five-case diagnostic gate. It does not
+Its optional `inspector_group` selects `captures` for the CPU Inspector, native
+root-motion and Save image checks, or `input` for the CPU input and native input
+walkthrough. The default `all` retains all five cases. The recorded audit scope
+identifies the exact diagnostic selection. It does not
 replace the complete editor or Windows package gate; unchanged renderer evidence
 can retain its original source and environment attribution.
 
@@ -719,12 +721,13 @@ that delivery gate. Product changes require a new proof for affected behavior.
 The shared selection includes `mcp_`: native stdio/configuration
 checks and the GPU-independent editor document/MCP process test. These tests are
 built with the default editor targets; project files stay in temporary directories.
-The 941-action native input walkthrough has a 480-second aggregate CTest budget.
-One full WARP run completed all 941 actions in 297.56 seconds; a slower runner
-completed 877 before the former 360-second aggregate cutoff, with normal actions
-still progressing. The driver's 12-second action/readiness and 180-second compiler/
-graph checks remain unchanged. The additional aggregate allowance removes no
-actions, pixel/source checks or acceptance requirements. Focused shader/input scopes remain explicitly separate. Numbered
+The 941-action native input walkthrough has a 1500-second aggregate CTest budget,
+including three graph preparations through the native shader worker. Each graph
+readiness check allows that owner's 300-second worker budget plus 15 seconds for
+UI adoption; ordinary actions retain 12 seconds and C++ compiler checks retain
+180 seconds. Worker and child-process watchdogs remain unchanged. The aggregate
+allowance removes no actions, pixel/source checks or acceptance requirements.
+Focused shader/input scopes remain explicitly separate. Numbered
 failures retain the full capture diagnostics and CTest logs, including the stalled
 state JSON, so a screenshot is not the only available readiness evidence.
 The sequence-frame input walkthrough waits for the real export callback to accept

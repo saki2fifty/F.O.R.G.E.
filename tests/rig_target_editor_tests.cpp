@@ -48,6 +48,7 @@ void root_motion_inspector(const std::filesystem::path& root) {
     unsigned char* pixels;
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    ui::style(1);
     ComponentInspector inspector;
     unsigned timeline_opens = 0;
     inspector.open_sequence_timeline = [&](EntityRef) { ++timeline_opens; };
@@ -73,6 +74,15 @@ void root_motion_inspector(const std::filesystem::path& root) {
     }
     check(test::ui_targets.contains("component-field:forge.animator:root_motion"),
           "Root-motion Inspector did not visit its authored mode control");
+    for (const auto* id : {"component-field:forge.animator:root_motion",
+                           "component-field:forge.animator:root_joint"}) {
+        const auto field = test::ui_targets.find(id);
+        check(field != test::ui_targets.end(), id);
+        check(field->second.enabled, "Root-motion control is disabled");
+        check(field->second.minimum.y >= field->second.clip_minimum.y &&
+                  field->second.maximum.y <= field->second.clip_maximum.y,
+              "Root-motion controls do not fit the Inspector capture");
+    }
     check(scene.document() == authored, "Unedited root-motion Inspector changed the Scene");
     check(timeline_opens == 0, "Unlinked Animator opened a sequence Timeline");
     ImGui::DestroyContext();

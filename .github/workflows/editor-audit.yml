@@ -32,6 +32,9 @@ on:
       inspector_only:
         type: boolean
         default: false
+      inspector_group:
+        type: string
+        default: all
       clean_build:
         type: boolean
         default: false
@@ -72,6 +75,11 @@ on:
         description: Requires capture_only and workflow_only; five Inspector/input/image workflows, never a full gate
         type: boolean
         default: false
+      inspector_group:
+        description: Inspector diagnostic group; requires inspector_only
+        type: choice
+        default: all
+        options: [all, captures, input]
       clean_build:
         description: Ignore compatible build cache
         type: boolean
@@ -93,6 +101,7 @@ jobs:
     env:
       FORGE_BUILD_ID: unassigned
       FORGE_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      FORGE_INSPECTOR_GROUP: ${{ inputs.inspector_group }}
       FORGE_SHADER_ACCEPTANCE_REGEX: '^(diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_editor|material_asset|material_pipeline|material_editor|ui_material_gallery_source|ui_material_gallery_export|ui_material_graph_gallery_export|ui_effect_render|editor_render_shaders|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics|editor_render_lightmaps|editor_render_sprites)$'
       FORGE_SHADER_ACCEPTANCE_TARGETS: forge_viewport_tests forge_material_asset_tests forge_material_pipeline_tests forge_material_editor_tests forge_shader_tests forge_shader_pipeline_tests forge_shader_worker_tests forge_shader_editor_tests forge_ui_render_tests forge_ui_material_gallery_tests
       GIT_CONFIG_COUNT: "1"
@@ -128,12 +137,13 @@ jobs:
             throw 'Capture diagnostics require workflow_only and cannot be combined with shader or benchmark scopes'
           }
       - name: Validate Inspector diagnostic scope
-        if: inputs.inspector_only
+        if: inputs.inspector_only || inputs.inspector_group != 'all'
         shell: pwsh
         run: |
           if ('${{ inputs.workflow_only }}' -ne 'true' -or '${{ inputs.capture_only }}' -ne 'true' -or '${{ inputs.shader_only }}' -eq 'true' -or '${{ inputs.publication_only }}' -eq 'true' -or '${{ inputs.mcp_only }}' -eq 'true' -or '${{ inputs.core_regressions_only }}' -eq 'true' -or '${{ inputs.performance_source_run }}' -ne '') {
             throw 'Inspector diagnostics require workflow_only and capture_only without other scopes'
           }
+          if ('${{ inputs.inspector_only }}' -ne 'true' -or $env:FORGE_INSPECTOR_GROUP -notin @('all', 'captures', 'input')) { throw 'Invalid Inspector diagnostic group' }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         if: runner.os != 'Windows'
       - name: Checkout Windows source without trailing-dot paths
@@ -217,7 +227,7 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
-          foreach ($relative in @('grid-test-images', 'Testing/Temporary/LastTest.log', 'Testing/Temporary/LastTestsFailed.log')) {
+          foreach ($relative in @('grid-test-images', 'ui-effect-render', 'ui-test-images', 'Testing/Temporary/LastTest.log', 'Testing/Temporary/LastTestsFailed.log')) {
             $output = Join-Path '../AgentFiles/b' $relative
             if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output -Recurse -Force }
           }
@@ -325,6 +335,8 @@ jobs:
           $captures = '^(ui_asset_catalog|root_motion_inspector|editor_play_input|runtime_ui_render|editor_animation_root_motion|editor_audio_mixer|editor_audio_preview|editor_view_images|editor_sequence_frames|editor_sprite_frames|editor_sequence_audio_cues|editor_input_workflow)$'
           $selection = "$env:FORGE_SHADER_ACCEPTANCE_REGEX|$captures"
           if ('${{ inputs.inspector_only }}' -eq 'true') { $selection = '^(root_motion_inspector|editor_play_input|editor_animation_root_motion|editor_view_images|editor_input_workflow)$' }
+          if ('${{ inputs.inspector_only }}' -eq 'true' -and $env:FORGE_INSPECTOR_GROUP -eq 'captures') { $selection = '^(root_motion_inspector|editor_animation_root_motion|editor_view_images)$' }
+          if ('${{ inputs.inspector_only }}' -eq 'true' -and $env:FORGE_INSPECTOR_GROUP -eq 'input') { $selection = '^(editor_play_input|editor_input_workflow)$' }
           ctest --test-dir ../AgentFiles/b -R $selection --output-on-failure --no-tests=error
       - name: Record exact source and audit identity
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -333,7 +345,7 @@ jobs:
           $actual = git rev-parse HEAD
           if ($actual -ne $env:FORGE_SOURCE_COMMIT) { throw 'Source mismatch' }
           New-Item -ItemType Directory -Force ../AgentFiles/b/grid-test-images/editor | Out-Null
-          @{ core_regressions_only = '${{ inputs.core_regressions_only }}'; mcp_only = '${{ inputs.mcp_only }}'; publication_only = '${{ inputs.publication_only }}'; shader_only = '${{ inputs.shader_only }}'; workflow_only = '${{ inputs.workflow_only }}'; capture_only = '${{ inputs.capture_only }}'; inspector_only = '${{ inputs.inspector_only }}'; source_commit = $actual } | ConvertTo-Json | Out-File ../AgentFiles/b/grid-test-images/audit-scope.json
+          @{ core_regressions_only = '${{ inputs.core_regressions_only }}'; mcp_only = '${{ inputs.mcp_only }}'; publication_only = '${{ inputs.publication_only }}'; shader_only = '${{ inputs.shader_only }}'; workflow_only = '${{ inputs.workflow_only }}'; capture_only = '${{ inputs.capture_only }}'; inspector_only = '${{ inputs.inspector_only }}'; inspector_group = $env:FORGE_INSPECTOR_GROUP; source_commit = $actual } | ConvertTo-Json | Out-File ../AgentFiles/b/grid-test-images/audit-scope.json
           Copy-Item ../AgentFiles/b/build.json ../AgentFiles/b/grid-test-images/editor/audit-build.json
           $actual | Out-File ../AgentFiles/b/grid-test-images/editor/source-commit.txt
       - name: Validate standalone-only build without editor or import tooling

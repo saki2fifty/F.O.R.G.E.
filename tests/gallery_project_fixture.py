@@ -24,10 +24,12 @@ def copy_gallery_project(gallery, output, sources, startup=None):
     pending = [row['id'] for row in records.values() if row['source'] in sources]
     missing = set(sources) - {records[asset]['source'] for asset in pending}
     for source in missing:
-        # Original Gallery Scenes can be opened by path before registration.
-        assert source.startswith('Scenes/') and source.endswith('.scene.json'), source
-        scene = json.loads((gallery/source).read_text(encoding='utf-8'))
-        pending.extend(value for value in json_strings(scene) if value in records)
+        path = Path(source)
+        assert not path.is_absolute() and '..' not in path.parts and (gallery/path).is_file(), source
+        # Fixtures can also need unregistered raw UI resources. Only Scenes carry IDs.
+        if source.startswith('Scenes/') and source.endswith('.scene.json'):
+            scene = json.loads((gallery/source).read_text(encoding='utf-8'))
+            pending.extend(value for value in json_strings(scene) if value in records)
     selected = set()
     while pending:
         asset = pending.pop()
@@ -100,6 +102,8 @@ CAPTURE_PROJECTS = {
         (
             'Scenes/70-sequence-audio-cues.scene.json',
             'Scenes/59-ui-png-jpeg.scene.json',
+            'Assets/UI/BitmapFormats/health.png',
+            'Assets/UI/BitmapFormats/landscape.jpg',
         ), 'Scenes/70-sequence-audio-cues.scene.json'),
     'animation_root_motion': (
         (

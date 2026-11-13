@@ -2285,11 +2285,15 @@ class EditorInputWorkflow {
         }
         const auto& step = steps_[index_];
         const auto limit =
+            // Mesh graph workers own a300s wall budget for19native variants.
+            // Allow their result to reach the UI without extending the worker watchdog.
             step.kind == Kind::Check &&
+                    (step.value == "graph-ready" || step.value == "graph-rejected")
+                ? 315000u
+            : step.kind == Kind::Check &&
                     (step.value == "compiler-ready" || step.value == "starter-built" ||
                      step.value == "starter-rebuilt" || step.value == "starter-rejected" ||
-                     step.value == "system-reversed" || step.value == "graph-ready" ||
-                     step.value == "graph-rejected")
+                     step.value == "system-reversed")
                 ? 180000u
                 : 12000u;
         if (SDL_GetTicks() - since_ > limit) {

@@ -3852,6 +3852,34 @@ int main(int argc, char** argv) {
                 stalled["runtime_ui_alive"] = runtime_ui.presenter_alive();
                 stalled["runtime_ui_diagnostic"] = runtime_ui.diagnostic();
                 stalled["runtime_ui_sources"] = forge::Json::array();
+                stalled["selected"] = selected;
+                stalled["selected_entities"] = editor.selection.entities();
+                stalled["root_motion_controls"] = forge::Json::object();
+                for (const auto* id : {"component-field:forge.animator:root_motion",
+                                       "component-field:forge.animator:root_joint"})
+                    if (const auto found = forge::test::ui_targets.find(id);
+                        found != forge::test::ui_targets.end()) {
+                        const auto& box = found->second;
+                        stalled["root_motion_controls"][id] = {
+                            {"enabled", box.enabled},
+                            {"rect", {box.minimum.x, box.minimum.y, box.maximum.x, box.maximum.y}},
+                            {"clip",
+                             {box.clip_minimum.x, box.clip_minimum.y, box.clip_maximum.x,
+                              box.clip_maximum.y}}};
+                    }
+                if (const auto* window = ImGui::FindWindowByName("Inspector")) {
+                    const auto* focused = ImGui::GetCurrentContext()->NavWindow;
+                    stalled["inspector_window"] = {
+                        {"active", window->Active},
+                        {"hidden", window->Hidden},
+                        {"collapsed", window->Collapsed},
+                        {"dock_active", window->DockIsActive},
+                        {"dock_visible", window->DockTabIsVisible},
+                        {"focused", focused && focused->RootWindow == window->RootWindow},
+                        {"position", {window->Pos.x, window->Pos.y}},
+                        {"size", {window->Size.x, window->Size.y}},
+                        {"scroll", window->Scroll.y}};
+                }
                 if (const auto* assets = runtime_ui.asset_snapshot())
                     for (const auto& source : assets->sources)
                         stalled["runtime_ui_sources"].push_back(
