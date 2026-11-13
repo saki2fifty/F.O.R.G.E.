@@ -739,6 +739,11 @@ readiness check allows that owner's 300-second worker budget plus 15 seconds for
 UI adoption; ordinary actions retain 12 seconds and C++ compiler checks retain
 180 seconds. Worker and child-process watchdogs remain unchanged. The aggregate
 allowance removes no actions, pixel/source checks or acceptance requirements.
+While a graph readiness check waits on the external shader importer, the WARP
+input fixture yields 200 milliseconds between frames to leave CPU time for the
+compiler. Ordinary authoring input keeps its existing pacing. The report records
+`fixture_shader_wait_frames` and `fixture_shader_wait_pause_ms`; compiler deadlines,
+all941 actions and publication/preview acceptance remain unchanged.
 Focused shader/input scopes remain explicitly separate. Numbered
 failures retain the full capture diagnostics and CTest logs, including the stalled
 state JSON, so a screenshot is not the only available readiness evidence.

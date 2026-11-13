@@ -207,6 +207,8 @@ void menu_input(bool compact, bool entity = false, bool reject_first = false) {
 void readiness() {
     ImGui::CreateContext();
     auto workflow = test::EditorInputWorkflow::readiness_probe("cube");
+    require(!workflow.waiting_for_graph_compilation(),
+            "Ordinary authored readiness requested a shader wait");
     Json state{{"scene", {{"entities", Json::array()}}}, {"selected", ""}};
     workflow.input();
     workflow.finish(state, [](const auto&) {}, [](const Json&) {});
@@ -216,6 +218,21 @@ void readiness() {
     workflow.input();
     workflow.finish(state, [](const auto&) {}, [](const Json&) {});
     require(workflow.done(), "Ready authored state waited for unrelated input frames");
+    auto graph = test::EditorInputWorkflow::readiness_probe("graph-ready");
+    state = {{"scene", {{"entities", Json::array()}}},
+             {"graph_dirty", true},
+             {"graph_preview_current", false},
+             {"graph_gpu_ready", false},
+             {"graph_error", ""}};
+    graph.input();
+    graph.finish(state, [](const auto&) {}, [](const Json&) {});
+    require(graph.waiting_for_graph_compilation(), "Pending graph did not retain its compile wait");
+    state["graph_dirty"] = false;
+    state["graph_preview_current"] = state["graph_gpu_ready"] = true;
+    graph.input();
+    graph.finish(state, [](const auto&) {}, [](const Json&) {});
+    require(graph.done() && !graph.waiting_for_graph_compilation(),
+            "Accepted graph retained its compiler wait");
     ImGui::DestroyContext();
 }
 } // namespace

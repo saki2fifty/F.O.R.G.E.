@@ -2191,6 +2191,10 @@ class EditorInputWorkflow {
         check("gpu-cleared");
     }
     bool done() const { return index_ == steps_.size(); }
+    bool waiting_for_graph_compilation() const {
+        return !done() && steps_[index_].kind == Kind::Check &&
+               (steps_[index_].value == "graph-ready" || steps_[index_].value == "graph-rejected");
+    }
     void platform_input(SDL_WindowID window) {
         if (done())
             return;

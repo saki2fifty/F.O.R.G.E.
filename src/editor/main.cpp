@@ -291,6 +291,7 @@ int main(int argc, char** argv) {
         forge::test::EditorFixture fixture(argc, argv);
         forge::test::SequenceFrameEditorWorkflow sequence_frame_workflow;
         constexpr Uint32 root_play_frame_pause_ms = 50;
+        constexpr Uint32 shader_wait_frame_pause_ms = 200;
         forge::test::fixture_breadcrumb("after-fixture-construct");
         // Legacy EditorInputWorkflow runs only for the historical
         // --workflow and --physics modes. SDK mode drives its own
@@ -7839,6 +7840,8 @@ int main(int argc, char** argv) {
                     {"ui_scale", forge::ui::interface_scale},
                     {"status", message}};
                 auto observed = state;
+                observed["fixture_shader_wait_frames"] = fixture.shader_wait_frames;
+                observed["fixture_shader_wait_pause_ms"] = shader_wait_frame_pause_ms;
                 observed["scene_view"] = {{"projection", unsigned(camera.projection)},
                                           {"target", camera.target},
                                           {"yaw", camera.yaw},
@@ -9271,6 +9274,13 @@ int main(int argc, char** argv) {
             // Leave time for the real isolated runtime without extending its deadline.
             if (fixture.root_motion && play.active())
                 SDL_Delay(root_play_frame_pause_ms);
+            // Keep the WARP fixture from competing with its isolated compiler
+            // while no authoring input is pending. Poll/draw at most five times a second.
+            if (fixture.workflow && input_workflow.waiting_for_graph_compilation() &&
+                shader_imports.pending()) {
+                ++fixture.shader_wait_frames;
+                SDL_Delay(shader_wait_frame_pause_ms);
+            }
 #endif
         }
         if (startup_layout.save_enabled)
