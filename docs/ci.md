@@ -19,6 +19,11 @@ The Save image fixture also leaves 500 milliseconds between submissions on the
 hosted software adapter. Its metadata records `fixture_capture_frame_pause_ms`.
 This functional command/readback test retains all three UI scales, the 512-pixel
 raster bound, actual encoded-image comparisons and authored-source preservation.
+The input walkthrough leaves 100 milliseconds between ordinary submissions and
+200 milliseconds while awaiting its isolated graph publisher. Its recorded state
+includes `fixture_workflow_frame_pause_ms`, `fixture_shader_wait_pause_ms` and the
+number of graph-wait frames. All 941 actions, input/readiness assertions and
+per-action, compiler, worker and GPU watchdogs remain in force.
 
 For a focused Inspector correction, `editor-audit.yml` accepts `inspector_only`
 with both `workflow_only` and `capture_only`. It builds the same native fixture
@@ -547,9 +552,9 @@ Both full editor jobs allow 240 minutes overall. The cold numbered Windows build
 took approximately 140 minutes to compile and link before editor acceptance began,
 leaving insufficient time under the former 150-minute limit. The combined rendering
 and capture diagnostic also builds Main and allows240 minutes. Other focused
-source-audit modes retain150 minutes. Windows Debug/core allows 180 minutes; the
-other core/SDK jobs retain 120 minutes. The same Debug run used about 52 minutes
-for setup/build and 68 minutes for 310 of 398 tests before its former 120-minute
+source-audit modes retain 150 minutes. Windows Debug/core and both native SDK jobs
+allow 180 minutes; Linux Debug/core retains 120 minutes. The same Debug run used
+about 52 minutes for setup/build and 68 minutes for 310 of 398 tests before its former 120-minute
 job limit expired. These overall budgets cover compilation, complete testing,
 installation and cleanup; the test selection and individual guards remain explicit.
 The core/SDK CTest invocation gives otherwise unbounded tests a default of 600 seconds.

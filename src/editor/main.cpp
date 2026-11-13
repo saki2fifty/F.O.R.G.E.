@@ -291,6 +291,11 @@ int main(int argc, char** argv) {
         forge::test::EditorFixture fixture(argc, argv);
         forge::test::SequenceFrameEditorWorkflow sequence_frame_workflow;
         constexpr Uint32 root_play_frame_pause_ms = 50;
+        const Uint32 workflow_frame_pause_ms =
+            fixture.workflow && !fixture.physics && !fixture.sdk_onboarding &&
+                    !fixture.shortcut_reopen && !fixture.sprite_frames
+                ? 100
+                : 0;
         constexpr Uint32 shader_wait_frame_pause_ms = 200;
         constexpr Uint32 view_capture_frame_pause_ms = 500;
         forge::test::fixture_breadcrumb("after-fixture-construct");
@@ -7842,6 +7847,7 @@ int main(int argc, char** argv) {
                     {"status", message}};
                 auto observed = state;
                 observed["fixture_shader_wait_frames"] = fixture.shader_wait_frames;
+                observed["fixture_workflow_frame_pause_ms"] = workflow_frame_pause_ms;
                 observed["fixture_shader_wait_pause_ms"] = shader_wait_frame_pause_ms;
                 observed["scene_view"] = {{"projection", unsigned(camera.projection)},
                                           {"target", camera.target},
@@ -9288,12 +9294,17 @@ int main(int argc, char** argv) {
             // submissions for the hosted software adapter to drain its queue.
             if (fixture.view_images)
                 SDL_Delay(view_capture_frame_pause_ms);
-            // Keep the WARP fixture from competing with its isolated compiler
-            // while no authoring input is pending. Poll/draw at most five times a second.
-            if (fixture.workflow && input_workflow.waiting_for_graph_compilation() &&
-                shader_imports.pending()) {
-                ++fixture.shader_wait_frames;
-                SDL_Delay(shader_wait_frame_pause_ms);
+            // The software-adapter walkthrough checks input and readback, not throughput.
+            // Pace ordinary submissions as well as isolated graph-worker waits.
+            if (fixture.workflow) {
+                const bool shader_wait =
+                    input_workflow.waiting_for_graph_compilation() && shader_imports.pending();
+                if (shader_wait)
+                    ++fixture.shader_wait_frames;
+                const auto pause =
+                    shader_wait ? shader_wait_frame_pause_ms : workflow_frame_pause_ms;
+                if (pause)
+                    SDL_Delay(pause);
             }
 #endif
         }
