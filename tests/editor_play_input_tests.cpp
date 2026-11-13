@@ -259,6 +259,51 @@ void capture_preparation() {
             "Completed capture was charged to the ordinary input deadline");
     ImGui::DestroyContext();
 }
+void recovery_choice(bool present) {
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {800, 600};
+    io.DeltaTime = 1.f / 60;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    auto workflow = test::EditorInputWorkflow::recovery_probe();
+    unsigned choices = 0, draws = 0;
+    bool recorded_choice = false;
+    const auto draw = [&] {
+        ImGui::NewFrame();
+        ImGui::Begin("Recovery host");
+        if (present && draws == 0)
+            ImGui::OpenPopup("Recovery available");
+        if (ImGui::BeginPopupModal("Recovery available", nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize)) {
+            if (ui::button("Keep saved scene", "Keep the authored scene")) {
+                ++choices;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+        ImGui::End();
+        ImGui::Render();
+        ++draws;
+    };
+    draw();
+    for (unsigned frame = 0; frame < 40 && !workflow.done(); ++frame) {
+        workflow.input();
+        draw();
+        workflow.finish(
+            Json::object(), [](const auto&) {},
+            [&](const Json& report) {
+                for (const auto& row : report.at("trace"))
+                    recorded_choice |= row.value("operation", "") == "recovery choice clicked";
+            });
+        SDL_Delay(15);
+    }
+    require(workflow.done() && choices == unsigned(present) && recorded_choice == present,
+            "Recovery handling skipped a visible choice or clicked without a prompt");
+    ImGui::DestroyContext();
+}
 } // namespace
 int main() {
     try {
@@ -274,6 +319,8 @@ int main() {
         menu_input(true, true);
         readiness();
         capture_preparation();
+        recovery_choice(false);
+        recovery_choice(true);
         SDL_Quit();
         std::cout << "Real toolbar receipt/retry bound/startup failure preservation passed\n";
     } catch (const std::exception& e) {

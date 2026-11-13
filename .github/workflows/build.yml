@@ -162,7 +162,16 @@ jobs:
       - name: Test build-cache invalidation
         run: python tests/ci_cache_test.py
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
-      - run: cmake --preset ${{ matrix.profile }} -DFORGE_BUILD_MCP_EDITOR_TESTS=OFF -DFORGE_BUILD_ID=${{ inputs.build_id || 'unassigned' }} -DFORGE_SOURCE_COMMIT=${{ github.sha }}
+      - name: Select core dependency directory
+        id: core-dependencies
+        shell: python
+        env:
+          FORGE_CI_DEPENDENCY_PATH: ${{ runner.os == 'Windows' && format('{0}/forge-work/AgentFiles/d', runner.temp) || format('{0}/../AgentFiles/dependencies/{1}', github.workspace, matrix.profile) }}
+        run: |
+          import os
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write('path=' + os.environ['FORGE_CI_DEPENDENCY_PATH'] + '\n')
+      - run: cmake --preset ${{ matrix.profile }} -DFETCHCONTENT_BASE_DIR:PATH="${{ steps.core-dependencies.outputs.path }}" -DFORGE_BUILD_MCP_EDITOR_TESTS=OFF -DFORGE_BUILD_ID=${{ inputs.build_id || 'unassigned' }} -DFORGE_SOURCE_COMMIT=${{ github.sha }}
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - run: cmake --build --preset ${{ matrix.profile }} --parallel 2 -- -k 0
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
@@ -170,7 +179,7 @@ jobs:
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Configure shared SDK MCP acceptance
         if: matrix.profile == 'native-sdk'
-        run: cmake --preset native-sdk -DFORGE_BUILD_MCP_EDITOR_TESTS=ON -DFORGE_BUILD_GAME_PLATFORM=ON -DFORGE_BUILD_ASSET_TOOLS=ON
+        run: cmake --preset native-sdk -DFETCHCONTENT_BASE_DIR:PATH="${{ steps.core-dependencies.outputs.path }}" -DFORGE_BUILD_MCP_EDITOR_TESTS=ON -DFORGE_BUILD_GAME_PLATFORM=ON -DFORGE_BUILD_ASSET_TOOLS=ON
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Build shared SDK MCP owners
         if: matrix.profile == 'native-sdk'

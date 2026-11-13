@@ -43,7 +43,7 @@ class EditorInputWorkflow {
     unsigned frame_ = 0, play_click_retries_ = 0, menu_click_retries_ = 0;
     unsigned play_invocations_before_ = 0;
     unsigned action_invocations_before_ = 0;
-    bool menu_proxy_ = false;
+    bool menu_proxy_ = false, recovery_click_ = false;
     Uint64 since_ = 0, checkpoint_ = 0;
     ImVec2 pointer_{-FLT_MAX, -FLT_MAX};
     std::string failure_, last_check_, cube_, camera_, light_, scene_;
@@ -1234,6 +1234,12 @@ class EditorInputWorkflow {
         probe.capture("prepared-frame");
         return probe;
     }
+    static EditorInputWorkflow recovery_probe() {
+        EditorInputWorkflow probe(false, {});
+        observe_ui = true;
+        probe.click("recovery:keep-saved");
+        return probe;
+    }
     static EditorInputWorkflow create_menu_probe() {
         EditorInputWorkflow probe(false, {});
         observe_ui = true;
@@ -1640,6 +1646,7 @@ class EditorInputWorkflow {
         click("file:Reload from disk");
         check("unsaved-guard");
         click("unsaved:discard");
+        click("recovery:keep-saved");
         check("reload");
         capture("reloaded-scene");
         create("Rendering", "Camera");
@@ -2359,13 +2366,23 @@ class EditorInputWorkflow {
             require(SDL_SetClipboardText(generated_input_.c_str()),
                     "Cannot paste edited C++ source into the editor");
         }
+        if (step.kind == Kind::Click && step.value == "recovery:keep-saved" && !recovery_click_) {
+            if (!ui_targets.contains("button:Keep saved scene")) {
+                ++frame_;
+                ui_targets.clear();
+                return;
+            }
+            recovery_click_ = true;
+            frame_ = 0;
+        }
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
             if (step.kind == Kind::Click && step.value == "icon:play")
                 play_invocations_before_ = play_action_invocations;
             if (step.kind == Kind::Click && step.value.starts_with("action:"))
                 action_invocations_before_ = action_invocations[step.value.substr(7)];
             auto target =
-                step.value == "saved-cube-row"         ? "entity:" + cube_
+                step.value == "recovery:keep-saved"    ? "button:Keep saved scene"
+                : step.value == "saved-cube-row"       ? "entity:" + cube_
                 : step.value == "graph-parameter-node" ? "graph:node:" + graph_parameter_
                 : step.value == "graph-function-edit"  ? "graph:function-edit:" + graph_function_
                 : step.value == "graph-call-node"      ? "graph:node:" + graph_call_
@@ -2576,6 +2593,8 @@ class EditorInputWorkflow {
         if ((!readiness && !action_observed && frame_ < 8) ||
             (!readiness && SDL_GetTicks() - since_ < 100) || (action_click && !action_observed))
             return;
+        if (step.value == "recovery:keep-saved" && ui_targets.contains("button:Keep saved scene"))
+            return;
         if (action_observed)
             trace_.push_back({{"step", index_},
                               {"operation", "Action callback observed"},
@@ -2662,18 +2681,22 @@ class EditorInputWorkflow {
                                          "Scene pan",
                                          "Scene wheel zoom"};
         static_assert(std::size(names) == static_cast<unsigned>(Kind::CameraWheel) + 1);
-        trace_.push_back({{"step", index_},
-                          {"operation", names[int(step.kind)]},
-                          {"value", step.value},
-                          {"key", step.key == ImGuiKey_None ? "" : ImGui::GetKeyName(step.key)},
-                          {"duration_ms", SDL_GetTicks() - since_},
-                          {"control", step.control},
-                          {"ok", true}});
+        trace_.push_back(
+            {{"step", index_},
+             {"operation", step.value == "recovery:keep-saved"
+                               ? recovery_click_ ? "recovery choice clicked" : "no recovery choice"
+                               : names[int(step.kind)]},
+             {"value", step.value},
+             {"key", step.key == ImGuiKey_None ? "" : ImGui::GetKeyName(step.key)},
+             {"duration_ms", SDL_GetTicks() - since_},
+             {"control", step.control},
+             {"ok", true}});
         std::cout << "Editor input step " << index_ << " complete in " << SDL_GetTicks() - since_
                   << " ms" << std::endl;
         ++index_;
         play_click_retries_ = 0;
         menu_click_retries_ = 0;
+        recovery_click_ = false;
         frame_ = 0;
         since_ = 0;
         last_check_.clear();

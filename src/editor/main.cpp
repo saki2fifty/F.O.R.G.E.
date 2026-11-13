@@ -9294,6 +9294,8 @@ int main(int argc, char** argv) {
             // submissions for the hosted software adapter to drain its queue.
             if (fixture.view_images)
                 SDL_Delay(view_capture_frame_pause_ms);
+            if (fixture.sequence_frames)
+                SDL_Delay(fixture.sequence_frame_pause_ms());
             // The software-adapter walkthrough checks input and readback, not throughput.
             // Pace ordinary submissions as well as isolated graph-worker waits.
             if (fixture.workflow) {

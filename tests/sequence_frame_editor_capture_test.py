@@ -43,6 +43,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='sequence-frame-edi
     assert result.returncode == 0, 'Native frame workflow failed; see capture.log and failure JSON'
     assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
     workflow = json.loads((evidence / 'sequence-frame-workflow.json').read_text())
+    assert workflow['frame_pause_ms'] == 100, workflow
     assert workflow['authored_unchanged'] and workflow['picker_injected']
     assert not workflow['physical_picker'] and len(workflow['captures']) == 3
     for scale, capture in zip((100, 150, 200), workflow['captures']):

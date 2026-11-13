@@ -22,11 +22,16 @@ raster bound, actual encoded-image comparisons and authored-source preservation.
 The input walkthrough leaves 100 milliseconds between ordinary submissions and
 200 milliseconds while awaiting its isolated graph publisher. Its recorded state
 includes `fixture_workflow_frame_pause_ms`, `fixture_shader_wait_pause_ms` and the
-number of graph-wait frames. All 941 actions and input/readiness assertions remain
+number of graph-wait frames. All 942 actions and input/readiness assertions remain
 required. Input retains its 12-second deadline; capture preparation uses the
 ordinary staged-capture 45-second budget because a cold native frame can outlast
 an input gesture. Compiler, worker, GPU and aggregate walkthrough watchdogs remain
-unchanged.
+unchanged. The walkthrough resolves a recovery prompt after its intentional
+Reload through the real **Keep saved scene** button when present, verifies the
+saved scene afterward, and records whether a choice was needed. This includes
+all prior actions plus that explicit recovery decision. The sequence-frame
+fixture also paces submissions 100 milliseconds apart and records `frame_pause_ms`;
+all three scales, fixed-output/modal checks and original-source assertions remain.
 
 For a focused Inspector correction, `editor-audit.yml` accepts `inspector_only`
 with both `workflow_only` and `capture_only`. It builds the same native fixture
@@ -564,6 +569,10 @@ about 52 minutes for setup/build and 68 minutes for 310 of 398 tests before its 
 job limit expired. These overall budgets cover compilation, complete testing,
 installation and cleanup; the test selection and individual guards remain explicit.
 The core/SDK CTest invocation gives otherwise unbounded tests a default of 600 seconds.
+
+The combined `hdr_bloom_gallery` gate retains all fourteen Scenes, the exact
+24-record export closure and source-hidden relocation checks within a 120-second
+aggregate budget. Individual material-resource waits remain five seconds.
 Explicit per-case limits retain precedence, including the 900-second Debug Tile Map
 stress case. A stalled native process therefore fails its case rather than consuming
 the entire remaining matrix-job budget.
@@ -750,7 +759,7 @@ that delivery gate. Product changes require a new proof for affected behavior.
 The shared selection includes `mcp_`: native stdio/configuration
 checks and the GPU-independent editor document/MCP process test. These tests are
 built with the default editor targets; project files stay in temporary directories.
-The 941-action native input walkthrough has a 1500-second aggregate CTest budget,
+The 942-action native input walkthrough has a 1500-second aggregate CTest budget,
 including three graph preparations through the native shader worker. Each graph
 readiness check allows that owner's 300-second worker budget plus 15 seconds for
 UI adoption; ordinary actions retain 12 seconds and C++ compiler checks retain
@@ -844,6 +853,12 @@ the authored-document difference instead of hiding it in a subprocess exception.
 ## Cache behavior
 
 Requested Windows builds restore the dependency checkout/build directory and CMake/Ninja build directory under the runner's short `AgentFiles` paths. Configure, build, tests, and packaging always execute even on a cache hit. Product source is freshly checked out. Verified source-content records preserve timestamps only for unchanged inputs, allowing Ninja to reuse compatible outputs; changed inputs rebuild.
+
+Windows core and SDK jobs also place fetched dependencies under the short
+`AgentFiles/d` directory. Both the base configuration and SDK MCP supplement pass
+the same path explicitly so reapplying a preset cannot restore the longer default.
+This keeps nested third-party object paths within the native compiler's path
+limits. Linux jobs retain their profile-specific dependency directories.
 
 The compatibility key includes the runner image, architecture, MSVC version, Windows SDK, CMake/Ninja versions, absolute checkout path, and CMake configuration/dependency pins. The source commit is appended to the cache entry key; a compatible prior commit can supply a restore fallback. There is no fallback across different compatibility keys. Editor and shared-game jobs can retain compilation after a later validation failure. Restored objects are reusable build inputs, not test evidence. Cache reuse never bypasses required tests or delivery gates. Cache upload failures do not prevent artifact delivery; a failed restore is discarded before a fresh configure.
 
@@ -2039,7 +2054,10 @@ rebinding metadata or executing queued operations early. `native_sdk_simulation_
 executes the public C++ timer during zero rate and Pause through SDK Play;
 `native_sdk_unscaled_time_installed` repeats that consumer after an installed-only
 build and SDK relocation. `simulation_speed_transport` covers both ordinary and
-SDK Play clocks. `mcp_unscaled_time_stdio` checks the same Play status through both
+SDK Play clocks. It holds zero rate for at least 100 milliseconds, then uses the
+existing bounded transport wait for a newer unscaled observation, checking that
+fixed ticks stay unchanged throughout. A copied status is not assumed to arrive
+within that hold interval. `mcp_unscaled_time_stdio` checks the same Play status through both
 actual MCP protocols, stable fixed ticks and authored immutability. These portable
 checks are not native Windows/full editor/physical GPU acceptance.
 

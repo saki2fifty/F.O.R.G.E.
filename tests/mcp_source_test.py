@@ -848,7 +848,10 @@ for legacy in protocol_cases():
                     (root / 'Game' / path).write_text(json.dumps(external), encoding='utf-8')
                     digest = hashlib.sha256((root / 'Game' / path).read_bytes()).hexdigest()
                     def published_digest():
-                        records = json.loads((root / 'Game/forge.assets.json').read_text())['assets']
+                        try:
+                            records = json.loads((root / 'Game/forge.assets.json').read_text())['assets']
+                        except PermissionError:
+                            return None  # Windows may deny a read during atomic replacement.
                         return next(record['metadata']['forge.import']['source_digest']
                                     for record in records if record['id'] == old['asset'])
                     end = time.monotonic() + 12

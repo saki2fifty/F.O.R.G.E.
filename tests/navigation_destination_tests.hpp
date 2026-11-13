@@ -205,9 +205,11 @@ inline void check_navigation_destinations(const std::filesystem::path& root,
             test::observe_ui = false;
             ImGui::DestroyContext();
         }
-    std::ifstream in(project.path(), std::ios::binary);
-    check(std::string(std::istreambuf_iterator<char>(in), {}) == saved_bytes,
-          "Destination drawing or view toggle wrote the saved scene");
+    {
+        std::ifstream in(project.path(), std::ios::binary);
+        check(std::string(std::istreambuf_iterator<char>(in), {}) == saved_bytes,
+              "Destination drawing or view toggle wrote the saved scene");
+    }
     project.open_project(root);
     check(scene.document() == saved, "Destination authored values failed Save/reopen");
     const auto target = tools.requested_destination(scene.effective_document(), actor);

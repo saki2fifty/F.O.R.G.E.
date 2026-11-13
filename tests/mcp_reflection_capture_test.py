@@ -174,15 +174,22 @@ for legacy in (False, True):
         ok('forge_asset_import_close', batch=review['batch'])
 
         # A source edit after review must remain untouched, with last-good selection.
-        selected_source, selected_catalog = source.read_bytes(), index.read_bytes()
+        selected_source = source.read_bytes()
         ok('forge_capture_reflection_start', probe=probe, update_assigned=True, size=64)
         until(lambda: read('forge_capture_status'), lambda row: 'import_batch' in row['reflection'])
         review = until(lambda: read('forge_asset_import_review'), lambda row: row['state'] == 'review')
+        # The open review suspends new automatic imports; drain any earlier writer
+        # before taking the byte baseline for this rejected commit.
+        until(lambda: read('forge_asset_jobs'), lambda row: not row['reimports'])
+        selected_catalog = index.read_bytes()
         source.write_bytes(b'External draft after review')
         ok('forge_asset_import_commit', batch=review['batch'], review=review['review'], **{'import': True})
         complete = until(lambda: read('forge_capture_status'), lambda row: not row['busy'])
         assert complete['reflection']['state'] == 'failed', complete
-        assert source.read_bytes() == b'External draft after review' and index.read_bytes() == selected_catalog
+        assert source.read_bytes() == b'External draft after review', complete
+        assert index.read_bytes() == selected_catalog, (
+            complete, hashlib.sha256(selected_catalog).hexdigest(),
+            hashlib.sha256(index.read_bytes()).hexdigest())
         source.write_bytes(selected_source)
         ok('forge_asset_import_close', batch=review['batch'])
 

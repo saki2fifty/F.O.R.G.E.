@@ -505,9 +505,9 @@ if(BUILD_TESTING)
  add_test(NAME editor_sequence_audio_cues COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_cue_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-cues")
  set_tests_properties(editor_sequence_audio_cues PROPERTIES TIMEOUT 660)
  add_test(NAME editor_input_workflow COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor-workflow" --workflow)
- # The 941-action authoring/export scenario includes native compilation and
+ # The 942-action authoring/export scenario includes native compilation and
  # three graph-worker preparations, each with the native compiler's300s budget.
- # Retain aggregate room for those owners and the real941-action UI/export path.
+ # Retain aggregate room for those owners and the real942-action UI/export path.
  # Input12s, capture45s, compiler180s and worker/child watchdogs remain explicit.
  set_tests_properties(editor_input_workflow PROPERTIES TIMEOUT 1500)
 endif()

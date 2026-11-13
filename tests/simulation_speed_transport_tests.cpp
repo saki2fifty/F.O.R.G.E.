@@ -80,9 +80,12 @@ int main(int argc, char** argv) {
                 SDL_Delay(1);
             }
             check(play.timing().at("tick") == tick, "Editor held motion advanced");
-            check(play.timing().at("unscaled_time").get<double>() > held_time &&
-                      play.timing().at("unscaled_delta").get<double>() > 0,
-                  "Zero-rate process stopped unscaled observation");
+            // Status is copied asynchronously; the hold interval is not an IPC deadline.
+            wait([&] {
+                check(play.timing().at("tick") == tick, "Editor held motion advanced");
+                return play.timing().at("unscaled_time").get<double>() > held_time &&
+                       play.timing().at("unscaled_delta").get<double>() > 0;
+            });
             wait([&] { return play.control_ready(); });
             check(play.set_time_scale(1), "Editor could not restore hold");
             wait([&] {

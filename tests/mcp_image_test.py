@@ -521,7 +521,8 @@ for legacy in protocol_cases():
         animation=encoded['sequence']['animation']
         webp_path=root/'Output/WebPFrames/animation.webp'
         data=webp_path.read_bytes()
-        assert Path(animation['file'])==webp_path and animation['mime']=='image/webp'
+        assert Path(animation['file']).resolve(strict=True)==webp_path.resolve(strict=True),animation
+        assert animation['mime']=='image/webp',animation
         assert animation['bytes']==len(data) and animation['duration_ms']==100 and animation['frames']==3
         assert animation['loop_count']==0 and animation['profile']=='lossless-rgba8-full-frames-v1'
         assert data[:4]==b'RIFF' and data[8:12]==b'WEBP' and int.from_bytes(data[4:8],'little')+8==len(data)
@@ -574,7 +575,8 @@ for legacy in protocol_cases():
         metadata=avi['sequence']['animation']
         avi_path=root/'Output/AVIMovie/animation.avi'
         avi_bytes=avi_path.read_bytes()
-        assert Path(metadata['file'])==avi_path and metadata['mime']=='video/vnd.avi'
+        assert Path(metadata['file']).resolve(strict=True)==avi_path.resolve(strict=True),metadata
+        assert metadata['mime']=='video/vnd.avi',metadata
         assert metadata['codec']=='mjpeg' and metadata['audio'] is False and metadata['jpeg_quality']==78
         assert metadata['rate']==30000 and metadata['scale']==1001 and metadata['frames']==3
         assert metadata['bytes']==len(avi_bytes) and abs(metadata['duration_seconds']-.1001)<1e-12

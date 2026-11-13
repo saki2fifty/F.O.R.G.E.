@@ -40,6 +40,7 @@ struct EditorFixture {
                    ? 512u
                    : 4096u;
     }
+    Uint32 sequence_frame_pause_ms() const { return sequence_frames ? 100u : 0u; }
     unsigned mcp_frames = 0;
     std::filesystem::path mcp_connection;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> view_image_target;
