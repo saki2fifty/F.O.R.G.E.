@@ -270,7 +270,7 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
-          $targets = @('forge_editor_fixture', 'forge_editor_play_input_tests', 'forge_rig_target_editor_tests', 'forge_asset_build', 'gltf2ozz')
+          $targets = @('forge_editor_fixture', 'forge_editor_play_input_tests', 'forge_rig_target_editor_tests', 'forge_tools', 'forge_game', 'forge_asset_build', 'gltf2ozz')
           if ('${{ inputs.inspector_only }}' -ne 'true') { $targets += @($env:FORGE_SHADER_ACCEPTANCE_TARGETS -split ' ') + @('forge_ui_asset_catalog_tests') }
           cmake --build ../AgentFiles/b --target $targets --parallel 2 -- -k 0
       - name: Build actual editor with audit fixture
