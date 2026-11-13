@@ -8,8 +8,11 @@
 #include "ui_effect_fixture.hpp"
 #include <forge/material_graph.hpp>
 #include <forge/shader_resource.hpp>
+#include <forge/surface_shader.hpp>
 #include <fstream>
 #include <iostream>
+#include <span>
+#include <vector>
 using namespace forge;
 using namespace forge::asset_detail;
 using namespace std::chrono_literals;
@@ -35,7 +38,9 @@ AssetImportOutcome finish(AssetImportService& service) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        require(argc == 3, "Shader worker test needs worker and test directory");
+        const bool mesh_only = argc == 4 && std::string_view(argv[3]) == "mesh-graph";
+        require(argc == 3 || mesh_only,
+                "Shader worker test needs worker, directory and optional mesh-graph");
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Shaders");
         const auto id = AssetId::generate();
@@ -47,7 +52,10 @@ int main(int argc, char** argv) {
             {"stages",
              Json::array({{{"stage", "vertex"}, {"source", "main.hlsl"}, {"entry", "vs"}},
                           {{"stage", "pixel"}, {"source", "main.hlsl"}, {"entry", "ps"}}})}};
-        write(root / "surface.shader.json", document.dump());
+        if (mesh_only)
+            document = MaterialGraphSource::create(id).document;
+        const auto authored_source = document.dump();
+        write(root / "surface.shader.json", authored_source);
         write(root / "Shaders/main.hlsl", R"(
 #include "color.hlsli"
 float4 vs(uint id:SV_VertexID):SV_POSITION {return float4(id,0,0,1);}
@@ -83,6 +91,11 @@ float4 ps():SV_TARGET {return color();}
         submit();
         auto outcome = finish(service);
         const auto initial_finished = std::chrono::steady_clock::now();
+        if (mesh_only)
+            std::cout << "Default Mesh graph worker wall seconds: "
+                      << std::chrono::duration<double>(initial_finished - initial_started).count()
+                      << "; published=" << outcome.published
+                      << "; diagnostic=" << outcome.diagnostic << std::endl;
         require(outcome.published && !outcome.cache_hit,
                 "Initial shader worker import failed: " + outcome.diagnostic);
         catalog = AssetCatalog::open_project(root);
@@ -92,6 +105,20 @@ float4 ps():SV_TARGET {return color();}
         const auto first = request_shader(resources, root, catalog, reference);
         require(resources.wait(first, 5s), "Compiled shader resource could not load");
         const auto old = resources.acquire(first);
+        if (mesh_only) {
+            const auto authored_bytes = std::as_bytes(std::span(authored_source));
+            require(
+                old && old->surface && old->surface->physically_based &&
+                    old->stages.size() ==
+                        surface_shader_roles(*old->surface, current_surface_wrapper_version).size(),
+                "Default Mesh graph worker lost its complete native output family");
+            require(read_bytes(root / "surface.shader.json", 1024 * 1024) ==
+                        std::vector<std::byte>(authored_bytes.begin(), authored_bytes.end()),
+                    "Default Mesh graph worker changed its authored source");
+            require(std::filesystem::is_empty(root / ".forge/jobs"),
+                    "Default Mesh graph worker leaked per-job staging");
+            return 0;
+        }
         require(old && old->stages.size() == 2, "Compiled shader resource lost stages");
         const auto content_path =
             root.parent_path() / ("shader-content-" + AssetId::generate().str());

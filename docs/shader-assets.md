@@ -102,7 +102,9 @@ an explicit 100 ms grace period before terminating a compiler that cannot cooper
 These process bounds supplement source limits; they do not promise a sandbox against
 trusted native dependencies. No HLSL source executes inside the editor compiler path.
 Native Windows worker tests exercise successful compilation, diagnostics and failure retention.
-Worker failures retain the supervisor exit/CPU diagnostic and, when available,
+Windows worker failures, including supervisor time/output limits, retain process
+CPU counters when available. Wall-time and output-limit failures are distinct.
+Worker failures also retain the supervisor exit diagnostic and, when available,
 the last bounded compiler checkpoint: entry name, completed entry count and
 elapsed wall time. Partial or missing checkpoints never replace the failure.
 

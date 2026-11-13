@@ -93,8 +93,10 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
     std::optional<std::chrono::steady_clock::time_point> cancel_deadline;
     auto check = [&] {
         const auto now = std::chrono::steady_clock::now();
-        if (now > deadline || output_exceeded(output, resource))
-            throw std::runtime_error("Asset build exceeded time or output limits");
+        if (now > deadline)
+            throw std::runtime_error("Asset build exceeded its wall-time limit");
+        if (output_exceeded(output, resource))
+            throw std::runtime_error("Asset build exceeded output limits");
         if (!cancel.stop_requested())
             return;
         if (kind != WorkerKind::Import || resource.cancellation_grace_ms == 0)
@@ -166,23 +168,27 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
         if (!GetExitCodeProcess(child.value, &code))
             throw std::runtime_error("Cannot read asset worker exit status");
         if (code != 0) {
-            auto message =
-                "Asset build failed; previous assets retained (exit " + std::to_string(code);
+            throw std::runtime_error("Asset build failed; previous assets retained (exit " +
+                                     std::to_string(code) + ")");
+        }
+    } catch (...) {
+        TerminateJobObject(job.value, 1);
+        WaitForSingleObject(child.value, 5000);
+        try {
+            throw;
+        } catch (const std::exception& error) {
+            auto message = std::string(error.what());
             FILETIME created{}, exited{}, kernel{}, user{};
             if (GetProcessTimes(child.value, &created, &exited, &kernel, &user)) {
                 const auto milliseconds = [](FILETIME value) {
                     return ((std::uint64_t(value.dwHighDateTime) << 32) | value.dwLowDateTime) /
                            10000;
                 };
-                message += ", user CPU " + std::to_string(milliseconds(user)) + " ms, kernel CPU " +
-                           std::to_string(milliseconds(kernel)) + " ms";
+                message += "; worker user CPU " + std::to_string(milliseconds(user)) +
+                           " ms, kernel CPU " + std::to_string(milliseconds(kernel)) + " ms";
             }
-            throw std::runtime_error(message + ")");
+            throw std::runtime_error(message);
         }
-    } catch (...) {
-        TerminateJobObject(job.value, 1);
-        WaitForSingleObject(child.value, 5000);
-        throw;
     }
 #else
     // Prepare C++ strings before fork; the child performs syscall setup and exec

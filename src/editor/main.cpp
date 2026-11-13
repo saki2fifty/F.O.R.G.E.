@@ -8802,6 +8802,7 @@ int main(int argc, char** argv) {
                     const auto* rendered = game_viewport->game_scene();
                     captured_document_visible &=
                         play.control_ready() && !play.paused() && rendered &&
+                        play.timing().value("tick", std::uint64_t{}) != 0 &&
                         rendered->model_animations.size() == 3 &&
                         std::all_of(rendered->model_animations.begin(),
                                     rendered->model_animations.end(),

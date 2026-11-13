@@ -102,8 +102,8 @@ jobs:
       FORGE_BUILD_ID: unassigned
       FORGE_SOURCE_COMMIT: ${{ inputs.source_commit }}
       FORGE_INSPECTOR_GROUP: ${{ inputs.inspector_group }}
-      FORGE_SHADER_ACCEPTANCE_REGEX: '^(diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_editor|material_asset|material_pipeline|material_editor|ui_material_gallery_source|ui_material_gallery_export|ui_material_graph_gallery_export|ui_effect_render|editor_render_shaders|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics|editor_render_lightmaps|editor_render_sprites)$'
-      FORGE_SHADER_ACCEPTANCE_TARGETS: forge_viewport_tests forge_material_asset_tests forge_material_pipeline_tests forge_material_editor_tests forge_shader_tests forge_shader_pipeline_tests forge_shader_worker_tests forge_shader_editor_tests forge_ui_render_tests forge_ui_material_gallery_tests
+      FORGE_SHADER_ACCEPTANCE_REGEX: '^(asset_worker_policy|diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_mesh_graph_worker|shader_editor|material_asset|material_pipeline|material_editor|ui_material_gallery_source|ui_material_gallery_export|ui_material_graph_gallery_export|ui_effect_render|editor_render_shaders|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics|editor_render_lightmaps|editor_render_sprites)$'
+      FORGE_SHADER_ACCEPTANCE_TARGETS: forge_asset_worker_tests forge_asset_worker_fixture forge_viewport_tests forge_material_asset_tests forge_material_pipeline_tests forge_material_editor_tests forge_shader_tests forge_shader_pipeline_tests forge_shader_worker_tests forge_shader_editor_tests forge_ui_render_tests forge_ui_material_gallery_tests
       GIT_CONFIG_COUNT: "1"
       GIT_CONFIG_KEY_0: core.longpaths
       GIT_CONFIG_VALUE_0: "true"

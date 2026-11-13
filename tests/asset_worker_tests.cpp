@@ -56,16 +56,21 @@ int main(int argc, char** argv) {
                 run_worker(WorkerKind::Import, executable, staging, cancel, limits);
             } catch (const std::exception& error) {
                 rejected = true;
+                const std::string_view diagnostic = error.what();
+                const bool timeout = std::string_view(mode) == "delay" && !cancel.stop_possible();
+                if (timeout)
+                    require(diagnostic.find("wall-time limit") != std::string_view::npos,
+                            "Worker timeout did not identify the wall-time limit");
                 if (std::string_view(mode) == "fail") {
-                    const std::string_view diagnostic = error.what();
                     require(diagnostic.find("exit 7") != std::string_view::npos,
                             "Worker rejection omitted its actual exit code");
+                }
 #ifdef _WIN32
+                if (std::string_view(mode) == "fail" || timeout)
                     require(diagnostic.find("user CPU ") != std::string_view::npos &&
                                 diagnostic.find("kernel CPU ") != std::string_view::npos,
                             "Windows worker rejection omitted process CPU times");
 #endif
-                }
                 if (!reject)
                     std::cerr << "Unexpected worker rejection: " << error.what() << '\n';
             }
