@@ -558,12 +558,14 @@ on/off image checks run inside the existing D3D12 viewport acceptance. The input
 walkthrough exercises default-off GPU collection, Start/Stop/Clear and captures
 at 100/150/200%. Software WARP results do not establish physical GPU performance.
 
-Both full editor jobs allow 240 minutes overall. The cold numbered Windows build
-[261112-000220](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/43180960961)
-took approximately 140 minutes to compile and link before editor acceptance began,
-leaving insufficient time under the former 150-minute limit. The combined rendering
-and capture diagnostic also builds Main and allows240 minutes. Other focused
-source-audit modes retain 150 minutes. Windows Debug/core and both native SDK jobs
+Full numbered editor builds and full editor source audits allow 360 minutes.
+A cold numbered build measured approximately 140 minutes before acceptance began;
+a later complete gate reached 455 of 571 results before the former240-minute
+limit cancelled it. The full test selection and individual guards remain intact.
+Combined rendering/capture diagnostics retain240 minutes; other focused source
+audits retain150 minutes. Compiler host metadata is retained with the numbered
+viewport diagnostics so native compile measurements can be attributed to their
+runner hardware and image. Windows Debug/core and both native SDK jobs
 allow 180 minutes; Linux Debug/core retains 120 minutes. The same Debug run used
 about 52 minutes for setup/build and 68 minutes for 310 of 398 tests before its former 120-minute
 job limit expired. These overall budgets cover compilation, complete testing,
@@ -852,7 +854,10 @@ the authored-document difference instead of hiding it in a subprocess exception.
 
 ## Cache behavior
 
-Requested Windows builds restore the dependency checkout/build directory and CMake/Ninja build directory under the runner's short `AgentFiles` paths. Configure, build, tests, and packaging always execute even on a cache hit. Product source is freshly checked out. Verified source-content records preserve timestamps only for unchanged inputs, allowing Ninja to reuse compatible outputs; changed inputs rebuild.
+Requested Windows builds restore the dependency checkout/build directory and CMake/Ninja build directory under the runner's short `AgentFiles` paths. Configure, build, tests, and packaging always execute even on a cache hit. Product source is freshly checked out. Verified source-content records preserve timestamps only for unchanged inputs, allowing Ninja to reuse compatible outputs; changed inputs rebuild. Successful compilation records verified source stamps and saves the reusable
+compilation cache before acceptance begins, so a later test failure or timeout
+cannot discard that completed work. Cache admission never qualifies a package;
+all required tests, installation and package checks still run.
 
 Windows core and SDK jobs also place fetched dependencies under the short
 `AgentFiles/d` directory. Both the base configuration and SDK MCP supplement pass

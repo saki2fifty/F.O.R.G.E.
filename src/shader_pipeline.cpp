@@ -191,10 +191,10 @@ WorkerLimits shader_worker_limits() {
     limits.file_bytes = 20ull * 1024 * 1024;
     limits.total_bytes = 32ull * 1024 * 1024;
     limits.files = 260;
-    // One supported Mesh program expands into 19 native output variants. Native
-    // entry checkpoints measure ~158 wall seconds even for the default graph.
+    // One supported Mesh program expands into 19 native output variants.
+    // CPU compilation can consume the complete wall allowance on slower hosts.
     limits.seconds = 300;
-    limits.cpu_seconds = 240;
+    limits.cpu_seconds = limits.seconds;
     limits.cancellation_grace_ms = 100;
     return limits;
 }

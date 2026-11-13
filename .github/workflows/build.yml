@@ -208,8 +208,8 @@ jobs:
   editor:
     if: github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile
     runs-on: windows-2022
-    # Cold build measured140 minutes before acceptance; retain the complete gate.
-    timeout-minutes: 240
+    # Cold build measured140 minutes; complete acceptance needs additional headroom.
+    timeout-minutes: 360
     env:
       FORGE_BUILD_ID: ${{ inputs.build_id }}
       FORGE_SOURCE_COMMIT: ${{ github.sha }}
@@ -308,6 +308,21 @@ jobs:
       - id: editor-build
         run: cmake --build ../AgentFiles/b --parallel 2 -- -k 0
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
+      - name: Record source content and input timestamps for incremental reuse
+        if: ${{ !inputs.clean_build && steps.editor-build.outcome == 'success' }}
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: python tools/ci_source_stamps.py record ../AgentFiles/b/forge-source-stamps.json
+      - name: Save reusable Windows compilation cache
+        continue-on-error: true
+        if: ${{ !inputs.clean_build && steps.editor-build.outcome == 'success' && steps.editor-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        env:
+          NODE_OPTIONS: '--require "${{ steps.cache-workspace.outputs.preload }}"'
+        with:
+          path: |
+            ${{ runner.temp }}/forge-work/AgentFiles/b
+            ${{ runner.temp }}/forge-work/AgentFiles/d
+          key: ${{ steps.cache-key.outputs.key }}-${{ github.sha }}
       - name: Install exact standalone runtime kit
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -319,6 +334,14 @@ jobs:
       - name: Compile preview shaders
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tests/preview_shader_test.py
+      - name: Record native compiler host
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: |
+          $output = '../AgentFiles/b/grid-test-images'
+          New-Item -ItemType Directory -Path $output -Force | Out-Null
+          $processors = @(Get-CimInstance Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors)
+          @{ source_commit = $env:FORGE_SOURCE_COMMIT; image_version = $env:ImageVersion; logical_processors = [Environment]::ProcessorCount; processors = $processors } | ConvertTo-Json -Depth 4 | Out-File "$output/compiler-host.json"
       - name: Run full editor acceptance
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -384,21 +407,6 @@ jobs:
       - name: Verify packaged animation converter after relocation
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tests/animation_package_test.py "../AgentFiles/packages/${env:FORGE_BUILD_ID}-FORGE-Windows-x64.zip" ../AgentFiles/b/forge_animation_tests.exe
-      - name: Record source content and input timestamps for incremental reuse
-        if: ${{ always() && !inputs.clean_build && steps.editor-configure.outcome == 'success' }}
-        working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: python tools/ci_source_stamps.py record ../AgentFiles/b/forge-source-stamps.json
-      - name: Save reusable Windows compilation cache
-        continue-on-error: true
-        if: ${{ always() && !cancelled() && !inputs.clean_build && steps.editor-build.outcome == 'success' && steps.editor-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        env:
-          NODE_OPTIONS: '--require "${{ steps.cache-workspace.outputs.preload }}"'
-        with:
-          path: |
-            ${{ runner.temp }}/forge-work/AgentFiles/b
-            ${{ runner.temp }}/forge-work/AgentFiles/d
-          key: ${{ steps.cache-key.outputs.key }}-${{ github.sha }}
       - name: Upload Windows package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

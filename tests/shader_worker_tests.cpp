@@ -71,6 +71,8 @@ float4 ps():SV_TARGET {return color();}
         catalog.save(AssetCatalog::project_index(root));
         const ShaderCompilerProfile compiler{diligent_shader_compiler_digest(),
                                              diligent_shader_compiler_debug()};
+        std::cout << "Shader compiler digest: " << compiler.digest << "; debug=" << compiler.debug
+                  << std::endl;
         auto registry = std::make_shared<AssetImporterRegistry>();
         registry->add(shader_importer(std::filesystem::absolute(argv[1]), compiler));
         registry->seal();

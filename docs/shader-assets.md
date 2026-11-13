@@ -96,7 +96,7 @@ Changing an unused captured include also rebuilds: this is conservative invalida
 The dedicated Windows shader worker reuses the fixed import-process transport and
 supervisor. It creates a private Diligent WARP device for compilation, independent
 of the editor's adapter/device. The supervisor enforces 1 GiB process memory,
-300 seconds wall time, 240 seconds CPU time and bounded output. A Mesh compile request
+300 seconds wall time, 300 seconds CPU time and bounded output. A Mesh compile request
 contains the complete 19-variant output family. Cancellation retains
 an explicit 100 ms grace period before terminating a compiler that cannot cooperate.
 These process bounds supplement source limits; they do not promise a sandbox against

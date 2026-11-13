@@ -94,10 +94,9 @@ jobs:
   editor:
     if: inputs.performance_source_run == '' || inputs.capture_only || inputs.publication_only || inputs.core_regressions_only
     runs-on: windows-2022
-    # The full cold editor build measured140 minutes before acceptance began.
-    # Capture regressions also build Main and retain240 minutes for that cold build.
-    # Other focused diagnostic modes retain their existing150-minute budget.
-    timeout-minutes: ${{ (!inputs.workflow_only && !inputs.shader_only || inputs.capture_only) && 240 || 150 }}
+    # Full cold compilation plus complete acceptance can exceed240 minutes.
+    # Capture regressions retain240 minutes; other focused modes retain150.
+    timeout-minutes: ${{ !inputs.workflow_only && !inputs.shader_only && 360 || inputs.capture_only && 240 || 150 }}
     env:
       FORGE_BUILD_ID: unassigned
       FORGE_SOURCE_COMMIT: ${{ inputs.source_commit }}
