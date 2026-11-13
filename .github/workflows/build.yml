@@ -110,7 +110,8 @@ jobs:
     # Clean core and SDK builds need room for the complete suite after compilation.
     # Windows Debug used52 minutes to build and68 minutes for310of398 tests.
     # Keep the full selection and child deadlines, including installed consumers.
-    timeout-minutes: ${{ matrix.os == 'windows-2022' && matrix.profile == 'core' && 180 || 120 }}
+    # The Windows SDK base gate measured98 minutes before the added MCP owners/workflows.
+    timeout-minutes: ${{ (matrix.profile == 'native-sdk' || matrix.os == 'windows-2022' && matrix.profile == 'core') && 180 || 120 }}
     env:
       PYTHONDONTWRITEBYTECODE: "1"
       CC: ${{ matrix.os == 'ubuntu-22.04' && 'gcc-12' || 'cl' }}
@@ -169,7 +170,7 @@ jobs:
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Configure shared SDK MCP acceptance
         if: matrix.profile == 'native-sdk'
-        run: cmake --preset native-sdk -DFORGE_BUILD_MCP_EDITOR_TESTS=ON
+        run: cmake --preset native-sdk -DFORGE_BUILD_MCP_EDITOR_TESTS=ON -DFORGE_BUILD_GAME_PLATFORM=ON -DFORGE_BUILD_ASSET_TOOLS=ON
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Build shared SDK MCP owners
         if: matrix.profile == 'native-sdk'
