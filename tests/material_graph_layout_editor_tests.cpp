@@ -1,5 +1,6 @@
 #include "editor/material_graph_editor.hpp"
 #include "material_graph_layout_tests.hpp"
+#include <fstream>
 #include <imgui_internal.h>
 #include <iostream>
 #include <thread>
@@ -368,6 +369,30 @@ int main(int argc, char** argv) {
             input.frame();
             check(!editor.document()->dirty() && publications == 1,
                   "Layout/value Save & Compile omitted source write/publication request");
+            editor.publish = [](const auto&) { return true; };
+            editor.request_save();
+            input.frame();
+            const auto asset = editor.document()->source().asset();
+            editor.source_published(asset); // Acknowledge the normal self-publication route.
+            const auto published_session = editor.document()->session();
+            const auto published_revision = editor.document()->revision();
+            const auto selection = editor.canvas.selection;
+            check(!editor.dirty() && editor.can_undo(),
+                  "Publication fixture lost its saved source history");
+            editor.source_published(project, asset); // Repeated catalog/source notification.
+            check(editor.document()->session() == published_session &&
+                      editor.document()->revision() == published_revision && editor.can_undo() &&
+                      editor.canvas.selection == selection,
+                  "Repeated graph publication replaced its document, history or canvas");
+            {
+                std::ofstream changed(root / "Assets/Layout.shader.json", std::ios::app);
+                changed << '\n';
+                check(bool(changed.flush()), "External source fixture write failed");
+            }
+            editor.source_published(project, asset);
+            check(editor.document()->session() != published_session &&
+                      !editor.document()->can_undo(),
+                  "Changed external graph source did not reload the clean document");
             ImGui::DestroyContext();
         }
         std::cout << "Graph layout/projection, actual selection/history/cancel and compiler "

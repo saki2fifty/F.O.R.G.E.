@@ -38,6 +38,10 @@ template <class Traits> class AssetSourceDocument {
     const std::filesystem::path& project() const { return project_; }
     std::uint64_t revision() const { return revision_; }
     bool dirty() const { return current_.document != saved_; }
+    bool disk_unchanged() const {
+        check();
+        return read(ProjectPaths(project_).resolve(locator_)) == disk_;
+    }
     bool can_undo() const { return !undo_.empty(); }
     bool can_redo() const { return !redo_.empty(); }
     // Preflight a gesture without changing source or history. Both directions
@@ -232,7 +236,7 @@ template <class Traits> void AssetSourceDocument<Traits>::save() {
     check_identity();
     current_.validate();
     const auto file = ProjectPaths(project_).resolve(locator_);
-    if (read(file) != disk_)
+    if (!disk_unchanged())
         throw std::runtime_error(
             "Asset source changed on disk; preserve this draft and reopen before overwriting");
     if (!dirty())

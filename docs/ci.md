@@ -23,10 +23,12 @@ raster bound, actual encoded-image comparisons and authored-source preservation.
 For a focused Inspector correction, `editor-audit.yml` accepts `inspector_only`
 with both `workflow_only` and `capture_only`. It builds the same native fixture
 owners and runs `root_motion_inspector`, `editor_play_input`,
-`editor_animation_root_motion`, `editor_view_images` and `editor_input_workflow`.
+`editor_animation_root_motion`, `editor_view_images`, `editor_input_workflow`,
+`asset_source_document` and `material_graph_layout_editor`.
 Its optional `inspector_group` selects `captures` for the CPU Inspector, native
 root-motion and Save image checks, or `input` for the CPU input and native input
-walkthrough. The default `all` retains all five cases. The recorded audit scope
+walkthrough plus exact source-baseline and repeated-publication regressions.
+The default `all` retains all seven cases. The recorded audit scope
 identifies the exact diagnostic selection. It does not
 replace the complete editor or Windows package gate; unchanged renderer evidence
 can retain its original source and environment attribution.

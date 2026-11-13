@@ -118,7 +118,8 @@ class MaterialGraphEditor {
         }
     }
     void source_published(SceneDocument& project, AssetId id) {
-        if (!document_ || document_->source().asset() != id || dirty())
+        if (!document_ || document_->project() != project.project() ||
+            document_->source().asset() != id || dirty() || document_->disk_unchanged())
             return;
         const auto focus = focus_;
         const auto source = document_->locator();

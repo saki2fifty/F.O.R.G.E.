@@ -176,6 +176,7 @@ void typed(const std::filesystem::path& root) {
     document->save();
     require(!document->dirty() && read(path) != disk, "Typed Save did not adopt its saved value");
     const auto saved = document->source().document;
+    require(document->disk_unchanged(), "Saved source lost its exact disk baseline");
     document->undo();
     require(document->dirty(), "Undo after Save lost the saved-value boundary");
     document->redo();
@@ -186,12 +187,15 @@ void typed(const std::filesystem::path& root) {
     document->edit_source(document->revision(), "Unsaved draft",
                           [](auto& source) { source.document.set("value", 17); });
     const auto saved_disk = read(path);
+    require(document->disk_unchanged(), "An unsaved draft was mistaken for an external file edit");
     atomic_write(path, saved_disk + " ");
+    require(!document->disk_unchanged(), "External byte changes matched the old disk baseline");
     reject([&] { document->save(); });
     require(document->dirty() && document->source().document.json().at("value") == 17 &&
                 read(path) == saved_disk + " ",
             "External baseline rejection lost the draft or overwrote the file");
     atomic_write(path, saved_disk);
+    require(document->disk_unchanged(), "Restored exact bytes did not match the disk baseline");
     document->save();
     require(!document->dirty(), "Typed Save failed after restoring the exact baseline");
     TypedTraits::weight = std::numeric_limits<std::size_t>::max();

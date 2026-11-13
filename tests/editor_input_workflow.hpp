@@ -555,6 +555,11 @@ class EditorInputWorkflow {
                         state.at("graph_preview_current").get<bool>() &&
                         state.at("graph_gpu_ready").get<bool>() && state.at("graph_error") == "",
                     "Graph publication/preview is not ready");
+            trace_.push_back({{"step", index_},
+                              {"operation", "graph ready context"},
+                              {"session", state.value("graph_session", std::uint64_t{})},
+                              {"revision", state.value("graph_revision", std::uint64_t{})},
+                              {"selection", state.value("graph_selection", Json::array())}});
         } else if (what == "graph-renamed" || what == "graph-undo") {
             const auto& g = state.at("graph_document");
             require(g.at("asset_id") == graph_asset_ &&

@@ -7906,6 +7906,13 @@ int main(int argc, char** argv) {
                                                  ? graph_editor.document()->source().document
                                                  : forge::Json(nullptr);
                 observed["graph_dirty"] = graph_editor.dirty();
+                observed["graph_session"] =
+                    graph_editor.document() ? graph_editor.document()->session() : std::uint64_t{};
+                observed["graph_revision"] =
+                    graph_editor.document() ? graph_editor.document()->revision() : std::uint64_t{};
+                observed["graph_selection"] = forge::Json::array();
+                for (const auto& node : graph_editor.canvas.selection)
+                    observed["graph_selection"].push_back(node.str());
                 observed["graph_error"] = graph_editor.diagnostic();
                 observed["graph_compiled"] = graph_editor.preview_ready();
                 observed["graph_preview_current"] = graph_editor.preview_current();

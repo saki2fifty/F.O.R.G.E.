@@ -170,6 +170,9 @@ saved invalid source available for correction, marks unpublished work and retain
 the previous usable immutable Shader/material revision. Dirty close offers save,
 discard or continued editing; discard does not undo source already saved to disk.
 Undo/Redo belongs to this source document, not scene history or asset-file publication.
+Repeated publication notifications for unchanged on-disk source preserve the open
+document session, history, canvas and usable preview. A real external byte change
+still reloads a clean document; dirty drafts keep the existing conflict guard.
 Background Shader imports submit without opening import-settings UI and leave no
 invisible dirty settings document after success or failure.
 
