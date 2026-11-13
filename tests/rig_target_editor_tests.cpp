@@ -49,6 +49,8 @@ void root_motion_inspector(const std::filesystem::path& root) {
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
     ComponentInspector inspector;
+    unsigned timeline_opens = 0;
+    inspector.open_sequence_timeline = [&](EntityRef) { ++timeline_opens; };
     BlockoutProperties transform;
     PrefabEditor prefab;
     std::string status;
@@ -72,6 +74,7 @@ void root_motion_inspector(const std::filesystem::path& root) {
     check(test::ui_targets.contains("component-field:forge.animator:root_motion"),
           "Root-motion Inspector did not visit its authored mode control");
     check(scene.document() == authored, "Unedited root-motion Inspector changed the Scene");
+    check(timeline_opens == 0, "Unlinked Animator opened a sequence Timeline");
     ImGui::DestroyContext();
 }
 } // namespace

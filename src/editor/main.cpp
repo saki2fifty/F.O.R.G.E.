@@ -3849,6 +3849,13 @@ int main(int argc, char** argv) {
                              {"error", diagnostic.error}});
                 }
                 const auto& input = fixture.capture_input;
+                stalled["runtime_ui_alive"] = runtime_ui.presenter_alive();
+                stalled["runtime_ui_diagnostic"] = runtime_ui.diagnostic();
+                stalled["runtime_ui_sources"] = forge::Json::array();
+                if (const auto* assets = runtime_ui.asset_snapshot())
+                    for (const auto& source : assets->sources)
+                        stalled["runtime_ui_sources"].push_back(
+                            {{"source", forge::path_utf8(source.source)}, {"bytes", source.bytes}});
                 stalled["capture_input"] = {{"valid", input.valid},
                                             {"point", {input.x, input.y}},
                                             {"click_stage", input.click_stage},

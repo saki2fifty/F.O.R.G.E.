@@ -596,9 +596,10 @@ class ComponentInspector {
             if (open_sequence_timeline &&
                 (key == "forge.animation_sequence" || key == "forge.animator" ||
                  key == "forge.transform_animator")) {
-                const auto controller = key == "forge.animation_sequence"
-                                            ? scene.reference(entity)
-                                            : values.at(key).value("sequence", EntityRef{});
+                const auto sequence = values.at(key).value("sequence", Json());
+                const auto controller = key == "forge.animation_sequence" ? scene.reference(entity)
+                                        : sequence.is_null() ? EntityRef{}
+                                                             : sequence.get<EntityRef>();
                 if (controller.entity) {
                     if (ui::button(
                             "Open sequence timeline",

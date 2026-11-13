@@ -40,7 +40,7 @@ class EditorInputWorkflow {
     };
     std::vector<Step> steps_;
     std::size_t index_ = 0;
-    unsigned frame_ = 0, play_click_retries_ = 0;
+    unsigned frame_ = 0, play_click_retries_ = 0, menu_click_retries_ = 0;
     unsigned play_invocations_before_ = 0;
     unsigned action_invocations_before_ = 0;
     bool menu_proxy_ = false;
@@ -1222,6 +1222,13 @@ class EditorInputWorkflow {
     static EditorInputWorkflow readiness_probe(const std::string& condition) {
         EditorInputWorkflow probe(false, {});
         probe.check(condition);
+        return probe;
+    }
+    static EditorInputWorkflow create_menu_probe() {
+        EditorInputWorkflow probe(false, {});
+        observe_ui = true;
+        probe.click("menu:Entity");
+        probe.hover("menu:Create");
         return probe;
     }
     explicit EditorInputWorkflow(bool enabled, const std::filesystem::path& evidence,
@@ -2559,6 +2566,18 @@ class EditorInputWorkflow {
             frame_ = 0;
             return; // Keep the original action/readiness deadline and click the real submenu next.
         }
+        if (step.kind == Kind::Click && step.value == "menu:Entity" && index_ + 1 < steps_.size() &&
+            steps_[index_ + 1].value == "menu:Create" && !ui_targets.contains("menu:Create")) {
+            if (menu_click_retries_ < 2) {
+                ++menu_click_retries_;
+                trace_.push_back({{"step", index_},
+                                  {"operation", "retry Entity menu click"},
+                                  {"attempt", menu_click_retries_ + 1}});
+                frame_ = 0;
+            } else
+                failure_ = "Entity menu did not open after three clicks";
+            return;
+        }
         if (step.kind == Kind::Click && step.value == "icon:play" &&
             play_action_invocations == play_invocations_before_) {
             // Enabled-state changes can reject a complete physical click. Retry
@@ -2633,6 +2652,7 @@ class EditorInputWorkflow {
                   << " ms" << std::endl;
         ++index_;
         play_click_retries_ = 0;
+        menu_click_retries_ = 0;
         frame_ = 0;
         since_ = 0;
         last_check_.clear();

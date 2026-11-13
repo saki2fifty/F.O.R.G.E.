@@ -8,13 +8,22 @@ fails the gate; its test steps do not run against older executables.
 
 The editor input, Sprite/sequence frame, root-motion, mixer, audio preview,
 sequence cue and Save image fixtures keep the full editor window and controls at
-their requested scale while limiting Scene/Game raster images to 512 pixels along the
-longer axis. The limit preserves aspect ratio and is recorded as
+their requested scale while limiting Scene/Game raster images to 512 pixels along
+the longer axis. Save image uses 768 pixels to leave room for both bitmap examples
+in its initial scroll-panel view. The limit preserves aspect ratio and is recorded as
 `maximum_view_extent` in capture metadata. These fixtures test controls, routing
 and actual image readback on the hosted software adapter; they do not establish
 full-resolution or physical GPU performance. Dedicated renderer checks retain
 their own render dimensions. The shipping editor's 4096-pixel viewport limit,
 explicit output sizes and five-second GPU backlog watchdog remain unchanged.
+
+For a focused Inspector correction, `editor-audit.yml` accepts `inspector_only`
+with both `workflow_only` and `capture_only`. It builds the same native fixture
+owners and runs `root_motion_inspector`, `editor_play_input`,
+`editor_animation_root_motion`, `editor_view_images` and `editor_input_workflow`.
+The recorded audit scope identifies this five-case diagnostic gate. It does not
+replace the complete editor or Windows package gate; unchanged renderer evidence
+can retain its original source and environment attribution.
 
 Fixed gameplay input recording uses `input_recording` for byte/tick/kind bounds,
 empty Finish, replay/cancel/exhaustion progress and rebinding guards.

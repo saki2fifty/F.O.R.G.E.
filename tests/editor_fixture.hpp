@@ -35,8 +35,10 @@ struct EditorFixture {
          audio_cues = false, view_images = false, sequence_frames = false, sprite_frames = false;
     bool mcp_authoring = false;
     unsigned maximum_view_extent() const {
-        return workflow || sequence_frames || root_motion || view_images || audio_cues ||
-                       audio_preview || audio_mixer
+        if (view_images)
+            return 768u; // Keep both bitmap examples within the scroll panel's initial view.
+        return workflow || sequence_frames || root_motion || audio_cues || audio_preview ||
+                       audio_mixer
                    ? 512u
                    : 4096u;
     }

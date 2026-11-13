@@ -136,7 +136,7 @@ void action_receipt(bool reject_click) {
                 "Completed action waited for extra frames instead of its callback");
     ImGui::DestroyContext();
 }
-void menu_input(bool compact) {
+void menu_input(bool compact, bool entity = false, bool reject_first = false) {
     ImGui::CreateContext();
     auto& io = ImGui::GetIO();
     io.IniFilename = nullptr;
@@ -145,9 +145,10 @@ void menu_input(bool compact) {
     unsigned char* pixels;
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-    auto workflow = test::EditorInputWorkflow::menu_click_probe();
+    auto workflow = entity ? test::EditorInputWorkflow::create_menu_probe()
+                           : test::EditorInputWorkflow::menu_click_probe();
     bool opened = false;
-    unsigned compact_clicks = 0;
+    unsigned compact_clicks = 0, draws = 0, retries = 0;
     const auto draw = [&] {
         test::ui_targets.clear();
         opened = false;
@@ -160,11 +161,19 @@ void menu_input(bool compact) {
             if (compact)
                 FORGE_UI_PROBE("menu:overflow");
             if (root) {
-                const bool file = ImGui::BeginMenu("File");
-                FORGE_UI_PROBE("menu:File");
+                const bool file = ImGui::BeginMenu(entity ? "Entity" : "File",
+                                                   !reject_first || draws == 0 || draws > 10);
+                FORGE_UI_PROBE(entity ? "menu:Entity" : "menu:File");
                 opened = file;
-                if (file)
+                if (file) {
+                    if (entity) {
+                        const bool create = ImGui::BeginMenu("Create");
+                        FORGE_UI_PROBE("menu:Create");
+                        if (create)
+                            ImGui::EndMenu();
+                    }
                     ImGui::EndMenu();
+                }
                 if (compact)
                     ImGui::EndMenu();
             }
@@ -172,6 +181,7 @@ void menu_input(bool compact) {
         }
         ImGui::End();
         ImGui::Render();
+        ++draws;
     };
     draw();
     for (unsigned frame = 0; frame < 100 && !workflow.done(); ++frame) {
@@ -181,13 +191,17 @@ void menu_input(bool compact) {
             Json::object(), [](const auto&) {},
             [&](const Json& report) {
                 compact_clicks = 0;
-                for (const auto& entry : report.at("trace"))
+                for (const auto& entry : report.at("trace")) {
                     compact_clicks += entry.value("operation", "") == "open compact menu";
+                    retries += entry.value("operation", "") == "retry Entity menu click";
+                }
             });
         SDL_Delay(15);
     }
     require(workflow.done() && opened && compact_clicks == unsigned(compact),
-            "Native input driver did not open File through the actual responsive menu");
+            "Native input driver did not open the requested responsive menu");
+    if (reject_first)
+        require(retries != 0, "Rejected Entity menu click did not exercise retry");
     ImGui::DestroyContext();
 }
 void readiness() {
@@ -215,6 +229,8 @@ int main() {
         action_receipt(true);
         menu_input(false);
         menu_input(true);
+        menu_input(false, true, true);
+        menu_input(true, true);
         readiness();
         SDL_Quit();
         std::cout << "Real toolbar receipt/retry bound/startup failure preservation passed\n";
