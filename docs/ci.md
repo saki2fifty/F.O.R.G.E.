@@ -22,7 +22,7 @@ raster bound, actual encoded-image comparisons and authored-source preservation.
 The input walkthrough leaves 100 milliseconds between ordinary submissions and
 1000 milliseconds while awaiting its isolated graph publisher. Its recorded state
 includes `fixture_workflow_frame_pause_ms`, `fixture_shader_wait_pause_ms` and the
-number of graph-wait frames. All 968 actions and input/readiness assertions remain
+number of graph-wait frames. All 972 actions and input/readiness assertions remain
 required. Input retains its 12-second deadline; capture preparation uses the
 ordinary staged-capture 45-second budget because a cold native frame can outlast
 an input gesture. Compiler, worker and GPU guards retain their individual limits;
@@ -761,7 +761,7 @@ that delivery gate. Product changes require a new proof for affected behavior.
 The shared selection includes `mcp_`: native stdio/configuration
 checks and the GPU-independent editor document/MCP process test. These tests are
 built with the default editor targets; project files stay in temporary directories.
-The 968-action native input walkthrough has a 1800-second aggregate CTest budget,
+The 972-action native input walkthrough has a 1800-second aggregate CTest budget,
 including three graph preparations through the native shader worker. Before native
 runtime tuning it creates a Plane, marks Navigation Surface, builds the ordinary
 Scene NavMesh and assigns that published asset to its idle Navigation Agent through
@@ -784,7 +784,7 @@ failed-source last-good checks use the complete preview. The report records
 `fixture_graph_preview_pauses` and `fixture_graph_preview_drawn` alongside timing.
 Ordinary authoring input keeps its existing pacing. The report records
 `fixture_shader_wait_frames` and `fixture_shader_wait_pause_ms`; compiler deadlines,
-all 968 actions and publication/preview acceptance remain required.
+all 972 actions and publication/preview acceptance remain required.
 The input group also runs `material_graph_lifecycle` and `shader_pipeline` to
 cover real preview-worker retirement before Save publication, publication-time
 compile exclusion and shared cooked Shader admission. CPU transport fixtures
