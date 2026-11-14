@@ -28,8 +28,8 @@ struct EditorFixture {
     unsigned stage = 0, frames = 0;
     EditorCaptureInput capture_input;
     Uint64 started = SDL_GetTicks(), stage_started = started;
-    bool prepared = false, workflow = false, physics = false, sdk_play = false,
-         sdk_onboarding = false, animation_exits = false, audio_falloff = false,
+    bool prepared = false, legacy_capture = false, workflow = false, physics = false,
+         sdk_play = false, sdk_onboarding = false, animation_exits = false, audio_falloff = false,
          audio_cones = false, audio_mixer = false, audio_preview = false, root_motion = false;
     bool scene_create = false, hierarchy_create = false, shortcut_reopen = false,
          audio_cues = false, view_images = false, sequence_frames = false, sprite_frames = false;
@@ -40,7 +40,7 @@ struct EditorFixture {
                    ? 512u
                    : 4096u;
     }
-    Uint32 sequence_frame_pause_ms() const { return sequence_frames ? 100u : 0u; }
+    Uint32 capture_frame_pause_ms() const { return legacy_capture || sequence_frames ? 100u : 0u; }
     unsigned mcp_frames = 0;
     std::filesystem::path mcp_connection;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> view_image_target;
@@ -72,6 +72,7 @@ struct EditorFixture {
     std::filesystem::path sdk_root, user_data;
     std::string joint_entity;
     explicit EditorFixture(int argc, char** argv) {
+        legacy_capture = argc == 2;
         // Test-only explicit grants. The secret handoff is outside the project,
         // preferences and retained evidence; the Python supervisor removes it.
         mcp_authoring = argc == 5 && std::string(argv[2]) == "--mcp-authoring";

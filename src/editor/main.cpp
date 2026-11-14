@@ -296,7 +296,7 @@ int main(int argc, char** argv) {
                     !fixture.shortcut_reopen && !fixture.sprite_frames
                 ? 100
                 : 0;
-        constexpr Uint32 shader_wait_frame_pause_ms = 200;
+        constexpr Uint32 shader_wait_frame_pause_ms = 1000;
         constexpr Uint32 view_capture_frame_pause_ms = 500;
         forge::test::fixture_breadcrumb("after-fixture-construct");
         // Legacy EditorInputWorkflow runs only for the historical
@@ -9199,6 +9199,7 @@ int main(int argc, char** argv) {
                                                                {"text", problem.text},
                                                                {"source", problem.source}});
                         }
+                        metrics["fixture_native_frame_pause_ms"] = fixture.capture_frame_pause_ms();
                         forge::atomic_write(
                             fixture.output / ("chrome-" + std::to_string(fixture.stage) + ".json"),
                             metrics.dump(2));
@@ -9294,8 +9295,8 @@ int main(int argc, char** argv) {
             // submissions for the hosted software adapter to drain its queue.
             if (fixture.view_images)
                 SDL_Delay(view_capture_frame_pause_ms);
-            if (fixture.sequence_frames)
-                SDL_Delay(fixture.sequence_frame_pause_ms());
+            if (const auto pause = fixture.capture_frame_pause_ms())
+                SDL_Delay(pause);
             // The software-adapter walkthrough checks input and readback, not throughput.
             // Pace ordinary submissions as well as isolated graph-worker waits.
             if (fixture.workflow) {

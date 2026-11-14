@@ -768,10 +768,15 @@ UI adoption; ordinary actions retain 12 seconds and C++ compiler checks retain
 180 seconds. Worker and child-process watchdogs remain unchanged. The aggregate
 allowance removes no actions, pixel/source checks or acceptance requirements.
 While a graph readiness check waits on the external shader importer, the WARP
-input fixture yields 200 milliseconds between frames to leave CPU time for the
+input fixture yields 1000 milliseconds between frames to leave CPU time for the
 compiler. Ordinary authoring input keeps its existing pacing. The report records
 `fixture_shader_wait_frames` and `fixture_shader_wait_pause_ms`; compiler deadlines,
-all941 actions and publication/preview acceptance remain unchanged.
+all942 actions and publication/preview acceptance remain unchanged.
+The legacy217-stage scaled rendering fixture yields100 milliseconds per frame,
+retaining its original viewport sizes and600-second aggregate/45-second stage
+guards. Its chrome metadata records `fixture_native_frame_pause_ms`. The focused
+input diagnostic includes this legacy capture alongside the complete walkthrough;
+its three CPU source/input regressions remain selected.
 Focused shader/input scopes remain explicitly separate. Numbered
 failures retain the full capture diagnostics and CTest logs, including the stalled
 state JSON, so a screenshot is not the only available readiness evidence.
