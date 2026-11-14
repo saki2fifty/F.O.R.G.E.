@@ -1,6 +1,7 @@
 #include "editor/material_graph_editor.hpp"
 #include "editor/source_document_automation.hpp"
 #include "surface_material_fixture.hpp"
+#include "worker_stage_lease.hpp"
 #include <fstream>
 #include <iostream>
 #include <thread>
@@ -36,7 +37,8 @@ int main(int argc, char** argv) {
             // It never pretends to produce a compiled shader or GPU result.
             const auto project =
                 std::filesystem::current_path().parent_path().parent_path().parent_path();
-            std::ofstream(project / "preview-worker-started") << "started\n";
+            std::ofstream(project / "preview-worker-started")
+                << std::filesystem::current_path().generic_string() << '\n';
             std::this_thread::sleep_for(std::chrono::seconds(10));
             return 1;
         }
@@ -178,15 +180,26 @@ int main(int argc, char** argv) {
             },
             "Actual preview worker did not start");
         check(preview.pending(), "Preview future was not retained");
+        std::string worker_stage;
+        await(
+            [&] {
+                std::ifstream started(first / "preview-worker-started");
+                return bool(std::getline(started, worker_stage)) && !worker_stage.empty();
+            },
+            "Preview worker did not record its staging owner");
+        const auto worker_marker = std::filesystem::path(worker_stage) / "owner.lock";
+        check(!asset_detail::WorkerStageLease::try_open(worker_marker),
+              "Preview worker staging owner was not retained");
         unsigned preview_publications = 0;
         preview.publish = [&](const auto&) {
+            check(!std::filesystem::exists(worker_marker) ||
+                      bool(asset_detail::WorkerStageLease::try_open(worker_marker)),
+                  "Save started publication before the active preview worker retired");
             ++preview_publications;
             return true;
         };
         preview.request_save();
         preview.poll(project, message);
-        check(preview_publications == 0,
-              "Save started publication before the active preview worker retired");
         await(
             [&] {
                 preview.poll(project, message);
