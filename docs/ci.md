@@ -170,6 +170,15 @@ maximum waits, not fixed delays, and do not change worker CPU, memory or output
 limits. Timeout diagnostics identify the source. `shader_worker` exercises the
 same publication helper with its existing real lightmap compilation; the ZIP
 writer checks a simulated slow valid preparer and archive retention on timeout.
+The lightmap preparer republishes its HDR Texture through the matching asset
+worker before its Shader and Material. Source Gallery recipes may target another
+platform; their IDs and source files remain unchanged. The focused shader audit
+also runs `material_lightmap_gallery_test.py` through the real preparer and tools:
+it rejects the original Linux artifact for Windows, verifies native preparation
+preserves the Texture ID, packages the lightmap Scene, hides the source and opens
+relocated cooked content. Its logs and receipt are retained under
+`grid-test-images/lightmap-gallery-export`. Production EXE startup remains part of
+the final combined-package check; runtime target/provenance guards stay enabled.
 No new authoring operation is introduced; existing Shader, Material, UI source and
 dependency automation/MCP operations serve these sources unchanged.
 

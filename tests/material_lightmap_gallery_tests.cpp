@@ -162,6 +162,10 @@ void prepare(const std::filesystem::path& root, const std::filesystem::path& wor
     check(std::filesystem::exists(root / scene_path), "Lightmap Gallery source missing");
     auto lease = std::make_shared<ProjectLease>(root);
     auto shader_worker = worker.parent_path() / "forge_shader_build.exe";
+    AssetImportService textures(
+        lease, texture_import_registry(worker.parent_path() / "forge_asset_build.exe"),
+        desktop_texture_target());
+    publish_gallery_asset(textures, image_path, prepare_texture_publication);
     auto registry = std::make_shared<AssetImporterRegistry>();
     registry->add(asset_detail::shader_importer(shader_worker,
                                                 {asset_detail::diligent_shader_compiler_digest(),

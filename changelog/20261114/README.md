@@ -25,3 +25,6 @@ Shader publication waits respect the existing compiler budget. The package
 preparer watchdog covers its sequential Shader, Material and UI inspection work,
 with source-specific timeout diagnostics. Preparation failures retain the previous
 archive and leave the source Gallery unchanged.
+The native lightmap preparer also reimports its HDR dependency for Windows before
+publishing the Shader and Material. Focused export checks reject foreign cooked
+artifacts and verify the prepared Scene after source removal and relocation.
