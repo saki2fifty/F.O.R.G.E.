@@ -18,3 +18,10 @@ NavMesh through the agent's existing Inspector field before live tuning. Queued
 text entry brings the entire input into view before clicking and typing. A
 regression uses the actual Scene lighting owner in a scrolled window and verifies
 the exact authored color values.
+
+## Windows Gallery packaging
+
+Shader publication waits respect the existing compiler budget. The package
+preparer watchdog covers its sequential Shader, Material and UI inspection work,
+with source-specific timeout diagnostics. Preparation failures retain the previous
+archive and leave the source Gallery unchanged.

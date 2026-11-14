@@ -168,7 +168,8 @@ void prepare(const std::filesystem::path& root, const std::filesystem::path& wor
                                                  asset_detail::diligent_shader_compiler_debug()}));
     registry->seal();
     AssetImportService shaders(lease, registry, {"windows-x64", "d3d12", "fxc-5.1"});
-    publish_gallery_asset(shaders, shader_path, prepare_shader_publication);
+    publish_gallery_asset(shaders, shader_path, prepare_shader_publication,
+                          std::chrono::seconds(asset_detail::shader_worker_limits().seconds + 15));
     AssetImportService materials(lease, material_import_registry(),
                                  {"windows", "d3d12", "desktop"});
     publish_gallery_asset(materials, material_path, prepare_material_publication);

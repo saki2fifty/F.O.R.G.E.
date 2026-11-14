@@ -55,8 +55,10 @@ def package(build, dependencies, output, gallery_preparer=None):
         staged = Path(temporary)/'FeatureGallery'
         shutil.copytree(source_gallery, staged)
         for preparer in preparers:
+            # The UI preparer publishes two Shaders and four Materials, then
+            # inspects both runtime closures. Leave each worker its own budget.
             subprocess.run([str(preparer), '--prepare', str(staged), str(worker)],
-                           check=True, timeout=180)
+                           check=True, timeout=1200)
         _package(build, dependencies, output, staged)
 
 

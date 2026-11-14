@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "asset_import_service.hpp"
+#include "gallery_asset_publication.hpp"
 #include "material_lightmap_fixture.hpp"
 #include "runtime_package.hpp"
 #include "shader_authoring.hpp"
@@ -253,10 +254,8 @@ float4 ps():SV_TARGET {return color();}
         write(root / "lightmap.shader.json", lightmap.document.dump(2));
         catalog.add({lightmap.asset(), "shader", "lightmap.shader.json", 1, {}});
         catalog.save(AssetCatalog::project_index(root));
-        service.submit(service.prepare("lightmap.shader.json"), prepare, no_live_consumers);
-        const auto lightmap_outcome = finish(service);
-        require(lightmap_outcome.published,
-                "Lightmap graph worker compilation failed: " + lightmap_outcome.diagnostic);
+        test::publish_gallery_asset(service, "lightmap.shader.json", prepare_shader_publication,
+                                    std::chrono::seconds(shader_worker_limits().seconds + 15));
         catalog = AssetCatalog::open_project(root);
         require(catalog.records()
                         .at(lightmap.asset())

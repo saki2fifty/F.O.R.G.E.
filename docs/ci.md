@@ -162,6 +162,14 @@ full editor and shader-only acceptance select these checks; source-checkout
 inspection is distinct from native cooking and physical GPU review. Windows
 packaging uses the same preparer on its existing private Gallery staging copy.
 The shared Gallery publication helper also serves the existing lightmap sample.
+Shader publications wait for the compiler owner's 300-second wall budget plus
+15 seconds for admission; Texture and Material publications retain 90 seconds.
+Each native package preparer has a 1200-second parent watchdog, covering the UI
+preparer's two Shaders, four Materials and native closure inspection. These are
+maximum waits, not fixed delays, and do not change worker CPU, memory or output
+limits. Timeout diagnostics identify the source. `shader_worker` exercises the
+same publication helper with its existing real lightmap compilation; the ZIP
+writer checks a simulated slow valid preparer and archive retention on timeout.
 No new authoring operation is introduced; existing Shader, Material, UI source and
 dependency automation/MCP operations serve these sources unchanged.
 

@@ -111,7 +111,12 @@ class GalleryPackageTest(unittest.TestCase):
             self.assertNotEqual(staged, self.gallery)
             self.assertEqual(staged.parent.parent, self.build)
             self.assertEqual(arguments[3], str(self.build/'forge_nav_build.exe'))
-            self.assertEqual(options, dict(check=True, timeout=180))
+            self.assertTrue(options['check'])
+            # Two bounded Shader publications, four Materials and UI inspection
+            # can legitimately outlive the old whole-preparer watchdog.
+            elapsed = 2 * (300 + 15) + 4 * 90 + 4 * 30
+            if options['timeout'] < elapsed:
+                raise subprocess.TimeoutExpired(arguments, options['timeout'])
             self.write(staged/'forge.assets.json', prepared_catalog)
             self.write(staged/'Assets/native-only.fnav', prepared)
             self.write(staged/'.forge/writer.lock', b'Released native fixture lease')
@@ -203,13 +208,16 @@ class GalleryPackageTest(unittest.TestCase):
         preparers = [self.build/name for name in ('first-preparer.exe', 'failed-preparer.exe')]
         for preparer in preparers:
             shutil.copyfile(self.build/'forge_nav_build.exe', preparer)
-        with patch.object(package_windows.subprocess, 'run',
-                          side_effect=[None, subprocess.CalledProcessError(1, 'second-preparer')]) as native:
-            with self.assertRaises(subprocess.CalledProcessError):
-                self.package(preparers)
-        self.assertEqual(native.call_count, 2)
-        self.assertEqual(self.archive.read_bytes(), before)
-        self.assertFalse(list(self.build.glob('gallery-package-*')))
+        for failure in (subprocess.CalledProcessError(1, 'second-preparer'),
+                        subprocess.TimeoutExpired('second-preparer', 1200)):
+            with self.subTest(failure=type(failure).__name__):
+                with patch.object(package_windows.subprocess, 'run',
+                                  side_effect=[None, failure]) as native:
+                    with self.assertRaises(type(failure)):
+                        self.package(preparers)
+                self.assertEqual(native.call_count, 2)
+                self.assertEqual(self.archive.read_bytes(), before)
+                self.assertFalse(list(self.build.glob('gallery-package-*')))
 
     def test_complete_gallery_bytes_and_manifest(self):
         self.package()
