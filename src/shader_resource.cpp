@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "shader_publication.hpp"
+#include "shader_selection.hpp"
 #include <forge/assets.hpp>
 #include <forge/derived_cache.hpp>
 #include <forge/shader_resource.hpp>
@@ -15,8 +16,9 @@ ResourceCandidate<ShaderAsset> candidate(std::span<const std::byte> bytes,
     return {std::move(shader), ResourceMemory{memory}};
 }
 } // namespace
-ResourceTicket request_shader(ResourcePool<ShaderAsset>& pool, std::filesystem::path project,
-                              const AssetCatalog& catalog, AssetRef<ShaderAsset> ref) {
+asset_detail::ShaderSelection asset_detail::select_shader(std::filesystem::path project,
+                                                          const AssetCatalog& catalog,
+                                                          AssetRef<ShaderAsset> ref) {
     const auto found = catalog.records().find(ref.id);
     if (!ref.id || found == catalog.records().end() || found->second.type != ShaderAsset::type ||
         found->second.subasset || found->second.schema_version != 1)
@@ -38,19 +40,24 @@ ResourceTicket request_shader(ResourcePool<ShaderAsset>& pool, std::filesystem::
         {"version", 1}, {"compiler_input_key", compiler_key}, {"layout", layout}};
     if (shader.contains("surface_wrapper_version"))
         selection["surface_wrapper_version"] = shader.at("surface_wrapper_version");
-    return pool.request(
-        ref, key, generation.get<std::uint64_t>(),
-        [project = std::move(project), key,
-         selection = std::move(selection)](std::stop_token stop) {
-            if (stop.stop_requested())
-                throw std::runtime_error("Shader resource load cancelled");
-            DerivedDataCache cache(project, {20 * 1024 * 1024, 32 * 1024 * 1024, 2});
-            auto artifact = cache.load_selected(key, [](const CachedArtifact& a) {
-                if (a.files.size() != 1 || a.files.front().name != "program.shader" ||
-                    a.manifest.at("inputs").at("importer") != "forge.shader.diligent")
-                    throw std::runtime_error("Invalid selected shader artifact");
-            });
-            return candidate(artifact.files.front().bytes, selection, stop);
-        });
+    return {key, generation.get<std::uint64_t>(),
+            [project = std::move(project), key,
+             selection = std::move(selection)](std::stop_token stop) {
+                if (stop.stop_requested())
+                    throw std::runtime_error("Shader resource load cancelled");
+                DerivedDataCache cache(project, {20 * 1024 * 1024, 32 * 1024 * 1024, 2});
+                auto artifact = cache.load_selected(key, [](const CachedArtifact& a) {
+                    if (a.files.size() != 1 || a.files.front().name != "program.shader" ||
+                        a.manifest.at("inputs").at("importer") != "forge.shader.diligent")
+                        throw std::runtime_error("Invalid selected shader artifact");
+                });
+                return candidate(artifact.files.front().bytes, selection, stop);
+            }};
+}
+ResourceTicket request_shader(ResourcePool<ShaderAsset>& pool, std::filesystem::path project,
+                              const AssetCatalog& catalog, AssetRef<ShaderAsset> ref) {
+    auto selection = asset_detail::select_shader(std::move(project), catalog, ref);
+    return pool.request(ref, std::move(selection.revision), selection.generation,
+                        std::move(selection.prepare));
 }
 } // namespace forge

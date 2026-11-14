@@ -192,6 +192,11 @@ published material and preview. The retained image shows the last successful res
 not acceptance of the failed change. **Go to error node** selects the reported node,
 including nodes inside functions. Correct the graph and compile again.
 
+If preview compilation is running, **Save & Compile** cancels that preparation
+before compiling the saved source. Wait for publication and preview preparation
+to finish. The preview then uses the published revision with your current preview
+material values and texture assignments.
+
 Closing with pending work offers Save, Discard or Keep editing. Discard drops unsaved
 drafts; it does not erase source already saved by a failed compile. Unsupported
 nodes remain in the source and show a diagnostic; they are not silently deleted.

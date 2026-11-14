@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-11-14](20261114/README.md) — Serialize graph preview retirement and Shader publication, reuse admitted cooked Shader previews, and preserve preview values/history. Windows walkthrough and package validation remain pending.
+
 - [2026-11-11](20261111/README.md) — Correct optional worker/SDK test registration, explicit JSON comparisons and MSVC object-file capacity; reconcile pinned formatting for the Windows delivery gate. Windows package validation and desktop review remain pending.
 
 - [2026-11-10](20261110/README.md) — Common UI control creation with initial values and atomic native/MCP source history; shared authored color and numeric/unit controls, explicit saving and illustrated instructions. Windows/full-editor/physical review remains queued.

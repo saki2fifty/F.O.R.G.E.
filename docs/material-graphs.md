@@ -165,6 +165,12 @@ choices are temporary; durable choices belong in a MaterialSource. Previous usab
 preview stays visible when new graph, worker or GPU preparation fails.
 
 Save & Compile safely writes graph source, then requests existing Shader publication.
+An active unsaved-preview worker is cancelled and fully retired before publication
+starts. Preview compilation stays suspended during that publication. On success,
+the unchanged graph preview admits the published Shader through the shared cooked
+resource loader, preserving its exact revision and the current material/texture
+preview values. It does not compile the same saved graph a second time. A later
+draft or explicit preview change still uses the normal unsaved-preview path.
 Source save and compiled publication are distinct: failed compilation leaves the
 saved invalid source available for correction, marks unpublished work and retains
 the previous usable immutable Shader/material revision. Dirty close offers save,

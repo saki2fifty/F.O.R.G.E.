@@ -2,6 +2,7 @@
 #include "../bounded_json.hpp"
 #include "../material_graph_document.hpp"
 #include "../shader_pipeline.hpp"
+#include "../shader_selection.hpp"
 #include "document.hpp"
 #include "material_graph_canvas.hpp"
 #include <forge/material_resource.hpp>
@@ -41,7 +42,9 @@ class MaterialGraphEditor {
             pending_preview_ = source;
     }
     bool is_open() const { return bool(document_); }
-    bool pending() const { return wants_preview_ || preview_job_.valid() || publishing_; }
+    bool pending() const {
+        return wants_preview_ || preview_job_.valid() || save_ || publishing_ || published_preview_;
+    }
     bool dirty() const {
         return document_ &&
                (document_->dirty() || canvas.draft_dirty() || needs_publish_ || publishing_);
@@ -57,7 +60,7 @@ class MaterialGraphEditor {
     bool preview_ready() const { return preview_ready_; }
     bool preview_current() const {
         return preview_ready_ && ready_generation_ == generation_ && !wants_preview_ &&
-               !preview_job_.valid();
+               !preview_job_.valid() && !published_preview_;
     }
     void undo() {
         if (can_undo()) {
@@ -97,7 +100,10 @@ class MaterialGraphEditor {
             }
         return key.empty();
     }
-    void request_save() { save_ = true; }
+    void request_save() {
+        save_ = true;
+        cancel_.request_stop();
+    }
     void request_close() {
         close_ = true;
         if (!dirty()) {
@@ -114,6 +120,7 @@ class MaterialGraphEditor {
             return;
         if (publishing_) {
             publishing_ = needs_publish_ = false;
+            published_preview_ = publication_generation_ == generation_;
             error_.clear();
         }
     }
@@ -229,10 +236,14 @@ class MaterialGraphEditor {
                     for (const auto& [key, ref] : preview_textures_)
                         if (values.textures.contains(key))
                             bindings[key] = ref;
-                    MaterialResourceData data{std::move(values), std::move(bindings),
+                    MaterialResourceData data{std::move(values),
+                                              std::move(bindings),
                                               MaterialShaderSnapshot{{document_->source().asset()},
                                                                      program.build_key,
-                                                                     std::move(program)}};
+                                                                     std::move(program)},
+                                              {}};
+                    if (!preview_revision_.empty())
+                        data.surface->revision = preview_revision_;
                     validate_render_material(data);
                     if (update_preview && !preview_ui_)
                         update_preview(std::move(data), catalog_);
@@ -250,12 +261,16 @@ class MaterialGraphEditor {
             if (needs_publish_ && publication_error)
                 error_ = "Source saved; graph publication failed: " + publication_error();
         }
-        if (document_ && save_ && !publishing_) {
+        // A publication and its unsaved preview must never compete for compiler
+        // CPU. Cancellation is complete only after the future has been drained.
+        if (document_ && save_ && !publishing_ && !preview_job_.valid()) {
             save_ = false;
             try {
                 flush();
                 document_->save();
                 needs_publish_ = true;
+                wants_preview_ = published_preview_ = false;
+                publication_generation_ = generation_;
                 if (publish && publish(document_->locator())) {
                     publishing_ = true;
                     error_.clear();
@@ -285,11 +300,29 @@ class MaterialGraphEditor {
         }
         if (!document_)
             return;
-        if (wants_preview_ && !preview_job_.valid() &&
+        if (published_preview_ && !save_ && !publishing_ && !preview_job_.valid()) {
+            published_preview_ = false;
+            try {
+                auto selected = asset_detail::select_shader(document_->project(), *catalog_,
+                                                            {document_->source().asset()});
+                cancel_ = std::stop_source{};
+                requested_generation_ = generation_;
+                preview_revision_ = std::move(selected.revision);
+                preview_job_ =
+                    std::async(std::launch::async,
+                               [prepare = std::move(selected.prepare), stop = cancel_.get_token()] {
+                                   return std::move(*prepare(stop).value);
+                               });
+            } catch (const std::exception& e) {
+                preview_error_ = e.what();
+            }
+        }
+        if (wants_preview_ && !save_ && !publishing_ && !preview_job_.valid() &&
             std::chrono::steady_clock::now() - edited_ >= std::chrono::milliseconds(300)) {
             wants_preview_ = false;
             cancel_ = std::stop_source{};
             requested_generation_ = generation_;
+            preview_revision_.clear();
             auto source = document_->source();
             source.document["graph"] = preview_graph();
             const auto root = document_->project(), worker = worker_;
@@ -606,15 +639,17 @@ class MaterialGraphEditor {
     std::future<ShaderData> preview_job_;
     std::stop_source cancel_;
     bool wants_preview_ = false, preview_ready_ = false, preview_ui_ = false, save_ = false,
-         close_ = false, focus_ = false, publishing_ = false, needs_publish_ = false;
-    uint64_t generation_ = 0, requested_generation_ = 0, ready_generation_ = 0;
+         close_ = false, focus_ = false, publishing_ = false, needs_publish_ = false,
+         published_preview_ = false;
+    uint64_t generation_ = 0, requested_generation_ = 0, ready_generation_ = 0,
+             publication_generation_ = 0;
     std::chrono::steady_clock::time_point edited_;
     struct PendingSource {
         std::filesystem::path project, source;
     };
     std::optional<PendingSource> pending_source_;
     std::optional<std::string> function_name_;
-    std::string error_, preview_error_;
+    std::string error_, preview_error_, preview_revision_;
     MaterialTextureBindings preview_textures_;
     std::optional<ResolvedMaterialSource> preview_source_, pending_preview_;
     char path_[512] = "Assets/SurfaceGraph.shader.json";
@@ -706,6 +741,7 @@ class MaterialGraphEditor {
     }
     void changed() {
         ++generation_;
+        published_preview_ = false;
         edited_ = std::chrono::steady_clock::now();
         wants_preview_ = true;
         cancel_.request_stop();
@@ -741,7 +777,7 @@ class MaterialGraphEditor {
         preview_textures_.clear();
         canvas.reset();
         save_ = close_ = focus_ = publishing_ = needs_publish_ = wants_preview_ = preview_ready_ =
-            preview_ui_ = false;
+            preview_ui_ = published_preview_ = false;
         error_.clear();
         preview_error_.clear();
         if (release_preview)

@@ -1,5 +1,6 @@
 #include "editor/material_graph_editor.hpp"
 #include "editor/source_document_automation.hpp"
+#include "surface_material_fixture.hpp"
 #include <fstream>
 #include <iostream>
 #include <thread>
@@ -144,11 +145,26 @@ int main(int argc, char** argv) {
 
         project.open_project(first, true);
         graph.poll(project, message);
-        MaterialGraphEditor preview(std::filesystem::absolute(argc == 3 ? argv[2] : argv[0]), [] {
+        unsigned preview_requests = 0;
+        MaterialGraphEditor preview(std::filesystem::absolute(argc == 3 ? argv[2] : argv[0]), [&] {
+            ++preview_requests;
             return asset_detail::ShaderCompilerProfile{std::string(64, 'a'), false};
         });
         unsigned preview_adoptions = 0;
-        preview.update_preview = [&](auto, auto) { ++preview_adoptions; };
+        std::optional<MaterialResourceData> adopted;
+        preview.update_preview = [&](auto data, auto) {
+            ++preview_adoptions;
+            adopted = std::move(data);
+        };
+        SurfaceShaderDefinition definition;
+        definition.uv_sets = {0};
+        definition.parameters["gain"] = {MaterialParameterType::Scalar, {1, 0, 0, 0}};
+        definition.textures["image"].semantic = TextureSemantic::Color;
+        auto values = surface_material_defaults(definition);
+        values.parameters.at("gain").value[0] = 3;
+        const AssetRef<TextureAsset> texture{AssetId::generate()};
+        preview.preview_material(
+            {values, {{"image", texture}}, AssetRef<ShaderAsset>{first_id}, {}});
         preview.open(project, source);
         std::this_thread::sleep_for(std::chrono::milliseconds(310));
         preview.poll(project, message);
@@ -162,6 +178,86 @@ int main(int argc, char** argv) {
             },
             "Actual preview worker did not start");
         check(preview.pending(), "Preview future was not retained");
+        unsigned preview_publications = 0;
+        preview.publish = [&](const auto&) {
+            ++preview_publications;
+            return true;
+        };
+        preview.request_save();
+        preview.poll(project, message);
+        check(preview_publications == 0,
+              "Save started publication before the active preview worker retired");
+        await(
+            [&] {
+                preview.poll(project, message);
+                return preview_publications == 1;
+            },
+            "Save did not publish after cancelling the active preview");
+        std::this_thread::sleep_for(std::chrono::milliseconds(310));
+        preview.poll(project, message);
+        check(preview_requests == 1 && preview_adoptions == 0,
+              "Preview compilation restarted during publication");
+        const auto saved_session = preview.document()->session();
+        const auto saved_revision = preview.document()->revision();
+        auto selected = AssetCatalog::open_project(first);
+        const auto cooked = test::publish_surface_fixture(first, selected, first_id, definition);
+        auto published_record = selected.records().at(first_id);
+        published_record.source = source;
+        selected.replace(std::move(published_record));
+        selected.save(AssetCatalog::project_index(first));
+        preview.source_published(first_id);
+        preview.asset_catalog_changed(std::make_shared<const AssetCatalog>(selected));
+        await(
+            [&] {
+                preview.poll(project, message);
+                return !preview.pending();
+            },
+            "Published Shader preview did not settle");
+        check(preview.preview_current() && preview.diagnostic().empty() && preview_requests == 1 &&
+                  preview_adoptions == 1 && adopted &&
+                  encode_shader(adopted->surface->program) == encode_shader(cooked) &&
+                  adopted->surface->revision ==
+                      selected.records().at(first_id).metadata.at("forge.import").at("key") &&
+                  adopted->values.parameters.at("gain").value[0] == 3 &&
+                  adopted->textures.at("image") == texture &&
+                  preview.document()->session() == saved_session &&
+                  preview.document()->revision() == saved_revision,
+              "Publication reuse changed its program, preview values, selection or history");
+
+        preview.request_save();
+        preview.poll(project, message);
+        auto broken = selected;
+        auto record = broken.records().at(first_id);
+        record.metadata["forge.shader"]["layout"] = std::string(64, 'f');
+        broken.replace(std::move(record));
+        preview.source_published(first_id);
+        preview.asset_catalog_changed(std::make_shared<const AssetCatalog>(broken));
+        await(
+            [&] {
+                preview.poll(project, message);
+                return !preview.pending();
+            },
+            "Rejected published Shader preview did not settle");
+        check(preview.preview_ready() && !preview.diagnostic().empty() && preview_adoptions == 1 &&
+                  preview_requests == 1,
+              "Invalid published provenance replaced the last-good preview or recompiled it");
+
+        preview.request_close();
+        preview.poll(project, message);
+        check(!preview.is_open(), "Saved graph failed to close after preview rejection");
+        std::filesystem::remove(first / "preview-worker-started");
+        preview.open(project, source);
+        check(preview.is_open(), preview.diagnostic().c_str());
+        std::this_thread::sleep_for(std::chrono::milliseconds(310));
+        preview.poll(project, message);
+        await(
+            [&] {
+                preview.poll(project, message);
+                if (!preview.pending() && !preview.diagnostic().empty())
+                    throw std::runtime_error(preview.diagnostic());
+                return std::filesystem::exists(first / "preview-worker-started");
+            },
+            "Unsaved preview path did not restart after reopening");
         project.open_project(second, true);
         preview.poll(project, message); // Cancel and close without waiting for the child.
         check(!preview.is_open(), "Old project remained open while its preview was cancelling");
@@ -172,7 +268,7 @@ int main(int argc, char** argv) {
                 return preview.document() && preview.document()->source().asset() == second_id;
             },
             "New-project graph did not open after the cancelled preview drained");
-        check(preview_adoptions == 0 && preview.diagnostic().empty(),
+        check(preview_adoptions == 1 && preview.diagnostic().empty(),
               "Old preview result or diagnostic crossed the project boundary");
         check(asset_detail::read_bytes(first / source, 1024 * 1024) == first_bytes &&
                   asset_detail::read_bytes(second / source, 1024 * 1024) == second_bytes,
