@@ -2164,7 +2164,7 @@ class EditorInputWorkflow {
         text("component-search", "Navigation Agent");
         click("component-choice:forge.navigation_agent");
         key(ImGuiKey_Escape);
-        click("asset-picker:navmesh:##Asset");
+        click("component-field:forge.navigation_agent:navmesh");
         click("authored-navmesh-option");
         check("navigation-assigned");
         click("button:+ Add Component");
