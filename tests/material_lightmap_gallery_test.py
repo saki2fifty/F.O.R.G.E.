@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 from gallery_project_fixture import copy_gallery_project
 
 
@@ -42,7 +43,9 @@ def verify(fixture, gallery, worker, tools, evidence):
         assert failure['error']['code'] == 'asset_tool_failed', failure
         assert 'Cooked artifact target differs' in failure['error']['message'], failure
 
-        prepared = run('prepare', [fixture, '--prepare', source, worker], timeout=600)
+        prepared_started = time.monotonic()
+        prepared = run('prepare', [fixture, '--prepare', source, worker], timeout=900)
+        prepared_seconds = time.monotonic() - prepared_started
         assert prepared.returncode == 0, (prepared.stdout, prepared.stderr)
         catalog = json.loads((source / 'forge.assets.json').read_text(encoding='utf-8'))
         selected = [row for row in catalog['assets'] if row['source'] == image_path]
@@ -67,7 +70,8 @@ def verify(fixture, gallery, worker, tools, evidence):
         receipt = dict(scene=scene['asset_id'], texture=texture['id'],
                        original_platform=original['platform'], target=target,
                        identity_preserved=True, foreign_target_rejected=True,
-                       prepared=True, source_hidden=True, relocated=True,
+                       prepared=True, prepared_seconds=prepared_seconds,
+                       source_hidden=True, relocated=True,
                        scope='Native Windows HDR preparation and runtime content export; '
                              'production EXE startup remains a final combined-package gate.')
         (evidence / 'result.json').write_text(json.dumps(receipt, indent=2) + '\n',

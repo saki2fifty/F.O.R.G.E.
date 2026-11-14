@@ -40,9 +40,9 @@ def run(argv, evidence_log=None, timeout=120, **kwargs):
 
 with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary:
     work = Path(temporary)
-    # Native cooking has its own 300s worker bound, then Material publication.
+    # Native cooking has its own 600s worker bound, then Material publication.
     # Relocated games below retain their existing 120s process watchdogs.
-    prepared = run([build/'forge_game_fixture.exe', '--prepare-sprite-graph' if args.sprite_graph else '--prepare', work/'fixture'], timeout=330)
+    prepared = run([build/'forge_game_fixture.exe', '--prepare-sprite-graph' if args.sprite_graph else '--prepare', work/'fixture'], timeout=750)
     project = Path(prepared.stdout.strip().splitlines()[-1])
     if args.source:
         from standalone_content_fixture import complete_content

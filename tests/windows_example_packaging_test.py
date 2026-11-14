@@ -114,7 +114,7 @@ class GalleryPackageTest(unittest.TestCase):
             self.assertTrue(options['check'])
             # Two bounded Shader publications, four Materials and UI inspection
             # can legitimately outlive the old whole-preparer watchdog.
-            elapsed = 2 * (300 + 15) + 4 * 90 + 4 * 30
+            elapsed = 2 * (600 + 15) + 4 * 90 + 4 * 30
             if options['timeout'] < elapsed:
                 raise subprocess.TimeoutExpired(arguments, options['timeout'])
             self.write(staged/'forge.assets.json', prepared_catalog)
@@ -209,7 +209,7 @@ class GalleryPackageTest(unittest.TestCase):
         for preparer in preparers:
             shutil.copyfile(self.build/'forge_nav_build.exe', preparer)
         for failure in (subprocess.CalledProcessError(1, 'second-preparer'),
-                        subprocess.TimeoutExpired('second-preparer', 1200)):
+                        subprocess.TimeoutExpired('second-preparer', 1800)):
             with self.subTest(failure=type(failure).__name__):
                 with patch.object(package_windows.subprocess, 'run',
                                   side_effect=[None, failure]) as native:

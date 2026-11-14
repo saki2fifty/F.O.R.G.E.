@@ -25,14 +25,14 @@ if(BUILD_TESTING)
  add_dependencies(forge_game_fixture forge_game forge_shader_build_worker)
  copy_required_dlls(forge_game_fixture)
  add_test(NAME standalone_game_workflow COMMAND forge_game_fixture "${CMAKE_BINARY_DIR}/grid-test-images/game")
- # Allow the supervised 300s native cook, Material publication and 90s host workflow.
- set_tests_properties(standalone_game_workflow PROPERTIES TIMEOUT 420)
+ # Allow the supervised 600s native cook, Material publication and 90s host workflow.
+ set_tests_properties(standalone_game_workflow PROPERTIES TIMEOUT 720)
  add_test(NAME game_frame_statistics COMMAND forge_game_fixture --frame-statistics "${CMAKE_BINARY_DIR}/grid-test-images/game-frame-statistics")
- set_tests_properties(game_frame_statistics PROPERTIES TIMEOUT 420)
+ set_tests_properties(game_frame_statistics PROPERTIES TIMEOUT 720)
  add_test(NAME standalone_package_workflow COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/standalone_package_test.py --build ${CMAKE_BINARY_DIR} --kit ${CMAKE_BINARY_DIR}/runtime-kit --evidence ${CMAKE_BINARY_DIR}/grid-test-images/game-package)
- set_tests_properties(standalone_package_workflow PROPERTIES TIMEOUT 600)
+ set_tests_properties(standalone_package_workflow PROPERTIES TIMEOUT 1200)
  add_test(NAME standalone_sprite_material_package COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/standalone_package_test.py --build ${CMAKE_BINARY_DIR} --kit ${CMAKE_BINARY_DIR}/runtime-kit --evidence ${CMAKE_BINARY_DIR}/grid-test-images/sprite-material-package --sprite-graph)
- set_tests_properties(standalone_sprite_material_package PROPERTIES TIMEOUT 600)
+ set_tests_properties(standalone_sprite_material_package PROPERTIES TIMEOUT 1200)
 endif()
 
 # Installation produces a source-independent runtime kit for the exporter.

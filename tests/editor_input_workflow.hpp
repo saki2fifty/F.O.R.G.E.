@@ -2375,11 +2375,11 @@ class EditorInputWorkflow {
             // Captures include first-use native frame preparation, not just input.
             // Match the ordinary staged-capture budget; the GPU watchdog still applies.
             step.kind == Kind::Capture ? 45000u
-            // Mesh graph workers own a300s wall budget for19native variants.
+            // Mesh graph workers own a600s wall budget for19native variants.
             // Allow their result to reach the UI without extending the worker watchdog.
             : step.kind == Kind::Check &&
                     (step.value == "graph-ready" || step.value == "graph-rejected")
-                ? 315000u
+                ? 615000u
             : step.kind == Kind::Check && step.value == "navigation-built"
                 ? 75000u // Bounded geometry/resource admission, worker and UI publication.
             : step.kind == Kind::Check &&

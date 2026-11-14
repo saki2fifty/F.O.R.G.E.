@@ -18,4 +18,4 @@ with tempfile.TemporaryDirectory(prefix='ui-material-', dir=scratch) as temporar
     shutil.copytree(gallery, source)
     action = '--verify-graph-export' if arguments.graph else '--verify-export'
     subprocess.run([str(fixture), action, str(source), str(worker), str(font)],
-                   check=True, timeout=150)
+                   check=True, timeout=960)

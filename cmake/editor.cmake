@@ -345,16 +345,16 @@ if(BUILD_TESTING)
  add_dependencies(forge_viewport_tests forge_asset_build_worker)
  add_test(NAME editor_render_lightmaps COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images/lightmaps" lightmaps)
  add_test(NAME shader_worker COMMAND forge_shader_worker_tests $<TARGET_FILE:forge_shader_build_worker> "${CMAKE_BINARY_DIR}/shader-worker-tests")
- set_tests_properties(shader_worker PROPERTIES TIMEOUT 420)
+ set_tests_properties(shader_worker PROPERTIES TIMEOUT 720)
  add_test(NAME shader_mesh_graph_worker COMMAND forge_shader_worker_tests $<TARGET_FILE:forge_shader_build_worker> "${CMAKE_BINARY_DIR}/shader-mesh-worker-tests" mesh-graph)
- set_tests_properties(shader_mesh_graph_worker PROPERTIES TIMEOUT 330)
+ set_tests_properties(shader_mesh_graph_worker PROPERTIES TIMEOUT 720)
  add_test(NAME editor_render_shaders COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images/shaders" shaders)
- set_tests_properties(editor_render_shaders PROPERTIES TIMEOUT 600)
+ set_tests_properties(editor_render_shaders PROPERTIES TIMEOUT 1260)
  add_test(NAME editor_viewport_render COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images")
  # Shader lifecycle acceptance retains the complete graph/area families and a
  # post-compilation device render. The viewport case shares its device across
  # the remaining renderer consumers, without repeating those long compilations.
- set_tests_properties(editor_viewport_render PROPERTIES TIMEOUT 600)
+ set_tests_properties(editor_viewport_render PROPERTIES TIMEOUT 1260)
  foreach(render_case IN ITEMS morph skin frame optics sequence-frames sprites sprite-surfaces sprite-bloom tile-canvas tile-gallery physics-2d physics-tiles)
   add_test(NAME editor_render_${render_case} COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images/${render_case}" ${render_case})
   set_tests_properties(editor_render_${render_case} PROPERTIES TIMEOUT 60)
@@ -395,7 +395,7 @@ if(BUILD_TESTING)
  target_link_libraries(forge_ui_render_tests PRIVATE forge_presentation_diligent forge_shader_authoring forge_shader_diligent forge_material_authoring forge_model_render_resources forge_runtime_dependencies forge_ui_inspection)
  add_dependencies(forge_ui_render_tests forge_shader_build_worker forge_ui_inspect)
  add_test(NAME ui_effect_render COMMAND forge_ui_render_tests "${CMAKE_BINARY_DIR}/ui-effect-render" "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf" $<TARGET_FILE:forge_shader_build_worker> --material-effect-only $<TARGET_FILE:forge_ui_inspect>)
- set_tests_properties(ui_effect_render PROPERTIES TIMEOUT 180)
+ set_tests_properties(ui_effect_render PROPERTIES TIMEOUT 1260)
  target_link_libraries(forge_ui_render_tests PRIVATE forge_view_image)
  target_link_libraries(forge_ui_render_tests PRIVATE forge_ui_source_authoring)
  add_test(NAME ui_source_preview_render COMMAND forge_ui_render_tests "${CMAKE_BINARY_DIR}/ui-source-preview-render" "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf" "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" --source-preview-only)
@@ -505,9 +505,9 @@ if(BUILD_TESTING)
  add_test(NAME editor_sequence_audio_cues COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_cue_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-cues")
  set_tests_properties(editor_sequence_audio_cues PROPERTIES TIMEOUT 660)
  add_test(NAME editor_input_workflow COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor-workflow" --workflow)
- # The 968-action authoring/export scenario includes native compilation and
- # three graph-worker preparations, each with the native compiler's300s budget.
- # Retain aggregate room for those owners and the real968-action UI/export path.
+ # The 972-action authoring/export scenario includes native compilation and
+ # three graph-worker preparations, each with the native compiler's600s budget.
+ # Retain aggregate room for those owners and the real972-action UI/export path.
  # Input12s, capture45s, compiler180s and worker/child watchdogs remain explicit.
- set_tests_properties(editor_input_workflow PROPERTIES TIMEOUT 1800)
+ set_tests_properties(editor_input_workflow PROPERTIES TIMEOUT 2700)
 endif()

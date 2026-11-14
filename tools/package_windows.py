@@ -58,7 +58,7 @@ def package(build, dependencies, output, gallery_preparer=None):
             # The UI preparer publishes two Shaders and four Materials, then
             # inspects both runtime closures. Leave each worker its own budget.
             subprocess.run([str(preparer), '--prepare', str(staged), str(worker)],
-                           check=True, timeout=1200)
+                           check=True, timeout=1800)
         _package(build, dependencies, output, staged)
 
 

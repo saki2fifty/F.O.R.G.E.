@@ -26,7 +26,7 @@ number of graph-wait frames. All 972 actions and input/readiness assertions rema
 required. Input retains its 12-second deadline; capture preparation uses the
 ordinary staged-capture 45-second budget because a cold native frame can outlast
 an input gesture. Compiler, worker and GPU guards retain their individual limits;
-the complete walkthrough has an 1800-second aggregate allowance. It resolves a
+the complete walkthrough has a 2700-second aggregate allowance. It resolves a
 recovery prompt after its intentional Reload through the real **Keep saved scene** button when present, verifies the
 saved scene afterward, and records whether a choice was needed. This includes
 all prior actions plus that explicit recovery decision. The sequence-frame
@@ -162,12 +162,12 @@ full editor and shader-only acceptance select these checks; source-checkout
 inspection is distinct from native cooking and physical GPU review. Windows
 packaging uses the same preparer on its existing private Gallery staging copy.
 The shared Gallery publication helper also serves the existing lightmap sample.
-Shader publications wait for the compiler owner's 300-second wall budget plus
+Shader publications wait for the compiler owner's 600-second wall budget plus
 15 seconds for admission; Texture and Material publications retain 90 seconds.
-Each native package preparer has a 1200-second parent watchdog, covering the UI
+Each native package preparer has an 1800-second parent watchdog, covering the UI
 preparer's two Shaders, four Materials and native closure inspection. These are
-maximum waits, not fixed delays, and do not change worker CPU, memory or output
-limits. Timeout diagnostics identify the source. `shader_worker` exercises the
+maximum waits, not fixed delays. Memory, output, cancellation and target validation
+retain their independent bounds. Timeout diagnostics identify the source. `shader_worker` exercises the
 same publication helper with its existing real lightmap compilation; the ZIP
 writer checks a simulated slow valid preparer and archive retention on timeout.
 The lightmap preparer republishes its HDR Texture through the matching asset
@@ -179,6 +179,23 @@ preserves the Texture ID, packages the lightmap Scene, hides the source and open
 relocated cooked content. Its logs and receipt are retained under
 `grid-test-images/lightmap-gallery-export`. Production EXE startup remains part of
 the final combined-package check; runtime target/provenance guards stay enabled.
+Its 900-second preparer watchdog covers one bounded Shader cook, Texture/Material
+publication and catalog preparation. UI export helpers permit 960 seconds inside
+1020-second CTest guards for one Shader, two Materials and native inspection.
+
+[The Intel hosted audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/43633728223)
+passes all 22 registered cases but reaches the former 300-second Shader limit
+while preparing the original lightmap Scene. Its worker records 299187 ms user CPU
+and 781 ms kernel CPU before the first color entry finishes. On that same two-core
+host, the default Mesh worker takes 290.74 seconds, compared with 181.24 seconds in
+[the preceding AMD hosted audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/43610116350).
+The supervisor therefore permits 600 seconds each of CPU and wall time for a full
+19-role family. Shader worker tests allow 720 seconds; the shader lifecycle and
+shared-device viewport cases allow 1260 seconds for their multiple native programs.
+The UI effect case retains its full replacement/relocation sequence inside the
+same 1260-second parent bound. These are hosted compiler acceptance measurements
+and finite workload allowances; GPU rendering assertions remain required.
+
 No new authoring operation is introduced; existing Shader, Material, UI source and
 dependency automation/MCP operations serve these sources unchanged.
 
@@ -778,7 +795,7 @@ that delivery gate. Product changes require a new proof for affected behavior.
 The shared selection includes `mcp_`: native stdio/configuration
 checks and the GPU-independent editor document/MCP process test. These tests are
 built with the default editor targets; project files stay in temporary directories.
-The 972-action native input walkthrough has a 1800-second aggregate CTest budget,
+The 972-action native input walkthrough has a 2700-second aggregate CTest budget,
 including three graph preparations through the native shader worker. Before native
 runtime tuning it creates a Plane, marks Navigation Surface, builds the ordinary
 Scene NavMesh and assigns that published asset to its idle Navigation Agent through
@@ -787,9 +804,9 @@ preparation check allows 75 seconds for bounded geometry loading, worker complet
 and UI adoption. The [native input audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/43549352143)
 took 1402 seconds to reach step 844 before this required
 setup; the aggregate covers the remaining actions and additional preparation. Each graph
-readiness check allows that owner's 300-second worker budget plus 15 seconds for
+readiness check allows that owner's 600-second worker budget plus 15 seconds for
 UI adoption; ordinary actions retain 12 seconds and C++ compiler checks retain
-180 seconds. Worker and child-process watchdogs remain unchanged. The aggregate
+180 seconds. Non-shader worker watchdogs remain unchanged. The aggregate
 allowance removes no actions, pixel/source checks or acceptance requirements.
 While a graph readiness check waits on the external shader importer, the WARP
 input fixture yields 1000 milliseconds between frames to leave CPU time for the
@@ -880,10 +897,10 @@ The installed SDK package test compiles and runs its delivered
 scope remains focused on shader/material compilation and rendering.
 The complete installed-SDK test has an aggregate watchdog of 600 seconds for installation,
 the installed sample build and relocated consumer probes; child deadlines remain
-independent. Standalone graph preparation permits 330 seconds around the supervised
-native cook (300 seconds) and Material publication. The two direct game fixtures
-permit 420 seconds, with their gameplay watchdog (90 seconds) starting after
-preparation; package workflows permit 600 seconds while retaining limits of
+independent. Standalone graph preparation permits 750 seconds around the supervised
+native cook (600 seconds) and Material publication. The two direct game fixtures
+permit 720 seconds, with their gameplay watchdog (90 seconds) starting after
+preparation; package workflows permit 1200 seconds while retaining limits of
 120 seconds for exported-game processes. These are test
 workload bounds, not startup or runtime performance claims.
 The same installed SDK gate runs `sequence_gameplay` through Gallery62 and 68,

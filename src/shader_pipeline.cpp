@@ -192,8 +192,9 @@ WorkerLimits shader_worker_limits() {
     limits.total_bytes = 32ull * 1024 * 1024;
     limits.files = 260;
     // One supported Mesh program expands into 19 native output variants.
-    // CPU compilation can consume the complete wall allowance on slower hosts.
-    limits.seconds = 300;
+    // The complete family can exceed five minutes on supported compiler hosts.
+    // Keep CPU and wall caps aligned; cancellation and output stay independent.
+    limits.seconds = 600;
     limits.cpu_seconds = limits.seconds;
     limits.cancellation_grace_ms = 100;
     return limits;
