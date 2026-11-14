@@ -1257,8 +1257,22 @@ int main(int argc, char** argv) {
             graph_preview_catalog = std::move(catalog);
         };
         graph_editor.draw_preview = [&](bool stacked) {
-            if (graph_preview && graph_preview_catalog)
+#ifdef FORGE_UI_FIXTURE
+            // Repeated software 3D draws compete with the isolated compiler. Keep
+            // its retained resources; resume actual rendering before readiness.
+            if (fixture.shader_compilation_wait(input_workflow.waiting_for_graph_compilation(),
+                                                shader_imports.pending())) {
+                ++fixture.graph_preview_pauses;
+                ImGui::TextUnformatted("Preparing graph compilation...");
+                return;
+            }
+#endif
+            if (graph_preview && graph_preview_catalog) {
                 graph_preview->draw(*graph_preview_catalog, stacked);
+#ifdef FORGE_UI_FIXTURE
+                fixture.graph_preview_drawn = true;
+#endif
+            }
         };
         graph_editor.release_preview = [&] {
             graph_preview.reset();
@@ -2985,6 +2999,7 @@ int main(int argc, char** argv) {
 #endif
         while (running) {
 #ifdef FORGE_UI_FIXTURE
+            fixture.graph_preview_drawn = false;
             // Main-loop breadcrumb is logged once on first entry only
             // (avoids per-frame synchronous stdout + log bloat).
             static bool first_main_loop_iter_logged = false;
@@ -7850,6 +7865,8 @@ int main(int argc, char** argv) {
                     observed["navigation"] =
                         forge::NavigationAutomation::state(navigation_tools, scene, files);
                 observed["fixture_shader_wait_frames"] = fixture.shader_wait_frames;
+                observed["fixture_graph_preview_pauses"] = fixture.graph_preview_pauses;
+                observed["fixture_graph_preview_drawn"] = fixture.graph_preview_drawn;
                 observed["fixture_workflow_frame_pause_ms"] = workflow_frame_pause_ms;
                 observed["fixture_shader_wait_pause_ms"] = shader_wait_frame_pause_ms;
                 observed["scene_view"] = {{"projection", unsigned(camera.projection)},
@@ -7935,7 +7952,8 @@ int main(int argc, char** argv) {
                                             ? forge::Json(*diagnostic.context.entity)
                                             : forge::Json(nullptr)},
                              {"text", diagnostic.text}});
-                observed["graph_gpu_ready"] = graph_preview && !graph_preview->pending() &&
+                observed["graph_gpu_ready"] = graph_preview && fixture.graph_preview_drawn &&
+                                              !graph_preview->pending() &&
                                               graph_preview->diagnostics().empty();
                 observed["material_disk"] =
                     material_editor.document()
@@ -9303,8 +9321,8 @@ int main(int argc, char** argv) {
             // The software-adapter walkthrough checks input and readback, not throughput.
             // Pace ordinary submissions as well as isolated graph-worker waits.
             if (fixture.workflow) {
-                const bool shader_wait =
-                    input_workflow.waiting_for_graph_compilation() && shader_imports.pending();
+                const bool shader_wait = fixture.shader_compilation_wait(
+                    input_workflow.waiting_for_graph_compilation(), shader_imports.pending());
                 if (shader_wait)
                     ++fixture.shader_wait_frames;
                 const auto pause =

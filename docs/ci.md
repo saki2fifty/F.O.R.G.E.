@@ -776,7 +776,13 @@ UI adoption; ordinary actions retain 12 seconds and C++ compiler checks retain
 allowance removes no actions, pixel/source checks or acceptance requirements.
 While a graph readiness check waits on the external shader importer, the WARP
 input fixture yields 1000 milliseconds between frames to leave CPU time for the
-compiler. Ordinary authoring input keeps its existing pacing. The report records
+compiler. During that same wait, the fixture retains its existing graph preview
+resources but suspends redundant 3D preview redraws on the software adapter.
+Readiness requires an actual preview draw in the current frame after compilation,
+as well as the existing current-publication and GPU-resource checks. Capture and
+failed-source last-good checks use the complete preview. The report records
+`fixture_graph_preview_pauses` and `fixture_graph_preview_drawn` alongside timing.
+Ordinary authoring input keeps its existing pacing. The report records
 `fixture_shader_wait_frames` and `fixture_shader_wait_pause_ms`; compiler deadlines,
 all 968 actions and publication/preview acceptance remain required.
 The legacy 217-stage scaled rendering fixture yields 100 milliseconds per frame,

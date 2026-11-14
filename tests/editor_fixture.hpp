@@ -47,7 +47,11 @@ struct EditorFixture {
     ViewImageReference view_image_background;
     Json view_image_report;
     Json inspector_capture = Json::object();
-    unsigned shader_wait_frames = 0;
+    unsigned shader_wait_frames = 0, graph_preview_pauses = 0;
+    bool graph_preview_drawn = false;
+    bool shader_compilation_wait(bool graph_wait, bool publication_pending) const {
+        return workflow && graph_wait && publication_pending;
+    }
     std::filesystem::path view_image_path;
     unsigned view_image_ready_frames = 0;
     bool source_baseline_ready = false;
