@@ -401,7 +401,7 @@ class SequenceFrameEditorWorkflow {
                 atomic_write(fixture.output / "sequence-frame-workflow.json",
                              Json{{"source_commit", source_commit},
                                   {"build_id", build_id},
-                                  {"frame_pause_ms", fixture.sequence_frame_pause_ms()},
+                                  {"frame_pause_ms", fixture.capture_frame_pause_ms()},
                                   {"physical_picker", false},
                                   {"picker_injected", true},
                                   {"captures", records_},
