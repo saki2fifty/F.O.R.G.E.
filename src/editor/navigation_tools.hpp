@@ -172,7 +172,9 @@ class NavigationTools {
     }
     void content(Scene& scene, SceneDocument& project, bool locked, std::string& message,
                  std::shared_ptr<const AssetCatalog> catalog) {
-        if (!ImGui::CollapsingHeader("Navigation")) {
+        const bool expanded = ImGui::CollapsingHeader("Navigation");
+        FORGE_UI_PROBE("navigation:panel");
+        if (!expanded) {
             ui::help(
                 "Build static 3D navigation from shapes/Meshes or XY navigation from regions.");
             return;

@@ -235,6 +235,46 @@ void readiness() {
             "Accepted graph retained its compiler wait");
     ImGui::DestroyContext();
 }
+void navigation_preparation() {
+    ImGui::CreateContext();
+    auto workflow = test::EditorInputWorkflow::navigation_preparation_probe();
+    Json state{
+        {"scene",
+         {{"entities",
+           Json::array({{{"id", "agent"},
+                         {"components", {{"forge.navigation_agent", {{"navmesh", nullptr}}}}}}})}}},
+        {"navigation",
+         {{"started", true},
+          {"busy", true},
+          {"error", ""},
+          {"asset", "mesh"},
+          {"profiles", {{"default", "other"}}}}}};
+    const auto tick = [&] {
+        workflow.input();
+        workflow.finish(state, [](const auto&) {}, [](const Json&) {});
+    };
+    tick();
+    require(workflow.waiting_for_navigation_build(), "Busy navigation passed readiness");
+    state["navigation"]["busy"] = false;
+    tick();
+    require(workflow.waiting_for_navigation_build(), "Another navigation profile passed readiness");
+    state["navigation"]["profiles"]["default"] = "mesh";
+    tick();
+    require(!workflow.done() && !workflow.waiting_for_navigation_build(),
+            "Published navigation did not advance to its required Inspector binding");
+    auto& components = state["scene"]["entities"][0]["components"];
+    components["forge.navigation_agent"]["navmesh"] = "other";
+    tick();
+    require(!workflow.done(), "Another agent asset passed binding readiness");
+    components["forge.navigation_agent"]["navmesh"] = "mesh";
+    components["forge.physics_body"] = Json::object();
+    tick();
+    require(!workflow.done(), "A physics agent conflict passed native tuning setup");
+    components.erase("forge.physics_body");
+    tick();
+    require(workflow.done(), "Published and assigned navigation did not become ready");
+    ImGui::DestroyContext();
+}
 void capture_preparation() {
     ImGui::CreateContext();
     auto workflow = test::EditorInputWorkflow::capture_probe();
@@ -318,6 +358,7 @@ int main() {
         menu_input(false, true, true);
         menu_input(true, true);
         readiness();
+        navigation_preparation();
         capture_preparation();
         recovery_choice(false);
         recovery_choice(true);

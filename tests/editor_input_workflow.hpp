@@ -46,7 +46,7 @@ class EditorInputWorkflow {
     bool menu_proxy_ = false, recovery_click_ = false;
     Uint64 since_ = 0, checkpoint_ = 0;
     ImVec2 pointer_{-FLT_MAX, -FLT_MAX};
-    std::string failure_, last_check_, cube_, camera_, light_, scene_;
+    std::string failure_, last_check_, cube_, camera_, light_, scene_, navigation_asset_;
     std::uint64_t paused_tick_ = 0;
     Json multi_before_, cache_scene_, saved_, before_model_, initial_material_,
         trace_ = Json::array();
@@ -720,6 +720,28 @@ class EditorInputWorkflow {
                                     "color:contrast", "color:reset"})
                 require(ui_targets.contains(key) && !ui_targets.at(key).enabled,
                         "Authored Scene color control remained enabled during Play");
+        } else if (what == "navigation-built") {
+            const auto& navigation = state.at("navigation");
+            require(navigation.value("started", false) && !navigation.at("busy").get<bool>() &&
+                        navigation.value("error", "").empty() &&
+                        navigation.at("asset").is_string() &&
+                        navigation.at("profiles").contains("default") &&
+                        navigation.at("profiles").at("default") == navigation.at("asset"),
+                    "Waiting for the current Scene's published default NavMesh");
+            navigation_asset_ = navigation.at("asset").get<std::string>();
+        } else if (what == "navigation-assigned") {
+            bool bound = false;
+            for (const auto& row : entities)
+                if (row.at("id") == cube_) {
+                    const auto& components = row.at("components");
+                    bound = !navigation_asset_.empty() &&
+                            components.at("forge.navigation_agent").at("navmesh") ==
+                                navigation_asset_ &&
+                            !components.contains("forge.physics_body") &&
+                            !components.contains("forge.physics_body_2d");
+                }
+            require(bound,
+                    "Native tuning agent lacks the published NavMesh or conflicts with physics");
         } else if (what == "runtime-tuning-ready") {
             require(
                 state.at("playing").get<bool>() && state.at("control_ready").get<bool>(),
@@ -1245,6 +1267,13 @@ class EditorInputWorkflow {
         observe_ui = true;
         probe.click("menu:Entity");
         probe.hover("menu:Create");
+        return probe;
+    }
+    static EditorInputWorkflow navigation_preparation_probe() {
+        EditorInputWorkflow probe(false, {});
+        probe.cube_ = "agent";
+        probe.check("navigation-built");
+        probe.check("navigation-assigned");
         return probe;
     }
     explicit EditorInputWorkflow(bool enabled, const std::filesystem::path& evidence,
@@ -2109,13 +2138,35 @@ class EditorInputWorkflow {
         capture("sequence-camera-preview-200");
         key(ImGuiKey_0, true);
         configure_shortcuts();
-        // Actual editor/Play route without a project module or compiler. This
-        // verifies value transfer; the unbound agent has no movement destination.
+        // Bake and assign a valid ordinary Scene NavMesh before native live tuning.
+        // The agent stays idle, but runtime admission still requires its resource.
+        click("tab:Scene");
+        create("3D Primitive", "Plane");
+        text("transform:forge.scale:0", "20", true);
+        text("transform:forge.scale:2", "20", true);
+        text("transform:forge.position:1", "-1", true);
+        click("button:+ Add Component");
+        text("component-search", "Navigation Surface");
+        click("component-choice:forge.navigation_surface");
+        key(ImGuiKey_Escape);
+        key(ImGuiKey_S, true);
+        check("saved");
+        click("tab:Content");
+        click("button:Actions");
+        click("button:Create / Register");
+        click("navigation:panel");
+        click("button:Build NavMesh");
+        check("navigation-built");
+        key(ImGuiKey_Escape);
+        click("tab:Scene");
         click("saved-cube-row");
         click("button:+ Add Component");
         text("component-search", "Navigation Agent");
         click("component-choice:forge.navigation_agent");
         key(ImGuiKey_Escape);
+        click("asset-picker:navmesh:##Asset");
+        click("authored-navmesh-option");
+        check("navigation-assigned");
         click("button:+ Add Component");
         text("component-search", "Navigation Avoidance");
         click("component-choice:forge.navigation_avoidance");
@@ -2208,6 +2259,10 @@ class EditorInputWorkflow {
         check("gpu-cleared");
     }
     bool done() const { return index_ == steps_.size(); }
+    bool waiting_for_navigation_build() const {
+        return !done() && steps_[index_].kind == Kind::Check &&
+               steps_[index_].value == "navigation-built";
+    }
     bool waiting_for_graph_compilation() const {
         return !done() && steps_[index_].kind == Kind::Check &&
                (steps_[index_].value == "graph-ready" || steps_[index_].value == "graph-rejected");
@@ -2314,6 +2369,8 @@ class EditorInputWorkflow {
             : step.kind == Kind::Check &&
                     (step.value == "graph-ready" || step.value == "graph-rejected")
                 ? 315000u
+            : step.kind == Kind::Check && step.value == "navigation-built"
+                ? 75000u // Bounded geometry/resource admission, worker and UI publication.
             : step.kind == Kind::Check &&
                     (step.value == "compiler-ready" || step.value == "starter-built" ||
                      step.value == "starter-rebuilt" || step.value == "starter-rejected" ||
@@ -2394,6 +2451,7 @@ class EditorInputWorkflow {
                 : step.value == "graph-material-revert"     ? "material:revert:" + graph_binding_
                 : step.value == "authored-material-option"  ? "picker-option:" + material_asset_
                 : step.value == "authored-collision-option" ? "picker-option:" + collision_asset_
+                : step.value == "authored-navmesh-option"   ? "picker-option:" + navigation_asset_
                 : step.value == "failed-model-problem"      ? "problem:reimport:" + model_asset_
                 : step.value == "placed-model-row"          ? "entity:" + model_root_
                 : step.value == "placed-model-mesh-row"     ? "entity:" + model_mesh_

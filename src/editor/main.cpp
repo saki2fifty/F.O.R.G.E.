@@ -7846,6 +7846,9 @@ int main(int argc, char** argv) {
                     {"ui_scale", forge::ui::interface_scale},
                     {"status", message}};
                 auto observed = state;
+                if (input_workflow.waiting_for_navigation_build())
+                    observed["navigation"] =
+                        forge::NavigationAutomation::state(navigation_tools, scene, files);
                 observed["fixture_shader_wait_frames"] = fixture.shader_wait_frames;
                 observed["fixture_workflow_frame_pause_ms"] = workflow_frame_pause_ms;
                 observed["fixture_shader_wait_pause_ms"] = shader_wait_frame_pause_ms;

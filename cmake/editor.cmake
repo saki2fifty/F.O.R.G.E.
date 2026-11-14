@@ -476,7 +476,7 @@ if(BUILD_TESTING)
  target_sources(forge_editor_fixture PRIVATE "${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp")
  # Fixture inherits forge_editor's transitive forge_game_platform
  # link; forge_editor already FATAL_ERRORs under FORGE_BUILD_GAME_PLATFORM=OFF.
- add_dependencies(forge_editor_fixture forge_editor forge_runtime forge_schema_worker_fixture)
+ add_dependencies(forge_editor_fixture forge_editor forge_runtime forge_schema_worker_fixture forge_nav_build)
  copy_required_dlls(forge_editor_fixture)
  add_test(NAME editor_redesign_render COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor")
  # Full scaled capture suite: internal600s total/45s per-stage; allow teardown.
@@ -505,9 +505,9 @@ if(BUILD_TESTING)
  add_test(NAME editor_sequence_audio_cues COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_cue_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-cues")
  set_tests_properties(editor_sequence_audio_cues PROPERTIES TIMEOUT 660)
  add_test(NAME editor_input_workflow COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor-workflow" --workflow)
- # The 942-action authoring/export scenario includes native compilation and
+ # The 968-action authoring/export scenario includes native compilation and
  # three graph-worker preparations, each with the native compiler's300s budget.
- # Retain aggregate room for those owners and the real942-action UI/export path.
+ # Retain aggregate room for those owners and the real968-action UI/export path.
  # Input12s, capture45s, compiler180s and worker/child watchdogs remain explicit.
- set_tests_properties(editor_input_workflow PROPERTIES TIMEOUT 1500)
+ set_tests_properties(editor_input_workflow PROPERTIES TIMEOUT 1800)
 endif()

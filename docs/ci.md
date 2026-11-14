@@ -20,14 +20,14 @@ hosted software adapter. Its metadata records `fixture_capture_frame_pause_ms`.
 This functional command/readback test retains all three UI scales, the 512-pixel
 raster bound, actual encoded-image comparisons and authored-source preservation.
 The input walkthrough leaves 100 milliseconds between ordinary submissions and
-200 milliseconds while awaiting its isolated graph publisher. Its recorded state
+1000 milliseconds while awaiting its isolated graph publisher. Its recorded state
 includes `fixture_workflow_frame_pause_ms`, `fixture_shader_wait_pause_ms` and the
-number of graph-wait frames. All 942 actions and input/readiness assertions remain
+number of graph-wait frames. All 968 actions and input/readiness assertions remain
 required. Input retains its 12-second deadline; capture preparation uses the
 ordinary staged-capture 45-second budget because a cold native frame can outlast
-an input gesture. Compiler, worker, GPU and aggregate walkthrough watchdogs remain
-unchanged. The walkthrough resolves a recovery prompt after its intentional
-Reload through the real **Keep saved scene** button when present, verifies the
+an input gesture. Compiler, worker and GPU guards retain their individual limits;
+the complete walkthrough has an 1800-second aggregate allowance. It resolves a
+recovery prompt after its intentional Reload through the real **Keep saved scene** button when present, verifies the
 saved scene afterward, and records whether a choice was needed. This includes
 all prior actions plus that explicit recovery decision. The sequence-frame
 fixture also paces submissions 100 milliseconds apart and records `frame_pause_ms`;
@@ -761,8 +761,15 @@ that delivery gate. Product changes require a new proof for affected behavior.
 The shared selection includes `mcp_`: native stdio/configuration
 checks and the GPU-independent editor document/MCP process test. These tests are
 built with the default editor targets; project files stay in temporary directories.
-The 942-action native input walkthrough has a 1500-second aggregate CTest budget,
-including three graph preparations through the native shader worker. Each graph
+The 968-action native input walkthrough has a 1800-second aggregate CTest budget,
+including three graph preparations through the native shader worker. Before native
+runtime tuning it creates a Plane, marks Navigation Surface, builds the ordinary
+Scene NavMesh and assigns that published asset to its idle Navigation Agent through
+the Inspector picker. Scene/runtime admission remains enabled. The navigation
+preparation check allows 75 seconds for bounded geometry loading, worker completion
+and UI adoption. The [native input audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/43549352143)
+took 1402 seconds to reach step 844 before this required
+setup; the aggregate covers the remaining actions and additional preparation. Each graph
 readiness check allows that owner's 300-second worker budget plus 15 seconds for
 UI adoption; ordinary actions retain 12 seconds and C++ compiler checks retain
 180 seconds. Worker and child-process watchdogs remain unchanged. The aggregate
@@ -771,9 +778,9 @@ While a graph readiness check waits on the external shader importer, the WARP
 input fixture yields 1000 milliseconds between frames to leave CPU time for the
 compiler. Ordinary authoring input keeps its existing pacing. The report records
 `fixture_shader_wait_frames` and `fixture_shader_wait_pause_ms`; compiler deadlines,
-all942 actions and publication/preview acceptance remain unchanged.
-The legacy217-stage scaled rendering fixture yields100 milliseconds per frame,
-retaining its original viewport sizes and600-second aggregate/45-second stage
+all 968 actions and publication/preview acceptance remain required.
+The legacy 217-stage scaled rendering fixture yields 100 milliseconds per frame,
+retaining its original viewport sizes and 600-second aggregate/45-second stage
 guards. Its chrome metadata records `fixture_native_frame_pause_ms`. The focused
 input diagnostic includes this legacy capture alongside the complete walkthrough;
 its three CPU source/input regressions remain selected. Sequence-frame capture
