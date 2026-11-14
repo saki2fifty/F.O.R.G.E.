@@ -776,7 +776,9 @@ The legacy217-stage scaled rendering fixture yields100 milliseconds per frame,
 retaining its original viewport sizes and600-second aggregate/45-second stage
 guards. Its chrome metadata records `fixture_native_frame_pause_ms`. The focused
 input diagnostic includes this legacy capture alongside the complete walkthrough;
-its three CPU source/input regressions remain selected.
+its three CPU source/input regressions remain selected. Sequence-frame capture
+at all three scales also runs in this group to verify the shared pacing report
+through its actual consumer.
 Focused shader/input scopes remain explicitly separate. Numbered
 failures retain the full capture diagnostics and CTest logs, including the stalled
 state JSON, so a screenshot is not the only available readiness evidence.

@@ -336,7 +336,7 @@ jobs:
           $selection = "$env:FORGE_SHADER_ACCEPTANCE_REGEX|$captures"
           if ('${{ inputs.inspector_only }}' -eq 'true') { $selection = '^(asset_source_document|material_graph_layout_editor|root_motion_inspector|editor_play_input|editor_animation_root_motion|editor_view_images|editor_redesign_render|editor_input_workflow)$' }
           if ('${{ inputs.inspector_only }}' -eq 'true' -and $env:FORGE_INSPECTOR_GROUP -eq 'captures') { $selection = '^(root_motion_inspector|editor_animation_root_motion|editor_view_images)$' }
-          if ('${{ inputs.inspector_only }}' -eq 'true' -and $env:FORGE_INSPECTOR_GROUP -eq 'input') { $selection = '^(asset_source_document|material_graph_layout_editor|editor_play_input|editor_redesign_render|editor_input_workflow)$' }
+          if ('${{ inputs.inspector_only }}' -eq 'true' -and $env:FORGE_INSPECTOR_GROUP -eq 'input') { $selection = '^(asset_source_document|material_graph_layout_editor|editor_play_input|editor_sequence_frames|editor_redesign_render|editor_input_workflow)$' }
           ctest --test-dir ../AgentFiles/b -R $selection --output-on-failure --no-tests=error
       - name: Record exact source and audit identity
         working-directory: ${{ runner.temp }}/forge-work/FORGE
