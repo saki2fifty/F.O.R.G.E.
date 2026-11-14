@@ -229,8 +229,11 @@ int main(int argc, char** argv) {
         check(preview.preview_current() && preview.diagnostic().empty() && preview_requests == 1 &&
                   preview_adoptions == 1 && adopted &&
                   encode_shader(adopted->surface->program) == encode_shader(cooked) &&
-                  adopted->surface->revision ==
-                      selected.records().at(first_id).metadata.at("forge.import").at("key") &&
+                  adopted->surface->revision == selected.records()
+                                                    .at(first_id)
+                                                    .metadata.at("forge.import")
+                                                    .at("key")
+                                                    .get<std::string>() &&
                   adopted->values.parameters.at("gain").value[0] == 3 &&
                   adopted->textures.at("image") == texture &&
                   preview.document()->session() == saved_session &&
