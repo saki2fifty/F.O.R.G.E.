@@ -1,4 +1,5 @@
 #include "editor/actions.hpp"
+#include "editor/scene_lighting.hpp"
 #include "editor_input_workflow.hpp"
 #include <iostream>
 #include <stdexcept>
@@ -344,6 +345,49 @@ void recovery_choice(bool present) {
             "Recovery handling skipped a visible choice or clicked without a prompt");
     ImGui::DestroyContext();
 }
+void clipped_color_input() {
+    EngineContext engine;
+    Scene scene(engine.world());
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {1440, 900};
+    io.DeltaTime = 1.f / 60;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    ui::style(1);
+    ui::EditorUiContext context;
+    ui::ContextScope scope(context);
+    auto workflow = test::EditorInputWorkflow::color_controls_probe();
+    auto draw = [&] {
+        test::ui_targets.clear();
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({60, 60}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize({640, 720}, ImGuiCond_Always);
+        bool open = true;
+        ui::scene_lighting(open, scene, nullptr, false);
+        ImGui::Render();
+    };
+    for (unsigned i = 0; i < 3; ++i)
+        draw();
+    const auto target = test::ui_targets.at("color:enabled");
+    auto* window = ImGui::FindWindowByName("Scene lighting");
+    require(window, "Missing actual Scene lighting window");
+    ImGui::SetScrollY(window, window->Scroll.y + (target.minimum.y + target.maximum.y) * .5f -
+                                  (target.clip_maximum.y - 19.f));
+    for (unsigned i = 0; i < 3; ++i)
+        draw();
+    for (unsigned frame = 0; frame < 180 && !workflow.done(); ++frame) {
+        workflow.input();
+        draw();
+        workflow.finish(Json{{"scene", scene.document()}}, [](const auto&) {}, [](const auto&) {});
+        SDL_Delay(15);
+    }
+    require(workflow.done(),
+            ("Queued color entry missed a scrolled field: " + scene.document().dump()).c_str());
+    ImGui::DestroyContext();
+}
 } // namespace
 int main() {
     try {
@@ -362,6 +406,7 @@ int main() {
         capture_preparation();
         recovery_choice(false);
         recovery_choice(true);
+        clipped_color_input();
         SDL_Quit();
         std::cout << "Real toolbar receipt/retry bound/startup failure preservation passed\n";
     } catch (const std::exception& e) {

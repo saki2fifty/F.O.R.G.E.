@@ -790,6 +790,11 @@ cover real preview-worker retirement before Save publication, publication-time
 compile exclusion and shared cooked Shader admission. CPU transport fixtures
 verify immutable program selection, preview values and last-good retention;
 the native walkthrough separately requires actual compilation and GPU readiness.
+Queued text entry reveals the complete input field before clicking and typing;
+focusing a partially clipped field can move it during pending input. The CPU
+input regression exercises the actual Scene lighting owner in a scrolled window
+and checks the exact resulting Scene color values. Selectable rows retain their
+center-based handling for hit rectangles that extend into item spacing.
 The legacy 217-stage scaled rendering fixture yields 100 milliseconds per frame,
 retaining its original viewport sizes and 600-second aggregate/45-second stage
 guards. Its chrome metadata records `fixture_native_frame_pause_ms`. The focused

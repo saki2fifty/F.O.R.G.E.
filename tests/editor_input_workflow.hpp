@@ -1276,6 +1276,17 @@ class EditorInputWorkflow {
         probe.check("navigation-assigned");
         return probe;
     }
+    static EditorInputWorkflow color_controls_probe() {
+        EditorInputWorkflow probe(false, {});
+        observe_ui = true;
+        probe.check("color-before");
+        probe.click("color:enabled");
+        probe.text("color:filter", "0.6");
+        probe.text("color:saturation", "0.35");
+        probe.text("color:contrast", "1.2");
+        probe.check("color-applied");
+        return probe;
+    }
     explicit EditorInputWorkflow(bool enabled, const std::filesystem::path& evidence,
                                  const std::filesystem::path& physics_project = {},
                                  bool sdk_onboarding = false, bool shortcut_reopen = false,
@@ -2485,9 +2496,13 @@ class EditorInputWorkflow {
             // Selectable expands its hit rectangle into ItemSpacing. The first
             // visible row can extend above its child clip edge even though its
             // click center is fully visible; scrolling cannot remove that padding.
-            // A live numeric field's visibility assertion requires its full height.
+            // Keep typed fields fully visible before queued clicking/typing;
+            // focusing a clipped input can scroll it underneath pending input.
+            // The live-field visibility assertion also requires its full height.
             const bool full_field =
-                step.kind == Kind::Hover && target.starts_with("runtime-field:");
+                (step.kind == Kind::Click && index_ + 1 < steps_.size() &&
+                 steps_[index_ + 1].kind == Kind::Text) ||
+                (step.kind == Kind::Hover && target.starts_with("runtime-field:"));
             const float top = full_field ? t.minimum.y : pointer_.y;
             const float bottom = full_field ? t.maximum.y : pointer_.y;
             if (top < t.clip_minimum.y || bottom > t.clip_maximum.y) {
