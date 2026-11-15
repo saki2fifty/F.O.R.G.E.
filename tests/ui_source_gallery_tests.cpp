@@ -14,6 +14,7 @@
 #include <forge/runtime_ui.hpp>
 #include <fstream>
 #include <iostream>
+#include <tuple>
 
 using namespace forge;
 namespace {
@@ -131,6 +132,9 @@ void exercise(const std::filesystem::path& root, const Json& source,
         check(document->GetElementById("message")->GetInnerRML().find("&lt;your own HUD&gt;") !=
                   std::string::npos,
               "Escaped source text was parsed as child markup");
+        auto* bound_value = document->GetElementById("native-bound-value");
+        check(bound_value && bound_value->GetInnerRML() == "41",
+              "Saved/source-hidden guided text binding did not read the actual copied model");
         auto* typography = document->GetElementById("native-typography");
         check(typography && typography->GetProperty<int>("font-weight") == 700 &&
                   typography->GetProperty<Rml::Style::FontStyle>("font-style") ==
@@ -271,6 +275,19 @@ void exercise(const std::filesystem::path& root, const Json& source,
             check(!presenter.pending_command(), "Native button queued more than one command");
         };
         acknowledge("Resume");
+        document->GetElementById("native-bound-command")->Click();
+        acknowledge("Step");
+        document->GetElementById("native-unregistered-command")->Click();
+        check(!presenter.pending_command() &&
+                  presenter.diagnostic().find("not registered") != std::string::npos,
+              "Guided source command bypassed the native runtime allowlist");
+        check(presenter.accept(ui->snapshot(scene, "ui-source", 1, 42, true)),
+              "Copied-model update failed after a refused command");
+        presenter.update(0, 800, 600);
+        document = Rml::GetContext(0)->GetDocument(0);
+        auto* updated_value = document->GetElementById("native-bound-value");
+        check(updated_value && updated_value->GetInnerRML() == "42",
+              "Guided text binding did not observe a later copied value");
         const auto instance = snapshot.at("documents")[0].at("instance").get<std::string>();
         auto* authored_text = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(
             document->GetElementById("native-text"));
@@ -327,8 +344,15 @@ void exercise(const std::filesystem::path& root, const Json& source,
                   authored_progress.at("max") == 1 && authored_progress.at("read_only") == true,
               "Saved/exported authored properties lost native flag/clamp/fallback behavior");
         const auto buttons = presenter.buttons(instance);
-        check(buttons.at("buttons").size() == 4 && !buttons.at("truncated").get<bool>(),
+        check(buttons.at("buttons").size() == 6 && !buttons.at("truncated").get<bool>(),
               "Saved/exported buttons lost native discovery");
+        for (const auto* id : {"native-bound-command", "native-unregistered-command"})
+            check(std::ranges::any_of(buttons.at("buttons"),
+                                      [&](const Json& row) {
+                                          return row.at("id").is_string() &&
+                                                 row.at("id").get<std::string>() == id;
+                                      }),
+                  "A saved/source-hidden guided button was absent from native discovery");
         auto* native = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(
             document->GetElementById("native-press"));
         check(native && native->GetValue() == "Step & <native>",
@@ -1017,6 +1041,19 @@ int main(int argc, char** argv) {
                                                "container", "", {}, "native-placement-probe",
                                                UiPixelLayout{0, 0, 20, 10});
             text = set_ui_markup_style(created.source, created.element, "margin", "0px");
+            created =
+                insert_ui_markup_control(text, by_id(text, "canvas"), "label", "Value", {},
+                                         "native-bound-value", UiPixelLayout{500, 420, 120, 30});
+            text = set_ui_markup_binding(created.source, created.element, "text", "tick");
+            for (const auto& [id, name, x] :
+                 {std::tuple{"native-bound-command", "Step", 500.f},
+                  std::tuple{"native-unregistered-command", "NotRegistered", 660.f}}) {
+                created = insert_ui_markup_control(text, by_id(text, "canvas"), "button", name, {},
+                                                   id, UiPixelLayout{x, 460, 140, 30});
+                text =
+                    set_ui_markup_binding(created.source, created.element, "click_command", name);
+                text = set_ui_markup_style(text, created.element, "pointer-events", "auto");
+            }
             atomic_write(root / document_path, text);
             const auto published = register_ui_document(root, document_path);
             for (const auto& row : source.at("entities"))

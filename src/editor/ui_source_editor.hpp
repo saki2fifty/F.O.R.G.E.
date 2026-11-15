@@ -49,6 +49,8 @@ class UiSourceEditor {
     bool dirty_ = false, close_ = false, focus_ = false, text_editable_ = false;
     char attribute_[65] = "id", value_[8193]{}, literal_[8193]{};
     char duplicate_prefix_[65]{};
+    UiMarkupBindings binding_controls_;
+    char binding_text_[65] = "tick", binding_command_[65] = "Pause";
     char style_name_[65] = "color", style_value_[8193]{};
     ImGuiTextFilter style_filter_;
     std::string style_error_, style_control_error_;
@@ -1505,6 +1507,68 @@ class UiSourceEditor {
         return false;
     }
 
+    void read_binding_controls() {
+        binding_controls_ = {};
+        try {
+            binding_controls_ =
+                read_ui_markup_bindings(editor_.GetText(), outline_, selected_element());
+        } catch (const std::exception& error) {
+            binding_controls_.text.reason = binding_controls_.click_command.reason = error.what();
+        }
+        std::snprintf(binding_text_, sizeof(binding_text_), "%s",
+                      binding_controls_.text.value.value_or("tick").c_str());
+        std::snprintf(binding_command_, sizeof(binding_command_), "%s",
+                      binding_controls_.click_command.value.value_or("Pause").c_str());
+    }
+    bool binding_controls(std::size_t index, bool locked) {
+        const bool open = ImGui::CollapsingHeader("Runtime bindings");
+        FORGE_UI_PROBE("ui-source:bindings");
+        if (!open)
+            return false;
+        ImGui::TextWrapped("Read copied game values in leaf text or call a registered button "
+                           "command. Preview shows layout; bindings run during Play.");
+        std::string change;
+        std::optional<std::string> value;
+        for (const auto& [kind, label] : ui_markup_binding_kinds) {
+            const bool text = kind == "text";
+            const auto& row = text ? binding_controls_.text : binding_controls_.click_command;
+            ImGui::PushID(kind.data());
+            ImGui::TextUnformatted(label.data());
+            if (!row.available) {
+                ImGui::TextWrapped("%s", row.reason.c_str());
+                ImGui::PopID();
+                continue;
+            }
+            auto* buffer = text ? binding_text_ : binding_command_;
+            ImGui::BeginDisabled(locked);
+            ImGui::InputText(text ? "Variable" : "Command", buffer, 65);
+            FORGE_UI_PROBE("ui-source:binding-" + std::string(kind) + "-value");
+            if (button("Set binding",
+                       "Stage changes above, then replace this simple source binding.")) {
+                change = kind;
+                value = buffer;
+            }
+            FORGE_UI_PROBE("ui-source:binding-" + std::string(kind) + "-set");
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!row.authored);
+            if (button("Clear binding", text ? "Clear this bound leaf text; Undo restores it."
+                                             : "Remove this literal click command.")) {
+                change = kind;
+                value.reset();
+            }
+            FORGE_UI_PROBE("ui-source:binding-" + std::string(kind) + "-clear");
+            ImGui::EndDisabled();
+            ImGui::EndDisabled();
+            ImGui::PopID();
+        }
+        ImGui::TextWrapped("Text accepts tick, paused and simple published value names. "
+                           "Commands take no arguments here and must be registered for this "
+                           "document. Custom expressions use Attributes or Source.");
+        if (change.empty())
+            return false;
+        attempt([&] { binding(index, change, std::move(value)); });
+        return true;
+    }
     void selection_controls() {
         const auto index = selected_element();
         if (index == UiMarkupElement::no_parent)
@@ -1527,6 +1591,7 @@ class UiSourceEditor {
         read_style_controls();
         read_class_controls();
         read_control_property_controls();
+        read_binding_controls();
     }
     void set_selection(std::span<const std::size_t> indices) {
         if (indices.size() > ui_source_selection_limit)
@@ -2527,6 +2592,8 @@ class UiSourceEditor {
         ImGui::Text("Selected: <%s>", tag.c_str());
         if (control_property_controls(index, locked))
             return;
+        if (binding_controls(index, locked))
+            return;
 
         ImGui::BeginDisabled(locked);
         ImGui::BeginDisabled(!widget_editable);
@@ -3117,6 +3184,15 @@ class UiSourceEditor {
     }
     void text(std::size_t index, std::string_view literal) {
         replace_text(set_ui_markup_text(editor_.GetText(), index, literal));
+    }
+    UiMarkupBindings bindings(std::size_t index) const {
+        if (!is_open() || locator_.extension() != ".rml")
+            throw AuthoringError("source_scope", "Open an RML source to inspect bindings");
+        return read_ui_markup_bindings(editor_.GetText(), outline_, index);
+    }
+    void binding(std::size_t index, std::string_view kind, std::optional<std::string> value) {
+        replace_selected(set_ui_markup_binding(editor_.GetText(), index, kind, std::move(value)),
+                         {index});
     }
     void insert(std::size_t parent, std::string_view tag, std::string_view literal,
                 std::optional<std::size_t> before = {}) {

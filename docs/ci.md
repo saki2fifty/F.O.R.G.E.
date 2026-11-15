@@ -275,7 +275,7 @@ attribute/text/child/order/removal, history, CRLF, invalid drafts, conflicts,
 read-only state, close/cancel/discard, moves/deletion and long-text protection.
 The C++ history fixture checks the shared widget replacement helper.
 `sprite_atlas_source_editor` also verifies hook-only document entries are excluded
-from typed-source discovery and dispatch. `mcp_ui_source_stdio` discovers57 actual
+from typed-source discovery and dispatch. `mcp_ui_source_stdio` discovers59 actual
 native-owner tools through both MCP envelopes, grants, stale guards, source-owned
 raw-write rejection, history, conflicts, RCSS and dirty-source Play rejection.
 It includes native draft geometry, source/preview guards, unsupported layouts and
@@ -283,6 +283,16 @@ atomic pixel/group receipt replay. Group movement, alignment and distribution us
 the actual native owner, with duplicate/unsupported/stale rejection, complete Undo/
 Redo, source/Scene isolation and grant discovery. The read-only grant includes
 preview metadata but excludes group writes.
+
+Guided source bindings use ui_markup for simple-form recognition, preserved
+no-ops, shared names/escaping and custom-source refusal. ui_source_bindings drives
+staged Variable/Command, Set/Clear, history, selection, locks and explicit Save at
+1180/700/400. The saved/source-hidden ui_source_gallery fixture observes copied
+values41→42, registered command delivery and unregistered-command refusal through
+the actual presenter/runtime owners. Both MCP control-property protocols cover
+bindings discovery, guards/grants, replay, no-op/refusal, Undo and Save. The common
+native acceptance selector explicitly includes those two workflow tests. Remaining
+runtime/graphics code and kit capabilities retain their separate existing scopes.
 
 Static subtree coverage includes collision-checked prefix IDs, escaped internal
 label targets, anonymous roots, original-byte preservation, dynamic/protected/

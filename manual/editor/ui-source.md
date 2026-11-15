@@ -446,6 +446,36 @@ use Source. Existing entities are decoded for reading; setting an identical list
 retains its original encoding and quotes. Clear on absent attributes is a no-op.
 Bindings can still change the active classes during Play.
 
+## Bind display text and button commands
+
+1. Open Gallery scene **210** and its **hud.rml** source. Select **Elements**, then select the `message` paragraph.
+2. Expand **Runtime bindings**. Enter `tick` in **Variable** under **Text value**. Typing stages a proposal; choose **Set binding** to replace the paragraph's text with the value expression.
+3. Choose **Save source**, then start Play. The paragraph displays the current game tick. **Preview** checks layout; it does not run game bindings.
+4. Stop Play. Select the `Pause` button in Elements. Under **Click command**, enter a registered command such as `Resume`, then choose **Set binding**. The button's visible label stays separate; edit its literal text if needed.
+5. Save source and start Play to test the button. Use **Undo** or **Redo** for a complete binding change. Stop Play before editing source again.
+
+![Staging a copied game variable in the Runtime bindings section of Elements](../images/ui-source-bindings-text.png)
+
+For project numbers, add **UI Values** to the entity displaying the document and
+publish a name such as `health`, or publish a compatible copied value from C++.
+Use that exact name in **Variable**. Names start with a letter and use letters,
+digits or underscores, up to64bytes; reserved names are unavailable for project
+values. The built-in `tick` and `paused` values need no project definition.
+The model is read-only: displaying a value does not change its Scene or C++ owner.
+
+**Clear binding** empties a recognized bound leaf text or removes a recognized
+click-command attribute. Clearing an unbound element preserves ordinary literal
+text. Undo restores the previous source. A command must be registered for the
+document at runtime; writing its name does not register or execute it.
+
+![A button with its authored Resume click command and Set binding and Clear binding controls](../images/ui-source-bindings-command.png)
+
+These controls support leaf display text and no-argument commands on buttons or
+input buttons. Native field values, combined text such as `Score {{health}}`,
+reserved loading values, command arguments and other custom expressions use
+Attributes or Source. Unsupported bindings show a reason and remain unchanged.
+FORGE supplies the document model; do not add a `data-model` attribute.
+
 ## Duplicate a static control
 
 1. In **Elements**, select a static control or container.

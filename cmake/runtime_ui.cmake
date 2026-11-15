@@ -41,7 +41,7 @@ set(BUILD_SHARED_LIBS "${_forge_ui_shared}")
 # Keep catalogs, packaging and headless runtime/model targets free of RmlUi.
 add_library(forge_ui_source_authoring src/ui_markup_authoring.cpp src/ui_material_authoring.cpp)
 target_link_libraries(forge_ui_source_authoring PUBLIC forge_ui_asset_catalog PRIVATE RmlUi::Core)
-target_link_libraries(forge_ui_source_authoring PRIVATE forge_model_render_resources)
+target_link_libraries(forge_ui_source_authoring PRIVATE forge_model_render_resources forge_ui_protocol)
 add_library(forge_ui_presenter src/ui_presenter.cpp src/ui_gradient_profile.cpp src/ui_luminance_mask.cpp src/ui_shadow_motion.cpp src/ui_font_shaping.cpp src/ui_shaped_font.cpp src/ui_text_boundaries.cpp src/ui_control_access.cpp src/ui_text_input.cpp)
 target_sources(forge_ui_presenter PRIVATE src/ui_material_effect.cpp)
 target_link_libraries(forge_ui_presenter PUBLIC forge_ui_assets forge_ui_protocol PRIVATE RmlUi::Core forge_asset_bytes Freetype::Freetype harfbuzz utf8proc::utf8proc)

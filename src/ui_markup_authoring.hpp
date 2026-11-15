@@ -314,6 +314,21 @@ UiMarkupControlProperties read_ui_markup_control_properties(std::string_view,
 std::string
 set_ui_markup_control_properties(std::string_view, std::size_t element,
                                  const std::map<std::string, UiControlPropertyValue>& properties);
+struct UiMarkupBinding {
+    bool available = false, authored = false;
+    std::optional<std::string> value;
+    std::string reason;
+};
+struct UiMarkupBindings {
+    UiMarkupBinding text, click_command;
+};
+inline constexpr std::array<std::pair<std::string_view, std::string_view>, 2>
+    ui_markup_binding_kinds{{{"text", "Text value"}, {"click_command", "Click command"}}};
+// Simple authored bindings only; native runtime retains model and command authority.
+UiMarkupBindings read_ui_markup_bindings(std::string_view, std::span<const UiMarkupElement>,
+                                         std::size_t element);
+std::string set_ui_markup_binding(std::string_view, std::size_t element, std::string_view kind,
+                                  std::optional<std::string> value);
 // Compose existing source candidates; the caller publishes one transaction.
 UiMarkupControlEdit insert_ui_markup_control(std::string_view, std::size_t parent,
                                              std::string_view kind, std::string_view literal = {},

@@ -21,6 +21,7 @@ template <class F> void rejects(F&& operation) {
 }
 enum class SourceControls {
     All,
+    Bindings,
     TextProperties,
     Typography,
     ImageProperties,
@@ -124,6 +125,73 @@ void exercise(const std::filesystem::path& output, int width,
         show_content = false;
         frame();
     };
+    if (mode == SourceControls::Bindings) {
+        editor.replace_text(
+            "<rml><body><p id='value'>Literal</p><button id='action'>Pause</button></body></rml>");
+        const auto baseline = editor.state();
+        input.click("ui-source:elements-tab");
+        input.click("ui-source:element:2");
+        input.click("ui-source:bindings");
+        input.type("ui-source:binding-text-value", "health");
+        check(editor.state().at("text") == baseline.at("text") &&
+                  editor.state().at("revision") == baseline.at("revision"),
+              "Typing a staged value binding wrote source");
+        capture.save(output / ("ui-source-bindings-text-" + std::to_string(width) + ".png"));
+        input.click("ui-source:binding-text-set");
+        const auto bound = editor.state();
+        check(bound.at("text").get<std::string>().find("{{health}}") != std::string::npos &&
+                  editor.bindings(2).text.value == "health" &&
+                  bound.at("selection") == Json::array({2}),
+              "Native text binding did not write one shared candidate and retain selection");
+        input.click("ui-source:binding-text-set");
+        check(editor.state().at("revision") == bound.at("revision"),
+              "Same native binding added history");
+        editor.undo(false);
+        check(editor.state().at("text") == baseline.at("text"),
+              "Text binding needed more than one Undo");
+        editor.undo(true);
+        check(editor.state().at("text") == bound.at("text"), "Text binding Redo changed source");
+        editor.selection(std::array<std::size_t, 1>{2});
+        frame();
+        input.click("ui-source:binding-text-clear");
+        check(editor.state().at("text").get<std::string>().find("<p id='value'></p>") !=
+                  std::string::npos,
+              "Native Clear binding did not clear only the bound leaf text");
+        editor.undo(false);
+        input.click("ui-source:element:3");
+        const auto before_command = editor.state();
+        input.type("ui-source:binding-click_command-value", "Resume");
+        check(editor.state().at("text") == before_command.at("text"),
+              "Staged command wrote source");
+        input.click("ui-source:binding-click_command-set");
+        frame();
+        const auto command = editor.state();
+        check(command.at("text").get<std::string>().find(
+                  "data-event-click=\"command('Resume')\"") != std::string::npos &&
+                  editor.bindings(3).click_command.value == "Resume",
+              "Native command binding did not use its shared source adapter");
+        capture.save(output / ("ui-source-bindings-command-" + std::to_string(width) + ".png"));
+        input.click("ui-source:binding-click_command-set");
+        check(editor.state().at("revision") == command.at("revision"),
+              "Same command binding added history");
+        locked = true;
+        frame();
+        check(!test::ui_targets.at("ui-source:binding-click_command-set").enabled &&
+                  !test::ui_targets.at("ui-source:binding-click_command-clear").enabled,
+              "Locked source retained binding write controls");
+        locked = false;
+        frame();
+        check(scene.snapshot() == authored &&
+                  asset_storage::read(root / "forge.assets.json") == catalog &&
+                  asset_storage::read(file) == source,
+              "Binding controls executed or changed Scene, catalog or saved source");
+        editor.save(project);
+        const auto saved = asset_storage::read(file);
+        check(!editor.dirty() && saved && saved->find("command('Resume')") != std::string::npos,
+              "Explicit binding Save did not persist source");
+        editor.request_close();
+        return;
+    }
     if (mode == SourceControls::MaterialEffects) {
         const auto fixture = test::ui_material_authoring_fixture(project.writer_guard());
         const auto material = fixture.at("ui_texture").get<AssetId>();
@@ -1697,7 +1765,9 @@ int main(int argc, char** argv) {
         auto mode = SourceControls::All;
         if (argc >= 3) {
             const auto flag = std::string_view(argv[2]);
-            if (flag == "--material-effects-only")
+            if (flag == "--bindings-only")
+                mode = SourceControls::Bindings;
+            else if (flag == "--material-effects-only")
                 mode = SourceControls::MaterialEffects;
             else if (flag == "--media-rules-only")
                 mode = SourceControls::MediaRules;

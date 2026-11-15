@@ -532,6 +532,10 @@ for legacy in selected_protocols:
                     denied = readonly.request('tools/call', dict(name=name, arguments={}))
                     assert 'error' in denied or denied['result']['isError'], denied
                 assert 'forge_ui_source_control_properties' in visible
+                assert 'forge_ui_source_bindings' in visible
+                assert 'forge_ui_source_binding' not in visible
+                denied_binding = readonly.request('tools/call', dict(name='forge_ui_source_binding', arguments={}))
+                assert 'error' in denied_binding or denied_binding['result']['isError'], denied_binding
                 assert 'forge_ui_source_control_values' not in visible
                 denied_properties = readonly.request('tools/call', dict(name='forge_ui_source_control_values', arguments={}))
                 assert 'error' in denied_properties or denied_properties['result']['isError'], denied_properties
@@ -543,6 +547,9 @@ for legacy in selected_protocols:
                 assert not {'forge_ui_source_rule_property', 'forge_ui_source_rule_selector',
                             'forge_ui_source_rule_insert', 'forge_ui_source_rule_remove'} & visible
                 readonly_target = readonly.tool('forge_discover')['result']['target']
+                failed(readonly.tool('forge_ui_source_bindings', target=readonly_target,
+                                     path='Assets/Hud.rml', session='00000000-0000-4000-8000-000000000001',
+                                     revision=0, state='0' * 64, element=0), 'source_closed')
                 failed(readonly.tool('forge_ui_source_style_read', target=readonly_target,
                                      path='Assets/Hud.rml', session='00000000-0000-4000-8000-000000000001',
                                      revision=0, state='0' * 64, element=0, name='color'),

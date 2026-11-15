@@ -559,6 +559,93 @@ void subtree_duplication() {
                   .find("id=\"custom-panel\"") != std::string::npos,
           "An explicit available prefix failed after the bounded automatic choices");
 }
+void source_bindings() {
+    const std::string source =
+        "<!-- retained -->\r\n<rml><body><p id='value'>Score &amp; status</p>"
+        "<button id='pause' class='action'>Pause</button><input type='button' value='Go'/>"
+        "</body></rml>\r\n";
+    const auto value = find(source, "p"), button = find(source, "button"),
+               input = find(source, "input");
+    const auto initial =
+        forge::read_ui_markup_bindings(source, forge::inspect_ui_markup(source), value);
+    check(initial.text.available && !initial.text.authored && !initial.text.value &&
+              !initial.click_command.available,
+          "Plain leaf binding observations misclassified source or native button support");
+    const auto bound = forge::set_ui_markup_binding(source, value, "text", "health");
+    auto expected = source;
+    expected.replace(expected.find("Score &amp; status"),
+                     std::string_view("Score &amp; status").size(), "{{health}}");
+    check(bound == expected, "Text binding changed unrelated source or escaped its expression");
+    const auto shown =
+        forge::read_ui_markup_bindings(bound, forge::inspect_ui_markup(bound), value);
+    check(shown.text.available && shown.text.authored && shown.text.value == "health",
+          "Simple text binding did not round-trip its source observation");
+    check(forge::set_ui_markup_binding(bound, value, "text", "health") == bound,
+          "Same text binding rewrote source bytes");
+    check(forge::set_ui_markup_binding(source, value, "text", {}) == source,
+          "Clearing an absent text binding erased literal text");
+    auto cleared = expected;
+    cleared.erase(cleared.find("{{health}}"), std::string_view("{{health}}").size());
+    check(forge::set_ui_markup_binding(bound, value, "text", {}) == cleared,
+          "Clearing a simple text binding changed unrelated source");
+    for (const auto* name : {"tick", "paused", "Health_2"})
+        check(forge::set_ui_markup_binding(source, value, "text", name)
+                      .find("{{" + std::string(name) + "}}") != std::string::npos,
+              "A supported copied value name was refused");
+    const auto command = forge::set_ui_markup_binding(source, button, "click_command", "Pause");
+    expected = source;
+    expected.insert(expected.find(">Pause</button>"), " data-event-click=\"command('Pause')\"");
+    check(command == expected, "Button command changed unrelated attributes or source bytes");
+    const auto native =
+        forge::read_ui_markup_bindings(command, forge::inspect_ui_markup(command), button);
+    check(native.click_command.available && native.click_command.authored &&
+              native.click_command.value == "Pause",
+          "Literal command binding did not round-trip");
+    check(forge::set_ui_markup_binding(command, button, "click_command", "Pause") == command &&
+              forge::set_ui_markup_binding(source, button, "click_command", {}) == source,
+          "A command binding no-op rewrote source");
+    check(forge::set_ui_markup_binding(source, input, "click_command", "Custom.Action")
+                  .find("command('Custom.Action')") != std::string::npos,
+          "Input button or runtime command identifier rules were replaced");
+    const std::string spaced = "<rml><body><p> {{ health }} </p><button data-event-click=\"command "
+                               "( 'Pause' )\">Go</button></body></rml>";
+    check(forge::set_ui_markup_binding(spaced, find(spaced, "p"), "text", "health") == spaced &&
+              forge::set_ui_markup_binding(spaced, find(spaced, "button"), "click_command",
+                                           "Pause") == spaced,
+          "Semantically equal simple bindings normalized source spelling");
+    for (const auto* name :
+         {"", "bad name", "a.b", "true", "forge_loading_state", "{{health}}", "é"})
+        rejects([&] { forge::set_ui_markup_binding(source, value, "text", name); });
+    for (const auto* name : {"", "bad name", "Pause')", "é"})
+        rejects([&] { forge::set_ui_markup_binding(source, button, "click_command", name); });
+    rejects([&] { forge::set_ui_markup_binding(source, input, "text", "tick"); });
+    rejects([&] { forge::set_ui_markup_binding(source, value, "click_command", "Pause"); });
+    rejects([&] { forge::set_ui_markup_binding(source, value, "other", "tick"); });
+    for (const auto* custom : {"<rml><body><p>Score {{health}}</p></body></rml>",
+                               "<rml><body><p>{{health+1}}</p></body></rml>",
+                               "<rml><body><p data-text='health'>Keep</p></body></rml>",
+                               "<rml><body><p><!--keep-->Value</p></body></rml>",
+                               "<rml><body><p><span>Keep</span></p></body></rml>"}) {
+        const auto index = find(custom, "p");
+        const auto view =
+            forge::read_ui_markup_bindings(custom, forge::inspect_ui_markup(custom), index);
+        check(!view.text.available && !view.text.reason.empty(),
+              "Custom text binding lost its Source fallback");
+        rejects([&] { forge::set_ui_markup_binding(custom, index, "text", "tick"); });
+        rejects([&] { forge::set_ui_markup_binding(custom, index, "text", {}); });
+    }
+    const std::string field = "<rml><body><textarea>Keep</textarea></body></rml>";
+    rejects([&] { forge::set_ui_markup_binding(field, find(field, "textarea"), "text", "tick"); });
+    for (const auto* custom :
+         {"<rml><body><button "
+          "data-event-click=\"command('TimeScale','0.5')\">Go</button></body></rml>",
+          "<rml><body><button data-event-click=\"command(action)\">Go</button></body></rml>",
+          "<rml><body><button data-event-click='custom()'>Go</button></body></rml>",
+          "<rml><body><button onclick='go'>Go</button></body></rml>"})
+        rejects([&] {
+            forge::set_ui_markup_binding(custom, find(custom, "button"), "click_command", "Pause");
+        });
+}
 void sibling_duplication() {
     const std::string source =
         "<!-- preserve -->\r\n<rml><body><div id='a'><label for='b'>B</label>"
@@ -1981,6 +2068,7 @@ int main() {
         layout_transform_geometry();
         group_removals();
         subtree_duplication();
+        source_bindings();
         sibling_duplication();
         hierarchy_moves();
         inline_properties();

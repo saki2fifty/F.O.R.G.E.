@@ -11,6 +11,8 @@
 #include <cstdint>
 #include <forge/project_paths.hpp>
 #include <forge/ui_assets.hpp>
+#include <forge/ui_protocol.hpp>
+#include <forge/ui_values.hpp>
 #include <limits>
 #include <map>
 #include <numeric>
@@ -1970,6 +1972,102 @@ set_ui_markup_control_properties(std::string_view source, std::size_t index,
     return candidate;
 }
 
+namespace {
+bool simple_binding_variable(const std::string& name) {
+    return name == "tick" || name == "paused" || UiValues::valid_name(name);
+}
+std::optional<std::string> simple_click_command(std::string_view text) {
+    text = trimmed_control_literal(text);
+    if (!text.starts_with("command"))
+        return {};
+    text = trimmed_control_literal(text.substr(7));
+    if (text.size() < 4 || text.front() != '(' || text.back() != ')')
+        return {};
+    text = trimmed_control_literal(text.substr(1, text.size() - 2));
+    if (text.size() < 2 || (text.front() != '\'' && text.front() != '"') ||
+        text.front() != text.back())
+        return {};
+    std::string name(text.substr(1, text.size() - 2));
+    return ui_protocol::identifier(name) ? std::optional(std::move(name)) : std::nullopt;
+}
+} // namespace
+UiMarkupBindings read_ui_markup_bindings(std::string_view source,
+                                         std::span<const UiMarkupElement> nodes,
+                                         std::size_t index) {
+    const auto& node = element(nodes, index);
+    UiMarkupBindings result;
+    auto& text = result.text;
+    try {
+        editable(node);
+        require(node.tag != "script" && node.tag != "template",
+                "Edit script/template declarations in Source");
+        require(node.tag != "input" && node.tag != "textarea" && node.tag != "select" &&
+                    node.tag != "option" && node.tag != "progress" && node.tag != "img" &&
+                    node.tag != "br",
+                "Bind display text on a leaf label, paragraph or button; native field values use "
+                "Source");
+        require(
+            !node.self_closing &&
+                std::ranges::none_of(nodes, [index](const auto& n) { return n.parent == index; }),
+            "Text bindings require a leaf element; use Attributes or Source otherwise");
+        const auto content =
+            source.substr(node.content.begin, node.content.end - node.content.begin);
+        require(content.find("<!--") == content.npos, "Edit commented text in Source");
+        text.authored = markup_attribute(node, "data-text") || markup_attribute(node, "data-rml") ||
+                        content.find("{{") != content.npos || content.find("}}") != content.npos;
+        require(!markup_attribute(node, "data-text") && !markup_attribute(node, "data-rml"),
+                "Edit data-text/data-rml bindings through Attributes or Source");
+        if (text.authored) {
+            const auto literal = Rml::StringUtilities::DecodeRml(std::string(content));
+            const auto binding = trimmed_control_literal(literal);
+            require(binding.starts_with("{{") && binding.ends_with("}}"),
+                    "Custom text expressions use Source");
+            const std::string name(trimmed_control_literal(binding.substr(2, binding.size() - 4)));
+            require(simple_binding_variable(name), "Custom text expressions use Source");
+            text.value = name;
+        }
+        text.available = true;
+    } catch (const std::exception& error) {
+        text.reason = error.what();
+    }
+    auto& click = result.click_command;
+    try {
+        const auto control = read_ui_markup_control_properties(source, nodes, index);
+        require(control.kind == "button" || control.kind == "input-button",
+                "Click command controls require a button or input button");
+        require(!markup_attribute(node, "data-attr-type") && !markup_attribute(node, "onclick"),
+                "Custom button event/type bindings use Attributes or Source");
+        const auto* attribute = markup_attribute(node, "data-event-click");
+        click.authored = attribute != nullptr;
+        if (attribute) {
+            click.value = simple_click_command(control_attribute_text(source, *attribute));
+            require(click.value.has_value(),
+                    "Custom click expressions or command arguments use Attributes or Source");
+        }
+        click.available = true;
+    } catch (const std::exception& error) {
+        click.reason = error.what();
+    }
+    return result;
+}
+std::string set_ui_markup_binding(std::string_view source, std::size_t index, std::string_view kind,
+                                  std::optional<std::string> value) {
+    require(kind == "text" || kind == "click_command", "Choose a supported source binding kind");
+    const auto nodes = inspect_ui_markup(source);
+    const auto bindings = read_ui_markup_bindings(source, nodes, index);
+    const auto& current = kind == "text" ? bindings.text : bindings.click_command;
+    require(current.available, current.reason.c_str());
+    if (value)
+        require(kind == "text" ? simple_binding_variable(*value) : ui_protocol::identifier(*value),
+                "Use a supported model variable or registered command name, up to64 bytes");
+    if (current.value == value)
+        return std::string(source);
+    if (kind == "text")
+        return set_ui_markup_text(source, index, value ? "{{" + *value + "}}" : "");
+    return set_ui_markup_attribute(source, index, "data-event-click",
+                                   value ? std::optional("command('" + *value + "')")
+                                         : std::nullopt);
+}
 std::string remove_ui_markup_elements(std::string_view source,
                                       std::span<const std::size_t> indices) {
     const auto nodes = inspect_ui_markup(source);

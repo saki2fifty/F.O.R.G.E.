@@ -1,5 +1,13 @@
 # 2026-11-15
 
+## Guided UI source bindings
+
+Elements stages simple copied-value text and registered button-command bindings
+through the existing source writers. Shared read/set adapters preserve custom
+source and no-ops, one source Undo and explicit Save; MCP exposes the same guarded
+workflow. Runtime retains its read-only model and per-document command allowlist.
+No source authoring action executes a command or creates another game-state owner.
+
 ## UI sibling duplication
 
 Elements and focused Preview Ctrl+D copy static sibling groups together through

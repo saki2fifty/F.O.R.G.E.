@@ -305,3 +305,17 @@ that helper; existing single/group/rule source replacement, one Undo and explici
 Save remain authoritative. Clear stages `none`; property removal restores cascade.
 No dependency declaration, separate CSS parser, native style serialization or
 runtime catalog/resource ownership is introduced.
+
+
+Guided source text/command bindings extend the same literal-adapter approach.
+One source query reports simple bindings and unsupported/custom reasons; one
+mutation composes the existing leaf-text/attribute writers. Semantic no-ops keep
+bytes/history, clearing an absent binding preserves literal text, and clearing a
+recognized binding is explicit. Elements stages fields before Apply and shares
+these adapters with guarded MCP access and one native source Undo/selection.
+UiValues and the existing UI protocol retain name validation; an internal private
+link reuses that owner without another grammar or dependency pin. Runtime keeps
+its injected data-model, copied read-only values, command registration/allowlists
+and execution. No model/DOM/event engine, Scene property ownership, SDK/ABI,
+persistence or runtime protocol change is introduced. Complex expressions,
+arguments and native field-value bindings remain Attributes/Source.

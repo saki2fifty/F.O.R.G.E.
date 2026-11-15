@@ -16,6 +16,20 @@ rejects. `forge_ui_source_remove_group` takes 1–32 distinct sibling indices in
 `elements` and removes them in one Undo step. Both tools require source guards and
 `assets.write`, leave Save explicit and share the editor's limits and history.
 
+Read `forge_ui_source_bindings` with current source guards and `element` to
+inspect simple text and click-command bindings. It reports availability,
+authored state, the bound name and a reason for unsupported source. It requires
+`assets.read` and returns source names rather than live game values.
+
+Use `forge_ui_source_binding` with `element`, `kind` (`text` or `click_command`)
+and `value` to set a recognized binding. Text accepts `tick`, `paused` or a simple
+published project/C++ value name. Click commands take a registered no-argument
+command name for a button or input button. Pass `value:null` to clear; an absent
+binding is a no-op that preserves literal text. Custom expressions and incompatible
+controls refuse unchanged. It requires `assets.write`, retains the element
+selection and creates one source Undo. Save and Play remain separate. Existing
+text/attribute tools remain available for broader source expressions.
+
 Use `forge_ui_source_duplicate_group` with sibling `elements` and an optional
 `prefix` to copy between 1 and 32 static roots together. Copies appear in source
 order after the last selected original, and the returned selection identifies

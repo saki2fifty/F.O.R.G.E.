@@ -75,6 +75,26 @@ struct UiSourceAutomation {
             return {{"open", false}};
         return editor.state();
     }
+    static Json bindings(const UiMarkupBindings& view) {
+        const auto row = [](const UiMarkupBinding& item) {
+            return Json{{"available", item.available},
+                        {"authored", item.authored},
+                        {"value", item.value ? Json(*item.value) : Json{}},
+                        {"reason", item.reason}};
+        };
+        Json kinds = Json::array();
+        for (const auto& [id, label] : ui_markup_binding_kinds)
+            kinds.push_back({{"id", id}, {"label", label}});
+        return {{"text", row(view.text)},
+                {"click_command", row(view.click_command)},
+                {"kinds", std::move(kinds)},
+                {"builtin_variables", {"tick", "paused"}},
+                {"model_read_only", true},
+                {"command_arguments", false},
+                {"name_limit", 64},
+                {"text_expression", "{{name}}"},
+                {"click_expression", "command('name')"}};
+    }
     static Json control_properties(const UiMarkupControlProperties& view) {
         Json rows = Json::array();
         for (const auto& item : view.properties) {
@@ -617,6 +637,18 @@ struct UiSourceAutomation {
             properties["element"] = automation_integer(0, 8191);
             fields.push_back("element");
             result.push_back(automation_method(
+                "ui.source.bindings",
+                "Read simple authored leaf-text and literal button click-command bindings. "
+                "Uses current RML source guards/assets.read and the same adapters as Elements. "
+                "Reports availability/authored/value/reason, supported forms and name limits. "
+                "Custom expressions and command arguments remain Source. Values are source "
+                "names, not live game values; no model initialization, registration or execution.",
+                "assets.read", automation_object(properties, fields), false,
+                [&files, &editor](const Json& request) {
+                    observed(editor, files.document, request);
+                    return bindings(editor.bindings(request.at("element").get<std::size_t>()));
+                }));
+            result.push_back(automation_method(
                 "ui.source.control_properties",
                 "Read typed authored/default control properties for one current RML source "
                 "element. "
@@ -965,33 +997,14 @@ struct UiSourceAutomation {
                 editor.open(files.document, path_utf8(path));
                 return state(editor, files.document);
             }));
-        for (const auto* operation : {"replace",
-                                      "attribute",
-                                      "style",
-                                      "text",
-                                      "insert",
-                                      "duplicate",
-                                      "duplicate_group",
-                                      "reparent",
-                                      "remove",
-                                      "remove_group",
-                                      "move",
-                                      "save",
-                                      "undo",
-                                      "redo",
-                                      "reload",
-                                      "close",
-                                      "rule_property",
-                                      "rule_selector",
-                                      "rule_insert",
-                                      "rule_remove",
-                                      "rule_copy",
-                                      "rule_move",
-                                      "style_group",
-                                      "classes",
-                                      "control",
-                                      "control_values",
-                                      "place_control"}) {
+        for (const auto* operation :
+             {"replace",     "attribute",     "style",          "text",
+              "binding",     "insert",        "duplicate",      "duplicate_group",
+              "reparent",    "remove",        "remove_group",   "move",
+              "save",        "undo",          "redo",           "reload",
+              "close",       "rule_property", "rule_selector",  "rule_insert",
+              "rule_remove", "rule_copy",     "rule_move",      "style_group",
+              "classes",     "control",       "control_values", "place_control"}) {
             const std::string action(operation);
             auto properties = guard;
             auto fields = required;
@@ -1007,11 +1020,18 @@ struct UiSourceAutomation {
             if (action == "rule_selector" || action == "rule_insert")
                 add("selector", automation_text(1024, 1));
             if (action == "attribute" || action == "style" || action == "text" ||
-                action == "duplicate" || action == "remove" || action == "move" ||
-                action == "control_values")
+                action == "binding" || action == "duplicate" || action == "remove" ||
+                action == "move" || action == "control_values")
                 add("element", automation_integer(0, 8191));
             if (action == "duplicate" || action == "duplicate_group")
                 add("prefix", automation_text(64), false);
+            if (action == "binding") {
+                Json kinds = Json::array();
+                for (const auto& [id, label] : ui_markup_binding_kinds)
+                    kinds.push_back(id);
+                add("kind", {{"type", "string"}, {"enum", std::move(kinds)}});
+                add("value", {{"oneOf", {automation_text(64, 1), Json{{"type", "null"}}}}});
+            }
             if (action == "remove_group" || action == "duplicate_group" || action == "reparent" ||
                 action == "style_group" || action == "classes")
                 add("elements",
@@ -1199,6 +1219,18 @@ struct UiSourceAutomation {
                       "destinations reject atomically. Styles/parent-relative coordinates follow "
                       "the new hierarchy; no automatic layout or reference rewrite. Requires "
                       "current source guards/assets.write; no Save/registration/Scene history."
+                : action == "binding"
+                    ? "Set or clear one simple source binding using current source guards and "
+                      "assets.write. kind=text replaces leaf text with a copied-value expression; "
+                      "value names tick, paused or a simple published project/C++ value. "
+                      "kind=click_command sets a literal no-argument command on a button/input "
+                      "button, using the runtime command-name validator. Read bindings first. "
+                      "value:null clears only a recognized binding; an absent binding is a no-op "
+                      "that preserves literal text. Custom expressions, arguments, incompatible "
+                      "controls or conflicting bindings reject unchanged. One source Undo and "
+                      "retained element selection; Save explicit. No Scene/catalog/model write, "
+                      "registration, command execution or authored data-model. Runtime still "
+                      "requires its per-document command allowlist."
                 : action == "duplicate_group"
                     ? "Copy1..32 static same-parent source subtrees in source order, together "
                       "after the last selected root, in one Undo step. One prefix remaps all "
@@ -1283,6 +1315,12 @@ struct UiSourceAutomation {
                                      request.at("value").is_null()
                                          ? std::nullopt
                                          : std::optional(request.at("value").get<std::string>()));
+                    else if (action == "binding")
+                        editor.binding(request.at("element").get<std::size_t>(),
+                                       request.at("kind").get<std::string>(),
+                                       request.at("value").is_null()
+                                           ? std::nullopt
+                                           : std::optional(request.at("value").get<std::string>()));
                     else if (action == "text")
                         editor.text(request.at("element").get<std::size_t>(),
                                     request.at("text").get<std::string>());

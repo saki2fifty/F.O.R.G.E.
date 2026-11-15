@@ -2775,7 +2775,7 @@ reads no computed state and changes no selection/history/source/registration.
 
 The same immutable metadata powers inline/group and stylesheet literal controls.
 Native source candidates and old mutation/query results are unchanged. Including
-this query and native-preview placement, there are57source operations. Style/preset staging
+this query and native-preview placement, there are59source operations. Style/preset staging
 publishes only through the original Set/Remove/Undo/Save and guarded MCP owners.
 
 Source control metadata includes an image profile: src/sprite/rect strings and
@@ -2800,7 +2800,7 @@ cannot establish computed geometry or initialize a renderer.
 
 Box style profiles extend the same query with position/box-sizing/axis overflow,
 side padding/margin and simple border width/color/radius controls. Common has53
-entries; source operations total57, control kinds18, grants/history/replay and
+entries; source operations total59, control kinds18, grants/history/replay and
 schema ownership unchanged. The Common search field has no programmatic authoring
 semantics: agents query profiles and use existing style/group/rule mutations.
 Raw multi-value source remains supported and is not normalized by the profiles.
@@ -2818,7 +2818,7 @@ Pixel setup refuses breaks/options, requires ID and rejects bound ancestors.
 It does not initialize a renderer, register assets, create a persistent identity
 or bypass native Preview eligibility. The selected new root, one Undo, explicit
 Save, grants/revisions/replay and Scene isolation retain existing owners. There
-are57 source operations/18creation kinds; the existing layout schema remains
+are59 source operations/18creation kinds; the existing layout schema remains
 unchanged. No separate creation path is maintained for MCP clients.
 
 ## Native-preview control placement
@@ -2895,7 +2895,7 @@ Both tools require assets.write, the ordinary mutation envelope and existing
 source-task/gesture locks. Receipt replay returns its original result without
 reapplying selection. They use the same source selection owner as Elements and
 Preview and leave source revision/digest/dirty/Undo/Save/catalog/Scene unchanged.
-There are57source operations. No runtime widget input or persisted selection is
+There are59source operations. No runtime widget input or persisted selection is
 introduced; selected elements still need each authoring operation's admission.
 
 
@@ -2905,7 +2905,7 @@ The native canvas shortcuts use existing source operations: Ctrl+A is a replacem
 select_rectangle over the current viewport, Escape's idle clear is select with an
 empty list, Ctrl+D is duplicate_group over the selected static siblings, and Delete is atomic remove_group.
 These same guarded tools remain available with their existing grants, source
-revisions, identity rules, history and explicit Save. These shortcuts add no separate tool; there are57source operations. Agents
+revisions, identity rules, history and explicit Save. These shortcuts add no separate tool; there are59source operations. Agents
 send source operations rather than UI key events; cancelling a local queued key
 request is a local transient workflow, not a new persisted authoring operation.
 
@@ -2940,7 +2940,7 @@ source operations; no new mutation owner, serialized identity or resource format
 
 ## Source font declarations
 
-Four font source operations share the existing source owner (57combined source operations):
+Four font source operations share the existing source owner (59combined source operations):
 
 - `ui.source.font_reference` / `forge_ui_source_font_reference`: assets.read plus
   current source guards, font `asset` and optional `face_index`(0default,0..31).
@@ -2980,7 +2980,7 @@ SDK change is introduced.
 ## Source layout presets
 
 ui.source.layout_preset / forge_ui_source_layout_preset is one assets.write
-operation in the current57-method source family. Current source guards, Edit ownership,
+operation in the current59-method source family. Current source guards, Edit ownership,
 ordinary mutation envelope and replay apply. Required element, preset, width and
 height describe an explicit proposal. Sixteen preset IDs are advertised by the
 schema from the same immutable metadata used by Elements. Width/height1..65536
@@ -3011,12 +3011,12 @@ types recognized, selected files RCSS. Source indices are revision-bound, not
 persisted identity. Generic metadata guards stay intact. Mutations use one Undo
 and explicit Save; registration/preview/native loading remain separate. Factory
 excludes the three writers without asset-write grants; both queries remain
-discoverable. Existing stylesheet-link operations remain available; the source family totals57 including layout presets.
+discoverable. Existing stylesheet-link operations remain available; the source family totals59 including layout presets.
 
 
 ## Viewport-width stylesheet rules
 
-Four explicit source-owned adapters bring the source family to57. Current RCSS
+Four explicit source-owned adapters bring the source family to59. Current RCSS
 source guards apply; media_read uses assets.read, the three writers assets.write
 and normal Edit ownership/mutation envelope/replay. Read-only discovery excludes
 and direct calls deny writers. No renderer is initialized by these operations.
@@ -3060,4 +3060,33 @@ explicit collisions and source/ID/node limits reject before publication. Static
 subtree/ancestry, sibling and complete-source admission reuse existing helpers.
 There is no DOM serialization, clipboard operation, persisted group, layout
 translation, Scene/catalog write or separate authoring owner. Save is explicit.
-The native source family currently advertises57operations.
+The native source family currently advertises59operations.
+
+
+## Guided source value and command bindings
+
+ui.source.bindings/forge_ui_source_bindings requires assets.read and current RML
+source guards plus element. Its text and click_command rows return available,
+authored, nullable value and reason. Shared kind metadata, built-in variables,
+read-only model status, command-argument limit and64byte name bound describe the
+same adapters used by Elements. It initializes no presenter/model and returns
+no runtime value or command-registration claim.
+
+ui.source.binding/forge_ui_source_binding requires assets.write, current source
+guards and the ordinary mutation envelope. kind=text sets one simple leaf display
+expression; compatible UiValues names and built-in tick/paused share the existing
+name owner. kind=click_command uses the runtime protocol's existing identifier
+validator and formats a literal no-argument command for a button/input button.
+value:null clears only a recognized binding; an absent binding preserves literal
+text. Semantically equal simple forms preserve source bytes/history. Custom text,
+conflicting native field bindings, command arguments, incompatible controls and
+invalid names reject before mutation. One existing source replacement/Undo retains
+the element selection; Save stays explicit. Existing raw text/attribute tools remain
+supported. The source family advertises59operations.
+
+UiPresenter still injects its own data-model, copies read-only scalars and owns
+per-document command allowlists/queuing. Authored data-model is rejected by that
+existing runtime contract. Source authoring does not publish model values, register
+commands, execute gameplay, write Scene/catalog or bypass Play permissions. Static
+Preview stays a layout inspection. Native field values, reserved loading names,
+combined/arbitrary expressions and command arguments remain Attributes/Source.

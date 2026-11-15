@@ -2,6 +2,23 @@
 
 ## Native UI source authoring
 
+The two `ui-source-bindings-text.png`/`ui-source-bindings-command.png` images are
+exact700×950 production UiSourceEditor/DocumentWorkspace captures from
+`forge_ui_source_editor_tests <output> --bindings-only`. They show staged variable
+entry before Set binding and the authored Resume click command after Set.
+Actual1180/700/400 controls check staging, no-op, Undo/Redo, Clear, selection,
+locks and explicit Save. Text700 and command700/400 were visually reviewed.
+SDL software component pixels are unretouched; full Windows Main, physical
+input/GPU and display-density acceptance remain separate. Source/runtime model
+and command execution are established by their separate native fixture, not by
+these source-control screenshots.
+
+The twelve existing 700-wide Elements, hierarchy, class, inline-style and control
+captures were refreshed directly from the full `ui_source_editor` fixture after
+the collapsed **Runtime bindings** section was added. That complete fixture
+passes at1180/700/400; the refreshed Elements700 image was spot-reviewed. Preview
+and GPU captures retain their separate, unchanged provenance.
+
 `ui-source-duplicate-group.png` is the exact700×950 production Elements capture
 from `forge_ui_source_canvas_tests <output> <default-font>`. Real prefix entry and
 Duplicate selection produce three selected new roots; an additional native frame
