@@ -1078,6 +1078,9 @@ reply must drain before that callback starts and within the existing five-second
 receive allowance. Its native child must exit normally before the result is
 accepted; the controlled callback delay measures scheduling order, not game or
 GPU performance.
+The compiler-lifetime fixture publishes its readiness JSON through the existing
+atomic file writer before the parent observes it. Cancellation, cache reuse and
+retained-publication assertions keep their original deadlines and checks.
 Independent Gallery export cases assign unique application IDs to their temporary
 copies so one scene's fixture save cannot become another case's initial state.
 Each observer checks its saved Scene identity and a distinct OS storage root;

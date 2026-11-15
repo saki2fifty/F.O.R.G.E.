@@ -31,7 +31,8 @@ int compiler(int argc, char** argv) {
     const auto control = std::filesystem::u8path(variable);
     const auto mode = read_json(control / "mode.json").get<std::string>();
     put(build / "compiler-output.txt", "retain these compiler bytes");
-    put(control / "observed.json", Json{{"build", path_utf8(build)}}.dump());
+    // The parent treats existence as readiness; publish only complete JSON.
+    asset_storage::replace(control / "observed.json", Json{{"build", path_utf8(build)}}.dump());
     if (mode == "hold")
         std::this_thread::sleep_for(std::chrono::seconds(5));
 #ifdef __linux__
