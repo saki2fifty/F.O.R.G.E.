@@ -420,7 +420,7 @@ jobs:
     runs-on: windows-2022
     # Assembly, SDK onboarding and native MCP/C++/GPU/export acceptance each
     # retain their own bounded watchdog. Include the added MCP gate's headroom.
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout Windows source without trailing-dot paths
         if: runner.os == 'Windows'
@@ -534,6 +534,7 @@ jobs:
           python tools/ci_cache_key.py
           if ($LASTEXITCODE) { throw 'Fixture cache identity failed' }
       - name: Restore validated compilation for retry fixtures
+        id: retry-fixture-cache
         if: inputs.package_source_run != ''
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         env:
@@ -542,7 +543,10 @@ jobs:
           path: |
             ${{ runner.temp }}/forge-work/AgentFiles/b
             ${{ runner.temp }}/forge-work/AgentFiles/d
-          key: ${{ steps.retry-cache-key.outputs.key }}-${{ steps.compiled.outputs.sha }}
+          key: ${{ steps.retry-cache-key.outputs.key }}-${{ steps.compiled.outputs.sha }}-fixture-${{ github.sha }}
+          restore-keys: |
+            ${{ steps.retry-cache-key.outputs.key }}-${{ steps.compiled.outputs.sha }}-fixture-
+            ${{ steps.retry-cache-key.outputs.key }}-${{ steps.compiled.outputs.sha }}
           fail-on-cache-miss: true
       - name: Build current nonshipping acceptance fixture
         if: inputs.package_source_run != ''
@@ -560,11 +564,24 @@ jobs:
           if ($LASTEXITCODE) { throw 'Current acceptance fixture build failed' }
           ctest --test-dir ../AgentFiles/b -R '^native_sdk_workflow_probe$' --no-tests=error --output-on-failure
           if ($LASTEXITCODE) { throw 'SDK workflow probe failed' }
+          python tools/ci_source_stamps.py record ../AgentFiles/b/forge-source-stamps.json
+          if ($LASTEXITCODE) { throw 'Fixture input timestamp record failed' }
           $fixture = Join-Path $env:RUNNER_TEMP 'forge-package/editor-sdk-fixture/forge_editor_fixture.exe'
           Copy-Item -LiteralPath ../AgentFiles/b/forge_editor_fixture.exe -Destination $fixture -Force
           $evidence = Join-Path $env:RUNNER_TEMP 'forge-package/editor-sdk-evidence'
           New-Item -ItemType Directory -Path $evidence -Force | Out-Null
           @{ compiled_source = $env:FORGE_SOURCE_COMMIT; fixture_source = '${{ github.sha }}'; fixture_sha256 = (Get-FileHash -LiteralPath $fixture -Algorithm SHA256).Hash.ToLower(); scope = 'Nonshipping test fixture; all delivered binaries remain from the validated compiled-source run.' } | ConvertTo-Json | Out-File "$evidence/fixture-provenance.json" -Encoding utf8
+      - name: Save compatible retry fixture compilation
+        if: inputs.package_source_run != '' && steps.retry-fixture-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        env:
+          NODE_OPTIONS: '--require "${{ steps.retry-cache-key.outputs.preload }}"'
+        with:
+          path: |
+            ${{ runner.temp }}/forge-work/AgentFiles/b
+            ${{ runner.temp }}/forge-work/AgentFiles/d
+          key: ${{ steps.retry-cache-key.outputs.key }}-${{ steps.compiled.outputs.sha }}-fixture-${{ github.sha }}
       - name: Assemble and verify complete Windows package
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -652,16 +669,6 @@ jobs:
           if ($LASTEXITCODE) { throw 'C++ component animation example both-host/recovery test failed' }
           python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game" --physics-loads "$root/loads-project" --physics-velocity "$root/velocity-project" --physics-contacts "$root/contacts-project" --physics-volumes "$root/volumes-project" --movement-2d "$root/movement-project" --character-2d "$root/character-project" --component-animation "$root/component-animation-project"
           if ($LASTEXITCODE) { throw 'Combined package assembly failed' }
-          python tests/windows_combined_package_test.py "$root/final/$name" "$root/game-fixture/game/forge_game_fixture.exe" "$root/loads-evidence"
-          if ($LASTEXITCODE) { throw 'Combined package relocation failed' }
-      - name: Upload compiled physics example evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: FORGE-Physics-Loads-Example
-          path: ${{ runner.temp }}/forge-package/loads-evidence
-          if-no-files-found: warn
-          retention-days: 7
       - name: Verify final package with editor SDK fixture and editable project
         # Run the editor fixture EXE (downloaded separately) against the
         # matching SDK extracted from the final ZIP and the dedicated
@@ -696,6 +703,25 @@ jobs:
           if ($LASTEXITCODE) { throw 'Editor SDK acceptance against final package failed' }
           python tests/mcp_editor_package_test.py --zip $zip --fixture $fixture --evidence "$evidence/mcp"
           if ($LASTEXITCODE) { throw 'Packaged native MCP C++ game acceptance failed' }
+      - name: Verify combined package exports and relocation
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        env:
+          FORGE_PACKAGE_ID: ${{ inputs.build_id }}
+          FORGE_COMPILED_SOURCE: ${{ steps.compiled.outputs.sha }}
+        run: |
+          $name = "$env:FORGE_PACKAGE_ID-FORGE-Windows-x64.zip"
+          $root = Join-Path $env:RUNNER_TEMP 'forge-package'
+          python tests/windows_combined_package_test.py "$root/final/$name" "$root/game-fixture/game/forge_game_fixture.exe" "$root/loads-evidence"
+          if ($LASTEXITCODE) { throw 'Combined package relocation failed' }
+      - name: Upload compiled physics example evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Physics-Loads-Example
+          path: ${{ runner.temp }}/forge-package/loads-evidence
+          if-no-files-found: warn
+          retention-days: 7
       - name: Upload editor SDK acceptance evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

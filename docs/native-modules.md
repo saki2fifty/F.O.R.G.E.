@@ -238,6 +238,12 @@ new build and fresh Play. No arbitrary native-object checkpoint or hot reload is
 claimed. Runtime crashes cannot mutate the editor's authored scene; game Save
 Game/Continue persists only the game-defined save schema.
 
+The process loop drains its frozen correlated response before starting further
+world preparation or control callbacks. A backpressured peer delays new world
+work and commands until that bounded response is sent; normal clock catch-up
+limits remain in effect afterward. The editor's five-second receive deadline,
+response size bounds and owner-thread mutation rules are unchanged.
+
 An existing **State Condition** can also be tuned through the same Scene owner.
 It validates complete enabled domain/state references before native apply, then
 uses RuntimeSimulation's tickless physics retirement and source-audio refresh.

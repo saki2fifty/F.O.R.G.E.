@@ -161,6 +161,12 @@ If FORGE reports an unexpected compiler shutdown, retry **Build Project Code**;
 it uses fresh temporary build storage when the previous work cannot be safely
 reused. Your saved C++ source and last good module remain available.
 
+If CMake reports an object-file path limit or compiler error **C1083** with
+**Invalid argument**, move the project to a shorter folder such as
+`C:\ForgeProjects\MyGame`, reopen it, and build again. CMake's compiler probes and
+FORGE's private build folders add to the full path length. Spaces in project
+paths are supported.
+
 ## Keep a C++ timer running during pause
 
 Use your module's `controls` callback for menu timers or UI effects that should

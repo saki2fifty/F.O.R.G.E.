@@ -6,6 +6,7 @@
 #include "PBR_Renderer.hpp"
 #include "image_pixels.hpp"
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <forge/services.hpp>
 #include <memory>
@@ -95,6 +96,7 @@ class DiligentPresentation {
     Diligent::RefCntAutoPtr<Diligent::IFence> frame_fence_;
     std::uint64_t submitted_frames_{};
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
+    std::chrono::seconds frame_completion_budget_{};
     Diligent::RefCntAutoPtr<Diligent::IRenderStateCache> cache_;
     std::unique_ptr<Diligent::PBR_Renderer> pbr_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> black_environment_;

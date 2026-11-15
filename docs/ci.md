@@ -13,8 +13,10 @@ the longer axis. The limit preserves aspect ratio and is recorded as
 `maximum_view_extent` in capture metadata. These fixtures test controls, routing
 and actual image readback on the hosted software adapter; they do not establish
 full-resolution or physical GPU performance. Dedicated renderer checks retain
-their own render dimensions. The shipping editor's 4096-pixel viewport limit,
-explicit output sizes and five-second GPU backlog watchdog remain unchanged.
+their own render dimensions. The shipping editor retains its 4096-pixel viewport
+limit and explicit output sizes. GPU backlog completion remains bounded to five
+seconds for hardware and unknown adapters, or thirty seconds for reported software
+adapters, with at most two outstanding frames.
 The Save image fixture also leaves 500 milliseconds between submissions on the
 hosted software adapter. Its metadata records `fixture_capture_frame_pause_ms`.
 This functional command/readback test retains all three UI scales, the 512-pixel
@@ -1053,6 +1055,11 @@ Its nonshipping editor acceptance fixture is rebuilt from the exact compatible
 compiled-source cache, with the workflow probe run before package acceptance.
 The evidence records the fixture revision/hash separately from the unchanged
 engine build/source identity; the fixture is never included in the delivery ZIP.
+Compatible fixture caches retain the compiled-engine SHA and fixture SHA in their
+keys. Source timestamps are recorded after a successful rebuild and workflow
+probe; reuse stays within the same environment and engine source. Final-package
+SDK onboarding and native MCP checks run before the longer combined-export
+walkthrough, using the same assembled ZIP. Every gate must pass before upload.
 The imported-lightmap export checks the prepared Shader's wrapper capability and
 the exported Material's Shader identity. After source removal and relocation,
 the runtime content verifier admits the Material's embedded Shader snapshot and
@@ -1065,6 +1072,12 @@ uses the private scratch directory, whose name contains spaces, keeping nested
 CMake compiler probes out of the deeper evidence path. Logs, captures and private
 shortcut preferences are retained on success or failure before scratch cleanup;
 private authored projects are excluded from the evidence copy.
+The real SDK process regression holds a large reply behind a small pipe quota,
+then arms a slow control callback through an ordinary live property edit. The
+reply must drain before that callback starts and within the existing five-second
+receive allowance. Its native child must exit normally before the result is
+accepted; the controlled callback delay measures scheduling order, not game or
+GPU performance.
 Independent Gallery export cases assign unique application IDs to their temporary
 copies so one scene's fixture save cannot become another case's initial state.
 Each observer checks its saved Scene identity and a distinct OS storage root;

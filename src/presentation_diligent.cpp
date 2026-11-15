@@ -10,6 +10,7 @@ using namespace Diligent;
 DiligentPresentation::DiligentPresentation(IRenderDevice* device) : device_(device) {
     if (!device)
         throw std::runtime_error("Presentation requires a render device");
+    frame_completion_budget_ = frame_completion_budget(device_->GetAdapterInfo());
     auto* factory = LoadAndGetArchiverFactory();
     if (!factory)
         throw std::runtime_error("Diligent render-state archiver is unavailable");
@@ -56,7 +57,7 @@ std::uint64_t DiligentPresentation::pending_frames() const {
     return submitted_frames_ > completed ? submitted_frames_ - completed : 0;
 }
 void DiligentPresentation::begin_frame() {
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    const auto deadline = std::chrono::steady_clock::now() + frame_completion_budget_;
     while (pending_frames() >= 2) {
         if (std::chrono::steady_clock::now() >= deadline)
             throw std::runtime_error("GPU frame completion timed out; rendering stopped before "

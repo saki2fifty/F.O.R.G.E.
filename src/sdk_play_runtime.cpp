@@ -1752,6 +1752,17 @@ void SdkPlayRuntime::process() {
     std::uint64_t diag_iter = 0;
     constexpr long long kSlowPumpMs = 50;
     while (!io.closed()) {
+        // Finish the frozen correlated reply before host preparation or a new
+        // control callback can delay it. Backpressure admits neither a new
+        // request nor more world work; the runtime clock catches up normally
+        // after the peer drains the existing bounded response.
+        io.flush_for(std::chrono::milliseconds(10));
+        if (s.quit && !io.pending())
+            break;
+        if (io.pending()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
         const auto now = RuntimeClock::Clock::now();
         // Advance the simulation/host callbacks. If gameplay Quit was
         // observed, pump() now early-returns after setting quit_latched;
@@ -1786,19 +1797,8 @@ void SdkPlayRuntime::process() {
             diag_log("[sdk_diag runtime t=%lld stage=pump_sample iter=%llu pump_ms=%lld]",
                      diag_ms(), static_cast<unsigned long long>(diag_iter), pump_ms);
         ++diag_iter;
-        // The wire carries at most one in-flight response. Flush before
-        // pulling a new request and bound serialized size including the
-        // trailing newline against RuntimeIo::limit, not a local magic.
-        io.flush_for(std::chrono::milliseconds(10));
         if (s.quit && !io.pending())
             break;
-        // The wire carries at most one in-flight response. If the previous
-        // response has not been fully drained yet, wait for it before
-        // pulling a new request.
-        if (io.pending()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            continue;
-        }
         std::string line;
         if (!io.receive(line)) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));

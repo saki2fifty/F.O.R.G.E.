@@ -2,6 +2,11 @@
 #include <stdexcept>
 namespace forge {
 using namespace Diligent;
+std::chrono::seconds frame_completion_budget(const GraphicsAdapterInfo& adapter) {
+    // Software first-use work shares the host CPU; keep its finite allowance
+    // separate from hardware while preserving the same submission bound.
+    return std::chrono::seconds(adapter.Type == ADAPTER_TYPE_SOFTWARE ? 30 : 5);
+}
 bool emulated_resource_arrays(const RenderDeviceInfo& device) { return device.IsWebGPUDevice(); }
 void prepare_renderer_shader(const RenderDeviceInfo& device, ShaderCreateInfo& shader) {
     const auto require = [](bool ok, const char* message) {

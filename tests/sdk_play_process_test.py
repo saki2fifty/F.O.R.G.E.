@@ -17,6 +17,8 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
+from pathlib import Path
 
 
 def _encode(payload):
@@ -31,6 +33,9 @@ class ProcessBridge:
         self._buf = bytearray()
         self._buf_lock = threading.Lock()
         self._closed = threading.Event()
+        self.reader_gate = threading.Event()
+        self.reader_gate.set()
+        self.reader_paused = threading.Event()
         self._reader = threading.Thread(
             target=self._reader_thread, name="stdout-reader", daemon=True
         )
@@ -43,6 +48,10 @@ class ProcessBridge:
     def _reader_thread(self):
         try:
             while True:
+                if not self.reader_gate.is_set():
+                    self.reader_paused.set()
+                    self.reader_gate.wait()
+                    self.reader_paused.clear()
                 chunk = self.proc.stdout.read(4096)
                 if not chunk:
                     self._closed.set()
@@ -123,6 +132,7 @@ class ProcessBridge:
         return self.proc.wait(timeout=5)
 
     def close(self):
+        self.reader_gate.set()
         # Cleanup helper: kill only if still alive, then wait with
         # timeout, close pipe handles, and join the reader threads so
         # no log data is lost. The caller decides whether to invoke
@@ -150,6 +160,94 @@ class ProcessBridge:
 def expect_ok(resp, label):
     if not resp.get("ok", False):
         raise AssertionError(f"{label} returned ok=false: {resp}")
+
+
+def response_priority(test_exe, user_base, stderr_log):
+    root = Path(user_base + '-backpressure')
+    root.mkdir(parents=True, exist_ok=True)
+    for name in ('pump-started', 'pump-finished'):
+        (root / name).unlink(missing_ok=True)
+    proc = subprocess.Popen([test_exe, '--mode=backpressure', str(root)],
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, bufsize=0)
+    if sys.platform.startswith('linux'):
+        import fcntl
+        fcntl.fcntl(proc.stdout.fileno(), fcntl.F_SETPIPE_SZ, 4096)
+    bridge = ProcessBridge(proc, stderr_log + '.backpressure')
+    rid = 0
+    session = None
+
+    def call(command, **fields):
+        nonlocal rid, session
+        rid += 1
+        request = dict(protocol=2, id=rid, command=command, **fields)
+        if session is not None:
+            request['session'] = session
+        bridge.send(_encode(request))
+        result = bridge.read_message(time.monotonic() + 10, expected_id=rid)
+        expect_ok(result, command)
+        return result
+
+    try:
+        session = call('hello', application_id='forge.test.reply')['session']
+        entities = [dict(id=str(uuid.uuid4()), name='Reply '+str(i),
+            spatial=dict(mode='world'), components={
+            'forge.local_translation': dict(x=0, y=0, z=0)}) for i in range(256)]
+        entities[0]['components']['forge.navigation_agent'] = dict(navmesh=None, enabled=False,
+            has_destination=False, speed=2, stopping_distance=.1,
+            destination_x=0, destination_y=0, destination_z=0)
+        entities[0]['components']['forge.navigation_avoidance'] = dict(enabled=False, horizon=2)
+        result = call('replace', scene=dict(version=3, asset_id=str(uuid.uuid4()), entities=entities))
+        deadline = time.monotonic() + 10
+        while not isinstance(result.get('candidate'), dict):
+            assert time.monotonic() < deadline, result.get('loading')
+            result = call('snapshot')
+        ticket = result['candidate']['ticket']
+        result = call('snapshot', candidate_ack=dict(session=session, ticket=ticket,
+                      accepted=True, diagnostic=''))
+        deadline = time.monotonic() + 10
+        while result.get('activation', {}).get('state') != 'ready':
+            assert time.monotonic() < deadline, (result.get('activation'), result.get('loading'))
+            result = call('snapshot')
+        scene = result['scene']
+        target = next(entity['id'] for entity in scene['entities']
+                      if 'forge.navigation_avoidance' in entity['components'])
+        generation = result['activation']['generation']
+        assert len(json.dumps(result, separators=(',', ':')).encode()) > 128 * 1024, (
+            'Reply must exceed the native pipe quota')
+        bridge.reader_gate.clear()
+        rid += 1
+        started = time.monotonic()
+        bridge.send(_encode(dict(protocol=2, session=session, id=rid, command='property_tune',
+                    generation=generation, scene_asset=scene['asset_id'],
+                    entity=target, type='forge.navigation_avoidance',
+                    property='horizon', value=1.25)))
+        assert bridge.reader_paused.wait(3), 'Reader did not observe reply backpressure'
+        time.sleep(.25)
+        ran_before_drain = (root / 'pump-started').exists()
+        bridge.reader_gate.set()
+        # The longer read is failure cleanup for the old implementation. Assert
+        # the real five-second wire bound only after the native child retires.
+        result = bridge.read_message(started + 10, expected_id=rid)
+        elapsed = time.monotonic() - started
+        expect_ok(result, 'live edit under backpressure')
+        assert result['property_tune']['value'] == 1.25, result.get('property_tune')
+        deadline = time.monotonic() + 8
+        while not (root / 'pump-finished').is_file():
+            assert time.monotonic() < deadline, 'Control callback never retired'
+            time.sleep(.01)
+        call('quit')
+        assert proc.wait(timeout=10) == 0, 'Native process did not exit gracefully'
+        report = dict(reply_seconds=elapsed, world_work_before_drain=ran_before_drain,
+                      native_exit=proc.returncode, property_value=result['property_tune']['value'])
+        (root / 'result.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+        print('Reply priority: ' + json.dumps(report), flush=True)
+        assert not ran_before_drain, 'World work ran before the pending reply drained'
+        assert elapsed < 5, f'Frozen reply exceeded the wire deadline: {elapsed:.3f}s'
+        print(f'Backpressured reply drained before slow controls in {elapsed:.3f}s; native exit0',
+              flush=True)
+    finally:
+        bridge.close()
 
 
 def main():
@@ -541,3 +639,5 @@ if __name__ == "__main__":
         print("bridge regressions OK", flush=True)
         sys.exit(0)
     main()
+    response_priority(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3
+                      else os.path.join(os.path.dirname(sys.argv[2]), 'sdk-process-driver.stderr.log'))

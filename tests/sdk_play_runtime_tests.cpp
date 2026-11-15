@@ -31,11 +31,15 @@
 #include <forge/game_settings.hpp>
 #include <forge/identity.hpp>
 #include <forge/input.hpp>
+#include <forge/navigation_components.hpp>
 #include <forge/runtime.hpp>
 #include <forge/services.hpp>
+#include <forge/transform_components.hpp>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 namespace forge::test {
 namespace {
@@ -2670,11 +2674,46 @@ int run_process_mode(const std::filesystem::path& user_base_override,
         return 2;
     }
 }
+
+int run_backpressure_mode(const std::filesystem::path& user_base) {
+    Fixture f;
+    f.user_base = user_base;
+    std::filesystem::create_directories(user_base);
+    bool delayed = false;
+    EngineModule module;
+    module.id = "game.reply_priority";
+    module.dependencies = {"forge.game"};
+    module.runtime_roles = role_mask(WorldRole::Runtime);
+    // A normal live property edit arms one slow control callback. The real
+    // process loop must drain its frozen reply before entering this new work.
+    module.controls = [&](ModuleContext& context) {
+        if (delayed)
+            return;
+        context.world.each<const NavigationAvoidance>([&](const NavigationAvoidance& avoidance) {
+            if (delayed || avoidance.horizon != 1.25f)
+                return;
+            delayed = true;
+            {
+                std::ofstream(user_base / "pump-started") << "started\n";
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(5500));
+            {
+                std::ofstream(user_base / "pump-finished") << "finished\n";
+            }
+        });
+    };
+    f.modules.push_back(std::move(module));
+    auto host = build(f);
+    host->process();
+    return 0;
+}
 } // namespace
 } // namespace forge::test
 
 int main(int argc, char** argv) {
     (void)forge::detail::initialize_native_system_tracing();
+    if (argc == 3 && std::strcmp(argv[1], "--mode=backpressure") == 0)
+        return forge::test::run_backpressure_mode(argv[2]);
     // --mode=process [user_base]
     if (argc >= 2 && std::strcmp(argv[1], "--mode=process") == 0) {
         std::filesystem::path user_base;

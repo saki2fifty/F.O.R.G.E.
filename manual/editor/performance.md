@@ -236,8 +236,9 @@ The build format is `yymmdd-counter`, using UTC. The counter keeps increasing ac
 
 FORGE limits queued rendering to two frames, even with VSync off. A slow GPU makes
 the editor wait for completed work instead of continually allocating more graphics
-resources. If frame completion stalls for five seconds, FORGE reports a rendering
-error. This does not limit FPS to your display’s refresh rate.
+resources. FORGE reports a rendering error when frame completion exceeds five
+seconds on a hardware or unknown adapter, or thirty seconds on a reported software
+adapter. This does not limit FPS to your display’s refresh rate.
 
 ## GPU pass timing
 

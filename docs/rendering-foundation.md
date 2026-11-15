@@ -1254,8 +1254,10 @@ The existing `DiligentPresentation` owner limits graphical hosts to two outstand
 frame submissions, independently of VSync. Before allocating the next frame, it
 polls a default CPU-wait Diligent fence until fewer than two submissions remain.
 Each frame appends a signal after rendering; normal Present submits the marker.
-Offscreen consumers explicitly Flush. A five-second completion wait fails with a
-clear rendering error instead of allocating an unbounded backlog. Scheduler delay
+Offscreen consumers explicitly Flush. Hardware and unknown adapters have a
+five-second completion allowance. Reported software adapters have a thirty-second
+allowance for first-use work on the host CPU. Either limit fails with a clear
+rendering error instead of allocating an unbounded backlog. Scheduler delay
 can exceed the polling interval. A single frame can still exceed resource budgets;
 this bound controls queued frames, not the complexity of one frame.
 

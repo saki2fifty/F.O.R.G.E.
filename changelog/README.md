@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-11-15](20261115/README.md) — Prioritize SDK replies before further world work; retain bounded software rendering with the existing hardware and submission limits; improve final-package acceptance isolation, provenance and cache reuse.
+
 - [2026-11-14](20261114/README.md) — Serialize graph preview retirement and Shader publication, reuse admitted cooked Shader previews, preserve preview values/history, and strengthen native navigation setup and clipped text-entry checks.
 
 - [2026-11-11](20261111/README.md) — Correct optional worker/SDK test registration, explicit JSON comparisons and MSVC object-file capacity; reconcile pinned formatting for the Windows delivery gate. Windows package validation and desktop review remain pending.

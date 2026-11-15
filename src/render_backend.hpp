@@ -1,8 +1,10 @@
 #pragma once
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include <chrono>
 namespace forge {
-// Compiler/declaration policy is the only backend-dependent part of shared
-// shader preparation. Resources, signatures and synchronization remain Diligent.
+// Renderer device/adapter policy. Resources, signatures and synchronization
+// remain Diligent-owned.
+std::chrono::seconds frame_completion_budget(const Diligent::GraphicsAdapterInfo&);
 bool emulated_resource_arrays(const Diligent::RenderDeviceInfo&);
 void prepare_renderer_shader(const Diligent::RenderDeviceInfo&, Diligent::ShaderCreateInfo&);
 enum class SamplerBorderProfile { Unavailable, UnitRange, BlackOrWhite };

@@ -7,6 +7,13 @@ inline void check_renderer_backend_policy() {
         if (!ok)
             throw std::runtime_error("Renderer backend policy regression");
     };
+    GraphicsAdapterInfo adapter;
+    for (const auto type : {ADAPTER_TYPE_UNKNOWN, ADAPTER_TYPE_INTEGRATED, ADAPTER_TYPE_DISCRETE}) {
+        adapter.Type = type;
+        check(forge::frame_completion_budget(adapter) == std::chrono::seconds(5));
+    }
+    adapter.Type = ADAPTER_TYPE_SOFTWARE;
+    check(forge::frame_completion_budget(adapter) == std::chrono::seconds(30));
     const auto reject = [&](auto fn) {
         bool rejected = false;
         try {
