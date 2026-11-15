@@ -2,6 +2,16 @@
 
 ## Native UI source authoring
 
+`ui-source-transform-rotate.png` is the exact700×950 production UiSourceEditor/
+DocumentWorkspace capture after native function selection and Angle input. The
+CSS value is staged at `rotate(45deg)` before Set property. Reproduce with
+`forge_ui_source_editor_tests <output> --box-styling-only`; the raw
+`ui-source-transform-rotate-<width>.png` covers1180/700/400. The fixture also
+checks translation units, signed scale, custom-chain preservation, staging,
+invalid-input refusal, no-op, one Undo/Redo and explicit Save. SDL software
+component pixels are unretouched; full Windows Main, physical GPU/input and
+display-density acceptance remain separate. SHA256 `2994fbac732a2abbd02e8363cae6d3cabb7afdbd084b5a3bc505c3642c17a6ef`.
+
 `ui-source-create-control.png` is an exact700×950 production UiSourceEditor/
 DocumentWorkspace capture after actual New child kind and initial-text input.
 Reproduce with `forge_ui_source_editor_tests <output>`; the raw

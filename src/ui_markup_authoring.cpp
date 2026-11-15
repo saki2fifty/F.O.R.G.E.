@@ -431,6 +431,66 @@ std::string format_ui_style_number(UiStyleNumber number) {
     require(result.ec == std::errc{}, "Could not format the style number");
     return std::string(buffer.data(), result.ptr) + std::string(ui_style_unit_suffixes[unit]);
 }
+std::span<const UiStyleUnit> ui_style_transform_units(UiStyleTransformKind kind) {
+    static constexpr std::array lengths{UiStyleUnit::Pixels, UiStyleUnit::DensityPixels,
+                                        UiStyleUnit::Percent};
+    static constexpr std::array angle{UiStyleUnit::Degrees};
+    static constexpr std::array unitless{UiStyleUnit::Number};
+    switch (kind) {
+    case UiStyleTransformKind::Translate:
+        return lengths;
+    case UiStyleTransformKind::Rotate:
+        return angle;
+    case UiStyleTransformKind::Scale:
+        return unitless;
+    }
+    return {};
+}
+namespace {
+bool style_transform_valid(const UiStyleTransform2D& transform) {
+    const auto units = ui_style_transform_units(transform.kind);
+    const auto count = transform.kind == UiStyleTransformKind::Rotate ? 1u : 2u;
+    return !units.empty() &&
+           std::ranges::all_of(std::span(transform.values).first(count), [&](auto number) {
+               return std::isfinite(number.value) && std::abs(number.value) <= 65536 &&
+                      std::ranges::find(units, number.unit) != units.end();
+           });
+}
+} // namespace
+std::optional<UiStyleTransform2D> read_ui_style_transform(std::string_view text) {
+    const auto range = trimmed(text, {0, text.size()});
+    text = text.substr(range.begin, range.end - range.begin);
+    for (std::size_t i = 0; i < ui_style_transform_functions.size(); ++i) {
+        const auto name = ui_style_transform_functions[i];
+        if (!text.starts_with(name) || text.size() < name.size() + 2 || text[name.size()] != '(' ||
+            text.back() != ')')
+            continue;
+        const auto arguments = text.substr(name.size() + 1, text.size() - name.size() - 2);
+        UiStyleTransform2D value{static_cast<UiStyleTransformKind>(i), {}};
+        const bool rotation = value.kind == UiStyleTransformKind::Rotate;
+        const auto comma = arguments.find(',');
+        if (rotation ? comma != arguments.npos : comma == arguments.npos)
+            return {};
+        const auto first = read_ui_style_number(arguments.substr(0, comma));
+        const auto second = rotation ? std::optional(UiStyleNumber{})
+                                     : read_ui_style_number(arguments.substr(comma + 1));
+        if (!first || !second)
+            return {};
+        value.values = {*first, *second};
+        return style_transform_valid(value) ? std::optional(value) : std::nullopt;
+    }
+    return {};
+}
+std::string format_ui_style_transform(const UiStyleTransform2D& transform) {
+    require(style_transform_valid(transform),
+            "Use a finite 2D translation, degree rotation or unitless scale within65536");
+    auto value =
+        std::string(ui_style_transform_functions[static_cast<std::size_t>(transform.kind)]) + '(' +
+        format_ui_style_number(transform.values[0]);
+    if (transform.kind != UiStyleTransformKind::Rotate)
+        value += ", " + format_ui_style_number(transform.values[1]);
+    return value + ')';
+}
 std::optional<UiStyleLiteralProfile> ui_style_literal_profile(std::string_view property) {
     static constexpr std::array all_units{UiStyleUnit::Number, UiStyleUnit::Pixels,
                                           UiStyleUnit::DensityPixels, UiStyleUnit::Percent};
@@ -548,6 +608,16 @@ std::optional<UiStyleLiteralProfile> ui_style_literal_profile(std::string_view p
             profile.minimum = 0;
         else
             profile.keywords = automatic;
+    } else if (property == "transform") {
+        profile.keywords = none;
+        profile.transform = true;
+    } else if (property == "transform-origin-x" || property == "transform-origin-y") {
+        static constexpr std::array<std::string_view, 3> horizontal{"left", "center", "right"};
+        static constexpr std::array<std::string_view, 3> vertical{"top", "center", "bottom"};
+        profile.keywords =
+            property == "transform-origin-x" ? std::span(horizontal) : std::span(vertical);
+        profile.units = dimensions;
+        profile.initial = {50, UiStyleUnit::Percent};
     } else if (property != "font-family")
         return {};
     return profile;

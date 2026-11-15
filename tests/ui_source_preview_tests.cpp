@@ -70,6 +70,45 @@ div {display:block;}
         }
     }
 }
+void transforms(UiPresenter& presenter, AssetId asset) {
+    const std::string source =
+        R"rml(<rml><head><style>body{display:block;width:100%;height:100%;font-family:Lato;}
+div{display:block;}</style></head><body><div id="target" style="position:absolute;
+left:100px;top:80px;width:80px;height:40px;background-color:#117733;"></div></body></rml>)rml";
+    const auto target_index = inspect_ui_markup(source).size() - 1;
+    struct Case {
+        const char *function, *x, *y;
+        UiPixelLayout expected;
+    };
+    for (const float density : {1.f, 2.f})
+        for (const auto& row :
+             {Case{"rotate(90deg)", "left", "top", {60, 80, 40, 80}},
+              Case{"rotate(90deg)", "50%", "50%", {120, 60, 40, 80}},
+              Case{"translate(25%, -50%)", "left", "top", {120, 60, 80, 40}},
+              Case{"translate(12px, -4dp)", "left", "top", {112, 80 - 4 * density, 80, 40}},
+              Case{"scale(-1, 0.5)", "left", "top", {20, 80, 80, 20}}}) {
+            auto candidate = set_ui_markup_style(
+                source, target_index, "transform",
+                format_ui_style_transform(*read_ui_style_transform(row.function)));
+            candidate = set_ui_markup_style(candidate, target_index, "transform-origin-x", row.x);
+            candidate = set_ui_markup_style(candidate, target_index, "transform-origin-y", row.y);
+            check(presenter.preview_document({asset}, "layout.rml", candidate, 400, 240, density),
+                  "Native transform candidate did not load");
+            auto* context = Rml::GetContext(0);
+            auto* target = context->GetDocument(0)->GetElementById("target");
+            const auto& box = row.expected;
+            for (const auto point :
+                 {Rml::Vector2f{box.left + 1, box.top + 1},
+                  Rml::Vector2f{box.left + box.width - 1, box.top + box.height - 1}})
+                check(context->GetElementAtPoint(point) == target,
+                      "Native hit geometry disagrees with authored 2D transform/origin");
+            check(context->GetElementAtPoint({box.left - 1, box.top + box.height / 2}) != target &&
+                      context->GetElementAtPoint({box.left + box.width / 2, box.top - 1}) !=
+                          target &&
+                      !find(presenter.preview_layout(), "target").at("editable").get<bool>(),
+                  "Transform changed its expected bounds or enabled plain-pixel canvas edits");
+        }
+}
 void media_rules(UiPresenter& presenter, AssetId asset, const std::filesystem::path& root) {
     const std::string markup =
         R"rml(<rml><head><link type="text/rcss" href="responsive.rcss" /></head>
@@ -201,6 +240,7 @@ div {display:block;}
         rejects([&] { presenter.prepare(Json::object()); });
         presets(presenter, asset.id);
         media_rules(presenter, asset.id, root);
+        transforms(presenter, asset.id);
         presenter.reset("runtime", 1);
         check(presenter.preview_layout().is_null() && Rml::GetNumContexts() == 0,
               "Reset retained preview context");

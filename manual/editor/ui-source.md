@@ -280,6 +280,34 @@ as text. Opening a color control preserves the existing spelling and precision;
 an edited color is rounded to eight bits per channel. An invalid numeric entry
 keeps the previous CSS value and disables property publication until corrected.
 
+## Translate, rotate or scale a widget
+
+1. Select a widget in **Elements** and expand **Inline style**. For siblings, use **Group inline style**; a stylesheet selector uses **Rule properties**.
+2. Choose `transform` in **Common**. **Read inline** or **Read property** reads its authored value without changing the document.
+3. Choose **Single 2D function**: `translate`, `rotate` or `scale`. Choosing a different function stages its starting value and replaces the entire transform when applied. Translation starts at zero; rotation at zero degrees; scale at one.
+4. For translation, set **X**, **Y** and each **Unit** (`px`, `dp` or `%`). Percent translation uses the widget's own size. Rotation uses **Angle (deg)**. Scale uses unitless **X** and **Y**; negative values flip an axis and zero collapses it.
+5. Choose **Set property**, check **Preview**, then **Save source**. Changes share the source document's **Undo** and **Redo**.
+
+![UI Source transform controls with rotate and a staged 45-degree angle](../images/ui-source-transform-rotate.png)
+
+The angle changes the CSS value field; **Set property** applies it as one source
+Undo step.
+
+To set the pivot, choose `transform-origin-x` or `transform-origin-y` in **Common**.
+Use **Preset** for `left`/`center`/`right` or `top`/`center`/`bottom`, or **Number**
+and **Unit** for pixel, density-scaled pixel or percentage offsets. **New number**
+starts at `50%`. Percent origins use the widget's border box and may lie outside it.
+
+Controls accept finite magnitudes through 65,536. Changing a translation or origin
+unit keeps its number. It does not convert distances. **Preset → none** disables
+the transform; **Remove property** removes the inline or rule declaration and
+restores the cascade.
+
+Only one literal function is read into these controls. Existing chains, matrices,
+other angle units and custom forms remain in **CSS value** or **Source**. Opening
+them does not guess or replace their values. A transformed widget remains outside
+Preview's plain-pixel move/resize profile; edit these properties or Source.
+
 ## Assign a UI Material effect
 
 Select an element or sibling group, or a stylesheet rule, and open its style

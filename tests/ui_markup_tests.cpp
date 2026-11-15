@@ -1307,6 +1307,68 @@ void configured_control_creation() {
     rejects(
         [&] { insert_ui_markup_control(options, 2, "option", "Choice", {}, "choice", pixels); });
 }
+void transform_literals() {
+    using namespace forge;
+    for (std::size_t i = 0; i < ui_style_transform_initials.size(); ++i) {
+        const auto value = read_ui_style_transform(ui_style_transform_initials[i]);
+        check(value && std::size_t(value->kind) == i &&
+                  format_ui_style_transform(*value) == ui_style_transform_initials[i],
+              "Transform defaults do not round trip");
+    }
+    for (const auto* text :
+         {" translate(-12.5px, 33.125%)\t", "translate(1dp, -65536px)", "rotate(-65536deg)",
+          "rotate(0.10000000000000002deg)", "scale(-2, 0.5)", "scale(0, 1)"}) {
+        const auto value = read_ui_style_transform(text);
+        check(value && read_ui_style_transform(format_ui_style_transform(*value)) == value,
+              "Transform lost signed units or numeric precision");
+    }
+    for (const auto* text :
+         {"", "none", "rotate(1)", "rotate(1rad)", "rotate(1deg, 2deg)", "rotate(NaNdeg)",
+          "rotate(65537deg)", "translate(1px)", "translate(1, 2)", "translate(1px 2px)",
+          "translate(1px, 2px, 3px)", "scale(2)", "scale(1px, 2)", "rotate(1deg) scale(1, 2)",
+          "matrix(1, 0, 0, 1, 0, 0)", "rotateX(1deg)", "{{bound}}"})
+        check(!read_ui_style_transform(text), "Custom transform acquired fabricated controls");
+    auto invalid = *read_ui_style_transform("scale(1, 2)");
+    invalid.values[1].value = std::numeric_limits<double>::infinity();
+    rejects([&] { format_ui_style_transform(invalid); });
+    invalid.values[1] = {1, UiStyleUnit::Pixels};
+    rejects([&] { format_ui_style_transform(invalid); });
+    invalid.kind = static_cast<UiStyleTransformKind>(99);
+    rejects([&] { format_ui_style_transform(invalid); });
+    const auto transform = *ui_style_literal_profile("transform");
+    check(transform.transform && transform.keywords.size() == 1 &&
+              transform.keywords.front() == "none" && transform.units.empty(),
+          "Transform profile fabricated a scalar property");
+    for (const auto* name : {"transform-origin-x", "transform-origin-y"}) {
+        const auto profile = *ui_style_literal_profile(name);
+        check(format_ui_style_literal_number(name, profile.initial) == "50%" &&
+                  read_ui_style_literal_number(name, "-12.5px") &&
+                  read_ui_style_literal_number(name, "125%") &&
+                  read_ui_style_literal_number(name, "2dp") &&
+                  !read_ui_style_literal_number(name, "1deg") &&
+                  !read_ui_style_literal_number(name, "1"),
+              "Transform origins lost their native lengths/percent boundary");
+    }
+    const std::string source = "<!-- keep -->\r\n<rml><body><div id='a' "
+                               "style='position:absolute;left:1px;top:2px;width:30px;height:40px;"
+                               "color:red;transform:rotate(1rad) scale(2);'></div>"
+                               "<div id='b'></div></body></rml>\r\n";
+    const auto current = read_ui_markup_style(source, inspect_ui_markup(source), 2, "transform");
+    check(current == "rotate(1rad) scale(2)" && !read_ui_style_transform(*current),
+          "Raw transform chain was normalized by an optional reader");
+    const std::array<std::size_t, 2> members{2, 3};
+    const auto changed = set_ui_markup_styles(source, members, "transform", "rotate(45deg)");
+    const auto nodes = inspect_ui_markup(changed);
+    check(read_ui_markup_style(changed, nodes, 2, "transform") == "rotate(45deg)" &&
+              read_ui_markup_style(changed, nodes, 3, "transform") == "rotate(45deg)" &&
+              changed.starts_with("<!-- keep -->\r\n") &&
+              changed.find("color:red;") != changed.npos && changed.ends_with("\r\n"),
+          "Transform group edit changed unrelated source bytes");
+    check(read_ui_markup_layout(changed, 2) == UiPixelLayout{1, 2, 30, 40},
+          "Transform changed the unrelated authored pixel layout reader");
+    check(set_ui_markup_styles(changed, members, "transform", "rotate(45deg)") == changed,
+          "Equal transform edit changed source bytes");
+}
 void typography_literals() {
     using namespace forge;
     for (const auto property : ui_common_style_properties)
@@ -1360,7 +1422,7 @@ void typography_literals() {
 }
 void responsive_layout_literals() {
     using namespace forge;
-    check(ui_common_style_properties.size() == 54,
+    check(ui_common_style_properties.size() == 57,
           "Responsive layout controls changed the shared menu unexpectedly");
     const auto decorator = *ui_style_literal_profile("decorator");
     check(decorator.keywords.size() == 1 && decorator.keywords.front() == "none" &&
@@ -1838,6 +1900,7 @@ int main() {
         font_face_style_sources();
         reusable_styles();
         style_value_literals();
+        transform_literals();
         typography_literals();
         responsive_layout_literals();
         box_style_literals();

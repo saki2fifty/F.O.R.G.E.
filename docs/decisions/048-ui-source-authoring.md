@@ -226,6 +226,16 @@ group and flat-rule property operations publish the resulting text through the
 same guarded source replacement/history. Automation/MCP use those same operations
 and optional authored reads; no control-state API or additional writer is needed.
 
+Guided2Dtransform controls extend those optional authored adapters with one literal
+translate(px/dp/%), rotate(deg) or scale(unitless) function and x/yorigin scalar/
+keyword profiles. Reading never decomposes a matrix or normalizes custom chains.
+Function selection explicitly stages a complete replacement; the same existing
+single/group/rule/media-rule property writers retain history, validation and Save.
+Shared function/unit metadata also describes automation discovery. Native parsing,
+cascade, transforms and hit testing remain authoritative. Existing transformed
+canvas eligibility refusals remain; no visual rotate gesture,3Dtransform editor,
+DOM writer or new authoring operation follows.
+
 Source-preview image output borrows the same observed native image through
 ViewImageTask. A rendered input retains the source/preview identity and rechecks
 it before the existing nonblocking GPU copy is submitted. Pending observations

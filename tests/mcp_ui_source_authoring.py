@@ -243,7 +243,20 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
         profile = read('forge_ui_source_style_profile', **guard(), name='font-weight')
         assert profile['known'] and profile['kind'] == 'number' and profile['keywords'] == ['normal', 'bold']
         assert profile['numeric'] == dict(units=[''], minimum=1, maximum=1000, integer=True, initial_literal='400')
-        assert len(profile['common_properties']) == len(set(profile['common_properties'])) == 54
+        assert len(profile['common_properties']) == len(set(profile['common_properties'])) == 57
+        transform = read('forge_ui_source_style_profile', **guard(), name='transform')
+        assert transform['kind'] == 'transform2d' and transform['keywords'] == ['none']
+        assert transform['numeric'] is None and transform['transform']['single_function']
+        assert transform['transform']['minimum'] == -65536 and transform['transform']['maximum'] == 65536
+        assert transform['transform']['forms'] == [
+            dict(function='translate', arguments=2, units=['px', 'dp', '%'], initial_literal='translate(0px, 0px)'),
+            dict(function='rotate', arguments=1, units=['deg'], initial_literal='rotate(0deg)'),
+            dict(function='scale', arguments=2, units=[''], initial_literal='scale(1, 1)')]
+        for name, keywords in [('transform-origin-x', ['left', 'center', 'right']),
+                               ('transform-origin-y', ['top', 'center', 'bottom'])]:
+            origin = read('forge_ui_source_style_profile', **guard(), name=name)
+            assert origin['keywords'] == keywords and origin['numeric']['initial_literal'] == '50%'
+            assert origin['numeric']['units'] == ['px', 'dp', '%']
         assert read('forge_ui_source_read') == before, 'Literal profile query changed the draft'
         for name, keywords in [('display', ['none', 'block', 'inline', 'inline-block', 'flow-root', 'flex', 'inline-flex']),
                                ('flex-direction', ['row', 'row-reverse', 'column', 'column-reverse']),
@@ -302,7 +315,10 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                             ('position', 'relative'), ('box-sizing', 'border-box'), ('overflow-x', 'hidden'), ('overflow-y', 'auto'),
                             ('padding-top', '1dp'), ('padding-right', '2%'), ('padding-bottom', '3px'), ('padding-left', '4px'),
                             ('margin-top', '-1dp'), ('margin-right', 'auto'), ('margin-bottom', '3%'), ('margin-left', '4px'),
-                            ('border-width', '2px'), ('border-radius', '4dp'), ('border-color', '#cc8844')]:
+                            ('border-width', '2px'), ('border-radius', '4dp'), ('border-color', '#cc8844'),
+                            ('transform', 'translate(-12px, 25%)'), ('transform', 'rotate(-45deg)'),
+                            ('transform', 'scale(-2, 0.5)'), ('transform-origin-x', 'left'),
+                            ('transform-origin-y', '125%')]:
             profile = read('forge_ui_source_style_profile', **guard(), name=name)
             assert profile['known']
             edit('rule_property', rule=0, name=name, value=value)

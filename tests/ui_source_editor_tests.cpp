@@ -724,6 +724,68 @@ void exercise(const std::filesystem::path& output, int width,
             input.click("ui-source:element:2");
             preset("position", "relative", "box-position");
             preset("box-sizing", "border-box", "box-sizing");
+            const auto apply_transform = [&](const char* function, const char* x, const char* y,
+                                             const char* expected) {
+                choose_property("transform");
+                const auto before = editor.state();
+                input.click("ui-source:style-transform");
+                input.select(("ui-source:style-transform:" + std::string(function)).c_str());
+                input.type("ui-source:style-transform-number:0", x);
+                if (y)
+                    input.type("ui-source:style-transform-number:1", y);
+                check(editor.state() == before, "Transform controls published while staging");
+                frame();
+                capture.save(output / ("ui-source-transform-" + std::string(function) + '-' +
+                                       std::to_string(width) + ".png"));
+                input.click("ui-source:style-set");
+                const auto applied = editor.state();
+                check(editor.read_style(2, "transform") == expected &&
+                          asset_storage::read(file) == source,
+                      "Transform control changed its value or saved implicitly");
+                input.click("ui-source:style-set");
+                check(editor.state() == applied, "Equal transform generated another history step");
+                input.click("button:Undo");
+                check(editor.state().at("text") == before.at("text"),
+                      "Transform needed multiple Undo steps");
+                input.click("button:Redo");
+                check(editor.state().at("text") == applied.at("text"),
+                      "Transform Redo changed source");
+                input.click("ui-source:element:2");
+            };
+            apply_transform("rotate", "-30", nullptr, "rotate(-30deg)");
+            apply_transform("scale", "-2", "0.5", "scale(-2, 0.5)");
+            apply_transform("translate", "12.5", "-4", "translate(12.5px, -4px)");
+            choose_property("transform");
+            const auto before_unit = editor.state();
+            input.click("ui-source:style-transform-unit:1");
+            input.select("ui-source:style-transform-unit:1:dp");
+            check(editor.state() == before_unit, "Transform unit selection published source");
+            input.click("ui-source:style-set");
+            check(editor.read_style(2, "transform") == "translate(12.5px, -4dp)",
+                  "Transform unit conversion changed the authored magnitude");
+            const auto valid = editor.state();
+            input.type("ui-source:style-transform-number:0", "65537");
+            frame();
+            check(!test::ui_targets.at("ui-source:style-set").enabled && editor.state() == valid,
+                  "Out-of-range transform enabled publication or changed source/history");
+            editor.style(2, "transform", "rotate(1rad) scale(2)");
+            choose_property("transform");
+            const auto raw = editor.state();
+            frame();
+            check(!test::ui_targets.contains("ui-source:style-transform-number:0") &&
+                      editor.state() == raw &&
+                      editor.read_style(2, "transform") == "rotate(1rad) scale(2)",
+                  "Opening custom transforms fabricated numbers or normalized source");
+            apply_transform("rotate", "45", nullptr, "rotate(45deg)");
+            preset("transform-origin-x", "left", "transform-origin");
+            choose_property("transform-origin-y");
+            const auto origin = editor.state();
+            input.click("ui-source:style-new-number");
+            input.type("ui-source:style-number", "125");
+            check(editor.state() == origin, "Transform origin published while staging");
+            input.click("ui-source:style-set");
+            check(editor.read_style(2, "transform-origin-y") == "125%",
+                  "Transform origin used a guessed unit or clamped percentage");
         } else if (responsive) {
             preset("display", "flex", "layout-display");
             preset("flex-direction", "column", "layout-direction");
@@ -767,6 +829,10 @@ void exercise(const std::filesystem::path& output, int width,
                             : "typography-rule");
         check(editor.read_rule_property(0, rule_property) == (box ? "auto" : "center"),
               "Rule preset missing authored alignment");
+        if (box) {
+            preset("transform", "none", "transform-rule");
+            preset("transform-origin-y", "bottom", "transform-rule-origin");
+        }
         const auto* numeric_property = box          ? "padding-right"
                                        : responsive ? "column-gap"
                                                     : "line-height";

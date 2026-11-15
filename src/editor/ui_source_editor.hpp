@@ -753,6 +753,9 @@ class UiSourceEditor {
                 const auto text = [&] {
                     if constexpr (std::is_same_v<std::decay_t<decltype(value)>, UiStyleNumber>)
                         return format_ui_style_literal_number(style_name_, value);
+                    else if constexpr (std::is_same_v<std::decay_t<decltype(value)>,
+                                                      UiStyleTransform2D>)
+                        return format_ui_style_transform(value);
                     else
                         return format_ui_style_color(value);
                 }();
@@ -809,7 +812,64 @@ class UiSourceEditor {
                 ImGui::EndCombo();
             }
         }
-        if (profile && profile->color) {
+        if (profile && profile->transform) {
+            auto transform = read_ui_style_transform(style_value_);
+            const auto selected =
+                transform ? std::size_t(transform->kind) : ui_style_transform_functions.size();
+            const bool open = ImGui::BeginCombo(
+                "Single 2D function",
+                transform ? ui_style_transform_functions[selected].data() : "Custom / unset");
+            FORGE_UI_PROBE("ui-source:style-transform");
+            if (open) {
+                for (std::size_t i = 0; i < ui_style_transform_functions.size(); ++i) {
+                    if (ImGui::Selectable(ui_style_transform_functions[i].data(), selected == i) &&
+                        selected != i) {
+                        transform = read_ui_style_transform(ui_style_transform_initials[i]);
+                        stage(*transform);
+                    }
+                    FORGE_UI_PROBE("ui-source:style-transform:" +
+                                   std::string(ui_style_transform_functions[i]));
+                }
+                ImGui::EndCombo();
+            }
+            if (transform) {
+                const bool angle = transform->kind == UiStyleTransformKind::Rotate;
+                const auto units = ui_style_transform_units(transform->kind);
+                for (unsigned i = 0; i < (angle ? 1u : 2u); ++i) {
+                    ImGui::PushID(int(i));
+                    auto& value = transform->values[i];
+                    if (ImGui::InputDouble(angle ? "Angle (deg)"
+                                           : i   ? "Y"
+                                                 : "X",
+                                           &value.value, 0, 0, "%.17g"))
+                        stage(*transform);
+                    FORGE_UI_PROBE("ui-source:style-transform-number:" + std::to_string(i));
+                    if (units.size() > 1) {
+                        const bool open_unit = ImGui::BeginCombo(
+                            "Unit", ui_style_unit_suffixes[std::size_t(value.unit)].data());
+                        FORGE_UI_PROBE("ui-source:style-transform-unit:" + std::to_string(i));
+                        if (open_unit) {
+                            for (const auto unit : units) {
+                                if (ImGui::Selectable(
+                                        ui_style_unit_suffixes[std::size_t(unit)].data(),
+                                        value.unit == unit) &&
+                                    value.unit != unit) {
+                                    value.unit = unit;
+                                    stage(*transform);
+                                }
+                                FORGE_UI_PROBE(
+                                    "ui-source:style-transform-unit:" + std::to_string(i) + ':' +
+                                    std::string(ui_style_unit_suffixes[std::size_t(unit)]));
+                            }
+                            ImGui::EndCombo();
+                        }
+                    }
+                    ImGui::PopID();
+                }
+            } else
+                ImGui::TextWrapped("Keep custom CSS in CSS value. Choosing a single 2D function "
+                                   "stages a replacement for the entire transform value.");
+        } else if (profile && profile->color) {
             if (auto color = read_ui_style_color(style_value_)) {
                 if (ImGui::ColorEdit4("Color", color->data(),
                                       ImGuiColorEditFlags_DisplayHex |

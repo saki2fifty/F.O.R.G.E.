@@ -10,8 +10,8 @@
 namespace forge {
 bool ui_markup_widget_editable(const UiMarkupElement&) noexcept;
 // Optional literal adapters for authored controls, not computed CSS or admission.
-enum class UiStyleUnit { Number, Pixels, DensityPixels, Percent };
-inline constexpr std::array<std::string_view, 4> ui_style_unit_suffixes{"", "px", "dp", "%"};
+enum class UiStyleUnit { Number, Pixels, DensityPixels, Percent, Degrees };
+inline constexpr std::array<std::string_view, 5> ui_style_unit_suffixes{"", "px", "dp", "%", "deg"};
 struct UiStyleNumber {
     double value = 0;
     UiStyleUnit unit = UiStyleUnit::Number;
@@ -19,7 +19,21 @@ struct UiStyleNumber {
 };
 std::optional<UiStyleNumber> read_ui_style_number(std::string_view);
 std::string format_ui_style_number(UiStyleNumber);
-inline constexpr std::array<std::string_view, 54> ui_common_style_properties{"color",
+// One literal function only. Chains, matrices and other forms stay CSS text.
+enum class UiStyleTransformKind { Translate, Rotate, Scale };
+inline constexpr std::array<std::string_view, 3> ui_style_transform_functions{"translate", "rotate",
+                                                                              "scale"};
+inline constexpr std::array<std::string_view, 3> ui_style_transform_initials{
+    "translate(0px, 0px)", "rotate(0deg)", "scale(1, 1)"};
+struct UiStyleTransform2D {
+    UiStyleTransformKind kind = UiStyleTransformKind::Translate;
+    std::array<UiStyleNumber, 2> values{{{0, UiStyleUnit::Pixels}, {0, UiStyleUnit::Pixels}}};
+    bool operator==(const UiStyleTransform2D&) const = default;
+};
+std::span<const UiStyleUnit> ui_style_transform_units(UiStyleTransformKind);
+std::optional<UiStyleTransform2D> read_ui_style_transform(std::string_view);
+std::string format_ui_style_transform(const UiStyleTransform2D&);
+inline constexpr std::array<std::string_view, 57> ui_common_style_properties{"color",
                                                                              "background-color",
                                                                              "opacity",
                                                                              "font-size",
@@ -72,13 +86,16 @@ inline constexpr std::array<std::string_view, 54> ui_common_style_properties{"co
                                                                              "border-radius",
                                                                              "right",
                                                                              "bottom",
-                                                                             "decorator"};
+                                                                             "decorator",
+                                                                             "transform",
+                                                                             "transform-origin-x",
+                                                                             "transform-origin-y"};
 // Optional literal input controls, not a native CSS admission/cascade contract.
 // Spans borrow immutable metadata; reading a profile allocates no storage.
 struct UiStyleLiteralProfile {
     std::span<const std::string_view> keywords;
     std::span<const UiStyleUnit> units;
-    bool color = false, integer = false;
+    bool color = false, integer = false, transform = false;
     double minimum = -65536, maximum = 65536;
     UiStyleNumber initial;
 };

@@ -1194,6 +1194,16 @@ and unitless `0.5`. Changing a suffix retains the number rather than converting
 sizes. These controls add no separate automation state or writer; existing grants,
 guards, candidate validation, one source Undo and explicit Save still apply.
 
+`forge_ui_source_style_profile` describes the additional optional `transform2d`
+control profile with a `transform` record: supported single-function forms,
+argument counts, units, starting literals, finite minimum/maximum and
+`single_function:true`. Current forms are translate(px/dp/%), rotate(deg) and
+scale(unitless). X/yorigin profiles reuse numeric/keyword metadata. Existing
+single/group/rule/media-rule property writers accept the resulting CSS strings;
+arbitrary chains remain text. No new mutation, control-state RPC or parser follows.
+The separate guarded pixel-canvas `ui.source.transform` operation retains its
+movement/resize contract and native eligibility checks.
+
 RCSS `forge_ui_source_rule_read` uses assets.read, source guards, `rule` and `name`;
 it returns the authored `{name,value}`, null when absent. Flat ordinary rules only;
 explicit media/font adapters cover their bounded at-rule subsets. Other nested

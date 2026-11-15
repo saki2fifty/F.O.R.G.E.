@@ -31,12 +31,30 @@ struct UiSourceAutomation {
                     {"numeric", nullptr}, {"common_properties", std::move(common)}};
         if (const auto profile = ui_style_literal_profile(name)) {
             result["known"] = true;
-            result["kind"] = profile->color               ? "color"
+            result["kind"] = profile->transform           ? "transform2d"
+                             : profile->color             ? "color"
                              : !profile->units.empty()    ? "number"
                              : !profile->keywords.empty() ? "keyword"
                                                           : "text";
             for (const auto keyword : profile->keywords)
                 result["keywords"].push_back(keyword);
+            if (profile->transform) {
+                auto forms = Json::array();
+                for (std::size_t i = 0; i < ui_style_transform_functions.size(); ++i) {
+                    const auto kind = static_cast<UiStyleTransformKind>(i);
+                    auto units = Json::array();
+                    for (const auto unit : ui_style_transform_units(kind))
+                        units.push_back(ui_style_unit_suffixes[std::size_t(unit)]);
+                    forms.push_back({{"function", ui_style_transform_functions[i]},
+                                     {"arguments", kind == UiStyleTransformKind::Rotate ? 1 : 2},
+                                     {"units", std::move(units)},
+                                     {"initial_literal", ui_style_transform_initials[i]}});
+                }
+                result["transform"] = {{"forms", std::move(forms)},
+                                       {"minimum", -65536},
+                                       {"maximum", 65536},
+                                       {"single_function", true}};
+            }
             if (!profile->units.empty()) {
                 auto units = Json::array();
                 for (const auto unit : profile->units)
@@ -581,7 +599,8 @@ struct UiSourceAutomation {
                 "ui.source.style_profile",
                 "Read optional literal input controls for a CSS property using current source "
                 "guards/assets.read. Returns known/kind, keyword presets, numeric units/bounds/"
-                "integer/initial_literal where available, and the shared Common property menu. "
+                "integer/initial_literal where available, single-function2D transform forms/"
+                "units/bounds, and the shared Common property menu. "
                 "These are source control conveniences, not native CSS admission, defaults, "
                 "computed styling or loaded font-face guarantees. Unsupported/custom values "
                 "remain in CSS value/Source. No source/selection/history/Save/registration or "

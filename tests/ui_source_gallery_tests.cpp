@@ -146,6 +146,19 @@ void exercise(const std::filesystem::path& root, const Json& source,
                   typography->GetProperty<float>("line-height") == 120 &&
                   typography->GetProperty<float>("letter-spacing") == .5f,
               "Saved/source-hidden typography literals lost actual native property values");
+        for (const auto& [id, type] :
+             {std::pair{"native-translate", Rml::TransformPrimitive::TRANSLATE2D},
+              std::pair{"native-rotate", Rml::TransformPrimitive::ROTATE2D},
+              std::pair{"native-scale", Rml::TransformPrimitive::SCALE2D}}) {
+            auto* element = document->GetElementById(id);
+            const auto transform =
+                element ? element->GetProperty<Rml::TransformPtr>("transform") : nullptr;
+            check(transform && transform->GetNumPrimitives() == 1 &&
+                      transform->GetPrimitive(0).type == type &&
+                      element->GetProperty<float>("transform-origin-x") == 25 &&
+                      element->GetProperty<float>("transform-origin-y") == 10,
+                  "Saved/source-hidden UI lost native transform/origin values");
+        }
         for (const auto& [id, size] : std::array<std::pair<const char*, Rml::Vector2f>, 4>{
                  {{"native-image", {32, 32}},
                   {"native-sprite", {32, 32}},
@@ -847,6 +860,18 @@ int main(int argc, char** argv) {
             text = set_ui_markup_style(
                 text, created.element, "letter-spacing",
                 format_ui_style_literal_number("letter-spacing", {.5, UiStyleUnit::DensityPixels}));
+            for (const auto& [id, literal] :
+                 {std::pair{"native-translate", "translate(-12px, 25%)"},
+                  std::pair{"native-rotate", "rotate(-45deg)"},
+                  std::pair{"native-scale", "scale(-2, 0.5)"}}) {
+                created = insert_ui_markup_control(text, by_id(text, "panel"), "paragraph", "2D");
+                text = set_ui_markup_attribute(created.source, created.element, "id", id);
+                text = set_ui_markup_style(
+                    text, created.element, "transform",
+                    format_ui_style_transform(*read_ui_style_transform(literal)));
+                text = set_ui_markup_style(text, created.element, "transform-origin-x", "25%");
+                text = set_ui_markup_style(text, created.element, "transform-origin-y", "10dp");
+            }
             for (const auto* id :
                  {"native-image", "native-sprite", "native-image-css", "native-image-intrinsic"}) {
                 created = insert_ui_markup_control(text, by_id(text, "panel"), "image");

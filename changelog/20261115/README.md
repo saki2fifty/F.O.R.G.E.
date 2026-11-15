@@ -1,5 +1,14 @@
 # 2026-11-15
 
+## UI transform styling
+
+UI Source offers guided single-function2D translation, rotation and scale plus
+horizontal/vertical transform origins in the existing inline, group and rule
+style controls. Changes stage CSS text until Set property and use the same source
+Undo, validation and explicit Save. Custom chains/matrices stay available as text.
+Automation discovery describes the shared literal forms; current property writers
+retain the same guarded access. Native transform and canvas ownership is unchanged.
+
 ## Programmable Sprite example
 
 The Feature Gallery includes an editable HLSL/Material Graph comparison with

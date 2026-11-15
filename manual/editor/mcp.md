@@ -115,7 +115,8 @@ See [Declare a project font](ui-source.md) for alias limits,
 linking, assignment and refreshing the document.
 
 `forge_ui_source_style_profile` reads the current source controls' literal helper
-metadata for one CSS property: presets, numeric units/ranges and the Common menu.
+metadata for one CSS property: presets, numeric units/ranges, single-function2D
+transform forms and the Common menu.
 Use the existing style, group-style and rule-property tools to apply its chosen
 value, then Save. These helper choices do not describe computed CSS or guarantee
 a loaded font. Existing source read tools retain their value results.
@@ -1000,7 +1001,7 @@ The current parent and child selection appear as `rule_selection` and
 For responsive UI, read `forge_ui_source_style_profile` for `display`,
 `flex-direction`, wrapping, alignment, gaps or sizing. Choose a returned preset
 or a number in its advertised units/range, then use the existing inline, sibling
-group or rule property tools. The shared Common list has53 entries. These are
+group or rule property tools. Discovery returns the current Common list. These are
 authored values; check native Preview or the game for the resulting layout.
 
 Source style profiles also describe position/box-sizing/axis overflow, side
@@ -1009,6 +1010,15 @@ units, bounds and presets with the existing inline/group/rule operations. Border
 length controls use px/dp; side padding is nonnegative, and margins also allow
 negative values and auto. Common search is an editor convenience; agents can use
 these properties directly without opening or filtering a menu.
+
+For CSS transforms, read `forge_ui_source_style_profile` with `name:"transform"`.
+Its `transform2d` profile describes one `translate`, `rotate` or `scale` function,
+accepted units, starting literals and finite bounds. Apply a string such as
+`rotate(-45deg)` or `translate(12px, 25%)` through the existing style, group-style
+or rule-property tool, then Save. Read `transform-origin-x` or `transform-origin-y`
+profiles for pivot presets and lengths/percentages. Custom chains stay ordinary
+CSS values. The separate `forge_ui_source_transform` tool handles guarded pixel
+canvas movement and resizing.
 
 To configure a control as it is created, pass optional `id` and `pixels` to
 `forge_ui_source_control`. `pixels` is an object with `left`, `top`, `width` and
