@@ -208,7 +208,7 @@ with host() as (process, config):
 # Exercise native bridge response admission, including a repaired exchange on
 # the same MCP process. The controlled peer supplies valid discovery structure.
 @contextmanager
-def response_peer(first):
+def response_peer(first, delay=0):
     listener = socket.socket()
     listener.bind(('127.0.0.1', 0))
     listener.listen(1)
@@ -220,11 +220,13 @@ def response_peer(first):
 
     def serve():
         try:
-            for payload in (first(valid), valid):
+            for index, payload in enumerate((first(valid), valid)):
                 channel, _ = listener.accept()
                 with channel, channel.makefile('rb') as reader:
                     channel.settimeout(5)
                     reader.readline(1048577)
+                    if index == 0 and delay:
+                        time.sleep(delay)
                     channel.sendall(payload + b'\n')
         except Exception as error:
             errors.append(str(error))
@@ -238,6 +240,14 @@ def response_peer(first):
         worker.join(timeout=6)
         assert not worker.is_alive() and not errors, errors
 
+
+# A real bridge reply inside its twelve-second transport bound can outlast the
+# small client's eight-second default. The package client must receive it and
+# remain correlated for its next exchange, without retrying the first request.
+with response_peer(lambda valid: valid, delay=9) as config, \
+        Client(config, response_timeout=30) as client:
+    assert client.tool('forge_discover')['ok']
+    assert client.tool('forge_discover')['ok']
 
 for tail in (b'\0', b'\0hidden', b'\x1a hidden', b' {}', b' garbage'):
     with response_peer(lambda valid: valid + tail) as config, Client(config) as client:

@@ -1096,6 +1096,12 @@ managed system's component association immediately after creation, before the
 compiler or Play stages. The empty-registration choice remains available for
 startup code. A focused ImGui modal test exercises the same input sequence;
 packaged acceptance still requires actual counter and quaternion advancement.
+The packaged MCP client allows thirty seconds for a complete tool response,
+which can contain discovery followed by a separate editor exchange. Both shipped
+twelve-second transport deadlines remain unchanged. Other test clients keep
+their eight-second default unless explicitly configured. A controlled native
+bridge peer delays one discovery reply for nine seconds and verifies the next
+exchange remains correlated; the package workflow never retries uncertain edits.
 Independent Gallery export cases assign unique application IDs to their temporary
 copies so one scene's fixture save cannot become another case's initial state.
 Each observer checks its saved Scene identity and a distinct OS storage root;

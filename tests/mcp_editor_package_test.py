@@ -281,7 +281,10 @@ def main():
                 config = json.loads(connection.read_text())
                 token = config['token']
                 connection.unlink()
-                with mcp.Client(config, tools=tools) as client:
+                # A tool call performs discovery and then its editor exchange.
+                # Let both existing twelve-second bridge deadlines report their
+                # real outcome instead of racing them with the small client wait.
+                with mcp.Client(config, tools=tools, response_timeout=30) as client:
                     report = exercise(client, evidence, manifest)
                 (output / 'mcp-complete').touch()
                 assert process.wait(timeout=30) == 0

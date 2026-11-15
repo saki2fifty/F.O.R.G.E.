@@ -75,8 +75,9 @@ def test_symlink(path, target, directory=False):
 
 
 class Client:
-    def __init__(self, config, legacy=False, tools=None):
+    def __init__(self, config, legacy=False, tools=None, response_timeout=8):
         self.legacy = legacy
+        self.response_timeout = response_timeout
         self.session = len(CAPTURE)
         self.next_id = 0
         self.responses = queue.Queue()
@@ -123,8 +124,8 @@ class Client:
         self.process.stdin.write(wire + '\n')
         self.process.stdin.flush()
 
-    def receive(self, expected_id, timeout=8):
-        response = self.responses.get(timeout=timeout)
+    def receive(self, expected_id, timeout=None):
+        response = self.responses.get(timeout=self.response_timeout if timeout is None else timeout)
         assert response.get('id') == expected_id, response
         assert response.get('jsonrpc') == '2.0', response
         CAPTURE.append(dict(session=self.session, legacy=self.legacy, direction='response', message=response))
@@ -136,7 +137,7 @@ class Client:
     def notify(self, method, params=None):
         self.raw(json.dumps(dict(jsonrpc='2.0', method=method, params=params or {})))
 
-    def tool(self, tool_name, /, _response_timeout=8, **arguments):
+    def tool(self, tool_name, /, _response_timeout=None, **arguments):
         response = self.receive(self.send('tools/call', dict(name=tool_name, arguments=arguments)),
                                 timeout=_response_timeout)
         assert 'result' in response, response
