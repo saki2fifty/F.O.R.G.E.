@@ -26,6 +26,7 @@ Python stdlib only.
 """
 
 import argparse
+from contextlib import ExitStack
 import json
 import math
 import os
@@ -82,7 +83,8 @@ def terminate_tree(process):
 # All extracted package, copied project, and private userdata live in
 # a single private scratch that is removed on exit. Only logs,
 # captures, and JSON evidence are retained under --evidence.
-with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
+with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ',
+                                 dir=os.environ.get('RUNNER_TEMP')) as temporary, ExitStack() as retained:
     scratch = Path(temporary)
 
     # ---- extract final ZIP into private scratch -------------------------
@@ -344,8 +346,16 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
     # Keep the compiler environment for this separate source-building scenario;
     # reference/relocated checks above removed toolchain PATH entries. Run compiler
     # workloads after timed gameplay acceptance, keeping scenarios independent.
-    onboarding = evidence / 'onboarding with spaces'
+    # Keep CMake's nested compiler probes in the private scratch, rather than
+    # under the deeper retained-evidence path. The scratch prefix retains the
+    # spaces-in-path check. Preserve diagnostics before scratch cleanup on every
+    # outcome, excluding the fixture's private authored project if it was killed.
+    onboarding = scratch / 'cpp'
     onboarding.mkdir(parents=True, exist_ok=True)
+    onboarding_evidence = evidence / 'onboarding with spaces'
+    retained.callback(shutil.copytree, onboarding, onboarding_evidence,
+                      ignore=shutil.ignore_patterns('project-*'), dirs_exist_ok=True)
+    assert ' ' in str(onboarding)
     onboarding_env = os.environ.copy()
     # Prove discovery without requiring the special developer launcher. Keep
     # installed CMake/Ninja available; compiler INCLUDE/LIB are initialized by FORGE.
@@ -388,7 +398,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
             if compiler_log.is_file():
                 shutil.copy2(compiler_log, onboarding/'compiler-build.log')
     if starter_code or not starter_trace_path.is_file():
-        raise AssertionError('SDK onboarding failed; see '+str(onboarding/'fixture.log'))
+        raise AssertionError('SDK onboarding failed; see '+str(onboarding_evidence/'fixture.log'))
     starter_trace=json.loads(starter_trace_path.read_text())
     if not starter_trace.get('ok'):
         raise AssertionError('SDK onboarding workflow failed: '+str(starter_trace.get('error',starter_trace)))

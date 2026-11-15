@@ -118,6 +118,13 @@ const nlohmann::json level_snapshot() {
 
 int main() {
     using Workflow = forge::test::EditorSdkWorkflow;
+    require(Workflow::stage_deadline_budget(true, false) > 25000 &&
+                Workflow::stage_deadline_budget(true, false) <= 120000,
+            "Cold staged preparation must have a finite loading allowance");
+    require(Workflow::stage_deadline_budget(false, false) == 20000 &&
+                Workflow::stage_deadline_budget(true, true) == 20000 &&
+                Workflow::stage_deadline_budget(false, true) == 20000,
+            "Loading allowance must not relax ordinary input or focus-action bounds");
     require(Workflow::scene_asset_from_snapshot(nullptr).empty(),
             "Unpublished snapshot must not throw while recording startup failure");
     require(Workflow::scene_asset_from_snapshot(nlohmann::json::object()).empty(),

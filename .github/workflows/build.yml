@@ -453,6 +453,7 @@ jobs:
       - run: python -m pip install cmake==4.4.3 ninja==1.13.2
       - name: Verify reusable compiled-source provenance
         id: compiled
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         env:
           FORGE_REUSE_RUN: ${{ inputs.package_source_run }}
@@ -467,6 +468,16 @@ jobs:
           foreach ($name in @('core (ubuntu-22.04, core)', 'core (ubuntu-22.04, native-sdk)', 'core (windows-2022, core)', 'core (windows-2022, native-sdk)', 'editor', 'format', 'shared-game / build', 'shared-game / relocated')) {
             $job = @($jobs | Where-Object { $_.name -eq $name })
             if ($job.Count -ne 1 -or $job[0].conclusion -ne 'success') { throw "Source validation missing: $name" }
+          }
+          if ($env:FORGE_REUSE_RUN -and $source.head_sha -ne '${{ github.sha }}') {
+            $auth = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("x-access-token:$env:FORGE_API_TOKEN"))
+            Write-Output "::add-mask::$auth"
+            git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin $source.head_sha
+            if ($LASTEXITCODE) { throw 'Compiled source comparison fetch failed' }
+            $changed = @(git diff --name-only $source.head_sha HEAD)
+            if ($LASTEXITCODE) { throw 'Compiled source comparison failed' }
+            $unsupported = @($changed | Where-Object { $_ -notmatch '^(tests/|docs/|\.github/workflows/build\.yml$)' })
+            if ($unsupported.Count) { throw "Package-only retry changed product inputs: $unsupported" }
           }
           "sha=$($source.head_sha)" >> $env:GITHUB_OUTPUT
           "run=$run" >> $env:GITHUB_OUTPUT
@@ -512,6 +523,48 @@ jobs:
           run-id: ${{ steps.compiled.outputs.run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/forge-package/game-fixture
+      - name: Identify package retry fixture cache
+        if: inputs.package_source_run != ''
+        id: retry-cache-key
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: |
+          $preload = Join-Path $env:RUNNER_TEMP 'forge-work/FORGE/tools/cache_workspace.cjs'
+          "preload=$($preload.Replace('\', '/'))" >> $env:GITHUB_OUTPUT
+          python tools/ci_cache_key.py
+          if ($LASTEXITCODE) { throw 'Fixture cache identity failed' }
+      - name: Restore validated compilation for retry fixtures
+        if: inputs.package_source_run != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        env:
+          NODE_OPTIONS: '--require "${{ steps.retry-cache-key.outputs.preload }}"'
+        with:
+          path: |
+            ${{ runner.temp }}/forge-work/AgentFiles/b
+            ${{ runner.temp }}/forge-work/AgentFiles/d
+          key: ${{ steps.retry-cache-key.outputs.key }}-${{ steps.compiled.outputs.sha }}
+          fail-on-cache-miss: true
+      - name: Build current nonshipping acceptance fixture
+        if: inputs.package_source_run != ''
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        env:
+          FORGE_BUILD_ID: ${{ inputs.build_id }}
+          FORGE_SOURCE_COMMIT: ${{ steps.compiled.outputs.sha }}
+        run: |
+          python tools/ci_source_stamps.py restore ../AgentFiles/b/forge-source-stamps.json
+          if ($LASTEXITCODE) { throw 'Fixture input timestamp restore failed' }
+          cmake --preset windows-editor -B ../AgentFiles/b -DFORGE_ENABLE_NATIVE_SDK=OFF -DFORGE_BUILD_ASSET_TOOLS=ON -DFORGE_BUILD_GAME=ON -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_PROJECT_INCLUDE:FILEPATH="" -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
+          if ($LASTEXITCODE) { throw 'Fixture configure failed' }
+          cmake --build ../AgentFiles/b --target forge_editor_fixture forge_sdk_workflow_probe_tests --parallel 2 -- -k 0
+          if ($LASTEXITCODE) { throw 'Current acceptance fixture build failed' }
+          ctest --test-dir ../AgentFiles/b -R '^native_sdk_workflow_probe$' --no-tests=error --output-on-failure
+          if ($LASTEXITCODE) { throw 'SDK workflow probe failed' }
+          $fixture = Join-Path $env:RUNNER_TEMP 'forge-package/editor-sdk-fixture/forge_editor_fixture.exe'
+          Copy-Item -LiteralPath ../AgentFiles/b/forge_editor_fixture.exe -Destination $fixture -Force
+          $evidence = Join-Path $env:RUNNER_TEMP 'forge-package/editor-sdk-evidence'
+          New-Item -ItemType Directory -Path $evidence -Force | Out-Null
+          @{ compiled_source = $env:FORGE_SOURCE_COMMIT; fixture_source = '${{ github.sha }}'; fixture_sha256 = (Get-FileHash -LiteralPath $fixture -Algorithm SHA256).Hash.ToLower(); scope = 'Nonshipping test fixture; all delivered binaries remain from the validated compiled-source run.' } | ConvertTo-Json | Out-File "$evidence/fixture-provenance.json" -Encoding utf8
       - name: Assemble and verify complete Windows package
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh

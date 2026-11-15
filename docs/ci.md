@@ -1048,11 +1048,23 @@ validated compiled-source run while retaining its build/source identity.
 The editor fixture routes audio through `AudioOutput::Offline` for the runner;
 this checks authored clip decoding without claiming a physical audio device.
 A package-only retry does not rebuild or relabel previous delivery binaries.
+It rejects changes outside tests, technical documentation and the build workflow.
+Its nonshipping editor acceptance fixture is rebuilt from the exact compatible
+compiled-source cache, with the workflow probe run before package acceptance.
+The evidence records the fixture revision/hash separately from the unchanged
+engine build/source identity; the fixture is never included in the delivery ZIP.
 The imported-lightmap export checks the prepared Shader's wrapper capability and
 the exported Material's Shader identity. After source removal and relocation,
 the runtime content verifier admits the Material's embedded Shader snapshot and
 the production executable verifies startup. Build-only Shader records and source
 files remain excluded from the runtime content.
+The SDK walkthrough gives observed staged renderer preparation a finite
+120-second stage allowance within its unchanged 240-second overall watchdog;
+ordinary input and focus actions retain their 20-second bounds. C++ onboarding
+uses the private scratch directory, whose name contains spaces, keeping nested
+CMake compiler probes out of the deeper evidence path. Logs, captures and private
+shortcut preferences are retained on success or failure before scratch cleanup;
+private authored projects are excluded from the evidence copy.
 Independent Gallery export cases assign unique application IDs to their temporary
 copies so one scene's fixture save cannot become another case's initial state.
 Each observer checks its saved Scene identity and a distinct OS storage root;

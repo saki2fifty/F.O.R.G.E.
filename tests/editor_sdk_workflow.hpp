@@ -88,6 +88,7 @@ class EditorSdkWorkflow {
     unsigned stage_ = 0;
     Uint64 started_ = SDL_GetTicks();
     Uint64 stage_started_ = 0;
+    bool stage_loading_observed_ = false;
     double peak_y_ = 0;
     std::uint64_t jump_last_version_ = 0;
     StableYState pre_resume_jump_{};
@@ -540,6 +541,7 @@ class EditorSdkWorkflow {
         entry["snapshot_version"] = play.snapshot_version();
         entry["activation_generation"] = play.sdk_activation_generation();
         entry["status"] = play.status();
+        entry["loading_observed"] = stage_loading_observed_;
         entry["input_routing"] = game_input_captured();
         entry["input_epoch"] = play.current_effective_epoch();
         entry["input_epoch_confirmed"] = play.editor_epoch_confirmed();
@@ -548,6 +550,7 @@ class EditorSdkWorkflow {
         trace_["stages"].push_back(std::move(entry));
         stage_ = next;
         stage_started_ = SDL_GetTicks();
+        stage_loading_observed_ = false;
     }
 
     void record_failure(const std::string& why, PlaySession& play) {
@@ -656,6 +659,12 @@ class EditorSdkWorkflow {
     const Json& trace() const { return trace_; }
     const Json& failure() const { return failure_; }
 
+    static constexpr Uint64 stage_deadline_budget(bool loading_observed, bool focus_substep) {
+        return focus_substep      ? outside_phase_deadline_ms_
+               : loading_observed ? kLoadingStageBudgetMs
+                                  : kStageBudgetMs;
+    }
+
     // Per-frame: invoked once per editor frame at the input/render point,
     // BEFORE SDL_PollEvent. `has_staged` reflects PlayPresentation.has_staged();
     // when true the runtime Rml is not the live owner yet and the workflow
@@ -689,8 +698,12 @@ class EditorSdkWorkflow {
         // Each action has its own bounded window; charging all of them to
         // the initial load's timer can fail despite steady progress.
         const bool focus_substep = stage_ == 2 && outside_phase_ != 0;
+        // Cold renderer preparation may outlast an ordinary input action. Keep
+        // the larger finite bound for this stage after the candidate becomes
+        // ready; the overall watchdog and focus-action bounds remain unchanged.
+        stage_loading_observed_ = stage_loading_observed_ || has_staged;
         const auto deadline_start = focus_substep ? outside_phase_started_ : stage_started_;
-        const auto deadline_budget = focus_substep ? outside_phase_deadline_ms_ : kStageBudgetMs;
+        const auto deadline_budget = stage_deadline_budget(stage_loading_observed_, focus_substep);
         if (now - deadline_start > deadline_budget) {
             record_failure(focus_substep ? "focus substep deadline exceeded"
                                          : "stage deadline exceeded",
@@ -1427,6 +1440,7 @@ class EditorSdkWorkflow {
   private:
     static constexpr Uint64 kOverallBudgetMs = 240000; // SDK windows + WARP
     static constexpr Uint64 kStageBudgetMs = 20000;
+    static constexpr Uint64 kLoadingStageBudgetMs = 120000;
     static constexpr Uint64 kStableWindowMs = 500;
 };
 
