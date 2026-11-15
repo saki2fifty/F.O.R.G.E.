@@ -924,15 +924,18 @@ struct UiSourceAutomation {
             "ui.source.transform",
             "Apply the same native-pixel projections as canvas dragging to1..32 admitted siblings. "
             "move preserves spacing; move_axis constrains the dominant delta (horizontal on ties). "
-            "resize and resize_aspect require exactly one member. Resize aspect uses the native "
-            "border ratio, accounting for source box-sizing/padding. Deltas clamp to source bounds "
+            "resize and resize_aspect scale1..32 members about the native union's upper-left "
+            "corner. Aspect uses that union's ratio; source deltas account for box-sizing/padding. "
+            "A shared scale respects every member's source size/position bounds. Deltas clamp "
+            "to source bounds "
             "like dragging. Optional grid1..1024 snaps the last member's border anchor when "
             "moving, "
-            "or sizes when resizing; aspect takes priority, snapping the dominant size. Zero delta "
+            "or native union sizes when resizing; aspect takes priority, snapping the dominant "
+            "size. Zero delta "
             "is a no-op; use arrange snap_grid for one-shot position alignment. Invalid snapped "
             "source bounds reject. Requires exact source/preview guards and assets.write; the "
             "complete native result must match before one Undo/selection. No Save, registration, "
-            "Scene history, runtime input, relative/flow layout or group resize.",
+            "Scene history, runtime input, relative/flow layout or CSS transforms.",
             "assets.write",
             automation_object(std::move(transform_properties), std::move(transform_required)), true,
             [&files, &editor, ready](const Json& request) {

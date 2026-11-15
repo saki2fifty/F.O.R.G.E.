@@ -1,5 +1,13 @@
 # 2026-11-15
 
+## UI group canvas resizing
+
+UI Source Preview offers a shared corner handle for eligible absolute-pixel
+siblings. Its normal, aspect and grid projections use the existing native/source
+geometry owner and one validated source Undo. The same guarded automation/MCP
+operation now accepts these groups. Native candidate refusal and cancellation
+preserve the whole draft; source IDs/styles, SDK and persistence stay unchanged.
+
 ## UI transform styling
 
 UI Source offers guided single-function2D translation, rotation and scale plus

@@ -226,10 +226,14 @@ These operations provide the same authored result without sending editor key eve
 Use `forge_ui_source_transform` for the same relative projections as mouse drags.
 Pass current source/preview guards, 1–32 sibling `elements`, an `action`, `dx` and
 `dy`, plus optional `grid` spacing of 1–1,024 pixels. Actions are `move`,
-`move_axis`, `resize` and `resize_aspect`; resize actions require one member.
+`move_axis`, `resize` and `resize_aspect`; resize actions also accept sibling groups.
 Movement preserves spacing and grid snapping uses the last member's border corner.
 Axis-constrained movement keeps its other coordinate unchanged. Resize aspect uses
-the native visible border ratio, with the dominant size taking grid priority.
+the native union's border ratio, with the dominant size taking grid priority.
+Groups scale around their upper-left corner; native sizes and spacing scale,
+while source deltas account for padding and box sizing. Every member's source
+size/position limits constrain the shared scale. Resize grid snapping uses the
+union's dimensions. A native-clamped member refuses the complete candidate.
 Deltas clamp at source bounds as with dragging; invalid snapped bounds refuse.
 Zero delta is a no-op. The complete native result validates before one Undo and
 selection update; Save remains explicit. See [mouse layout gestures](ui-source.md).

@@ -96,11 +96,17 @@ production controls/history workflow. `manual/images/ui-source-preview.png` is a
 unretouched700×950 capture of the production UiSourceEditor/DocumentWorkspace with
 its Gallery211 RML/RCSS with three sibling panels, actual single selection, pixel
 controls, outline and resize handle, with the Save preview image control.
-`manual/images/ui-source-group-layout.png` is another exact700×950 output from the
-same fixture: real Ctrl+clicks select all three sibling panels and expose the
-production group operation controls, including Remove group. Both group widths700/1180 were inspected;
-no source write or rendering overlay is baked into the native saved preview. The physical native preview is1000×700 and is fitted by the
-widget, as in the editor.
+`manual/images/ui-source-group-layout.png` is the exact700×950 output from
+`forge_ui_source_canvas_capture <output> <default-font> <FeatureGallery>
+--group-resize-only`. Real Ctrl+clicks select all three sibling panels, exposing
+the group controls, common blue border and bottom-right resize handle. Both700
+and1180pixel outputs were visually reviewed. The same fixture exercises a real
+handle drag, release, Undo/Redo and Save without changing the Scene or catalog.
+The native preview is1000×700 and is fitted by the widget. Its saved pixels do
+not include selection borders or other editor overlays. The component uses SDL
+software composition and an unretouched UiPresenter/UiDiligentRenderer software
+Vulkan readback; full Windows Main, physical GPU/input and display-density
+acceptance remain separate. Current SHA256 `564aeca627c363394df929bf83a81e4da02e3799afe15164ec62a60577867299`.
 
 Reproduce the preview with `forge_ui_source_canvas_capture <output> <default-font>
 <FeatureGallery>`. It uses the pinned source widget and SDL software composition;

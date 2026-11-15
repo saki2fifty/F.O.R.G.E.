@@ -523,6 +523,26 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
                   "Gallery draft preview lost pixel layout eligibility");
             check(ProjectTextSource::read(file) == text && !presenter.asset_snapshot(),
                   "Gallery preview published source or catalog observations");
+            std::array<UiMarkupLayoutBox, 2> resize_group;
+            const std::array ids{"layout-b", "layout-c"};
+            for (std::size_t i = 0; i < ids.size(); ++i) {
+                const auto index = by_id(candidate, ids[i]);
+                bool found = false;
+                for (const auto& item : view.at("elements"))
+                    if (item.at("id") == ids[i]) {
+                        const auto& b = item.at("bounds");
+                        resize_group[i] = {{index, read_ui_markup_layout(candidate, index)},
+                                           {b.at(0).get<float>(), b.at(1).get<float>(),
+                                            b.at(2).get<float>(), b.at(3).get<float>()}};
+                        found = true;
+                    }
+                check(found, "Saved group resize has no actual native source rectangle");
+            }
+            const auto resized = transform_ui_markup_layouts(resize_group, "resize_aspect", 51, 0);
+            const std::array resize_changes{resized[0].source, resized[1].source};
+            candidate = set_ui_markup_layouts(candidate, resize_changes);
+            check(presenter.preview_document({asset}, layout_document, candidate, 800, 600),
+                  "Group-resized Gallery draft did not load before publication");
             const auto style_file = ProjectTextSource::path(root, "Assets/UI/Layout/layout.rcss");
             const auto saved_style = ProjectTextSource::read(style_file);
             check(saved_style.has_value(), "Gallery linked stylesheet missing");
@@ -570,12 +590,14 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
               "Saved/exported UI did not retain the previewed layout");
         for (const auto& [id, expected] :
              std::array{std::pair{"layout-b", std::array{455.f, 150.f}},
-                        std::pair{"layout-c", std::array{745.f, 230.f}}}) {
+                        std::pair{"layout-c", std::array{774.f, 238.f}}}) {
             auto* sibling = Rml::GetContext(0)->GetDocument(0)->GetElementById(id);
             check(sibling != nullptr, "Saved/exported UI lost a grouped sibling");
             const auto offset = sibling->GetAbsoluteOffset(Rml::BoxArea::Border);
             check(offset.x == expected[0] && offset.y == expected[1],
                   "Saved/exported sibling did not retain the atomic group change");
+            check(sibling->GetBox().GetSize(Rml::BoxArea::Border) == Rml::Vector2f{242, 154},
+                  "Saved/source-hidden group resize lost its actual native dimensions");
         }
         auto* document = Rml::GetContext(0)->GetDocument(0);
         auto* original_input = document->GetElementById("clone-entry");

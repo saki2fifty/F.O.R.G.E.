@@ -120,6 +120,8 @@ struct UiMarkupLayoutBox {
     UiMarkupLayoutEdit source;
     UiPixelLayout bounds; // Observed or expected native border box in common preview coordinates.
 };
+// Native rectangle union as left/top/right/bottom, preserving double intermediates.
+std::array<double, 4> ui_layout_bounds(std::span<const UiPixelLayout>);
 inline constexpr std::array<std::pair<std::string_view, std::string_view>, 13>
     ui_layout_group_actions{{{"move", "Move group"},
                              {"align_left", "Align left"},
@@ -143,8 +145,9 @@ inline constexpr std::array<std::pair<std::string_view, std::string_view>, 4>
                                  {"move_axis", "Constrain movement axis"},
                                  {"resize", "Resize"},
                                  {"resize_aspect", "Keep visible aspect"}}};
-// Movement preserves group spacing; resize admits one member. Source bounds clamp
-// like a canvas drag. Optional grid snaps the active border anchor/dominant size.
+// Movement preserves spacing. Resizing scales the native border-box group about
+// its upper-left corner. Source bounds constrain the shared scale; native candidate
+// validation remains with the document. Grid snaps anchor/size as with a drag.
 std::vector<UiMarkupLayoutBox> transform_ui_markup_layouts(std::span<const UiMarkupLayoutBox>,
                                                            std::string_view action, float dx,
                                                            float dy,

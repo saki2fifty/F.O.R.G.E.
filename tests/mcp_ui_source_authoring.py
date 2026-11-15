@@ -87,6 +87,8 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                 ('resize_aspect', indices[:1], 24, 0, {}, [[23, 33, 144, 96], [225, 75, 80, 90], [400, 130, 144, 104]]),
                 ('resize_aspect', indices[:1], 20, 0, dict(grid=8), [[23, 33, 144, 96], [225, 75, 80, 90], [400, 130, 144, 104]]),
                 ('resize', indices[1:2], 5, 1, dict(grid=8), [[23, 33, 120, 80], [225, 75, 88, 88], [400, 130, 144, 104]]),
+                ('resize', indices[:2], 282, 0, {}, [[23, 33, 240, 80], [427, 75, 160, 90], [400, 130, 144, 104]]),
+                ('resize_aspect', indices[:2], 282, 0, {}, [[23, 33, 240, 160], [427, 117, 160, 180], [400, 130, 144, 104]]),
                 ('resize_aspect', indices[:1], -100000, -100000, {}, [[23, 33, 31.5, 21], [225, 75, 80, 90], [400, 130, 144, 104]])]
             for action, members, dx, dy, extra, expected in cases:
                 shown = preview()
@@ -106,7 +108,7 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                 assert edit('undo')['text'] == baseline
             shown = preview()
             before = read('forge_ui_source_read')
-            for extra in [dict(action='resize'), dict(action='resize_aspect'), dict(action='other'),
+            for extra in [dict(action='other'),
                           dict(grid=0), dict(elements=[]), dict(elements=[indices[0], indices[0]]),
                           dict(elements=[indices[0], initial['flow']['source_index']]),
                           dict(preview_revision=900000)]:
@@ -115,9 +117,13 @@ def check_ui_source_authoring(read, ok, mutate, root, advertised, client, argume
                 assert read('forge_ui_source_read') == before, 'Invalid transform published source'
             failed(mutate('forge_ui_source_transform', **guard(), **observation(shown), elements=indices[1:2], action='resize', dx=-100, dy=-100), 'layout_unsupported')
             assert read('forge_ui_source_read') == before, 'Native-clamped resize published source'
+            failed(mutate('forge_ui_source_transform', **guard(), **observation(preview()), elements=indices[1:], action='resize', dx=-1000, dy=0), 'layout_unsupported')
+            assert read('forge_ui_source_read') == before, 'One native-clamped group member partially published source'
             assert not preview()['stale']
             zero = edit('transform', elements=indices, action='move', dx=0, dy=0, grid=8, **observation(preview()))
             assert zero['text'] == baseline and zero['revision'] == before['revision'], 'Zero drag snapped source or added history'
+            zero = edit('transform', elements=indices[:2], action='resize', dx=0, dy=0, grid=8, **observation(preview()))
+            assert zero['text'] == baseline and zero['revision'] == before['revision'], 'Zero group resize snapped source or added history'
             edit('transform', elements=indices, action='move_axis', dx=3, dy=12, **observation(preview()))
             assert (root/'Game'/path).read_bytes() == disk and (root/'Game/forge.assets.json').read_bytes() == catalog
             edit('save')

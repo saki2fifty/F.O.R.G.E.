@@ -694,6 +694,22 @@ void valid_layout_boxes(std::span<const UiMarkupLayoutBox> boxes) {
     }
 }
 } // namespace
+std::array<double, 4> ui_layout_bounds(std::span<const UiPixelLayout> rectangles) {
+    require(!rectangles.empty() && rectangles.size() <= ui_source_selection_limit,
+            "Choose1..32 native rectangles");
+    double left = std::numeric_limits<double>::max(), top = left;
+    double right = std::numeric_limits<double>::lowest(), bottom = right;
+    for (const auto& box : rectangles) {
+        require(std::isfinite(box.left) && std::isfinite(box.top) && std::isfinite(box.width) &&
+                    std::isfinite(box.height) && box.width > 0 && box.height > 0,
+                "Native rectangles require finite coordinates and positive sizes");
+        left = std::min(left, double(box.left));
+        top = std::min(top, double(box.top));
+        right = std::max(right, double(box.left) + box.width);
+        bottom = std::max(bottom, double(box.top) + box.height);
+    }
+    return {left, top, right, bottom};
+}
 std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMarkupLayoutBox> boxes,
                                                           std::string_view action, float dx,
                                                           float dy, float grid) {
@@ -710,17 +726,15 @@ std::vector<UiMarkupLayoutEdit> arrange_ui_markup_layouts(std::span<const UiMark
             "Grid spacing must be finite and within1..1024 pixels");
     require(action == "snap_grid" || grid == 8, "Grid spacing applies only to grid alignment");
     valid_layout_boxes(boxes);
-    double left = std::numeric_limits<double>::max(), top = left;
-    double right = std::numeric_limits<double>::lowest(), bottom = right;
+    std::array<UiPixelLayout, ui_source_selection_limit> rectangles;
     std::vector<UiMarkupLayoutEdit> result;
     result.reserve(boxes.size());
-    for (const auto& box : boxes) {
-        left = std::min(left, double(box.bounds.left));
-        top = std::min(top, double(box.bounds.top));
-        right = std::max(right, double(box.bounds.left) + box.bounds.width);
-        bottom = std::max(bottom, double(box.bounds.top) + box.bounds.height);
-        result.push_back(box.source);
+    for (std::size_t i = 0; i < boxes.size(); ++i) {
+        rectangles[i] = boxes[i].bounds;
+        result.push_back(boxes[i].source);
     }
+    const auto [left, top, right, bottom] =
+        ui_layout_bounds(std::span(rectangles).first(boxes.size()));
     const bool distribute_x = action == "distribute_horizontal";
     if (distribute_x || action == "distribute_vertical") {
         require(boxes.size() >= 3, "Distribution needs at least3 elements");
@@ -799,8 +813,9 @@ std::vector<UiMarkupLayoutBox> transform_ui_markup_layouts(std::span<const UiMar
         require(std::isfinite(*grid) && *grid >= 1 && *grid <= 1024,
                 "Grid spacing must be finite and within1..1024 pixels");
     const bool resize = action == "resize" || action == "resize_aspect";
-    require(!resize || boxes.size() == 1, "Resize one native layout member at a time");
     std::vector<UiMarkupLayoutBox> result(boxes.begin(), boxes.end());
+    if (resize && dx == 0 && dy == 0)
+        return result;
     if (!resize) {
         const bool horizontal = std::abs(dx) >= std::abs(dy), axis = action == "move_axis";
         if (axis) {
@@ -830,6 +845,64 @@ std::vector<UiMarkupLayoutBox> transform_ui_markup_layouts(std::span<const UiMar
             box.source.pixels.top += dy;
             box.bounds.left += dx;
             box.bounds.top += dy;
+        }
+    } else if (boxes.size() > 1) {
+        std::array<UiPixelLayout, ui_source_selection_limit> rectangles;
+        for (std::size_t i = 0; i < boxes.size(); ++i)
+            rectangles[i] = boxes[i].bounds;
+        const auto [left, top, right, bottom] =
+            ui_layout_bounds(std::span(rectangles).first(boxes.size()));
+        const double width = right - left, height = bottom - top;
+        require(width > 0 && height > 0, "Group bounds cannot resolve a positive resize extent");
+        const auto scale_bounds = [&](bool horizontal) {
+            double minimum = std::numeric_limits<double>::lowest();
+            double maximum = std::numeric_limits<double>::max();
+            const auto constrain = [&](double initial, double coefficient, double low,
+                                       double high) {
+                if (coefficient > 0) {
+                    minimum = std::max(minimum, 1 + (low - initial) / coefficient);
+                    maximum = std::min(maximum, 1 + (high - initial) / coefficient);
+                }
+            };
+            for (const auto& box : boxes) {
+                const auto& pixels = box.source.pixels;
+                constrain(horizontal ? pixels.width : pixels.height,
+                          horizontal ? box.bounds.width : box.bounds.height, 1, 65536);
+                constrain(horizontal ? pixels.left : pixels.top,
+                          horizontal ? double(box.bounds.left) - left
+                                     : double(box.bounds.top) - top,
+                          -65536, 65536);
+            }
+            return std::pair{minimum, maximum};
+        };
+        const auto x = scale_bounds(true), y = scale_bounds(false);
+        double sx = 1 + double(dx) / width, sy = 1 + double(dy) / height;
+        if (action == "resize_aspect") {
+            const bool horizontal = std::abs(double(dx) / width) >= std::abs(double(dy) / height);
+            double scale = horizontal ? sx : sy;
+            if (grid && (dx != 0 || dy != 0)) {
+                const double size = horizontal ? width : height;
+                scale = std::round(size * scale / *grid) * *grid / size;
+            }
+            sx = sy = std::clamp(scale, std::max(x.first, y.first), std::min(x.second, y.second));
+        } else {
+            sx = std::clamp(sx, x.first, x.second);
+            sy = std::clamp(sy, y.first, y.second);
+            if (grid && (dx != 0 || dy != 0)) {
+                sx = std::round(width * sx / *grid) * *grid / width;
+                sy = std::round(height * sy / *grid) * *grid / height;
+            }
+        }
+        for (auto& box : result) {
+            auto& pixels = box.source.pixels;
+            const double offset_x = double(box.bounds.left) - left;
+            const double offset_y = double(box.bounds.top) - top;
+            pixels.left = float(pixels.left + offset_x * (sx - 1));
+            pixels.top = float(pixels.top + offset_y * (sy - 1));
+            pixels.width = float(pixels.width + box.bounds.width * (sx - 1));
+            pixels.height = float(pixels.height + box.bounds.height * (sy - 1));
+            box.bounds = {float(left + offset_x * sx), float(top + offset_y * sy),
+                          float(box.bounds.width * sx), float(box.bounds.height * sy)};
         }
     } else {
         const auto& before = boxes.front();

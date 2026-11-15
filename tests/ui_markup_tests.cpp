@@ -409,8 +409,48 @@ void layout_transform_geometry() {
     auto edge = one;
     edge[0].source.pixels.left = 65535;
     rejects([&] { forge::transform_ui_markup_layouts(edge, "move", 1, 0, 8); });
-    rejects([&] { apply("resize", 1, 1); });
-    rejects([&] { apply("resize_aspect", 1, 1); });
+    const auto group = apply("resize", 135, 75);
+    check(group[0].source.pixels == forge::UiPixelLayout{10, 20, 160, 70} &&
+              group[1].source.pixels == forge::UiPixelLayout{310, 95, 85, 130} &&
+              group[0].bounds == forge::UiPixelLayout{100, 200, 180, 90} &&
+              group[1].bounds == forge::UiPixelLayout{400, 275, 105, 150},
+          "Group resize lost its union anchor, source offsets or native border scale");
+    const auto group_aspect = apply("resize_aspect", 135, 0);
+    for (std::size_t i = 0; i < boxes.size(); ++i) {
+        check(group_aspect[i].source == group[i].source &&
+                  group_aspect[i].bounds == group[i].bounds,
+              "Group aspect did not use its native union ratio");
+        for (const auto* action : {"resize", "resize_aspect"}) {
+            const auto unchanged = apply(action, 0, 0, 8);
+            check(unchanged[i].source == boxes[i].source && unchanged[i].bounds == boxes[i].bounds,
+                  "Zero group resize snapped or normalized an untouched member");
+        }
+    }
+    const auto contracted = apply("resize_aspect", -1000000, -1000000);
+    check(std::abs(contracted[0].source.pixels.width - 22) < .001f &&
+              contracted[0].source.pixels.height == 1 &&
+              std::abs(contracted[1].source.pixels.left - 80) < .001f &&
+              std::abs(contracted[1].source.pixels.width - 4.5) < .001f &&
+              contracted[1].source.pixels.height == 15,
+          "Group contraction ignored one member's source-size bound");
+    auto capped = boxes;
+    capped[1].source.pixels.left = 65536;
+    const auto stopped = forge::transform_ui_markup_layouts(capped, "resize_aspect", 100, 100);
+    for (std::size_t i = 0; i < capped.size(); ++i)
+        check(stopped[i].source == capped[i].source && stopped[i].bounds == capped[i].bounds,
+              "Group scale ignored an existing member's position limit");
+    const auto grid_group = apply("resize", 5, 1, 8);
+    const std::array native_rectangles{grid_group[0].bounds, grid_group[1].bounds};
+    const auto union_bounds = forge::ui_layout_bounds(native_rectangles);
+    check(std::abs(union_bounds[2] - union_bounds[0] - 272) < .001 &&
+              std::abs(union_bounds[3] - union_bounds[1] - 152) < .001,
+          "Group grid snapped individual source sizes instead of the native union");
+    auto invalid_rectangles = native_rectangles;
+    invalid_rectangles[1].width = 0;
+    rejects([&] { forge::ui_layout_bounds(invalid_rectangles); });
+    rejects([&] { forge::ui_layout_bounds({}); });
+    invalid_rectangles[1].width = std::numeric_limits<float>::infinity();
+    rejects([&] { forge::ui_layout_bounds(invalid_rectangles); });
     rejects([&] { apply("other", 1, 1); });
     rejects([&] { apply("move", std::numeric_limits<float>::infinity(), 0); });
     rejects([&] { apply("move", 1, 1, 0); });

@@ -1021,8 +1021,8 @@ executable in startup-verification mode. The source-level `feature_gallery` test
 admits every gallery scene through the normal authoring API and checks durable
 identities and key components.
 
-The shared-runtime audit exports Gallery73's Sprite fill, Gallery78's image regions
-and Gallery87's ordered frame regions
+The shared-runtime audit exports Gallery73's Sprite fill, Gallery78's image regions,
+Gallery87's ordered frame regions and Gallery99's frame filtering
 and Gallery74's Tile Map through the same saved-project export helper. It deletes
 each authored copy and copied kit before two relocated production launches with
 restricted PATH. The region game and Tile Map game travel to the separate runner
@@ -1037,6 +1037,11 @@ The fresh-runner job has 20 minutes for its thirteen bounded host launches and
 transfer/cleanup; each host keeps its existing 120-second process deadline.
 Final combined-package acceptance repeats these Gallery exports with the tools,
 Gallery content and shared runtime kit extracted from the delivery ZIP.
+The Sprite export helper defaults to these four built-in-material scenes (eight
+production startups). Final combined-package acceptance explicitly enables its
+programmable-material profile and requires Gallery215's two additional startups.
+That profile uses the Shader/Material selections prepared in the packaged Gallery;
+raw source Gallery exports do not silently substitute built-in materials.
 
 Sprite region coverage reuses `sprite_region`, `sprite_scene`, `sprite_gallery`,
 `sprite_editor` and the existing native renderer/frame-chooser fixtures. The

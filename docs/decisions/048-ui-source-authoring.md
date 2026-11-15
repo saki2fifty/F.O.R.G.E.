@@ -96,8 +96,8 @@ the last member supplies native border dimensions, source sizes change by native
 size deltas and the complete native result must attain those dimensions without
 moving members. Shared action metadata supplies native controls and automation.
 No new selection manager, layout solver, persisted data, runtime capability or
-gameplay SDK layout is introduced. General group scaling/resize gestures and
-relative/flow layouts remain outside this bounded profile.
+gameplay SDK layout is introduced. Relative/flow/transformed group layouts remain
+outside this bounded profile.
 
 Grid alignment extends the same action/geometry owner for1..32admitted siblings.
 Native border corners round through standard numeric operations to a bounded
@@ -112,14 +112,20 @@ Single layout and group movement already expose equivalent programmatic nudges.
 Mouse drag projections move to the existing source geometry owner, shared with
 the guarded source transform operation. Observed/expected native rectangles reuse
 the existing layout-box type. Optional grid anchoring, dominant-axis movement and
-single visible-aspect resizing preserve the established source bounds and transient
+visible-aspect resizing preserve the established source bounds and transient
 gesture/history ownership. One native candidate validator serves gestures and
 atomic layouts. A gesture retains its newly borrowed frame before validation can
 refuse it, preserving image handover; projection validity and native candidate
 validity remain distinct so returning from an invalid projection can recover the
 last good candidate. Grid spacing has one Preview control, with no persisted
-settings or parallel coordinate authority. General group scaling remains outside
-the profile.
+settings or parallel coordinate authority. Bounded sibling resizing extends this
+same projection with the native border union as the upper-left anchor. One common
+factor per axis respects every source size/position bound; aspect uses one factor
+and grid snapping uses union dimensions. Source deltas account for native padding/
+borders, and the complete native candidate must match before publication. The
+native paint-only handle hint borrows observed rectangles and sibling indices;
+gesture start rechecks the existing source/native owner. No perpaint source copy,
+persisted group, alternate layout solver or new authoring/MCP writer is introduced.
 
 Rectangle and programmatic selection use the existing ordered source selection
 owner and 32-member limit. The native observation producer reports visibility and

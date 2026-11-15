@@ -1931,7 +1931,8 @@ class UiSourceEditor {
             ImGui::EndDisabled();
             ImGui::TextWrapped(
                 "Use sibling absolute-pixel elements. Drag a selected member to move "
-                "the group. Resize handles are available for a single element.");
+                "the group. Resize selected siblings from their common bottom-right handle. "
+                "Shift keeps the group's aspect.");
         } else if (selected && preview_current()) {
             ImGui::Text("Selected: %s", selected->at("id").get<std::string>().c_str());
             if (selected->at("editable").get<bool>()) {
@@ -2024,7 +2025,7 @@ class UiSourceEditor {
                 ? "Box select: drag to fully enclose named visible elements. Ctrl adds to the "
                   "selection. Click selects; Ctrl+click toggles. Escape cancels the rectangle."
                 : "Static draft preview; gameplay bindings do not run. Ctrl+click toggles group; "
-                  "drag to move or use the single resize handle. Shift constrains axis/aspect. "
+                  "drag to move or use the corner resize handle. Shift constrains axis/aspect. "
                   "Focus canvas: arrows move1px, Shift10px. Escape cancels.");
         const auto error = frame.state.is_object() ? frame.state.value("error", "") : "";
         if (!error.empty()) {
@@ -2201,17 +2202,33 @@ class UiSourceEditor {
                 }
             }
         }
-        const Json* visual = nullptr;
         ImVec2 handle{};
+        bool resize_handle = false, group_eligible = true;
+        std::array<UiPixelLayout, ui_source_selection_limit> group_rectangles;
+        std::size_t group_count = 0;
+        std::optional<std::size_t> group_parent;
         if (frame.state.contains("elements"))
             for (const auto& element : frame.state.at("elements")) {
                 if (element.at("source_index").is_null() ||
                     std::ranges::find(selected_, element.at("source_index").get<std::size_t>()) ==
                         selected_.end())
                     continue;
-                if (element.at("source_index") == selected_element())
-                    visual = &element;
                 const auto& bounds = element.at("bounds");
+                if (selected_.size() > 1) {
+                    const auto index = element.at("source_index").get<std::size_t>();
+                    if (!element.at("editable").get<bool>() || !element.at("visible").get<bool>() ||
+                        index >= outline_.size() || group_count >= group_rectangles.size())
+                        group_eligible = false;
+                    else {
+                        const auto parent = outline_[index].parent;
+                        if (group_parent && *group_parent != parent)
+                            group_eligible = false;
+                        group_parent = parent;
+                        group_rectangles[group_count++] = {
+                            bounds.at(0).get<float>(), bounds.at(1).get<float>(),
+                            bounds.at(2).get<float>(), bounds.at(3).get<float>()};
+                    }
+                }
                 const ImVec2 begin{origin.x + bounds.at(0).get<float>() * scale,
                                    origin.y + bounds.at(1).get<float>() * scale};
                 const ImVec2 corner{begin.x + bounds.at(2).get<float>() * scale,
@@ -2221,16 +2238,41 @@ class UiSourceEditor {
                 draw->AddRect(begin, corner, color, 0.f, 2.f);
                 if (!box_select_ && selected_.size() == 1 && element.at("editable").get<bool>()) {
                     handle = corner;
+                    resize_handle = true;
                     draw->AddRectFilled({handle.x - 5, handle.y - 5}, {handle.x + 5, handle.y + 5},
                                         color);
                 }
             }
+        // This paint-only availability hint borrows observed geometry. Gesture
+        // start below rechecks the complete source/native owner and never trusts it.
+        if (!box_select_ && selected_.size() > 1 && group_eligible &&
+            group_count == selected_.size() && preview_current()) {
+            try {
+                const auto [left, top, right, bottom] =
+                    ui_layout_bounds(std::span(group_rectangles).first(group_count));
+                if (right > left && bottom > top && right >= 0 && bottom >= 0 && right <= width &&
+                    bottom <= height) {
+                    handle = {origin.x + float(right) * scale, origin.y + float(bottom) * scale};
+                    const auto color = IM_COL32(70, 195, 255, 255);
+                    if (left >= 0 && top >= 0)
+                        draw->AddRect(
+                            {origin.x + float(left) * scale, origin.y + float(top) * scale}, handle,
+                            color);
+                    const ImVec2 minimum{handle.x - 5, handle.y - 5};
+                    const ImVec2 maximum{handle.x + 5, handle.y + 5};
+                    draw->AddRectFilled(minimum, maximum, color);
+                    resize_handle = true;
+                    FORGE_UI_RECT_PROBE("ui-source:canvas-group-resize", minimum, maximum, true);
+                }
+            } catch (const std::exception&) {
+                // Unusable observations hide this hint; they cannot authorize a write.
+            }
+        }
         if (!box_select_ && !gesture_ && preview_current() &&
             ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
             const auto mouse = ImGui::GetMousePos();
-            const bool resize =
-                selected_.size() == 1 && visual && visual->at("editable").get<bool>() &&
-                std::abs(mouse.x - handle.x) <= 8 && std::abs(mouse.y - handle.y) <= 8;
+            const bool resize = resize_handle && std::abs(mouse.x - handle.x) <= 8 &&
+                                std::abs(mouse.y - handle.y) <= 8;
             if (!resize && preview_hit) {
                 const auto hit =
                     canvas_hit((mouse.x - origin.x) / scale, (mouse.y - origin.y) / scale);

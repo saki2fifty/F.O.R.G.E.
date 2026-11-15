@@ -583,8 +583,10 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         else:
             assert proof['tick'] >= 180 and len(proof['carriages']) == 2
     from sprite_image_standalone_test import verify as verify_sprite_image
-    verify_sprite_image(tools, gallery, root / 'runtime-kits/shared-native-sdk',
-                        evidence / 'sprite-image-export')
+    sprite_exports = verify_sprite_image(
+        tools, gallery, root / 'runtime-kits/shared-native-sdk',
+        evidence / 'sprite-image-export', programmable_materials=True)
+    assert sprite_exports['programmable_materials']['production_startups'] == 2
     from tile_map_standalone_test import verify as verify_tile_map
     verify_tile_map(tools, gallery, root / 'runtime-kits/shared-native-sdk',
                     evidence / 'tile-map-export')

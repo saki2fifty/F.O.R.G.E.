@@ -2849,16 +2849,21 @@ DOM writer, persisted identity, SDK or runtime capability is introduced.
 ui.source.transform/forge_ui_source_transform requires assets.write, the ordinary
 mutation envelope, current source guards and native preview instance/revision.
 Required elements1..32, action(move/move_axis/resize/resize_aspect), dx/dy within
-±131072; optionalgrid1..1024 defaults to no snapping. Resize actions require one
-member. The same source geometry helper projects native drag snapshots and API
+±131072; optionalgrid1..1024 defaults to no snapping. Resize actions admit the same
+bounded sibling groups. The source geometry helper projects native drag snapshots and API
 requests, preserving old default source-bound clamps. Move keeps group spacing;
 axis mode chooses the larger absolute delta (horizontal on ties), retaining the
 inactive coordinate. Grid snaps the last member's border anchor.
 
 Aspect mode uses the larger relative native width/height change, preserving the
-visible border ratio with source/native size deltas. Grid snaps that dominant size;
+native union's border ratio with source/native size deltas. Grid snaps that dominant size;
 uniform source-bound clamping takes priority. Plain resize independently clamps
-source width/height. Zero delta does not snap; arrange snap_grid remains the one-shot
+source width/height for one member. Groups scale selected native rectangles and
+spacing about the union's upper-left corner, with shared source size/position
+bounds and independent axis factors for plain resize. Group grid snapping uses
+union dimensions. The extracted double rectangle-union owner also serves existing
+alignment and the paint-only group-handle hint, which copies no source text.
+Zero delta does not snap; arrange snap_grid remains the one-shot
 alignment operation. Invalid snapped source bounds reject before publication.
 
 The complete native result must match expected rectangles before one source Undo,
@@ -2866,7 +2871,7 @@ selection update and explicit Save. Stale/retired/unsupported observations, bad
 membership and native clamping cannot partly publish. Receipt replay applies once.
 Native gestures use the same projection and candidate validator, retaining each
 new frame before geometry refusal. This adds no runtime input, Scene history,
-resource registration, general group resize, SDK/profile or persistence change.
+resource registration, relative/flow/transformed layout, SDK/profile or persistence change.
 
 
 ## Native source selection

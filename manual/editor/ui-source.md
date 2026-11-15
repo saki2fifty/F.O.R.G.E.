@@ -645,16 +645,31 @@ or a blocking task also cancels placement. Invalid points, stale geometry or
 unsupported native layout leave source and Undo history unchanged. Correct the
 problem, refresh Preview and try again.
 
-## Move, align and space a group
+## Move, resize, align and space a group
 
 1. Open Gallery scene **211** and its **layout.rml** source, then select **Preview**.
 2. Click the blue panel. Hold **Ctrl** and click the teal and purple panels to add them. Ctrl+click a selected panel removes it. The same modifier works in **Elements**. Select between 2 and 32 elements with the same source parent.
-3. Drag any selected member to move the group while preserving sizes and spacing. Release for one Undo step, or press **Escape** to cancel. Resize handles are available when only one element is selected.
+3. Drag any selected member to move the group while preserving sizes and spacing. Release for one Undo step, or press **Escape** to cancel.
 4. Choose an **Operation** in the group controls, then **Apply group**. Edge and center alignment use the visible native border boxes, including padding and borders.
 5. For **Move group**, enter **Delta X / Y (px)**. Distribution needs at least three elements and spaces them in their native left-to-right or top-to-bottom order, regardless of selection order. Move the outer elements farther apart if there is insufficient room for non-overlapping gaps.
 6. Use **Undo** or **Redo** to restore the whole operation, then **Save source** when ready.
 
-![Three sibling panels selected with group layout and Remove group controls](../images/ui-source-group-layout.png)
+![Three sibling panels selected with group controls and a common bottom-right resize handle](../images/ui-source-group-layout.png)
+
+To resize, drag the handle at the bottom-right of the common blue outline. The
+group's upper-left corner stays fixed while selected border boxes and the gaps
+between them scale horizontally and vertically. Hold **Shift** to keep the group's
+original aspect. **Snap dragging** snaps the overall native width and height to
+**Grid (px)**; with Shift, it snaps the dominant size while retaining aspect.
+Release for one source Undo step, or press **Escape** to cancel.
+
+Every selected sibling must have current editable native geometry. The handle
+appears when its corner is inside the native viewport and visible canvas area.
+Use **Size (px)** and the view controls to bring it into view. Source size and
+position bounds constrain the shared scale. A native constraint on any member
+can refuse the whole candidate; source stays unchanged until a valid release.
+Selected widgets keep their source IDs, padding, borders and other styles.
+Their content and unselected descendants follow their ordinary native CSS layout.
 
 Every member must satisfy the canvas limits above. One unsupported, stale,
 out-of-range or differently parented member rejects the whole operation. No

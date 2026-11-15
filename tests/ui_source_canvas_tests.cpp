@@ -273,6 +273,95 @@ void exercise(const std::filesystem::path& output, const std::vector<std::byte>&
     check(editor.state().at("selection").size() == 3 && editor.state().at("text") == moved,
           "Native preview Ctrl toggles changed source or lost group membership");
     const auto group_source = editor.state().at("text").get<std::string>();
+    const auto selected_group = editor.state().at("selection").get<std::vector<std::size_t>>();
+    const auto native_group = [&](const Json& snapshot) {
+        std::array<UiPixelLayout, 3> rectangles;
+        for (std::size_t i = 0; i < selected_group.size(); ++i) {
+            bool found = false;
+            for (const auto& item : snapshot.at("elements"))
+                if (item.at("source_index") == selected_group[i]) {
+                    const auto& b = item.at("bounds");
+                    rectangles[i] = {b.at(0).get<float>(), b.at(1).get<float>(),
+                                     b.at(2).get<float>(), b.at(3).get<float>()};
+                    found = true;
+                }
+            check(found, "Group resize lost a native observation");
+        }
+        return ui_layout_bounds(rectangles);
+    };
+    for (const auto mode : {0, 1, 2}) {
+        editor.selection(selected_group);
+        frame();
+        if (mode == 2)
+            input.click("ui-source:snap-dragging");
+        const auto before_resize = editor.state();
+        const auto before_native = native_group(editor.preview_state(project, 800, 600, 1));
+        frame();
+        const auto handle = test::ui_targets.at("ui-source:canvas-group-resize");
+        check(handle.enabled, "Complete native sibling selection has no resize handle");
+        io.AddKeyEvent(ImGuiMod_Shift, mode == 1);
+        frame();
+        press(
+            {(handle.minimum.x + handle.maximum.x) / 2, (handle.minimum.y + handle.maximum.y) / 2});
+        const auto start = ImGui::GetMousePos();
+        const auto canvas = test::ui_targets.at("ui-source:canvas");
+        const double display_scale = (canvas.maximum.x - canvas.minimum.x) / 800;
+        io.AddMousePosEvent(start.x + 24, start.y + 16);
+        frame();
+        const auto finish = ImGui::GetMousePos();
+        check(editor.state().at("text") == group_source,
+              "Group resize published before the real mouse release");
+        release();
+        io.AddKeyEvent(ImGuiMod_Shift, false);
+        frame();
+        const auto resized = editor.state();
+        const auto bounds = native_group(editor.preview_state(project, 800, 600, 1));
+        const double w = before_native[2] - before_native[0];
+        const double h = before_native[3] - before_native[1];
+        const double dx = (finish.x - start.x) / display_scale;
+        const double dy = (finish.y - start.y) / display_scale;
+        double expected_width = w + dx, expected_height = h + dy;
+        if (mode == 1) {
+            const double scale = 1 + (std::abs(dx / w) >= std::abs(dy / h) ? dx / w : dy / h);
+            expected_width = w * scale;
+            expected_height = h * scale;
+        } else if (mode == 2) {
+            expected_width = std::round(expected_width / 8) * 8;
+            expected_height = std::round(expected_height / 8) * 8;
+        }
+        check(std::abs(bounds[0] - before_native[0]) < .1 &&
+                  std::abs(bounds[1] - before_native[1]) < .1 &&
+                  std::abs(bounds[2] - bounds[0] - expected_width) < .6 &&
+                  std::abs(bounds[3] - bounds[1] - expected_height) < .6 &&
+                  resized.at("selection") == selected_group,
+              "Real group handle changed its union anchor, aspect, grid or selection");
+        editor.undo(false);
+        check(editor.state().at("text") == before_resize.at("text"),
+              "Group resize needed more than one Undo");
+        editor.undo(true);
+        check(editor.state().at("text") == resized.at("text"), "Group resize Redo changed source");
+        editor.undo(false);
+        frame();
+        if (mode == 2)
+            input.click("ui-source:snap-dragging");
+    }
+    editor.selection(selected_group);
+    frame();
+    const auto resize_handle = test::ui_targets.at("ui-source:canvas-group-resize");
+    const auto before_cancel_resize = editor.state();
+    press({(resize_handle.minimum.x + resize_handle.maximum.x) / 2,
+           (resize_handle.minimum.y + resize_handle.maximum.y) / 2});
+    io.AddMousePosEvent(ImGui::GetMousePos().x + 18, ImGui::GetMousePos().y + 10);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Escape, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Escape, false);
+    release();
+    check(!editor.gesture_active() && editor.state().at("text") == group_source &&
+              editor.state().at("revision") == before_cancel_resize.at("revision"),
+          "Escape published a transient group resize");
+    editor.selection(selected_group);
+    frame();
     origin = point(365, 115);
     press(origin);
     canvas = test::ui_targets.at("ui-source:canvas");

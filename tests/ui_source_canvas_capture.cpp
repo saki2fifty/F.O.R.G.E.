@@ -197,6 +197,65 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
         image_resource_workflow();
         return;
     }
+    if (server_mode == "--group-resize-only") {
+        const auto disk = asset_storage::read(root / relative);
+        const auto catalog = asset_storage::read(root / "forge.assets.json");
+        for (const auto position : {ImVec2{520, 180}, ImVec2{820, 280}}) {
+            const auto area = test::ui_targets.at("ui-source:canvas");
+            const float factor = (area.maximum.x - area.minimum.x) / 1000;
+            io.AddMousePosEvent(area.minimum.x + position.x * factor,
+                                area.minimum.y + position.y * factor);
+            io.AddKeyEvent(ImGuiMod_Ctrl, true);
+            frame();
+            io.AddMouseButtonEvent(0, true);
+            frame();
+            io.AddMouseButtonEvent(0, false);
+            frame();
+            io.AddKeyEvent(ImGuiMod_Ctrl, false);
+            frame();
+        }
+        const auto before = editor.state();
+        require(before.at("selection").size() == 3 &&
+                    test::ui_targets.at("ui-source:canvas-group-resize").enabled,
+                "Native sibling selection did not expose its group resize handle");
+        surface.save(output / ("ui-source-group-resize-" + std::to_string(width) + ".png"));
+        const auto handle = test::ui_targets.at("ui-source:canvas-group-resize");
+        const ImVec2 start{(handle.minimum.x + handle.maximum.x) / 2,
+                           (handle.minimum.y + handle.maximum.y) / 2};
+        io.AddMousePosEvent(start.x, start.y);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        require(editor.gesture_active(), "Native group corner did not start its source gesture");
+        io.AddMousePosEvent(start.x + 16, start.y + 10);
+        frame();
+        require(editor.state().at("text") == before.at("text") &&
+                    asset_storage::read(root / relative) == disk,
+                "Native group resize wrote source before release");
+        io.AddMouseButtonEvent(0, false);
+        frame();
+        frame();
+        const auto after = editor.state();
+        require(after.at("text") != before.at("text") &&
+                    after.at("selection") == before.at("selection"),
+                "Native group resize did not commit its complete selected source group");
+        surface.save(output / ("ui-source-group-resized-" + std::to_string(width) + ".png"));
+        editor.undo(false);
+        frame();
+        require(editor.state().at("text") == before.at("text"),
+                "Native group resize needed multiple Undo steps");
+        editor.undo(true);
+        frame();
+        require(editor.state().at("text") == after.at("text"),
+                "Native group resize Redo changed source");
+        editor.save(project);
+        require(!editor.dirty() && scene.snapshot() == authored &&
+                    asset_storage::read(root / "forge.assets.json") == catalog,
+                "Group resize Save changed Scene or catalog ownership");
+        editor.discard();
+        require(!presenter && !editor.is_open(), "Group capture retained its source presenter");
+        return;
+    }
     if (!server_mode.empty()) {
         CaptureAutomationProviders providers;
         providers.source_image = image_input;
@@ -1043,6 +1102,7 @@ int main(int argc, char** argv) {
     try {
         require(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--mcp" ||
                                             std::string_view(argv[4]) == "--mcp-read" ||
+                                            std::string_view(argv[4]) == "--group-resize-only" ||
                                             std::string_view(argv[4]) == "--image-resources-only")),
                 "Need output directory, font, Gallery and optional MCP mode");
         const auto output = std::filesystem::absolute(argv[1]);
@@ -1055,7 +1115,8 @@ int main(int argc, char** argv) {
         factory->CreateDeviceAndContextsVk(info, &device, &graphics);
         require(device && graphics, "Offscreen Vulkan device unavailable");
         const auto font = forge::asset_detail::read_bytes(argv[2], 4 * 1024 * 1024);
-        if (argc == 5 && std::string_view(argv[4]) != "--image-resources-only")
+        if (argc == 5 && std::string_view(argv[4]) != "--image-resources-only" &&
+            std::string_view(argv[4]) != "--group-resize-only")
             capture(device, graphics, output, argv[3], font, 700, argv[4]);
         else
             for (const int width : {1180, 700})
