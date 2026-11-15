@@ -317,5 +317,9 @@ UiValues and the existing UI protocol retain name validation; an internal privat
 link reuses that owner without another grammar or dependency pin. Runtime keeps
 its injected data-model, copied read-only values, command registration/allowlists
 and execution. No model/DOM/event engine, Scene property ownership, SDK/ABI,
-persistence or runtime protocol change is introduced. Complex expressions,
-arguments and native field-value bindings remain Attributes/Source.
+persistence or runtime protocol change is introduced. An optional literal command
+value reuses the existing protocol string validator and standard quoted streams
+for the admitted single-quoted expression/escape profile. Omitted/null arguments
+retain the no-argument Set form. Runtime still validates registration and value
+meaning. Complex expressions, computed/multiple arguments and native field-value
+bindings remain Attributes/Source.

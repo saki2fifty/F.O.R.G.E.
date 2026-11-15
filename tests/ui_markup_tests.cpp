@@ -636,9 +636,49 @@ void source_bindings() {
     }
     const std::string field = "<rml><body><textarea>Keep</textarea></body></rml>";
     rejects([&] { forge::set_ui_markup_binding(field, find(field, "textarea"), "text", "tick"); });
+    for (const std::string& argument :
+         {std::string{}, std::string("0.5"), std::string("Élan & 'quoted' \\\\ path (a,b)"),
+          std::string(1024, 'x')}) {
+        const auto with_value =
+            forge::set_ui_markup_binding(source, button, "click_command", "TimeScale", argument);
+        const auto view = forge::read_ui_markup_bindings(
+            with_value, forge::inspect_ui_markup(with_value), button);
+        check(view.click_command.available && view.click_command.value == "TimeScale" &&
+                  view.click_command.argument == argument,
+              "Literal command value lost empty, UTF8, quotes/slashes or bounded bytes");
+        check(forge::set_ui_markup_binding(with_value, button, "click_command", "TimeScale",
+                                           argument) == with_value,
+              "Same literal command value added a source edit");
+        check(forge::set_ui_markup_binding(with_value, button, "click_command", "Pause") == command,
+              "Omitting a command value did not restore the no-argument form");
+        auto cleared_command = source;
+        cleared_command.insert(cleared_command.find(">Pause</button>"), " ");
+        check(forge::set_ui_markup_binding(with_value, button, "click_command", {}) ==
+                  cleared_command,
+              "Clearing a valued command changed unrelated source");
+    }
+    const std::string spaced_value =
+        "<rml><body><button data-event-click=\"command ( 'TimeScale' , '0.5' )\">"
+        "Go</button></body></rml>";
+    check(forge::set_ui_markup_binding(spaced_value, find(spaced_value, "button"), "click_command",
+                                       "TimeScale", "0.5") == spaced_value,
+          "A valued command no-op normalized original spaces/quotes");
+    for (const auto& argument :
+         {std::string(1025, 'x'), std::string("a\0b", 3), std::string("\xff", 1)})
+        rejects([&] {
+            forge::set_ui_markup_binding(source, button, "click_command", "TimeScale", argument);
+        });
+    rejects([&] { forge::set_ui_markup_binding(source, value, "text", "tick", "0.5"); });
+    rejects([&] { forge::set_ui_markup_binding(source, button, "click_command", {}, "0.5"); });
     for (const auto* custom :
          {"<rml><body><button "
-          "data-event-click=\"command('TimeScale','0.5')\">Go</button></body></rml>",
+          "data-event-click=\"command('TimeScale','0.5','extra')\">Go</button></body></rml>",
+          "<rml><body><button data-event-click=\"command('TimeScale', "
+          "speed)\">Go</button></body></rml>",
+          "<rml><body><button "
+          "data-event-click='command(&quot;Pause&quot;)'>Go</button></body></rml>",
+          "<rml><body><button "
+          "data-event-click=\"command('Pause','bad\\q')\">Go</button></body></rml>",
           "<rml><body><button data-event-click=\"command(action)\">Go</button></body></rml>",
           "<rml><body><button data-event-click='custom()'>Go</button></body></rml>",
           "<rml><body><button onclick='go'>Go</button></body></rml>"})

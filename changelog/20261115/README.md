@@ -2,6 +2,11 @@
 
 ## Guided UI source bindings
 
+Button bindings can include one literal string value using Pass value and Command
+value, or the same optional MCP argument. Existing runtime validation owns limits,
+UTF8, command permissions and value semantics. Native expression strings use the
+supported single-quote/escape form; unsupported expressions remain in Source.
+
 Elements stages simple copied-value text and registered button-command bindings
 through the existing source writers. Shared read/set adapters preserve custom
 source and no-ops, one source Undo and explicit Save; MCP exposes the same guarded

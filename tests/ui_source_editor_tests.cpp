@@ -174,10 +174,32 @@ void exercise(const std::filesystem::path& output, int width,
         input.click("ui-source:binding-click_command-set");
         check(editor.state().at("revision") == command.at("revision"),
               "Same command binding added history");
+        input.type("ui-source:binding-click_command-value", "TimeScale");
+        input.click("ui-source:binding-command-pass-value");
+        input.type("ui-source:binding-command-argument", "0.5");
+        check(editor.state().at("text") == command.at("text"), "Staged command value wrote source");
+        input.click("ui-source:binding-click_command-set");
+        frame();
+        const auto valued = editor.state();
+        check(editor.bindings(3).click_command.argument == "0.5" &&
+                  valued.at("selection") == Json::array({3}),
+              "Native command value lost its literal argument or selection");
+        capture.save(output / ("ui-source-bindings-value-" + std::to_string(width) + ".png"));
+        input.click("ui-source:binding-click_command-set");
+        check(editor.state().at("revision") == valued.at("revision"),
+              "Same valued command added history");
+        editor.undo(false);
+        check(editor.state().at("text") == command.at("text"),
+              "Valued command needed more than one Undo");
+        editor.undo(true);
+        check(editor.state().at("text") == valued.at("text"), "Valued command Redo changed source");
+        editor.selection(std::array<std::size_t, 1>{3});
         locked = true;
         frame();
         check(!test::ui_targets.at("ui-source:binding-click_command-set").enabled &&
-                  !test::ui_targets.at("ui-source:binding-click_command-clear").enabled,
+                  !test::ui_targets.at("ui-source:binding-click_command-clear").enabled &&
+                  !test::ui_targets.at("ui-source:binding-command-pass-value").enabled &&
+                  !test::ui_targets.at("ui-source:binding-command-argument").enabled,
               "Locked source retained binding write controls");
         locked = false;
         frame();
@@ -187,7 +209,8 @@ void exercise(const std::filesystem::path& output, int width,
               "Binding controls executed or changed Scene, catalog or saved source");
         editor.save(project);
         const auto saved = asset_storage::read(file);
-        check(!editor.dirty() && saved && saved->find("command('Resume')") != std::string::npos,
+        check(!editor.dirty() && saved &&
+                  saved->find("command('TimeScale','0.5')") != std::string::npos,
               "Explicit binding Save did not persist source");
         editor.request_close();
         return;

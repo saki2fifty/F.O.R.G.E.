@@ -3067,7 +3067,8 @@ The native source family currently advertises59operations.
 
 ui.source.bindings/forge_ui_source_bindings requires assets.read and current RML
 source guards plus element. Its text and click_command rows return available,
-authored, nullable value and reason. Shared kind metadata, built-in variables,
+authored, nullable value and reason. The click row also reports its nullable
+literal argument. Shared kind metadata, built-in variables,
 read-only model status, command-argument limit and64byte name bound describe the
 same adapters used by Elements. It initializes no presenter/model and returns
 no runtime value or command-registration claim.
@@ -3076,10 +3077,14 @@ ui.source.binding/forge_ui_source_binding requires assets.write, current source
 guards and the ordinary mutation envelope. kind=text sets one simple leaf display
 expression; compatible UiValues names and built-in tick/paused share the existing
 name owner. kind=click_command uses the runtime protocol's existing identifier
-validator and formats a literal no-argument command for a button/input button.
+validator and formats a literal command for a button/input button. Optional
+argument supplies one UTF8 string up to1024bytes, including empty. Omitted/null
+means no argument. Existing runtime validation owns byte/NUL/UTF8 admission and
+command semantics; expression escaping uses the admitted native single-quoted
+literal form. It is distinct from the RML attribute's quote style.
 value:null clears only a recognized binding; an absent binding preserves literal
 text. Semantically equal simple forms preserve source bytes/history. Custom text,
-conflicting native field bindings, command arguments, incompatible controls and
+conflicting native field bindings, computed/multiple arguments, incompatible controls and
 invalid names reject before mutation. One existing source replacement/Undo retains
 the element selection; Save stays explicit. Existing raw text/attribute tools remain
 supported. The source family advertises59operations.
@@ -3089,4 +3094,4 @@ per-document command allowlists/queuing. Authored data-model is rejected by that
 existing runtime contract. Source authoring does not publish model values, register
 commands, execute gameplay, write Scene/catalog or bypass Play permissions. Static
 Preview stays a layout inspection. Native field values, reserved loading names,
-combined/arbitrary expressions and command arguments remain Attributes/Source.
+combined/arbitrary expressions and computed/multiple arguments remain Attributes/Source.

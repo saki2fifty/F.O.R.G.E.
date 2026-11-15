@@ -470,9 +470,23 @@ document at runtime; writing its name does not register or execute it.
 
 ![A button with its authored Resume click command and Set binding and Clear binding controls](../images/ui-source-bindings-command.png)
 
-These controls support leaf display text and no-argument commands on buttons or
+For a command that takes a value, turn on **Pass value** and enter its literal
+string in **Command value** before choosing **Set binding**. For example, enter
+`TimeScale` as the command and `0.5` as its value for half speed. `1` restores normal
+speed and `0` holds motion while keeping the HUD interactive. Save source and test
+in Play. TimeScale accepts numeric strings from 0 to 4; the sound keeps normal speed.
+
+![Authoring a TimeScale button with Pass value enabled and a literal value of 0.5](../images/ui-source-bindings-value.png)
+
+Other value-taking commands must be registered by project C++. Values support
+UTF-8 text up to 1024 bytes, including an empty string. Quotes, ampersands and
+backslashes are escaped for the source expression automatically. Turn **Pass value**
+off for commands such as Pause, Resume and Step. Runtime validates whether
+the command accepts a value and what that value means; source editing never runs it.
+
+These controls support leaf display text and literal commands on buttons or
 input buttons. Native field values, combined text such as `Score {{health}}`,
-reserved loading values, command arguments and other custom expressions use
+reserved loading values, computed arguments and other custom expressions use
 Attributes or Source. Unsupported bindings show a reason and remain unchanged.
 FORGE supplies the document model; do not add a `data-model` attribute.
 

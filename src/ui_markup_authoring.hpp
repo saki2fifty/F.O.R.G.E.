@@ -317,6 +317,7 @@ set_ui_markup_control_properties(std::string_view, std::size_t element,
 struct UiMarkupBinding {
     bool available = false, authored = false;
     std::optional<std::string> value;
+    std::optional<std::string> argument; // Click command's optional literal string value.
     std::string reason;
 };
 struct UiMarkupBindings {
@@ -328,7 +329,8 @@ inline constexpr std::array<std::pair<std::string_view, std::string_view>, 2>
 UiMarkupBindings read_ui_markup_bindings(std::string_view, std::span<const UiMarkupElement>,
                                          std::size_t element);
 std::string set_ui_markup_binding(std::string_view, std::size_t element, std::string_view kind,
-                                  std::optional<std::string> value);
+                                  std::optional<std::string> value,
+                                  std::optional<std::string> argument = {});
 // Compose existing source candidates; the caller publishes one transaction.
 UiMarkupControlEdit insert_ui_markup_control(std::string_view, std::size_t parent,
                                              std::string_view kind, std::string_view literal = {},

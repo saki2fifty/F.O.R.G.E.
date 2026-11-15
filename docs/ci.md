@@ -286,9 +286,10 @@ preview metadata but excludes group writes.
 
 Guided source bindings use ui_markup for simple-form recognition, preserved
 no-ops, shared names/escaping and custom-source refusal. ui_source_bindings drives
-staged Variable/Command, Set/Clear, history, selection, locks and explicit Save at
+staged Variable/Command/Pass value, Set/Clear, history, selection, locks and explicit Save at
 1180/700/400. The saved/source-hidden ui_source_gallery fixture observes copied
-values41→42, registered command delivery and unregistered-command refusal through
+values41→42, registered command delivery, literal TimeScale/custom UTF8/empty-value
+delivery with quote/backslash/RML escaping and unregistered-command refusal through
 the actual presenter/runtime owners. Both MCP control-property protocols cover
 bindings discovery, guards/grants, replay, no-op/refusal, Undo and Save. The common
 native acceptance selector explicitly includes those two workflow tests. Remaining

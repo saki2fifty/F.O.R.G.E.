@@ -13,9 +13,11 @@
 #include <forge/ui_assets.hpp>
 #include <forge/ui_protocol.hpp>
 #include <forge/ui_values.hpp>
+#include <iomanip>
 #include <limits>
 #include <map>
 #include <numeric>
+#include <sstream>
 #include <stdexcept>
 #include <vector>
 
@@ -1976,7 +1978,11 @@ namespace {
 bool simple_binding_variable(const std::string& name) {
     return name == "tick" || name == "paused" || UiValues::valid_name(name);
 }
-std::optional<std::string> simple_click_command(std::string_view text) {
+struct SimpleClickCommand {
+    std::string name;
+    std::optional<std::string> argument;
+};
+std::optional<SimpleClickCommand> simple_click_command(std::string_view text) {
     text = trimmed_control_literal(text);
     if (!text.starts_with("command"))
         return {};
@@ -1984,11 +1990,33 @@ std::optional<std::string> simple_click_command(std::string_view text) {
     if (text.size() < 4 || text.front() != '(' || text.back() != ')')
         return {};
     text = trimmed_control_literal(text.substr(1, text.size() - 2));
-    if (text.size() < 2 || (text.front() != '\'' && text.front() != '"') ||
-        text.front() != text.back())
+    // Quoted streams share the admitted apostrophe/backslash escapes. Other
+    // native expression spellings remain Source instead of being reinterpreted.
+    for (std::size_t i = 0; i < text.size(); ++i)
+        if (text[i] == '\\' && (++i == text.size() || (text[i] != '\\' && text[i] != '\'')))
+            return {};
+    std::istringstream input{std::string(text)};
+    const auto literal = [&](std::string& value) {
+        input >> std::ws;
+        if (input.peek() != '\'')
+            return false;
+        return bool(input >> std::quoted(value, '\'', '\\'));
+    };
+    SimpleClickCommand command;
+    if (!literal(command.name) || !ui_protocol::identifier(command.name))
         return {};
-    std::string name(text.substr(1, text.size() - 2));
-    return ui_protocol::identifier(name) ? std::optional(std::move(name)) : std::nullopt;
+    input >> std::ws;
+    if (input.peek() == ',') {
+        input.get();
+        std::string value;
+        if (!literal(value))
+            return {};
+        ui_protocol::validate_value(nlohmann::json(value));
+        command.argument = std::move(value);
+        input >> std::ws;
+    }
+    return input.peek() == std::char_traits<char>::eof() ? std::optional(std::move(command))
+                                                         : std::nullopt;
 }
 } // namespace
 UiMarkupBindings read_ui_markup_bindings(std::string_view source,
@@ -2040,9 +2068,10 @@ UiMarkupBindings read_ui_markup_bindings(std::string_view source,
         const auto* attribute = markup_attribute(node, "data-event-click");
         click.authored = attribute != nullptr;
         if (attribute) {
-            click.value = simple_click_command(control_attribute_text(source, *attribute));
-            require(click.value.has_value(),
-                    "Custom click expressions or command arguments use Attributes or Source");
+            const auto command = simple_click_command(control_attribute_text(source, *attribute));
+            require(command.has_value(), "Custom click expressions use Attributes or Source");
+            click.value = command->name;
+            click.argument = command->argument;
         }
         click.available = true;
     } catch (const std::exception& error) {
@@ -2051,8 +2080,13 @@ UiMarkupBindings read_ui_markup_bindings(std::string_view source,
     return result;
 }
 std::string set_ui_markup_binding(std::string_view source, std::size_t index, std::string_view kind,
-                                  std::optional<std::string> value) {
+                                  std::optional<std::string> value,
+                                  std::optional<std::string> argument) {
     require(kind == "text" || kind == "click_command", "Choose a supported source binding kind");
+    require(!argument || (kind == "click_command" && value),
+            "A literal command value requires a click command name");
+    if (argument)
+        ui_protocol::validate_value(nlohmann::json(*argument));
     const auto nodes = inspect_ui_markup(source);
     const auto bindings = read_ui_markup_bindings(source, nodes, index);
     const auto& current = kind == "text" ? bindings.text : bindings.click_command;
@@ -2060,13 +2094,18 @@ std::string set_ui_markup_binding(std::string_view source, std::size_t index, st
     if (value)
         require(kind == "text" ? simple_binding_variable(*value) : ui_protocol::identifier(*value),
                 "Use a supported model variable or registered command name, up to64 bytes");
-    if (current.value == value)
+    if (current.value == value && current.argument == argument)
         return std::string(source);
     if (kind == "text")
         return set_ui_markup_text(source, index, value ? "{{" + *value + "}}" : "");
-    return set_ui_markup_attribute(source, index, "data-event-click",
-                                   value ? std::optional("command('" + *value + "')")
-                                         : std::nullopt);
+    if (!value)
+        return set_ui_markup_attribute(source, index, "data-event-click", {});
+    std::ostringstream expression;
+    expression << "command(" << std::quoted(*value, '\'', '\\');
+    if (argument)
+        expression << ',' << std::quoted(*argument, '\'', '\\');
+    expression << ')';
+    return set_ui_markup_attribute(source, index, "data-event-click", expression.str());
 }
 std::string remove_ui_markup_elements(std::string_view source,
                                       std::span<const std::size_t> indices) {

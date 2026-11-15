@@ -16,11 +16,12 @@ def check_bindings(read, mutate, root, advertised, client, arguments, guard, edi
     assert read('forge_ui_source_bindings', **guard(), element=2) == {
         'text': dict(available=True, authored=False, value=None, reason=''),
         'click_command': dict(available=False, authored=False, value=None,
-                              reason='Click command controls require a button or input button'),
+                              argument=None, reason='Click command controls require a button or input button'),
         'kinds': [dict(id='text', label='Text value'), dict(id='click_command', label='Click command')],
         'builtin_variables': ['tick', 'paused'], 'model_read_only': True,
-        'command_arguments': False, 'name_limit': 64,
-        'text_expression': '{{name}}', 'click_expression': "command('name')"}
+        'command_arguments': True, 'argument_limit_bytes': 1024, 'name_limit': 64,
+        'text_expression': '{{name}}', 'click_expression': "command('name')",
+        'click_value_expression': "command('name','value')"}
     absent = edit('binding', element=2, kind='text', value=None)
     assert absent['text'] == source and absent['revision'] == baseline['revision']
     old_guard = guard()
@@ -55,6 +56,24 @@ def check_bindings(read, mutate, root, advertised, client, arguments, guard, edi
     assert 'data-model' not in command['text']
     assert read('forge_ui_source_bindings', **guard(), element=3)['click_command']['value'] == 'Resume'
     assert edit('binding', element=3, kind='click_command', value='Resume')['revision'] == command['revision']
+    for argument in ('0.5', '', "Élan & 'quoted' \\\\ path (a,b)", 'x' * 1024):
+        valued = edit('binding', element=3, kind='click_command', value='TimeScale', argument=argument)
+        view = read('forge_ui_source_bindings', **guard(), element=3)['click_command']
+        assert view['available'] and view['value'] == 'TimeScale' and view['argument'] == argument
+        assert edit('binding', element=3, kind='click_command', value='TimeScale',
+                    argument=argument)['revision'] == valued['revision']
+        assert edit('undo')['text'] == command['text']
+        assert edit('redo')['text'] == valued['text']
+        assert edit('binding', element=3, kind='click_command', value='Resume')['text'] == command['text']
+    for extra in (dict(element=3, kind='click_command', value='TimeScale', argument='x' * 1025),
+                  dict(element=3, kind='click_command', value='TimeScale', argument='é' * 513),
+                  dict(element=3, kind='click_command', value='TimeScale', argument='a\0b'),
+                  dict(element=3, kind='click_command', value=None, argument='0.5'),
+                  dict(element=2, kind='text', value='tick', argument='0.5')):
+        before = read('forge_ui_source_read')
+        assert not mutate('forge_ui_source_binding', **guard(), **extra)['ok']
+        assert read('forge_ui_source_read') == before
+    command = read('forge_ui_source_read')
     removed = edit('binding', element=3, kind='click_command', value=None)
     assert 'data-event-click' not in removed['text']
     assert edit('undo')['text'] == command['text']

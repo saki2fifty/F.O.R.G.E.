@@ -24,6 +24,8 @@ Click **Pause**. The tick counter stops, but the HUD stays interactive. Click th
 Click **Step** while paused: the counter advances by one. Click **Resume** to continue. **F6** pauses/resumes, **F7** steps while paused, and **Escape** releases game input so you can use the editor again.
 
 For slow motion, a button can use `data-event-click="command('TimeScale','0.5')"`.
+In **UI Source → Elements → Runtime bindings**, enter `TimeScale` as **Command**,
+turn on **Pass value**, enter `0.5` as **Command value** and choose **Set binding**.
 Use `1` for normal speed or `0` to hold motion while keeping the HUD interactive.
 Values must be numeric strings between 0 and 4. This changes simulation speed; it
 keeps existing sound at normal speed. The original Gallery58 Scene includes six

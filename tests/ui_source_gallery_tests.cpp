@@ -119,6 +119,7 @@ void exercise(const std::filesystem::path& root, const Json& source,
     Scene scene(engine.world());
     scene.restore_snapshot(source);
     const auto ui = std::static_pointer_cast<UiRuntime>(engine.services().ui());
+    ui->allow_value_action("SourceValue");
     UiTestRenderer renderer;
     {
         UiPresenter presenter(renderer, root, font);
@@ -277,6 +278,30 @@ void exercise(const std::filesystem::path& root, const Json& source,
         acknowledge("Resume");
         document->GetElementById("native-bound-command")->Click();
         acknowledge("Step");
+        const auto acknowledge_value = [&](const char* id, const std::string& expected) {
+            document->GetElementById(id)->Click();
+            const auto command = presenter.pending_command();
+            check(command && command->at("value") == expected,
+                  "Native literal command value did not survive expression/RML escaping");
+            double rate = -1;
+            ui->command(
+                scene, *command, [](const std::string&) {}, [&](double value) { rate = value; });
+            if (command->at("command") == "TimeScale")
+                check(rate == 0.5,
+                      "Guided command value did not reach the existing clock callback");
+            else {
+                const auto action = ui->poll_action("SourceValue");
+                check(action && action->value == expected,
+                      "Guided command value did not reach the current runtime action owner");
+            }
+            auto ack = *command;
+            ack["ok"] = true;
+            presenter.acknowledge(ack);
+            check(!presenter.pending_command(), "Valued command queued more than one request");
+        };
+        acknowledge_value("native-command-speed", "0.5");
+        acknowledge_value("native-command-string", "Élan & 'quoted' \\\\ path (a,b)");
+        acknowledge_value("native-command-empty", "");
         document->GetElementById("native-unregistered-command")->Click();
         check(!presenter.pending_command() &&
                   presenter.diagnostic().find("not registered") != std::string::npos,
@@ -344,7 +369,7 @@ void exercise(const std::filesystem::path& root, const Json& source,
                   authored_progress.at("max") == 1 && authored_progress.at("read_only") == true,
               "Saved/exported authored properties lost native flag/clamp/fallback behavior");
         const auto buttons = presenter.buttons(instance);
-        check(buttons.at("buttons").size() == 6 && !buttons.at("truncated").get<bool>(),
+        check(buttons.at("buttons").size() == 9 && !buttons.at("truncated").get<bool>(),
               "Saved/exported buttons lost native discovery");
         for (const auto* id : {"native-bound-command", "native-unregistered-command"})
             check(std::ranges::any_of(buttons.at("buttons"),
@@ -1053,6 +1078,16 @@ int main(int argc, char** argv) {
                 text =
                     set_ui_markup_binding(created.source, created.element, "click_command", name);
                 text = set_ui_markup_style(text, created.element, "pointer-events", "auto");
+            }
+            for (const auto& [id, name, value] :
+                 {std::tuple{"native-command-speed", "TimeScale", "0.5"},
+                  std::tuple{"native-command-string", "SourceValue",
+                             "Élan & 'quoted' \\\\ path (a,b)"},
+                  std::tuple{"native-command-empty", "SourceValue", ""}}) {
+                created = insert_ui_markup_control(text, by_id(text, "canvas"), "button", name, {},
+                                                   id, UiPixelLayout{500, 510, 140, 30});
+                text = set_ui_markup_binding(created.source, created.element, "click_command", name,
+                                             value);
             }
             atomic_write(root / document_path, text);
             const auto published = register_ui_document(root, document_path);

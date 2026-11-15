@@ -2,12 +2,14 @@
 
 ## Native UI source authoring
 
-The two `ui-source-bindings-text.png`/`ui-source-bindings-command.png` images are
+The three `ui-source-bindings-text.png`, `ui-source-bindings-command.png` and
+`ui-source-bindings-value.png` images are
 exact700×950 production UiSourceEditor/DocumentWorkspace captures from
 `forge_ui_source_editor_tests <output> --bindings-only`. They show staged variable
-entry before Set binding and the authored Resume click command after Set.
+entry before Set binding, the authored Resume click command after Set and
+TimeScale with Pass value enabled and the literal value0.5.
 Actual1180/700/400 controls check staging, no-op, Undo/Redo, Clear, selection,
-locks and explicit Save. Text700 and command700/400 were visually reviewed.
+locks and explicit Save. Text700, command700 and value700/400 were visually reviewed.
 SDL software component pixels are unretouched; full Windows Main, physical
 input/GPU and display-density acceptance remain separate. Source/runtime model
 and command execution are established by their separate native fixture, not by

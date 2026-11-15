@@ -23,8 +23,13 @@ authored state, the bound name and a reason for unsupported source. It requires
 
 Use `forge_ui_source_binding` with `element`, `kind` (`text` or `click_command`)
 and `value` to set a recognized binding. Text accepts `tick`, `paused` or a simple
-published project/C++ value name. Click commands take a registered no-argument
-command name for a button or input button. Pass `value:null` to clear; an absent
+published project/C++ value name. Click commands take a registered command name
+for a button or input button. Optional `argument` supplies one literal UTF-8 string
+up to 1024 bytes, including an empty string. Omit it or pass null for no argument;
+for example, `value:"TimeScale", argument:"0.5"` requests half speed during Play.
+Runtime validates whether the command accepts the value. The bindings query returns
+the current nullable `argument` on its click-command row.
+Pass `value:null` without an argument to clear; an absent
 binding is a no-op that preserves literal text. Custom expressions and incompatible
 controls refuse unchanged. It requires `assets.write`, retains the element
 selection and creates one source Undo. Save and Play remain separate. Existing

@@ -85,15 +85,20 @@ struct UiSourceAutomation {
         Json kinds = Json::array();
         for (const auto& [id, label] : ui_markup_binding_kinds)
             kinds.push_back({{"id", id}, {"label", label}});
+        auto click = row(view.click_command);
+        click["argument"] =
+            view.click_command.argument ? Json(*view.click_command.argument) : Json{};
         return {{"text", row(view.text)},
-                {"click_command", row(view.click_command)},
+                {"click_command", std::move(click)},
                 {"kinds", std::move(kinds)},
                 {"builtin_variables", {"tick", "paused"}},
                 {"model_read_only", true},
-                {"command_arguments", false},
+                {"command_arguments", true},
+                {"argument_limit_bytes", 1024},
                 {"name_limit", 64},
                 {"text_expression", "{{name}}"},
-                {"click_expression", "command('name')"}};
+                {"click_expression", "command('name')"},
+                {"click_value_expression", "command('name','value')"}};
     }
     static Json control_properties(const UiMarkupControlProperties& view) {
         Json rows = Json::array();
@@ -641,7 +646,8 @@ struct UiSourceAutomation {
                 "Read simple authored leaf-text and literal button click-command bindings. "
                 "Uses current RML source guards/assets.read and the same adapters as Elements. "
                 "Reports availability/authored/value/reason, supported forms and name limits. "
-                "Custom expressions and command arguments remain Source. Values are source "
+                "Reports an optional literal command argument. Custom expressions remain Source. "
+                "Values are source "
                 "names, not live game values; no model initialization, registration or execution.",
                 "assets.read", automation_object(properties, fields), false,
                 [&files, &editor](const Json& request) {
@@ -1031,6 +1037,8 @@ struct UiSourceAutomation {
                     kinds.push_back(id);
                 add("kind", {{"type", "string"}, {"enum", std::move(kinds)}});
                 add("value", {{"oneOf", {automation_text(64, 1), Json{{"type", "null"}}}}});
+                add("argument", {{"oneOf", {automation_text(1024), Json{{"type", "null"}}}}},
+                    false);
             }
             if (action == "remove_group" || action == "duplicate_group" || action == "reparent" ||
                 action == "style_group" || action == "classes")
@@ -1223,10 +1231,12 @@ struct UiSourceAutomation {
                     ? "Set or clear one simple source binding using current source guards and "
                       "assets.write. kind=text replaces leaf text with a copied-value expression; "
                       "value names tick, paused or a simple published project/C++ value. "
-                      "kind=click_command sets a literal no-argument command on a button/input "
+                      "kind=click_command sets a literal command on a button/input "
                       "button, using the runtime command-name validator. Read bindings first. "
+                      "Optional argument is one literal UTF-8 string up to 1024 bytes, including "
+                      "empty; omitted/null means no argument. Runtime validates command semantics. "
                       "value:null clears only a recognized binding; an absent binding is a no-op "
-                      "that preserves literal text. Custom expressions, arguments, incompatible "
+                      "that preserves literal text. Custom expressions, incompatible "
                       "controls or conflicting bindings reject unchanged. One source Undo and "
                       "retained element selection; Save explicit. No Scene/catalog/model write, "
                       "registration, command execution or authored data-model. Runtime still "
@@ -1316,11 +1326,15 @@ struct UiSourceAutomation {
                                          ? std::nullopt
                                          : std::optional(request.at("value").get<std::string>()));
                     else if (action == "binding")
-                        editor.binding(request.at("element").get<std::size_t>(),
-                                       request.at("kind").get<std::string>(),
-                                       request.at("value").is_null()
-                                           ? std::nullopt
-                                           : std::optional(request.at("value").get<std::string>()));
+                        editor.binding(
+                            request.at("element").get<std::size_t>(),
+                            request.at("kind").get<std::string>(),
+                            request.at("value").is_null()
+                                ? std::nullopt
+                                : std::optional(request.at("value").get<std::string>()),
+                            request.contains("argument") && !request.at("argument").is_null()
+                                ? std::optional(request.at("argument").get<std::string>())
+                                : std::nullopt);
                     else if (action == "text")
                         editor.text(request.at("element").get<std::size_t>(),
                                     request.at("text").get<std::string>());
