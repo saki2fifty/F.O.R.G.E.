@@ -2,6 +2,11 @@
 
 Pushes and pull requests run Linux/Windows core tests, cache-invalidation tests, and formatting. They do not compile the D3D12 editor or publish a ZIP. Superseded push/PR runs on the same ref are cancelled; manual builds are not cancelled by a code push.
 
+Windows-only core validation (`windows_package=false`, `core_windows_only=true`)
+uses a separate concurrency group from a full delivery on the same branch. Each
+profile retains its own queue, required tests and watchdogs; neither manual run
+cancels the other.
+
 The fixed Ninja build profiles continue independent compilation after an error,
 collecting remaining compiler diagnostics in the same job. A failed build still
 fails the gate; its test steps do not run against older executables.

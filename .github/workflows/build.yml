@@ -61,7 +61,7 @@ on:
         type: boolean
         default: false
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}${{ inputs.standalone_audit && '-standalone' || '' }}${{ inputs.audit_performance_source_run != '' && format('-benchmark-{0}', inputs.audit_performance_source_run) || '' }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}${{ inputs.core_windows_only && !inputs.windows_package && '-windows-core' || '' }}${{ inputs.standalone_audit && '-standalone' || '' }}${{ inputs.audit_performance_source_run != '' && format('-benchmark-{0}', inputs.audit_performance_source_run) || '' }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 permissions:
   contents: read
