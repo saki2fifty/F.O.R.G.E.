@@ -345,6 +345,57 @@ void recovery_choice(bool present) {
             "Recovery handling skipped a visible choice or clicked without a prompt");
     ImGui::DestroyContext();
 }
+void system_component_input() {
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {640, 400};
+    io.DeltaTime = 1.f / 60;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    auto workflow = test::EditorInputWorkflow::system_component_probe();
+    char name[64] = "RotationSystem";
+    std::string component;
+    auto draw = [&] {
+        test::ui_targets.clear();
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({20, 20});
+        ImGui::Begin("Content");
+        if (!ImGui::IsPopupOpen("Create C++ file"))
+            ImGui::OpenPopup("Create C++ file");
+        if (ImGui::BeginPopupModal("Create C++ file", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::TextUnformatted("System");
+            ImGui::InputText("Name", name, sizeof(name));
+            FORGE_UI_PROBE("content:cpp-name");
+            ImGui::TextUnformatted("Destination: Native/Systems/RotationSystem.cpp");
+            if (ImGui::BeginCombo("Component", component.empty() ? "None (empty registration)"
+                                                                 : component.c_str())) {
+                if (ImGui::Selectable("None (empty registration)", component.empty()))
+                    component.clear();
+                if (ImGui::Selectable("Rotator", component == "Rotator"))
+                    component = "Rotator";
+                ImGui::EndCombo();
+            }
+            ImGui::EndPopup();
+        }
+        ImGui::End();
+        ImGui::Render();
+    };
+    for (unsigned frame = 0; frame < 3; ++frame)
+        draw();
+    for (unsigned frame = 0; frame < 120 && !workflow.done(); ++frame) {
+        workflow.input();
+        draw();
+        workflow.finish(Json::object(), [](const auto&) {}, [](const Json&) {});
+        SDL_Delay(15);
+    }
+    require(workflow.done() && component == "Rotator",
+            "System component keyboard selection left the empty registration selected");
+    require(std::string(name) == "RotationSystem", "Component navigation changed the name");
+    ImGui::DestroyContext();
+}
 void clipped_color_input() {
     EngineContext engine;
     Scene scene(engine.world());
@@ -406,6 +457,7 @@ int main() {
         capture_preparation();
         recovery_choice(false);
         recovery_choice(true);
+        system_component_input();
         clipped_color_input();
         SDL_Quit();
         std::cout << "Real toolbar receipt/retry bound/startup failure preservation passed\n";

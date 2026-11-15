@@ -1,4 +1,5 @@
 #pragma once
+#include "editor/cpp_source_files.hpp"
 #include "ui_probe.hpp"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -160,6 +161,13 @@ class EditorInputWorkflow {
         key(ImGuiKey_Z, true);
         check("shortcut-unchanged");
     }
+    void select_rotator_system_component() {
+        click("content:cpp-name");
+        key(ImGuiKey_Tab);
+        key(ImGuiKey_Enter);
+        key(ImGuiKey_DownArrow);
+        key(ImGuiKey_Enter);
+    }
     void create_cpp(const std::string& kind) {
         click("tab:Content");
         click("button:Actions");
@@ -167,6 +175,8 @@ class EditorInputWorkflow {
         hover("content:create-code-menu");
         click("content:create:" + kind);
         capture("cpp-" + kind + "-create-dialog");
+        if (kind == "system")
+            select_rotator_system_component();
         click("button:Create and open");
     }
     void create(const std::string& category, const std::string& recipe) {
@@ -634,6 +644,14 @@ class EditorInputWorkflow {
                 "C++ system wizard did not create source");
             require(state.at("cpp_source") == "Native/Systems/RotationSystem.cpp",
                     "C++ system source was not opened");
+            const auto systems = ui::managed_system_sources(project_);
+            require(std::any_of(systems.begin(), systems.end(),
+                                [](const auto& system) {
+                                    return system.name == "RotationSystem" &&
+                                           system.source == "Native/Systems/RotationSystem.cpp" &&
+                                           system.component == "Rotator";
+                                }),
+                    "C++ system wizard did not select the Rotator component");
         } else if (what == "cpp-component-opened" || what == "cpp-system-opened") {
             require(state.at("cpp_source") == (what == "cpp-component-opened"
                                                    ? "Native/Components/Rotator.hpp"
@@ -1227,6 +1245,12 @@ class EditorInputWorkflow {
     }
 
   public:
+    static EditorInputWorkflow system_component_probe() {
+        EditorInputWorkflow probe(false, {});
+        observe_ui = true;
+        probe.select_rotator_system_component();
+        return probe;
+    }
     static EditorInputWorkflow menu_click_probe() {
         EditorInputWorkflow probe(false, {});
         observe_ui = true;

@@ -1090,6 +1090,12 @@ The C++ onboarding walkthrough captures the created Cube, Camera and Light befor
 continuing with input. These required images put first-use frame preparation in
 the existing forty-five-second capture stage; ordinary input remains bounded to
 twelve seconds and the software rendering watchdog remains thirty seconds.
+The generated rotation-system walkthrough explicitly selects Rotator in the
+System dialog's Component dropdown through native keyboard input. It checks the
+managed system's component association immediately after creation, before the
+compiler or Play stages. The empty-registration choice remains available for
+startup code. A focused ImGui modal test exercises the same input sequence;
+packaged acceptance still requires actual counter and quaternion advancement.
 Independent Gallery export cases assign unique application IDs to their temporary
 copies so one scene's fixture save cannot become another case's initial state.
 Each observer checks its saved Scene identity and a distinct OS storage root;
