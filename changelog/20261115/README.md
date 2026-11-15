@@ -1,5 +1,13 @@
 # 2026-11-15
 
+## UI sibling duplication
+
+Elements and focused Preview Ctrl+D copy static sibling groups together through
+the existing source duplication owner. One prefix remaps IDs and label targets
+between copied roots; new roots become selected and the complete copy is one
+source Undo. The same guarded workflow is available through MCP. Original source,
+layout values, external references, Scene and asset identities retain their owners.
+
 ## UI group canvas resizing
 
 UI Source Preview offers a shared corner handle for eligible absolute-pixel

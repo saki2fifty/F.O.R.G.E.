@@ -86,3 +86,30 @@ def check_selection(read, ok, mutate, root, advertised, client, arguments, guard
     assert (root / 'Game' / path).read_bytes() == disk
     assert (root / 'Game/forge.assets.json').read_bytes() == catalog
     assert read('forge_scene_read') == scene
+    schema = advertised['forge_ui_source_duplicate_group']['inputSchema']['properties']
+    assert schema['elements']['minItems'] == 1 and schema['elements']['maxItems'] == 32
+    assert schema['prefix']['maxLength'] == 64
+    group_source = ("<rml><body><label id='name' for='entry'>Name</label>"
+                    "<input id='entry'/><p id='outside'>Outside</p></body></rml>")
+    group_source = edit('replace', text=group_source)['text']
+    copy_guard = guard()
+    request = arguments(**copy_guard, elements=[3, 2], prefix='batch')
+    once = client.tool('forge_ui_source_duplicate_group', **request)
+    replay = client.tool('forge_ui_source_duplicate_group', **request)
+    assert once['ok'] and replay['ok'] and once['result'] == replay['result']
+    copied = read('forge_ui_source_read')
+    clones = '<label id="batch-name" for="batch-entry">Name</label><input id="batch-entry"/>'
+    assert copied['text'] == group_source.replace("<p id='outside'>", clones + "<p id='outside'>")
+    assert copied['selection'] == [4, 5], 'Group copies were not selected in source order'
+    failed(mutate('forge_ui_source_duplicate_group', **copy_guard, elements=[2, 3]), 'stale_ui_source')
+    for extra in (dict(elements=[]), dict(elements=[2, 2]), dict(elements=[2, 1]),
+                  dict(elements=[2, 8191]), dict(elements=[2, 3], prefix='batch')):
+        assert not mutate('forge_ui_source_duplicate_group', **guard(), **extra)['ok']
+        assert read('forge_ui_source_read') == copied, 'Invalid group copy partially changed source'
+    assert edit('undo')['text'] == group_source, 'Group duplication needed more than one Undo'
+    assert edit('redo')['text'] == copied['text']
+    assert (root / 'Game' / path).read_bytes() == disk
+    edit('save')
+    assert (root / 'Game' / path).read_text() == copied['text']
+    assert (root / 'Game/forge.assets.json').read_bytes() == catalog
+    assert read('forge_scene_read') == scene

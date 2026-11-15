@@ -275,7 +275,7 @@ attribute/text/child/order/removal, history, CRLF, invalid drafts, conflicts,
 read-only state, close/cancel/discard, moves/deletion and long-text protection.
 The C++ history fixture checks the shared widget replacement helper.
 `sprite_atlas_source_editor` also verifies hook-only document entries are excluded
-from typed-source discovery and dispatch. `mcp_ui_source_stdio` discovers40 actual
+from typed-source discovery and dispatch. `mcp_ui_source_stdio` discovers57 actual
 native-owner tools through both MCP envelopes, grants, stale guards, source-owned
 raw-write rejection, history, conflicts, RCSS and dirty-source Play rejection.
 It includes native draft geometry, source/preview guards, unsupported layouts and
@@ -287,14 +287,20 @@ preview metadata but excludes group writes.
 Static subtree coverage includes collision-checked prefix IDs, escaped internal
 label targets, anonymous roots, original-byte preservation, dynamic/protected/
 ambiguous rejection, bounded automatic naming and admitted source/tag overflow.
-Native controls exercise prefix input, duplication, copied selection, sibling
+Sibling duplication extends that same source owner with one cross-root ID/label
+map and a source-ordered insertion after the last selected root. Native controls
+exercise prefix input, group duplication, copied selection, sibling
 removal and one-record Undo/Redo at all three widths. Preview group removal remains
 available when a two-member distribution is disabled. Both MCP envelopes exercise
-duplicate/remove_group guards, replay, atomic rejection, selection, full history
+duplicate/duplicate_group/remove_group guards, replay, atomic rejection, selection, full history
 and read-only discovery omission. `ui_layout_gallery` saves a cloned static form,
 clicks its label through the actual presenter to focus the copied input, then
 packages, relocates and repeats with the source project hidden. Canonical Gallery
 assets and IDs remain unchanged by that scratch fixture.
+The same saved/source-hidden fixture verifies label focus across two separately
+copied sibling roots. Rendered canvas captures exercise group Ctrl+D, Undo/Redo
+and source isolation at700/1180pixels. The metadata-only CPU canvas retains its
+real-image shortcut refusal while Elements group controls run at all three widths.
 
 Hierarchy coverage additionally checks source-ordered groups, forward/backward
 append/before placement, retained IDs/comments, exact no-op, cycle/protected/mixed/

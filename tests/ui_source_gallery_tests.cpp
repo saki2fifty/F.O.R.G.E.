@@ -553,6 +553,9 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
                                                 format_ui_style_number({.5, UiStyleUnit::Number}));
             styled = duplicate_ui_stylesheet_rule(styled, rule);
             styled = set_ui_stylesheet_property(styled, rule + 1, "color", "#aabbcc");
+            const std::array copied_fields{by_id(candidate, "copied-clone-entry"),
+                                           by_id(candidate, "copied-clone-label")};
+            candidate = duplicate_ui_markup_elements(candidate, copied_fields, "siblings");
             {
                 ProjectLease lease(root);
                 ProjectTextSource::validate(file, candidate);
@@ -611,6 +614,17 @@ void exercise_layout(const std::filesystem::path& root, const Json& source,
                   copied_label->GetParentNode() == field_group &&
                   original_input->GetParentNode() == document->GetElementById("panel"),
               "Saved/exported source hierarchy lost moved fields or changed the original parent");
+        auto* group_input = document->GetElementById("siblings-copied-clone-entry");
+        auto* group_label = document->GetElementById("siblings-copied-clone-label");
+        check(group_input && group_label && group_input->GetParentNode() == field_group &&
+                  group_label->GetParentNode() == field_group &&
+                  group_label->GetAttribute<Rml::String>("for", "") ==
+                      "siblings-copied-clone-entry",
+              "Saved/source-hidden sibling copies lost IDs, shared parent or cross-root label");
+        original_input->Focus();
+        group_label->Click();
+        check(Rml::GetContext(0)->GetFocusElement() == group_input,
+              "Saved/source-hidden copied label focused an original field");
         const auto* background = field_group->GetProperty("background-color");
         check(background && background->Get<Rml::Colourb>() == Rml::Colourb(37, 63, 89, 255),
               "Saved/exported inline style lost its authored native color");

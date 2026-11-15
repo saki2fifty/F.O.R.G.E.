@@ -16,6 +16,14 @@ rejects. `forge_ui_source_remove_group` takes 1–32 distinct sibling indices in
 `elements` and removes them in one Undo step. Both tools require source guards and
 `assets.write`, leave Save explicit and share the editor's limits and history.
 
+Use `forge_ui_source_duplicate_group` with sibling `elements` and an optional
+`prefix` to copy between 1 and 32 static roots together. Copies appear in source
+order after the last selected original, and the returned selection identifies
+all new roots. One ID map also remaps literal labels across copied roots.
+Anonymous group roots gain available `prefix-rootN` IDs. Layout is copied without
+translation; invalid or unsupported members refuse the entire operation. It
+shares the singular tool's guards, permission, replay, one Undo and explicit Save.
+
 `forge_ui_source_reparent` moves 1–32 static sibling `elements` into `parent`.
 Omit `before` to append, or give an existing direct-child index for insertion
 before that child. Read fresh source guards and indices first. Moved markup/IDs
@@ -259,8 +267,9 @@ layout editability; later authoring tools still validate their own prerequisites
 The canvas keyboard workflows use these same owners. To select the same elements
 as Ctrl+A, pass a replacement rectangle from `(0,0)` to the current preview's
 `width,height`. Escape's selection-clear result is `forge_ui_source_select` with
-`elements:[]`. Use `forge_ui_source_duplicate` with one `element` and an optional
-`prefix` for Ctrl+D's authored result; use `forge_ui_source_remove_group` with
+`elements:[]`. Use `forge_ui_source_duplicate_group` with selected sibling
+`elements` and an optional `prefix` for Ctrl+D's authored result; the singular
+`forge_ui_source_duplicate` remains available. Use `forge_ui_source_remove_group` with
 the selected sibling `elements` for Delete. Structural calls need current source
 guards and write permission, create one source Undo and leave Save explicit.
 No key injection or keyboard-specific agent tool is required.

@@ -1748,10 +1748,7 @@ class UiSourceEditor {
                                     selection(action.elements);
                                     break;
                                 case SourceSelectionAction::Kind::Duplicate:
-                                    if (action.elements.size() != 1)
-                                        throw AuthoringError("source_element",
-                                                             "Select one element to duplicate");
-                                    duplicate(action.elements.front());
+                                    duplicates(action.elements);
                                     break;
                                 case SourceSelectionAction::Kind::Remove:
                                     removes(action.elements);
@@ -2049,7 +2046,7 @@ class UiSourceEditor {
                     ImGui::TextWrapped("%s", element.at("reason").get<std::string>().c_str());
         ImGui::EndChild();
         ImGui::TextWrapped("Focus canvas: Ctrl+A selects visible named controls; Escape clears. "
-                           "Ctrl+D duplicates one control; Delete removes the selection.");
+                           "Ctrl+D duplicates selected siblings; Delete removes the selection.");
         if (!frame.state.contains("width") || !frame.state.contains("height"))
             return;
         if (reset_preview_scroll_) {
@@ -2498,6 +2495,13 @@ class UiSourceEditor {
             ImGui::Separator();
             ImGui::Text("%zu source elements selected", selected_.size());
             ImGui::BeginDisabled(locked);
+            ImGui::InputTextWithHint("ID prefix", "Automatic", duplicate_prefix_,
+                                     sizeof(duplicate_prefix_));
+            FORGE_UI_PROBE("ui-source:duplicate-prefix");
+            if (button("Duplicate selection",
+                       "Copy static siblings with new IDs as one source Undo step."))
+                attempt([&] { duplicates(selected_, duplicate_prefix_); });
+            FORGE_UI_PROBE("ui-source:selection-duplicate");
             if (button("Remove selection", "Remove all selected siblings as one source Undo step."))
                 attempt([&] { removes(selected_); });
             FORGE_UI_PROBE("ui-source:selection-remove");
@@ -3182,16 +3186,24 @@ class UiSourceEditor {
         replace_text(reparent_ui_markup_elements(editor_.GetText(), indices, parent, before));
     }
     void duplicate(std::size_t index, std::string_view prefix = {}) {
-        if (index >= outline_.size())
-            throw AuthoringError("source_element", "Choose an element from the current UI outline");
-        const auto insertion = outline_.at(index).source.end;
-        const auto candidate = duplicate_ui_markup_element(editor_.GetText(), index, prefix);
+        const std::array indices{index};
+        duplicates(indices, prefix);
+    }
+    void duplicates(std::span<const std::size_t> indices, std::string_view prefix = {}) {
+        const auto source = editor_.GetText();
+        const auto candidate = duplicate_ui_markup_elements(source, indices, prefix);
+        const auto parent = outline_.at(indices.front()).parent;
+        std::size_t insertion = 0;
+        for (const auto index : indices)
+            insertion = std::max(insertion, outline_.at(index).source.end);
+        const auto end = insertion + candidate.size() - source.size();
         replace_text(candidate);
+        std::vector<std::size_t> copies;
         for (std::size_t i = 0; i < outline_.size(); ++i)
-            if (outline_[i].source.begin == insertion) {
-                select(i);
-                break;
-            }
+            if (outline_[i].parent == parent && outline_[i].source.begin >= insertion &&
+                outline_[i].source.begin < end)
+                copies.push_back(i);
+        set_selection(copies);
     }
     void move(std::size_t index, int direction) {
         replace_text(move_ui_markup_element(editor_.GetText(), index, direction));

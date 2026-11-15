@@ -965,13 +965,33 @@ struct UiSourceAutomation {
                 editor.open(files.document, path_utf8(path));
                 return state(editor, files.document);
             }));
-        for (const auto* operation :
-             {"replace",       "attribute",     "style",       "text",         "insert",
-              "duplicate",     "reparent",      "remove",      "remove_group", "move",
-              "save",          "undo",          "redo",        "reload",       "close",
-              "rule_property", "rule_selector", "rule_insert", "rule_remove",  "rule_copy",
-              "rule_move",     "style_group",   "classes",     "control",      "control_values",
-              "place_control"}) {
+        for (const auto* operation : {"replace",
+                                      "attribute",
+                                      "style",
+                                      "text",
+                                      "insert",
+                                      "duplicate",
+                                      "duplicate_group",
+                                      "reparent",
+                                      "remove",
+                                      "remove_group",
+                                      "move",
+                                      "save",
+                                      "undo",
+                                      "redo",
+                                      "reload",
+                                      "close",
+                                      "rule_property",
+                                      "rule_selector",
+                                      "rule_insert",
+                                      "rule_remove",
+                                      "rule_copy",
+                                      "rule_move",
+                                      "style_group",
+                                      "classes",
+                                      "control",
+                                      "control_values",
+                                      "place_control"}) {
             const std::string action(operation);
             auto properties = guard;
             auto fields = required;
@@ -990,10 +1010,10 @@ struct UiSourceAutomation {
                 action == "duplicate" || action == "remove" || action == "move" ||
                 action == "control_values")
                 add("element", automation_integer(0, 8191));
-            if (action == "duplicate")
+            if (action == "duplicate" || action == "duplicate_group")
                 add("prefix", automation_text(64), false);
-            if (action == "remove_group" || action == "reparent" || action == "style_group" ||
-                action == "classes")
+            if (action == "remove_group" || action == "duplicate_group" || action == "reparent" ||
+                action == "style_group" || action == "classes")
                 add("elements",
                     automation_array(automation_integer(0, 8191), ui_source_selection_limit, 1));
             if (action == "attribute" || action == "style" || action == "rule_property" ||
@@ -1179,6 +1199,16 @@ struct UiSourceAutomation {
                       "destinations reject atomically. Styles/parent-relative coordinates follow "
                       "the new hierarchy; no automatic layout or reference rewrite. Requires "
                       "current source guards/assets.write; no Save/registration/Scene history."
+                : action == "duplicate_group"
+                    ? "Copy1..32 static same-parent source subtrees in source order, together "
+                      "after the last selected root, in one Undo step. One prefix remaps all "
+                      "copied IDs and literal label targets between copies. Anonymous roots "
+                      "gain available prefix-rootN IDs. Selection becomes the new roots. "
+                      "Existing source/IDs and external references/CSS selectors stay unchanged; "
+                      "layout is copied without translation. Empty/omitted prefix tries "
+                      "copy,copy2..copy64. Invalid/dynamic/protected/ambiguous selections and "
+                      "ID/source limits reject atomically. Requires current source guards and "
+                      "assets.write; no Save, registration or Scene history."
                 : action == "duplicate"
                     ? "Copy one static source subtree as its next sibling in one Undo step. "
                       "Existing bytes/IDs stay unchanged; copied IDs use prefix-oldID, and an "
@@ -1304,6 +1334,9 @@ struct UiSourceAutomation {
                     else if (action == "duplicate")
                         editor.duplicate(request.at("element").get<std::size_t>(),
                                          request.value("prefix", std::string{}));
+                    else if (action == "duplicate_group")
+                        editor.duplicates(request.at("elements").get<std::vector<std::size_t>>(),
+                                          request.value("prefix", std::string{}));
                     else if (action == "reparent")
                         editor.reparent(request.at("elements").get<std::vector<std::size_t>>(),
                                         request.at("parent").get<std::size_t>(),

@@ -468,6 +468,21 @@ declarations, fragment links and document/resource structure. Duplication reject
 ambiguous or duplicate IDs, unsupported references and a result exceeding the
 source limits; it leaves the draft unchanged.
 
+To copy a group, hold **Ctrl** in **Elements** and select between 2 and 32 static
+siblings. Set **ID prefix** if wanted, then choose **Duplicate selection**. The
+new roots become selected in source order, together immediately after the last
+selected original. Comments and text between the original roots stay in place.
+All copied IDs use one prefix, so a label targeting another selected subtree
+points to that subtree's copy. Anonymous group roots receive available numbered
+IDs such as `settings-root1`. Originals and external references stay unchanged.
+
+The copies retain their authored layout; absolute-positioned copies can overlap
+the originals. Move them in Preview or edit their layout before saving. One
+**Undo** restores the entire group. Mixed parents, nested selections, dynamic
+source, ID collisions and source limits refuse the whole copy.
+
+![New sibling copies selected in Elements with ID prefix and Duplicate selection controls](../images/ui-source-duplicate-group.png)
+
 ## Remove several siblings
 
 In **Elements**, hold **Ctrl** and select up to 32 elements with the same source
@@ -730,14 +745,15 @@ enabled or disabled.
 
 - **Ctrl+A** replaces selection with visible, uniquely named source elements whose whole border boxes fit inside the preview viewport, in source order. The 32-member limit still applies.
 - **Escape** clears selection. During a gesture or queued edit, it cancels that operation while keeping its existing selection.
-- **Ctrl+D** duplicates one selected source subtree and selects the copy. Select exactly one element first.
+- **Ctrl+D** duplicates the selected one to 32 static sibling subtrees and selects the new roots in source order.
 - **Delete** removes the selected one to 32 sibling subtrees together.
 
 ![The selected copied panel after using Ctrl+D in the focused Preview canvas](../images/ui-source-keyboard-duplicate.png)
 
-Duplication keeps the original element and its IDs. The copy receives unique IDs
-and remapped internal label targets through the same rules as **Duplicate** in
-Elements. It initially occupies the same layout position; move it after copying.
+Duplication keeps the original elements and IDs. Copies receive unique IDs and
+remapped label targets within the copied group through the same rules as
+**Duplicate subtree** and **Duplicate selection** in Elements. They initially
+occupy the same layout positions; move them after copying.
 Dynamic or protected source is refused. Delete requires distinct sibling roots;
 protected, nested or incompatible selections are refused together. Use
 **Undo** or **Redo** for one complete structural operation, then **Save source**

@@ -703,9 +703,21 @@ void capture(Diligent::IRenderDevice* device, Diligent::IDeviceContext* graphics
             "Canvas Ctrl+A did not use native named-element selection order");
     selection_only();
     shortcut(ImGuiKey_D, true);
-    require(editor.state().at("selection") == shortcut_start.at("selection"),
-            "Unsupported group duplication changed selection");
-    selection_only();
+    const auto group_duplicated = editor.state();
+    require(group_duplicated.at("selection").size() == 3 &&
+                group_duplicated.at("selection") != shortcut_start.at("selection") &&
+                editor.preview_state(project, 1000, 700, 1, false).at("elements").size() == 6,
+            "Canvas Ctrl+D did not duplicate and select the complete sibling group");
+    editor.undo(false);
+    require(editor.state().at("text") == shortcut_start.at("text"),
+            "Canvas group duplication needed more than one Undo");
+    editor.undo(true);
+    require(editor.state().at("text") == group_duplicated.at("text"),
+            "Canvas group duplication Redo changed its copied source");
+    editor.undo(false);
+    editor.selection(members);
+    frame();
+    focus_canvas();
     shortcut(ImGuiKey_Delete);
     require(editor.dirty() && editor.state().at("selection").empty() &&
                 editor.preview_state(project, 1000, 700, 1, false).at("elements").empty(),

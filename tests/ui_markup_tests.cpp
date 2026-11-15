@@ -559,6 +559,57 @@ void subtree_duplication() {
                   .find("id=\"custom-panel\"") != std::string::npos,
           "An explicit available prefix failed after the bounded automatic choices");
 }
+void sibling_duplication() {
+    const std::string source =
+        "<!-- preserve -->\r\n<rml><body><div id='a'><label for='b'>B</label>"
+        "<label for='outside'>External</label></div>\r\n<span id='gap'>Gap</span>"
+        "<input id='b'/><input id='outside'/></body></rml>";
+    const auto panel = find(source, "div"), input = find(source, "input");
+    const std::array roots{input, panel};
+    const auto copied = forge::duplicate_ui_markup_elements(source, roots, "batch");
+    auto expected = source;
+    const std::string clones = "<div id=\"batch-a\"><label for=\"batch-b\">B</label>"
+                               "<label for='outside'>External</label></div><input id=\"batch-b\"/>";
+    expected.insert(expected.find("<input id='outside'/>"), clones);
+    check(copied == expected,
+          "Sibling copies lost source order, cross-root labels or untouched source bytes");
+    const auto automatic = forge::duplicate_ui_markup_elements(source, roots);
+    check(automatic.find("id=\"copy-a\"") != automatic.npos &&
+              automatic.find("for=\"copy-b\"") != automatic.npos,
+          "Group duplication did not share one automatic prefix");
+    const auto repeated = forge::duplicate_ui_markup_elements(automatic, roots);
+    check(repeated.find("id=\"copy2-a\"") != repeated.npos &&
+              repeated.find("id=\"copy2-b\"") != repeated.npos,
+          "Group duplication reused a generated ID");
+    const std::array one{panel};
+    check(forge::duplicate_ui_markup_elements(source, one) ==
+              forge::duplicate_ui_markup_element(source, panel),
+          "Batch duplication changed the singular source result");
+    const std::string anonymous =
+        "<rml><body><div id='root1'/><button>Go</button><input id='copy-root2'/></body></rml>";
+    const std::array anonymous_roots{find(anonymous, "div"), find(anonymous, "button")};
+    const auto named = forge::duplicate_ui_markup_elements(anonymous, anonymous_roots);
+    check(named.find("<div id=\"copy-root1\"/><button id=\"copy-root3\">Go</button>") != named.npos,
+          "Anonymous group ID collided with a copied or existing source ID");
+    const std::string nameless = "<rml><body><button>A</button><input/></body></rml>";
+    const std::array nameless_roots{find(nameless, "button"), find(nameless, "input")};
+    const auto unique = forge::duplicate_ui_markup_elements(nameless, nameless_roots);
+    check(unique.find("<button id=\"copy-root1\">A</button><input id=\"copy-root2\"/>") !=
+              unique.npos,
+          "Anonymous sibling roots did not receive distinct IDs");
+    rejects([&] { forge::duplicate_ui_markup_elements(source, {}); });
+    for (const auto invalid :
+         {std::array{panel, panel}, std::array{panel, find(source, "label")},
+          std::array{panel, find(source, "body")}, std::array{panel, std::size_t{9999}}})
+        rejects([&] { forge::duplicate_ui_markup_elements(source, invalid); });
+    rejects([&] { forge::duplicate_ui_markup_elements(copied, roots, "batch"); });
+    const std::vector<std::size_t> oversized(forge::ui_source_selection_limit + 1, panel);
+    rejects([&] { forge::duplicate_ui_markup_elements(source, oversized); });
+    const std::string dynamic =
+        "<rml><body><div id='a'/><button data-event-click='go'>Go</button></body></rml>";
+    const std::array dynamic_roots{find(dynamic, "div"), find(dynamic, "button")};
+    rejects([&] { forge::duplicate_ui_markup_elements(dynamic, dynamic_roots); });
+}
 void hierarchy_moves() {
     const std::string source =
         "<!-- outside -->\n<rml><body><div id='left'><button id='a'>A</button>"
@@ -1930,6 +1981,7 @@ int main() {
         layout_transform_geometry();
         group_removals();
         subtree_duplication();
+        sibling_duplication();
         hierarchy_moves();
         inline_properties();
         responsive_layout_presets();

@@ -143,7 +143,13 @@ manager is introduced.
 Focused canvas selection and structural shortcuts extend that same deferred
 Preview envelope. Select-all uses the existing native rectangle selection;
 clear uses the existing ordered source selection. Duplicate calls the existing
-single-subtree owner and delete calls atomic sibling removal. Both retain their
+source-range owner, extended from one subtree to1..32static siblings. One ID map
+remaps copied IDs and cross-root literal label targets, while anonymous group
+roots gain available numbered names. Copies form one source-ordered insertion
+after the last selected root; the singular API delegates with one member.
+Elements, focused Ctrl+D and guarded duplicate_group automation use this same
+candidate and select its new roots after one source replacement. Delete calls
+atomic sibling removal. Both retain their
 source admission, ID rules, history and Save behavior. Source/session guards and
 existing cancellation run before pre-image dispatch. Cancellation of a pending
 edit or gesture takes priority over Escape's idle selection-clear behavior.

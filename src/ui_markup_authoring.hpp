@@ -328,5 +328,8 @@ std::string reparent_ui_markup_elements(std::string_view, std::span<const std::s
 // Copy a static subtree next to itself; empty prefix chooses an available copy prefix.
 std::string duplicate_ui_markup_element(std::string_view, std::size_t element,
                                         std::string_view prefix = {});
+// Copy static siblings in source order after the last selected root, with one ID map.
+std::string duplicate_ui_markup_elements(std::string_view, std::span<const std::size_t> elements,
+                                         std::string_view prefix = {});
 std::string move_ui_markup_element(std::string_view, std::size_t element, int direction);
 } // namespace forge

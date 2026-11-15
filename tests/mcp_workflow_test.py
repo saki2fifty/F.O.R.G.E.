@@ -513,7 +513,8 @@ for legacy in selected_protocols:
                 assert 'forge_ui_source_layout_preset' not in visible
                 denied = readonly.request('tools/call', dict(name='forge_ui_source_layout_preset', arguments={}))
                 assert 'error' in denied or denied['result']['isError'], denied
-                for name in ('forge_ui_source_select', 'forge_ui_source_select_rectangle'):
+                for name in ('forge_ui_source_select', 'forge_ui_source_select_rectangle',
+                             'forge_ui_source_duplicate_group'):
                     assert name not in visible
                     denied = readonly.request('tools/call', dict(name=name, arguments={}))
                     assert 'error' in denied or denied['result']['isError'], denied

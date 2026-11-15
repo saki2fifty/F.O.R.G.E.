@@ -274,6 +274,60 @@ void exercise(const std::filesystem::path& output, const std::vector<std::byte>&
           "Native preview Ctrl toggles changed source or lost group membership");
     const auto group_source = editor.state().at("text").get<std::string>();
     const auto selected_group = editor.state().at("selection").get<std::vector<std::size_t>>();
+    const auto check_copies = [&](std::string_view prefix) {
+        const auto current = editor.state();
+        const auto text = current.at("text").get<std::string>();
+        const auto roots = current.at("selection").get<std::vector<std::size_t>>();
+        const auto nodes = inspect_ui_markup(text);
+        check(roots.size() == 3 && roots != selected_group,
+              "Group duplication did not select all new roots");
+        const std::array ids{"panel", "first", "second"};
+        for (std::size_t i = 0; i < roots.size(); ++i) {
+            const auto opening = nodes.at(roots[i]).opening;
+            check(text.substr(opening.begin, opening.end - opening.begin)
+                          .find("id=\"" + std::string(prefix) + "-" + ids[i] + "\"") !=
+                      std::string::npos,
+                  "Group duplication did not preserve root source order and new IDs");
+        }
+        check(text.find("id=\"" + std::string(prefix) + "-nested\"") != text.npos &&
+                  editor.preview_state(project, 800, 600, 1).at("elements").size() == 8,
+              "Group duplication lost a descendant or actual native geometry");
+        check(asset_storage::read(root / "Assets/Canvas.rml") == source &&
+                  scene.snapshot() == scene_before &&
+                  asset_storage::read(root / "forge.assets.json") == catalog,
+              "Group duplication changed saved source, Scene or catalog");
+        return text;
+    };
+    input.click("ui-source:elements-tab");
+    input.type("ui-source:duplicate-prefix", "batch");
+    input.click("ui-source:selection-duplicate");
+    const auto copied_group = check_copies("batch");
+    frame(); // Present the new outline and selection after the button's mutation.
+    capture.save(output / ("ui-source-duplicate-group-" + std::to_string(width) + ".png"));
+    editor.undo(false);
+    check(editor.state().at("text") == group_source,
+          "Elements group duplication needed more than one Undo");
+    editor.undo(true);
+    check(editor.state().at("text") == copied_group, "Elements group duplication Redo failed");
+    editor.undo(false);
+    editor.selection(selected_group);
+    input.click("ui-source:preview-tab");
+    frame();
+    press(point(200, 160));
+    release();
+    const auto before_shortcut = editor.state();
+    io.AddKeyEvent(ImGuiMod_Ctrl, true);
+    io.AddKeyEvent(ImGuiKey_D, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_D, false);
+    io.AddKeyEvent(ImGuiMod_Ctrl, false);
+    frame();
+    frame();
+    // This CPU fixture observes native geometry without a borrowed image. The
+    // actual rendered Ctrl+D path is exercised by ui_source_canvas_capture.
+    check(editor.state() == before_shortcut,
+          "Metadata-only canvas accepted a structural shortcut without an image");
+    frame();
     const auto native_group = [&](const Json& snapshot) {
         std::array<UiPixelLayout, 3> rectangles;
         for (std::size_t i = 0; i < selected_group.size(); ++i) {

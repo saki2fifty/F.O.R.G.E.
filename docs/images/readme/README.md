@@ -2,6 +2,18 @@
 
 ## Native UI source authoring
 
+`ui-source-duplicate-group.png` is the exact700×950 production Elements capture
+from `forge_ui_source_canvas_tests <output> <default-font>`. Real prefix entry and
+Duplicate selection produce three selected new roots; an additional native frame
+presents the current outline. Native controls pass at1180/700/400; the700/400outputs
+were visually reviewed. SDL software component pixels are unretouched. SHA256
+`d3a1c8753624cde422d14a936f5a7c4eb4e82b1006f8ee1833ab7cbf76c717b6`. The same batch refreshes thirteen existing Preview images from
+the complete `forge_ui_source_canvas_capture` run, showing the current Ctrl+D
+sibling hint. Group layout and keyboard duplicate700pixel figures were spot-
+reviewed; other captures retain their automated interaction scope. Preview pixels
+use software Vulkan readback and SDL composition; these are isolated components,
+without full Windows Main, physical GPU/input or display-density acceptance.
+
 `ui-source-transform-rotate.png` is the exact700×950 production UiSourceEditor/
 DocumentWorkspace capture after native function selection and Angle input. The
 CSS value is staged at `rotate(45deg)` before Set property. Reproduce with
@@ -97,8 +109,7 @@ unretouched700×950 capture of the production UiSourceEditor/DocumentWorkspace w
 its Gallery211 RML/RCSS with three sibling panels, actual single selection, pixel
 controls, outline and resize handle, with the Save preview image control.
 `manual/images/ui-source-group-layout.png` is the exact700×950 output from
-`forge_ui_source_canvas_capture <output> <default-font> <FeatureGallery>
---group-resize-only`. Real Ctrl+clicks select all three sibling panels, exposing
+`forge_ui_source_canvas_capture <output> <default-font> <FeatureGallery>`. Real Ctrl+clicks select all three sibling panels, exposing
 the group controls, common blue border and bottom-right resize handle. Both700
 and1180pixel outputs were visually reviewed. The same fixture exercises a real
 handle drag, release, Undo/Redo and Save without changing the Scene or catalog.
@@ -106,7 +117,7 @@ The native preview is1000×700 and is fitted by the widget. Its saved pixels do
 not include selection borders or other editor overlays. The component uses SDL
 software composition and an unretouched UiPresenter/UiDiligentRenderer software
 Vulkan readback; full Windows Main, physical GPU/input and display-density
-acceptance remain separate. Current SHA256 `564aeca627c363394df929bf83a81e4da02e3799afe15164ec62a60577867299`.
+acceptance remain separate. Current SHA256 `a712d860c54192c0ba06c473de8bac1bb4d6fb1d2f77fc174e92ded8d07ff23b`.
 
 Reproduce the preview with `forge_ui_source_canvas_capture <output> <default-font>
 <FeatureGallery>`. It uses the pinned source widget and SDL software composition;

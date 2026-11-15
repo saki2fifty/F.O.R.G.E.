@@ -2032,31 +2032,41 @@ std::string reparent_ui_markup_elements(std::string_view source,
 }
 std::string duplicate_ui_markup_element(std::string_view source, std::size_t index,
                                         std::string_view prefix) {
+    const std::array indices{index};
+    return duplicate_ui_markup_elements(source, indices, prefix);
+}
+std::string duplicate_ui_markup_elements(std::string_view source,
+                                         std::span<const std::size_t> indices,
+                                         std::string_view prefix) {
     const auto nodes = inspect_ui_markup(source);
-    const auto& root = element(nodes, index);
-    editable(root);
-    static_subtree(source, nodes, index);
+    (void)sibling_ranges(nodes, indices);
+    std::vector<std::size_t> roots(indices.begin(), indices.end());
+    std::ranges::sort(roots);
+    for (const auto index : roots)
+        static_subtree(source, nodes, index);
     const auto inside = [&](const UiMarkupElement& node) {
-        return contains(root.source, node.source);
+        return std::ranges::any_of(
+            roots, [&](const auto index) { return contains(nodes[index].source, node.source); });
     };
-    const auto fragment = source.substr(root.source.begin, root.source.end - root.source.begin);
     const auto existing = literal_ids(source, nodes);
     std::map<std::string, UiSourceRange> copied;
-    bool root_has_id = false;
     for (const auto& [id, range] : existing)
-        if (contains(root.source, range)) {
+        if (std::ranges::any_of(
+                roots, [&](const auto index) { return contains(nodes[index].source, range); })) {
             require(id != "#self" && id != "#document" && id != "#parent",
                     "Reserved native lookup tokens cannot be copied as UI IDs");
             copied.emplace(id, range);
-            root_has_id = root_has_id || contains(root.opening, range);
         }
+    std::array<bool, ui_source_selection_limit> root_has_id{};
+    for (std::size_t i = 0; i < roots.size(); ++i)
+        for (const auto& [id, range] : copied)
+            if (contains(nodes[roots[i]].opening, range))
+                root_has_id[i] = true;
     std::map<std::string, std::string> renamed;
-    std::string chosen;
+    std::vector<std::string> anonymous(roots.size());
     const auto choose = [&](std::string candidate) {
         identifier(candidate);
         renamed.clear();
-        if (!root_has_id && existing.contains(candidate))
-            return false;
         for (const auto& [id, range] : copied) {
             auto name = candidate + "-" + id;
             require(name.size() <= 128, "Choose a shorter prefix or shorten the original UI IDs");
@@ -2064,7 +2074,22 @@ std::string duplicate_ui_markup_element(std::string_view source, std::size_t ind
                 return false;
             renamed.emplace(id, std::move(name));
         }
-        chosen = std::move(candidate);
+        std::size_t ordinal = 0;
+        for (std::size_t i = 0; i < roots.size(); ++i)
+            if (!root_has_id[i]) {
+                std::string name = candidate;
+                if (roots.size() == 1) {
+                    if (existing.contains(name))
+                        return false;
+                } else {
+                    std::string suffix;
+                    do {
+                        suffix = "root" + std::to_string(++ordinal);
+                        name = candidate + "-" + suffix;
+                    } while (existing.contains(name) || copied.contains(suffix));
+                }
+                anonymous[i] = std::move(name);
+            }
         return true;
     };
     bool available = false;
@@ -2077,10 +2102,12 @@ std::string duplicate_ui_markup_element(std::string_view source, std::size_t ind
     std::vector<std::pair<UiSourceRange, std::string>> edits;
     for (const auto& [id, range] : copied)
         edits.emplace_back(range, "id=\"" + escaped(renamed.at(id)) + "\"");
-    if (!root_has_id) {
-        const auto position = attribute_insertion(source, root);
-        edits.emplace_back(UiSourceRange{position, position}, " id=\"" + escaped(chosen) + "\"");
-    }
+    for (std::size_t i = 0; i < roots.size(); ++i)
+        if (!root_has_id[i]) {
+            const auto position = attribute_insertion(source, nodes[roots[i]]);
+            edits.emplace_back(UiSourceRange{position, position},
+                               " id=\"" + escaped(anonymous[i]) + "\"");
+        }
     for (const auto& node : nodes)
         if (inside(node) && node.tag == "label") {
             bool has_target = false;
@@ -2099,15 +2126,22 @@ std::string duplicate_ui_markup_element(std::string_view source, std::size_t ind
         }
     std::ranges::sort(edits,
                       [](const auto& a, const auto& b) { return a.first.begin > b.first.begin; });
-    std::string clone(fragment);
-    std::size_t next = root.source.end;
-    for (const auto& [range, value] : edits) {
-        require(range.begin >= root.source.begin && range.end <= next,
-                "Copied UI attribute ranges overlap");
-        next = range.begin;
-        clone.replace(range.begin - root.source.begin, range.end - range.begin, value);
+    std::string copies;
+    for (const auto index : roots) {
+        const auto range = nodes[index].source;
+        std::string clone(source.substr(range.begin, range.end - range.begin));
+        std::size_t next = range.end;
+        for (const auto& [edit, value] : edits) {
+            if (!contains(range, edit))
+                continue;
+            require(edit.end <= next, "Copied UI attribute ranges overlap");
+            next = edit.begin;
+            clone.replace(edit.begin - range.begin, edit.end - edit.begin, value);
+        }
+        copies += clone;
     }
-    return replaced(source, {root.source.end, root.source.end}, clone);
+    const auto position = nodes[roots.back()].source.end;
+    return replaced(source, {position, position}, copies);
 }
 std::string move_ui_markup_element(std::string_view source, std::size_t index, int direction) {
     require(direction == -1 || direction == 1, "Choose the previous or next sibling");

@@ -2775,7 +2775,7 @@ reads no computed state and changes no selection/history/source/registration.
 
 The same immutable metadata powers inline/group and stylesheet literal controls.
 Native source candidates and old mutation/query results are unchanged. Including
-this query and native-preview placement, there are55source operations. Style/preset staging
+this query and native-preview placement, there are57source operations. Style/preset staging
 publishes only through the original Set/Remove/Undo/Save and guarded MCP owners.
 
 Source control metadata includes an image profile: src/sprite/rect strings and
@@ -2800,7 +2800,7 @@ cannot establish computed geometry or initialize a renderer.
 
 Box style profiles extend the same query with position/box-sizing/axis overflow,
 side padding/margin and simple border width/color/radius controls. Common has53
-entries; source operations total55, control kinds18, grants/history/replay and
+entries; source operations total57, control kinds18, grants/history/replay and
 schema ownership unchanged. The Common search field has no programmatic authoring
 semantics: agents query profiles and use existing style/group/rule mutations.
 Raw multi-value source remains supported and is not normalized by the profiles.
@@ -2818,7 +2818,7 @@ Pixel setup refuses breaks/options, requires ID and rejects bound ancestors.
 It does not initialize a renderer, register assets, create a persistent identity
 or bypass native Preview eligibility. The selected new root, one Undo, explicit
 Save, grants/revisions/replay and Scene isolation retain existing owners. There
-are55 source operations/18creation kinds; the existing layout schema remains
+are57 source operations/18creation kinds; the existing layout schema remains
 unchanged. No separate creation path is maintained for MCP clients.
 
 ## Native-preview control placement
@@ -2895,7 +2895,7 @@ Both tools require assets.write, the ordinary mutation envelope and existing
 source-task/gesture locks. Receipt replay returns its original result without
 reapplying selection. They use the same source selection owner as Elements and
 Preview and leave source revision/digest/dirty/Undo/Save/catalog/Scene unchanged.
-There are55source operations. No runtime widget input or persisted selection is
+There are57source operations. No runtime widget input or persisted selection is
 introduced; selected elements still need each authoring operation's admission.
 
 
@@ -2903,9 +2903,9 @@ introduced; selected elements still need each authoring operation's admission.
 
 The native canvas shortcuts use existing source operations: Ctrl+A is a replacement
 select_rectangle over the current viewport, Escape's idle clear is select with an
-empty list, Ctrl+D is single-subtree duplicate, and Delete is atomic remove_group.
+empty list, Ctrl+D is duplicate_group over the selected static siblings, and Delete is atomic remove_group.
 These same guarded tools remain available with their existing grants, source
-revisions, identity rules, history and explicit Save. These shortcuts add no separate tool; there are55source operations. Agents
+revisions, identity rules, history and explicit Save. These shortcuts add no separate tool; there are57source operations. Agents
 send source operations rather than UI key events; cancelling a local queued key
 request is a local transient workflow, not a new persisted authoring operation.
 
@@ -2940,7 +2940,7 @@ source operations; no new mutation owner, serialized identity or resource format
 
 ## Source font declarations
 
-Four font source operations share the existing source owner (55combined source operations):
+Four font source operations share the existing source owner (57combined source operations):
 
 - `ui.source.font_reference` / `forge_ui_source_font_reference`: assets.read plus
   current source guards, font `asset` and optional `face_index`(0default,0..31).
@@ -2980,7 +2980,7 @@ SDK change is introduced.
 ## Source layout presets
 
 ui.source.layout_preset / forge_ui_source_layout_preset is one assets.write
-operation in the current55-method source family. Current source guards, Edit ownership,
+operation in the current57-method source family. Current source guards, Edit ownership,
 ordinary mutation envelope and replay apply. Required element, preset, width and
 height describe an explicit proposal. Sixteen preset IDs are advertised by the
 schema from the same immutable metadata used by Elements. Width/height1..65536
@@ -3011,12 +3011,12 @@ types recognized, selected files RCSS. Source indices are revision-bound, not
 persisted identity. Generic metadata guards stay intact. Mutations use one Undo
 and explicit Save; registration/preview/native loading remain separate. Factory
 excludes the three writers without asset-write grants; both queries remain
-discoverable. Existing stylesheet-link operations remain available; the source family totals55 including layout presets.
+discoverable. Existing stylesheet-link operations remain available; the source family totals57 including layout presets.
 
 
 ## Viewport-width stylesheet rules
 
-Four explicit source-owned adapters bring the source family to55. Current RCSS
+Four explicit source-owned adapters bring the source family to57. Current RCSS
 source guards apply; media_read uses assets.read, the three writers assets.write
 and normal Edit ownership/mutation envelope/replay. Read-only discovery excludes
 and direct calls deny writers. No renderer is initialized by these operations.
@@ -3039,3 +3039,25 @@ Native properties reuse the original literal controls and explicit scoped source
 method; existing unscoped rule methods retain their top-level semantics. Source
 publication/Undo clears derived selection, while successful scoped mutation
 retains its target. Save, catalog registration and RML Preview remain separate.
+
+
+## Atomic sibling source duplication
+
+ui.source.duplicate_group/forge_ui_source_duplicate_group uses assets.write and the
+ordinary source/session/revision/digest and mutation/replay guards. Required
+elements contain1..32distinct same-parent static root indices; optional prefix
+is the existing bounded lowercase UI name. Original source order determines the
+copy order, regardless of request order. All copies are inserted together after
+the last selected root and selected after one source replacement/Undo. The
+singular duplicate operation delegates to this same owner without changing its
+output or schema.
+
+A single prefix-oldID map covers all copied descendants and literal label for
+targets across roots. External labels and selectors keep their values. Anonymous
+group roots use the first available prefix-rootN names, avoiding both existing
+and copied IDs. The bounded automatic prefix sequence remains copy..copy64;
+explicit collisions and source/ID/node limits reject before publication. Static
+subtree/ancestry, sibling and complete-source admission reuse existing helpers.
+There is no DOM serialization, clipboard operation, persisted group, layout
+translation, Scene/catalog write or separate authoring owner. Save is explicit.
+The native source family currently advertises57operations.
