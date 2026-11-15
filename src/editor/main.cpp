@@ -449,6 +449,7 @@ int main(int argc, char** argv) {
         const auto settings = config / "settings.json";
         std::string cmake_path = "cmake";
         std::string ninja_path = "ninja";
+        std::string clangd_path;
         std::string exact_sdk_root;
 #ifdef FORGE_UI_FIXTURE
         // SDK reference mode pins the SDK root from the CLI so the
@@ -501,6 +502,7 @@ int main(int argc, char** argv) {
                 };
                 cmake_path = tool_path("cmake", "cmake");
                 ninja_path = tool_path("ninja", "ninja");
+                clangd_path = tool_path("clangd", "");
                 exact_sdk_root = tool_path("exact_sdk_root", "");
                 workspace.load(j);
                 if (j.contains("editor_shortcuts"))
@@ -538,6 +540,7 @@ int main(int argc, char** argv) {
                                       {"interface_scale", forge::ui::interface_scale},
                                       {"cmake", cmake_path},
                                       {"ninja", ninja_path},
+                                      {"clangd", clangd_path},
                                       {"exact_sdk_root", exact_sdk_root},
                                       {"cpp_build_on_save", cpp_build_on_save},
                                       {"create_at_view_target", blockout.at_view_target},
@@ -651,6 +654,8 @@ int main(int argc, char** argv) {
             message = startup_layout.warning;
         auto sdk_build = std::make_unique<forge::SdkBuild>(files.document.project());
         forge::ui::CppSourceEditor cpp_sources;
+        cpp_sources.semantic_context = [&] { return sdk_build->semantic_context(); };
+        cpp_sources.semantic_tool = [&] { return clangd_path; };
         forge::ui::UiSourceEditor ui_source;
         cpp_sources.project_changed(files.document.project());
         scene_tools.destination_view =
@@ -7502,6 +7507,18 @@ int main(int argc, char** argv) {
                                 }
                                 forge::ui::help("Ninja executable. Launch FORGE from the matching "
                                                 "x64 Native Tools prompt for MSVC.");
+                                if (ImGui::InputText("clangd (optional)", &clangd_path))
+                                    perform(save_preferences);
+                                forge::ui::help(
+                                    "Separately installed clangd 23.1.0 for C++ Sources "
+                                    "completion and declaration lookup. This is "
+                                    "analysis tooling; project compilation uses the "
+                                    "matching SDK compiler above.");
+                                if (forge::ui::button("Get clangd",
+                                                      "Open the provider's official "
+                                                      "release page. No automatic installation."))
+                                    SDL_OpenURL(
+                                        "https://github.com/clangd/clangd/releases/tag/23.1.0");
                                 ImGui::TreePop();
                             }
                             forge::ui::help("Machine-local compiler commands; the SDK validates "

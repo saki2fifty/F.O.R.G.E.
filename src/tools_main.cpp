@@ -1,5 +1,8 @@
 #include "asset_tools_cli.hpp"
 #include "command_worker.hpp"
+#ifdef FORGE_CPP_SEMANTIC_WORKER
+#include "code_semantic.hpp"
+#endif
 #include "ecs_tools_cli.hpp"
 #include "flecs_system_trace.hpp"
 #include "json_document.hpp"
@@ -19,6 +22,11 @@
 int main(int argc, char** argv) {
     if (argc == 2 && std::string(argv[1]) == "--command-worker")
         return forge::command_worker_stdio();
+#ifdef FORGE_CPP_SEMANTIC_WORKER
+    if (argc == 4 && std::string(argv[1]) == "--cpp-semantic-worker")
+        return forge::cpp_semantic_worker(std::filesystem::u8path(argv[2]),
+                                          std::filesystem::u8path(argv[3]));
+#endif
 #ifdef _WIN32
     if (argc == 2 && (std::string(argv[1]) == "--stdio" || std::string(argv[1]) == "--mcp-stdio" ||
                       std::string(argv[1]) == "--ecs-stdio")) {

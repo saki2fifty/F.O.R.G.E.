@@ -1,29 +1,13 @@
 #pragma once
 #include "../install_paths.hpp"
+#include "../local_file_url.hpp"
 #include "widgets.hpp"
 #include <SDL3/SDL.h>
 #include <filesystem>
 #include <forge/build.hpp>
 #include <string>
 namespace forge::ui {
-inline std::string local_file_url(const std::filesystem::path& path) {
-    const auto text = std::filesystem::absolute(path).generic_u8string();
-    std::string result = text.starts_with(u8"/") ? "file://" : "file:///";
-    constexpr char hex[] = "0123456789ABCDEF";
-    for (const auto value : text) {
-        const auto byte = static_cast<unsigned char>(value);
-        if ((byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') ||
-            (byte >= '0' && byte <= '9') || byte == '/' || byte == ':' || byte == '-' ||
-            byte == '_' || byte == '.' || byte == '~')
-            result += static_cast<char>(byte);
-        else {
-            result += '%';
-            result += hex[byte >> 4];
-            result += hex[byte & 15];
-        }
-    }
-    return result;
-}
+using ::forge::local_file_url;
 inline void help_menu(const std::filesystem::path& executable_folder, std::string& status) {
     if (ImGui::BeginMenu("Help")) {
         if (ImGui::MenuItem("User Manual")) {

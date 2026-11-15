@@ -1,5 +1,16 @@
 # 2026-11-15
 
+## C++ source assistance
+
+C++ Sources offers optional completion and Native declaration navigation through a
+separately installed supported clangd. The existing managed CMake configuration
+supplies compiler flags/environment; current open source/header drafts are analyzed
+without saving. Accepted ranges share ordinary source Undo, while stale drafts,
+saved inputs and compiler contexts refuse result application. Native controls and
+MCP use the same source/task owners, explicit execution/write grants, cancellation,
+timestamped logs and existing process retirement. The provider is not redistributed;
+SDK compiler, asset identity, persistence and ABI remain unchanged.
+
 ## Guided UI source bindings
 
 Text bindings can include literal labels and units through Before value and After

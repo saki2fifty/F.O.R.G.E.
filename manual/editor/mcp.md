@@ -488,11 +488,22 @@ snapshots, source digests and line/column locations. With code editing permitted
 changed source returns `stale_source`. Search never grants editing or execution.
 See [Find code across the project](native-gameplay.md) for matching rules and limits.
 
+With execution allowed and the optional supported provider installed, the agent
+can request member completion or a declaration at an observed source byte offset.
+Use `forge_code_analysis_start`, then poll `forge_code_analysis_status` and
+`forge_code_analysis_log`; those result reads do not launch tools. The project
+needs a managed **Build Project Code** configuration in this editor session.
+With code editing allowed, `forge_code_analysis_use` applies a proposal as one
+source Undo step or opens its Native declaration. Changed drafts, saved inputs
+and compiler contexts are refused. `forge_code_analysis_cancel` withdraws the
+current query. See [Code assistance](native-gameplay.md) for setup and limits.
+
 With execution allowed, the agent can test compiler tools, build current saved
 code, inspect its opted-in component types and explicitly migrate old authored
-values. Native code and build recipes run with your account's operating-system
+values. Analysis providers, native code and build recipes run with your account's operating-system
 access. FORGE's separate process and MCP folder limits are not an OS sandbox for
-that code. No arbitrary shell/program or engine-repository tool is provided.
+that code. The tools expose project-code workflows, without a shell or an
+engine-repository editing operation.
 
 The agent can start/stop/pause/step Play, inspect runtime entities, read timestamped
 logs, supply validated input, adjust supported live fields, control watched

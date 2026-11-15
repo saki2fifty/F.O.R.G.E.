@@ -59,6 +59,27 @@ inline std::pair<int, int> cpp_source_coordinate(std::string_view text, std::siz
 inline std::string cpp_source_state(std::string_view text) {
     return asset_detail::content_digest(std::as_bytes(std::span(text.data(), text.size())));
 }
+inline std::size_t cpp_source_byte_offset(std::string_view text, int row, int column) {
+    if (row < 0 || column < 0)
+        throw std::runtime_error("Choose a nonnegative source position");
+    int current_row = 0, current_column = 0;
+    for (std::size_t offset = 0;;) {
+        if (current_row == row && current_column == column)
+            return offset;
+        if (offset == text.size() || current_row > row ||
+            (current_row == row && current_column > column))
+            break;
+        auto next = offset + 1;
+        while (next < text.size() && (static_cast<unsigned char>(text[next]) & 0xc0) == 0x80)
+            ++next;
+        const auto position =
+            cpp_source_coordinate(text, next, offset, current_row, current_column);
+        current_row = position.first;
+        current_column = position.second;
+        offset = next;
+    }
+    throw std::runtime_error("Source cursor is outside its text or inside a tab stop");
+}
 inline CppSearchResult search_cpp_sources(const std::filesystem::path& root,
                                           const CppSearchOptions& options,
                                           const CppSearchDrafts& drafts = {},

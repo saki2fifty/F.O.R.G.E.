@@ -3032,3 +3032,32 @@ Rules consumer and supplies its current authentic capture.
 
 Selected CPU sanitizer scope and exact unchanged evidence are reported locally;
 software component/native checks do not imply full Main/Windows/physical review.
+
+
+## C++ source assistance checks
+
+`code_semantic` covers local-file URL and UTF-8/CRLF protocol positions;
+`cpp_source_editor` retains source admission/search coordinate coverage.
+`mcp_code_source` drives the actual TextEditor and supervised finite worker with
+a deterministic protocol peer: completion/Undo/Redo, declaration navigation,
+changed dependencies and compiler generations, malformed/version/exit failures,
+unsupported commands/external declarations, cancellation and project retirement.
+Successful queries require provider exit0 and supervisor retirement. Forced error
+or cancellation cleanup is not clean-child sanitizer acceptance.
+
+`mcp_code_analysis_stdio` exercises current/legacy adapters, discovery and grants,
+read-only no-launch access, revision rejection, index/schema validation, mutation
+receipt replay, source history and stale-result refusal. `cpp_semantic_editor`
+clicks actual source controls at1180/700/400 widths with source locks and unchanged
+saved files/Scene. Its deterministic peer is not a semantic compiler.
+
+`tests/mcp_code_semantic_provider_test.py` is a separate opt-in integration using
+an explicitly supplied supported provider and installed exact SDK, without downloads.
+Pass tools, native code host, SDK, CMake, Ninja, clangd, fresh scratch directory and
+capture path. It builds a genuine managed CMake context, analyzes an unsaved header
+from another source, applies/undoes the member completion and navigates back to the
+header through both MCP envelopes. Actual build/deployment outcomes are retained;
+Linux's Windows-only deployment refusal is distinct from successful configuration
+and analysis. The native control executable also accepts an existing project and
+compiler context for real-provider captures. These checks do not establish full
+Windows Main, Windows-provider, physical GPU or external-client acceptance.

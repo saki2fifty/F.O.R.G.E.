@@ -1,0 +1,133 @@
+#define FORGE_UI_FIXTURE 1
+#include "cpp_source_editor.hpp"
+#include "imgui_input_driver.hpp"
+#include "imgui_software_capture.hpp"
+#include <iostream>
+#include <thread>
+
+namespace {
+void check(bool value, const char* message) {
+    if (!value)
+        throw std::runtime_error(message);
+}
+void exercise(const std::filesystem::path& base, const std::string& provider,
+              const std::filesystem::path& captures, int width,
+              const std::filesystem::path& existing_context) {
+    using namespace forge;
+    const bool existing = !existing_context.empty();
+    const auto root = existing ? std::filesystem::absolute(base)
+                               : std::filesystem::absolute(base) / AssetId::generate().str();
+    if (!existing) {
+        std::filesystem::create_directories(root.parent_path());
+        SceneDocument::create_project(root, "C++ completion");
+        atomic_write(root / "Native/gameplay.cpp", "// Saved project source\n");
+        atomic_write(root / ".forge/analysis-fixture/compile_commands.json", "[]");
+    }
+    const auto compiler_context = existing ? existing_context : root / ".forge/analysis-fixture";
+    const auto saved = ui::read_cpp_source(root / "Native/gameplay.cpp");
+    EngineContext engine;
+    Scene scene(engine.world());
+    SceneDocument document(scene);
+    document.open_project(root);
+    const auto authored = scene.document();
+    ui::EditorUiContext context;
+    ui::ContextScope scope(context);
+    test::ImGuiSoftwareCapture capture(width, 850);
+    ui::style(1);
+    ImGui::GetIO().ConfigInputTrickleEventQueue = false;
+    test::observe_ui = true;
+    ui::CppSourceEditor editor;
+    editor.semantic_tool = [&] { return provider; };
+    editor.semantic_context = [&] {
+        return CppSemanticContext{root, compiler_context, "gui-fixture-context", nullptr};
+    };
+    editor.open(document, "Native/gameplay.cpp");
+    const auto draft = saved +
+                       "\n// café current draft\nstruct Spinner { float degrees_per_second; };\n"
+                       "void semantic_tick() { Spinner s; s.de }\n";
+    editor.replace_text(draft);
+    const auto offset = draft.rfind("s.de") + 4;
+    const auto position = ui::cpp_source_coordinate(draft, offset);
+    editor.open(document, "Native/gameplay.cpp", position.first + 1, position.second + 1);
+    bool locked = false;
+    const auto frame = [&] {
+        test::ui_targets.clear();
+        capture.new_frame();
+        ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+        if (auto* window = ImGui::FindWindowByName("###C++ Sources"))
+            ImGui::SetWindowSize(window, {float(width), 850}, ImGuiCond_Always);
+        editor.draw(document, context, locked);
+        capture.render();
+    };
+    test::ImGuiInputDriver input(frame);
+    frame();
+    input.click("cpp:assistance");
+    // Position after the first-use window and expanded panel have their real sizes.
+    editor.open(document, "Native/gameplay.cpp", position.first + 1, position.second + 1);
+    frame();
+    input.click("cpp:analysis:completion");
+    const auto wait_result = [&] {
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(40);
+        while (!test::ui_targets.contains("cpp:analysis:use:0")) {
+            check(std::chrono::steady_clock::now() < end,
+                  "Native analysis controls did not receive a result");
+            frame();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    };
+    wait_result();
+    const auto source_area = test::ui_targets.at("cpp:editor");
+    ImGui::GetIO().AddMousePosEvent((source_area.minimum.x + source_area.maximum.x) / 2,
+                                    (source_area.minimum.y + source_area.maximum.y) / 2);
+    frame();
+    ImGui::GetIO().AddMouseWheelEvent(0, -30);
+    frame();
+    frame();
+    ImGui::GetIO().AddMousePosEvent(float(width - 40), 12);
+    frame();
+    frame();
+    if (!captures.empty()) {
+        std::filesystem::create_directories(captures);
+        capture.save(captures / ("cpp-completion-" + std::to_string(width) + ".png"));
+    }
+    input.select("cpp:analysis:use:0");
+    auto completed = draft;
+    completed.replace(draft.rfind("s.de") + 2, 2, "degrees_per_second");
+    check(editor.active_text() == completed, "Native completion inserted the wrong range");
+    editor.undo(false);
+    check(editor.active_text() == draft, "Native completion did not keep one Undo record");
+    editor.undo(true);
+    editor.open(document, "Native/gameplay.cpp", position.first + 1, position.second + 1);
+    input.click("cpp:analysis:declaration");
+    // The new query removes the previous result before its first response.
+    frame();
+    wait_result();
+    input.select("cpp:analysis:use:0");
+    check(editor.active_text() == completed && scene.document() == authored &&
+              ui::read_cpp_source(root / "Native/gameplay.cpp") == saved,
+          "Native declaration changed saved source, draft or Scene");
+    locked = true;
+    frame();
+    check(!test::ui_targets.at("cpp:analysis:completion").enabled &&
+              !test::ui_targets.at("cpp:analysis:use:0").enabled,
+          "Native code assistance bypassed the source lock");
+    editor.project_changed(root / "DifferentProject");
+    test::observe_ui = false;
+}
+} // namespace
+int main(int argc, char** argv) {
+    try {
+        check(argc == 4 || argc == 5,
+              "Need project/scratch, provider, captures and optional existing compiler context");
+        const auto existing_context =
+            argc == 5 ? std::filesystem::u8path(argv[4]) : std::filesystem::path{};
+        for (const int width : {1180, 700, 400})
+            exercise(std::filesystem::u8path(argv[1]), argv[2], std::filesystem::u8path(argv[3]),
+                     width, existing_context);
+        std::cout << "Native completion/declaration controls, one-step source Undo, locks and "
+                     "project retirement passed at three widths\n";
+    } catch (const std::exception& error) {
+        std::cerr << error.what() << '\n';
+        return 1;
+    }
+}

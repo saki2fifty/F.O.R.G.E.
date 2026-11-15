@@ -155,6 +155,52 @@ claim a source mapping. C++ source and headers are browsed in Content → Code. 
 The ordinary Inspector's generic schema and property drawer author component
 values, including prefab intent, scene persistence and Undo/Redo.
 
+## Optional C++ source analysis
+
+`CppSourceEditor` owns one ephemeral completion/declaration task over its existing
+open drafts. An optional separately installed clangd23.1.0 is the analysis provider;
+its exact revision and options are recorded in [dependencies](dependencies.md).
+The SDK compiler, source files, source history and authoring ownership are unchanged.
+No provider binary/library is shipped or linked into FORGE.
+
+`SdkBuild` exports CMake's actual `compile_commands.json` during managed configure.
+Its borrowed analysis context includes that directory, current operation generation
+and compiler environment. A project configure must complete in this session;
+a disposable compiler test or externally managed build does not supply the context.
+A later compilation/deployment failure can retain the successfully configured
+context. Changing compiler/SDK settings or starting another build invalidates it.
+Source/CMake configuration changes need an explicit rebuild to refresh compile flags.
+
+The finite private `--cpp-semantic-worker` runs under the existing `BuildCommand`
+supervisor, inheriting the selected environment. It owns bounded SDL stdio to the
+provider, opens dependency drafts before the target, and waits for the target AST
+using the read-only document-symbol request before querying. Unsaved headers use
+the pinned provider's dirty-header option. It negotiates UTF-8 byte positions and
+checks provider name, immutable release identity and capabilities. Provider client
+commands/workspace edits are refused; completion snippets/additional edits/commands
+remain unavailable. SDK/external declarations disclose only a basename and reason,
+without opening external contents. Native source navigation uses existing path,
+state, tab and draft guards. Accepted completion ranges use the shared TextEditor
+Paste/Delete primitive and one Undo step without touching the OS clipboard.
+
+Queries snapshot all open drafts, saved Native build-input identity and the actual
+compile-database digest. Response/apply checks preserve project, operation,
+compiler generation, current drafts, saved input identity and database identity.
+Project changes retire the task and clear previous results/logs. Cancellation
+withdraws available proposals. Normal completion requires provider shutdown/exit0
+and supervisor retirement; forced cancellation is cleanup, not clean-child proof.
+Analysis is optional and has no persisted Scene/schema/SDK/ABI state.
+
+Private IO stays in `.forge/native/semantic/<UUID>`; it rejects redirects and is
+removed only after retirement. Worker limits are64documents/32MiB total drafts,
+1MiB per source,16MiB compile database,8MiB protocol frame,64proposals and16KiB per
+completion replacement. The UI retains its32tab limit. Protocol work has a30s
+deadline and the existing supervisor a45s guard. The existing timestamped log is
+bounded to256KiB. Saved-input/database scans occur at explicit query/result/use
+boundaries, rather than on each editor paint. MCP reads do not launch tools;
+launch uses `code.execute`, and result application/navigation uses `code.write`
+with normal routing/revision/sequence and source-readiness checks.
+
 ## Build and source identity
 
 `forge_tools --assets code-identity PROJECT SDK_FINGERPRINT` exposes the existing

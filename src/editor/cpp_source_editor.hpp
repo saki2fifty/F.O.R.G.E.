@@ -1,4 +1,5 @@
 #pragma once
+#include "cpp_semantic_task.hpp"
 #include "cpp_source_files.hpp"
 #include "cpp_source_search.hpp"
 #include "document.hpp"
@@ -34,7 +35,6 @@ class CppSourceEditor {
             editor.SetText(text);
             saved = editor.GetText();
         }
-        void changed() { dirty = editor.GetText() != saved; }
     };
     std::filesystem::path root_;
     std::vector<std::unique_ptr<Tab>> tabs_;
@@ -44,6 +44,24 @@ class CppSourceEditor {
     char locator_[256] = "Native/gameplay.cpp", query_[256] = "";
     std::size_t search_from_ = 0;
     Uint64 checked_disk_ = 0;
+    CppSemanticTask semantic_task_;
+    void source_changed(Tab& tab) {
+        const auto text = tab.editor.GetText();
+        tab.dirty = text != tab.saved;
+        semantic_task_.observe(tab.locator, text);
+    }
+    CppSearchDrafts source_drafts() const {
+        CppSearchDrafts drafts;
+        std::size_t bytes = 0;
+        for (const auto& tab : tabs_) {
+            auto text = tab->editor.GetText();
+            if (text.size() > cpp_search_byte_limit - bytes)
+                throw std::runtime_error("Open source drafts exceed the 32 MiB budget.");
+            bytes += text.size();
+            drafts.emplace(std::filesystem::u8path(tab->locator), std::move(text));
+        }
+        return drafts;
+    }
     CppSourceSearch project_search_;
     std::optional<CppSearchResult> project_matches_;
     std::filesystem::path search_project_;
@@ -59,6 +77,7 @@ class CppSourceEditor {
         return nullptr;
     }
     void erase(std::string locator) {
+        semantic_task_.invalidate();
         const bool was_active = active_ && active_->locator == locator;
         std::erase_if(tabs_, [&](const auto& tab) { return tab->locator == locator; });
         if (was_active)
@@ -84,6 +103,68 @@ class CppSourceEditor {
         return ImGui::GetIO().KeyMods == ImGuiMod_Ctrl && ImGui::IsKeyPressed(ImGuiKey_S, false);
     };
     std::function<void(const std::string&)> request_reveal;
+    std::function<CppSemanticContext()> semantic_context;
+    std::function<std::string()> semantic_tool;
+    void poll_semantics() { semantic_task_.poll(); }
+    void start_semantics(SceneDocument& project, const std::string& path, const std::string& kind,
+                         std::size_t offset, const std::string& tool = {}) {
+        project.check_ownership();
+        if (root_ != project.project() || !find(path))
+            throw std::runtime_error("Open this project's C++ source first");
+        if (!semantic_context)
+            throw std::runtime_error("C++ analysis is unavailable in this editor");
+        const auto provider = tool.empty() && semantic_tool ? semantic_tool() : tool;
+        if (provider.empty())
+            throw std::runtime_error(
+                "Choose the optional clangd provider in Build > Compiler setup");
+        semantic_task_.start(semantic_context(), provider, path, kind, offset, source_drafts());
+    }
+    void use_semantic_result(SceneDocument& project, const std::string& operation,
+                             std::size_t index) {
+        project.check_ownership();
+        poll_semantics();
+        if (project.project() != root_ || operation.empty() ||
+            operation != semantic_task_.operation() || !semantic_context ||
+            !semantic_task_.current(semantic_context(), source_drafts()))
+            throw std::runtime_error("C++ analysis is stale or unfinished; run the query again");
+        const auto& result = semantic_task_.result();
+        const auto& items = result.at("items");
+        if (index >= items.size() || !items.at(index).at("available").get<bool>())
+            throw std::runtime_error("Choose an available C++ analysis result");
+        // Own the row before any source operation can invalidate the derived result.
+        const auto item = items.at(index);
+        if (result.at("kind").get<std::string>() == "declaration") {
+            open(project, item.at("path").get<std::string>(), item.at("line").get<int>(),
+                 item.at("column").get<int>(), item.at("state").get<std::string>());
+            return;
+        }
+        auto* tab = find(result.at("path").get<std::string>());
+        if (!tab || tab->editor.IsReadOnly())
+            throw std::runtime_error("Open an editable C++ source first");
+        const auto before = tab->editor.GetText();
+        const auto begin = item.at("begin").get<std::size_t>();
+        const auto end = item.at("end").get<std::size_t>();
+        const auto replacement = item.at("text").get<std::string>();
+        if (begin > end || end > before.size())
+            throw std::runtime_error("C++ completion has an invalid source range");
+        auto after = before;
+        after.replace(begin, end - begin, replacement);
+        validate_cpp_text(after);
+        if (after.size() >= max_cpp_source_bytes)
+            throw std::runtime_error(
+                "Leave room for the source editor's final newline within 1 MiB");
+        if (after == before)
+            return;
+        const auto start = cpp_source_coordinate(before, begin);
+        const auto finish = cpp_source_coordinate(before, end);
+        replace_source_widget_text(tab->editor, replacement,
+                                   std::pair{TextEditor::Coordinates(start.first, start.second),
+                                             TextEditor::Coordinates(finish.first, finish.second)});
+        source_changed(*tab);
+        tab->selected = true;
+        active_ = tab;
+        open_ = focus_ = true;
+    }
     bool is_open() const { return open_; }
     bool owns_keyboard() const { return open_ && source_widget_owns_keyboard("###C++ Sources"); }
     std::string active_source() const { return active_ ? active_->locator : std::string{}; }
@@ -108,16 +189,7 @@ class CppSourceEditor {
         poll_project_search();
         if (project_search_.busy())
             throw std::runtime_error("Wait for the current project search or cancel it first.");
-        CppSearchDrafts drafts;
-        std::size_t bytes = 0;
-        for (const auto& tab : tabs_) {
-            auto text = tab->editor.GetText();
-            if (text.size() > cpp_search_byte_limit - bytes)
-                throw std::runtime_error("Open source drafts exceed the 32 MiB search budget.");
-            bytes += text.size();
-            drafts.emplace(std::filesystem::u8path(tab->locator), std::move(text));
-        }
-        project_search_.start(root_, options, std::move(drafts));
+        project_search_.start(root_, options, source_drafts());
         search_project_ = root_;
         search_operation_ = AssetId::generate().str();
         search_options_ = options;
@@ -154,7 +226,7 @@ class CppSourceEditor {
         if (active_->editor.GetText() == text)
             return;
         replace_source_widget_text(active_->editor, text);
-        active_->changed();
+        source_changed(*active_);
     }
     bool dirty() const {
         return std::any_of(tabs_.begin(), tabs_.end(), [](const auto& tab) { return tab->dirty; });
@@ -168,10 +240,11 @@ class CppSourceEditor {
             active_->editor.Redo();
         else
             active_->editor.Undo();
-        active_->changed();
+        source_changed(*active_);
     }
     void project_changed(const std::filesystem::path& root) {
         project_search_.cancel();
+        semantic_task_.close();
         project_matches_.reset();
         search_project_.clear();
         search_operation_.clear();
@@ -199,6 +272,7 @@ class CppSourceEditor {
             const auto text = read_cpp_source(path);
             if (!expected_state.empty() && cpp_source_state(text) != expected_state)
                 throw CppSourceChanged();
+            semantic_task_.invalidate();
             tabs_.push_back(std::make_unique<Tab>(normalized, text));
             tab = tabs_.back().get();
             tab->stamp = std::filesystem::last_write_time(path);
@@ -215,6 +289,7 @@ class CppSourceEditor {
             if (disk != tab->disk) {
                 tab->disk = disk;
                 tab->editor.SetText(disk);
+                semantic_task_.observe(tab->locator, tab->editor.GetText());
                 tab->saved = tab->editor.GetText();
                 tab->stamp = std::filesystem::last_write_time(path);
                 tab->external = false;
@@ -263,6 +338,7 @@ class CppSourceEditor {
     void draw(SceneDocument& project, EditorUiContext& context, bool locked,
               bool save_locked = false) {
         poll_project_search();
+        poll_semantics();
         if (!open_)
             return;
         if (root_ != project.project()) {
@@ -365,6 +441,7 @@ class CppSourceEditor {
                 }
             }
             draw_project_search(project, locked);
+            draw_semantics(project, locked);
             if (ImGui::BeginTabBar("cpp_source_tabs")) {
                 std::string closed;
                 for (auto& tab : tabs_) {
@@ -386,7 +463,7 @@ class CppSourceEditor {
                         tab->editor.SetHandleKeyboardInputs(true);
                         FORGE_UI_PROBE("cpp:editor");
                         if (tab->editor.IsTextChanged())
-                            tab->changed();
+                            source_changed(*tab);
                         const auto cursor = tab->editor.GetCursorPosition();
                         ImGui::Text("Line %d, column %d | %s", cursor.mLine + 1, cursor.mColumn + 1,
                                     tab->dirty ? "Unsaved source" : "Saved source");
@@ -430,6 +507,7 @@ class CppSourceEditor {
                         break;
                     }
             if (!tab) {
+                semantic_task_.invalidate();
                 tabs_.clear();
                 active_ = nullptr;
                 open_ = false;
@@ -482,6 +560,7 @@ class CppSourceEditor {
                         throw std::runtime_error("Source tab closed.");
                     tab->disk = read_cpp_source(cpp_source_path(root_, tab->locator));
                     tab->editor.SetText(tab->disk);
+                    semantic_task_.observe(tab->locator, tab->editor.GetText());
                     tab->saved = tab->editor.GetText();
                     tab->dirty = false;
                     tab->external = false;
@@ -497,6 +576,75 @@ class CppSourceEditor {
             ImGui::EndPopup();
         }
         ImGui::End();
+    }
+    void draw_semantics(SceneDocument& project, bool locked) {
+        const bool expanded = ImGui::CollapsingHeader("Code assistance");
+        FORGE_UI_PROBE("cpp:assistance");
+        if (!expanded)
+            return;
+        ImGui::TextWrapped(
+            "Optional clangd 23.1.0. Build Project Code once this session to prepare "
+            "the compiler context. Queries use current open drafts.");
+        ImGui::BeginDisabled(locked || !active_ || semantic_task_.busy());
+        for (const auto* kind : {"completion", "declaration"}) {
+            if (button(std::string_view(kind) == "completion" ? "Complete" : "Find declaration",
+                       "Analyze the current cursor without saving or changing source."))
+                attempt([&] {
+                    const auto cursor = active_->editor.GetCursorPosition();
+                    const auto text = active_->editor.GetText();
+                    start_semantics(project, active_->locator, kind,
+                                    cpp_source_byte_offset(text, cursor.mLine, cursor.mColumn));
+                });
+            FORGE_UI_PROBE(std::string("cpp:analysis:") + kind);
+            ImGui::SameLine();
+        }
+        ImGui::EndDisabled();
+        if (semantic_task_.busy()) {
+            if (button("Cancel analysis",
+                       "Cancel this query through the existing task supervisor."))
+                attempt([&] { semantic_task_.cancel(semantic_task_.operation()); });
+            FORGE_UI_PROBE("cpp:analysis:cancel");
+        } else
+            ImGui::NewLine();
+        if (semantic_task_.stale())
+            ImGui::TextWrapped("Source changed. Run analysis again before using a result.");
+        if (!semantic_task_.error().empty())
+            ImGui::TextWrapped("%s", semantic_task_.error().c_str());
+        const auto& result = semantic_task_.result();
+        if (!result.is_null()) {
+            ImGui::PushID(semantic_task_.operation().c_str());
+            ImGui::BeginChild("Analysis results", {0, 100}, ImGuiChildFlags_Borders);
+            const auto& items = result.at("items");
+            if (items.empty())
+                ImGui::TextUnformatted("No results at this cursor.");
+            for (std::size_t i = 0; i < items.size(); ++i) {
+                const auto& item = items.at(i);
+                ImGui::PushID(static_cast<int>(i));
+                ImGui::BeginDisabled(locked || semantic_task_.stale() ||
+                                     !item.at("available").get<bool>());
+                const auto label =
+                    result.at("kind").get<std::string>() == "completion"
+                        ? item.at("label").get<std::string>()
+                        : item.value("path", item.value("file", std::string("Declaration")));
+                if (ImGui::Selectable(label.c_str()))
+                    attempt([&] { use_semantic_result(project, semantic_task_.operation(), i); });
+                FORGE_UI_PROBE("cpp:analysis:use:" + std::to_string(i));
+                ImGui::EndDisabled();
+                if (!item.at("available").get<bool>())
+                    ImGui::TextWrapped("%s",
+                                       item.at("reason").get_ref<const std::string&>().c_str());
+                ImGui::PopID();
+            }
+            if (result.at("limited").get<bool>())
+                ImGui::TextUnformatted(
+                    "Result list is limited. Refine the source and query again.");
+            ImGui::EndChild();
+            ImGui::PopID();
+        }
+        if (!semantic_task_.log().empty() && ImGui::TreeNode("Analysis log")) {
+            ImGui::TextUnformatted(semantic_task_.log().c_str());
+            ImGui::TreePop();
+        }
     }
     void draw_project_search(SceneDocument& project, bool locked) {
         const bool shortcut = ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift &&

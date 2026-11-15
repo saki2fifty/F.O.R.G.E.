@@ -7,6 +7,15 @@ template <class F> void rejects(F, const char*);
 inline void test_cpp_source_search(const std::filesystem::path& root) {
     using namespace forge;
     using namespace forge::ui;
+    const std::string coordinates = "\téx\r\nnext\n";
+    require(cpp_source_byte_offset(coordinates, 0, 5) == 3 &&
+                cpp_source_byte_offset(coordinates, 1, 2) == 8 &&
+                cpp_source_byte_offset(coordinates, 2, 0) == coordinates.size(),
+            "Visual source columns lost tabs, UTF-8 or CRLF offsets");
+    rejects([&] { (void)cpp_source_byte_offset(coordinates, 0, 2); },
+            "Source byte conversion accepted the middle of a tab");
+    rejects([&] { (void)cpp_source_byte_offset(coordinates, 4, 0); },
+            "Source byte conversion accepted a nonexistent line");
     std::filesystem::create_directories(root / "Native/Components");
     atomic_write(
         root / "Native/Components/Rotator.hpp",

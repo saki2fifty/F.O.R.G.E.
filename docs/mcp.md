@@ -836,6 +836,34 @@ clipboard. Widget text uses LF and an implicit final newline. A save without an
 execution grant suppresses Build on Save. With that grant, the user's ordinary
 Build on Save preference still applies. Save/build is not a native hot reload.
 
+Optional C++ assistance exposes `forge_code_analysis_status` and `analysis_log`
+under `code.read`. They never launch tooling. Status pages accept `offset` and
+`limit`1..8; proposals carry stable per-operation `index`, availability/reason,
+completion range/text or a contained Native declaration/state/location. Finished
+results include `complete`, `cancelled`, `stale`, `limited`, `total` and bounded
+error text. Logs retain timestamps and bounded UTF-8 paging.
+
+With `code.execute`, `forge_code_analysis_start` requires an observed source
+`path`, `session`, `state`, `kind` (`completion`/`declaration`) and UTF-8 byte
+`offset`. Optional `tool` overrides the configured clangd23.1.0 path for that
+launch only. The managed project must have a successful CMake configure this
+session through Build Project Code; a compiler readiness probe is a different
+context. The same source editor supplies all current drafts and the exact current
+SDK compiler environment/database. Tool execution has the account's OS access;
+provider workspace edits/commands are not accepted. Poll status/log until idle.
+`forge_code_analysis_cancel` requires that exact operation UUID and withdraws
+its proposals. Only one query is active; project retirement clears old results/logs.
+
+With `code.write`, `forge_code_analysis_use` takes the operation UUID and result
+index0..63. It rechecks project, operation, all drafts, saved Native input identity,
+compiler generation and database before using the existing source owner. Completion
+adds one ordinary source Undo record; declaration navigates without changing source.
+Neither saves or builds. Normal routing/revision/sequence, permissions, pending
+source-close and authoring locks apply. Reusing an acknowledged mutation sequence
+returns its receipt. Snippets/additional edits/provider commands and declarations
+outside Native are unavailable. This is bounded source assistance, without a
+refactoring/debugging service or an alternate authoring implementation.
+
 `forge_code_api_list` and `api_read` expose only public headers, templates, samples
 and guides from the editor-selected matching SDK, not the engine checkout. Read
 paths are relative to `sdk/`, for example `include/forge/native_sdk.h`.

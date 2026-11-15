@@ -45,6 +45,17 @@ int main(int argc, char** argv) {
         ImGui::GetIO().IniFilename = nullptr;
         forge::SdkBuild build(root);
         forge::ui::CppSourceEditor sources;
+        sources.semantic_context = [&] { return build.semantic_context(); };
+        if (mode == "analysis") {
+            // Isolated deterministic protocol context; no SDK/compiler acceptance.
+            const auto context = root / ".forge/analysis-fixture";
+            forge::atomic_write(context / "compile_commands.json", "[]");
+            sources.semantic_context = [&, context] {
+                return forge::CppSemanticContext{root, context, "fixture-context", nullptr};
+            };
+            sources.semantic_tool = [&] { return std::string(argv[3]); };
+        }
+
         forge::AuthoredComponents authored;
         authored.project_changed(scene, files.document);
         forge::PrefabEditor prefab;
@@ -61,7 +72,7 @@ int main(int argc, char** argv) {
         };
         forge::ui::AutomationPermissions permissions;
         permissions.code = mode != "read";
-        permissions.execute = mode == "execute" || mode == "inspect";
+        permissions.execute = mode == "execute" || mode == "inspect" || mode == "analysis";
         workspace.start(scene, files, mode != "read", mode != "read", permissions);
         std::cout << workspace.connection().connection().dump() << std::endl;
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(240);
@@ -72,6 +83,7 @@ int main(int argc, char** argv) {
             if (argc == 8 && forge::test::consume_marker(root / "install-v2"))
                 install_probe(argv[7]);
             build.pump(files.document);
+            sources.poll_semantics();
             authored.poll(scene, files.document);
             workspace.pump(files.document,
                            build.busy() || authored.busy() ? "Native task pending" : "");

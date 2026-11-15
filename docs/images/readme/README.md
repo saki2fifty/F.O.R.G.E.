@@ -3814,3 +3814,22 @@ evidence owner. This SDL software component window is not full Main, native
 Windows graph compilation or physical GPU acceptance. It has no fabricated
 controls or retouched pixels. Existing Mesh/Sprite and UI Material captures keep
 their original attribution.
+
+
+## C++ code assistance
+
+[Code assistance](../../../manual/images/cpp-code-assistance.png) is the actual
+700×850 CppSourceEditor using a separately installed clangd23.1.0 and a genuine
+managed GNU12.3.0/Release SDK CMake context. It shows the unsaved Spinner member,
+partial reference and returned completion. Real controls apply one source Undo
+and navigate a resolved declaration; saved source and Scene remain unchanged.
+The same fixture passes1180/700/400 widths.700and400captures were visually reviewed.
+The native pointer moves away from the hovered help button and real wheel input
+reveals the source; no pixels, controls or dimensions are edited.
+
+Capture source is the working tree based on ee775b5. Exact source/executable/provider
+and image hashes, original paths and test command are in
+`AgentFiles/build/phase364-cpp-semantic-navigation/capture-proof-final.json`.
+The canonical PNG is copied byte-for-byte. This software SDL/ImGui source-owner
+fixture has inactive New/build callbacks; it is separate from Windows Main,
+physical desktop/GPU/DPI and performance acceptance.

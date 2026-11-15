@@ -712,3 +712,41 @@ decoder from published format facts, within the same isolated worker; no later
 Basis API, upstream implementation or dependency upgrade is used.
 See [texture image output](texture-assets.md) and [known API limits](dependency-known-issues.md).
 Existing Apache2.0/Binomial notices and packaged KTX notices remain authoritative.
+
+
+## Optional C++ analysis provider — verified 2026-11-15
+
+Selected official stable [clangd23.1.0](https://github.com/clangd/clangd/releases/tag/23.1.0),
+published2026-09-02, from LLVM commit
+`ea7d852a70e8bdfaf601d6626a760f9771b2c4b4`.
+The [exact command-line source](https://github.com/llvm/llvm-project/blob/ea7d852a70e8bdfaf601d6626a760f9771b2c4b4/clang-tools-extra/clangd/tool/ClangdMain.cpp),
+Protocol/Transport declarations, transport/server tests and ClangdServer AST/draft
+implementation are the selected contract. FORGE-owned protocol integration is
+independent; no external implementation is copied or adapted. LLVM's
+[Apache2.0 with LLVM exception notice](https://github.com/llvm/llvm-project/blob/ea7d852a70e8bdfaf601d6626a760f9771b2c4b4/llvm/LICENSE.TXT)
+remains upstream-owned. FORGE does not redistribute this optional executable or
+its libraries, and introduces no new linked/runtime/SDK dependency.
+
+The official Linux archive is117949007bytes, SHA256
+`e53b1a96196095faedb7642cf64964f7fb9ad4a0c1f00dd2c172a3d9dcbafdfd`;
+its executable reports the exact release/commit. The Windows archive is29690805bytes,
+SHA256 `23412a240756a162e7b98a282f36aa2a23a88db5ce16a0cbc4fef7253768c810`.
+Windows-provider execution has not been established by the Linux checks.
+Keep the extracted provider's runtime/resource layout intact.
+
+Fixed options disable configuration files, background indexing, clang-tidy and
+header insertion; select memory PCH storage, dirty-header buffers, two worker
+threads,64results, error logging and the explicit current CMake database directory.
+No query-driver glob is enabled. The client requires UTF-8 position negotiation
+and document-symbol readiness, then requests only completion/declaration.
+The selected source confirms dirty headers default off and document symbols wait
+for the document AST; both conditions matter for a fresh finite query. Full IDE
+features, provider workspace commands/edits and arbitrary release compatibility
+are not claimed. See [the integration boundary](native-modules.md#optional-c-source-analysis).
+
+Actual normal Linux checks use GNU12.3.0/Release, a genuine configured matching SDK,
+unsaved source/header drafts, completion application/Undo and declaration navigation
+through both MCP envelopes, plus native SDL controls at1180/700/400 widths.
+Deterministic protocol-peer checks exercise malformed replies and unsupported edits;
+they are distinct from real-provider proof. Physical Windows/GPU and external-client
+acceptance are separate. No existing dependency pin, SDK fingerprint or ABI changes.

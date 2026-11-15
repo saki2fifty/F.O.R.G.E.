@@ -63,8 +63,8 @@ The built-in source editor provides C++ highlighting, line numbers, source-only
 Undo/Redo, **Ctrl+F** and **Find next**. A file changed outside FORGE shows a
 notice; a conflicting Save keeps your draft, and **Reload from disk** asks before
 discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
-be open. This editor does not include a debugger, full IDE completion or arbitrary
-in-place C++ reload.
+be open. Optional code assistance provides completion and declaration lookup. Debugging,
+project-wide refactoring and arbitrary in-place C++ reload are unavailable.
 
 ## Find code across the project
 
@@ -98,6 +98,41 @@ Matching uses literal text, without regular expressions. **Match case** is on by
 default; turning it off ignores ASCII letter case. Non-ASCII text keeps its exact
 spelling. **Whole word** treats letters, digits, underscores and non-ASCII bytes
 as word content, so `speed` does not match `speeds` or `_speed`.
+
+## Complete code and find a declaration
+
+Code assistance uses a separately installed clangd 23.1.0. It analyzes C++ and
+suggests edits; your matching SDK compiler still builds the game. Normal source
+editing and building work without this optional tool.
+
+1. In **Build → Compiler setup**, choose **Get clangd** to open the supported release. Extract the complete archive, keeping its `bin` and `lib` folders together. Set **clangd (optional)** to the full path of `bin/clangd.exe`.
+2. Choose **Build Project Code** once in the current editor session to prepare your managed project's compiler context. **Test compiler tools** prepares a separate test project. If project compilation fails after configuration succeeds, you can still analyze source to help correct it. A configuration failure must be resolved first.
+3. Open a source in **C++ Sources** and expand **Code assistance**. Place the cursor after a partial member name, such as `rotator.sp`, and choose **Complete**. Click an available suggestion to replace its proposed source range. Source Undo/Redo restores that edit in one step.
+4. Place the cursor within an existing symbol and choose **Find declaration**. Click an available Native path to open its declaration. Existing tabs, unsaved drafts and source history are retained.
+
+![C++ Sources showing a member completion from the current draft](../images/cpp-code-assistance.png)
+
+Choose a completion to update the source draft, then use Save source when ready.
+
+Queries include current open source and header drafts. They do not save files,
+compile the game, apply changes automatically or run commands suggested by the
+provider. Results refer to the queried drafts and compiler context. Rerun after
+editing, saving, changing source files outside FORGE or rebuilding. Changed results
+are refused when used. Rebuild after changing CMake options, include paths or the
+selected SDK so analysis uses the refreshed context.
+
+**Cancel analysis** stops the current query. Expand **Analysis log** for timestamped
+messages. If there are no results, place the cursor within a resolved symbol or
+correct nearby C++ errors. If the provider cannot start or its version is refused,
+check the executable path and supported release in Compiler setup.
+
+This workflow supports managed projects and their current CMake configuration.
+It returns at most 64 proposals. Completions requiring snippets, extra edits,
+imports or provider commands are unavailable. Declaration navigation is limited
+to supported source/header files under **Native/**; SDK and external declarations
+are displayed as unavailable. Source limits remain 1 MiB per file and 32 open tabs.
+Analysis has a bounded timeout; it is separate from game compilation and is not a
+debugger or a project-wide refactoring service.
 
 ## Run an ECS system on worker stages
 

@@ -254,6 +254,52 @@ struct CodeAutomation {
                 return result;
             }));
         methods.push_back(automation_method(
+            "code.analysis.status",
+            "Read the current C++ analysis result in bounded pages. This never launches tooling; "
+            "results are proposals for the exact queried drafts and compiler context. "
+            "Use code.analysis.use to apply a completion or open a project declaration.",
+            "code.read",
+            automation_object(
+                {{"offset", automation_integer()}, {"limit", automation_integer(1, 8)}}),
+            false, [&files, &editor](const Json& request) {
+                files.document.check_ownership();
+                editor.poll_semantics();
+                if (editor.semantic_task_.project() != files.document.project())
+                    return Json{{"operation", nullptr},
+                                {"busy", false},
+                                {"complete", false},
+                                {"total", 0},
+                                {"items", Json::array()}};
+                auto result = editor.semantic_task_.state();
+                result["items"] = Json::array();
+                const auto& response = editor.semantic_task_.result();
+                if (!response.is_null()) {
+                    const auto& items = response.at("items");
+                    const auto offset = request.value("offset", std::size_t{});
+                    const auto limit = request.value("limit", std::size_t(8));
+                    for (std::size_t i = offset; i < items.size() && i - offset < limit; ++i) {
+                        auto item = items.at(i);
+                        item["index"] = i;
+                        result["items"].push_back(std::move(item));
+                    }
+                }
+                return result;
+            }));
+        methods.push_back(automation_method(
+            "code.analysis.log", "Read the current timestamped C++ analysis log; no tool launch.",
+            "code.read",
+            automation_object(
+                {{"offset", automation_integer()}, {"limit", automation_integer(1, 262144)}}),
+            false, [&files, &editor](const Json& request) {
+                files.document.check_ownership();
+                editor.poll_semantics();
+                if (editor.semantic_task_.project() != files.document.project())
+                    return Json{{"operation", nullptr}, {"text", ""}, {"total_bytes", 0}};
+                auto result = text_page(editor.semantic_task_.log(), request);
+                result["operation"] = editor.semantic_task_.operation();
+                return result;
+            }));
+        methods.push_back(automation_method(
             "code.api.list",
             "List installed public headers, templates, examples and guides from the "
             "editor-selected matching SDK. No engine repository paths are exposed.",
@@ -398,6 +444,24 @@ struct CodeAutomation {
                     }
                     return tab_state(*editor.active_);
                 }));
+            methods.push_back(automation_method(
+                "code.analysis.use",
+                "Use an available result of the exact analysis operation. Completion changes "
+                "the existing source tab with one Undo record; declaration opens only a contained "
+                "Native source. Reject changed drafts, disk inputs or compiler generation. "
+                "Does not save files or execute provider commands.",
+                "code.write",
+                automation_object(
+                    {{"operation", automation_uuid()}, {"index", automation_integer(0, 63)}},
+                    {"operation", "index"}),
+                true, [&files, &editor, providers](const Json& request) {
+                    available(files, providers);
+                    source_ready(editor);
+                    editor.use_semantic_result(files.document,
+                                               request.at("operation").get<std::string>(),
+                                               request.at("index").get<std::size_t>());
+                    return tab_state(*editor.active_);
+                }));
             for (const auto* action : {"replace", "save", "undo", "redo", "close"}) {
                 Json properties{{"path", automation_text(2047, 1)},
                                 {"session", automation_uuid()},
@@ -446,6 +510,43 @@ struct CodeAutomation {
             }
         }
         if (permissions.execute) {
+            methods.push_back(automation_method(
+                "code.analysis.start",
+                "Query completion or declaration at a UTF-8 byte offset in the observed open "
+                "C++ tab, using all current open drafts and the existing configured CMake context. "
+                "Requires optional clangd 23.1.0 and a project build this session. Optional tool "
+                "overrides only this launch. Tooling runs with this account's OS access; no "
+                "provider command or workspace edit is accepted. Poll code.analysis.status/log.",
+                "code.execute",
+                automation_object(
+                    {{"path", automation_text(2047, 1)},
+                     {"session", automation_uuid()},
+                     {"state", automation_digest()},
+                     {"kind", {{"type", "string"}, {"enum", {"completion", "declaration"}}}},
+                     {"offset", automation_integer(0, ui::max_cpp_source_bytes)},
+                     {"tool", automation_text(4096, 1)}},
+                    {"path", "session", "state", "kind", "offset"}),
+                true, [&files, &editor, providers](const Json& request) {
+                    available(files, providers);
+                    const auto& source = tab(editor, files, request);
+                    editor.start_semantics(files.document, source.locator,
+                                           request.at("kind").get<std::string>(),
+                                           request.at("offset").get<std::size_t>(),
+                                           request.value("tool", std::string{}));
+                    return editor.semantic_task_.state();
+                }));
+            methods.push_back(automation_method(
+                "code.analysis.cancel", "Cancel the exact current C++ analysis query.",
+                "code.execute",
+                automation_object({{"operation", automation_uuid()}}, {"operation"}), true,
+                [&files, &editor](const Json& request) {
+                    files.document.check_ownership();
+                    if (editor.semantic_task_.project() != files.document.project())
+                        throw AuthoringError("wrong_job", "Select this project's analysis query");
+                    editor.semantic_task_.cancel(request.at("operation").get<std::string>());
+                    return editor.semantic_task_.state();
+                },
+                true));
             for (bool test : {false, true})
                 methods.push_back(automation_method(
                     test ? "code.compiler.test" : "code.build",

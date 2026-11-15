@@ -1,6 +1,7 @@
 #pragma once
 #include "../asset_storage.hpp"
 #include "../authored_inspection.hpp"
+#include "../code_semantic.hpp"
 #include "../gameplay_source_identity.hpp"
 #include "build_command.hpp"
 #include "document.hpp"
@@ -49,7 +50,17 @@ class SdkBuild {
 #endif
         return executable;
     }
-    void invalidate_compiler() { compiler_ready_ = false; }
+    void invalidate_compiler() {
+        compiler_ready_ = false;
+        analysis_context_ready_ = false;
+    }
+    CppSemanticContext semantic_context() const {
+        if (busy() || testing_ || !analysis_context_ready_ || source_ != project_ / "Native" ||
+            !std::filesystem::is_regular_file(build_ / "compile_commands.json"))
+            throw std::runtime_error(
+                "Build C++ once in this session to prepare the project's analysis context.");
+        return {project_, build_, operation_id_, environment_};
+    }
     void test_compiler(SceneDocument& project, const std::filesystem::path& sdk,
                        const std::string& cmake, const std::string& ninja) {
         build(project, sdk, cmake, ninja, true);
@@ -110,6 +121,7 @@ class SdkBuild {
                const std::string& ninja, bool test = false) {
         if (busy())
             return;
+        analysis_context_ready_ = false;
         operation_id_ = AssetId::generate().str();
         stop_ = std::stop_source{};
         try {
@@ -287,6 +299,7 @@ class SdkBuild {
                 throw std::runtime_error("SDK build command failed (" + std::to_string(code) +
                                          "). See build output; last good module retained.");
             if (phase_ == Phase::Configure) {
+                analysis_context_ready_ = true;
                 command_.start({cmake_, "--build", path_utf8(build_), "--target", "gameplay",
                                 "--parallel", "2"},
                                environment_);
@@ -353,7 +366,7 @@ class SdkBuild {
     std::filesystem::path project_, sdk_, work_, candidate_root_, kits_, unpublished_deployment_;
     BuildCommand command_;
     SDL_Environment* environment_ = nullptr;
-    bool testing_ = false, compiler_ready_ = false;
+    bool testing_ = false, compiler_ready_ = false, analysis_context_ready_ = false;
     ui::TimedTextLog timed_log_;
     std::uint64_t log_revision_ = 0;
     std::string operation_id_;
@@ -410,7 +423,7 @@ class SdkBuild {
     }
     void configure() {
         command_.start({cmake_, "-S", path_utf8(source_), "-B", path_utf8(build_), "-G", "Ninja",
-                        "-DCMAKE_BUILD_TYPE=Release",
+                        "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
                         "-DForgeNativeSdk_DIR=" + path_utf8(sdk_ / "sdk"),
                         "-DCMAKE_MAKE_PROGRAM=" + ninja_},
                        environment_);

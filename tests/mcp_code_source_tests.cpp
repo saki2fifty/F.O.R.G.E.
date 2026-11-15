@@ -10,7 +10,7 @@ void check(bool value, const std::string& message) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc != 2)
+        if (argc != 3)
             return 2;
         const auto root = std::filesystem::u8path(argv[1]) / forge::AssetId::generate().str();
         std::filesystem::create_directories(root.parent_path());
@@ -22,7 +22,14 @@ int main(int argc, char** argv) {
         files.start(root);
         forge::atomic_write(root / "Native/First.cpp", "int value = 1;\n");
         forge::atomic_write(root / "Native/Second.hpp", "#pragma once\n");
+        check(SDL_Init(0), "Cannot initialize native process support");
+        struct Quit {
+            ~Quit() { SDL_Quit(); }
+        } quit;
         ImGui::CreateContext();
+        struct DestroyGui {
+            ~DestroyGui() { ImGui::DestroyContext(); }
+        } destroy_gui;
         auto& platform = ImGui::GetPlatformIO();
         int clipboard_reads = 0, clipboard_writes = 0;
         struct Clipboard {
@@ -90,6 +97,7 @@ int main(int argc, char** argv) {
         }
         check(alias_rejected && forge::asset_storage::read(files.document.path()) == scene_before,
               "A contained C++ alias crossed into another source owner");
+        std::filesystem::remove(root / "Native/Alias.cpp");
 #endif
         forge::SdkBuild build(root);
         forge::AuthoredComponents authored;
@@ -187,6 +195,149 @@ int main(int argc, char** argv) {
                                          method.capability == "code.read";
                               }),
                   "Read-only source search is missing or grants source mutation");
+        for (const auto* name : {"code.analysis.status", "code.analysis.log"})
+            check(std::any_of(readonly_methods.begin(), readonly_methods.end(),
+                              [&](const auto& method) {
+                                  return method.name == name && !method.mutation &&
+                                         method.capability == "code.read";
+                              }),
+                  "Analysis reading acquired execution");
+        for (const auto* name :
+             {"code.analysis.start", "code.analysis.cancel", "code.analysis.use"})
+            check(std::none_of(readonly_methods.begin(), readonly_methods.end(),
+                               [&](const auto& method) { return method.name == name; }),
+                  "Unpermitted analysis operation was exposed");
+        bool missing_context = false;
+        try {
+            (void)build.semantic_context();
+        } catch (const std::exception&) {
+            missing_context = true;
+        }
+        check(missing_context, "Unconfigured build invented a compiler context");
+        const auto context = root / ".forge/analysis-fixture";
+        forge::atomic_write(context / "compile_commands.json", "[]");
+        auto* environment = SDL_CreateEnvironment(true);
+        check(environment != nullptr, "Cannot create fixture tool environment");
+        struct FreeEnvironment {
+            SDL_Environment* value;
+            ~FreeEnvironment() { SDL_DestroyEnvironment(value); }
+        } free_environment{environment};
+        std::string generation = "fixture-context-1";
+        editor.semantic_context = [&] {
+            return forge::CppSemanticContext{root, context, generation, environment};
+        };
+        editor.semantic_tool = [&] { return std::string(argv[2]); };
+        permissions.execute = true;
+        methods = forge::CodeAutomation::methods(scene, files, editor, authored, prefab, providers,
+                                                 permissions);
+        editor.open(files.document, "Native/First.cpp");
+        const std::string draft = "// café\nstruct Spinner { float degrees_per_second; };\n"
+                                  "void tick() { Spinner s; s.de }\n";
+        editor.replace_text(draft);
+        const auto disk_before_analysis = forge::ui::read_cpp_source(root / "Native/First.cpp");
+        const auto start_analysis = [&](const std::string& kind = "completion") {
+            const auto observed = invoke("code.read", {{"path", "Native/First.cpp"}});
+            return invoke("code.analysis.start", {{"path", "Native/First.cpp"},
+                                                  {"session", observed.at("session")},
+                                                  {"state", observed.at("state")},
+                                                  {"kind", kind},
+                                                  {"offset", draft.rfind("s.de") + 4}});
+        };
+        const auto settle_analysis = [&] {
+            const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+            for (;;) {
+                auto status = invoke("code.analysis.status", {{"limit", 1}});
+                if (!status.at("busy").get<bool>()) {
+                    // Forward child diagnostics even for expected query failures.
+                    std::cout << invoke("code.analysis.log", {{"limit", 262144}})
+                                     .at("text")
+                                     .get<std::string>();
+                    return status;
+                }
+                if (std::chrono::steady_clock::now() >= end)
+                    throw std::runtime_error("C++ analysis did not settle");
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        };
+        const auto use_analysis = [&](const forge::Json& status) {
+            return invoke("code.analysis.use",
+                          {{"operation", status.at("operation")}, {"index", 0}});
+        };
+        start_analysis();
+        auto analysis = settle_analysis();
+        check(analysis.at("complete") && analysis.at("items").size() == 1 &&
+                  analysis.at("items").at(0).at("available") && !analysis.at("stale").get<bool>(),
+              "Supervised analysis did not produce the draft completion: " + analysis.dump());
+        use_analysis(analysis);
+        auto completed = draft;
+        completed.replace(draft.rfind("s.de") + 2, 2, "degrees_per_second");
+        check(editor.active_text() == completed, "Completion replaced the wrong source range");
+        editor.undo(false);
+        check(editor.active_text() == draft, "Completion did not share one source Undo record");
+        editor.undo(true);
+        check(editor.active_text() == completed, "Completion Redo lost source bytes");
+        editor.undo(false);
+        start_analysis("declaration");
+        analysis = settle_analysis();
+        use_analysis(analysis);
+        check(invoke("code.read", {{"path", "Native/First.cpp"}}).at("cursor").at("line") == 2 &&
+                  editor.active_text() == draft,
+              "Declaration lookup changed source instead of navigating");
+        invoke("code.analysis.cancel", {{"operation", analysis.at("operation")}});
+        auto cancelled_result = invoke("code.analysis.status", {{"limit", 1}});
+        check(cancelled_result.at("cancelled") && !cancelled_result.at("complete").get<bool>(),
+              "Cancellation retained an applicable finished result");
+        const auto cancelled_log = invoke("code.analysis.log", {{"limit", 4096}});
+        invoke("code.analysis.cancel", {{"operation", analysis.at("operation")}});
+        check(invoke("code.analysis.log", {{"limit", 4096}}) == cancelled_log,
+              "Repeated cancellation changed the completed cancellation receipt");
+        start_analysis();
+        analysis = settle_analysis();
+        editor.open(files.document, "Native/Second.hpp");
+        editor.replace_text("// changed dependency\n");
+        bool stale_analysis = false;
+        try {
+            use_analysis(analysis);
+        } catch (const std::exception&) {
+            stale_analysis = true;
+        }
+        check(stale_analysis, "Analysis accepted a changed open dependency");
+        editor.open(files.document, "Native/First.cpp");
+        start_analysis();
+        analysis = settle_analysis();
+        generation = "fixture-context-2";
+        bool stale_context = false;
+        try {
+            use_analysis(analysis);
+        } catch (const std::exception&) {
+            stale_context = true;
+        }
+        check(stale_context, "Analysis accepted a retired compiler generation");
+        for (const auto* mode : {"unsupported", "external", "wrong-version", "bad-frame",
+                                 "invalid-range", "exit-failure"}) {
+            SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", mode, true);
+            start_analysis(std::string_view(mode) == "external" ? "declaration" : "completion");
+            analysis = settle_analysis();
+            if (std::string_view(mode) == "unsupported" || std::string_view(mode) == "external")
+                check(analysis.at("complete") &&
+                          !analysis.at("items").at(0).at("available").get<bool>(),
+                      "Untrusted provider command or external declaration became available");
+            else
+                check(!analysis.at("complete").get<bool>() &&
+                          !analysis.at("error").get<std::string>().empty(),
+                      "Malformed or failed provider was accepted: " + analysis.dump());
+        }
+        SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+        const auto cancelled = start_analysis();
+        invoke("code.analysis.cancel", {{"operation", cancelled.at("operation")}});
+        analysis = settle_analysis();
+        check(analysis.at("cancelled") && !analysis.at("complete").get<bool>(),
+              "Cancelled analysis claimed a completed result");
+        check(forge::ui::read_cpp_source(root / "Native/First.cpp") == disk_before_analysis &&
+                  editor.active_text() == draft && scene.document() == scene_before_search,
+              "Analysis changed saved source or scene");
+        check(!invoke("code.analysis.log", {{"limit", 4096}}).at("text").get<std::string>().empty(),
+              "Analysis log lost its timestamped diagnostics");
         auto state = invoke("code.read", {{"path", "Native/First.cpp"}});
         invoke("code.close", {{"path", "Native/First.cpp"},
                               {"session", state.at("session")},
@@ -196,6 +347,14 @@ int main(int argc, char** argv) {
               "Closing the first tab damaged another tab");
         check(clipboard_reads == 0 && clipboard_writes == 0,
               "Source operations used the OS clipboard");
+        editor.open(files.document, "Native/First.cpp");
+        editor.replace_text(draft);
+        start_analysis();
+        editor.project_changed(root / "DifferentProject");
+        check(editor.active_source().empty() &&
+                  invoke("code.analysis.status", {}).at("operation").is_null() &&
+                  std::filesystem::is_empty(root / ".forge/native/semantic"),
+              "Project retirement retained a native query or previous project's analysis");
         std::cout << "Actual C++ source/widget history, clipboard isolation, save guards and tab "
                      "close passed\n";
         return 0;

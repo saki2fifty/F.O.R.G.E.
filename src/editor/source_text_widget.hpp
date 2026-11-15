@@ -2,6 +2,7 @@
 #include <TextEditor.h>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -18,13 +19,15 @@ inline bool source_widget_owns_keyboard(const char* window_id) {
 }
 // One ordinary widget Undo record, shared by native structured edits and automation.
 // The synchronous clipboard adapter never reads or writes the OS clipboard.
-inline void replace_source_widget_text(TextEditor& editor, const std::string& text) {
+inline void replace_source_widget_text(
+    TextEditor& editor, const std::string& text,
+    std::optional<std::pair<TextEditor::Coordinates, TextEditor::Coordinates>> range = {}) {
     if (!ImGui::GetCurrentContext() || editor.IsReadOnly())
         throw std::runtime_error("Open an editable source in the owning editor context");
-    if (editor.GetText() == text)
+    if (!range && editor.GetText() == text)
         return;
     auto contents = text;
-    if (!contents.empty() && contents.back() == '\n')
+    if (!range && !contents.empty() && contents.back() == '\n')
         contents.pop_back();
     auto& platform = ImGui::GetPlatformIO();
     struct ClipboardText {
@@ -44,7 +47,11 @@ inline void replace_source_widget_text(TextEditor& editor, const std::string& te
         return static_cast<const ClipboardText*>(context->PlatformIO.Platform_ClipboardUserData)
             ->text;
     };
-    editor.SelectAll();
+    if (range) {
+        editor.SetSelection(range->first, range->second);
+        editor.SetCursorPosition(range->first);
+    } else
+        editor.SelectAll();
     if (contents.empty())
         editor.Delete();
     else
