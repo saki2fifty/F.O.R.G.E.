@@ -292,6 +292,11 @@ allocation and its bounded replay receipts. Repeating the same authored request
 with the same sequence returns its original result without reapplying it;
 changed data conflicts and evicted sequences fail. After uncertain completion,
 retrieve that same receipt or inspect state before deciding what to do next.
+Read-only tools may be queried again after a transport timeout, with a bounded
+wait for the editor to resume. Use the discovered `readOnlyHint` annotation to
+identify reads. Permission failures need the relevant grant; repeating a denied
+read does not fix access. A timeout on a write requires receipt/state inspection
+before any decision to repeat it.
 Scene edits remain unsaved editor edits and share normal Undo/Redo.
 
 Tool results contain an identical JSON result in `structuredContent` and text,

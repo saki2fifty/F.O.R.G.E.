@@ -10,6 +10,7 @@ import threading
 import time
 
 from mcp_test_client import CAPTURE, CURRENT, Client, failed
+from mcp_editor_package_test import read_tool
 
 TOOLS, HOST = map(str, map(Path, sys.argv[1:3]))
 
@@ -208,7 +209,7 @@ with host() as (process, config):
 # Exercise native bridge response admission, including a repaired exchange on
 # the same MCP process. The controlled peer supplies valid discovery structure.
 @contextmanager
-def response_peer(first, delay=0):
+def response_peer(first, delay=0, discard_first=False):
     listener = socket.socket()
     listener.bind(('127.0.0.1', 0))
     listener.listen(1)
@@ -227,7 +228,8 @@ def response_peer(first, delay=0):
                     reader.readline(1048577)
                     if index == 0 and delay:
                         time.sleep(delay)
-                    channel.sendall(payload + b'\n')
+                    if index != 0 or not discard_first:
+                        channel.sendall(payload + b'\n')
         except Exception as error:
             errors.append(str(error))
 
@@ -247,6 +249,39 @@ def response_peer(first, delay=0):
 with response_peer(lambda valid: valid, delay=9) as config, \
         Client(config, response_timeout=30) as client:
     assert client.tool('forge_discover')['ok']
+    assert client.tool('forge_discover')['ok']
+
+readonly = next(tool for tool in catalog if tool['name'] == 'forge_discover')
+mutation = next(tool for tool in catalog if tool['name'] == 'forge_entity_create')
+with response_peer(lambda valid: valid, delay=13, discard_first=True) as config, \
+        Client(config, response_timeout=30) as client:
+    recovered = []
+    assert read_tool(client, readonly, recovered)['ok']
+    assert len(recovered) == 1 and recovered[0]['tool'] == 'forge_discover'
+    before = len(CAPTURE)
+    try:
+        read_tool(client, mutation, recovered)
+        raise RuntimeError('A mutating tool entered automatic read recovery')
+    except AssertionError as error:
+        assert 'read-only tool' in str(error), error
+    assert len(CAPTURE) == before, 'Read recovery transmitted a mutating request'
+
+
+def denied_discovery(valid):
+    response = json.loads(valid)
+    response['response'] = dict(api=1, ok=False,
+                                error=dict(code='permission_denied', message='Read denied'))
+    return json.dumps(response).encode()
+
+
+with response_peer(denied_discovery) as config, Client(config) as client:
+    recovered = []
+    try:
+        read_tool(client, readonly, recovered)
+        raise RuntimeError('A denied read entered automatic recovery')
+    except AssertionError as error:
+        assert 'permission_denied' in str(error), error
+    assert not recovered
     assert client.tool('forge_discover')['ok']
 
 for tail in (b'\0', b'\0hidden', b'\x1a hidden', b' {}', b' garbage'):

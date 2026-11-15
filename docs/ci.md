@@ -1102,6 +1102,14 @@ twelve-second transport deadlines remain unchanged. Other test clients keep
 their eight-second default unless explicitly configured. A controlled native
 bridge peer delays one discovery reply for nine seconds and verifies the next
 exchange remains correlated; the package workflow never retries uncertain edits.
+Read-only discovery/status queries recover the transport's explicit timeout
+within the existing sixty-second readiness bound. The client checks the observed
+tool's read-only annotation, retains each timeout in its report and requires a
+successful response. Permission errors and write requests are never retried by
+this helper. A controlled native peer outlasts one twelve-second exchange, then
+answers the next read; the regression also refuses writes before transmission
+and propagates a denied read immediately. A persistently unavailable editor
+still fails acceptance.
 Independent Gallery export cases assign unique application IDs to their temporary
 copies so one scene's fixture save cannot become another case's initial state.
 Each observer checks its saved Scene identity and a distinct OS storage root;

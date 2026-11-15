@@ -6,6 +6,7 @@ The fixture EXE is separate from the package; shipped DLLs/SDK/resources are reu
 """
 import argparse
 import base64
+from datetime import datetime, timezone
 import gzip
 import hashlib
 import json
@@ -49,15 +50,40 @@ def package_sdk(root, manifest):
     return root / 'NativeSdk'
 
 
-def exercise(client, evidence, manifest):
-    def discover():
-        response = client.tool('forge_discover')
-        assert response['ok'], response
+def read_tool(client, descriptor, recoveries, **arguments):
+    assert descriptor['annotations']['readOnlyHint'], 'Recovery requires a read-only tool'
+    name = descriptor['name']
+
+    def timed_out(response):
+        error = response.get('error', {})
+        return not response['ok'] and error.get('code') == 'connection_unavailable' and \
+            error.get('message', '').startswith('Editor request timed out;')
+
+    def attempt():
+        started = time.monotonic()
+        response = client.tool(name, **arguments)
+        if timed_out(response):
+            recoveries.append(dict(tool=name, error=response['error'],
+                                   utc=datetime.now(timezone.utc).isoformat(),
+                                   elapsed_seconds=time.monotonic() - started))
         return response
 
+    # A timed-out read has no mutation to replay. Keep the existing readiness
+    # bound and require an actual successful response before proceeding.
+    response = wait_for(attempt, lambda result: not timed_out(result))
+    assert response['ok'], response
+    return response
+
+
+def exercise(client, evidence, manifest):
+    recoveries = []
+
+    def discover():
+        return read_tool(client, tools['forge_discover'], recoveries)
+
     def read(tool, **values):
-        response = client.tool(tool, target=discover()['result']['target'], **values)
-        assert response['ok'], response
+        response = read_tool(client, tools[tool], recoveries,
+                             target=discover()['result']['target'], **values)
         return response['result']
 
     def edit(tool, **values):
@@ -241,6 +267,7 @@ def exercise(client, evidence, manifest):
                 shipped_game_executed=True, exported_cpp_observed=True,
                 exported_startup_verified=True,
                 exported_game_mode='startup verification: D3D12 WARP/offline audio',
+                recovered_read_timeouts=recoveries,
                 visual_review='Pending image inspection', physical_acceptance='User deferred')
 
 
