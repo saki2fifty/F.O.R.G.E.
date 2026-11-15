@@ -31,7 +31,5 @@ Package-only retries reject product changes, retain the original engine/build
 identity and record their nonshipping test fixture separately. Compatible fixture
 compilation can be reused within that same engine source. SDK/MCP checks precede
 the longer combined-export walkthrough; all checks remain required for upload.
-The compiler-lifetime test publishes its readiness file atomically so a parent
-cannot parse an empty file while the child is still writing its signal.
 
 Windows delivery and physical desktop review remain pending.

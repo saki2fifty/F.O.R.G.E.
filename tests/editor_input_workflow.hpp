@@ -1370,12 +1370,17 @@ class EditorInputWorkflow {
             check("empty");
             create("3D Primitive", "Cube");
             check("cube");
+            // First-use frame preparation belongs to the bounded capture stage,
+            // before a new input gesture starts its ordinary deadline.
+            capture("onboarding-cube-ready");
             create("Rendering", "Camera");
             check("camera");
+            capture("onboarding-camera-ready");
             text("transform:forge.position:2", "-5", true);
             key(ImGuiKey_Enter);
             create("Rendering", "Light");
             check("light");
+            capture("onboarding-light-ready");
             key(ImGuiKey_S, true);
             check("saved");
             click("tab:Build");

@@ -405,6 +405,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ',
     if not starter_trace['state'].get('gameplay_current'):
         raise AssertionError('Export completed with stale C++ gameplay source')
     required_onboarding_captures = (
+        'onboarding-cube-ready', 'onboarding-camera-ready', 'onboarding-light-ready',
         'cpp-component-create-dialog', 'cpp-system-create-dialog',
         'cpp-source-create-dialog', 'cpp-code-browser', 'cpp-code-selected',
         'cpp-component-created', 'cpp-system-created', 'cpp-component-dirty',

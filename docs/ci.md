@@ -1086,6 +1086,10 @@ GPU performance.
 The compiler-lifetime fixture publishes its readiness JSON through the existing
 atomic file writer before the parent observes it. Cancellation, cache reuse and
 retained-publication assertions keep their original deadlines and checks.
+The C++ onboarding walkthrough captures the created Cube, Camera and Light before
+continuing with input. These required images put first-use frame preparation in
+the existing forty-five-second capture stage; ordinary input remains bounded to
+twelve seconds and the software rendering watchdog remains thirty seconds.
 Independent Gallery export cases assign unique application IDs to their temporary
 copies so one scene's fixture save cannot become another case's initial state.
 Each observer checks its saved Scene identity and a distinct OS storage root;
