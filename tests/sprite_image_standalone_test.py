@@ -33,6 +33,9 @@ def verify(tools, gallery, kit, evidence, retain=None):
                if 'forge.sprite_renderer' in row['components']]
     assert len(sprites) == 12 and {row['mip_filter'] for row in sprites} == {0, 1, 2}
     receipt['frame_filtering'] = verify_scene(tools, gallery, kit, Path(evidence) / 'frame-filtering', filtering_source)
+    programmable = 'Scenes/215-programmable-sprite-materials.scene.json'
+    receipt['programmable_materials'] = verify_scene(
+        tools, gallery, kit, Path(evidence) / 'programmable-materials', programmable)
     (Path(evidence) / 'sprite-image-export.json').write_text(
         json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
     return receipt
@@ -45,4 +48,4 @@ if __name__ == '__main__':
     parser.add_argument('--retain', type=Path)
     args = parser.parse_args()
     verify(args.tools, args.gallery, args.kit, args.evidence, args.retain)
-    print('Shared Sprite fill/region/filtering exports and eight source-free production startups passed')
+    print('Shared Sprite fill/region/filtering/programmable exports and ten source-free production startups passed')

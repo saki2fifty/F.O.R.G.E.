@@ -7167,6 +7167,16 @@
       "type": "transform_animation"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "505111ce-e7c3-456e-a859-892574985e76",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Sprites/Materials/Image.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
       "dependencies": [
         "5e31d01c-8a17-4086-8c1c-f95f03421174"
       ],
@@ -8065,6 +8075,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "5a575adb-07c1-4f18-9e33-534393f843dc",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/215-programmable-sprite-materials.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "5b09747d-d6bb-4db6-bee7-10f05ee1a822",
       "metadata": {
         "forge.import": {
@@ -8100,6 +8120,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "5c18cab0-fb19-471f-8b85-e719e76104c4",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Sprites/Materials/Tint.shader.json",
+      "source_dependencies": [],
+      "type": "shader"
     },
     {
       "dependencies": [],
@@ -13122,6 +13152,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "9680ffe0-5000-451c-81dc-4a9292df4ab8",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Sprites/Materials/Image.shader.json",
+      "source_dependencies": [],
+      "type": "shader"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "96a2410d-4e81-48ef-8695-d617922cd8a2",
       "metadata": {},
       "schema_version": 3,
@@ -16180,6 +16220,16 @@
       "source": "Scenes/167-ui-box-shadows.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c47b7b08-135f-4c48-9917-afc8a8485378",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Sprites/Materials/Tint.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [],

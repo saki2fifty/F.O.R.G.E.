@@ -1,5 +1,16 @@
 # 2026-11-15
 
+## Programmable Sprite example
+
+The Feature Gallery includes an editable HLSL/Material Graph comparison with
+Simple, Sliced and Tiled images and frame filtering. Its two Materials share the
+original Badge Texture and can be saved and exported without a C++ project module.
+
+Native acceptance selects the existing Sprite surface pixel fixture. The example
+also has source admission, real Shader/Material publication, exact source-free
+content closure and production-game export/relocation checks through existing
+owners. No Shader interface, backend, dependency pin or existing asset ID changes.
+
 ## SDK response scheduling
 
 The SDK process drains its frozen correlated reply before starting further world

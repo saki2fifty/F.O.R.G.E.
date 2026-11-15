@@ -2,6 +2,7 @@
 #include "material_selection.hpp"
 #include "model_render_resource.hpp"
 #include "runtime_package.hpp"
+#include "sprite_material_gallery_fixture.hpp"
 #include "sprite_material_profile.hpp"
 #include "texture_bundle_validation.hpp"
 #include <algorithm>
@@ -87,6 +88,7 @@ int main(int argc, char** argv) {
         std::filesystem::copy(std::filesystem::absolute(argv[1]), root,
                               std::filesystem::copy_options::recursive);
         auto catalog = AssetCatalog::open_project(root);
+        test_sprite_material_gallery::inspect(root);
         const auto basics = asset(catalog, "Scenes/71-world-sprites.scene.json");
         const auto frames = asset(catalog, "Scenes/72-sprite-frame-animation.scene.json");
         const auto panels = asset(catalog, "Scenes/73-sprite-image-fill.scene.json");

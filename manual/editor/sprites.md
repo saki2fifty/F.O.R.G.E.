@@ -297,6 +297,21 @@ Custom Sprite shaders use Windows/D3D12. A Mesh surface graph cannot be used as 
 Sprite material. Save and compile the Shader, save its Material, then save the
 Scene before exporting. The exported game uses the cooked program and image data.
 
+To try this with an editable example, open
+**Feature Gallery → Scenes/215-programmable-sprite-materials.scene.json** on
+Windows. The left pair uses HLSL; the right pair uses a Material Graph. The upper
+row uses Simple images, and the lower row compares Sliced and Tiled images with
+**Mip filtering → Linear**.
+
+Stop Play and open **Assets/Sprites/Materials/Image.material.json** in Content.
+Change **Image gain**, then save the Material to update both left Sprites. In
+**Tint.material.json**, **Color** controls both right Sprites. To change one
+object, select it in Hierarchy and edit its Inspector **Tint**. Open
+**Tint.shader.json** to follow the graph. After changing a Shader, use
+**Save & Compile**, save/rebuild its Material and save the Scene before export.
+The example includes a Camera and uses no project C++ module. When using a source
+checkout, compile both Shaders and publish both Materials on Windows first.
+
 ## Add glow to images and tiles
 
 Open **Scenes/128-sprite-tile-bloom.scene.json** in the Feature Gallery. Its top row

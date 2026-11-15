@@ -1,0 +1,108 @@
+{
+  "asset_id": "5c18cab0-fb19-471f-8b85-e719e76104c4",
+  "format": "forge.shader",
+  "graph": {
+    "edges": [
+      {
+        "from": {
+          "node": "6fb68594-ef31-4830-9594-f1683bf1403f",
+          "port": "out"
+        },
+        "id": "45f14f71-5ad5-4fa0-86d5-bfcc07febcec",
+        "to": {
+          "node": "81110bf7-f623-44d2-a54d-df28e8c4dd9c",
+          "port": "a"
+        }
+      },
+      {
+        "from": {
+          "node": "1ad29296-413b-4b88-a141-37bb4c175ed9",
+          "port": "out"
+        },
+        "id": "600e8423-b8f6-49c2-89b0-9d8a609f4176",
+        "to": {
+          "node": "81110bf7-f623-44d2-a54d-df28e8c4dd9c",
+          "port": "b"
+        }
+      },
+      {
+        "from": {
+          "node": "81110bf7-f623-44d2-a54d-df28e8c4dd9c",
+          "port": "out"
+        },
+        "id": "96ea2dc3-76b1-4af1-8a19-2a800ce8ff32",
+        "to": {
+          "node": "ddb86e3b-c454-4bad-a9a6-f01708a9aead",
+          "port": "color"
+        }
+      }
+    ],
+    "format": "forge.material.graph",
+    "nodes": [
+      {
+        "data": {
+          "key": "p_6fb68594ef3148309594f1683bf1403f",
+          "label": "Sprite image",
+          "semantic": "color",
+          "type": "scalar",
+          "uv_set": 0
+        },
+        "id": "6fb68594-ef31-4830-9594-f1683bf1403f",
+        "position": [
+          0.0,
+          60.0
+        ],
+        "type": "texture2d",
+        "version": 1
+      },
+      {
+        "data": {
+          "key": "p_1ad29296413b4b88a14137bb4c175ed9",
+          "label": "Color",
+          "type": "color4",
+          "value": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "id": "1ad29296-413b-4b88-a141-37bb4c175ed9",
+        "position": [
+          0.0,
+          240.0
+        ],
+        "type": "parameter",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "color4"
+        },
+        "id": "81110bf7-f623-44d2-a54d-df28e8c4dd9c",
+        "position": [
+          360.0,
+          60.0
+        ],
+        "type": "multiply",
+        "version": 1
+      },
+      {
+        "data": {
+          "image": "p_6fb68594ef3148309594f1683bf1403f",
+          "tint": true,
+          "type": "scalar"
+        },
+        "id": "ddb86e3b-c454-4bad-a9a6-f01708a9aead",
+        "position": [
+          680.0,
+          60.0
+        ],
+        "type": "sprite_output",
+        "version": 1
+      }
+    ],
+    "version": 1
+  },
+  "version": 3
+}

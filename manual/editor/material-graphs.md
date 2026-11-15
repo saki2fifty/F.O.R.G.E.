@@ -68,6 +68,12 @@ final color; it does not add Sprite lighting or change the Quad's shape.
 
 Select Sprite Output to choose the frame image and control Inspector Tint.
 
+The Feature Gallery's **Scenes/215-programmable-sprite-materials.scene.json**
+compares a Sprite graph with an HLSL program across Simple, Sliced and Tiled
+images. Its two ordinary Materials are independently editable. Follow the
+[programmable Sprite example](sprites.md) to change
+their values and export the Scene.
+
 UV nodes use logical **UV0** within the selected frame. Connect UV calculations
 to the primary Texture 2D node to change where the image is sampled; Sprite frame,
 trim, stored rotation, flips and fill mapping still apply. Other texture nodes

@@ -1,5 +1,25 @@
 # Feature Gallery
 
+## Programmable Sprite materials
+
+Open `Scenes/215-programmable-sprite-materials.scene.json` on Windows and press
+Play. Four Sprites reuse the original Badge image. The left pair uses
+`Assets/Sprites/Materials/Image.shader.json` and its HLSL source; the right pair
+uses `Tint.shader.json`, a Material Graph. The upper row uses Simple images. The
+lower row compares Sliced and Tiled images with Linear mip filtering.
+
+Stop Play, then open `Image.material.json` in that folder and change **Image gain**
+to adjust both left Sprites. Open `Tint.material.json` and change **Color** to
+adjust both right Sprites. A Sprite's Inspector **Tint** changes only that object.
+The graph applies Inspector Tint once through Sprite Output.
+
+Open `Tint.shader.json` to inspect its image, Color, Multiply and Sprite Output
+nodes. After changing a Shader, choose **Save & Compile**, save/rebuild its
+Material and save the Scene before export. Source checkouts need both Shaders
+compiled and both Materials published on Windows/D3D12; packaged Galleries have
+matching cooked resources. The Scene has its own Camera and needs no Light or
+project C++ module.
+
 ## Visual UI Material graphs
 
 Open `Scenes/214-ui-material-graphs.scene.json` and press Play. Still and moving

@@ -128,8 +128,17 @@ profiles reject the other domain. Sprite source selection, sheet preview, Tile
 image consumption and mip planning resolve the image from the validated stable
 key, without a second Texture identity or renderer. Custom artifacts remain
 Windows/D3D12/FXC5.1; source-only DXC/SPIR-V diagnostics do not supply another product
-backend. Actual Windows worker and `editor_render_sprite-surfaces` fixtures are
-required platform evidence and remain unexecuted in the current local Linux work.
+backend. The Windows shader-worker fixture covers real Sprite graph publication
+and source-free Shader relocation. `editor_render_sprite-surfaces` requires
+native HLSL and graph cook/reload/reflection plus independent raw/fill/mip pixel
+checks. Both editor and focused shader acceptance select that case.
+
+Gallery Scene215 compares raw HLSL and a Sprite graph with two ordinary Materials
+and the original Badge Texture. Its source admission shares the existing Sprite
+Gallery test. The native Gallery fixture uses the normal Shader/Material
+publication and content packager, then checks the exact four-asset closure and
+embedded program equality after source removal and relocation. The existing
+Sprite standalone exporter supplies the separate production-game launches.
 
 ## Textures and backend mapping
 
