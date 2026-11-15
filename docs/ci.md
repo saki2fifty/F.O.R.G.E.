@@ -1048,6 +1048,11 @@ validated compiled-source run while retaining its build/source identity.
 The editor fixture routes audio through `AudioOutput::Offline` for the runner;
 this checks authored clip decoding without claiming a physical audio device.
 A package-only retry does not rebuild or relabel previous delivery binaries.
+The imported-lightmap export checks the prepared Shader's wrapper capability and
+the exported Material's Shader identity. After source removal and relocation,
+the runtime content verifier admits the Material's embedded Shader snapshot and
+the production executable verifies startup. Build-only Shader records and source
+files remain excluded from the runtime content.
 Independent Gallery export cases assign unique application IDs to their temporary
 copies so one scene's fixture save cannot become another case's initial state.
 Each observer checks its saved Scene identity and a distinct OS storage root;

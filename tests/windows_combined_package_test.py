@@ -250,15 +250,31 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
                              json.dumps(options)], cwd=root, env=env, text=True,
                             capture_output=True, timeout=180)
     assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    prepared_catalog = json.loads((gallery/'forge.assets.json').read_text())['assets']
+    lightmap_shader, = [row for row in prepared_catalog
+                       if row['source'] == 'Assets/Lightmaps/Irradiance.shader.json']
+    assert lightmap_shader['type'] == 'shader'
+    assert lightmap_shader['metadata']['forge.shader']['surface_wrapper_version'] >= 15
     lightmap_catalog = json.loads((lightmap_export/'content/forge.assets.json').read_text())['assets']
-    shader_record = next(row for row in lightmap_catalog if row['type'] == 'shader')
-    assert shader_record['metadata']['forge.shader']['surface_wrapper_version'] >= 15
+    lightmap_material = json.loads((gallery/'Assets/Lightmaps/Shared.material.json').read_text())
+    material_record, = [row for row in lightmap_catalog if row['id'] == lightmap_material['asset_id']]
+    assert material_record['type'] == 'material'
+    assert material_record['metadata']['forge.material']['shader'] == lightmap_shader['id']
+    assert not any(row['type'] == 'shader' for row in lightmap_catalog)
     assert not list((lightmap_export/'content').rglob('*.shader.json'))
     relocated_lightmap = root/'Relocated Imported Lightmap'
     lightmap_export.rename(relocated_lightmap)
     offline = gallery.with_name('Lightmap Sources Offline')
     gallery.rename(offline)
     try:
+        # The runtime owner decodes and validates the Material's embedded Shader
+        # snapshot; its build-only Shader catalog record is intentionally absent.
+        verified = subprocess.run([str(tools), '--assets', 'verify-package',
+                                   str(relocated_lightmap/'content'),
+                                   json.dumps(dict(platform='windows', backend='d3d12'))],
+                                  cwd=root, env=env, text=True, capture_output=True, timeout=180)
+        assert verified.returncode == 0 and json.loads(verified.stdout)['ok'], (
+            verified.stdout, verified.stderr)
         started = subprocess.run([str(relocated_lightmap/'forge_game.exe'), '--verify-startup'],
                                  cwd=relocated_lightmap, env=env, text=True,
                                  capture_output=True, timeout=180)
