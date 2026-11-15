@@ -137,10 +137,17 @@ void exercise(const std::filesystem::path& output, int width,
                   editor.state().at("revision") == baseline.at("revision"),
               "Typing a staged value binding wrote source");
         capture.save(output / ("ui-source-bindings-text-" + std::to_string(width) + ".png"));
+        input.type("ui-source:binding-text-prefix", "Health: ");
+        input.type("ui-source:binding-text-suffix", " points");
+        check(editor.state().at("text") == baseline.at("text"),
+              "Staged bound label text wrote source");
+        capture.save(output / ("ui-source-bindings-label-" + std::to_string(width) + ".png"));
         input.click("ui-source:binding-text-set");
         const auto bound = editor.state();
         check(bound.at("text").get<std::string>().find("{{health}}") != std::string::npos &&
                   editor.bindings(2).text.value == "health" &&
+                  editor.bindings(2).text_prefix == "Health: " &&
+                  editor.bindings(2).text_suffix == " points" &&
                   bound.at("selection") == Json::array({2}),
               "Native text binding did not write one shared candidate and retain selection");
         input.click("ui-source:binding-text-set");

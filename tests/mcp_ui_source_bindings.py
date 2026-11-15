@@ -14,12 +14,13 @@ def check_bindings(read, mutate, root, advertised, client, arguments, guard, edi
     schema = advertised['forge_ui_source_binding']['inputSchema']['properties']
     assert schema['kind']['enum'] == ['text', 'click_command']
     assert read('forge_ui_source_bindings', **guard(), element=2) == {
-        'text': dict(available=True, authored=False, value=None, reason=''),
+        'text': dict(available=True, authored=False, value=None, reason='', prefix='', suffix=''),
         'click_command': dict(available=False, authored=False, value=None,
                               argument=None, reason='Click command controls require a button or input button'),
         'kinds': [dict(id='text', label='Text value'), dict(id='click_command', label='Click command')],
         'builtin_variables': ['tick', 'paused'], 'model_read_only': True,
-        'command_arguments': True, 'argument_limit_bytes': 1024, 'name_limit': 64,
+        'command_arguments': True, 'argument_limit_bytes': 1024, 'text_literal_limit_bytes': 1024,
+        'name_limit': 64,
         'text_expression': '{{name}}', 'click_expression': "command('name')",
         'click_value_expression': "command('name','value')"}
     absent = edit('binding', element=2, kind='text', value=None)
@@ -48,9 +49,26 @@ def check_bindings(read, mutate, root, advertised, client, arguments, guard, edi
         assert read('forge_ui_source_read') == bound, 'Invalid binding partially published source'
     assert edit('undo')['text'] == source, 'Text binding needed more than one Undo'
     assert edit('redo')['text'] == bound['text']
+    labeled = edit('binding', element=2, kind='text', value='health',
+                   prefix='Health & <', suffix='> points ✓')
+    view = read('forge_ui_source_bindings', **guard(), element=2)['text']
+    assert view['prefix'] == 'Health & <' and view['suffix'] == '> points ✓'
+    assert 'Health &amp; &lt;{{health}}&gt; points ✓' in labeled['text']
+    assert edit('binding', element=2, kind='text', value='health',
+                prefix='Health & <', suffix='> points ✓')['revision'] == labeled['revision']
+    for extra in (dict(element=2, kind='text', value='health', prefix='{{tick}}'),
+                  dict(element=2, kind='text', value='health', suffix='}}'),
+                  dict(element=2, kind='text', value='health', prefix='ends {'),
+                  dict(element=2, kind='text', value='health', prefix='é' * 513),
+                  dict(element=2, kind='text', value=None, suffix='Keep'),
+                  dict(element=3, kind='click_command', value='Pause', prefix='Keep')):
+        assert not mutate('forge_ui_source_binding', **guard(), **extra)['ok']
+        assert read('forge_ui_source_read') == labeled
+    assert edit('undo')['text'] == bound['text'], 'Label text needed more than one Undo'
+    assert edit('redo')['text'] == labeled['text']
     cleared = edit('binding', element=2, kind='text', value=None)
     assert '<p id=\'value\'></p>' in cleared['text']
-    assert edit('undo')['text'] == bound['text']
+    assert edit('undo')['text'] == labeled['text']
     command = edit('binding', element=3, kind='click_command', value='Resume')
     assert command['selection'] == [3] and 'data-event-click="command(\'Resume\')"' in command['text']
     assert 'data-model' not in command['text']
@@ -80,7 +98,7 @@ def check_bindings(read, mutate, root, advertised, client, arguments, guard, edi
     assert (root / 'Game' / path).read_bytes() == disk
     edit('save')
     assert (root / 'Game' / path).read_text() == command['text']
-    custom = edit('replace', text=source.replace('Literal', 'Score {{health}}'))
+    custom = edit('replace', text=source.replace('Literal', 'Score {{health}} / {{tick}}'))
     view = read('forge_ui_source_bindings', **guard(), element=2)['text']
     assert view['authored'] and not view['available'] and view['reason']
     for value in ('tick', None):

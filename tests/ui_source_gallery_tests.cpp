@@ -134,7 +134,7 @@ void exercise(const std::filesystem::path& root, const Json& source,
                   std::string::npos,
               "Escaped source text was parsed as child markup");
         auto* bound_value = document->GetElementById("native-bound-value");
-        check(bound_value && bound_value->GetInnerRML() == "41",
+        check(bound_value && bound_value->GetInnerRML() == "Tick &amp; value: 41 &lt;done&gt;",
               "Saved/source-hidden guided text binding did not read the actual copied model");
         auto* typography = document->GetElementById("native-typography");
         check(typography && typography->GetProperty<int>("font-weight") == 700 &&
@@ -311,7 +311,7 @@ void exercise(const std::filesystem::path& root, const Json& source,
         presenter.update(0, 800, 600);
         document = Rml::GetContext(0)->GetDocument(0);
         auto* updated_value = document->GetElementById("native-bound-value");
-        check(updated_value && updated_value->GetInnerRML() == "42",
+        check(updated_value && updated_value->GetInnerRML() == "Tick &amp; value: 42 &lt;done&gt;",
               "Guided text binding did not observe a later copied value");
         const auto instance = snapshot.at("documents")[0].at("instance").get<std::string>();
         auto* authored_text = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(
@@ -1069,7 +1069,8 @@ int main(int argc, char** argv) {
             created =
                 insert_ui_markup_control(text, by_id(text, "canvas"), "label", "Value", {},
                                          "native-bound-value", UiPixelLayout{500, 420, 120, 30});
-            text = set_ui_markup_binding(created.source, created.element, "text", "tick");
+            text = set_ui_markup_binding(created.source, created.element, "text", "tick", {},
+                                         "Tick & value: ", " <done>");
             for (const auto& [id, name, x] :
                  {std::tuple{"native-bound-command", "Step", 500.f},
                   std::tuple{"native-unregistered-command", "NotRegistered", 660.f}}) {

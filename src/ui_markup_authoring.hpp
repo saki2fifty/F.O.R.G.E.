@@ -322,6 +322,7 @@ struct UiMarkupBinding {
 };
 struct UiMarkupBindings {
     UiMarkupBinding text, click_command;
+    std::string text_prefix, text_suffix;
 };
 inline constexpr std::array<std::pair<std::string_view, std::string_view>, 2>
     ui_markup_binding_kinds{{{"text", "Text value"}, {"click_command", "Click command"}}};
@@ -330,7 +331,8 @@ UiMarkupBindings read_ui_markup_bindings(std::string_view, std::span<const UiMar
                                          std::size_t element);
 std::string set_ui_markup_binding(std::string_view, std::size_t element, std::string_view kind,
                                   std::optional<std::string> value,
-                                  std::optional<std::string> argument = {});
+                                  std::optional<std::string> argument = {},
+                                  std::string_view prefix = {}, std::string_view suffix = {});
 // Compose existing source candidates; the caller publishes one transaction.
 UiMarkupControlEdit insert_ui_markup_control(std::string_view, std::size_t parent,
                                              std::string_view kind, std::string_view literal = {},

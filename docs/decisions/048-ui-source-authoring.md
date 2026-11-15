@@ -323,3 +323,11 @@ for the admitted single-quoted expression/escape profile. Omitted/null arguments
 retain the no-argument Set form. Runtime still validates registration and value
 meaning. Complex expressions, computed/multiple arguments and native field-value
 bindings remain Attributes/Source.
+
+Bound label text extends that same source adapter: one simple copied variable
+may have bounded decoded literal text before/after it. The existing scalar string
+validator and markup-text writer own byte/UTF8/NUL/escaping rules. Additional
+expression delimiters and an opening brace across the prefix boundary refuse;
+there is no expression evaluator or model change. Native RML retains evaluation.
+Elements stages all parts and guarded MCP composes the same source candidate.
+The prior bare-expression whitespace no-op convention remains intact.

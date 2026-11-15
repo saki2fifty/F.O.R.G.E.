@@ -1978,6 +1978,11 @@ namespace {
 bool simple_binding_variable(const std::string& name) {
     return name == "tick" || name == "paused" || UiValues::valid_name(name);
 }
+void binding_text_literal(std::string_view text) {
+    ui_protocol::validate_value(nlohmann::json(std::string(text)));
+    require(text.find("{{") == text.npos && text.find("}}") == text.npos,
+            "Expression delimiters in surrounding text use Source");
+}
 struct SimpleClickCommand {
     std::string name;
     std::optional<std::string> argument;
@@ -2047,12 +2052,19 @@ UiMarkupBindings read_ui_markup_bindings(std::string_view source,
                 "Edit data-text/data-rml bindings through Attributes or Source");
         if (text.authored) {
             const auto literal = Rml::StringUtilities::DecodeRml(std::string(content));
-            const auto binding = trimmed_control_literal(literal);
-            require(binding.starts_with("{{") && binding.ends_with("}}"),
+            const auto opening = literal.find("{{");
+            const auto closing = literal.find("}}", opening == literal.npos ? 0 : opening + 2);
+            require(opening != literal.npos && closing != literal.npos,
                     "Custom text expressions use Source");
-            const std::string name(trimmed_control_literal(binding.substr(2, binding.size() - 4)));
+            const std::string name(trimmed_control_literal(
+                std::string_view(literal).substr(opening + 2, closing - opening - 2)));
             require(simple_binding_variable(name), "Custom text expressions use Source");
+            auto prefix = literal.substr(0, opening), suffix = literal.substr(closing + 2);
+            binding_text_literal(prefix);
+            binding_text_literal(suffix);
             text.value = name;
+            result.text_prefix = std::move(prefix);
+            result.text_suffix = std::move(suffix);
         }
         text.available = true;
     } catch (const std::exception& error) {
@@ -2081,12 +2093,19 @@ UiMarkupBindings read_ui_markup_bindings(std::string_view source,
 }
 std::string set_ui_markup_binding(std::string_view source, std::size_t index, std::string_view kind,
                                   std::optional<std::string> value,
-                                  std::optional<std::string> argument) {
+                                  std::optional<std::string> argument, std::string_view prefix,
+                                  std::string_view suffix) {
     require(kind == "text" || kind == "click_command", "Choose a supported source binding kind");
     require(!argument || (kind == "click_command" && value),
             "A literal command value requires a click command name");
     if (argument)
         ui_protocol::validate_value(nlohmann::json(*argument));
+    require((prefix.empty() && suffix.empty()) || (kind == "text" && value),
+            "Surrounding text requires a text binding variable");
+    binding_text_literal(prefix);
+    binding_text_literal(suffix);
+    require(prefix.empty() || prefix.back() != '{',
+            "An opening brace directly before the expression uses Source");
     const auto nodes = inspect_ui_markup(source);
     const auto bindings = read_ui_markup_bindings(source, nodes, index);
     const auto& current = kind == "text" ? bindings.text : bindings.click_command;
@@ -2094,10 +2113,17 @@ std::string set_ui_markup_binding(std::string_view source, std::size_t index, st
     if (value)
         require(kind == "text" ? simple_binding_variable(*value) : ui_protocol::identifier(*value),
                 "Use a supported model variable or registered command name, up to64 bytes");
-    if (current.value == value && current.argument == argument)
+    const bool same_labels = prefix == bindings.text_prefix && suffix == bindings.text_suffix;
+    const bool bare_whitespace = prefix.empty() && suffix.empty() &&
+                                 trimmed_control_literal(bindings.text_prefix).empty() &&
+                                 trimmed_control_literal(bindings.text_suffix).empty();
+    if (current.value == value && current.argument == argument &&
+        (kind != "text" || same_labels || bare_whitespace))
         return std::string(source);
     if (kind == "text")
-        return set_ui_markup_text(source, index, value ? "{{" + *value + "}}" : "");
+        return set_ui_markup_text(
+            source, index,
+            value ? std::string(prefix) + "{{" + *value + "}}" + std::string(suffix) : "");
     if (!value)
         return set_ui_markup_attribute(source, index, "data-event-click", {});
     std::ostringstream expression;

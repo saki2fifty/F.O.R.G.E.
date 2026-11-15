@@ -463,6 +463,15 @@ digits or underscores, up to64bytes; reserved names are unavailable for project
 values. The built-in `tick` and `paused` values need no project definition.
 The model is read-only: displaying a value does not change its Scene or C++ owner.
 
+Use **Before value** and **After value** for a label or unit around the variable.
+For example, use `health` as **Variable**, `Health: ` before it and ` points`
+after it. Choose **Set binding**, save source and test in Play. Each text part
+supports UTF-8 text up to 1024 bytes; markup characters are escaped automatically.
+Typing stages the whole label, and Set creates one source Undo step. Clearing a
+recognized text binding empties its whole leaf text, including the label and unit.
+
+![Staging Health as a bound value with a Health label and points unit](../images/ui-source-bindings-label.png)
+
 **Clear binding** empties a recognized bound leaf text or removes a recognized
 click-command attribute. Clearing an unbound element preserves ordinary literal
 text. Undo restores the previous source. A command must be registered for the
@@ -485,9 +494,12 @@ off for commands such as Pause, Resume and Step. Runtime validates whether
 the command accepts a value and what that value means; source editing never runs it.
 
 These controls support leaf display text and literal commands on buttons or
-input buttons. Native field values, combined text such as `Score {{health}}`,
-reserved loading values, computed arguments and other custom expressions use
+input buttons. Each guided text binding has one variable. Multiple variables such
+as `Health {{health}} / tick {{tick}}`, computed expressions, native field values,
+reserved loading values and computed command arguments use
 Attributes or Source. Unsupported bindings show a reason and remain unchanged.
+Literal expression delimiters in the label, or an opening brace directly before
+the variable, also use Source.
 FORGE supplies the document model; do not add a `data-model` attribute.
 
 ## Duplicate a static control

@@ -53,6 +53,7 @@ class UiSourceEditor {
     char binding_text_[65] = "tick", binding_command_[65] = "Pause";
     bool binding_pass_value_ = false;
     char binding_argument_[1025]{};
+    char binding_prefix_[1025]{}, binding_suffix_[1025]{};
     char style_name_[65] = "color", style_value_[8193]{};
     ImGuiTextFilter style_filter_;
     std::string style_error_, style_control_error_;
@@ -1524,6 +1525,10 @@ class UiSourceEditor {
         binding_pass_value_ = binding_controls_.click_command.argument.has_value();
         std::snprintf(binding_argument_, sizeof(binding_argument_), "%s",
                       binding_controls_.click_command.argument.value_or("").c_str());
+        std::snprintf(binding_prefix_, sizeof(binding_prefix_), "%s",
+                      binding_controls_.text_prefix.c_str());
+        std::snprintf(binding_suffix_, sizeof(binding_suffix_), "%s",
+                      binding_controls_.text_suffix.c_str());
     }
     bool binding_controls(std::size_t index, bool locked) {
         const bool open = ImGui::CollapsingHeader("Runtime bindings");
@@ -1533,6 +1538,7 @@ class UiSourceEditor {
         ImGui::TextWrapped("Read copied game values in leaf text or call a registered button "
                            "command. Preview shows layout; bindings run during Play.");
         std::string change;
+        std::string prefix, suffix;
         std::optional<std::string> value, argument;
         for (const auto& [kind, label] : ui_markup_binding_kinds) {
             const bool text = kind == "text";
@@ -1548,7 +1554,12 @@ class UiSourceEditor {
             ImGui::BeginDisabled(locked);
             ImGui::InputText(text ? "Variable" : "Command", buffer, 65);
             FORGE_UI_PROBE("ui-source:binding-" + std::string(kind) + "-value");
-            if (!text) {
+            if (text) {
+                ImGui::InputText("Before value", binding_prefix_, sizeof(binding_prefix_));
+                FORGE_UI_PROBE("ui-source:binding-text-prefix");
+                ImGui::InputText("After value", binding_suffix_, sizeof(binding_suffix_));
+                FORGE_UI_PROBE("ui-source:binding-text-suffix");
+            } else {
                 ImGui::Checkbox("Pass value", &binding_pass_value_);
                 FORGE_UI_PROBE("ui-source:binding-command-pass-value");
                 ImGui::BeginDisabled(!binding_pass_value_);
@@ -1560,6 +1571,10 @@ class UiSourceEditor {
                        "Stage changes above, then replace this simple source binding.")) {
                 change = kind;
                 value = buffer;
+                if (text) {
+                    prefix = binding_prefix_;
+                    suffix = binding_suffix_;
+                }
                 if (!text && binding_pass_value_)
                     argument = binding_argument_;
             }
@@ -1571,6 +1586,8 @@ class UiSourceEditor {
                 change = kind;
                 value.reset();
                 argument.reset();
+                prefix.clear();
+                suffix.clear();
             }
             FORGE_UI_PROBE("ui-source:binding-" + std::string(kind) + "-clear");
             ImGui::EndDisabled();
@@ -1583,7 +1600,8 @@ class UiSourceEditor {
                            "Custom expressions use Attributes or Source.");
         if (change.empty())
             return false;
-        attempt([&] { binding(index, change, std::move(value), std::move(argument)); });
+        attempt(
+            [&] { binding(index, change, std::move(value), std::move(argument), prefix, suffix); });
         return true;
     }
     void selection_controls() {
@@ -3208,9 +3226,10 @@ class UiSourceEditor {
         return read_ui_markup_bindings(editor_.GetText(), outline_, index);
     }
     void binding(std::size_t index, std::string_view kind, std::optional<std::string> value,
-                 std::optional<std::string> argument = {}) {
+                 std::optional<std::string> argument = {}, std::string_view prefix = {},
+                 std::string_view suffix = {}) {
         replace_selected(set_ui_markup_binding(editor_.GetText(), index, kind, std::move(value),
-                                               std::move(argument)),
+                                               std::move(argument), prefix, suffix),
                          {index});
     }
     void insert(std::size_t parent, std::string_view tag, std::string_view literal,

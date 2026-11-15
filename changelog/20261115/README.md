@@ -2,6 +2,10 @@
 
 ## Guided UI source bindings
 
+Text bindings can include literal labels and units through Before value and After
+value, or the same MCP prefix/suffix options. One source candidate retains Undo,
+Save and read-only runtime ownership; multiple/computed expressions remain Source.
+
 Button bindings can include one literal string value using Pass value and Command
 value, or the same optional MCP argument. Existing runtime validation owns limits,
 UTF8, command permissions and value semantics. Native expression strings use the

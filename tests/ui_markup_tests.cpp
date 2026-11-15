@@ -621,7 +621,38 @@ void source_bindings() {
     rejects([&] { forge::set_ui_markup_binding(source, input, "text", "tick"); });
     rejects([&] { forge::set_ui_markup_binding(source, value, "click_command", "Pause"); });
     rejects([&] { forge::set_ui_markup_binding(source, value, "other", "tick"); });
-    for (const auto* custom : {"<rml><body><p>Score {{health}}</p></body></rml>",
+    const auto labeled = forge::set_ui_markup_binding(source, value, "text", "health", {},
+                                                      "Health & <", "> points ✓");
+    const auto label_view =
+        forge::read_ui_markup_bindings(labeled, forge::inspect_ui_markup(labeled), value);
+    check(label_view.text.value == "health" && label_view.text_prefix == "Health & <" &&
+              label_view.text_suffix == "> points ✓" &&
+              labeled.find("Health &amp; &lt;{{health}}&gt; points ✓") != std::string::npos,
+          "Bound labels lost text escaping, UTF8 or source observations");
+    check(forge::set_ui_markup_binding(labeled, value, "text", "health", {}, "Health & <",
+                                       "> points ✓") == labeled &&
+              forge::set_ui_markup_binding(labeled, value, "text", "health") == bound &&
+              forge::set_ui_markup_binding(labeled, value, "text", {}) == cleared,
+          "Label no-op, omitted labels or Clear changed unrelated source");
+    for (const auto& part : {std::string(1024, 'x'), std::string(" Élan: ")}) {
+        const auto candidate =
+            forge::set_ui_markup_binding(source, value, "text", "tick", {}, part, part);
+        const auto view =
+            forge::read_ui_markup_bindings(candidate, forge::inspect_ui_markup(candidate), value);
+        check(view.text.available && view.text_prefix == part && view.text_suffix == part,
+              "Bound labels did not admit their native string budget");
+    }
+    for (const auto& part : {std::string(1025, 'x'), std::string("a\0b", 3), std::string("\xff", 1),
+                             std::string("{{tick}}"), std::string("}}")}) {
+        rejects([&] { forge::set_ui_markup_binding(source, value, "text", "tick", {}, part); });
+        rejects([&] { forge::set_ui_markup_binding(source, value, "text", "tick", {}, "", part); });
+    }
+    rejects([&] { forge::set_ui_markup_binding(source, value, "text", "tick", {}, "ends {"); });
+    rejects([&] { forge::set_ui_markup_binding(source, value, "text", {}, {}, "Keep"); });
+    rejects([&] {
+        forge::set_ui_markup_binding(source, button, "click_command", "Pause", {}, "Keep");
+    });
+    for (const auto* custom : {"<rml><body><p>Score {{health}} / {{tick}}</p></body></rml>",
                                "<rml><body><p>{{health+1}}</p></body></rml>",
                                "<rml><body><p data-text='health'>Keep</p></body></rml>",
                                "<rml><body><p><!--keep-->Value</p></body></rml>",

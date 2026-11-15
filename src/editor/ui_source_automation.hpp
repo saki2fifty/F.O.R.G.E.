@@ -85,16 +85,20 @@ struct UiSourceAutomation {
         Json kinds = Json::array();
         for (const auto& [id, label] : ui_markup_binding_kinds)
             kinds.push_back({{"id", id}, {"label", label}});
+        auto text = row(view.text);
+        text["prefix"] = view.text_prefix;
+        text["suffix"] = view.text_suffix;
         auto click = row(view.click_command);
         click["argument"] =
             view.click_command.argument ? Json(*view.click_command.argument) : Json{};
-        return {{"text", row(view.text)},
+        return {{"text", std::move(text)},
                 {"click_command", std::move(click)},
                 {"kinds", std::move(kinds)},
                 {"builtin_variables", {"tick", "paused"}},
                 {"model_read_only", true},
                 {"command_arguments", true},
                 {"argument_limit_bytes", 1024},
+                {"text_literal_limit_bytes", 1024},
                 {"name_limit", 64},
                 {"text_expression", "{{name}}"},
                 {"click_expression", "command('name')"},
@@ -1039,6 +1043,8 @@ struct UiSourceAutomation {
                 add("value", {{"oneOf", {automation_text(64, 1), Json{{"type", "null"}}}}});
                 add("argument", {{"oneOf", {automation_text(1024), Json{{"type", "null"}}}}},
                     false);
+                add("prefix", automation_text(1024), false);
+                add("suffix", automation_text(1024), false);
             }
             if (action == "remove_group" || action == "duplicate_group" || action == "reparent" ||
                 action == "style_group" || action == "classes")
@@ -1231,6 +1237,8 @@ struct UiSourceAutomation {
                     ? "Set or clear one simple source binding using current source guards and "
                       "assets.write. kind=text replaces leaf text with a copied-value expression; "
                       "value names tick, paused or a simple published project/C++ value. "
+                      "Optional prefix/suffix add literal text around that one variable; each "
+                      "fits1024UTF8bytes and excludes expression delimiters. Omitted means empty. "
                       "kind=click_command sets a literal command on a button/input "
                       "button, using the runtime command-name validator. Read bindings first. "
                       "Optional argument is one literal UTF-8 string up to 1024 bytes, including "
@@ -1334,7 +1342,9 @@ struct UiSourceAutomation {
                                 : std::optional(request.at("value").get<std::string>()),
                             request.contains("argument") && !request.at("argument").is_null()
                                 ? std::optional(request.at("argument").get<std::string>())
-                                : std::nullopt);
+                                : std::nullopt,
+                            request.value("prefix", std::string{}),
+                            request.value("suffix", std::string{}));
                     else if (action == "text")
                         editor.text(request.at("element").get<std::size_t>(),
                                     request.at("text").get<std::string>());

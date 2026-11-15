@@ -23,7 +23,12 @@ authored state, the bound name and a reason for unsupported source. It requires
 
 Use `forge_ui_source_binding` with `element`, `kind` (`text` or `click_command`)
 and `value` to set a recognized binding. Text accepts `tick`, `paused` or a simple
-published project/C++ value name. Click commands take a registered command name
+published project/C++ value name. Optional `prefix` and `suffix` add literal text
+before and after that one variable; each supports up to 1024 UTF-8 bytes. Omitted
+parts are empty. For example, `value:"health", prefix:"Health: ", suffix:" points"`
+authors a label with a unit. The query's text row reports both literal parts.
+Multiple/computed variables and expression delimiters in literal text use Source.
+Click commands take a registered command name
 for a button or input button. Optional `argument` supplies one literal UTF-8 string
 up to 1024 bytes, including an empty string. Omit it or pass null for no argument;
 for example, `value:"TimeScale", argument:"0.5"` requests half speed during Play.
