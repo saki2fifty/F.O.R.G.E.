@@ -295,7 +295,8 @@ struct CodeAutomation {
             "are read-only; active indices refer to the full result, before pagination. "
             "Diagnostics carry receive date/time, severity, message and a guarded source location. "
             "Symbol information is read-only; file symbols provide a bounded hierarchical outline. "
-            "Use code.analysis.use to apply a completion or navigate a "
+            "Formatting returns one complete current-source proposal, including its edit count and "
+            "formatted text. Use code.analysis.use to apply completion/formatting or navigate a "
             "declaration/diagnostic/symbol/reference/type. Reference scope is the current compiler "
             "context, never an exhaustive project index.",
             "code.read",
@@ -544,7 +545,8 @@ struct CodeAutomation {
             methods.push_back(automation_method(
                 "code.analysis.use",
                 "Use an available result of the exact analysis operation. Completion changes "
-                "the existing source tab with one Undo record; declaration/diagnostic opens only a "
+                "the existing source tab with one Undo record. Formatting applies one complete "
+                "proposal and maps the current target cursor; declaration/diagnostic opens only a "
                 "contained "
                 "Native source. File symbols, references and type definitions use the same "
                 "navigation; signatures/symbol "
@@ -619,7 +621,8 @@ struct CodeAutomation {
             methods.push_back(automation_method(
                 "code.analysis.start",
                 "Query completion, declaration, call signatures, diagnostics, symbol information "
-                "file symbols, current-context references or type definitions at "
+                "file symbols, current-context references, type definitions or reviewed "
+                "whole-source formatting at "
                 "a UTF-8 "
                 "byte offset in the observed open "
                 "C++ tab, using all current open drafts and the existing configured CMake context. "

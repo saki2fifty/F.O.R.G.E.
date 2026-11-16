@@ -759,6 +759,12 @@ server's internal HasMore flag. With background indexing disabled, current-conte
 results must not be claimed exhaustive. Type-definition results use the same
 validated contained source locations. No additional provider process/service or
 dependency revision is introduced.
+Whole-source formatting uses the same provider's advertised formatting request
+and current draft TextEdits. Exact `Protocol.h` documents that FormattingOptions
+are ignored: the provider obtains style from `.clang-format`/fallback instead.
+FORGE sends mandatory protocol options without claiming they override style.
+The returned set is validated as one bounded proposal before source use; the
+editor retains its LF/final-newline contract and existing single Undo owner.
 Exact cached Protocol/server contracts and real-provider Unicode/empty-result
 probes verify both formats; source-position interpretation stays UTF8. No label-offset conversion is inferred.
 The selected source confirms dirty headers default off and document symbols wait

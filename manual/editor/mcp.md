@@ -514,6 +514,13 @@ Undo/Redo and use the same Back/Forward list. Empty queries return no locations;
 external type/reference files are unavailable. No refactoring or source edits are
 performed by these navigation actions.
 
+`kind:format` prepares one whole-source formatting proposal with its complete
+`text` and `edit_count`. Read it before using `forge_code_analysis_use` to apply the
+complete candidate as one source Undo step. The current caret follows its edits;
+saved bytes remain unchanged until Save. Empty/no-op formatting returns no items.
+Invalid, overlapping or over-budget edit sets are refused without partial changes.
+Style files are read by the provider at query time; rerun after changing them.
+
 With execution allowed, the agent can test compiler tools, build current saved
 code, inspect its opted-in component types and explicitly migrate old authored
 values. Analysis providers, native code and build recipes run with your account's operating-system

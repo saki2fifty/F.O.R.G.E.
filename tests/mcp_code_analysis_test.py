@@ -115,6 +115,26 @@ for legacy in protocol_cases():
                         after_navigation = read('forge_code_read', path='Native/Spinner.cpp')
                         assert after_navigation['text'] == draft and after_navigation['can_redo'] == before_navigation['can_redo']
                     before_signature = read('forge_code_read', path='Native/Spinner.cpp')
+                    started = mutate('forge_code_analysis_start', **(observed_args() | dict(kind='format', offset=args['offset'])))
+                    assert started['ok'], started
+                    status = settle()
+                    assert status['complete'] and status['total'] == 1, status
+                    proposal = status['items'][0]
+                    assert proposal['edit_count'] == 2 and 'format_edits' not in status
+                    assert read('forge_code_read', path='Native/Spinner.cpp') == before_signature
+                    route = discovery()
+                    request = dict(target=route['result']['target'], expected_revision=route['revision'],
+                        sequence=route['next_sequence'], operation=status['operation'], index=0)
+                    formatted = client.tool('forge_code_analysis_use', **request)
+                    assert formatted['ok'] and client.tool('forge_code_analysis_use', **request) == formatted
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == proposal['text']
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
+                    assert mutate('forge_code_redo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == proposal['text']
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
+                    before_signature = read('forge_code_read', path='Native/Spinner.cpp')
                     started = mutate('forge_code_analysis_start', **(observed_args() | dict(kind='signature', offset=args['offset'])))
                     assert started['ok'], started
                     status = settle()

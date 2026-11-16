@@ -64,7 +64,7 @@ Undo/Redo, **Ctrl+F** and **Find next**. A file changed outside FORGE shows a
 notice; a conflicting Save keeps your draft, and **Reload from disk** asks before
 discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
 be open. Optional code assistance provides completion, declaration/type lookup,
-current-context references, call signatures, source diagnostics, symbol information
+current-context references, reviewed source formatting, call signatures, source diagnostics, symbol information
 and file outlines. Debugging,
 project-wide refactoring and arbitrary in-place C++ reload are unavailable.
 
@@ -128,6 +128,7 @@ editing and building work without this optional tool.
 8. Choose **Symbols in file** to list the active file’s declarations. Indented entries show nesting and available details. Click an entry to navigate to its source name. Existing drafts and source Undo/Save are preserved. A completed empty outline says **No symbols in this source draft.**
 9. Place the cursor on a symbol and choose **Find references**. Click a returned path/line/column to open a usage. Declarations are excluded. These results cover the provider's current compiler context and can omit other project files; use **Find in Project** when you also need a literal text search.
 10. Place the cursor on a variable or instance and choose **Go to type**. Click an available location to open its type definition under **Native/**. Built-in types may return no location; SDK and external definitions are unavailable here. Use **Back** to return to the original variable.
+11. Choose **Format source** to prepare a formatting proposal for the whole active file. Review **Proposed source**, then choose **Apply formatted source (N edits)**. The query preserves your draft; applying follows the current caret through the edits and creates one source Undo step. Save and Build Project Code remain separate. **No formatting changes returned.** means the provider offered no changes.
 
 ![C++ Sources showing a function call signature and its active second argument](../images/cpp-code-assistance.png)
 
@@ -157,6 +158,12 @@ preserves your draft and source Undo/Redo; Save remains a separate action.
 
 Choose **Go to type** at a variable, then select the returned type location.
 
+![Read-only formatting proposal for a C++ header with an explicit Apply action](../images/cpp-source-formatting.png)
+
+Review the complete proposed file before applying. Source Undo/Redo restores the
+whole operation. Formatting uses the provider's `.clang-format` or fallback style;
+the source widget retains LF line endings. Rerun after changing style files.
+
 Queries include current open source and header drafts. They do not save files,
 compile the game, apply changes automatically or run commands suggested by the
 provider. **Results for** identifies the queried file, even after you switch tabs.
@@ -182,6 +189,9 @@ project-wide literal source searches.
 Reference/type lists retain at most 64 locations. A finished reference query is a
 snapshot of the current compiler context; it does not establish a complete
 whole-project index. An empty list means no locations were returned in that context.
+Formatting accepts at most 32,768 non-overlapping edits and a complete result
+within the source editor's 1 MiB budget. Larger, ambiguous or invalid proposals
+are refused in full. Formatting does not establish that the game compiles.
 Analysis has a bounded timeout; it is separate
 from game compilation and is not a
 debugger or a project-wide refactoring service.

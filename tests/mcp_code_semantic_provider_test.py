@@ -189,6 +189,34 @@ for legacy in protocol_cases():
                 navigated = read('forge_code_read', path='Native/gameplay.cpp')
                 assert navigated['text'] == symbol_text and navigated['cursor']['line'] == location['line']
                 assert navigated['can_undo'] == before_navigation['can_undo'] and navigated['can_redo'] == before_navigation['can_redo']
+            format_before = read('forge_code_read', path='Native/gameplay.cpp')
+            mutate('forge_code_analysis_start', **observed(), kind='format', offset=0, tool=PROVIDER)
+            formatting = settle('forge_code_analysis_status')
+            (root / 'analysis-format-result.json').write_text(json.dumps(formatting, indent=2))
+            assert formatting['complete'] and formatting['total'] == 1, formatting
+            proposal = formatting['items'][0]
+            assert proposal['edit_count'] > 0 and 'format_edits' not in formatting
+            assert read('forge_code_read', path='Native/gameplay.cpp') == format_before
+            def source_cursor(text, index):
+                start = text.rfind('\n', 0, index) + 1
+                return dict(line=text.count('\n', 0, index) + 1,
+                            column=len(text[start:index].expandtabs(4)) + 1)
+            mutate('forge_code_open', path='Native/gameplay.cpp', state=format_before['state'],
+                   **source_cursor(symbol_text, symbol_text.rindex('p.café') + 2))
+            mutate('forge_code_analysis_use', operation=formatting['operation'], index=proposal['index'])
+            formatted = read('forge_code_read', path='Native/gameplay.cpp')
+            assert formatted['text'] == proposal['text'] and '\r' not in formatted['text']
+            assert formatted['cursor'] == source_cursor(formatted['text'], formatted['text'].rindex('p.café') + 2)
+            mutate('forge_code_analysis_start', **observed(), kind='format', offset=0, tool=PROVIDER)
+            empty_format = settle('forge_code_analysis_status')
+            assert empty_format['complete'] and empty_format['total'] == 0, empty_format
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == symbol_text
+            mutate('forge_code_redo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == proposal['text']
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == symbol_text
+            assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original
             mutate('forge_code_analysis_start', **observed(), kind='hover', offset=len(symbol_text.encode()), tool=PROVIDER)
             result = settle('forge_code_analysis_status')
             assert result['complete'] and result['readonly'] and result['total'] == 0, result

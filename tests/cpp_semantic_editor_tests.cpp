@@ -258,6 +258,44 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
               ui::read_cpp_source(root / "Native/gameplay.cpp") == saved &&
               scene.document() == authored,
           "Native file outline changed source or Scene");
+    const auto format_path = root / "Native/FormatProbe.hpp";
+    const std::string format_disk =
+        "#pragma once\r\n// café: formatting proposal\r\n"
+        "struct FormatProbe{float speed=90.0f;void tick(){speed+=1;}};\r\n";
+    if (!std::filesystem::exists(format_path))
+        atomic_write(format_path, format_disk);
+    check(ui::read_cpp_source(format_path) == format_disk,
+          "Formatting fixture would overwrite an unrelated source file");
+    editor.open(document, "Native/FormatProbe.hpp");
+    const auto format_before = editor.active_text();
+    const auto format_cursor =
+        ui::cpp_source_coordinate(format_before, format_before.rfind("speed"));
+    editor.open(document, "Native/FormatProbe.hpp", format_cursor.first + 1,
+                format_cursor.second + 1);
+    frame();
+    input.click("cpp:analysis:format");
+    wait_result();
+    check(editor.active_text() == format_before && !editor.can_undo(),
+          "Native formatting query changed the source or its Undo");
+    reveal_source();
+    if (!captures.empty())
+        capture.save(captures / ("cpp-format-" + std::to_string(width) + ".png"));
+    input.select("cpp:analysis:use:0");
+    frame();
+    const auto format_after = editor.active_text();
+    const auto format_target = ui::cpp_source_coordinate(format_after, format_after.rfind("speed"));
+    check(format_after != format_before && format_after.find('\r') == format_after.npos &&
+              test::ui_targets.contains(cursor_key(format_target)) &&
+              ui::read_cpp_source(format_path) == format_disk,
+          "Native format did not follow its current caret/LF/disk contract");
+    editor.undo(false);
+    check(editor.active_text() == format_before && !editor.can_undo(),
+          "Native format did not share exactly one source Undo record");
+    editor.undo(true);
+    check(editor.active_text() == format_after, "Native formatting Redo lost its proposal");
+    editor.undo(false);
+    editor.open(document, "Native/gameplay.cpp", declaration_position.first + 1,
+                declaration_position.second + 1);
     editor.undo(false);
     check(editor.active_text() == completed, "File outline navigation added a source Undo record");
     locked = true;
@@ -275,6 +313,8 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     check(!test::ui_targets.at("cpp:analysis:references").enabled &&
               !test::ui_targets.at("cpp:analysis:typeDefinition").enabled,
           "Native reference/type controls bypassed the source lock");
+    check(!test::ui_targets.at("cpp:analysis:format").enabled,
+          "Native formatting control bypassed the source lock");
     locked = false;
     frame();
     editor.undo(true);

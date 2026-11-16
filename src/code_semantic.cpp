@@ -8,6 +8,8 @@
 #include <charconv>
 #include <iostream>
 #include <map>
+#include <span>
+#include <vector>
 
 namespace forge {
 namespace {
@@ -20,6 +22,38 @@ void require(bool condition, const char* message) {
 bool boundary(std::string_view text, std::size_t offset) {
     return offset <= text.size() &&
            (offset == text.size() || (static_cast<unsigned char>(text[offset]) & 0xc0) != 0x80);
+}
+std::size_t source_offset(std::string_view text, const Json& position,
+                          std::span<const std::size_t> lines = {}) {
+    require(position.is_object() && position.at("line").is_number_integer() &&
+                position.at("character").is_number_integer(),
+            "Invalid C++ semantic source position");
+    const auto row = position.at("line").get<std::int64_t>();
+    const auto column = position.at("character").get<std::int64_t>();
+    require(row >= 0 && column >= 0 && std::uint64_t(row) <= text.size() &&
+                std::uint64_t(column) <= text.size(),
+            "C++ semantic position is outside its source");
+    std::size_t start = 0;
+    if (!lines.empty()) {
+        require(std::uint64_t(row) < lines.size(), "C++ semantic line is outside its source");
+        start = lines[std::size_t(row)];
+    } else {
+        for (std::int64_t i = 0; i < row; ++i) {
+            const auto end = text.find('\n', start);
+            require(end != text.npos, "C++ semantic line is outside its source");
+            start = end + 1;
+        }
+    }
+    auto end = lines.empty()                         ? text.find('\n', start)
+               : std::size_t(row) + 1 < lines.size() ? lines[std::size_t(row) + 1] - 1
+                                                     : text.size();
+    if (end == text.npos)
+        end = text.size();
+    if (end > start && text[end - 1] == '\r')
+        --end;
+    require(std::uint64_t(column) <= end - start && boundary(text, start + column),
+            "C++ semantic column is outside its line or splits UTF-8");
+    return start + column;
 }
 std::string semantic_string(const Json& value, std::size_t limit = 4096) {
     auto text = value.get<std::string>();
@@ -68,6 +102,81 @@ Json normalized_completions(const Json& response, const std::string& source) {
     return {{"items", std::move(output)},
             {"limited",
              items.size() > 64 || (response.is_object() && response.value("isIncomplete", false))}};
+}
+Json normalized_formatting(const Json& response, const std::string& source) {
+    require(response.is_null() || response.is_array(),
+            "C++ formatting needs an edit array or null");
+    require(response.size() <= 32768, "C++ formatting exceeds 32768 edits; no changes proposed");
+    require(source.find('\r') == source.npos, "Format source requires the editor's LF draft");
+    Json items = Json::array();
+    if (response.empty())
+        return {{"items", std::move(items)}, {"limited", false}};
+    std::vector<std::size_t> lines{0};
+    for (std::size_t from = 0;;) {
+        const auto end = source.find('\n', from);
+        if (end == source.npos)
+            break;
+        lines.push_back(end + 1);
+        from = end + 1;
+    }
+    struct Edit {
+        std::size_t begin, end;
+        std::string text;
+    };
+    std::vector<Edit> changes;
+    changes.reserve(response.size());
+    std::size_t inserted = 0, removed = 0;
+    for (const auto& edit : response) {
+        const auto begin = source_offset(source, edit.at("range").at("start"), lines);
+        const auto end = source_offset(source, edit.at("range").at("end"), lines);
+        require(begin <= end, "Reversed C++ formatting range");
+        auto text = semantic_string(edit.at("newText"), ui::max_cpp_source_bytes);
+        std::erase(text, '\r'); // Source widgets retain LF, including provider CRLF proposals.
+        require(text.size() <= ui::max_cpp_source_bytes - inserted,
+                "C++ formatting replacement text exceeds 1 MiB");
+        inserted += text.size();
+        changes.push_back({begin, end, std::move(text)});
+    }
+    std::sort(changes.begin(), changes.end(),
+              [](const Edit& a, const Edit& b) { return a.begin < b.begin; });
+    for (std::size_t i = 0; i < changes.size(); ++i) {
+        const auto& edit = changes[i];
+        require(i == 0 || (changes[i - 1].end <= edit.begin && changes[i - 1].begin != edit.begin),
+                "Overlapping or ambiguous C++ formatting edits");
+        removed += edit.end - edit.begin;
+    }
+    const auto bytes = source.size() - removed + inserted;
+    require(bytes < ui::max_cpp_source_bytes,
+            "Formatted C++ source exceeds the editor's 1 MiB budget");
+    std::string candidate;
+    candidate.reserve(bytes);
+    Json edits = Json::array();
+    std::size_t from = 0;
+    for (const auto& edit : changes) {
+        candidate.append(source, from, edit.begin - from);
+        candidate += edit.text;
+        from = edit.end;
+        if (source.compare(edit.begin, edit.end - edit.begin, edit.text) != 0)
+            edits.push_back({{"begin", edit.begin}, {"end", edit.end}, {"text", edit.text}});
+    }
+    candidate.append(source, from, source.size() - from);
+    if (candidate.empty() || candidate.back() != '\n')
+        candidate += '\n';
+    require(candidate.size() < ui::max_cpp_source_bytes,
+            "Leave room for the formatted source's final newline within 1 MiB");
+    ui::validate_cpp_text(candidate);
+    if (candidate != source)
+        items.push_back(
+            {{"available", true},
+             {"reason", ""},
+             {"label", "Apply formatted source (" + std::to_string(edits.size()) + " edits)"},
+             {"begin", 0},
+             {"end", source.size()},
+             {"text", std::move(candidate)},
+             {"edit_count", edits.size()}});
+    if (items.empty())
+        edits.clear();
+    return {{"items", std::move(items)}, {"limited", false}, {"format_edits", std::move(edits)}};
 }
 std::string semantic_documentation(const Json& value) {
     if (value.is_null())
@@ -466,28 +575,7 @@ nlohmann::json cpp_semantic_position(std::string_view text, std::size_t offset) 
     return {{"line", row}, {"character", offset - start}};
 }
 std::size_t cpp_semantic_offset(std::string_view text, const nlohmann::json& position) {
-    require(position.is_object() && position.at("line").is_number_integer() &&
-                position.at("character").is_number_integer(),
-            "Invalid C++ semantic source position");
-    const auto row = position.at("line").get<std::int64_t>();
-    const auto column = position.at("character").get<std::int64_t>();
-    require(row >= 0 && column >= 0 && std::uint64_t(row) <= text.size() &&
-                std::uint64_t(column) <= text.size(),
-            "C++ semantic position is outside its source");
-    std::size_t start = 0;
-    for (std::int64_t i = 0; i < row; ++i) {
-        const auto end = text.find('\n', start);
-        require(end != text.npos, "C++ semantic line is outside its source");
-        start = end + 1;
-    }
-    auto end = text.find('\n', start);
-    if (end == text.npos)
-        end = text.size();
-    if (end > start && text[end - 1] == '\r')
-        --end;
-    require(std::uint64_t(column) <= end - start && boundary(text, start + column),
-            "C++ semantic column is outside its line or splits UTF-8");
-    return start + column;
+    return source_offset(text, position);
 }
 
 nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
@@ -564,6 +652,9 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     if (kind == "references" || kind == "typeDefinition")
         require(initialized.at("capabilities").at(kind + "Provider").get<bool>(),
                 "Semantic tools require the requested symbol-navigation support");
+    if (kind == "format")
+        require(initialized.at("capabilities").at("documentFormattingProvider").get<bool>(),
+                "Semantic tools require whole-source formatting support");
     transport.send({{"method", "initialized"}, {"params", Json::object()}});
     const auto open_document = [&](const auto& path, const auto& draft) {
         transport.send({{"method", "textDocument/didOpen"},
@@ -588,12 +679,18 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
                     {"position", position}};
     if (kind == "references")
         parameters["context"] = {{"includeDeclaration", false}};
+    if (kind == "format") {
+        parameters.erase("position");
+        // Mandatory protocol fields; the selected provider obtains style from its files/fallback.
+        parameters["options"] = {{"tabSize", 4}, {"insertSpaces", true}};
+    }
     auto response =
         kind == "symbols" ? std::move(symbols)
         : kind == "diagnostics"
             ? transport.diagnostics()
-            : transport.call("textDocument/" +
-                                 (kind == "signature" ? std::string("signatureHelp") : kind),
+            : transport.call("textDocument/" + (kind == "signature" ? std::string("signatureHelp")
+                                                : kind == "format"  ? std::string("formatting")
+                                                                    : kind),
                              parameters);
     transport.finish();
     const auto current_database =
@@ -604,8 +701,9 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
                   : kind == "signature"   ? normalized_signatures(response)
                   : kind == "diagnostics" ? normalized_diagnostics(response, target, text)
                   : kind == "hover"       ? normalized_hover(response, text)
-                  : kind == "symbols"
-                      ? normalized_symbols(response, target, text)
+                  : kind == "symbols"     ? normalized_symbols(response, target, text)
+                  : kind == "format"
+                      ? normalized_formatting(response, text)
                       : normalized_locations(response, paths, documents, kind == "references");
     if (kind == "references")
         result.update({{"scope", "current_context"}, {"exhaustive", false}});
@@ -637,7 +735,9 @@ int cpp_semantic_worker(const std::filesystem::path& input, const std::filesyste
             ~Shutdown() { SDL_Quit(); }
         } shutdown;
         const auto result = query_cpp_semantics(request);
-        asset_storage::replace(output, result.dump());
+        const auto response = result.dump();
+        require(response.size() <= frame_limit, "C++ analysis response exceeds 8 MiB");
+        asset_storage::replace(output, response);
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "C++ semantic query failed: " << error.what() << '\n';

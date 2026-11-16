@@ -59,3 +59,15 @@ distinct outcomes. Existing six assistance modes remain supported.
 Location links require their selection to fit the enclosing target range. Source
 jumps collapse earlier selections while project search still selects its new
 match, preserving text, caret and source Undo ownership.
+
+## Reviewed C++ source formatting
+
+Format source queries the current draft, shows a read-only whole-source proposal
+and applies only on request through the existing one-record source Undo path.
+The current caret follows validated edits. Native controls and MCP share bounded
+complete-candidate admission, LF/final-newline handling, permissions, stale checks
+and receipts. Invalid, overlapping, ambiguous or over-budget sets fail without
+partial formatting. Source-position decoding retains its existing public path and
+uses a transient line-start table for many formatting ranges. Private cursor edits
+stay with the task; MCP exposes the complete proposal and edit count. Style comes
+from the pinned provider's style files/fallback, without new preferences or pins.

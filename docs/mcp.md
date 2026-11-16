@@ -886,10 +886,18 @@ its internal truncation flag. `limited` describes FORGE's retained-row bound,
 not whole-project coverage. Type definitions (`typeDefinition`) share the same
 guarded path/state/UTF8 range and visual location fields. Null/empty replies are
 valid zero-location results; malformed arrays/ranges or missing capabilities fail.
+Whole-source formatting (`format`) returns at most one available proposal with
+complete LF `text`, `edit_count`, label and whole-source byte range. The internal
+cursor-mapping edit list is not exposed in MCP status. Null/empty/no-op replies
+return no items. Up to32768 edits are validated together; reversed/overlapping/
+ambiguous/UTF8-invalid ranges or a result at/above1MiB fail without a partial
+proposal. The existing private response budget is8MiB. Applying the exact proposal
+uses one source Undo record and follows the current target caret, including moves
+after the query. Style comes from provider files/fallback; rerun after style edits.
 Logs retain timestamps and bounded UTF-8 paging.
 
 With `code.execute`, `forge_code_analysis_start` requires an observed source
-`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`) and UTF-8 byte
+`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`/`format`) and UTF-8 byte
 `offset`. Optional `tool` overrides the configured clangd23.1.0 path for that
 launch only. The managed project must have a successful CMake configure this
 session through Build Project Code; a compiler readiness probe is a different
@@ -902,7 +910,7 @@ its proposals. Only one query is active; project retirement clears old results/l
 With `code.write`, `forge_code_analysis_use` takes the operation UUID and result
 index0..63. It rechecks project, operation, all drafts, saved Native input identity,
 compiler generation and database before using the existing source owner. Completion
-adds one ordinary source Undo record; declaration/diagnostic/file symbol/reference/type
+and whole-source formatting add one ordinary source Undo record; declaration/diagnostic/file symbol/reference/type
 navigates without changing source.
 Signature and symbol-information results reject this operation as read-only and preserve source/cursor/history.
 Neither saves or builds. Normal routing/revision/sequence, permissions, pending

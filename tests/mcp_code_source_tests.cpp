@@ -518,6 +518,86 @@ int main(int argc, char** argv) {
             }
             SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
         }
+        const auto before_format = invoke("code.read", {{"path", "Native/First.cpp"}});
+        start_analysis("format");
+        analysis = settle_analysis();
+        check(analysis.at("complete") && analysis.at("total") == 1 &&
+                  analysis.at("items").at(0).at("edit_count") == 2 &&
+                  !analysis.contains("format_edits") &&
+                  invoke("code.read", {{"path", "Native/First.cpp"}}) == before_format,
+              "Formatting preview changed source/history or exposed internal cursor edits");
+        const auto formatted = analysis.at("items").at(0).at("text").get<std::string>();
+        const auto caret = forge::ui::cpp_source_coordinate(draft, draft.rfind("s.de") + 2);
+        editor.open(files.document, "Native/First.cpp", caret.first + 1, caret.second + 1);
+        use_analysis(analysis);
+        const auto mapped =
+            forge::ui::cpp_source_coordinate(formatted, formatted.rfind("s.de") + 2);
+        check(editor.active_text() == formatted &&
+                  invoke("code.read", {{"path", "Native/First.cpp"}}).at("cursor") ==
+                      forge::Json{{"line", mapped.first + 1}, {"column", mapped.second + 1}},
+              "Formatting failed to map the current cursor through its edits");
+        editor.undo(false);
+        check(editor.active_text() == draft, "Formatting required more than one source Undo");
+        editor.undo(true);
+        check(editor.active_text() == formatted, "Formatting Redo lost its complete proposal");
+        editor.undo(false);
+        for (const auto* mode :
+             {"format-null", "format-empty", "format-noop", "format-object", "format-reversed",
+              "format-overlap", "format-ambiguous", "format-range", "format-utf8", "format-control",
+              "format-budget", "format-count", "format-unavailable", "format-crlf", "format-tabs",
+              "format-unicode", "format-disordered"}) {
+            SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", mode, true);
+            start_analysis("format");
+            analysis = settle_analysis();
+            const std::string_view selected(mode);
+            if (selected == "format-null" || selected == "format-empty" ||
+                selected == "format-noop")
+                check(analysis.at("complete") && analysis.at("total") == 0,
+                      "Empty/no-op formatting produced a source replacement");
+            else if (selected == "format-crlf" || selected == "format-tabs" ||
+                     selected == "format-unicode" || selected == "format-disordered") {
+                check(analysis.at("complete") && analysis.at("total") == 1,
+                      "Valid bounded formatting failed");
+                const auto proposed = analysis.at("items").at(0).at("text").get<std::string>();
+                check(proposed.find('\r') == proposed.npos,
+                      "Formatting escaped the editor's LF contract");
+                use_analysis(analysis);
+                check(editor.active_text() == proposed,
+                      "Formatting diverged from its reviewed text");
+                editor.undo(false);
+                check(editor.active_text() == draft, "Formatting tab/Unicode Undo lost source");
+            } else
+                check(!analysis.at("complete").get<bool>() &&
+                          !analysis.at("error").get<std::string>().empty(),
+                      std::string("Malformed/unavailable formatting accepted: ") + mode);
+            check(editor.active_text() == draft &&
+                      forge::ui::read_cpp_source(root / "Native/First.cpp") == disk_before_analysis,
+                  "Formatting query or Undo changed source/disk baseline");
+        }
+        SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+        std::string large_format = draft, expected_large_format = draft;
+        for (int i = 0; i != 8192; ++i) {
+            const auto line = "// line " + std::to_string(i) + " café\n";
+            large_format += line;
+            expected_large_format += " " + line;
+        }
+        editor.replace_text(large_format);
+        SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", "format-many", true);
+        start_analysis("format");
+        analysis = settle_analysis();
+        check(analysis.at("complete") && analysis.at("total") == 1 &&
+                  analysis.at("items").at(0).at("edit_count") == 8192 &&
+                  analysis.at("items").at(0).at("text") == expected_large_format,
+              "Large formatting set was truncated or used incorrect indexed positions");
+        use_analysis(analysis);
+        check(editor.active_text() == expected_large_format,
+              "Large format diverged from its candidate");
+        editor.undo(false);
+        check(editor.active_text() == large_format, "Large format did not share one source Undo");
+        editor.undo(false);
+        check(editor.active_text() == draft,
+              "Large-format fixture lost the preceding source draft");
+        SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
         {
             // Actual isolated source owner; navigation has no compiler/provider dependency.
             forge::atomic_write(root / "Native/NavA.cpp", "first\nsecond\nthird\n");

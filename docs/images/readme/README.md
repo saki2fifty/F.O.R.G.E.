@@ -3820,34 +3820,29 @@ their original attribution.
 
 [Call signatures](../../../manual/images/cpp-code-assistance.png),
 [source diagnostics](../../../manual/images/cpp-source-diagnostics.png),
-[symbol information](../../../manual/images/cpp-symbol-information.png) and
+[symbol information](../../../manual/images/cpp-symbol-information.png),
 [file outlines](../../../manual/images/cpp-file-outline.png),
-[references](../../../manual/images/cpp-references.png) and
-[type definitions](../../../manual/images/cpp-type-definition.png) show the actual
-700×850 CppSourceEditor with a separately installed clangd23.1.0 and a genuine
+[references](../../../manual/images/cpp-references.png),
+[type definitions](../../../manual/images/cpp-type-definition.png) and
+[formatting](../../../manual/images/cpp-source-formatting.png) show the actual
+700×850 CppSourceEditor with separately installed clangd23.1.0 and a genuine
 managed GNU12.3.0/Release SDK CMake context. Each task has one canonical image.
-The six captures include Back/Forward/Clear navigation controls,
-eight analysis actions and the queried-file caption. Reference/type views at700and400
-were reviewed; the existing four tasks retain their previously reviewed content.
-All eight modes pass native controls at1180/700/400. The outline
-is captured before a later test opens another header and invalidates its snapshot.
+All nine modes pass real native controls at1180/700/400. The nine analysis actions
+wrap into three rows at400; Back/Forward/Clear and queried-file captions remain.
 
-Symbol information shows the field type and plain-text declaration. The outline
-is naturally scrolled to a nested namespace/struct/field and selected source name.
-The responsive helper wraps the eight analysis actions into three lines at400.
-Real mouse/wheel/selection input reveals source
-and outline rows and moves away from help; no pixels or controls are retouched.
-Navigation/information
-preserve source Undo and Save; saved files and Scene remain unchanged.
+The formatting views at700and400 were reviewed. The dedicated FormatProbe.hpp
+fixture starts with CRLF saved bytes and an LF source draft. Its proposed formatted
+header is shown before Apply; the current source remains visible below. Real
+native use verifies current-caret mapping, exactly one Undo/Redo and unchanged disk.
+The fixture also exercises search/select/open/Back selection collapse. Other task
+content retains its preceding reviews with the current toolbar refreshed. Real
+pointer/wheel/selectable input reveals the views; pixels and controls are not retouched.
 
-Capture source is the working tree based ona8b67b4. The successful build's exact
-source-input digest, provider/image hashes, original paths and test command are in
-`AgentFiles/build/phase370-cpp-reference-navigation/capture-proof-final.json`.
-These captures precede a later search-selection correction and its appended native
-regression. Their selection-free task views and visible controls are unchanged;
-the later branch has separate current-binary normal/sanitizer evidence. No claim
-is made that the captures exercised that branch.
-Canonical PNGs are copied byte-for-byte. This software SDL/ImGui source-owner
-fixture has inactive New/build callbacks and deliberate incomplete code examples;
-it is separate from compiler success, automatic fixes, full Windows Main/provider,
-physical desktop/GPU/DPI and performance acceptance.
+Capture source is the working tree based ona9eb8ca. Exact source/test hashes,
+actual invoked actor/tool/provider bytes, original image paths and test command are
+in `AgentFiles/build/phase371-cpp-source-formatting/capture-proof-final.json`.
+The run logger confirms those inputs did not change during capture. Canonical PNGs
+are copied byte-for-byte. This SDL software source-owner fixture has inactive
+New/build callbacks and deliberate code examples. It does not establish compiler
+success, automatic fixes, full Main/Windows/provider/physical desktop/GPU/DPI or
+performance acceptance.

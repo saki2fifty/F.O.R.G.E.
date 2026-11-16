@@ -203,7 +203,8 @@ class CppSourceEditor {
             throw std::runtime_error("Choose an available C++ analysis result");
         // Own the row before any source operation can invalidate the derived result.
         const auto item = items.at(index);
-        if (result.at("kind").get<std::string>() != "completion") {
+        const bool format = result.at("kind").get<std::string>() == "format";
+        if (result.at("kind").get<std::string>() != "completion" && !format) {
             open(project, item.at("path").get<std::string>(), item.at("line").get<int>(),
                  item.at("column").get<int>(), item.at("state").get<std::string>());
             return;
@@ -216,7 +217,7 @@ class CppSourceEditor {
         const auto end = item.at("end").get<std::size_t>();
         const auto replacement = item.at("text").get<std::string>();
         if (begin > end || end > before.size())
-            throw std::runtime_error("C++ completion has an invalid source range");
+            throw std::runtime_error("C++ source edit has an invalid source range");
         auto after = before;
         after.replace(begin, end - begin, replacement);
         validate_cpp_text(after);
@@ -225,11 +226,43 @@ class CppSourceEditor {
                 "Leave room for the source editor's final newline within 1 MiB");
         if (after == before)
             return;
-        const auto start = cpp_source_coordinate(before, begin);
-        const auto finish = cpp_source_coordinate(before, end);
-        replace_source_widget_text(tab->editor, replacement,
-                                   std::pair{TextEditor::Coordinates(start.first, start.second),
-                                             TextEditor::Coordinates(finish.first, finish.second)});
+        if (format) {
+            const auto cursor = tab->editor.GetCursorPosition();
+            const auto point = cpp_source_clamped_coordinate(before, cursor.mLine, cursor.mColumn);
+            const auto offset = cpp_source_byte_offset(before, point.first, point.second);
+            std::size_t source_from = 0, target_from = 0, mapped = offset;
+            bool located = false;
+            for (const auto& edit : result.at("format_edits")) {
+                const auto first = edit.at("begin").get<std::size_t>();
+                const auto last = edit.at("end").get<std::size_t>();
+                if (offset < first) {
+                    mapped = target_from + offset - source_from;
+                    located = true;
+                    break;
+                }
+                const auto following = target_from + first - source_from +
+                                       edit.at("text").get_ref<const std::string&>().size();
+                if (offset < last) {
+                    mapped = following;
+                    located = true;
+                    break;
+                }
+                source_from = last;
+                target_from = following;
+            }
+            if (!located)
+                mapped = target_from + offset - source_from;
+            replace_source_widget_text(tab->editor, after);
+            const auto next = cpp_source_coordinate(after, std::min(mapped, after.size()));
+            position_source(*tab, TextEditor::Coordinates(next.first, next.second));
+        } else {
+            const auto start = cpp_source_coordinate(before, begin);
+            const auto finish = cpp_source_coordinate(before, end);
+            replace_source_widget_text(
+                tab->editor, replacement,
+                std::pair{TextEditor::Coordinates(start.first, start.second),
+                          TextEditor::Coordinates(finish.first, finish.second)});
+        }
         source_changed(*tab);
         select_tab_next_frame(*tab);
         activate_source(*tab);
@@ -707,7 +740,8 @@ class CppSourceEditor {
             {"completion", "Complete"},        {"declaration", "Find declaration"},
             {"signature", "Signature help"},   {"diagnostics", "Check source"},
             {"hover", "Symbol info"},          {"symbols", "Symbols in file"},
-            {"references", "Find references"}, {"typeDefinition", "Go to type"}};
+            {"references", "Find references"}, {"typeDefinition", "Go to type"},
+            {"format", "Format source"}};
         for (const auto& [kind, label] : actions) {
             if (!first_button)
                 next_text_button(label);
@@ -746,6 +780,7 @@ class CppSourceEditor {
             const bool symbols = result.at("kind").get<std::string>() == "symbols";
             const bool references = result.at("kind").get<std::string>() == "references";
             const bool type_definition = result.at("kind").get<std::string>() == "typeDefinition";
+            const bool format = result.at("kind").get<std::string>() == "format";
             if (signature)
                 ImGui::TextUnformatted("Call signatures (read-only)");
             if (diagnostics)
@@ -760,11 +795,15 @@ class CppSourceEditor {
                     "References in current context (not an exhaustive project index)");
             if (type_definition)
                 ImGui::TextUnformatted("Type definitions");
-            ImGui::BeginChild("Analysis results",
-                              {0, signature || diagnostics || information || symbols || references
-                                      ? 160.f
-                                      : 100.f},
-                              ImGuiChildFlags_Borders);
+            if (format)
+                ImGui::TextWrapped("Formatting proposal. Source changes when you apply it.");
+            ImGui::BeginChild(
+                "Analysis results",
+                {0, signature || diagnostics || information || symbols || references || format
+                        ? 160.f
+                        : 100.f},
+                ImGuiChildFlags_Borders,
+                format ? ImGuiWindowFlags_HorizontalScrollbar : ImGuiWindowFlags_None);
             const auto& items = result.at("items");
             if (items.empty())
                 ImGui::TextUnformatted(diagnostics
@@ -772,6 +811,7 @@ class CppSourceEditor {
                                        : symbols         ? "No symbols in this source draft."
                                        : references      ? "No references returned in this context."
                                        : type_definition ? "No type definition returned."
+                                       : format          ? "No formatting changes returned."
                                                          : "No results at this cursor.");
             for (std::size_t i = 0; i < items.size(); ++i) {
                 const auto& item = items.at(i);
@@ -818,7 +858,7 @@ class CppSourceEditor {
                                   (item.at("detail").get_ref<const std::string&>().empty()
                                        ? ""
                                        : " — " + item.at("detail").get<std::string>())
-                    : result.at("kind").get<std::string>() == "completion"
+                    : result.at("kind").get<std::string>() == "completion" || format
                         ? item.at("label").get<std::string>()
                     : item.at("available").get<bool>()
                         ? item.at("path").get<std::string>() + ":" +
@@ -831,6 +871,12 @@ class CppSourceEditor {
                 if (symbols)
                     FORGE_UI_PROBE("cpp:analysis:symbol:" + item.at("label").get<std::string>());
                 ImGui::EndDisabled();
+                if (format) {
+                    ImGui::TextUnformatted("Proposed source");
+                    const auto& preview = item.at("text").get_ref<const std::string&>();
+                    ImGui::TextUnformatted(preview.data(), preview.data() + preview.size());
+                    FORGE_UI_PROBE("cpp:analysis:format:" + std::to_string(i));
+                }
                 if (!item.at("available").get<bool>())
                     ImGui::TextWrapped("%s",
                                        item.at("reason").get_ref<const std::string&>().c_str());

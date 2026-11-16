@@ -166,7 +166,7 @@ history database is introduced. Failed/stale operations preserve the stacks;
 project retirement clears them. MCP uses the same owner with navigation revision
 and current-tab witnesses; see [the tooling contract](mcp.md#c-project-code).
 
-`CppSourceEditor` owns one ephemeral completion/declaration/signature/diagnostic/symbol/reference/type task over its existing
+`CppSourceEditor` owns one ephemeral completion/declaration/signature/diagnostic/symbol/reference/type/formatting task over its existing
 open drafts. An optional separately installed clangd23.1.0 is the analysis provider;
 its exact revision and options are recorded in [dependencies](dependencies.md).
 The SDK compiler, source files, source history and authoring ownership are unchanged.
@@ -231,6 +231,22 @@ selects its new match. Both share the existing source-location normalizer,
 navigation/BackForward without source edits, Save or Undo. A shared supported-kind
 array keeps worker, source task and MCP discovery consistent; no symbol database
 or persistent indexing service is added.
+
+Whole-source formatting uses `textDocument/formatting` and the advertised
+documentFormattingProvider. The selected provider ignores protocol indentation
+options and reads its style files/fallback. Native source drafts use LF. All edits
+are validated together, sorted, bounded to32768 and rejected on overlap/ambiguous
+starts, malformed UTF8/ranges or a result at/above1MiB. A transient line-start table
+extends the existing position decoder for many ranges; ordinary calls retain
+their existing scan and ABI. The complete candidate is assembled once and follows
+the widget's final-newline contract. No partial formatting is offered.
+
+One proposal exposes its complete text/edit count; normalized cursor-mapping edits
+remain private to the existing task. Source use follows the current target caret
+through those edits and performs one whole-source widget replacement/Undo. Native
+preview is derived read-only text, not another draft or history owner. Save/build
+and all existing source/context/permission/receipt guards remain separate. Style
+files outside the source snapshot are not watched; rerun after editing them.
 
 Queries snapshot all open drafts, saved Native build-input identity and the actual
 compile-database digest. Response/apply checks preserve project, operation,

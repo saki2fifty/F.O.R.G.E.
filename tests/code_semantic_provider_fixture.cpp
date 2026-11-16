@@ -77,6 +77,7 @@ int main() {
                       {"signatureHelpProvider", Json::object()},
                       {"referencesProvider", mode != "locations-unavailable"},
                       {"typeDefinitionProvider", mode != "locations-unavailable"},
+                      {"documentFormattingProvider", mode != "format-unavailable"},
                       {"hoverProvider", mode != "hover-unavailable"}}}};
                 if (mode == "signature-unavailable")
                     result["capabilities"].erase("signatureHelpProvider");
@@ -241,6 +242,74 @@ int main() {
                         result["signatures"].push_back(item);
                     result["activeSignature"] = 64;
                 }
+            } else if (method == "textDocument/formatting") {
+                const auto& params = request.at("params");
+                if (params.contains("position") || params.at("options").at("tabSize") != 4 ||
+                    params.at("options").at("insertSpaces") != true)
+                    throw std::runtime_error("Whole-source formatting request shape is invalid");
+                const auto& text =
+                    drafts.at(params.at("textDocument").at("uri").get<std::string>());
+                const auto first = text.find("float ");
+                const auto last = text.find("};", first);
+                const auto edit = [&](std::size_t begin, std::size_t end, std::string replacement) {
+                    return Json{{"range",
+                                 {{"start", forge::cpp_semantic_position(text, begin)},
+                                  {"end", forge::cpp_semantic_position(text, end)}}},
+                                {"newText", std::move(replacement)}};
+                };
+                result = Json::array({edit(first, first, "\n  "), edit(last, last, "\n")});
+                if (mode == "format-null")
+                    result = nullptr;
+                else if (mode == "format-empty")
+                    result = Json::array();
+                else if (mode == "format-noop")
+                    result = Json::array({edit(0, text.size(), text)});
+                else if (mode == "format-object")
+                    result = result.at(0);
+                else if (mode == "format-reversed")
+                    result = Json::array({edit(first + 5, first, "")});
+                else if (mode == "format-overlap")
+                    result =
+                        Json::array({edit(first, first + 5, ""), edit(first + 1, first + 2, "")});
+                else if (mode == "format-ambiguous")
+                    result = Json::array({edit(first, first, " "), edit(first, first, "\n")});
+                else if (mode == "format-range")
+                    result[0]["range"]["start"]["line"] = 999999;
+                else if (mode == "format-utf8") {
+                    result[0]["range"]["start"] =
+                        forge::cpp_semantic_position(text, text.find("é"));
+                    result[0]["range"]["start"]["character"] =
+                        result[0]["range"]["start"]["character"].get<int>() + 1;
+                } else if (mode == "format-control")
+                    result[0]["newText"] = std::string(1, '\0');
+                else if (mode == "format-budget")
+                    result[0]["newText"] = std::string(1024 * 1024, 'x');
+                else if (mode == "format-count") {
+                    const auto item = result.at(0);
+                    result = Json::array();
+                    for (int i = 0; i != 32769; ++i)
+                        result.push_back(item);
+                } else if (mode == "format-many") {
+                    result = Json::array();
+                    for (std::size_t from = 0, row = 0; from < text.size(); ++row) {
+                        if (text.compare(from, 8, "// line ") == 0) {
+                            const Json point{{"line", row}, {"character", 0}};
+                            result.push_back(
+                                {{"range", {{"start", point}, {"end", point}}}, {"newText", " "}});
+                        }
+                        const auto end = text.find('\n', from);
+                        if (end == text.npos)
+                            break;
+                        from = end + 1;
+                    }
+                } else if (mode == "format-crlf")
+                    result[0]["newText"] = "\r\n  ";
+                else if (mode == "format-tabs")
+                    result[0]["newText"] = "\n\t";
+                else if (mode == "format-unicode")
+                    result[0]["newText"] = "/* café */ ";
+                else if (mode == "format-disordered")
+                    std::reverse(result.begin(), result.end());
             } else if (method == "textDocument/declaration" ||
                        method == "textDocument/references" ||
                        method == "textDocument/typeDefinition") {
