@@ -3,6 +3,7 @@
 #include "cpp_shortcut_editor_tests.hpp"
 #include "cpp_source_files.hpp"
 #include "cpp_source_search_tests.hpp"
+#include "source_text_widget.hpp"
 #include <TextEditor.h>
 #include <chrono>
 #include <cstdint>
@@ -158,6 +159,37 @@ int main(int argc, char** argv) {
         int w, h;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
         TextEditor editor;
+        editor.SetTabSize(4);
+        for (const auto& replacement : {"\té\n", "a\té😀\tlast\n", "\t\tx\nnext\té\n", ""}) {
+            editor.SetText("\told\té\ntrailing\n");
+            const auto original = editor.GetText();
+            replace_source_widget_text(editor, replacement);
+            const auto changed = editor.GetText();
+            require(changed == (std::string(replacement).empty() ? "\n" : replacement),
+                    "Shared source replacement changed tab/Unicode contents");
+            for (int repeat = 0; repeat != 3; ++repeat) {
+                editor.Undo();
+                require(editor.GetText() == original && !editor.CanUndo(),
+                        "Tab/Unicode replacement did not restore its single source Undo record");
+                editor.Redo();
+                require(editor.GetText() == changed && !editor.CanRedo(),
+                        "Tab/Unicode replacement did not restore its single source Redo record");
+            }
+        }
+        editor.SetText("a\told\tend\n");
+        const auto before_range = editor.GetText();
+        replace_source_widget_text(
+            editor, "é\t🚀",
+            std::pair{TextEditor::Coordinates(0, 4), TextEditor::Coordinates(0, 7)});
+        require(editor.GetText() == "a\té\t🚀\tend\n\n" &&
+                    editor.GetCursorPosition() == TextEditor::Coordinates(0, 9),
+                "Partial source replacement lost its tab/Unicode end coordinate");
+        editor.Undo();
+        require(editor.GetText() == before_range && !editor.CanUndo(),
+                "Partial tab/Unicode replacement required multiple Undo steps");
+        editor.Redo();
+        require(editor.GetText() == "a\té\t🚀\tend\n\n",
+                "Partial tab/Unicode replacement Redo was not exact");
         editor.SetLanguageDefinition(TextEditor::LanguageDefinition::CPlusPlus());
         editor.SetText("int value = 0;\n");
         editor.SetCursorPosition({1, 0});

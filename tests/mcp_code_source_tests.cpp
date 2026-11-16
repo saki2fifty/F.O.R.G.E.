@@ -467,6 +467,116 @@ int main(int argc, char** argv) {
                       std::string("Malformed symbol reply accepted: ") + mode);
         }
         SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+        {
+            // Actual isolated source owner; navigation has no compiler/provider dependency.
+            forge::atomic_write(root / "Native/NavA.cpp", "first\nsecond\nthird\n");
+            forge::atomic_write(root / "Native/NavB.hpp", "#pragma once\n");
+            forge::ui::CppSourceEditor navigator;
+            auto navigation_methods = forge::CodeAutomation::methods(
+                scene, files, navigator, authored, prefab, providers, permissions);
+            const auto call_navigation = [&](const std::string& name, const forge::Json& request) {
+                const auto method =
+                    std::find_if(navigation_methods.begin(), navigation_methods.end(),
+                                 [&](const auto& value) { return value.name == name; });
+                check(method != navigation_methods.end(), "Missing navigation operation");
+                return method->invoke(request);
+            };
+            const auto navigation = [&] {
+                return call_navigation("code.navigation.status", forge::Json::object());
+            };
+            const auto move_request = [&](const forge::Json& before, const char* direction) {
+                const auto& source = before.at("source");
+                return forge::Json{{"path", source.at("path")},
+                                   {"session", source.at("session")},
+                                   {"state", source.at("state")},
+                                   {"navigation_revision", before.at("revision")},
+                                   {"direction", direction}};
+            };
+            const auto move = [&](const char* direction) {
+                return call_navigation("code.navigation.move",
+                                       move_request(navigation(), direction));
+            };
+            navigator.open(files.document, "Native/NavA.cpp", 3, 5);
+            const auto original_navigation_text = navigator.active_text();
+            navigator.open(files.document, "Native/NavB.hpp");
+            auto before = navigation();
+            navigator.open(files.document, "Native/NavB.hpp");
+            check(navigation() == before && before.at("back_count") == 1,
+                  "Repeated open manufactured a source navigation location");
+            auto moved = move("back");
+            check(moved.at("source").at("path") == "Native/NavA.cpp" &&
+                      moved.at("source").at("cursor") == forge::Json{{"line", 3}, {"column", 5}},
+                  "Back lost its source/caret witness");
+            moved = move("forward");
+            before = navigation();
+            for (const auto* fault : {"revision", "source", "direction"}) {
+                auto request = move_request(before, "back");
+                if (std::string_view(fault) == "revision")
+                    request["navigation_revision"] = 0;
+                else if (std::string_view(fault) == "source")
+                    request["state"] = std::string(64, '0');
+                else
+                    request["direction"] = "sideways";
+                bool refused = false;
+                try {
+                    call_navigation("code.navigation.move", request);
+                } catch (const std::exception&) {
+                    refused = true;
+                }
+                check(refused && navigation() == before,
+                      "Failed navigation changed source or location history");
+            }
+            auto source = call_navigation("code.read", {{"path", "Native/NavA.cpp"}});
+            call_navigation("code.replace", {{"path", source.at("path")},
+                                             {"session", source.at("session")},
+                                             {"state", source.at("state")},
+                                             {"text", "\té\n"}});
+            move("back");
+            moved = move("back");
+            check(navigator.active_text() == "\té\n" &&
+                      moved.at("source").at("cursor") == forge::Json{{"line", 1}, {"column", 5}},
+                  "Historical location did not clamp to edited UTF8/tab coordinates");
+            navigator.undo(false);
+            check(navigator.active_text() == original_navigation_text,
+                  "Navigation Undo mismatch: expected " +
+                      forge::Json(original_navigation_text).dump() + " actual " +
+                      forge::Json(navigator.active_text()).dump());
+            navigator.undo(true);
+            navigator.open(files.document, "Native/NavB.hpp");
+            check(navigation().at("forward_count") == 0,
+                  "A new source jump retained the old Forward branch");
+            for (int i = 0; i != 140; ++i)
+                navigator.open(files.document, i % 2 == 0 ? "Native/NavA.cpp" : "Native/NavB.hpp");
+            check(navigation().at("back_count") == 128,
+                  "Source navigation exceeded its location budget");
+            source = call_navigation("code.read", {{"path", "Native/NavA.cpp"}});
+            call_navigation("code.close", {{"path", source.at("path")},
+                                           {"session", source.at("session")},
+                                           {"state", source.at("state")},
+                                           {"discard", true}});
+            std::filesystem::remove(root / "Native/NavA.cpp");
+            before = navigation();
+            bool missing_refused = false;
+            try {
+                move("back");
+            } catch (const std::exception&) {
+                missing_refused = true;
+            }
+            check(missing_refused && navigation() == before,
+                  "A missing closed source silently popped or redirected a navigation location");
+            const auto text_before_clear = navigator.active_text();
+            auto cleared = call_navigation("code.navigation.clear",
+                                           {{"navigation_revision", before.at("revision")}});
+            check(cleared.at("back_count") == 0 && cleared.at("forward_count") == 0 &&
+                      navigator.active_text() == text_before_clear,
+                  "Clear navigation changed source");
+            check(call_navigation("code.navigation.clear",
+                                  {{"navigation_revision", cleared.at("revision")}}) == cleared,
+                  "Empty navigation clear was not a no-op");
+            navigator.project_changed(root / "AnotherProject");
+            check(navigation().at("revision").is_null() && navigation().at("source").is_null(),
+                  "Navigation leaked a retired project's source or locations");
+        }
         const auto cancelled = start_analysis();
         invoke("code.analysis.cancel", {{"operation", cancelled.at("operation")}});
         analysis = settle_analysis();

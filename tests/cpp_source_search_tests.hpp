@@ -16,6 +16,13 @@ inline void test_cpp_source_search(const std::filesystem::path& root) {
             "Source byte conversion accepted the middle of a tab");
     rejects([&] { (void)cpp_source_byte_offset(coordinates, 4, 0); },
             "Source byte conversion accepted a nonexistent line");
+    require(cpp_source_clamped_coordinate(coordinates, 0, 2) == std::pair{0, 0} &&
+                cpp_source_clamped_coordinate(coordinates, 0, 5) == std::pair{0, 5} &&
+                cpp_source_clamped_coordinate(coordinates, 0, 99) == std::pair{0, 6} &&
+                cpp_source_clamped_coordinate(coordinates, 1, 99) == std::pair{1, 4} &&
+                cpp_source_clamped_coordinate(coordinates, 99, 99) == std::pair{2, 0} &&
+                cpp_source_clamped_coordinate("𐐀\tx", 0, 3) == std::pair{0, 1},
+            "Historical source hints lost line, Unicode or four-space tab boundaries");
     std::filesystem::create_directories(root / "Native/Components");
     atomic_write(
         root / "Native/Components/Rotator.hpp",

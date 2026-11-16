@@ -21,6 +21,7 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
         std::filesystem::create_directories(root.parent_path());
         SceneDocument::create_project(root, "C++ completion");
         atomic_write(root / "Native/gameplay.cpp", "// Saved project source\n");
+        atomic_write(root / "Native/forge.registration.hpp", "#pragma once\n");
         atomic_write(root / ".forge/analysis-fixture/compile_commands.json", "[]");
     }
     const auto compiler_context = existing ? existing_context : root / ".forge/analysis-fixture";
@@ -179,6 +180,8 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     editor.undo(false);
     check(editor.active_text() == completed, "Symbol information added a source Undo record");
     editor.undo(true);
+    editor.open(document, "Native/gameplay.cpp", symbol_position.first + 1,
+                symbol_position.second + 1);
     frame();
     input.click("cpp:analysis:symbols");
     const auto symbols_end = std::chrono::steady_clock::now() + std::chrono::seconds(40);
@@ -188,9 +191,42 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     input.select("cpp:analysis:symbol:outline_member");
+    const auto declaration_position =
+        ui::cpp_source_coordinate(symbol_draft, symbol_draft.find("float outline_member") + 6);
+    const auto cursor_key = [](const auto& position) {
+        return "cpp:cursor:" + std::to_string(position.first + 1) + ":" +
+               std::to_string(position.second + 1);
+    };
+    input.click("cpp:navigation:back");
+    frame();
+    check(test::ui_targets.contains(cursor_key(symbol_position)),
+          "Native Back did not restore the source use location");
+    input.click("cpp:navigation:forward");
+    frame();
+    check(test::ui_targets.contains(cursor_key(declaration_position)),
+          "Native Forward did not restore the declaration location");
     reveal_source();
     if (!captures.empty())
         capture.save(captures / ("cpp-file-symbols-" + std::to_string(width) + ".png"));
+    editor.open(document, "Native/forge.registration.hpp");
+    editor.open(document, "Native/gameplay.cpp", declaration_position.first + 1,
+                declaration_position.second + 1);
+    frame();
+    input.click("cpp:navigation:back");
+    frame();
+    check(editor.active_source() == "Native/forge.registration.hpp" &&
+              test::ui_targets.contains("cpp:analysis:scope:Native/gameplay.cpp"),
+          "Rapid tab opens polluted Back history or hid the semantic result's file scope");
+    input.click("cpp:navigation:forward");
+    frame();
+    check(editor.active_source() == "Native/gameplay.cpp" &&
+              test::ui_targets.contains(cursor_key(declaration_position)),
+          "Forward returned to a transient fallback tab");
+    input.click("cpp:navigation:clear");
+    frame();
+    check(!test::ui_targets.at("cpp:navigation:back").enabled &&
+              !test::ui_targets.at("cpp:navigation:forward").enabled,
+          "Clear navigation retained reachable Back/Forward locations");
     check(editor.active_text() == symbol_draft &&
               ui::read_cpp_source(root / "Native/gameplay.cpp") == saved &&
               scene.document() == authored,
@@ -206,6 +242,9 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     check(!test::ui_targets.at("cpp:analysis:hover").enabled &&
               !test::ui_targets.at("cpp:analysis:symbols").enabled,
           "Native symbol controls bypassed the source lock");
+    check(!test::ui_targets.at("cpp:navigation:back").enabled &&
+              !test::ui_targets.at("cpp:navigation:clear").enabled,
+          "Native navigation bypassed the source lock");
     editor.project_changed(root / "DifferentProject");
     test::observe_ui = false;
 }

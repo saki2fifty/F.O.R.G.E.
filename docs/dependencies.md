@@ -485,8 +485,12 @@ interpreter is introduced; FORGE selects the C++ definition only.
 
 Exact source compiled against ImGui1.92.9b. Supply standard cstdint via compiler
 forced include because the upstream implementation/header uses uint8_t without
-including its defining header; FORGE's wrapper includes it explicitly. No upstream
-source patch or dependency upgrade. Upstream identifier descriptions are cleared
+including its defining header; FORGE's wrapper includes it explicitly. The immutable
+checkout is preserved. A signature-checked build-tree copy corrects tab insertion
+columns so Paste and Undo/Redo retain exact text; see the
+[known-source finding](dependency-known-issues.md#text-widget-tab-insertion-coordinates).
+This editor-only repair changes no dependency version, public API or SDK layout.
+Upstream identifier descriptions are cleared
 so its intrinsic popups cannot bypass FORGE's global Tooltips preference. Diagnostic
 navigation/help is owned by FORGE rather than upstream error-marker popups.
 Official README/source evidence matches the selected snapshot; no release/version

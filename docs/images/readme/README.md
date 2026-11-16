@@ -3824,20 +3824,23 @@ their original attribution.
 [file outlines](../../../manual/images/cpp-file-outline.png) show the actual
 700×850 CppSourceEditor with a separately installed clangd23.1.0 and a genuine
 managed GNU12.3.0/Release SDK CMake context. Each task has one canonical image.
-Signature/diagnostic captures are refreshed for the current six-button toolbar;
-their content/behavior remains as in the reviewed preceding capture.
+The four captures include the current Back/Forward/Clear navigation controls,
+six analysis actions and the queried-file caption. Outline views at700and400 and
+the signature view at700 were reviewed after actual native navigation. The outline
+is captured before a later test opens another header and invalidates its snapshot.
 
 Symbol information shows the field type and plain-text declaration. The outline
 is naturally scrolled to a nested namespace/struct/field and selected source name.
-Both new views were reviewed at700and400. The existing responsive helper wraps
+Symbol information retains the previously reviewed content; the refreshed outline
+is reviewed at700and400. The existing responsive helper wraps
 controls into two lines at400. Real mouse/wheel/selection input reveals source
 and outline rows and moves away from help; no pixels or controls are retouched.
 All six assistance modes pass actual controls at1180/700/400. Navigation/information
 preserve source Undo and Save; saved files and Scene remain unchanged.
 
-Capture source is the working tree based on25bac67. Exact source, executable,
+Capture source is the working tree based one4247f3. Exact source, executable,
 provider and image hashes, original paths and test command are recorded in
-`AgentFiles/build/phase367-cpp-symbol-inspection/capture-proof-final.json`.
+`AgentFiles/build/phase369-cpp-source-navigation/capture-proof-final.json`.
 Canonical PNGs are copied byte-for-byte. This software SDL/ImGui source-owner
 fixture has inactive New/build callbacks and deliberate incomplete code examples;
 it is separate from compiler success, automatic fixes, full Windows Main/provider,

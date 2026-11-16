@@ -58,6 +58,9 @@ for legacy in protocol_cases():
                         assert tools['forge_code_analysis_' + name]['annotations']['readOnlyHint']
                         assert not tools['forge_code_analysis_' + name]['annotations']['openWorldHint']
                     assert ('forge_code_analysis_use' in tools) == (mode != 'read')
+                    assert tools['forge_code_navigation_status']['annotations']['readOnlyHint']
+                    assert ('forge_code_navigation_move' in tools) == (mode != 'read')
+                    assert ('forge_code_navigation_clear' in tools) == (mode != 'read')
                     assert ('forge_code_analysis_start' in tools) == (mode == 'analysis')
                     assert ('forge_code_analysis_cancel' in tools) == (mode == 'analysis')
                     if mode != 'analysis':
@@ -140,6 +143,28 @@ for legacy in protocol_cases():
                     assert mutate('forge_code_analysis_use', operation=status['operation'], index=child['index'])['ok']
                     source = read('forge_code_read', path='Native/Spinner.cpp')
                     assert source['text'] == draft and source['cursor']['line'] == child['line']
+                    location_before = read('forge_code_read', path='Native/Spinner.cpp')
+                    assert mutate('forge_code_open', path='Native/Spinner.cpp', line=1, column=1)['ok']
+                    navigation = read('forge_code_navigation_status')
+                    assert navigation['can_back'] and navigation['back_target']['line'] == location_before['cursor']['line']
+                    witness = {key: navigation['source'][key] for key in ('path', 'session', 'state')}
+                    stale = mutate('forge_code_navigation_move', **witness, direction='back', navigation_revision=navigation['revision'] - 1)
+                    assert not stale['ok'], stale
+                    assert read('forge_code_navigation_status') == navigation
+                    route = discovery()
+                    request = dict(target=route['result']['target'], expected_revision=route['revision'],
+                        sequence=route['next_sequence'], **witness, direction='back', navigation_revision=navigation['revision'])
+                    moved = client.tool('forge_code_navigation_move', **request)
+                    assert moved['ok'] and moved['result']['source']['cursor'] == location_before['cursor'], moved
+                    assert client.tool('forge_code_navigation_move', **request) == moved
+                    navigation = read('forge_code_navigation_status')
+                    witness = {key: navigation['source'][key] for key in ('path', 'session', 'state')}
+                    moved = mutate('forge_code_navigation_move', **witness, direction='forward', navigation_revision=navigation['revision'])
+                    assert moved['ok'] and moved['result']['source']['cursor'] == dict(line=1, column=1), moved
+                    navigation = read('forge_code_navigation_status')
+                    cleared = mutate('forge_code_navigation_clear', navigation_revision=navigation['revision'])
+                    assert cleared['ok'] and cleared['result']['back_count'] == 0 and cleared['result']['forward_count'] == 0
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
                     started = mutate('forge_code_analysis_start', **(observed_args() | dict(kind='completion', offset=args['offset'])))
                     assert started['ok'], started
                     status = settle()

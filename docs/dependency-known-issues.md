@@ -18,6 +18,29 @@ See[dependency policy](dependency-policy.md).
 Verified2026-09-20. The[texture contract](texture-assets.md) distinguishes bounded
 CPU admission, native processing, supported integration and actual codec tests.
 
+## Text widget tab insertion coordinates
+
+ImGuiColorTextEdit `ca2f9f1462e3b60e56351bc466acda448c5ea50d`, verified
+2026-11-16. `TextEditor::InsertTextAt` increments the returned visual column by
+one for a tab. The selected widget uses four-column tab stops, so Paste records an
+incorrect added-range endpoint. Replacing a source with `\té` and then Undo can
+leave the final character in the restored source. This is independent of source
+navigation and affects the shared C++/UI source widget.
+
+`cmake/cpp_text_editor.cmake` checks the LF-normalized whole-file SHA256 before
+staging one independently authored tab-stop correction in a build-tree copy.
+`forge-cpp-text-editor/source.json` records the upstream revision and input,
+repair and compiled-source hashes. The immutable checkout, MIT copyright/notice,
+single native Undo buffer and public API remain unchanged. The repair advances a
+tab to its next configured stop in constant time; other characters retain their
+existing behavior. No alternative source history or sanitizer exception is added.
+
+`cpp_source_editor` covers whole-source and partial-range replacements, Unicode,
+tabs in removed/inserted text and repeated single-step Undo/Redo. Source-owner
+navigation and UI source consumers exercise the same compiled widget. This does
+not establish Windows physical acceptance; numbered delivery evidence remains
+separate. Revisit/remove the repair deliberately if the selected pin changes.
+
 ## Box2D3.2.0 mover contact-point coordinates
 
 Exact `178495ba35695aefe9c321e569d2277f06db3b90`, double-position build,

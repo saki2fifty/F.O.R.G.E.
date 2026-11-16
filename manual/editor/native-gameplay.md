@@ -66,6 +66,15 @@ discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
 be open. Optional code assistance provides completion, declaration lookup, call signatures, source diagnostics, symbol information and file outlines. Debugging,
 project-wide refactoring and arbitrary in-place C++ reload are unavailable.
 
+Use **Back** and **Forward** above the source tabs to return between files and
+locations after opening declarations, outline entries, search matches or tabs.
+**Find next** also records a return location. These controls preserve current
+drafts and source Undo/Redo; they do not save or restore discarded edits. A closed
+file reopens from disk. After edits, an old location is clamped to a valid
+line/column. A deleted or unavailable file reports an error and leaves the
+navigation history intact. Up to 128 locations are retained for the current
+project. **Clear navigation** empties this list without closing or changing files.
+
 ## Find code across the project
 
 In **C++ Sources**, expand **Find in Project**, or press **Ctrl+Shift+F** while
@@ -135,7 +144,8 @@ the outline to reach further entries.
 
 Queries include current open source and header drafts. They do not save files,
 compile the game, apply changes automatically or run commands suggested by the
-provider. Results refer to the queried drafts and compiler context. Rerun after
+provider. **Results for** identifies the queried file, even after you switch tabs.
+Results refer to the queried drafts and compiler context. Rerun after
 editing, saving, changing source files outside FORGE or rebuilding. Changed results
 are refused when used. Rebuild after changing CMake options, include paths or the
 selected SDK so analysis uses the refreshed context.

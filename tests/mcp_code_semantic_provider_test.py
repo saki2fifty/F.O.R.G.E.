@@ -62,6 +62,7 @@ for legacy in protocol_cases():
             mutate('forge_code_create', kind='header', name='Spinner.hpp')
             header_saved = (root / 'Native/Spinner.hpp').read_bytes()
             header = read('forge_code_read', path='Native/Spinner.hpp')
+            initial_header_text = header['text']
             header_draft = '#pragma once\nstruct Spinner { float degrees_per_second; };\n'
             mutate('forge_code_replace', **{key: header[key] for key in ('path', 'session', 'state')}, text=header_draft)
             mutate('forge_code_open', path='Native/gameplay.cpp')
@@ -182,10 +183,36 @@ for legacy in protocol_cases():
             assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
             assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original
             assert (root / 'Native/Spinner.hpp').read_bytes() == header_saved
+            main_before_navigation = read('forge_code_read', path='Native/gameplay.cpp')
+            mutate('forge_code_open', path='Native/Spinner.hpp')
+            def navigate(direction):
+                navigation = read('forge_code_navigation_status')
+                witness = {key: navigation['source'][key] for key in ('path', 'session', 'state')}
+                return mutate('forge_code_navigation_move', **witness, direction=direction,
+                              navigation_revision=navigation['revision'])
+            navigation = navigate('back')
+            assert navigation['source']['path'] == 'Native/gameplay.cpp'
+            assert navigation['source']['cursor'] == main_before_navigation['cursor']
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
+            navigation = navigate('forward')
+            assert navigation['source']['path'] == 'Native/Spinner.hpp'
+            assert read('forge_code_read', path='Native/Spinner.hpp')['text'] == header_draft
+            navigate('back')
+            header = read('forge_code_read', path='Native/Spinner.hpp')
+            mutate('forge_code_close', **{key: header[key] for key in ('path', 'session', 'state')}, discard=True)
+            navigation = navigate('forward')
+            assert navigation['source']['path'] == 'Native/Spinner.hpp'
+            assert read('forge_code_read', path='Native/Spinner.hpp')['text'] == initial_header_text
+            cleared = mutate('forge_code_navigation_clear', navigation_revision=navigation['revision'])
+            assert cleared['back_count'] == 0 and cleared['forward_count'] == 0
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
+            assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original
+            assert (root / 'Native/Spinner.hpp').read_bytes() == header_saved
+            (root / 'source-navigation-result.json').write_text(json.dumps(cleared, indent=2))
         finish_host(process, root)
     finally:
         write_capture(CAPTURE)
         if process.poll() is None:
             finish_host(process, root)
 write_capture(CAPTURE)
-print('Real separately installed provider, genuine managed SDK CMake context, unsaved completion/Undo/declaration, Unicode call signatures, versioned diagnostics, plain symbol information, nested file outline/empty results and clean native shutdown passed')
+print('Real separately installed provider, genuine managed SDK CMake context, unsaved completion/Undo/declaration, Unicode call signatures, versioned diagnostics, plain symbol information, nested file outline/empty results, Back/Forward/closed-source navigation and clean native shutdown passed')

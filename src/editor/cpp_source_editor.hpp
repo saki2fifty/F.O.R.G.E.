@@ -9,6 +9,7 @@
 #include <SDL3/SDL.h>
 #include <TextEditor.h>
 #include <cstdint>
+#include <deque>
 #include <imgui_internal.h>
 #include <memory>
 #include <utility>
@@ -40,6 +41,56 @@ class CppSourceEditor {
     std::filesystem::path root_;
     std::vector<std::unique_ptr<Tab>> tabs_;
     Tab* active_ = nullptr;
+    struct Location {
+        std::string path;
+        int line = 1, column = 1;
+        bool operator==(const Location&) const = default;
+    };
+    std::deque<Location> back_locations_, forward_locations_;
+    std::uint64_t navigation_revision_ = 0;
+    bool replaying_navigation_ = false;
+    std::optional<Location> location() const {
+        if (!active_)
+            return {};
+        const auto point = active_->editor.GetCursorPosition();
+        return Location{active_->locator, point.mLine + 1, point.mColumn + 1};
+    }
+    void note_navigation(const std::optional<Location>& previous) {
+        if (replaying_navigation_ || !previous || !active_ || *previous == *location())
+            return;
+        back_locations_.push_back(*previous);
+        if (back_locations_.size() > 128)
+            back_locations_.pop_front();
+        forward_locations_.clear();
+        ++navigation_revision_;
+    }
+    void activate_source(Tab& tab) {
+        if (active_ == &tab)
+            return;
+        const auto previous = location();
+        active_ = &tab;
+        note_navigation(previous);
+    }
+    void select_tab_next_frame(Tab& selected) {
+        for (auto& tab : tabs_)
+            tab->selected = tab.get() == &selected;
+    }
+    template <class F> decltype(auto) with_source_tab(Tab& tab, F&& action) {
+        struct Restore {
+            Tab*& active;
+            Tab* previous;
+            ~Restore() { active = previous; }
+        } restore{active_, active_};
+        active_ = &tab;
+        return std::forward<F>(action)();
+    }
+    void check_navigation(SceneDocument& project, std::uint64_t expected_revision) const {
+        project.check_ownership();
+        if (root_ != project.project() || expected_revision != navigation_revision_)
+            throw std::runtime_error("C++ navigation changed; read its state again");
+        if (close_pending())
+            throw std::runtime_error("Settle the pending C++ source close request");
+    }
     bool open_ = false, focus_ = false, close_all_ = false, close_popup_ = false;
     std::string close_target_, error_, search_;
     char locator_[256] = "Native/gameplay.cpp", query_[256] = "";
@@ -79,10 +130,15 @@ class CppSourceEditor {
     }
     void erase(std::string locator) {
         semantic_task_.invalidate();
+        const auto previous_location = location();
         const bool was_active = active_ && active_->locator == locator;
         std::erase_if(tabs_, [&](const auto& tab) { return tab->locator == locator; });
-        if (was_active)
+        if (was_active) {
             active_ = tabs_.empty() ? nullptr : tabs_.back().get();
+            if (active_)
+                select_tab_next_frame(*active_);
+            note_navigation(previous_location);
+        }
         open_ = !tabs_.empty();
     }
     template <class F> void attempt(F&& f) {
@@ -173,8 +229,8 @@ class CppSourceEditor {
                                    std::pair{TextEditor::Coordinates(start.first, start.second),
                                              TextEditor::Coordinates(finish.first, finish.second)});
         source_changed(*tab);
-        tab->selected = true;
-        active_ = tab;
+        select_tab_next_frame(*tab);
+        activate_source(*tab);
         open_ = focus_ = true;
     }
     bool is_open() const { return open_; }
@@ -257,6 +313,10 @@ class CppSourceEditor {
     void project_changed(const std::filesystem::path& root) {
         project_search_.cancel();
         semantic_task_.close();
+        back_locations_.clear();
+        forward_locations_.clear();
+        replaying_navigation_ = false;
+        ++navigation_revision_;
         project_matches_.reset();
         search_project_.clear();
         search_operation_.clear();
@@ -274,6 +334,7 @@ class CppSourceEditor {
         project.check_ownership();
         if (root_ != project.project())
             project_changed(project.project());
+        const auto previous_location = location();
         const auto normalized =
             path_utf8(ProjectPaths::normalize(std::filesystem::u8path(locator)));
         auto* tab = find(normalized);
@@ -307,11 +368,50 @@ class CppSourceEditor {
                 tab->external = false;
             }
         }
-        tab->selected = true;
+        select_tab_next_frame(*tab);
         active_ = tab;
         open_ = focus_ = true;
         tab->editor.SetCursorPosition(
             TextEditor::Coordinates(std::max(line - 1, 0), std::max(column - 1, 0)));
+        note_navigation(previous_location);
+    }
+    bool can_navigate(bool forward) const {
+        return active_ && !close_pending() &&
+               !(forward ? forward_locations_ : back_locations_).empty();
+    }
+    bool close_pending() const { return close_all_ || close_popup_ || !close_target_.empty(); }
+    void navigate(SceneDocument& project, bool forward, std::uint64_t expected_revision) {
+        check_navigation(project, expected_revision);
+        auto& from = forward ? forward_locations_ : back_locations_;
+        auto& to = forward ? back_locations_ : forward_locations_;
+        if (!active_ || from.empty())
+            throw std::runtime_error("No C++ source location in this direction");
+        const auto previous = *location();
+        const auto target = from.back();
+        replaying_navigation_ = true;
+        try {
+            open(project, target.path, target.line, target.column);
+            const auto row =
+                std::clamp(target.line - 1, 0, std::max(active_->editor.GetTotalLines() - 1, 0));
+            const auto point =
+                cpp_source_clamped_coordinate(active_->editor.GetText(), row, target.column - 1);
+            active_->editor.SetCursorPosition(TextEditor::Coordinates(point.first, point.second));
+        } catch (...) {
+            replaying_navigation_ = false;
+            throw;
+        }
+        replaying_navigation_ = false;
+        from.pop_back();
+        to.push_back(previous);
+        ++navigation_revision_;
+    }
+    void clear_navigation(SceneDocument& project, std::uint64_t expected_revision) {
+        check_navigation(project, expected_revision);
+        if (back_locations_.empty() && forward_locations_.empty())
+            return;
+        back_locations_.clear();
+        forward_locations_.clear();
+        ++navigation_revision_;
     }
     void save(SceneDocument& project, bool queue_build = true) {
         if (!active_ || !active_->dirty)
@@ -330,18 +430,9 @@ class CppSourceEditor {
             build_pending = true;
     }
     void save_all(SceneDocument& project, bool queue_build = true) {
-        auto* previous = active_;
-        try {
-            for (auto& tab : tabs_)
-                if (tab->dirty) {
-                    active_ = tab.get();
-                    save(project, queue_build);
-                }
-        } catch (...) {
-            active_ = previous;
-            throw;
-        }
-        active_ = previous;
+        for (auto& tab : tabs_)
+            if (tab->dirty)
+                with_source_tab(*tab, [&] { save(project, queue_build); });
     }
     void request_close() {
         close_all_ = true;
@@ -440,6 +531,7 @@ class CppSourceEditor {
                     if (pos == std::string::npos)
                         pos = text.find(search_);
                     if (pos != std::string::npos) {
+                        const auto previous_location = location();
                         auto coordinate = [&](std::size_t end) {
                             const auto [row, col] = cpp_source_coordinate(text, end);
                             return TextEditor::Coordinates(row, col);
@@ -447,6 +539,7 @@ class CppSourceEditor {
                         active_->editor.SetSelection(coordinate(pos),
                                                      coordinate(pos + search_.size()));
                         active_->editor.SetCursorPosition(coordinate(pos + search_.size()));
+                        note_navigation(previous_location);
                         search_from_ = pos + search_.size();
                     } else
                         error_ = "No match in the active source.";
@@ -455,6 +548,7 @@ class CppSourceEditor {
             draw_project_search(project, locked);
             draw_semantics(project, locked);
             if (ImGui::BeginTabBar("cpp_source_tabs")) {
+                auto* requested = active_ && active_->selected ? active_ : nullptr;
                 std::string closed;
                 for (auto& tab : tabs_) {
                     bool tab_open = true;
@@ -463,25 +557,32 @@ class CppSourceEditor {
                     if (std::exchange(tab->selected, false))
                         flags |= ImGuiTabItemFlags_SetSelected;
                     if (ImGui::BeginTabItem(tab->locator.c_str(), &tab_open, flags)) {
-                        active_ = tab.get();
-                        if (tab->external)
-                            ImGui::TextWrapped("File changed outside FORGE. Reload explicitly; "
-                                               "your draft is retained.");
-                        tab->editor.SetReadOnly(locked);
-                        tab->editor.SetHandleKeyboardInputs(!save_key);
-                        const auto available = ImGui::GetContentRegionAvail();
-                        tab->editor.Render("C++ text",
-                                           {available.x, std::max(80.0f, available.y - 35.0f)});
-                        tab->editor.SetHandleKeyboardInputs(true);
-                        FORGE_UI_PROBE("cpp:editor");
-                        if (tab->editor.IsTextChanged())
-                            source_changed(*tab);
-                        const auto cursor = tab->editor.GetCursorPosition();
-                        ImGui::Text("Line %d, column %d | %s", cursor.mLine + 1, cursor.mColumn + 1,
-                                    tab->dirty ? "Unsaved source" : "Saved source");
-                        help("C++ highlighting, four-space tab stops, source-only Undo/Redo. "
-                             "Compiler tools run separately. Source files up to 1 MiB; no "
-                             "arbitrary C++ hot reload.");
+                        // An explicit selection wins over transient fallback tabs while
+                        // the tab bar lays out a rapid open or a close/replacement.
+                        if (!requested || requested == tab.get()) {
+                            activate_source(*tab);
+                            if (tab->external)
+                                ImGui::TextWrapped("File changed outside FORGE. Reload explicitly; "
+                                                   "your draft is retained.");
+                            tab->editor.SetReadOnly(locked);
+                            tab->editor.SetHandleKeyboardInputs(!save_key);
+                            const auto available = ImGui::GetContentRegionAvail();
+                            tab->editor.Render("C++ text",
+                                               {available.x, std::max(80.0f, available.y - 35.0f)});
+                            tab->editor.SetHandleKeyboardInputs(true);
+                            FORGE_UI_PROBE("cpp:editor");
+                            if (tab->editor.IsTextChanged())
+                                source_changed(*tab);
+                            const auto cursor = tab->editor.GetCursorPosition();
+                            ImGui::Text("Line %d, column %d | %s", cursor.mLine + 1,
+                                        cursor.mColumn + 1,
+                                        tab->dirty ? "Unsaved source" : "Saved source");
+                            FORGE_UI_PROBE("cpp:cursor:" + std::to_string(cursor.mLine + 1) + ":" +
+                                           std::to_string(cursor.mColumn + 1));
+                            help("C++ highlighting, four-space tab stops, source-only Undo/Redo. "
+                                 "Compiler tools run separately. Source files up to 1 MiB; no "
+                                 "arbitrary C++ hot reload.");
+                        }
                         ImGui::EndTabItem();
                     }
                     if (!tab_open) {
@@ -526,14 +627,13 @@ class CppSourceEditor {
                 close_all_ = false;
                 ImGui::CloseCurrentPopup();
             } else {
-                active_ = tab;
                 ImGui::TextWrapped("Save changes to %s? Source history belongs to this file.",
                                    tab->locator.c_str());
                 ImGui::BeginDisabled(locked || save_locked);
                 if (button("Save and close",
                            "Save with external-change checking, then close this source."))
                     attempt([&] {
-                        save(project);
+                        with_source_tab(*tab, [&] { save(project); });
                         const auto name = tab->locator;
                         erase(name);
                         if (close_all_)
@@ -632,6 +732,9 @@ class CppSourceEditor {
         const auto& result = semantic_task_.result();
         if (!result.is_null()) {
             ImGui::PushID(semantic_task_.operation().c_str());
+            ImGui::TextWrapped("Results for %s",
+                               result.at("path").get_ref<const std::string&>().c_str());
+            FORGE_UI_PROBE("cpp:analysis:scope:" + result.at("path").get<std::string>());
             const bool signature = result.at("kind").get<std::string>() == "signature";
             const bool diagnostics = result.at("kind").get<std::string>() == "diagnostics";
             const bool information = result.at("kind").get<std::string>() == "hover";
@@ -813,8 +916,26 @@ class CppSourceEditor {
         if (button("New...", "Create a C++ source, header, Component or System through Content."))
             request_new();
         ImGui::EndDisabled();
+        for (const bool forward : {false, true}) {
+            const auto label = forward ? "Forward" : "Back";
+            next_text_button(label);
+            ImGui::BeginDisabled(locked || !can_navigate(forward));
+            if (button(label, "Return through this project's explicit C++ file/location jumps. No "
+                              "source Undo or Save."))
+                attempt([&] { navigate(project, forward, navigation_revision_); });
+            FORGE_UI_PROBE(forward ? "cpp:navigation:forward" : "cpp:navigation:back");
+            ImGui::EndDisabled();
+        }
+        next_text_button("Clear navigation");
+        ImGui::BeginDisabled(locked || close_pending() ||
+                             (back_locations_.empty() && forward_locations_.empty()));
+        if (button("Clear navigation", "Clear only the source Back/Forward locations. Source Undo "
+                                       "and files are retained."))
+            attempt([&] { clear_navigation(project, navigation_revision_); });
+        FORGE_UI_PROBE("cpp:navigation:clear");
+        ImGui::EndDisabled();
         if (active_ && request_reveal) {
-            ImGui::SameLine();
+            next_text_button("Reveal in Content");
             if (button("Reveal in Content", "Find this C++ file under Content > Code."))
                 request_reveal(active_->locator);
         }

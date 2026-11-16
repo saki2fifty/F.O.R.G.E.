@@ -157,6 +157,15 @@ values, including prefab intent, scene persistence and Undo/Redo.
 
 ## Optional C++ source analysis
 
+The source editor also owns bounded, transient Back/Forward locations for explicit
+opens, tab changes, Find next and source-result jumps. Internal Save All/modal
+routing does not become user navigation. Back/Forward preserves source drafts and
+the widget's Undo buffer, reopens closed files through normal contained admission
+and clamps old positions against edited text. No source snapshot or persistent
+history database is introduced. Failed/stale operations preserve the stacks;
+project retirement clears them. MCP uses the same owner with navigation revision
+and current-tab witnesses; see [the tooling contract](mcp.md#c-project-code).
+
 `CppSourceEditor` owns one ephemeral completion/declaration/signature/diagnostic/symbol task over its existing
 open drafts. An optional separately installed clangd23.1.0 is the analysis provider;
 its exact revision and options are recorded in [dependencies](dependencies.md).

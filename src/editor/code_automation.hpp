@@ -57,6 +57,34 @@ struct CodeAutomation {
                 {"can_undo", tab.editor.CanUndo()},
                 {"can_redo", tab.editor.CanRedo()}};
     }
+    static void observe_tab(const ui::CppSourceEditor::Tab& source, const Json& request) {
+        if (request.at("session") != source.session ||
+            request.at("state") != hash(source.editor.GetText()))
+            throw AuthoringError("stale_source", "C++ source draft/session changed; read it again");
+    }
+    static Json navigation_state(const ui::CppSourceEditor& editor,
+                                 const std::filesystem::path& project) {
+        Json result{{"revision", nullptr},       {"can_back", false},  {"can_forward", false},
+                    {"back_count", 0},           {"forward_count", 0}, {"back_target", nullptr},
+                    {"forward_target", nullptr}, {"source", nullptr}};
+        if (editor.root_ != project)
+            return result;
+        const auto target = [](const auto& locations) -> Json {
+            if (locations.empty())
+                return nullptr;
+            const auto& value = locations.back();
+            return {{"path", value.path}, {"line", value.line}, {"column", value.column}};
+        };
+        result.update({{"revision", editor.navigation_revision_},
+                       {"can_back", editor.can_navigate(false)},
+                       {"can_forward", editor.can_navigate(true)},
+                       {"back_count", editor.back_locations_.size()},
+                       {"forward_count", editor.forward_locations_.size()},
+                       {"back_target", target(editor.back_locations_)},
+                       {"forward_target", target(editor.forward_locations_)},
+                       {"source", editor.active_ ? tab_state(*editor.active_) : Json{}}});
+        return result;
+    }
     static ui::CppSourceEditor::Tab& tab(ui::CppSourceEditor& editor, EditorFiles& files,
                                          const Json& request) {
         files.document.check_ownership();
@@ -66,15 +94,13 @@ struct CodeAutomation {
             editor.root_ == files.document.project() ? editor.find(path_utf8(path)) : nullptr;
         if (!source)
             throw AuthoringError("not_open", "Open this C++ source in the shared editor first");
-        if (request.at("session") != source->session ||
-            request.at("state") != hash(source->editor.GetText()))
-            throw AuthoringError("stale_source", "C++ source draft/session changed; read it again");
-        if (editor.close_all_ || editor.close_popup_ || !editor.close_target_.empty())
+        observe_tab(*source, request);
+        if (editor.close_pending())
             throw AuthoringError("code_busy", "Settle the pending source close request");
         return *source;
     }
     static void source_ready(const ui::CppSourceEditor& editor) {
-        if (editor.close_all_ || editor.close_popup_ || !editor.close_target_.empty())
+        if (editor.close_pending())
             throw AuthoringError("code_busy", "Settle the pending source close request");
     }
     static std::filesystem::path sdk(const CodeAutomationProviders& providers) {
@@ -252,6 +278,15 @@ struct CodeAutomation {
                 result["operation"] = build.operation_id_;
                 result["revision"] = build.log_revision();
                 return result;
+            }));
+        methods.push_back(automation_method(
+            "code.navigation.status",
+            "Read current C++ Back/Forward revision, counts, next locations and active tab "
+            "witness. "
+            "No tool launch, source edit, file read or history mutation.",
+            "code.read", automation_object(), false, [&files, &editor](const Json&) {
+                files.document.check_ownership();
+                return navigation_state(editor, files.document.project());
             }));
         methods.push_back(automation_method(
             "code.analysis.status",
@@ -457,6 +492,51 @@ struct CodeAutomation {
                     return tab_state(*editor.active_);
                 }));
             methods.push_back(automation_method(
+                "code.navigation.move",
+                "Move Back or Forward through the observed C++ navigation revision and active "
+                "tab witness. Current Native drafts/history are retained; edited-text positions "
+                "are hints clamped to valid current coordinates. Closed files reopen from disk. "
+                "No source Undo, Save, build or provider launch.",
+                "code.write",
+                automation_object(
+                    {{"path", automation_text(2047, 1)},
+                     {"session", automation_uuid()},
+                     {"state", automation_digest()},
+                     {"navigation_revision", automation_integer()},
+                     {"direction", {{"type", "string"}, {"enum", {"back", "forward"}}}}},
+                    {"path", "session", "state", "navigation_revision", "direction"}),
+                true, [&files, &editor, providers](const Json& request) {
+                    available(files, providers);
+                    source_ready(editor);
+                    if (editor.root_ != files.document.project() || !editor.active_ ||
+                        automation_relative_path(request.at("path").get<std::string>()) !=
+                            std::filesystem::u8path(editor.active_->locator))
+                        throw AuthoringError("stale_source",
+                                             "Active C++ tab changed; read navigation again");
+                    // Leaving a cached draft is valid even if its disk file was deleted.
+                    // The target still uses the source owner's guarded open/read path.
+                    observe_tab(*editor.active_, request);
+                    const auto direction = request.at("direction").get<std::string>();
+                    if (direction != "back" && direction != "forward")
+                        throw AuthoringError("invalid_direction", "Choose Back or Forward");
+                    editor.navigate(files.document, direction == "forward",
+                                    request.at("navigation_revision").get<std::uint64_t>());
+                    return navigation_state(editor, files.document.project());
+                }));
+            methods.push_back(automation_method(
+                "code.navigation.clear",
+                "Clear the observed C++ navigation revision only. Source text, Undo, tabs and "
+                "files remain owned by the source editor; no build or provider launch.",
+                "code.write",
+                automation_object({{"navigation_revision", automation_integer()}},
+                                  {"navigation_revision"}),
+                true, [&files, &editor, providers](const Json& request) {
+                    available(files, providers);
+                    editor.clear_navigation(files.document,
+                                            request.at("navigation_revision").get<std::uint64_t>());
+                    return navigation_state(editor, files.document.project());
+                }));
+            methods.push_back(automation_method(
                 "code.analysis.use",
                 "Use an available result of the exact analysis operation. Completion changes "
                 "the existing source tab with one Undo record; declaration/diagnostic opens only a "
@@ -502,25 +582,29 @@ struct CodeAutomation {
                      action](const Json& request) {
                         available(files, providers);
                         auto& source = tab(editor, files, request);
-                        editor.active_ = &source;
                         const auto operation = std::string_view(action);
-                        if (operation == "replace")
-                            editor.replace_text(request.at("text").get<std::string>());
-                        else if (operation == "save")
-                            editor.save(files.document, execute);
-                        else if (operation == "undo" || operation == "redo") {
-                            if (!(operation == "undo" ? source.editor.CanUndo()
-                                                      : source.editor.CanRedo()))
-                                throw AuthoringError("history_empty",
-                                                     "No source history in this direction");
-                            editor.undo(operation == "redo");
-                        } else {
+                        if (operation == "close") {
                             if (source.dirty && !request.value("discard", false))
                                 throw AuthoringError("unsaved_source",
                                                      "Save or explicitly discard this C++ draft");
                             editor.erase(source.locator);
                             return Json{{"open", false}};
                         }
+                        editor.with_source_tab(source, [&] {
+                            if (operation == "replace")
+                                editor.replace_text(request.at("text").get<std::string>());
+                            else if (operation == "save")
+                                editor.save(files.document, execute);
+                            else if (operation == "undo" || operation == "redo") {
+                                if (!(operation == "undo" ? source.editor.CanUndo()
+                                                          : source.editor.CanRedo()))
+                                    throw AuthoringError("history_empty",
+                                                         "No source history in this direction");
+                                editor.undo(operation == "redo");
+                            }
+                        });
+                        editor.select_tab_next_frame(source);
+                        editor.activate_source(source);
                         return tab_state(source);
                     }));
             }

@@ -80,6 +80,25 @@ inline std::size_t cpp_source_byte_offset(std::string_view text, int row, int co
     }
     throw std::runtime_error("Source cursor is outside its text or inside a tab stop");
 }
+// Navigation hints can outlive edits. Snap to a current code-point/tab boundary
+// without interpreting a historical position as a source edit or byte offset.
+inline std::pair<int, int> cpp_source_clamped_coordinate(std::string_view text, int row,
+                                                         int column) {
+    const std::pair target{std::max(row, 0), std::max(column, 0)};
+    std::pair current{0, 0};
+    for (std::size_t offset = 0; offset < text.size();) {
+        auto next = offset + 1;
+        while (next < text.size() && (static_cast<unsigned char>(text[next]) & 0xc0) == 0x80)
+            ++next;
+        const auto position =
+            cpp_source_coordinate(text, next, offset, current.first, current.second);
+        if (position > target)
+            break;
+        current = position;
+        offset = next;
+    }
+    return current;
+}
 inline CppSearchResult search_cpp_sources(const std::filesystem::path& root,
                                           const CppSearchOptions& options,
                                           const CppSearchDrafts& drafts = {},

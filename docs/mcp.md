@@ -836,6 +836,23 @@ clipboard. Widget text uses LF and an implicit final newline. A save without an
 execution grant suppresses Build on Save. With that grant, the user's ordinary
 Build on Save preference still applies. Save/build is not a native hot reload.
 
+`forge_code_navigation_status` requires `code.read` and returns the transient
+navigation `revision`, bounded back/forward counts and next locations, plus the
+active source's `path`, `session`, `state` and visual cursor. With `code.write`,
+`forge_code_navigation_move` takes `direction` (`back` or `forward`), the observed
+`navigation_revision` and that active source witness. It rejects stale history,
+changed active source, pending closes, unavailable targets and locked authoring.
+`forge_code_navigation_clear` takes only the observed `navigation_revision`;
+clearing an already empty history is a no-op. Existing routing/revision/sequence
+and receipt replay rules apply. No execution permission or provider is needed.
+
+The source owner retains at most 128 locations across Back/Forward. Explicit
+opens, source tab changes, Find next and analysis/search navigation share this
+history. Internal save routing does not add locations. Edited targets clamp old
+position hints to current UTF-8/tab/line boundaries; closed targets reopen through
+ordinary contained-source admission. Drafts, source Undo and saved bytes are never
+restored by navigation. Failure preserves history, and project retirement clears it.
+
 Optional C++ assistance exposes `forge_code_analysis_status` and `analysis_log`
 under `code.read`. They never launch tooling. Status pages accept `offset` and
 `limit`1..8; proposals carry stable per-operation `index`, availability/reason,

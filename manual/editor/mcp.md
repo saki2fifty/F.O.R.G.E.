@@ -488,6 +488,14 @@ snapshots, source digests and line/column locations. With code editing permitted
 changed source returns `stale_source`. Search never grants editing or execution.
 See [Find code across the project](native-gameplay.md) for matching rules and limits.
 
+`forge_code_navigation_status` reads the same Back/Forward list as the editor.
+With code editing allowed, `forge_code_navigation_move` takes the observed
+navigation revision, active source witness and direction. It returns to a source
+location without saving or changing drafts; changed observations are refused.
+`forge_code_navigation_clear` empties the list. These tools need no compiler or
+code execution permission. Closed files reopen from disk; navigation never
+recovers edits you discarded.
+
 With execution allowed and the optional supported provider installed, the agent
 can request member completion, a declaration, read-only call signatures, source diagnostics, symbol information or file outlines at an observed source byte offset. Signature status lists overloads, documentation and the active parameter; it never inserts source text or adds Undo. Symbol information (`kind:hover`) returns plain text and an optional source range with the same read-only behavior. File outlines (`kind:symbols`) return bounded, paged entries with nesting depth and guarded navigation through `forge_code_analysis_use`. These queries share the current drafts, managed context and source history. Diagnostic status carries receive date/time, severity, message and a guarded source location. A completed empty publication is distinct from missing or failed provider data; use a location to navigate without editing.
 Use `forge_code_analysis_start`, then poll `forge_code_analysis_status` and
