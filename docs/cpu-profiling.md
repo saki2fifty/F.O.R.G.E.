@@ -487,3 +487,47 @@ binary-origin label still apply: selected checkout metadata does not independent
 prove which source produced an arbitrary executable. Keep its matching build receipt.
 Native Windows execution, physical performance and broader contact/game workloads
 remain separate acceptance.
+
+### Dynamic 2D physics workload
+
+`--workloads physics2d` adds separated world-bound unit Boxes on a 3 m XY grid,
+starting at `y=100+3*floor(index/64)` with fixed `z=7`. Sleeping and damping are
+disabled. It shares the existing runtime client, scope sampling, statistics,
+complete readback, replacement and Quit owners. The existing default reports
+and selected 3D reports retain workload revisions1/2; any selection containing
+`physics2d` uses revision3 inside the same report format. Other layouts may be
+combined with it. The public2D source profile admits at most1024bodies; its default
+counts are64/512/1024. Selections without2D retain64/512/4096. Explicit counts must
+fit every selected profile and are checked before native startup. No new runtime
+protocol or game-authoring/MCP operation is added.
+
+```sh
+python tools/benchmark_runtime.py --runtime /path/to/build/forge_runtime --workloads physics2d --counts 64 512 1024 --warmup 8 --samples 16 --repeats 3 --output /path/to/evidence/planar.json
+```
+
+The independent reference uses `n=4*tick`, `h=1/240` and
+`drop=-9.81*h*h*n*(n+1)/2`, reflecting four native substeps per fixed tick.
+Native velocities/deltas use single precision and global positions use double
+precision. The vertical allowance is `max(0.0002, abs(drop)*gamma(2*n+16))`, where
+`gamma(r)=r*u/(1-r*u)` and `u=2^-24`. The positive velocity/displacement sums
+avoid cancellation; the conservative bound covers both accumulated roundoff
+and constant/delta rounding. It is about0.0132m at the maximum272ticks, while
+short runs keep the0.0002m floor. The report records this policy and the applied
+per-run `vertical_tolerance_m`; validation rejects altered tolerances. X/Z,
+nontranslation affine channels and unchanged source controls keep their existing
+checks. Body/shape counts, native realization and tick/gravity must match;
+reported3D bodies, active/sleeping bodies, characters and both joint counts must
+remain zero. An incorrect single-substep result remains outside
+the bound even at the longest duration. No contact/sensor/controller or renderer
+performance is measured by this fixture.
+
+Planar provenance follows the configured clean Box2D source override or selected
+dependency cache. It records the selected revision, native options, C/C++/link
+flags across build configurations, C compiler hash and the existing signature-
+checked build-tree snapshot repair manifest. Source/guard/compiled snapshot
+hashes must match before execution; the immutable upstream checkout stays clean.
+Comparisons reject differing native provenance or numeric policy. As with the
+other reports, configured source metadata is a hint rather than proof of which
+source produced an arbitrary binary; `binary_origin_verified` remains false.
+Retain its matching build receipt. Native Windows and physical workload review
+remain separate acceptance.

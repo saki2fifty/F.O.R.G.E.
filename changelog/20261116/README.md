@@ -1,5 +1,14 @@
 # 2026-11-16
 
+## Repeatable 2D CPU reports
+
+The source-checkout CPU report tool supports explicit separated 2D rigid-body
+workloads alongside the existing transform and 3D selections. Independent motion
+checks account for native substeps and bounded float rounding. Reports retain
+configured native source/repair/compiler information and reject incompatible
+baselines; default and earlier report revisions remain supported. The existing
+runtime, profiling and cleanup paths are reused.
+
 ## Directional 2D sensor overlaps
 
 Static/Kinematic Box and full-cell/custom Tile Map sensors can use the existing

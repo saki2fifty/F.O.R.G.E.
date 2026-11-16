@@ -22,12 +22,21 @@ def report(values=(1, 2, 3), layouts=None):
                 scopes=list(bench.SCOPES), native_systems=False, chunk_ticks=8,
                 discard_observation_tick=True)
     if layouts is not None:
-        work.update(revision=2, layouts=layouts, scopes=list(bench.PHYSICS_SCOPES if 'physics' in layouts else bench.SCOPES))
+        work.update(revision=3 if 'physics2d' in layouts else 2, layouts=layouts,
+                    scopes=list(bench.PHYSICS_SCOPES if any(name in bench.PHYSICS_LAYOUTS for name in layouts) else bench.SCOPES))
+        if 'physics2d' in layouts:
+            work['physics2d_oracle'] = dict(bench.PLANAR_ORACLE)
     data = dict(format=bench.FORMAT, workload=work, units='microseconds', cases={},
                 provenance=dict(configuration={'type': 'Release'}, compiler_sha256='compiler',
                                 environment={'cpu': 'test'}, runtime_sha256='runtime'))
     if layouts is not None and 'physics' in layouts:
         data['provenance']['native_physics'] = dict(source_revision='a' * 40, configuration={})
+    if layouts is not None and 'physics2d' in layouts:
+        data['provenance']['native_physics_2d'] = dict(source_revision='a' * 40,
+            configuration={'BOX2D_DOUBLE_PRECISION': 'ON'}, c_compiler_sha256='c' * 64,
+            snapshot=dict(upstream_commit='a' * 40, upstream_lf_sha256='b' * 64,
+                          guard_sha256='d' * 64, compiled_sha256='e' * 64),
+            substeps=4, binary_origin_verified=False)
     for layout in layouts if layouts is not None else ('flat', 'hierarchy'):
         scene, _ = bench.fixture(layout, 4)
         data['cases'][layout + '/4'] = dict(
@@ -35,12 +44,62 @@ def report(values=(1, 2, 3), layouts=None):
             runs=[dict(ticks=[4, 5, 6], verified_entities=4,
                        microseconds={scope: list(values) for scope in work['scopes']})],
             summary_us={scope: bench.summarize(values) for scope in work['scopes']})
-        if layout == 'physics':
+        if layout in bench.PHYSICS_LAYOUTS:
             data['cases'][layout + '/4']['runs'][0].update(verified_bodies=4, final_tick=6)
+        if layout == 'physics2d':
+            data['cases'][layout + '/4']['runs'][0]['vertical_tolerance_m'] = .0002
     return data
 
 
 class BenchmarkTests(unittest.TestCase):
+    def test_configured_planar_source_and_staged_repair(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime, cache = root / 'runtime', root / 'CMakeCache.txt'
+            runtime.write_bytes(b'planar metadata fixture')
+            base = (f'CMAKE_BUILD_TYPE:STRING=Release\n'
+                    f'CMAKE_CXX_COMPILER:FILEPATH={sys.executable}\n'
+                    f'CMAKE_C_COMPILER:FILEPATH={sys.executable}\n'
+                    'CMAKE_C_FLAGS_RELEASE:STRING=-O3 -DNDEBUG\n'
+                    'CMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=-O2 -g\n'
+                    'BOX2D_DOUBLE_PRECISION:BOOL=ON\n')
+            staged = root / 'forge-box2d'
+            staged.mkdir()
+            compiled = staged / 'snapshot.c'
+            compiled.write_bytes(b'checked repair\n')
+            manifest = dict(upstream_commit='a' * 40,
+                upstream_lf_sha256=hashlib.sha256(b'upstream snapshot\n').hexdigest(),
+                guard_sha256=bench.digest(ROOT / 'cmake/box2d_snapshot_guards.cmake'),
+                compiled_sha256=bench.digest(compiled))
+            (staged / 'source.json').write_text(json.dumps(manifest))
+
+            def output(command, **kwargs):
+                if command[0] == runtime:
+                    return '{}' if command[1] == '--sdk-info' else 'metadata fixture'
+                return 'a' * 40 if command[1:3] == ['rev-parse', 'HEAD'] else ''
+
+            for settings, expected in (
+                    ('', root / '_deps/box2d-src'),
+                    (f'FETCHCONTENT_BASE_DIR:PATH={root / "shared"}\n', root / 'shared/box2d-src'),
+                    (f'FETCHCONTENT_BASE_DIR:PATH={root / "shared"}\n'
+                     f'FETCHCONTENT_SOURCE_DIR_BOX2D:PATH={root / "selected"}\n', root / 'selected')):
+                (expected / 'src').mkdir(parents=True)
+                (expected / 'src/snapshot.c').write_bytes(b'upstream snapshot\r\n')
+                cache.write_text(base + settings)
+                with mock.patch.object(bench.subprocess, 'check_output', side_effect=output) as run:
+                    native = bench.metadata(runtime, cache, physics2d=True)['native_physics_2d']
+                    run.assert_any_call(['git', 'rev-parse', 'HEAD'], cwd=expected, text=True)
+                    self.assertEqual(native['snapshot'], manifest)
+                    self.assertEqual(native['substeps'], 4)
+                    self.assertFalse(native['binary_origin_verified'])
+                    self.assertEqual(native['configuration']['BOX2D_DOUBLE_PRECISION'], 'ON')
+                    self.assertEqual(native['configuration']['CMAKE_CXX_FLAGS_RELWITHDEBINFO'], '-O2 -g')
+                    self.assertEqual(native['c_compiler_sha256'], bench.digest(Path(sys.executable)))
+            compiled.write_bytes(b'changed staged source\n')
+            with mock.patch.object(bench.subprocess, 'check_output', side_effect=output):
+                with self.assertRaises(ValueError):
+                    bench.metadata(runtime, cache, physics2d=True)
+
     def test_configured_physics_source_location(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -179,6 +238,128 @@ class BenchmarkTests(unittest.TestCase):
             bench.compare(original, report())
         bench.validate_report(report(layouts=['hierarchy']))
         bench.validate_report(report(layouts=['physics', 'flat', 'hierarchy']))
+
+    def test_planar_fixture_and_independent_substeps(self):
+        for count in (0, 1025, 4096, True):
+            with self.assertRaises(ValueError):
+                bench.fixture('physics2d', count)
+        self.assertEqual(len(bench.fixture('physics2d', 1024)[0]['entities']), 1024)
+        source, expected = bench.fixture('physics2d', 65)
+        rows = source['entities']
+        self.assertEqual(expected[rows[64]['id']], [0, 103, 7])
+        self.assertEqual(expected[rows[63]['id']], [189, 100, 7])
+        self.assertTrue(all(row['spatial']['mode'] == 'world' and 'parent' not in row and
+                            'forge.physics_body' not in row['components'] for row in rows))
+        self.assertEqual((source, expected), bench.fixture('physics2d', 65))
+        simulated = copy.deepcopy(source)
+        # Sixteen 1/240-second symplectic steps independently sum to0.0231625m.
+        for row in simulated['entities']:
+            row['components']['forge.local_translation']['y'] -= .0231625
+        effective = copy.deepcopy(simulated)
+        for row in effective['entities']:
+            x, y, z = expected[row['id']]
+            row.update(spatial_resolved=True, world_affine=[1,0,0,x,0,1,0,y-.0231625,0,0,1,z])
+        state = dict(timing=dict(tick=4), scene=simulated, effective_scene=effective,
+                     physics=dict(tick=4, bodies=0, active_dynamic=0, sleeping_dynamic=0,
+                                  characters=0, bodies_2d=65, shapes_2d=65, native_2d_realized=True,
+                                  joints=0, joints_2d=0, gravity=[0,-9.81,0]))
+        bench.verify_physics(state, source, expected, planar=True)
+        first = lambda v: v['scene']['entities'][0]['components']
+        for mutate in (
+                lambda v: v['physics'].update(bodies_2d=64),
+                lambda v: v['physics'].update(shapes_2d=64),
+                lambda v: v['physics'].update(native_2d_realized=False),
+                lambda v: v['physics'].update(bodies=1),
+                lambda v: v['physics'].update(joints_2d=1),
+                lambda v: v['physics'].update(gravity=[0,-5,0]),
+                lambda v: v['timing'].update(tick=3),
+                lambda v: first(v)['forge.local_translation'].update(y=99.97275),
+                lambda v: first(v)['forge.local_translation'].update(z=0),
+                lambda v: first(v)['forge.physics_body_2d'].update(gravity_factor=0),
+                lambda v: v['effective_scene']['entities'][0]['world_affine'].__setitem__(7, 100)):
+            bad = copy.deepcopy(state)
+            mutate(bad)
+            with self.assertRaises(ValueError):
+                bench.verify_physics(bad, source, expected, planar=True)
+        self.assertEqual(source, bench.fixture('physics2d', 65)[0])
+
+    def test_planar_report_revision_and_baseline_admission(self):
+        original = report(layouts=['physics2d', 'physics', 'flat'])
+        bench.validate_report(original)
+        self.assertEqual(original['workload']['revision'], 3)
+        self.assertEqual(set(bench.compare(original, original)['changes']['physics2d/4']), set(bench.PHYSICS_SCOPES))
+        native = lambda v: v['provenance']['native_physics_2d']
+        for mutate in (
+                lambda v: v['workload'].update(revision=2),
+                lambda v: v['workload'].update(scopes=list(bench.SCOPES)),
+                lambda v: v['workload']['physics2d_oracle'].update(operation_margin=1),
+                lambda v: native(v).update(substeps=1),
+                lambda v: native(v).update(binary_origin_verified=True),
+                lambda v: native(v).update(c_compiler_sha256='changed'),
+                lambda v: native(v).pop('snapshot'),
+                lambda v: native(v)['snapshot'].update(upstream_commit='b' * 40),
+                lambda v: native(v)['snapshot'].update(compiled_sha256='changed'),
+                lambda v: v['cases']['physics2d/4']['runs'][0].update(verified_bodies=3),
+                lambda v: v['cases']['physics2d/4']['runs'][0].update(vertical_tolerance_m=1),
+                lambda v: v['cases']['physics2d/4']['runs'][0].update(final_tick=7)):
+            bad = copy.deepcopy(original)
+            mutate(bad)
+            with self.assertRaises(ValueError):
+                bench.validate_report(bad)
+        for mutate in (
+                lambda v: native(v)['configuration'].update(BOX2D_DISABLE_SIMD='ON'),
+                lambda v: native(v).update(c_compiler_sha256='f' * 64),
+                lambda v: native(v)['snapshot'].update(compiled_sha256='f' * 64)):
+            bad = copy.deepcopy(original)
+            mutate(bad)
+            with self.assertRaises(ValueError):
+                bench.compare(original, bad)
+        with self.assertRaises(ValueError):
+            bench.workload_policy(dict(original['workload'], layouts=['physics']))
+        bench.validate_report(report())
+        bench.validate_report(report(layouts=['physics']))
+
+    def test_planar_maximum_duration_rounding_bound(self):
+        # Analytic sum for1088substeps at1/240s; the bound remains far smaller
+        # than an incorrect one-substep result or a5cm displacement error.
+        drop, tolerance = bench.physics_reference(272, True)
+        self.assertAlmostEqual(drop, -100.89585)
+        self.assertGreater(tolerance, .000263)
+        self.assertLess(tolerance, .014)
+        self.assertGreater(abs(bench.physics_reference(272, False)[0] - drop), 10 * tolerance)
+        source, expected = bench.fixture('physics2d', 1)
+        simulated = copy.deepcopy(source)
+        simulated['entities'][0]['components']['forge.local_translation']['y'] += drop + .000263
+        effective = copy.deepcopy(simulated)
+        effective['entities'][0].update(spatial_resolved=True,
+            world_affine=[1,0,0,0,0,1,0,100+drop+.000263,0,0,1,7])
+        state = dict(timing=dict(tick=272), scene=simulated, effective_scene=effective,
+                     physics=dict(tick=272, bodies=0, active_dynamic=0, sleeping_dynamic=0,
+                                  characters=0, bodies_2d=1, shapes_2d=1, native_2d_realized=True,
+                                  joints=0, joints_2d=0, gravity=[0,-9.81,0]))
+        bench.verify_physics(state, source, expected, planar=True)
+        simulated['entities'][0]['components']['forge.local_translation']['y'] = 100 + drop + .05
+        with self.assertRaises(ValueError):
+            bench.verify_physics(state, source, expected, planar=True)
+
+    @unittest.skipUnless(RUNTIME, 'Pass a built forge_runtime for planar physics reports')
+    def test_real_planar_reports_and_baselines(self):
+        with tempfile.TemporaryDirectory(prefix='planar-workloads-', dir=RUNTIME.parent) as temporary:
+            root = Path(temporary)
+            first, second = root / 'planar.json', root / 'compared.json'
+            args = [sys.executable, str(ROOT / 'tools/benchmark_runtime.py'), '--runtime', str(RUNTIME),
+                    '--workloads', 'physics2d', 'flat', '--counts', '4', '65', '--warmup', '2',
+                    '--samples', '9', '--repeats', '1']
+            subprocess.run([*args, '--output', str(first)], check=True)
+            subprocess.run([*args, '--baseline', str(first), '--output', str(second)], check=True)
+            data = json.loads(second.read_text())
+            self.assertEqual(data['workload']['revision'], 3)
+            self.assertEqual(set(data['cases']), {'physics2d/4', 'physics2d/65', 'flat/4', 'flat/65'})
+            run = data['cases']['physics2d/65']['runs'][0]
+            self.assertEqual(run['verified_bodies'], 65)
+            self.assertEqual(run['final_tick'], 13)
+            self.assertEqual(run['ticks'], [4,5,6,7,8,9,10,11,13])
+            self.assertFalse(data['provenance']['native_physics_2d']['binary_origin_verified'])
 
     @unittest.skipUnless(RUNTIME, 'Pass a built forge_runtime to exercise real protocol reports')
     def test_real_process_reports_and_immutable_output(self):

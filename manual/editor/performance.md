@@ -215,6 +215,28 @@ This source tool needs its matching CMake build cache and test client. It does n
 load your project, measure Game FPS/GPU work or change editor settings. Profiling
 overhead is included. Keep the report and matching build receipt together.
 
+To measure a separated 2D rigid-body workload, choose `--workloads physics2d`:
+
+```sh
+python tools/benchmark_runtime.py --runtime /path/to/build/forge_runtime --workloads physics2d --counts 64 512 --warmup 8 --samples 16 --repeats 3 --output /path/to/evidence/planar.json
+```
+
+The tool checks falling Boxes, native body/shape counts, unchanged body settings
+and every final local/world position before writing the report. The 2D check
+accounts for four solver substeps and accumulated single-precision rounding;
+the applied vertical tolerance is included in each result. Horizontal position,
+depth, rotation, scale and source controls keep their separate checks. Use
+`--workloads physics` for 3D bodies, or list several workload names to combine
+them. The2D profile supports up to1024bodies and defaults to64/512/1024; selections
+without2D default to64/512/4096. These separated-body scenes measure the shared
+physics stages; contacts,
+characters and rendering need their own workloads.
+
+Choose a new report path for a comparison and add `--baseline` pointing to the
+earlier file. Workloads, sampling, numeric policy, machine, compiler flags and
+native dependency configuration must match. Reports retain source/build hints
+and hashes; keep the build receipt to establish the executable's origin.
+
 ## Find an error
 
 Open Console and read the latest file/editor message, or runtime status. Compiler output is in Build. Native compilation also writes its current complete log to `.forge/sdk-build/build.log`. The launchers retain console output on an editor failure.
