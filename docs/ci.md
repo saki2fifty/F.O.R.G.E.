@@ -3118,3 +3118,16 @@ comparisons retain universal newline handling; separate byte assertions verify
 preserved CRLF storage and no-op Save. Do not rely on Python's platform default
 encoding for authored Unicode text. The control-properties workflow covers saved
 Unicode binding labels through both MCP formats.
+
+### Expanded 2D Map profile fixture
+
+The focused Map workflow exercises Static/Kinematic full-cell/custom solid and
+directional sensor combinations, ordinary sensors, Dynamic world-bound Maps and
+navigation collection through the same native owners. Its named `map_profile`
+fixture has a finite 600-second native lifetime; other native MCP fixtures retain
+240 seconds. The ordinary static and SDK CTest cases each allow 360 seconds for
+both protocol envelopes. Per-request readiness and validation guards, stop-marker
+shutdown, revision/history checks and diagnostics remain mandatory. The extended
+profile previously reached the 240-second native lifetime under selected O0
+sanitizer instrumentation and disconnected cleanly before completing its Play
+cases. A successful supervisor alone is not native-child sanitizer acceptance.

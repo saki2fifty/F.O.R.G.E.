@@ -180,7 +180,7 @@ void tile_contours_projection_and_recovery() {
                         verify(test.native);
                         auto one_way = body;
                         one_way.one_way = true;
-                        if (motion == 2 || sensor)
+                        if (motion == 2)
                             reject([&] {
                                 (void)tile_map_configuration_2d(one_way, map, 1, scale,
                                                                 &definitions);
@@ -905,14 +905,16 @@ void capacity_and_invalid_geometry() {
     reject([&] { test.native.validate(bad); });
     bad = test.desired;
     bad.at(1).config.body.one_way = true;
-    test.native.validate(bad); // Static and Kinematic nonsensor rectangles share the policy.
+    test.native.validate(bad); // Static and Kinematic rectangles share the policy.
     bad.at(1).config.body.motion = 1;
     test.native.validate(bad);
     bad.at(1).config.body.motion = 2;
     reject([&] { test.native.validate(bad); });
     bad.at(1).config.body.motion = 0;
     bad.at(1).config.body.sensor = true;
-    reject([&] { test.native.validate(bad); });
+    test.native.validate(bad);
+    bad.at(1).config.body.motion = 1;
+    test.native.validate(bad);
     bad = test.desired;
     bad.at(1).config.parts.reset();
     reject([&] { test.native.validate(bad); });

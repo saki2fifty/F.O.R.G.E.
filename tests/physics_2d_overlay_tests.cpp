@@ -104,6 +104,11 @@ void exercise(const std::filesystem::path& project, float scale) {
     require(await(one_way, true) > 0 &&
                 overlay.status().find("arrow points toward solid face") != std::string::npos,
             "One-way Scene guide lost its solid-face explanation");
+    one_way_components["forge.physics_body_2d"]["sensor"] = true;
+    require(await(one_way, true) > 0 &&
+                overlay.status().find("arrow points toward entry face") != std::string::npos &&
+                overlay.status().find("solid face") == std::string::npos,
+            "Directional sensor Scene guide claimed a solid response");
     await(snapshot, true);
     // Disabled 3D asset choices must not start resource IO or hide the 2D shape.
     auto mixed = snapshot;

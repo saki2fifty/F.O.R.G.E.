@@ -242,7 +242,9 @@ class PhysicsOverlay {
                 if (show_planar &&
                     (show_tile_map || components.contains("forge.box_collider_2d")) &&
                     components["forge.physics_body_2d"].value("one_way", false))
-                    note += " | one-way: arrow points toward solid face";
+                    note += components["forge.physics_body_2d"].value("sensor", false)
+                                ? " | one-way: arrow points toward entry face"
+                                : " | one-way: arrow points toward solid face";
                 if (show_tile_map && runtime.is_object() &&
                     runtime.value("native_2d_realized", false))
                     note += " | runtime cell edits are not shown here";

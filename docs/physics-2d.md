@@ -156,7 +156,7 @@ There are at most4096 total native2D shapes across Map rectangles, convex pieces
 within existing body, joint, pair and event limits. Empty Map actors do not consume
 native body/shape slots. Source6 supports1..4 filled contours with0..4 holes each
 and3..8 counterclockwise points per loop through the same checked convex pieces.
-One-way Map collision excludes Dynamic bodies and sensors. Custom polygons use
+One-way Map collision excludes Dynamic bodies; Static/Kinematic sensors use directional overlap admission. Custom polygons use
 original front-facing boundary edges, including hole floors and islands.
 Polygon slopes and decomposed contours use ordinary
 contact, query and controller response within the existing controller limits. A Map is not itself a character controller or
@@ -210,7 +210,8 @@ Fresh recovery restores Map edits before native physics and does not replay even
 
 ### Static and Kinematic one-way Maps
 
-Static or Kinematic nonsensor Map bodies can enable PhysicsBody2D.one_way.
+Static or Kinematic Map bodies can enable PhysicsBody2D.one_way for solid response
+or directional sensor overlaps.
 The selected layer's full-cell rectangles each use their own roof plane, including
 offset and stacked runs. Custom convex/concave/contour pieces preserve original
 boundary edges through decomposition, image orientation and signed physical scale.
@@ -226,8 +227,8 @@ Original loops stay in source/cooked values; masks enter configuration JSON only
 for the newly admitted custom one-way profile. Previously representable checkpoint
 values and private codec10/outer2 stay unchanged. Geometric queries and conservative
 checked placement still observe complete solid shapes. Source edits/empty/refill
-retain shared Map preflight, epochs and native retirement. Sensor and Dynamic
-one-way Maps reject.
+retain shared Map preflight, epochs and native retirement. Static/Kinematic
+one-way sensors use native overlap filtering; Dynamic one-way Maps reject.
 
 Original Gallery86 reuses PaintedPlatforms: falling actors land on painted roofs,
 and the reversed-gravity cyan circle passes the right platform to an ordinary
@@ -244,10 +245,37 @@ then compares source-free playback after relocating the package and taking sourc
 offline. The software Vulkan consumer compares four exact rendered display pairs.
 These checks do not establish Windows or graphical executable acceptance.
 
+## Directional sensor overlaps
+
+Static/Kinematic Box and full-cell/custom Map bodies may combine `sensor` with
+`one_way`. They retain non-solid native sensor semantics. New overlaps require an
+eligible original front boundary, existing margin/same-boundary side evidence and
+nonseparating relative point velocity. The shared point-velocity owner uses
+observed controller movement rather than its intentionally zero rigid velocity.
+Once admitted, each native shape overlap continues until native separation,
+filtering, removal or discontinuous placement. Multiple pieces retain ordinary
+copied event semantics; no body-level deduplication is introduced.
+
+The existing public native custom filter gates discrete queries and fast sensor
+candidates before native event allocation. Pre-solve/pre-continuous solid response
+alone cannot gate sensors. The current transient contact snapshot also copies
+admitted sensor overlaps at the unlocked fixed boundary. Its shape/visitor reads,
+original-edge checks and pair insertion share existing work/pair limits. Native
+Begin/End, canonical refs/epochs, retirement and fresh-candidate recovery keep their
+owners; no persistent pair database or serialized field is added. Dynamic and
+round one-way geometry remain excluded. Geometric queries keep independent sensor
+inclusion, and the native continuous-sensor limits above still apply.
+
+Gallery217 compares ordinary/directional front/back passages. Native controls,
+source commands and MCP use existing reflected fields, history, project grants
+and revision checks; no separate sensor writer or agent simulation is present.
+
 ## One-way platforms
 
-`PhysicsBody2D.one_way` defaults to false. Enable it only on a Static or Kinematic nonsensor
-body with one Box Collider 2D or Tile Map Collider 2D. Each rectangle's solid face is transformed local +Y; custom polygons select
+`PhysicsBody2D.one_way` defaults to false. Enable it on a Static or Kinematic
+body with one Box Collider 2D or Tile Map Collider 2D. Sensors gate overlap events
+using the policy above; nonsensors gate solid response. Each rectangle's front
+face is transformed local +Y; custom polygons select
 original boundary edges facing within 60 degrees of that direction. Signed Y scale
 reverses the front reference, and supported Z rotation rotates it. `one_way_margin` is a
 finite world-space tolerance in0..1m, default0.02m, with effective minimum0.005m
@@ -293,8 +321,9 @@ No command implicitly becomes a filtered physical query from its ignored entity.
 The shared authored schema exposes both fields to Inspector and the existing
 automation/MCP component/property operations, including revisions, validation,
 history and persistence. No special agent-only physics implementation is needed.
-Selected collision adds a bounded arrow toward the solid face, using the same
-signed physical shape conversion. Gallery79 and Character2D are ordinary consumers.
+Selected collision adds a bounded arrow toward the front face, using the same
+signed physical shape conversion. Its status identifies solid response or sensor
+entry as appropriate. Gallery79 and Character2D are ordinary consumers.
 
 ## Connected bodies
 

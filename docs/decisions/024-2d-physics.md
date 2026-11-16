@@ -531,3 +531,31 @@ representable configurations keep their exact JSON and private codec10/outer2
 remain unchanged. No authored field, identity, C table, dependency revision or
 body/shape/work budget changes. Implementation, validation and physical acceptance
 are separate claims recorded in the subsystem documentation and evidence ledger.
+
+
+## Directional sensor extension
+
+Extend the Static/Kinematic Box and painted/custom Map one-way profile to sensors.
+This deliberately supersedes the sensor exclusions above. A sensor remains
+non-solid: its one-way setting admits overlap events from eligible front original
+boundaries, using existing margins, same-boundary side samples and relative
+approach velocity. Dynamic one-way bodies and round one-way sensor geometry stay
+excluded. Ordinary geometric queries retain their independent sensor policy.
+
+The existing public native custom filter gates both discrete overlaps and fast
+sensor candidates. Solid response callbacks alone cannot gate sensor events.
+Reuse the existing transient native-contact snapshot for admitted sensor overlaps;
+read native sensor data before stepping, with existing pair/query-work bounds.
+Continue admitted native overlaps until native separation/filter/removal;
+discontinuous placement clears eligibility on either body. Native Begin/End,
+epochs, retirement and recovery retain their current owners. No persistent pair
+database, second event lifecycle, physics world or authored identity is added.
+
+No component field or serialized recovery field is added. Existing native overlap
+state and body-side samples carry continuity; derived snapshots are rebuilt.
+Public contract comments/reflection require the matching rebuilt SDK fingerprint,
+without changing ABI1 or source formats. Dedicated native/source/UI/MCP/SDK,
+recovery and source-hidden export checks cover this profile. Runtime/SDK tests
+observe copied events; the Inspector and Scene collision guides retain the
+existing authoring owners. Source acceptance and Windows/physical review remain
+separate claims recorded by the subsystem's validation evidence.

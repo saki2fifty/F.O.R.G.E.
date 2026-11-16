@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**217-directional-sensor-events** compares ordinary and directional sensors with
+front and back passages. Both kinds let bodies through. Inspect **Physics Body
+2D > Sensor** and **One-way collision** on the green regions. Copied C++ events
+accept front entry and ignore back entry for the directional pair; strip colors
+stay fixed. Save and select this Scene as startup before export. See
+[Directional sensors and 2D physics](../editor/physics-2d.md).
+
 **216-camera-transition-curves** compares Smooth, Linear, EaseIn and EaseOut view
 and lens transitions. Press Play to watch its twelve-second loop, then Stop and
 select an incoming Camera Shot in the Timeline. Change **Shot blend curve**, apply

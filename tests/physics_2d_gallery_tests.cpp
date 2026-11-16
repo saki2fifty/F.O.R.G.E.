@@ -2,6 +2,7 @@
 #include "runtime_package.hpp"
 #include "sprite_material_profile.hpp"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <forge/animation.hpp>
@@ -109,6 +110,53 @@ void one_way_playback(const std::filesystem::path& root, AssetId scene_id) {
     check(frame.diagnostics.empty() && frame.cameras.size() == 1 && frame.sprites.size() == 10,
           "One-way Gallery lost its camera or ordinary Sprite visuals");
 }
+void sensor_playback(const std::filesystem::path& root, AssetId scene_id) {
+    EngineContext engine(WorldRole::Runtime, false, {physics_module()});
+    Scene scene(engine.world());
+    scene.restore_snapshot(load_game_scene(root, {scene_id}));
+    RuntimeSimulation simulation(engine.world(), scene);
+    const auto physics = std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
+    physics->synchronize(0);
+    std::map<std::string, EntityRef> refs;
+    const auto document = scene.effective_document();
+    for (const auto& row : document.at("entities"))
+        refs.emplace(row.at("name").get<std::string>(),
+                     scene.reference(row.at("id").get<std::string>()));
+    const std::map<EntityRef, EntityRef> expected{
+        {refs.at("Ordinary sensor - falling from above"),
+         refs.at("Front passage - ordinary sensor")},
+        {refs.at("Directional sensor - falling from above"),
+         refs.at("Front passage - directional sensor")},
+        {refs.at("Ordinary sensor - rising from below"), refs.at("Back passage - ordinary sensor")},
+        {refs.at("Directional sensor - rising from below"),
+         refs.at("Back passage - directional sensor")}};
+    std::map<EntityRef, std::array<unsigned, 2>> counts;
+    for (unsigned tick = 0; tick != 240; ++tick) {
+        simulation.tick(1.f / 60);
+        for (std::size_t i = 0; i < physics->contact_count_2d(); ++i) {
+            const auto event = physics->contact_event_2d(i);
+            check(event.has_value(), "Directional Gallery copied event slot is unavailable");
+            if (!event->sensor)
+                continue;
+            check(expected.contains(event->first) && expected.at(event->first) == event->second &&
+                      event->first_available && event->second_available,
+                  "Directional Gallery lost canonical/current sensor event endpoints");
+            ++counts[event->first][event->begin ? 0 : 1];
+        }
+    }
+    for (const auto& [sensor, actor] : expected) {
+        const bool rejected = sensor == refs.at("Directional sensor - rising from below");
+        check(counts[sensor] == (rejected ? std::array{0u, 0u} : std::array{1u, 1u}),
+              "Directional Gallery lost front events or admitted back-side passage");
+        const auto state = physics->body_state_2d(actor);
+        check(state && std::abs(state->position[1]) > 3.5 &&
+                  std::abs(state->linear_velocity[1]) < .01,
+              "Directional Gallery sensor blocked a body before its solid catch surface");
+    }
+    const auto frame = extract_render_scene(simulation.presentation(1));
+    check(frame.diagnostics.empty() && frame.cameras.size() == 1 && frame.sprites.size() == 10,
+          "Directional Gallery lost its camera or ordinary Sprite visuals");
+}
 void playback(const std::filesystem::path& root, const AssetCatalog& catalog, AssetId scene_id) {
     EngineContext engine(WorldRole::Runtime, false, {physics_module(), animation_module(root)});
     Scene scene(engine.world());
@@ -205,11 +253,13 @@ int main(int argc, char** argv) {
     try {
         check(argc == 3 || argc == 4, "Need Gallery, scratch root and optional scope");
         const std::string_view mode = argc == 4 ? argv[3] : "all";
-        check(mode == "all" || mode == "bodies" || mode == "joints" || mode == "one-way",
+        check(mode == "all" || mode == "bodies" || mode == "joints" || mode == "one-way" ||
+                  mode == "sensors",
               "Unknown 2D Gallery fixture scope");
         const bool bodies = mode == "all" || mode == "bodies";
         const bool joints = mode == "all" || mode == "joints";
         const bool one_way_enabled = mode == "all" || mode == "one-way";
+        const bool sensors = mode == "all" || mode == "sensors";
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         struct Cleanup {
             std::filesystem::path root;
@@ -226,6 +276,7 @@ int main(int argc, char** argv) {
         const auto scene = asset(catalog, "Scenes/75-2d-physics.scene.json");
         const auto connected = asset(catalog, "Scenes/76-connected-2d-bodies.scene.json");
         const auto one_way = asset(catalog, "Scenes/79-one-way-platforms.scene.json");
+        const auto sensor_scene = asset(catalog, "Scenes/217-directional-sensor-events.scene.json");
         const auto solid = asset(catalog, "Assets/Physics2D/Solid.material.json");
         const auto badge = asset(catalog, "Assets/Sprites/Badge.material.json");
         const auto clip = asset(catalog, "Assets/Physics2D/Platform.animation.json");
@@ -244,6 +295,8 @@ int main(int argc, char** argv) {
                 roots.push_back(connected);
             if (one_way_enabled)
                 roots.push_back(one_way);
+            if (sensors)
+                roots.push_back(sensor_scene);
             prepare_runtime_content_catalog(*lease, roots, {}, schema.schema());
         }
         catalog = AssetCatalog::open_project(root);
@@ -253,6 +306,8 @@ int main(int argc, char** argv) {
             connected_playback(root, connected);
         if (one_way_enabled)
             one_way_playback(root, one_way);
+        if (sensors)
+            sensor_playback(root, sensor_scene);
         const auto package = scratch / "prepared content";
         const std::array roots{scene};
         if (bodies)
@@ -265,6 +320,10 @@ int main(int argc, char** argv) {
         const std::array one_way_roots{one_way};
         if (one_way_enabled)
             package_runtime_content(root, one_way_package, one_way_roots, {"windows", "d3d12"});
+        const auto sensor_package = scratch / "directional sensor prepared content";
+        const std::array sensor_roots{sensor_scene};
+        if (sensors)
+            package_runtime_content(root, sensor_package, sensor_roots, {"windows", "d3d12"});
         std::filesystem::remove_all(root);
         if (bodies) {
             const auto moved = scratch / "relocated source-free content";
@@ -308,6 +367,22 @@ int main(int argc, char** argv) {
             const auto one_way_moved = scratch / "relocated one-way source-free content";
             std::filesystem::rename(one_way_package, one_way_moved);
             one_way_playback(one_way_moved, one_way);
+        }
+        if (sensors) {
+            const auto moved = scratch / "relocated source-free directional sensors";
+            std::filesystem::rename(sensor_package, moved);
+            const auto packed = open_runtime_content(moved, {"windows", "d3d12"});
+            std::set<AssetId> actual;
+            for (const auto& [id, record] : packed.records())
+                actual.insert(id);
+            const std::set<AssetId> expected{sensor_scene, solid, badge, texture};
+            if (actual != expected)
+                for (const auto& [id, record] : packed.records())
+                    std::cerr << "Directional package asset " << id.str() << ' ' << record.type
+                              << '\n';
+            check(actual == expected,
+                  "Directional Gallery package changed its exact four-asset closure");
+            sensor_playback(moved, sensor_scene);
         }
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

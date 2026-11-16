@@ -13,6 +13,8 @@ inline bool forge_gallery_launch_2d(const ForgeSdkWorldV1* host, const ForgeSdkE
 // Read in PostPhysics. Events are copied, broadcast and expire at the next
 // admitted synchronization. An End may refer to a retired realization: use its
 // epoch/availability flags before treating either reference as a current body.
+// On a Static/Kinematic Box or Map, Sensor plus One-way collision admits front
+// entry events without solid response. Ordinary Sensor observes either side.
 inline bool forge_gallery_sensor_event_2d(const ForgeSdkWorldV1* host, unsigned index,
                                           ForgeSdkPhysicsContact2DV1& event) {
     return forge::sdk::Client(host).contact_event_2d(index, event) == 1 && event.sensor;

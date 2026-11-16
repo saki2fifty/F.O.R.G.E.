@@ -1,5 +1,16 @@
 # 2026-11-16
 
+## Directional 2D sensor overlaps
+
+Static/Kinematic Box and full-cell/custom Tile Map sensors can use the existing
+one-way controls to admit overlap events from their front original boundaries.
+Sensors remain non-solid; native pair continuity, epochs and recovery retain
+their existing owners. Character movement and rigid-body point velocity share
+the current motion owner when evaluating approach. Scene commands, Inspector,
+MCP and matching SDK observations use the same physics implementation. The
+editable directional-sensor Gallery scene compares front/back passage and is
+included with the packaged Gallery.
+
 ## Camera Shot splitting and duplication
 
 Timeline can split a shot at the playhead or copy its clip values into a complete

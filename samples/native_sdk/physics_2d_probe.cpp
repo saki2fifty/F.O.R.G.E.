@@ -28,7 +28,37 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char*, uint32_t) {
 }
 int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
     flecs::world world(host->world);
-#ifdef FORGE_TEST_PLANAR_DENIED
+#if defined(FORGE_TEST_PLANAR_DIRECTIONAL)
+    world.system<const forge::PhysicsBody2D>()
+        .kind(host->post_physics_phase)
+        .each([host](flecs::entity entity, const forge::PhysicsBody2D& body) {
+            if (!body.sensor)
+                return;
+            const auto ref = reference(host, entity);
+            forge::sdk::Client client(host);
+            const auto count = client.contact_count_2d();
+            check(count >= 0 && count <= 16384, "Directional SDK contact count invalid");
+            for (int32_t i = 0; i < count; ++i) {
+                ForgeSdkPhysicsContact2DV1 event{};
+                check(client.contact_event_2d(uint32_t(i), event) == 1,
+                      "Directional SDK event read failed");
+                if (!event.sensor || std::strcmp(event.first_scene_uuid, ref.scene_uuid) ||
+                    std::strcmp(event.first_entity_uuid, ref.entity_uuid))
+                    continue;
+                check(event.first_available && event.second_available,
+                      "Directional SDK unexpectedly retired an unchanged body");
+                char text[256];
+                std::snprintf(text, sizeof(text), "Directional sensor %s %s %u %llu %llu %llu",
+                              event.first_entity_uuid, event.second_entity_uuid, event.begin,
+                              static_cast<unsigned long long>(event.first_epoch),
+                              static_cast<unsigned long long>(event.second_epoch),
+                              static_cast<unsigned long long>(event.tick));
+                check(host->diagnostic(host->context, 1, text) == 1,
+                      "Directional SDK event diagnostic failed");
+            }
+        })
+        .add(host->fixed_tag);
+#elif defined(FORGE_TEST_PLANAR_DENIED)
     world.system<const forge::PhysicsBody2D>()
         .kind(host->fixed_phase)
         .each([host](flecs::entity entity, const forge::PhysicsBody2D& body) {
@@ -322,6 +352,10 @@ const char* dependencies[] = {"forge.physics"};
 #ifdef FORGE_TEST_PLANAR_DENIED
 const char* module_id = "project.physics_2d_denied";
 constexpr uint32_t required = 0, allowed = FORGE_SDK_DIAGNOSTICS;
+#elif defined(FORGE_TEST_PLANAR_DIRECTIONAL)
+const char* module_id = "project.physics_2d_directional";
+constexpr uint32_t required = FORGE_SDK_PHYSICS,
+                   allowed = FORGE_SDK_PHYSICS | FORGE_SDK_DIAGNOSTICS;
 #else
 const char* module_id = "project.physics_2d_probe";
 constexpr uint32_t required = FORGE_SDK_PHYSICS,

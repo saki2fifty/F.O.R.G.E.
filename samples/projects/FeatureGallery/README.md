@@ -1,5 +1,20 @@
 # Feature Gallery
 
+## Directional sensor events
+
+Open `Scenes/217-directional-sensor-events.scene.json` and press Play. The two
+left actors fall from above; the two right actors rise from below. Ordinary and
+directional sensors both let them through to solid catch surfaces. The green
+regions combine **Sensor** with **One-way collision** on Static bodies; Kinematic
+Boxes and painted Maps support the same entry policy.
+
+Read copied sensor events in PostPhysics using **CodeExamples/Physics2D.hpp**.
+Both front passages and the ordinary back passage emit Begin/End. The directional
+back passage emits none. The colors remain fixed; this Scene needs no project
+module to simulate, and the helper is optional C++ observation code. Stop before
+changing the flags, then save and select this Scene as startup before export.
+
+
 ## Camera transition curves
 
 Open `Scenes/216-camera-transition-curves.scene.json` and press Play. Four
@@ -1373,8 +1388,8 @@ right painted platform to an ordinary ceiling; other bodies land on painted roof
 Select the Map and turn on Selected collision to inspect each solid-face arrow.
 Stop, disable One-way collision and replay to compare the underside response.
 The existing CodeExamples/PaintedCollision.hpp helpers work with this profile too.
-Only Static nonsensor Maps support this policy; moving/sensor one-way remains
-unavailable. Save before export.
+Static and Kinematic Maps support this policy. Enable Sensor to gate overlap
+events without blocking; scene217 compares front/back sensor passage. Save before export.
 
 ## Audio echo
 
@@ -1427,8 +1442,10 @@ Fast-moving sensors can miss crossings. Stop restores the authored state.
 
 Both scenes export with their normal dependency closure. Kinematic/sensor Maps use
 one native body per Map instance, shared layers/masks and ordinary physics queries.
-Dynamic Maps and moving/sensor one-way collision remain unsupported. Static
-nonsensor one-way Maps are demonstrated in scene86. The user manual's
+World-bound Dynamic Maps are demonstrated in scene124. One-way collision supports
+Static/Kinematic solid Maps and directional sensors; Dynamic one-way remains
+unsupported. Scenes86,119,125 and217 cover the corresponding one-way profiles.
+The user manual's
 Tile Maps guide covers authoring, runtime edits, saving, limits and examples.
 
 ## Top-down XY navigation
@@ -1515,7 +1532,9 @@ The Scene needs no C++ module. **CodeExamples/PaintedCollision.hpp** demonstrate
 queued cell removal and a normal physics query for a matching compiled C++ module.
 Runtime edits disappear on Stop. Save/publish and save the Scene before exporting;
 the exported game uses the same prepared Map collision without the editor or source.
-This profile supports Static nonsensor Map bodies and rectangular occupied cells.
+The selected layer supports Static/Kinematic/Dynamic bodies, solid or sensor
+regions, and full-cell/custom profiles. Dynamic Maps need a world spatial binding;
+one-way response or directional sensing supports Static/Kinematic bodies.
 
 ## Connected 2D bodies
 

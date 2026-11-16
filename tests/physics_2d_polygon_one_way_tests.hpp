@@ -1,12 +1,13 @@
 #pragma once
+#include "builtins.hpp"
+#include "physics_2d_one_way_tests.hpp"
 #include "physics_debug.hpp"
 #include "tile_map_cook.hpp"
 #include "tile_set_cook.hpp"
 #include <bit>
 
 namespace forge::test {
-inline void test_custom_one_way_boundaries() {
-    using namespace physics_detail;
+inline TileSetSource one_way_contour_source() {
     auto source = TileSetSource::create(AssetId::generate());
     source.document["next_id"] = 3;
     source.document["images"] = {{{"id", 1},
@@ -28,6 +29,11 @@ inline void test_custom_one_way_boundaries() {
                            {"holes", Json::array({{{.2, .2}, {.8, .2}, {.8, .8}, {.2, .8}}})}},
                           {{"points", {{.4, .4}, {.6, .4}, {.6, .6}, {.4, .6}}},
                            {"holes", Json::array()}}})}});
+    return source;
+}
+inline void test_custom_one_way_boundaries() {
+    using namespace physics_detail;
+    const auto source = one_way_contour_source();
     const auto definitions = decode_cooked_tile_set(cook_tile_set(source), source.asset());
     for (unsigned flags = 0; flags < 8; ++flags)
         for (float xs : {-1.f, 1.f})

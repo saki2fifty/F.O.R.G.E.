@@ -115,6 +115,7 @@ void prefab_intent() {
                                      {"forge.physics_body_2d",
                                       {{"motion", 0},
                                        {"mass", 2},
+                                       {"sensor", true},
                                        {"one_way", true},
                                        {"one_way_margin", .02},
                                        {"future_options", opaque}}},
@@ -131,7 +132,9 @@ void prefab_intent() {
          {"prefab_instance",
           {{"asset", asset}, {"revision", prefab.revision()}, {"members", {{member.str(), id}}}}}});
     scene.edit(reconcile_prefab_intent(document, scene.prefab_sources()));
-    require(scene.entity(id).has<PhysicsBody2D>() && !scene.entity(id).owns<PhysicsBody2D>(),
+    require(scene.entity(id).has<PhysicsBody2D>() && !scene.entity(id).owns<PhysicsBody2D>() &&
+                scene.entity(id).get<PhysicsBody2D>().sensor &&
+                scene.entity(id).get<PhysicsBody2D>().one_way,
             "Prefab Body2D inheritance lost");
     const auto inherited = scene.document();
     command(scene, "property.set", id, "forge.physics_body_2d", "one_way", false);

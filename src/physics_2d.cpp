@@ -214,9 +214,8 @@ b2MassData compound_mass(const Body2DConfiguration& config) {
 void validate_one_way(const PhysicsBody2D& body, unsigned shape) {
     if (!std::isfinite(body.one_way_margin) || body.one_way_margin < 0 || body.one_way_margin > 1)
         throw std::runtime_error("2D one-way margin must be finite metres in [0,1]");
-    if (body.enabled && body.one_way &&
-        (body.motion > 1 || body.sensor || (shape != 0 && shape != 3)))
-        throw std::runtime_error("One-way collision requires a Static or Kinematic nonsensor Box "
+    if (body.enabled && body.one_way && (body.motion > 1 || (shape != 0 && shape != 3)))
+        throw std::runtime_error("One-way collision requires a Static or Kinematic Box "
                                  "or Tile Map Collider 2D");
 }
 void validate_tile_map_body(const PhysicsBody2D& body) {
@@ -844,15 +843,22 @@ struct Native2D::Impl {
     std::size_t response_work = 0;
     bool response_failed = false;
     using ShapePair = std::pair<std::uint64_t, std::uint64_t>;
-    // A fixed-boundary copy of native touching contacts, not a contact lifecycle store.
+    // Fixed-boundary native contacts/overlaps, never another contact lifecycle store.
     std::vector<ShapePair> response_contacts;
     std::vector<b2ContactData> response_contact_read;
+    std::vector<b2ShapeId> response_sensor_read;
     static ShapePair shape_pair(b2ShapeId a, b2ShapeId b) noexcept {
         const auto first = b2StoreShapeId(a), second = b2StoreShapeId(b);
         return first < second ? ShapePair{first, second} : ShapePair{second, first};
     }
     static SideSample sample(const Body& body) noexcept {
         return {b2Body_GetPosition(body.id), b2Body_GetRotation(body.id)};
+    }
+    static Double2 point_velocity(const Body& body, b2Pos point) noexcept {
+        if (body.admitted.config.mover_profile)
+            return body.mover_velocity;
+        const auto value = b2Body_GetWorldPointVelocity(body.id, point);
+        return {value.x, value.y};
     }
     static b2Vec2 one_way_normal(const Body& platform) noexcept {
         return b2RotateVector(b2Body_GetRotation(platform.id),
@@ -954,10 +960,9 @@ struct Native2D::Impl {
                             *platform.last_start))
                 return false;
         }
-        const auto a = b2Body_GetWorldPointVelocity(actor.id, point);
-        const auto b = b2Body_GetWorldPointVelocity(platform.id, point);
-        const double speed =
-            double(normal.x) * (double(a.x) - b.x) + double(normal.y) * (double(a.y) - b.y);
+        const auto a = point_velocity(actor, point);
+        const auto b = point_velocity(platform, point);
+        const double speed = double(normal.x) * (a[0] - b[0]) + double(normal.y) * (a[1] - b[1]);
         if (!std::isfinite(speed)) {
             response_failed = true;
             return false;
@@ -1065,6 +1070,42 @@ struct Native2D::Impl {
         for (const auto& [id, body] : bodies) {
             if (!body.admitted.config.body.one_way || !body.preceding_start)
                 continue;
+            if (body.admitted.config.body.sensor) {
+                for (const auto sensor : body.shapes) {
+                    if (!charge_query_work(response_work))
+                        throw std::runtime_error(
+                            "2D one-way sensor read exceeded fixed work capacity");
+                    const int capacity = b2Shape_GetSensorCapacity(sensor);
+                    if (capacity < 0 || std::size_t(capacity) > pair_limit)
+                        throw std::runtime_error("2D one-way native sensor capacity is invalid");
+                    for (int i = 0; i < capacity; ++i)
+                        if (!charge_query_work(response_work))
+                            throw std::runtime_error(
+                                "2D one-way sensor read exceeded fixed work capacity");
+                    if (!capacity)
+                        continue;
+                    response_sensor_read.resize(std::size_t(capacity));
+                    const int count =
+                        b2Shape_GetSensorData(sensor, response_sensor_read.data(), capacity);
+                    if (count < 0 || count > capacity)
+                        throw std::runtime_error("2D one-way native sensor result is invalid");
+                    for (int i = 0; i < count; ++i) {
+                        const auto visitor = response_sensor_read[std::size_t(i)];
+                        if (!b2Shape_IsValid(visitor))
+                            continue; // Native overlap data may retain destroyed visitors.
+                        const auto* actor = owned(visitor);
+                        if (!actor)
+                            throw std::runtime_error("2D one-way prior sensor binding is invalid");
+                        if (!actor->preceding_start)
+                            continue;
+                        if (response_contacts.size() == pair_limit)
+                            throw std::runtime_error(
+                                "2D one-way overlap witness capacity exceeded");
+                        response_contacts.push_back(shape_pair(sensor, visitor));
+                    }
+                }
+                continue;
+            }
             const int capacity = b2Body_GetContactCapacity(body.id);
             if (capacity < 0 || std::size_t(capacity) > pair_limit)
                 throw std::runtime_error("2D one-way native contact capacity is invalid");
@@ -1891,13 +1932,56 @@ struct Native2D::Impl {
             throw std::runtime_error(
                 "2D physics faulted; the partial native step cannot be adopted or continued");
     }
-    static bool filter(b2ShapeId, b2ShapeId, void* pointer) noexcept {
+    bool admit_sensor(const Body& sensor, b2ShapeId shape, const Body& actor,
+                      b2ShapeId visitor) noexcept {
+        const auto point = b2Body_GetWorldCenter(actor.id);
+        const auto* mask = boundary_edges(sensor, shape);
+        if (!mask) {
+            if (!charge_query_work(response_work)) {
+                response_failed = true;
+                return false;
+            }
+            return admit_response(sensor, shape, actor, visitor, point, one_way_normal(sensor));
+        }
+        const auto polygon = b2Shape_GetPolygon(shape);
+        if (polygon.count < 3 || polygon.count > int(tile_collision_vertex_limit)) {
+            response_failed = true;
+            return false;
+        }
+        const float sign = std::signbit(sensor.admitted.pose.scale.y) ? -1.f : 1.f;
+        for (int i = 0; i < polygon.count; ++i) {
+            if (!(*mask & (1u << i)) || polygon.normals[i].y * sign < .5f)
+                continue;
+            if (!charge_query_work(response_work)) {
+                response_failed = true;
+                return false;
+            }
+            const auto normal = b2RotateVector(b2Body_GetRotation(sensor.id), polygon.normals[i]);
+            if (admit_response(sensor, shape, actor, visitor, point, normal))
+                return true;
+        }
+        return false;
+    }
+    static bool filter(b2ShapeId a, b2ShapeId b, void* pointer) noexcept {
         auto& self = *static_cast<Impl*>(pointer);
         if (self.pair_work >= pair_limit) {
             self.overflow = true;
             return false;
         }
         ++self.pair_work;
+        if (!self.one_way_present)
+            return true;
+        const auto *first = self.owned(a), *second = self.owned(b);
+        if (!first || !second) {
+            self.response_failed = true;
+            return false;
+        }
+        if (first->admitted.config.body.sensor && first->admitted.config.body.one_way &&
+            !self.admit_sensor(*first, a, *second, b))
+            return false;
+        if (second->admitted.config.body.sensor && second->admitted.config.body.one_way &&
+            !self.admit_sensor(*second, b, *first, a))
+            return false;
         return true;
     }
     void realize() {
@@ -2800,10 +2884,7 @@ std::optional<Double2> Native2D::point_velocity(std::uint64_t entity, EntityRef 
     const auto found = self.bodies.find(entity);
     if (found == self.bodies.end() || found->second.admitted.ref != ref)
         return {};
-    if (found->second.admitted.config.mover_profile)
-        return found->second.mover_velocity;
-    const auto value = b2Body_GetWorldPointVelocity(found->second.id, {point[0], point[1]});
-    return Double2{value.x, value.y};
+    return Impl::point_velocity(found->second, {point[0], point[1]});
 }
 std::optional<PhysicsHit2D> Native2D::raycast(Double2 origin, Double2 displacement,
                                               PhysicsQueryFilter filter) const {

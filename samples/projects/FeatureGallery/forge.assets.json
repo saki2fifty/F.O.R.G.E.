@@ -16204,6 +16204,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "c2bd4fb0-0003-4200-a6ce-d8dbc9076167",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/217-directional-sensor-events.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "c2befb1a-37cf-4f0c-83ed-5eec551685cf",
       "metadata": {},
       "schema_version": 3,

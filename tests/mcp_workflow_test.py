@@ -44,7 +44,8 @@ NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
 NAVIGATION_LINKS_ONLY = sys.argv[7:] == ['--navigation-links-only']
 NAVIGATION_COLLECTION_ONLY = sys.argv[7:] == ['--navigation-collection-only']
 SCOPE_TRACE_ONLY = sys.argv[7:] == ['--scope-trace-only']
-MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
+MAP_PROFILE_SDK = sys.argv[7:] == ['--map-profile-sdk-only']
+MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only'] or MAP_PROFILE_SDK
 SPRITE_FRAMES_ONLY = sys.argv[7:] == ['--sprite-frames-only']
 PROBES_ONLY = sys.argv[7:] == ['--reflection-probes-only']
 DECALS_ONLY = sys.argv[7:] == ['--decals-only']
@@ -264,7 +265,7 @@ def editor(mode='full'):
             command.append(str(audio_profile_project_template(root)))
         elif SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if (AUDIO_PAUSE_ONLY and os.environ.get('FORGE_MCP_TEST_SDK') == '1') or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK or UI_FONT_COLLECTIONS_SDK or CAMERA_TRANSITION_SDK:
+        if (AUDIO_PAUSE_ONLY and os.environ.get('FORGE_MCP_TEST_SDK') == '1') or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK or UI_FONT_COLLECTIONS_SDK or CAMERA_TRANSITION_SDK or MAP_PROFILE_SDK:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -289,7 +290,7 @@ def until(fn, predicate, timeout=30):
 
 selected_protocols = protocol_cases()
 for legacy in selected_protocols:
-    with editor('application_states' if APPLICATION_STATES_ONLY else 'ui_localization' if UI_LOCALIZATION_ONLY else 'gamepads' if GAMEPADS_ONLY else 'clocked_audio' if FINITE_SOUND_CUES_ONLY else 'ui_materials' if UI_MATERIALS_ONLY else 'full') as (root, config), Client(config, legacy) as client:
+    with editor('map_profile' if MAP_PROFILE_ONLY else 'application_states' if APPLICATION_STATES_ONLY else 'ui_localization' if UI_LOCALIZATION_ONLY else 'gamepads' if GAMEPADS_ONLY else 'clocked_audio' if FINITE_SOUND_CUES_ONLY else 'ui_materials' if UI_MATERIALS_ONLY else 'full') as (root, config), Client(config, legacy) as client:
         # These focused workflows keep one project/document target. Reuse that
         # observed target for reads; every mutation still discovers fresh revision
         # and sequence guards. Other workflows retain their boundary discovery.
@@ -1822,8 +1823,9 @@ for legacy in selected_protocols:
             control('forge_play_stop')
             assert read('forge_scene_read') == authored
             previous = authored
-            for selected_map, one_way_motion in ((tile_map, 0), (tile_map, 1),
-                                                  (contour_map, 0), (contour_map, 1)):
+            for selected_map, one_way_motion, one_way_sensor in (
+                    (asset, motion, sensor) for asset in (tile_map, contour_map)
+                    for motion in (0, 1) for sensor in (False, True)):
                 before_map = read('forge_scene_read')
                 if next(e for e in before_map['entities'] if e['id'] == actor)['components']['forge.tile_map_renderer']['map'] != selected_map:
                     ok('forge_property_set', arguments=dict(entity=actor, component='forge.tile_map_renderer',
@@ -1833,7 +1835,7 @@ for legacy in selected_protocols:
                     assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == changed_map
                     previous = changed_map
                 ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.physics_body_2d',
-                                                            values=dict(motion=one_way_motion, sensor=False, one_way=True)))
+                                                            values=dict(motion=one_way_motion, sensor=one_way_sensor, one_way=True)))
                 one_way = read('forge_scene_read')
                 assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == previous
                 assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == one_way
@@ -1845,7 +1847,7 @@ for legacy in selected_protocols:
                 running = next(e for e in read('forge_play_snapshot')['entities'] if e['id'] == actor)
                 assert running['components']['forge.physics_body_2d']['one_way'] is True
                 assert running['components']['forge.physics_body_2d']['motion'] == one_way_motion
-                assert running['components']['forge.physics_body_2d']['sensor'] is False
+                assert running['components']['forge.physics_body_2d']['sensor'] is one_way_sensor
                 control('forge_play_stop')
                 assert read('forge_scene_read') == one_way
                 previous = one_way

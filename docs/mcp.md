@@ -335,12 +335,15 @@ and `forge.tile_map_collider_2d`, then set the collider's exact layer key. The
 existing `forge_property_set_many` operation authors `motion` (0 Static,1
 Kinematic or2 Dynamic) and `sensor` together, with normal revision guards and one
 Undo/Redo step. Sensor applies to the selected layer's rectangles. Save before
-Play/export. Static or Kinematic nonsensor Boxes and full-cell/custom-polygon Maps can set the
-existing `one_way`/`one_way_margin` fields through the same property operations.
+Play/export. Static or Kinematic Boxes and full-cell/custom-polygon Maps can set
+`one_way`/`one_way_margin` through the same property operations. With `sensor:true`,
+these fields gate overlap events from eligible front original edges without
+blocking movement. An admitted overlap continues until native separation,
+filtering, removal or placement reset; back-side passage does not begin a pair.
 Kinematic targets or Transform Animator clips can move them. The existing
-Character Controller 2D `platform_carry` property enables walkable support transport.
-Sensor and Dynamic one-way collision remain outside the runtime profile. Custom
-polygons use original front-facing edges through the same runtime owner. Dynamic Map bodies require `forge_transform_binding` with
+Character Controller 2D `platform_carry` property enables walkable solid support
+transport. Dynamic and round one-way bodies remain outside the runtime profile.
+Custom polygons use original front-facing edges through the same runtime owner. Dynamic Map bodies require `forge_transform_binding` with
 `spatial:{mode:"world"}` before Play. Existing body density, mass, lock and gravity
 properties apply to the complete compound. No separate agent-only body operation
 is needed.
@@ -558,8 +561,9 @@ an already promoted source never downgrades through ordinary edits. It does not 
 write Scene values or publish automatically. Undo/Redo and Save use the ordinary
 asset-document methods. After publishing a Set, republish its dependent Maps
 against that selected revision. Collision uses existing Static/Kinematic/Dynamic bodies,
-sensors, cell flags and shape budgets. Static/Kinematic nonsensor custom one-way
-polygons use original front-facing edges; decomposition diagonals have no response.
+sensors, cell flags and shape budgets. Static/Kinematic custom one-way polygons
+use original front-facing edges for solid response or directional sensor admission;
+decomposition diagonals do not introduce front boundaries.
 Interactive unapplied collision drafts participate in the existing document-busy
 guard. Read-only connections advertise no collision mutation binding.
 
@@ -3288,3 +3292,15 @@ existing runtime contract. Source authoring does not publish model values, regis
 commands, execute gameplay, write Scene/catalog or bypass Play permissions. Static
 Preview stays a layout inspection. Native field values, reserved loading names,
 multiple/arbitrary expressions and computed/multiple arguments remain Attributes/Source.
+
+## Directional sensor workflow coverage
+
+The existing property schema exposes `sensor`, `one_way` and `one_way_margin`;
+no additional agent-only physics command is required. Focused static and SDK MCP
+workflows exercise Map admission through Scene commands, including Static/
+Kinematic, full-cell/custom contours, source revisions, grants, Save, Play and
+Undo/Redo in both supported protocol envelopes. These property workflows do not
+constitute direct MCP event-stream access: project C++ reads copied Begin/End
+events through the existing `Physics2D` SDK observer, and live edits retain the
+current per-field live-tuning restrictions. See [2D physics](physics-2d.md) for
+the native overlap, query and recovery limits.

@@ -1,4 +1,5 @@
 #include "component_inspector.hpp"
+#include "imgui_software_capture.hpp"
 #include "property_drawer.hpp"
 #include <forge/authoring.hpp>
 #include <forge/physics.hpp>
@@ -111,11 +112,16 @@ void exercise(const std::filesystem::path& project, float scale) {
     require(scene.undo() && scene.entity(entity).get<PhysicsBody2D>().mask == 2 && scene.redo() &&
                 scene.entity(entity).get<PhysicsBody2D>().mask == 6,
             "Mask selector Undo/Redo lost typed intent");
-    Json one_way_field;
-    for (const auto& field : schema.at("fields"))
-        if (field.at("id") == "one_way")
+    Json one_way_field, sensor_field;
+    for (const auto& field : schema.at("fields")) {
+        const auto name = field.at("id").get<std::string>();
+        if (name == "one_way")
             one_way_field = field;
-    require(!one_way_field.is_null() && one_way_field.at("display_name") == "One-way collision",
+        if (name == "sensor")
+            sensor_field = field;
+    }
+    require(!one_way_field.is_null() && !sensor_field.is_null() &&
+                one_way_field.at("display_name").get<std::string>() == "One-way collision",
             "Inspector did not discover one-way response");
     const auto edit_field = [&](const Json& field, const char* component, const char* member,
                                 const char* text = nullptr) {
@@ -171,6 +177,12 @@ void exercise(const std::filesystem::path& project, float scale) {
                 scene.undo() && scene.entity(entity).get<PhysicsBody2D>().motion == 2 &&
                 scene.redo() && scene.entity(entity).get<PhysicsBody2D>().motion == 1,
             "Kinematic one-way selection did not preserve flags and Inspector history");
+    edit_field(sensor_field, "forge.physics_body_2d", "sensor");
+    require(scene.entity(entity).get<PhysicsBody2D>().sensor &&
+                scene.entity(entity).get<PhysicsBody2D>().one_way && scene.undo() &&
+                !scene.entity(entity).get<PhysicsBody2D>().sensor && scene.redo() &&
+                scene.entity(entity).get<PhysicsBody2D>().sensor && scene.undo(),
+            "Directional Sensor checkbox lost the existing one-way flag or typed Undo/Redo");
     authoring_command(scene, "component.add",
                       {{"entity", entity}, {"component", "forge.character_controller_2d"}});
     Json carry_field, slope_field, ceiling_field, step_field;
@@ -240,9 +252,55 @@ void exercise(const std::filesystem::path& project, float scale) {
     require(!engine.services().available(Capability::Physics), "Inspector created a solver");
     ImGui::DestroyContext();
 }
+void capture_controls(const std::filesystem::path& output) {
+    const auto root = output.parent_path() / ("sensor-controls-" + AssetId::generate().str());
+    struct Cleanup {
+        std::filesystem::path path;
+        ~Cleanup() {
+            std::error_code error;
+            std::filesystem::remove_all(path, error);
+        }
+    } cleanup{root};
+    SceneDocument::create_project(root, "Directional sensor controls");
+    test::ImGuiSoftwareCapture capture(700, 1400);
+    ui::style(1);
+    ui::EditorUiContext context;
+    ui::ContextScope scope(context);
+    EngineContext engine{WorldRole::Authoring, false, {physics_schema_module()}};
+    Scene scene(engine.world());
+    SceneDocument project(scene);
+    project.open_project(root, true);
+    const auto entity = authoring_command(scene, "entity.create", {{"name", "Directional sensor"}})
+                            .at("selected")
+                            .get<std::string>();
+    for (const auto* component : {"forge.physics_body_2d", "forge.box_collider_2d"})
+        authoring_command(scene, "component.add", {{"entity", entity}, {"component", component}});
+    authoring_command(scene, "property.set_many",
+                      {{"entity", entity},
+                       {"component", "forge.physics_body_2d"},
+                       {"values", {{"sensor", true}, {"one_way", true}}}});
+    const auto before = scene.document();
+    ComponentInspector inspector;
+    for (unsigned frame = 0; frame != 4; ++frame) {
+        capture.new_frame();
+        ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize({700, 1400}, ImGuiCond_Always);
+        ImGui::Begin("Inspector");
+        inspector.draw(scene, project, entity);
+        ImGui::End();
+        capture.render();
+    }
+    require(scene.document() == before && !engine.services().available(Capability::Physics),
+            "Sensor Inspector capture changed source or created a solver");
+    capture.save(output);
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 3 && std::string_view(argv[1]) == "--capture") {
+            capture_controls(std::filesystem::u8path(argv[2]));
+            return 0;
+        }
         require(argc == 2, "Provide build-owned scratch");
         const auto project = std::filesystem::path(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(project);

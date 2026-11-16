@@ -61,11 +61,40 @@ In **Examples/Character2D**, walk slightly left under the green platform and jum
 The character passes through its underside and lands on top. Its C++ code still
 chooses jump speed and gravity; the controller handles the platform response.
 
-This setting supports Static and Kinematic nonsensor Box platforms and full-cell
-painted Tile Maps. Dynamic bodies, sensors and custom tile polygons do not support
-one-way collision. Geometric ray, overlap and sweep
-queries still see the whole shape. Checked character placement rejects embedded
+Solid response supports Static and Kinematic Box platforms and full-cell or custom
+painted Tile Maps, including slopes, hole floors and islands. Dynamic one-way
+bodies and round one-way colliders are unsupported. With **Sensor** enabled, the
+setting controls directional overlap events as described below. Geometric ray,
+overlap and sweep queries still see the whole shape. Checked character placement rejects embedded
 positions even when the character could pass through during ordinary movement.
+
+### Create a directional sensor
+
+1. Stop Play. Add **Physics Body 2D** and **Box Collider 2D**, or use a painted Map with **Tile Map Collider 2D**.
+2. Choose **Static** or **Kinematic**, enable **Sensor**, then enable **One-way collision**.
+3. Size the region and enable **Selected collision**. Its arrow identifies the entry side. Z rotation rotates that side; negative Y scale reverses it.
+4. Start with **One-way margin = 0.02 m**. Save the Scene and Play.
+
+![Physics Body 2D Inspector with Sensor and One-way collision enabled](../images/one-way-sensor-controls.png)
+Enable both flags on a Static or Kinematic Box or painted Map.
+
+The region lets bodies pass through. It admits a copied sensor Begin when a body
+approaches an eligible front boundary, then keeps that native overlap until
+separation or filtering/removal produces End. Passage from the back does not
+start an overlap. A deeply embedded initial or teleported body needs fresh
+front-side eligibility. Character controllers use their observed movement too.
+Painted regions can produce separate crossings for their collision pieces.
+
+Open **Scenes/217-directional-sensor-events.scene.json** in FeatureGallery. The
+left pair falls through ordinary and directional sensors; the right pair rises
+through them. Both kinds are non-solid. C++ receives Begin/End from both front
+passages and the ordinary back passage; the directional back passage emits none.
+The strip colors remain fixed. **CodeExamples/Physics2D.hpp** reads copied events
+in PostPhysics; check their epochs/availability before using an old body reference.
+
+Choose this Scene as startup and save before exporting with the matching runtime
+kit. The built-in regions run without compiling project code; observing their
+copied events from C++ requires a matching SDK module.
 
 ### Move a one-way platform
 
@@ -177,8 +206,9 @@ choose Dynamic for a falling rigid Map. Enable Sensor for triggers with any
 motion type. Density, mass override, locks and ordinary C++ body controls apply
 to the whole selected layer. See **Scenes/124-dynamic-tile-map-bodies.scene.json**
 for falling, tumbling, reflected and rotation-locked instances.
-Static or Kinematic nonsensor Maps using full cells or custom polygons can use
-**One-way collision**. Custom profiles use original front-facing edges, including
+Static or Kinematic Maps using full cells or custom polygons can use
+**One-way collision** for solid response, or combine it with **Sensor** for
+directional overlap events. Custom profiles use original front-facing edges, including
 slopes, hole floors and islands. See [Tile Maps](tile-maps.md)
 for profile controls, limits, moving courses and trigger examples.
 

@@ -390,10 +390,11 @@ int main(int argc, char** argv) {
         permissions.assets = mode != "read";
         permissions.execute = mode == "full" || mode == "execute" || mode == "gamepads" ||
                               mode == "ui_localization" || mode == "application_states" ||
-                              mode == "clocked_audio" || mode == "ui_materials";
+                              mode == "clocked_audio" || mode == "ui_materials" ||
+                              mode == "map_profile";
         permissions.export_game = mode == "full" || mode == "output" || mode == "gamepads" ||
                                   mode == "ui_localization" || mode == "application_states" ||
-                                  mode == "ui_materials";
+                                  mode == "ui_materials" || mode == "map_profile";
         if (permissions.export_game)
             permissions.export_root = root / "Output";
         const auto inspection_deadline =
@@ -408,7 +409,9 @@ int main(int argc, char** argv) {
         std::cout << workspace.connection().connection().dump() << std::endl;
         std::string message;
         const auto begin = std::chrono::steady_clock::now();
-        const auto end = begin + std::chrono::seconds(240);
+        // The Map profile launches both solid and directional sensor combinations.
+        // Instrumented native owner/source work needs its own finite whole-fixture budget.
+        const auto end = begin + std::chrono::seconds(mode == "map_profile" ? 600 : 240);
         while (workspace.active() && std::chrono::steady_clock::now() < end &&
                !forge::test::marker_present(root / "stop")) {
             files.changed = false;

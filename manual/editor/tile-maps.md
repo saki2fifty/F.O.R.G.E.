@@ -309,7 +309,8 @@ use original edges facing within 60 degrees of the Map's local positive Y direct
 Hole floors and separate islands retain their own faces. Internal triangle edges
 do not block movement. Negative Y scale reverses the front reference; Z rotation
 rotates it. Image flips and transpose transform custom edges; they leave a full
-cell unchanged. Sensor and Dynamic one-way Maps are unavailable. Ordinary
+cell unchanged. Enable **Sensor** for directional overlap events without blocking;
+see [directional sensors](physics-2d.md). Dynamic one-way Maps are unavailable. Ordinary
 ray/overlap/sweep queries still see complete shapes, and checked character
 placement still rejects embedded positions.
 

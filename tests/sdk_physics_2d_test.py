@@ -33,14 +33,14 @@ def actor(state):
     return next(value for value in state["scene"]["entities"] if value["name"] == "Actor")
 
 
-def messages(state):
+def messages(state, prefix="Planar SDK "):
     return [entry for entry in state["diagnostics"]
             if entry["context"].get("tick") == state["timing"]["tick"]
-            and entry["text"].startswith("Planar SDK ")]
+            and entry["text"].startswith(prefix)]
 
 
-def replace_scene(worker, sdk_play):
-    response = worker.request("replace", scene=scene)
+def replace_scene(worker, sdk_play, document=scene):
+    response = worker.request("replace", scene=document)
     if not sdk_play:
         return response
     # Exercise the real editor admission handshake before activating the candidate.
@@ -52,7 +52,7 @@ def replace_scene(worker, sdk_play):
     ticket = response["candidate"]["ticket"]
     candidate = worker.request("candidate", ticket=ticket)["candidate"]
     assert candidate["session"] == worker.session and candidate["ticket"] == ticket
-    assert len(candidate["scene"]["entities"]) == 3, candidate
+    assert len(candidate["scene"]["entities"]) == len(document["entities"]), candidate
     response = worker.request("snapshot", candidate_ack=dict(
         session=worker.session, ticket=ticket, accepted=True, diagnostic=""))
     while response["activation"]["generation"] != ticket:
@@ -64,6 +64,18 @@ def replace_scene(worker, sdk_play):
         epoch=ticket, captured=False, input_device="EditorHost"))
 
 
+def write_project(project, module_id, selected):
+    (project / "forge.project.json").write_text(json.dumps(dict(version=2,
+        name="Original planar SDK acceptance", startup_scene=None,
+        game=dict(version=1, application_id="org.forge.physics-2d-test", title="2D SDK test",
+            profile="development", save_schema=1,
+            display=dict(mode="windowed", width=1280, height=720, display=0, vsync=False),
+            audio=dict(master_volume=1), input=dict(mouse_sensitivity=1)),
+        input=dict(version=1, actions=[]), modules=[dict(id=module_id,
+        implementation="1", sdk="experimental-1", fingerprint=fingerprint,
+        library=selected.name, dependencies=["forge.physics"])])))
+
+
 with tempfile.TemporaryDirectory(dir=runtime.parent) as temporary:
     project = Path(temporary)
     shutil.copyfile(module, project / module.name)
@@ -71,15 +83,7 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as temporary:
     for denied, sdk_play in ((False, False), (False, True), (True, False), (True, True)):
         selected = denied_module if denied else module
         module_id = "project.physics_2d_denied" if denied else "project.physics_2d_probe"
-        (project / "forge.project.json").write_text(json.dumps(dict(version=2,
-            name="Original planar SDK acceptance", startup_scene=None,
-            game=dict(version=1, application_id="org.forge.physics-2d-test", title="2D SDK test",
-                profile="development", save_schema=1,
-                display=dict(mode="windowed", width=1280, height=720, display=0, vsync=False),
-                audio=dict(master_volume=1), input=dict(mouse_sensitivity=1)),
-            input=dict(version=1, actions=[]), modules=[dict(id=module_id,
-            implementation="1", sdk="experimental-1", fingerprint=fingerprint,
-            library=selected.name, dependencies=["forge.physics"])])))
+        write_project(project, module_id, selected)
         arguments = ["--sdk-project", project]
         if sdk_play:
             arguments += ["--sdk-play", "on", "--user-data", project / "users"]
@@ -129,5 +133,62 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as temporary:
             a.close()
             if b:
                 b.close()
+
+
+def directional_events(selected):
+    source = Path(__file__).resolve().parents[1] / 'samples/projects/FeatureGallery/Scenes/217-directional-sensor-events.scene.json'
+    authored = json.loads(source.read_text())
+    components = {'forge.physics_body_2d', 'forge.box_collider_2d', 'forge.circle_collider_2d',
+                  'forge.local_translation', 'forge.local_rotation', 'forge.local_scale'}
+    document = dict(version=5, asset_id=authored['asset_id'], entities=[
+        dict(id=e['id'], name=e['name'], spatial=e.get('spatial', dict(mode='world')),
+             components={k: v for k, v in e['components'].items() if k in components})
+        for e in authored['entities'] if 'forge.physics_body_2d' in e['components']])
+    names = {e['name']: e['id'] for e in document['entities']}
+    expected = {
+        names['Ordinary sensor - falling from above']: names['Front passage - ordinary sensor'],
+        names['Directional sensor - falling from above']: names['Front passage - directional sensor'],
+        names['Ordinary sensor - rising from below']: names['Back passage - ordinary sensor'],
+        names['Directional sensor - rising from below']: names['Back passage - directional sensor'],
+    }
+    for sdk_play in (False, True):
+        with tempfile.TemporaryDirectory(dir=runtime.parent) as temporary:
+            project = Path(temporary)
+            shutil.copyfile(selected, project / selected.name)
+            module_id = 'project.physics_2d_directional'
+            write_project(project, module_id, selected)
+            arguments = ['--sdk-project', project]
+            if sdk_play:
+                arguments += ['--sdk-play', 'on', '--user-data', project / 'users']
+            worker = Runtime(runtime, arguments)
+            counts = {key: [0, 0] for key in expected}
+            epochs = {}
+            try:
+                initial = replace_scene(worker, sdk_play, document)
+                assert initial['physics']['bodies_2d'] == 10, initial
+                for tick in range(1, 241):
+                    state = worker.request('step')
+                    for entry in messages(state, 'Directional sensor '):
+                        fields = entry['text'].split()
+                        assert len(fields) == 8 and entry['context']['module'] == module_id, entry
+                        first, second = fields[2:4]
+                        begin, first_epoch, second_epoch, event_tick = map(int, fields[4:])
+                        assert first in expected and expected[first] == second, entry
+                        assert event_tick == tick and begin in (0, 1), entry
+                        pair = (first, second)
+                        assert epochs.setdefault(pair, (first_epoch, second_epoch)) == (first_epoch, second_epoch), entry
+                        counts[first][0 if begin else 1] += 1
+                for sensor, count in counts.items():
+                    target = [0, 0] if sensor == names['Directional sensor - rising from below'] else [1, 1]
+                    assert count == target, (sdk_play, sensor, counts)
+                worker.request('quit')
+                assert worker.process.wait(timeout=10) == 0, 'Directional SDK host did not exit cleanly'
+            finally:
+                worker.close()
+    print('Directional sensor copied events, unchanged epochs and graceful exits passed through both exact-SDK hosts')
+
+
+if len(sys.argv) == 5:
+    directional_events(Path(sys.argv[4]).resolve())
 
 print("Exact-SDK 2D controls/observations, native units, contexts, retired epochs, both Play hosts and supported recovery passed")

@@ -3961,3 +3961,19 @@ are recorded in `AgentFiles/build/phase381-camera-shot-split-and-duplicate/captu
 Earlier records retain historical producer provenance; this record owns the
 current Camera Shot image bytes. These software captures do not establish full
 editor, Windows desktop, physical GPU/DPI or performance acceptance.
+
+## Directional sensor Inspector controls
+
+[one-way-sensor-controls.png](../../../manual/images/one-way-sensor-controls.png)
+is an unretouched 700 × 1400 SDL software capture of the actual
+`ComponentInspector.draw` workflow from `forge_physics_2d_inspector_tests --capture`,
+based on `b8f935a`. Ordinary source commands seed the component. Both Sensor and
+One-way collision controls and their margin are visible. The fixture checks that
+capture does not modify the Scene and runs no solver.
+
+Image SHA-256: `31c1708c1bec223e9f6bf98511329ef8d2f9fe7ca11e92202a23ed91e538ec3d`.
+Actor SHA-256: `32efe8247947df3bfa71504a846d4a2f8823036c9cbfa6bd6f8afd7d961b94ab`.
+Exact source, command and log provenance is retained in
+`AgentFiles/build/phase382-one-way-sensor-events/capture-proof.json`. This native
+component capture does not establish full Main, Windows/D3D12, physical GPU or
+physical DPI acceptance. Unchanged figures retain their original attribution.

@@ -32,7 +32,13 @@ inline void test_one_way_profile() {
     rejected([&] { inline_configuration_2d(platform, 0, {4, .2f}, {1, 1, 1}); });
     platform.motion = 0;
     platform.sensor = true;
-    rejected([&] { inline_configuration_2d(platform, 0, {4, .2f}, {1, 1, 1}); });
+    for (unsigned motion : {0u, 1u}) {
+        platform.motion = motion;
+        const auto config = inline_configuration_2d(platform, 0, {4, .2f}, {1, 1, 1});
+        check_mover(config.body.sensor && config.body.one_way,
+                    "One-way sensor admission lost its flags");
+    }
+    platform.motion = 0;
     platform.sensor = false;
     for (unsigned shape : {1u, 2u})
         rejected([&] { inline_configuration_2d(platform, shape, {.3f, .6f}, {1, 1, 1}); });
