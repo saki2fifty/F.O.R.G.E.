@@ -247,6 +247,37 @@ for legacy in protocol_cases():
             assert (root / 'Native/Spinner.hpp').read_bytes() == header_saved
             mutate('forge_code_undo', **observed())
             assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == symbol_text
+            fix_text = symbol_text + '\n// café\nint fixes_probe() { int value = 1 return value; }\n'
+            mutate('forge_code_replace', **observed(), text=fix_text)
+            fix_before = read('forge_code_read', path='Native/gameplay.cpp')
+            mutate('forge_code_analysis_start', **observed(), kind='diagnostics', offset=0, tool=PROVIDER)
+            fix_diagnostics = settle('forge_code_analysis_status')
+            assert fix_diagnostics['complete'], fix_diagnostics
+            fix_start = len(fix_text[:fix_text.index('int fixes_probe')].encode('utf-8'))
+            fix_offset = next(row['begin'] for row in fix_diagnostics['items']
+                              if row.get('code') == 'expected_semi_declaration' and row['begin'] >= fix_start)
+            mutate('forge_code_analysis_start', **observed(), kind='fixes', offset=fix_offset, tool=PROVIDER)
+            fixes = settle('forge_code_analysis_status')
+            (root / 'analysis-quick-fixes-result.json').write_text(json.dumps(fixes, indent=2))
+            fixed_text = fix_text.replace('1 return', '1; return')
+            assert fixes['complete'] and fixes['total'] >= 1, fixes
+            proposal = next(row for row in fixes['items'] if row.get('text') == fixed_text)
+            assert proposal['available'] and proposal['edit_count'] == 1 and 'source_edits' not in fixes
+            assert read('forge_code_read', path='Native/gameplay.cpp') == fix_before
+            mutate('forge_code_open', path='Native/gameplay.cpp', state=fix_before['state'],
+                   **source_cursor(fix_text, fix_text.rindex('value')))
+            mutate('forge_code_analysis_use', operation=fixes['operation'], index=proposal['index'])
+            fixed = read('forge_code_read', path='Native/gameplay.cpp')
+            assert fixed['text'] == fixed_text and fixed['cursor'] == source_cursor(fixed_text, fixed_text.rindex('value'))
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == fix_text
+            mutate('forge_code_redo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == fixed_text
+            mutate('forge_code_undo', **observed())
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == symbol_text
+            assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original
+            assert (root / 'Native/Spinner.hpp').read_bytes() == header_saved
             selection_before = read('forge_code_read', path='Native/gameplay.cpp')
             mutate('forge_code_analysis_start', **observed(), kind='selection', offset=symbol_offset, tool=PROVIDER)
             selection = settle('forge_code_analysis_status')

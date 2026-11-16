@@ -862,6 +862,112 @@ int main(int argc, char** argv) {
             editor.undo(false);
             check(editor.active_text() == draft, "Rename checks lost the preceding source history");
         }
+        {
+            const auto source =
+                draft + "\n// café\nint fixes_probe() { int value = 1 return value; }\n";
+            auto fixed = source;
+            fixed.insert(fixed.find("1 return") + 1, ";");
+            editor.replace_text(source);
+            const auto query = [&] {
+                const auto observed = invoke("code.read", {{"path", "Native/First.cpp"}});
+                return invoke("code.analysis.start", {{"path", "Native/First.cpp"},
+                                                      {"session", observed.at("session")},
+                                                      {"state", observed.at("state")},
+                                                      {"kind", "fixes"},
+                                                      {"offset", source.find("1 return") + 2}});
+            };
+            const auto before = invoke("code.read", {{"path", "Native/First.cpp"}});
+            query();
+            analysis = settle_analysis();
+            check(analysis.at("complete").get<bool>() &&
+                      analysis.at("total").get<std::size_t>() == 1 &&
+                      analysis.at("items").at(0).at("text").get<std::string>() == fixed &&
+                      !analysis.contains("source_edits") &&
+                      invoke("code.read", {{"path", "Native/First.cpp"}}) == before,
+                  "Quick-fix preview changed source/history or exposed private mappings");
+            const auto caret = forge::ui::cpp_source_coordinate(source, source.rfind("value"));
+            editor.open(files.document, "Native/First.cpp", caret.first + 1, caret.second + 1);
+            use_analysis(analysis);
+            check(editor.active_text() == fixed, "Quick fix lost the complete source proposal");
+            const auto mapped = forge::ui::cpp_source_coordinate(fixed, fixed.rfind("value"));
+            check(invoke("code.read", {{"path", "Native/First.cpp"}}).at("cursor") ==
+                      forge::Json{{"line", mapped.first + 1}, {"column", mapped.second + 1}},
+                  "Quick fix did not map the current caret");
+            editor.undo(false);
+            check(editor.active_text() == source, "Quick fix needed more than one Undo");
+            editor.undo(true);
+            check(editor.active_text() == fixed, "Quick-fix Redo lost source edits");
+            editor.undo(false);
+            for (const auto* mode :
+                 {"fixes-null", "fixes-empty", "fixes-command", "fixes-cross-file",
+                  "fixes-annotations", "fixes-payload", "fixes-range", "fixes-disabled",
+                  "fixes-resolve", "fixes-kind", "fixes-no-edit", "fixes-title",
+                  "fixes-unavailable", "diagnostic-version", "diagnostic-unversioned",
+                  "fixes-multiple", "fixes-mixed", "fixes-limited", "fixes-budget"}) {
+                SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", mode, true);
+                const auto observed = invoke("code.read", {{"path", "Native/First.cpp"}});
+                query();
+                analysis = settle_analysis();
+                const std::string_view selected(mode);
+                if (selected == "fixes-title" || selected == "fixes-unavailable" ||
+                    selected == "diagnostic-version" || selected == "diagnostic-unversioned")
+                    check(!analysis.at("complete").get<bool>() &&
+                              !analysis.at("error").get<std::string>().empty(),
+                          "Malformed/unsupported quick-fix query succeeded");
+                else if (selected == "fixes-null" || selected == "fixes-empty")
+                    check(analysis.at("complete").get<bool>() &&
+                              analysis.at("total").get<std::size_t>() == 0,
+                          "Empty quick-fix response failed");
+                else if (selected == "fixes-budget") {
+                    check(analysis.at("complete").get<bool>() &&
+                              analysis.at("total").get<std::size_t>() == 32 &&
+                              analysis.at("limited").get<bool>() &&
+                              analysis.at("items").at(0).at("available").get<bool>(),
+                          "Quick-fix aggregate preview budget did not retain bounded results");
+                    const auto tail =
+                        invoke("code.analysis.status", {{"offset", 31}, {"limit", 1}});
+                    check(!tail.at("items").at(0).at("available").get<bool>() &&
+                              tail.at("items").at(0).at("reason").get<std::string>().find(
+                                  "4 MiB") != std::string::npos,
+                          "Over-budget quick-fix preview remained available");
+                } else if (selected == "fixes-multiple" || selected == "fixes-mixed" ||
+                           selected == "fixes-limited") {
+                    const auto count = selected == "fixes-limited" ? 64u : 2u;
+                    const auto second =
+                        invoke("code.analysis.status", {{"offset", 1}, {"limit", 1}});
+                    check(analysis.at("complete").get<bool>() &&
+                              analysis.at("total").get<std::size_t>() == count &&
+                              second.at("items").at(0).at("available").get<bool>() &&
+                              analysis.at("limited").get<bool>() == (selected == "fixes-limited"),
+                          "Quick-fix alternatives or truncation lost bounded availability");
+                    // Choose a nonzero proposal: its caret mapping must use that row's edits.
+                    invoke("code.analysis.use",
+                           {{"operation", analysis.at("operation")}, {"index", 1}});
+                    auto expected = source;
+                    expected.insert(expected.find("1 return") + 1,
+                                    selected == "fixes-multiple" ? "; /* fixed */" : ";");
+                    check(editor.active_text() == expected,
+                          "Quick-fix alternative used another row's source edits");
+                    const auto expected_caret =
+                        forge::ui::cpp_source_coordinate(expected, expected.rfind("value"));
+                    check(invoke("code.read", {{"path", "Native/First.cpp"}}).at("cursor") ==
+                              forge::Json{{"line", expected_caret.first + 1},
+                                          {"column", expected_caret.second + 1}},
+                          "Quick-fix alternative used another row's caret mapping");
+                    editor.undo(false);
+                } else
+                    check(analysis.at("complete").get<bool>() &&
+                              analysis.at("total").get<std::size_t>() == 1 &&
+                              !analysis.at("items").at(0).at("available").get<bool>() &&
+                              !analysis.at("items").at(0).at("reason").get<std::string>().empty(),
+                          "Unsafe quick fix was available or lost its reason");
+                check(invoke("code.read", {{"path", "Native/First.cpp"}}) == observed,
+                      "Quick-fix query/rejection changed source/selection/caret/history");
+            }
+            SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+            editor.undo(false);
+            check(editor.active_text() == draft, "Quick-fix checks lost preceding source history");
+        }
         const auto cancelled = start_analysis();
         invoke("code.analysis.cancel", {{"operation", cancelled.at("operation")}});
         analysis = settle_analysis();

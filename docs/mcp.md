@@ -914,7 +914,7 @@ after the query. Style comes from provider files/fallback; rerun after style edi
 Logs retain timestamps and bounded UTF-8 paging.
 
 With `code.execute`, `forge_code_analysis_start` requires an observed source
-`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`/`format`/`definition`/`implementation`/`selection`/`rename`) and UTF-8 byte
+`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`/`format`/`definition`/`implementation`/`selection`/`rename`/`fixes`) and UTF-8 byte
 `offset`. Optional `tool` overrides the configured clangd23.1.0 path for that
 launch only. The managed project must have a successful CMake configure this
 session through Build Project Code; a compiler readiness probe is a different
@@ -935,6 +935,17 @@ partial application. No provider workspace write is executed. Use the exact
 operation/index to apply through the existing one-Undo source/current-caret owner;
 Save and Build remain separate. This bounded profile is not project-wide
 refactoring, and a rejected proposal leaves the source and source history unchanged.
+
+For `kind:fixes`, the worker receives diagnostics for this draft version and
+requests literal quick fixes at `offset`. At most 64 actions are retained.
+Available rows contain a complete proposed `text` and `edit_count`; unavailable
+rows retain their title and reason. Commands, deferred resolution, unsupported
+metadata and edits to other files are unavailable. No action executes on query.
+The combined serialized proposal budget is 4 MiB; larger proposals are unavailable
+and `limited` is true. Apply an available exact operation/index through
+`forge_code_analysis_use` for one source Undo step and current-caret mapping.
+Private per-proposal mapping edits remain withheld. Scope is the current compiler
+context, without exhaustive indexing; Save and Build remain separate.
 
 With `code.write`, `forge_code_analysis_use` takes the operation UUID and result
 index0..63. It rechecks project, operation, all drafts, saved Native input identity,

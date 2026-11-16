@@ -288,6 +288,23 @@ current_context/exhaustive:false scope accompany the result. Provider callbacks
 never apply workspace writes. Save/build and all source/context/receipt/lifetime
 owners remain separate; this is not exhaustive project refactoring.
 
+Diagnostic-guided quick fixes use the same finite task with `kind:fixes`, literal
+`textDocument/codeAction` support and `context.only:[quickfix]`. The transport
+receives the target's version1 diagnostic publication, validates its retained
+ranges and supplies diagnostics at the queried cursor. The request uses a point
+range in the current draft. No external diagnostic authorizes a source read.
+
+Up to 64 action rows are retained. A complete plain current-file edit passes
+through the same WorkspaceEdit/source proposal admission as rename. Commands,
+deferred resolution, disabled actions, unsupported metadata and unsafe edits
+remain unavailable with a reason; no partial edits or command callbacks run.
+Combined serialized normalized proposals are bounded to 4 MiB, leaving overhead
+within the existing frame budget. Private `source_edits` now parallels proposal
+indices for formatting, rename and fixes. The existing source owner maps the
+current caret through the selected proposal and records one Undo. No separate
+action, draft or multi-file history owner is introduced. Native controls and MCP
+share permission, project/context/source/receipt and retirement guards.
+
 Queries snapshot all open drafts, saved Native build-input identity and the actual
 compile-database digest. Response/apply checks preserve project, operation,
 compiler generation, current drafts, saved input identity and database identity.

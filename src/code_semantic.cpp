@@ -168,26 +168,27 @@ Json normalized_source_edits(const Json& response, const std::string& source,
             "Leave room for the proposed source's final newline within 1 MiB");
     ui::validate_cpp_text(candidate);
     if (candidate != source)
-        items.push_back(
-            {{"available", true},
-             {"reason", ""},
-             {"label", std::string(action) + " (" + std::to_string(edits.size()) + " edits)"},
-             {"begin", 0},
-             {"end", source.size()},
-             {"text", std::move(candidate)},
-             {"edit_count", edits.size()}});
+        items.push_back({{"available", true},
+                         {"reason", ""},
+                         {"label", std::string(action) + " (" + std::to_string(edits.size()) +
+                                       (edits.size() == 1 ? " edit)" : " edits)")},
+                         {"begin", 0},
+                         {"end", source.size()},
+                         {"text", std::move(candidate)},
+                         {"edit_count", edits.size()}});
     if (items.empty())
         edits.clear();
-    return {{"items", std::move(items)}, {"limited", false}, {"source_edits", std::move(edits)}};
+    auto mappings = items.empty() ? Json::array() : Json::array({std::move(edits)});
+    return {{"items", std::move(items)}, {"limited", false}, {"source_edits", std::move(mappings)}};
 }
-Json normalized_rename(const Json& response, const std::string& source, const ProjectPaths& paths,
-                       const std::filesystem::path& target, const std::string& name) {
-    const auto action = "Apply rename to " + name;
+Json normalized_workspace_edits(const Json& response, const std::string& source,
+                                const ProjectPaths& paths, const std::filesystem::path& target,
+                                std::string_view action) {
     if (response.is_null())
         return normalized_source_edits(nullptr, source, action);
     require(response.is_object() && response.size() == 1 && response.contains("changes") &&
                 response.at("changes").is_object() && response.at("changes").size() <= 1,
-            "Rename in file requires one plain file edit; multi-file/resource/annotated edits are "
+            "Source proposal requires one plain file edit; multi-file/resource/annotated edits are "
             "refused");
     const auto& changes = response.at("changes");
     if (changes.empty())
@@ -198,15 +199,62 @@ Json normalized_rename(const Json& response, const std::string& source, const Pr
         locator = paths.relative(local_file_url_path(entry.key()));
         (void)ui::cpp_source_path(paths.root(), locator);
     } catch (const std::exception&) {
-        throw std::runtime_error("Rename in file rejects edits outside its active Native source");
+        throw std::runtime_error("Source proposal rejects edits outside its active Native source");
     }
-    require(paths.same_locator(locator, target), "Rename in file cannot edit another source file");
-    require(entry.value().is_array(), "Rename in file requires a plain text edit array");
+    require(paths.same_locator(locator, target), "Source proposal cannot edit another source file");
+    require(entry.value().is_array(), "Source proposal requires a plain text edit array");
     for (const auto& edit : entry.value())
         require(edit.is_object() && edit.size() == 2 && edit.contains("range") &&
                     edit.contains("newText"),
-                "Rename in file requires plain unannotated text edits without extra payloads");
+                "Source proposal requires plain unannotated text edits without extra payloads");
     return normalized_source_edits(entry.value(), source, action);
+}
+Json normalized_fixes(const Json& response, const std::string& source, const ProjectPaths& paths,
+                      const std::filesystem::path& target) {
+    require(response.is_null() || response.is_array(), "C++ quick fixes need an action list");
+    Json items = Json::array(), mappings = Json::array();
+    bool limited = response.size() > 64;
+    std::size_t proposal_bytes = 0;
+    for (const auto& action : response) {
+        if (items.size() == 64)
+            break;
+        const auto title = semantic_string(action.at("title"), 2048);
+        require(!title.empty(), "C++ quick fix needs a title");
+        Json item{{"available", false}, {"label", title}, {"reason", ""}}, edits = Json::array();
+        try {
+            require(action.value("kind", "") == "quickfix" && action.contains("edit") &&
+                        !action.contains("command") && !action.contains("data"),
+                    "Only complete quick-fix edits are supported; provider commands are refused");
+            require(!action.contains("isPreferred") || action.at("isPreferred").is_boolean(),
+                    "Quick-fix preference must be boolean");
+            if (action.contains("disabled"))
+                throw std::runtime_error(semantic_string(action.at("disabled").at("reason")));
+            for (const auto& [key, value] : action.items()) {
+                (void)value;
+                require(key == "title" || key == "kind" || key == "edit" || key == "diagnostics" ||
+                            key == "isPreferred",
+                        "Quick fix contains unsupported action metadata");
+            }
+            auto proposal = normalized_workspace_edits(action.at("edit"), source, paths, target,
+                                                       "Apply quick fix: " + title);
+            require(proposal.at("items").size() == 1, "Quick fix has no source changes");
+            const auto bytes = proposal.dump().size();
+            if (bytes > frame_limit / 2 - proposal_bytes) {
+                limited = true;
+                throw std::runtime_error("Quick-fix previews exceed the 4 MiB result budget");
+            }
+            proposal_bytes += bytes;
+            item = std::move(proposal.at("items").at(0));
+            edits = std::move(proposal.at("source_edits").at(0));
+        } catch (const std::exception& error) {
+            item["reason"] =
+                error.what()[0] ? error.what() : "Quick fix is disabled in this context";
+        }
+        items.push_back(std::move(item));
+        mappings.push_back(std::move(edits));
+    }
+    return {
+        {"items", std::move(items)}, {"source_edits", std::move(mappings)}, {"limited", limited}};
 }
 std::string semantic_documentation(const Json& value) {
     if (value.is_null())
@@ -694,7 +742,8 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     else
         require(new_name.empty(), "A new name applies only to Rename in file");
     SemanticTransport transport(request.at("tool").get<std::string>(), paths, context,
-                                kind == "diagnostics" ? target : std::filesystem::path{});
+                                kind == "diagnostics" || kind == "fixes" ? target
+                                                                         : std::filesystem::path{});
     const auto initialized = transport.call(
         "initialize",
         {{"processId", nullptr},
@@ -705,6 +754,8 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
             {{"publishDiagnostics", {{"versionSupport", true}}},
              {"hover", {{"contentFormat", {"plaintext"}}}},
              {"documentSymbol", {{"hierarchicalDocumentSymbolSupport", true}}},
+             {"codeAction",
+              {{"codeActionLiteralSupport", {{"codeActionKind", {{"valueSet", {"quickfix"}}}}}}}},
              {"completion",
               {{"completionItem", {{"snippetSupport", false}, {"insertReplaceSupport", false}}}}},
              {"signatureHelp",
@@ -732,6 +783,15 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     if (kind == "rename")
         require(initialized.at("capabilities").at("renameProvider").get<bool>(),
                 "Semantic tools require symbol rename support");
+    if (kind == "fixes") {
+        const auto& capabilities = initialized.at("capabilities").at("codeActionProvider");
+        require(capabilities.is_object() && capabilities.contains("codeActionKinds") &&
+                    capabilities.at("codeActionKinds").is_array() &&
+                    std::find(capabilities.at("codeActionKinds").begin(),
+                              capabilities.at("codeActionKinds").end(),
+                              Json("quickfix")) != capabilities.at("codeActionKinds").end(),
+                "Semantic tools require literal quick-fix support");
+    }
     if (kind == "selection")
         require(initialized.at("capabilities").at("selectionRangeProvider").get<bool>(),
                 "Semantic tools require syntax-selection support");
@@ -773,6 +833,24 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         // Mandatory protocol fields; the selected provider obtains style from its files/fallback.
         parameters["options"] = {{"tabSize", 4}, {"insertSpaces", true}};
     }
+    if (kind == "fixes") {
+        const auto publication = transport.diagnostics();
+        (void)normalized_diagnostics(publication, target, text);
+        Json diagnostics = Json::array();
+        std::size_t retained = 0;
+        const auto offset = request.at("offset").get<std::size_t>();
+        for (const auto& diagnostic : publication.at("diagnostics")) {
+            if (retained++ == 64)
+                break;
+            const auto& range = diagnostic.at("range");
+            if (source_offset(text, range.at("start")) <= offset &&
+                offset <= source_offset(text, range.at("end")))
+                diagnostics.push_back(diagnostic);
+        }
+        parameters.erase("position");
+        parameters["range"] = {{"start", position}, {"end", position}};
+        parameters["context"] = {{"diagnostics", std::move(diagnostics)}, {"only", {"quickfix"}}};
+    }
     auto response = kind == "symbols" ? std::move(symbols)
                     : kind == "diagnostics"
                         ? transport.diagnostics()
@@ -780,6 +858,7 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
                                              (kind == "signature"   ? std::string("signatureHelp")
                                               : kind == "selection" ? std::string("selectionRange")
                                               : kind == "format"    ? std::string("formatting")
+                                              : kind == "fixes"     ? std::string("codeAction")
                                                                     : kind),
                                          parameters);
     transport.finish();
@@ -795,12 +874,14 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         : kind == "symbols"     ? normalized_symbols(response, target, text)
         : kind == "selection"   ? normalized_selection(response, text, path_utf8(target),
                                                        request.at("offset").get<std::size_t>())
-        : kind == "rename"      ? normalized_rename(response, text, paths, target, new_name)
+        : kind == "rename"      ? normalized_workspace_edits(response, text, paths, target,
+                                                             "Apply rename to " + new_name)
+        : kind == "fixes"       ? normalized_fixes(response, text, paths, target)
         : kind == "format" ? normalized_source_edits(response, text)
                            : normalized_locations(response, paths, documents, kind == "references");
     if (kind == "rename")
         result["new_name"] = new_name;
-    if (kind == "references" || kind == "implementation" || kind == "rename")
+    if (kind == "references" || kind == "implementation" || kind == "rename" || kind == "fixes")
         result.update({{"scope", "current_context"}, {"exhaustive", false}});
     result.update({{"version", 1},
                    {"id", request.at("id")},

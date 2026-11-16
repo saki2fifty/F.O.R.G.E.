@@ -216,7 +216,8 @@ class CppSourceEditor {
         // Own the row before any source operation can invalidate the derived result.
         const auto item = items.at(index);
         const bool proposal = result.at("kind").get<std::string>() == "format" ||
-                              result.at("kind").get<std::string>() == "rename";
+                              result.at("kind").get<std::string>() == "rename" ||
+                              result.at("kind").get<std::string>() == "fixes";
         const bool selection = result.at("kind").get<std::string>() == "selection";
         if (result.at("kind").get<std::string>() != "completion" && !proposal) {
             open(project, item.at("path").get<std::string>(), item.at("line").get<int>(),
@@ -254,7 +255,7 @@ class CppSourceEditor {
             const auto offset = cpp_source_byte_offset(before, point.first, point.second);
             std::size_t source_from = 0, target_from = 0, mapped = offset;
             bool located = false;
-            for (const auto& edit : result.at("source_edits")) {
+            for (const auto& edit : result.at("source_edits").at(index)) {
                 const auto first = edit.at("begin").get<std::size_t>();
                 const auto last = edit.at("end").get<std::size_t>();
                 if (offset < first) {
@@ -833,6 +834,7 @@ class CppSourceEditor {
             {"definition", "Find definition"},
             {"implementation", "Find implementations"},
             {"selection", "Select syntax"},
+            {"fixes", "Quick fixes"},
             {"rename", "Rename in file..."}};
         for (const auto& [kind, label] : actions) {
             if (!first_button)
@@ -879,7 +881,8 @@ class CppSourceEditor {
             const bool type_definition = result.at("kind").get<std::string>() == "typeDefinition";
             const bool format = result.at("kind").get<std::string>() == "format";
             const bool rename = result.at("kind").get<std::string>() == "rename";
-            const bool proposal = format || rename;
+            const bool fixes = result.at("kind").get<std::string>() == "fixes";
+            const bool proposal = format || rename || fixes;
             const bool selection = result.at("kind").get<std::string>() == "selection";
             const bool definition = result.at("kind").get<std::string>() == "definition";
             const bool implementation = result.at("kind").get<std::string>() == "implementation";
@@ -909,6 +912,9 @@ class CppSourceEditor {
             if (rename)
                 ImGui::TextWrapped("Rename proposal for this file and current context. Review "
                                    "references before applying; Save and Build remain separate.");
+            if (fixes)
+                ImGui::TextWrapped("Quick fixes at this cursor. Review a proposal before applying; "
+                                   "Save and Build remain separate.");
             ImGui::BeginChild("Analysis results",
                               {0, signature || diagnostics || information || symbols ||
                                           references || implementation || selection || proposal
@@ -928,6 +934,7 @@ class CppSourceEditor {
                     : definition      ? "No definition returned in this context."
                     : implementation  ? "No implementations returned in this context."
                     : rename          ? "No rename changes returned."
+                    : fixes           ? "No quick fixes returned at this cursor."
                     : format          ? "No formatting changes returned."
                                       : "No results at this cursor.");
             for (std::size_t i = 0; i < items.size(); ++i) {
@@ -988,7 +995,7 @@ class CppSourceEditor {
                 if (symbols)
                     FORGE_UI_PROBE("cpp:analysis:symbol:" + item.at("label").get<std::string>());
                 ImGui::EndDisabled();
-                if (proposal) {
+                if (proposal && item.at("available").get<bool>()) {
                     ImGui::TextUnformatted("Proposed source");
                     const auto& preview = item.at("text").get_ref<const std::string&>();
                     ImGui::TextUnformatted(preview.data(), preview.data() + preview.size());

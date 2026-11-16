@@ -133,6 +133,7 @@ editing and building work without this optional tool.
 13. Place the cursor on a virtual function and choose **Find implementations**. Select a returned override to open it. The list covers the current compiler context and may omit implementations in other files. Use **Back** and **Forward** to move between visited locations; navigation preserves drafts and source Undo/Redo.
 14. Place the cursor inside an expression, statement or function and choose **Select syntax**. The list shows containing ranges, smallest first. Choose a range to select it in the source editor; the caret moves to its end. Selection preserves source text and Undo/Redo. You can then use ordinary copy or editing controls.
 15. Place the cursor within a symbol and choose **Rename in file...**. Enter its **New name**, then choose **Preview rename**. Review **Proposed source** and choose **Apply rename to NAME (N edits)** when ready. Applying follows the current caret through the edits and creates one source Undo step. **Save source** and **Build Project Code** remain separate.
+16. Place the cursor at a reported error and choose **Quick fixes**. You can first choose **Check source** and select an error's location. Review the **Proposed source** for an available suggestion, then choose its **Apply quick fix** action. Each application creates one source Undo step and follows the current caret through its edits. Save and build when ready.
 
 ![C++ Sources showing a function call signature and its active second argument](../images/cpp-code-assistance.png)
 
@@ -188,6 +189,12 @@ Selection leaves source text and Undo/Redo unchanged.
 Review the proposed source before applying a rename. The source below remains
 unchanged until you choose **Apply rename to NAME (N edits)**.
 
+![Quick-fix preview showing a proposed semicolon while the current source remains unchanged](../images/cpp-quick-fixes.png)
+
+Choose **Quick fixes** at a diagnostic's source location, then review the complete
+proposed source. Applying the shown edit changes the current draft in one Undo
+step. **Save source** and **Build Project Code** remain separate.
+
 Queries include current open source and header drafts. They do not save files,
 compile the game, apply changes automatically or run commands suggested by the
 provider. **Results for** identifies the queried file, even after you switch tabs.
@@ -223,6 +230,13 @@ file is refused in full. These results cover the current compiler context.
 Project-wide refactoring is not available. Strings and authored identifiers are
 separate source edits. If the preview reports an error, correct the name or choose
 another source symbol, then run **Preview rename** again.
+Quick fixes use the current draft's diagnostic publication and cursor position.
+Not every diagnostic has a suggested fix. The list retains at most 64 actions;
+unavailable actions show their reason. Only complete edits to the current Native
+file can be applied. Actions requiring commands, another file, annotations or
+deferred resolution remain unavailable. The combined preview budget is 4 MiB;
+larger proposals are unavailable and the list reports its limit. Applying a fix
+does not establish that the game compiles; use **Check source** again or build.
 Formatting accepts at most 32,768 non-overlapping edits and a complete result
 within the source editor's 1 MiB budget. Larger, ambiguous or invalid proposals
 are refused in full. Formatting does not establish that the game compiles.

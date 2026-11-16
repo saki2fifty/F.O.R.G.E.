@@ -3082,6 +3082,11 @@ Real rename checks include a Unicode new name, three local references, a cursor
 move after the query, one source Undo/Redo, invalid identifier failure and refusal
 of a header-plus-source proposal through both MCP formats. Native checks type the
 actual name-entry popup and review/apply through the same source owner.
+Quick-fix checks cover current-version diagnostic context, whole-source preview,
+multiple alternatives and their distinct caret mappings, unavailable commands/
+deferred/cross-file/annotated edits, malformed metadata/ranges and aggregate result
+budgets. Actual-provider checks repair a missing semicolon in a Unicode draft
+through both MCP formats and native controls, preserving saved source and Scene.
 Actual build/deployment outcomes are retained;
 Linux's Windows-only deployment refusal is distinct from successful configuration
 and analysis. The native control executable also accepts an existing project and

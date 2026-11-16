@@ -96,6 +96,9 @@ int main() {
                       {"implementationProvider", mode != "locations-unavailable"},
                       {"selectionRangeProvider", mode != "selection-unavailable"},
                       {"renameProvider", mode != "rename-unavailable"},
+                      {"codeActionProvider",
+                       {{"codeActionKinds",
+                         mode == "fixes-unavailable" ? Json::array() : Json::array({"quickfix"})}}},
                       {"typeDefinitionProvider", mode != "locations-unavailable"},
                       {"documentFormattingProvider", mode != "format-unavailable"},
                       {"hoverProvider", mode != "hover-unavailable"}}}};
@@ -163,6 +166,16 @@ int main() {
                 }
                 if (mode == "diagnostic-empty")
                     diagnostics = Json::array();
+                const auto missing_semicolon = text.find("1 return");
+                if (missing_semicolon != text.npos && mode != "diagnostic-empty") {
+                    diagnostics.push_back(
+                        {{"range",
+                          {{"start", forge::cpp_semantic_position(text, missing_semicolon + 2)},
+                           {"end", forge::cpp_semantic_position(text, missing_semicolon + 8)}}},
+                         {"severity", 1},
+                         {"code", "fixture-semicolon"},
+                         {"message", "Expected semicolon"}});
+                }
                 if (mode == "diagnostic-range")
                     diagnostics[0]["range"]["start"]["character"] = 999999;
                 if (mode == "diagnostic-severity")
@@ -327,6 +340,74 @@ int main() {
                     result["changes"][uri].back()["range"]["start"] = point;
                 } else if (mode == "rename-disordered")
                     std::reverse(result["changes"][uri].begin(), result["changes"][uri].end());
+            } else if (method == "textDocument/codeAction") {
+                const auto& parameters = request.at("params");
+                const auto uri = parameters.at("textDocument").at("uri").get<std::string>();
+                const auto& text = drafts.at(uri);
+                const auto point = parameters.at("range").at("start");
+                const auto offset = forge::cpp_semantic_offset(text, point);
+                const auto& diagnostics = parameters.at("context").at("diagnostics");
+                if (parameters.contains("position") || parameters.at("range").at("end") != point ||
+                    parameters.at("context").at("only") != Json::array({"quickfix"}))
+                    throw std::runtime_error(
+                        "Quick fixes need a point range and quickfix-only context");
+                result = Json::array();
+                const auto semicolon = text.find("1 return");
+                if (semicolon != text.npos && offset == semicolon + 2) {
+                    if (diagnostics.size() != 1 ||
+                        diagnostics.at(0).at("code").get<std::string>() != "fixture-semicolon")
+                        throw std::runtime_error("Quick fix did not use its matching diagnostic");
+                    const auto insertion = forge::cpp_semantic_position(text, semicolon + 1);
+                    Json edit{{"range", {{"start", insertion}, {"end", insertion}}},
+                              {"newText", ";"}};
+                    Json action{{"title", "Insert semicolon"},
+                                {"kind", "quickfix"},
+                                {"isPreferred", true},
+                                {"edit", {{"changes", {{uri, Json::array({edit})}}}}}};
+                    if (mode == "fixes-command")
+                        action["command"] = {{"command", "Do not execute"}};
+                    else if (mode == "fixes-cross-file")
+                        action["edit"]["changes"][forge::local_file_url(
+                            std::filesystem::current_path() / "Native/Other.hpp")] =
+                            Json::array({edit});
+                    else if (mode == "fixes-annotations")
+                        action["edit"]["changeAnnotations"] = Json::object();
+                    else if (mode == "fixes-payload")
+                        action["edit"]["changes"][uri][0]["command"] = "Do not execute";
+                    else if (mode == "fixes-range")
+                        action["edit"]["changes"][uri][0]["range"]["end"]["character"] = 999999;
+                    else if (mode == "fixes-disabled")
+                        action["disabled"] = {{"reason", "Unavailable in this context"}};
+                    else if (mode == "fixes-resolve")
+                        action["data"] = "Deferred execution is unsupported";
+                    else if (mode == "fixes-kind")
+                        action["kind"] = "refactor";
+                    else if (mode == "fixes-title")
+                        action["title"] = std::string(2049, 'x');
+                    else if (mode == "fixes-no-edit")
+                        action.erase("edit");
+                    else if (mode == "fixes-budget")
+                        action["edit"]["changes"][uri][0]["newText"] = std::string(100000, 'x');
+                    result.push_back(action);
+                    if (mode == "fixes-multiple") {
+                        action["title"] = "Insert semicolon with note";
+                        action["edit"]["changes"][uri][0]["newText"] = "; /* fixed */";
+                        result.push_back(action);
+                    } else if (mode == "fixes-mixed") {
+                        result[0]["command"] = {{"command", "Do not execute"}};
+                        result.push_back(action);
+                    } else if (mode == "fixes-limited") {
+                        for (int i = 1; i != 65; ++i)
+                            result.push_back(action);
+                    } else if (mode == "fixes-budget") {
+                        for (int i = 1; i != 32; ++i)
+                            result.push_back(action);
+                    }
+                }
+                if (mode == "fixes-null")
+                    result = nullptr;
+                else if (mode == "fixes-empty")
+                    result = Json::array();
             } else if (method == "textDocument/formatting") {
                 const auto& params = request.at("params");
                 if (params.contains("position") || params.at("options").at("tabSize") != 4 ||

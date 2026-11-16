@@ -396,12 +396,52 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     editor.undo(false);
     check(ui::read_cpp_source(rename_path) == rename_saved && scene.document() == authored,
           "Native rename changed saved source or Scene data");
+    const auto fix_path = root / "Native/QuickFixProbe.hpp";
+    const std::string fix_saved =
+        "#pragma once\n// café\nint fixes_probe() { int value = 1 return value; }\n";
+    if (!std::filesystem::exists(fix_path))
+        atomic_write(fix_path, fix_saved);
+    check(ui::read_cpp_source(fix_path) == fix_saved,
+          "Quick-fix fixture would overwrite an unrelated source file");
+    editor.open(document, "Native/QuickFixProbe.hpp");
+    const auto fix_before = editor.active_text();
+    const auto fix_position =
+        ui::cpp_source_coordinate(fix_before, fix_before.find("1 return") + 2);
+    editor.open(document, "Native/QuickFixProbe.hpp", fix_position.first + 1,
+                fix_position.second + 1);
+    frame();
+    input.click("cpp:analysis:fixes");
+    wait_result();
+    check(editor.active_text() == fix_before && !editor.can_undo(),
+          "Native quick-fix query changed source/history");
+    reveal_source();
+    if (!captures.empty())
+        capture.save(captures / ("cpp-quick-fixes-" + std::to_string(width) + ".png"));
+    const auto fix_cursor = ui::cpp_source_coordinate(fix_before, fix_before.rfind("value"));
+    editor.open(document, "Native/QuickFixProbe.hpp", fix_cursor.first + 1, fix_cursor.second + 1);
+    input.select("cpp:analysis:use:0");
+    frame();
+    auto fix_after = fix_before;
+    fix_after.insert(fix_after.find("1 return") + 1, ";");
+    const auto fix_mapped = ui::cpp_source_coordinate(fix_after, fix_after.rfind("value"));
+    check(editor.active_text() == fix_after && test::ui_targets.contains(cursor_key(fix_mapped)),
+          "Native quick fix lost its complete proposal/current-caret mapping");
+    editor.undo(false);
+    check(editor.active_text() == fix_before && !editor.can_undo(),
+          "Native quick fix needed more than one source Undo");
+    editor.undo(true);
+    check(editor.active_text() == fix_after, "Native quick-fix Redo lost its source edit");
+    editor.undo(false);
+    check(ui::read_cpp_source(fix_path) == fix_saved && scene.document() == authored,
+          "Native quick fix changed saved source or Scene bytes");
     editor.open(document, "Native/gameplay.cpp", declaration_position.first + 1,
                 declaration_position.second + 1);
     editor.undo(false);
     check(editor.active_text() == completed, "File outline navigation added a source Undo record");
     locked = true;
     frame();
+    check(!test::ui_targets.at("cpp:analysis:fixes").enabled,
+          "Native quick fixes bypassed the source lock");
     check(!test::ui_targets.at("cpp:analysis:signature").enabled,
           "Native signature query bypassed the source lock");
     check(!test::ui_targets.at("cpp:analysis:diagnostics").enabled,

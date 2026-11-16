@@ -162,6 +162,29 @@ for legacy in protocol_cases():
                     assert mutate('forge_code_undo', **observed_args())['ok']
                     assert mutate('forge_code_undo', **observed_args())['ok']
                     assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
+                    fix_source = draft + '\n// café\nint fixes_probe() { int value = 1 return value; }\n'
+                    assert mutate('forge_code_replace', **(observed_args() | dict(text=fix_source)))['ok']
+                    fix_before = read('forge_code_read', path='Native/Spinner.cpp')
+                    fix_offset = len(fix_source[:fix_source.index('1 return') + 2].encode('utf-8'))
+                    assert mutate('forge_code_analysis_start', **(observed_args() | dict(kind='fixes', offset=fix_offset)))['ok']
+                    fixes = settle()
+                    fixed_source = fix_source.replace('1 return', '1; return')
+                    assert fixes['complete'] and fixes['total'] == 1 and fixes['items'][0]['text'] == fixed_source, fixes
+                    assert fixes['items'][0]['edit_count'] == 1 and 'source_edits' not in fixes
+                    assert read('forge_code_read', path='Native/Spinner.cpp') == fix_before
+                    route = discovery()
+                    apply_fix = dict(target=route['result']['target'], expected_revision=route['revision'],
+                                     sequence=route['next_sequence'], operation=fixes['operation'], index=0)
+                    applied_fix = client.tool('forge_code_analysis_use', **apply_fix)
+                    assert applied_fix['ok'] and client.tool('forge_code_analysis_use', **apply_fix) == applied_fix
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == fixed_source
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == fix_source
+                    assert mutate('forge_code_redo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == fixed_source
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
                     before_signature = read('forge_code_read', path='Native/Spinner.cpp')
                     started = mutate('forge_code_analysis_start', **(observed_args() | dict(kind='format', offset=args['offset'])))
                     assert started['ok'], started

@@ -74,7 +74,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 ## Game behavior
 
 - [Choose game modes and condition object activity](editor/application-states.md)
-- [Project Code (C++ authoring, formatting, definitions, implementations, syntax selection, rename and code assistance)](editor/native-gameplay.md)
+- [Project Code (C++ authoring, formatting, definitions, implementations, syntax selection, rename, quick fixes and code assistance)](editor/native-gameplay.md)
 - [Gameplay input, sixteen local controllers, raw motion, analog response and vibration](editor/input.md)
 - [Record and replay fixed gameplay input](editor/input-recording.md)
 - [Send component data on press, release or change](editor/input-messages.md)

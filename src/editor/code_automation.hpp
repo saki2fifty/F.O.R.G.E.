@@ -300,9 +300,11 @@ struct CodeAutomation {
             "are read-only; active indices refer to the full result, before pagination. "
             "Diagnostics carry receive date/time, severity, message and a guarded source location. "
             "Symbol information is read-only; file symbols provide a bounded hierarchical outline. "
-            "Formatting and single-file rename return one complete current-source proposal, "
+            "Formatting, single-file rename and diagnostic quick fixes return complete "
+            "current-source proposals, "
             "including its edit count and "
-            "resulting text. Use code.analysis.use to apply completion/formatting or navigate a "
+            "resulting text. Use code.analysis.use to apply completion/formatting/rename/fixes or "
+            "navigate a "
             "declaration/definition/implementation/diagnostic/symbol/reference/type. Reference and "
             "implementation scope is the current compiler "
             "context, never an exhaustive project index. Syntax ranges are bounded containing "
@@ -555,7 +557,8 @@ struct CodeAutomation {
             methods.push_back(automation_method(
                 "code.analysis.use",
                 "Use an available result of the exact analysis operation. Completion changes "
-                "the existing source tab with one Undo record. Formatting and single-file rename "
+                "the existing source tab with one Undo record. Formatting, single-file rename and "
+                "quick fixes "
                 "apply one complete "
                 "proposal and maps the current target cursor; declaration/diagnostic opens only a "
                 "contained "
@@ -635,7 +638,8 @@ struct CodeAutomation {
                 "code.analysis.start",
                 "Query completion, declaration, call signatures, diagnostics, symbol information "
                 "file symbols, definitions, current-context implementations and references, type "
-                "definitions, syntax selection, reviewed single-file rename or "
+                "definitions, syntax selection, diagnostic quick fixes, reviewed single-file "
+                "rename or "
                 "whole-source formatting at "
                 "a UTF-8 "
                 "byte offset in the observed open "

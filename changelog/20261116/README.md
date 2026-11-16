@@ -1,5 +1,15 @@
 # 2026-11-16
 
+## Reviewed C++ diagnostic quick fixes
+
+Quick fixes requests suggestions at the source cursor using diagnostics for the
+current draft version. Available actions show a complete read-only source proposal
+and apply through the existing current-caret/source Undo path. Unavailable actions
+retain a reason; commands, deferred actions, cross-file/resource/annotated edits
+remain refused. Native controls and MCP share the same bounded task and guards.
+Private edit mapping is indexed by proposal, supporting multiple alternatives
+without another source or history owner. Save and Build remain separate.
+
 ## Portable UI source acceptance
 
 UI source save assertions explicitly decode UTF-8 instead of using the host's

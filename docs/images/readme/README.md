@@ -3827,24 +3827,25 @@ their original attribution.
 [formatting](../../../manual/images/cpp-source-formatting.png),
 [definitions](../../../manual/images/cpp-definition.png),
 [implementations](../../../manual/images/cpp-implementations.png),
-[syntax selection](../../../manual/images/cpp-syntax-selection.png) and
-[reviewed rename](../../../manual/images/cpp-source-rename.png) show the actual
+[syntax selection](../../../manual/images/cpp-syntax-selection.png),
+[reviewed rename](../../../manual/images/cpp-source-rename.png) and
+[diagnostic quick fixes](../../../manual/images/cpp-quick-fixes.png) show the actual
 700×850 CppSourceEditor with separately installed clangd23.1.0 and a genuine
 managed GNU12.3.0/Release SDK CMake context. Each task has one canonical image.
-All thirteen modes pass real native controls at1180/700/400. Analysis actions wrap
+All fourteen modes pass real native controls at1180/700/400. Analysis actions wrap
 into five rows at400; Back/Forward/Clear and queried-file captions remain.
 
-Rename proposal views at700and400 and the name-entry dialog at400 were reviewed.
-Actual input types the name, refuses a stale form, cancels without losing source
-history, previews three edits and applies them with current-caret mapping and one
-Undo/Redo. Source and Scene bytes remain unchanged on disk. Other task content
-retains its preceding reviews with the toolbar refreshed. The formatting header
-still preserves savedCRLF with an LF source/proposal, explicit Apply/current-caret
-mapping and oneUndo/Redo. Pixels are not retouched.
+Quick-fix views at700and400 were reviewed. The cursor uses the reported diagnostic
+token, which differs from the suggested insertion position. Actual input previews
+the complete source and applies the missing semicolon with current-caret mapping
+and one Undo/Redo. Saved source and Scene bytes remain unchanged. Rename retains
+its typed/stale/Cancel/preview/apply checks, and other task content retains its
+preceding reviews with the toolbar refreshed. Formatting still preserves savedCRLF
+with an LF source/proposal and one Undo/Redo. Pixels are not retouched.
 
-Capture source is the working tree based on93f4764. Exact source/test hashes,
+Capture source is the working tree based on8e3a9b3. Exact source/test hashes,
 actual actor/tool/provider bytes, original paths and test command are retained in
-`AgentFiles/build/phase374-cpp-reviewed-rename/capture-proof-final.json`.
+`AgentFiles/build/phase375-cpp-diagnostic-actions/capture-proof-final.json`.
 The run logger confirms those executable inputs stayed unchanged during capture.
 Canonical PNGs are copied byte-for-byte. This SDL software source-owner fixture
 has inactive New/build callbacks and deliberate code samples. It does not establish
