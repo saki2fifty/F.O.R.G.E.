@@ -893,6 +893,16 @@ when the body is unavailable. Implementation results expose
 exhaustive project index. Querying preserves the active cursor, draft and source
 Undo/Redo; `forge_code_analysis_use` explicitly navigates through the same owner
 and records ordinary Back/Forward history.
+Syntax ranges (`selection`) return up to16 containing levels with the shared
+source path/state/begin/end/line/column fields and a plain range label. The list
+runs smallest first, merges equal adjacent visible ranges, and reports deeper
+chains with `limited:true`. Malformed, noncontaining or UTF8-invalid ranges fail.
+The source widget's implicit finalLF is not selectable. `forge_code_analysis_use`
+selects one actual widget range and moves its caret to the end, preserving source
+bytes, Undo/Redo and saved files. Source tab status includes `selection.active`,
+`selection.bytes` and `selection.state` (the selected UTF8 bytes' SHA256 digest),
+so agents can verify current selection without receiving its full text each time.
+
 Whole-source formatting (`format`) returns at most one available proposal with
 complete LF `text`, `edit_count`, label and whole-source byte range. The internal
 cursor-mapping edit list is not exposed in MCP status. Null/empty/no-op replies
@@ -904,7 +914,7 @@ after the query. Style comes from provider files/fallback; rerun after style edi
 Logs retain timestamps and bounded UTF-8 paging.
 
 With `code.execute`, `forge_code_analysis_start` requires an observed source
-`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`/`format`/`definition`/`implementation`) and UTF-8 byte
+`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`/`format`/`definition`/`implementation`/`selection`) and UTF-8 byte
 `offset`. Optional `tool` overrides the configured clangd23.1.0 path for that
 launch only. The managed project must have a successful CMake configure this
 session through Build Project Code; a compiler readiness probe is a different

@@ -3825,25 +3825,26 @@ their original attribution.
 [references](../../../manual/images/cpp-references.png),
 [type definitions](../../../manual/images/cpp-type-definition.png),
 [formatting](../../../manual/images/cpp-source-formatting.png),
-[definitions](../../../manual/images/cpp-definition.png) and
-[implementations](../../../manual/images/cpp-implementations.png) show the actual
+[definitions](../../../manual/images/cpp-definition.png),
+[implementations](../../../manual/images/cpp-implementations.png) and
+[syntax selection](../../../manual/images/cpp-syntax-selection.png) show the actual
 700×850 CppSourceEditor with separately installed clangd23.1.0 and a genuine
 managed GNU12.3.0/Release SDK CMake context. Each task has one canonical image.
-All eleven modes pass real native controls at1180/700/400. Analysis actions wrap
+All twelve modes pass real native controls at1180/700/400. Analysis actions wrap
 into four rows at400; Back/Forward/Clear and queried-file captions remain.
 
-Definition and implementation views at700and400 were visually reviewed. The
-first opens a function body from its separate declaration; the second opens an
-override from a virtual base method and discloses current-context scope. Source
-query/use preserves draft bytes and source Undo/Redo. Other task content retains
-its preceding reviews, with current controls refreshed. The formatting header
-still starts with savedCRLF and current/proposalLF, explicit Apply/current-caret
-mapping and exactly oneUndo/Redo. Real input exercises search/select/open/Back
-selection collapse and unchanged saved bytes. Pixels are not retouched.
+Syntax selection views at700and400 were reviewed. The native provider returns
+containing expression/statement/function extents, and actual input selects the
+first range in the source with its caret at the end. Text, source Undo/Redo and
+saved bytes are preserved. Other task content retains its preceding reviews with
+the toolbar refreshed. The formatting header still preserves savedCRLF with an
+LF source/proposal, explicit Apply/current-caret mapping and oneUndo/Redo. Real
+input also verifies search/select/open/Back selection collapse. Pixels are not
+retouched.
 
-Capture source is the working tree based on6132fb3. Exact source/test hashes,
+Capture source is the working tree based on63d123d. Exact source/test hashes,
 actual actor/tool/provider bytes, original paths and test command are retained in
-`AgentFiles/build/phase372-cpp-definition-implementation/capture-proof-final.json`.
+`AgentFiles/build/phase373-cpp-syntax-selection/capture-proof-final.json`.
 The run logger confirms those executable inputs stayed unchanged during capture.
 Canonical PNGs are copied byte-for-byte. This SDL software source-owner fixture
 has inactive New/build callbacks and deliberate code samples. It does not establish

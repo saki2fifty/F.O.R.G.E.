@@ -78,6 +78,7 @@ int main() {
                       {"referencesProvider", mode != "locations-unavailable"},
                       {"definitionProvider", mode != "locations-unavailable"},
                       {"implementationProvider", mode != "locations-unavailable"},
+                      {"selectionRangeProvider", mode != "selection-unavailable"},
                       {"typeDefinitionProvider", mode != "locations-unavailable"},
                       {"documentFormattingProvider", mode != "format-unavailable"},
                       {"hoverProvider", mode != "hover-unavailable"}}}};
@@ -312,6 +313,62 @@ int main() {
                     result[0]["newText"] = "/* café */ ";
                 else if (mode == "format-disordered")
                     std::reverse(result.begin(), result.end());
+            } else if (method == "textDocument/selectionRange") {
+                const auto& parameters = request.at("params");
+                if (parameters.contains("position") || parameters.at("positions").size() != 1)
+                    throw std::runtime_error("Syntax query requires one positions entry");
+                const auto uri = parameters.at("textDocument").at("uri").get<std::string>();
+                const auto& text = drafts.at(uri);
+                const auto offset =
+                    forge::cpp_semantic_offset(text, parameters.at("positions").at(0));
+                auto begin = offset, end = offset;
+                const auto identifier = [](unsigned char c) {
+                    return c >= 128 || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                           (c >= '0' && c <= '9') || c == '_';
+                };
+                while (begin && identifier(text[begin - 1]))
+                    --begin;
+                while (end < text.size() && identifier(text[end]))
+                    ++end;
+                const auto range = [&](std::size_t first, std::size_t last) {
+                    return Json{{"start", forge::cpp_semantic_position(text, first)},
+                                {"end", forge::cpp_semantic_position(text, last)}};
+                };
+                Json parent{{"range", range(0, text.size())}};
+                if (mode == "selection-limited")
+                    for (int i = 0; i != 17; ++i)
+                        parent =
+                            Json{{"range", range(0, text.size())}, {"parent", std::move(parent)}};
+                result = Json::array({{{"range", range(begin, end)}, {"parent", parent}}});
+                if (mode == "selection-null")
+                    result = nullptr;
+                else if (mode == "selection-empty")
+                    result = Json::array();
+                else if (mode == "selection-object")
+                    result = result.at(0);
+                else if (mode == "selection-node-null")
+                    result = Json::array({nullptr});
+                else if (mode == "selection-count")
+                    result.push_back(result.at(0));
+                else if (mode == "selection-parent")
+                    result[0]["parent"]["range"] = range(0, 0);
+                else if (mode == "selection-parent-type")
+                    result[0]["parent"] = false;
+                else if (mode == "selection-cursor")
+                    result[0]["range"] = range(0, 0);
+                else if (mode == "selection-reversed")
+                    result[0]["range"] = range(end, begin);
+                else if (mode == "selection-range")
+                    result[0]["range"]["start"]["character"] = 999999;
+                else if (mode == "selection-fractional")
+                    result[0]["range"]["start"]["character"] = 1.5;
+                else if (mode == "selection-split") {
+                    result[0]["range"]["start"] =
+                        forge::cpp_semantic_position(text, text.find("\xC3\xA9"));
+                    result[0]["range"]["start"]["character"] =
+                        result[0]["range"]["start"]["character"].get<std::size_t>() + 1;
+                } else if (mode == "selection-duplicate")
+                    result[0]["parent"] = Json{{"range", range(begin, end)}, {"parent", parent}};
             } else if (method == "textDocument/declaration" ||
                        method == "textDocument/references" ||
                        method == "textDocument/typeDefinition" ||

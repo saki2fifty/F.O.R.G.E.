@@ -519,6 +519,55 @@ int main(int argc, char** argv) {
             }
             SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
         }
+        const auto before_selection = invoke("code.read", {{"path", "Native/First.cpp"}});
+        start_analysis("selection");
+        analysis = settle_analysis();
+        check(analysis.at("complete").get<bool>() && analysis.at("total").get<std::size_t>() == 2 &&
+                  invoke("code.read", {{"path", "Native/First.cpp"}}) == before_selection,
+              "Syntax range query changed source/caret/selection/history");
+        invoke("code.analysis.use", {{"operation", analysis.at("operation")}, {"index", 1}});
+        const auto selected = invoke("code.read", {{"path", "Native/First.cpp"}});
+        check(selected.at("text").get<std::string>() == draft &&
+                  selected.at("selection").at("active").get<bool>() &&
+                  selected.at("selection").at("bytes").get<std::size_t>() == draft.size() - 1 &&
+                  selected.at("selection").at("state").get<std::string>() ==
+                      forge::ui::cpp_source_state(draft.substr(0, draft.size() - 1)) &&
+                  selected.at("can_undo") == before_selection.at("can_undo") &&
+                  selected.at("can_redo") == before_selection.at("can_redo"),
+              "Syntax selection edited source/history or did not select the widget range");
+        for (const auto* mode :
+             {"selection-null", "selection-empty", "selection-object", "selection-node-null",
+              "selection-count", "selection-parent", "selection-parent-type", "selection-cursor",
+              "selection-reversed", "selection-range", "selection-fractional", "selection-split",
+              "selection-duplicate", "selection-limited", "selection-unavailable"}) {
+            SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", mode, true);
+            start_analysis("selection");
+            analysis = settle_analysis();
+            const std::string_view value(mode);
+            if (value == "selection-null" || value == "selection-empty")
+                check(analysis.at("complete").get<bool>() &&
+                          analysis.at("total").get<std::size_t>() == 0,
+                      "Empty syntax selection reply failed");
+            else if (value == "selection-duplicate" || value == "selection-limited")
+                check(analysis.at("complete").get<bool>() &&
+                          analysis.at("total").get<std::size_t>() == 2 &&
+                          analysis.at("limited").get<bool>() == (value == "selection-limited"),
+                      "Syntax selection duplicate/depth bound was not retained");
+            else
+                check(!analysis.at("complete").get<bool>() &&
+                          !analysis.at("error").get<std::string>().empty(),
+                      std::string("Malformed/unavailable syntax selection accepted: ") + mode);
+        }
+        SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+        invoke("code.analysis.start", {{"path", "Native/First.cpp"},
+                                       {"session", before_selection.at("session")},
+                                       {"state", before_selection.at("state")},
+                                       {"kind", "selection"},
+                                       {"offset", draft.size()}});
+        analysis = settle_analysis();
+        check(!analysis.at("complete").get<bool>(),
+              "Syntax selection admitted a cursor past the visible final newline");
+        editor.open(files.document, "Native/First.cpp", 1, 1);
         const auto before_format = invoke("code.read", {{"path", "Native/First.cpp"}});
         start_analysis("format");
         analysis = settle_analysis();

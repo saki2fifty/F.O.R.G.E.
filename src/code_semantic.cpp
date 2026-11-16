@@ -245,6 +245,47 @@ Json source_location(const std::string& text, const Json& range, const std::stri
     return {{"available", true}, {"reason", ""}, {"path", path},     {"state", state},
             {"begin", begin},    {"end", end},   {"line", line + 1}, {"column", column + 1}};
 }
+Json normalized_selection(const Json& response, const std::string& text, const std::string& path,
+                          std::size_t offset) {
+    Json items = Json::array();
+    // The source widget appends one virtual final LF that cannot be selected.
+    const auto selectable_end = text.size() - (text.ends_with('\n') ? 1 : 0);
+    require(offset <= selectable_end, "Syntax selection cursor is past the visible source end");
+    if (response.is_null() || (response.is_array() && response.empty()))
+        return {{"items", std::move(items)}, {"limited", false}};
+    require(response.is_array() && response.size() == 1,
+            "C++ syntax selection requires one range chain for its queried cursor");
+    require(response.at(0).is_object(), "C++ syntax selection requires a non-null range object");
+    const auto state = ui::cpp_source_state(text);
+    const Json* node = &response.at(0);
+    std::size_t begin = offset, end = offset, depth = 0;
+    bool limited = false;
+    while (node && !node->is_null()) {
+        require(node->is_object(), "C++ syntax selection parent must be a range object");
+        if (depth++ == 16) {
+            limited = true;
+            break;
+        }
+        auto item = source_location(text, node->at("range"), path, state);
+        const auto first = item.at("begin").get<std::size_t>();
+        const auto last = item.at("end").get<std::size_t>();
+        require(first <= begin && end <= last,
+                "C++ syntax selection must contain its cursor and child range");
+        const auto selected_end = std::min(last, selectable_end);
+        item["end"] = selected_end;
+        if (items.empty() || first != items.back().at("begin").get<std::size_t>() ||
+            selected_end != items.back().at("end").get<std::size_t>()) {
+            item["label"] = "Select " + std::to_string(selected_end - first) + " bytes at " +
+                            std::to_string(item.at("line").get<int>()) + ":" +
+                            std::to_string(item.at("column").get<int>());
+            items.push_back(std::move(item));
+        }
+        begin = first;
+        end = last;
+        node = node->contains("parent") ? &node->at("parent") : nullptr;
+    }
+    return {{"items", std::move(items)}, {"limited", limited}};
+}
 Json normalized_hover(const Json& response, const std::string& text) {
     Json items = Json::array();
     if (!response.is_null()) {
@@ -653,6 +694,9 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         kind == "implementation")
         require(initialized.at("capabilities").at(kind + "Provider").get<bool>(),
                 "Semantic tools require the requested symbol-navigation support");
+    if (kind == "selection")
+        require(initialized.at("capabilities").at("selectionRangeProvider").get<bool>(),
+                "Semantic tools require syntax-selection support");
     if (kind == "format")
         require(initialized.at("capabilities").at("documentFormattingProvider").get<bool>(),
                 "Semantic tools require whole-source formatting support");
@@ -680,32 +724,39 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
                     {"position", position}};
     if (kind == "references")
         parameters["context"] = {{"includeDeclaration", false}};
+    if (kind == "selection") {
+        parameters.erase("position");
+        parameters["positions"] = Json::array({position});
+    }
     if (kind == "format") {
         parameters.erase("position");
         // Mandatory protocol fields; the selected provider obtains style from its files/fallback.
         parameters["options"] = {{"tabSize", 4}, {"insertSpaces", true}};
     }
-    auto response =
-        kind == "symbols" ? std::move(symbols)
-        : kind == "diagnostics"
-            ? transport.diagnostics()
-            : transport.call("textDocument/" + (kind == "signature" ? std::string("signatureHelp")
-                                                : kind == "format"  ? std::string("formatting")
+    auto response = kind == "symbols" ? std::move(symbols)
+                    : kind == "diagnostics"
+                        ? transport.diagnostics()
+                        : transport.call("textDocument/" +
+                                             (kind == "signature"   ? std::string("signatureHelp")
+                                              : kind == "selection" ? std::string("selectionRange")
+                                              : kind == "format"    ? std::string("formatting")
                                                                     : kind),
-                             parameters);
+                                         parameters);
     transport.finish();
     const auto current_database =
         asset_storage::read(context / "compile_commands.json", 16 * 1024 * 1024);
     require(current_database && ui::cpp_source_state(*current_database) == context_state,
             "C++ compiler context changed during analysis; query again");
-    auto result = kind == "completion"    ? normalized_completions(response, text)
-                  : kind == "signature"   ? normalized_signatures(response)
-                  : kind == "diagnostics" ? normalized_diagnostics(response, target, text)
-                  : kind == "hover"       ? normalized_hover(response, text)
-                  : kind == "symbols"     ? normalized_symbols(response, target, text)
-                  : kind == "format"
-                      ? normalized_formatting(response, text)
-                      : normalized_locations(response, paths, documents, kind == "references");
+    auto result =
+        kind == "completion"    ? normalized_completions(response, text)
+        : kind == "signature"   ? normalized_signatures(response)
+        : kind == "diagnostics" ? normalized_diagnostics(response, target, text)
+        : kind == "hover"       ? normalized_hover(response, text)
+        : kind == "symbols"     ? normalized_symbols(response, target, text)
+        : kind == "selection"   ? normalized_selection(response, text, path_utf8(target),
+                                                       request.at("offset").get<std::size_t>())
+        : kind == "format" ? normalized_formatting(response, text)
+                           : normalized_locations(response, paths, documents, kind == "references");
     if (kind == "references" || kind == "implementation")
         result.update({{"scope", "current_context"}, {"exhaustive", false}});
     result.update({{"version", 1},

@@ -242,6 +242,18 @@ indexing does not establish whole-project override coverage. No source or histor
 mutation occurs until the user explicitly navigates; navigation itself preserves
 source Undo/Redo and saved bytes.
 
+Syntax selection requires `selectionRangeProvider` and sends one cursor in
+`textDocument/selectionRange.positions`. Null/empty replies are valid; otherwise
+one range chain must contain the cursor and each child. UTF8/range validation
+uses the existing source-location owner. Up to16levels are inspected, adjacent
+equal visible ranges collapse, and deeper chains report limited status. The
+widget's virtual finalLF is excluded from selectable extents, with an out-of-view
+cursor rejected. Native and MCP use selects the actual widget range/caret through
+the same helper as project search and collapsed source positioning. Text, Save
+and source Undo/Redo remain unchanged. Borrowed source status exposes selection
+active/byte-count/digest, not a second selection owner or a full selected-text
+payload in every status reply.
+
 Whole-source formatting uses `textDocument/formatting` and the advertised
 documentFormattingProvider. The selected provider ignores protocol indentation
 options and reads its style files/fallback. Native source drafts use LF. All edits

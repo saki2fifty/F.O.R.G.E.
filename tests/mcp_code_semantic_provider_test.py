@@ -4,6 +4,7 @@ Pass tools, native code host, exact installed SDK, CMake, Ninja, separately
 installed supported clangd, scratch directory and capture path. No tool download.
 The deterministic default regression remains mcp_code_analysis_test.py.
 """
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -196,6 +197,19 @@ for legacy in protocol_cases():
                 navigated = read('forge_code_read', path='Native/gameplay.cpp')
                 assert navigated['text'] == symbol_text and navigated['cursor']['line'] == location['line']
                 assert navigated['can_undo'] == before_navigation['can_undo'] and navigated['can_redo'] == before_navigation['can_redo']
+            selection_before = read('forge_code_read', path='Native/gameplay.cpp')
+            mutate('forge_code_analysis_start', **observed(), kind='selection', offset=symbol_offset, tool=PROVIDER)
+            selection = settle('forge_code_analysis_status')
+            (root / 'analysis-selection-result.json').write_text(json.dumps(selection, indent=2))
+            assert selection['complete'] and 0 < selection['total'] <= 16 and not selection['stale'], selection
+            assert read('forge_code_read', path='Native/gameplay.cpp') == selection_before
+            extent = selection['items'][min(1, selection['total'] - 1)]
+            mutate('forge_code_analysis_use', operation=selection['operation'], index=extent['index'])
+            selected = read('forge_code_read', path='Native/gameplay.cpp')
+            selected_bytes = symbol_text.encode()[extent['begin']:extent['end']]
+            assert selected['text'] == symbol_text and selected['selection']['active']
+            assert selected['selection']['bytes'] == len(selected_bytes) and selected['selection']['state'] == hashlib.sha256(selected_bytes).hexdigest()
+            assert selected['can_undo'] == selection_before['can_undo'] and selected['can_redo'] == selection_before['can_redo']
             format_before = read('forge_code_read', path='Native/gameplay.cpp')
             mutate('forge_code_analysis_start', **observed(), kind='format', offset=0, tool=PROVIDER)
             formatting = settle('forge_code_analysis_status')

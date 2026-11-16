@@ -80,3 +80,12 @@ compiler context with explicit non-exhaustive scope. Native controls and MCP reu
 the existing finite provider/task, location validation and guarded Back/Forward
 navigation. Querying preserves cursor/draft/history; explicit navigation preserves
 source Undo/Redo and saved files. All existing assistance modes remain supported.
+
+## C++ syntax selection
+
+Select syntax lists bounded containing source ranges and selects one in the
+actual source widget, with its caret at the range end. The existing selection/
+source/history owner serves native controls, project search, collapsed positioning
+and MCP. Borrowed status reports selection active/bytes/digest; source bytes,
+Undo/Redo and Save stay separate. The implicit finalLF is excluded from selectable
+extents. No selection manager, persisted state or dependency change is introduced.

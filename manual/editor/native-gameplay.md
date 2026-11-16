@@ -131,6 +131,7 @@ editing and building work without this optional tool.
 11. Choose **Format source** to prepare a formatting proposal for the whole active file. Review **Proposed source**, then choose **Apply formatted source (N edits)**. The query preserves your draft; applying follows the current caret through the edits and creates one source Undo step. Save and Build Project Code remain separate. **No formatting changes returned.** means the provider offered no changes.
 12. Place the cursor within a function name and choose **Find definition**. Select an available location to open its body under **Native/**. When the provider cannot resolve a body, it can return the declaration instead.
 13. Place the cursor on a virtual function and choose **Find implementations**. Select a returned override to open it. The list covers the current compiler context and may omit implementations in other files. Use **Back** and **Forward** to move between visited locations; navigation preserves drafts and source Undo/Redo.
+14. Place the cursor inside an expression, statement or function and choose **Select syntax**. The list shows containing ranges, smallest first. Choose a range to select it in the source editor; the caret moves to its end. Selection preserves source text and Undo/Redo. You can then use ordinary copy or editing controls.
 
 ![C++ Sources showing a function call signature and its active second argument](../images/cpp-code-assistance.png)
 
@@ -176,6 +177,11 @@ location to open the body. Use **Back** to return.
 Choose **Find implementations** on a virtual method and select an available
 override. Other files may contain implementations absent from this context.
 
+![Containing C++ syntax ranges with the source range selected](../images/cpp-syntax-selection.png)
+
+Choose **Select syntax**, then a range to select part of the current source.
+Selection leaves source text and Undo/Redo unchanged.
+
 Queries include current open source and header drafts. They do not save files,
 compile the game, apply changes automatically or run commands suggested by the
 provider. **Results for** identifies the queried file, even after you switch tabs.
@@ -201,6 +207,9 @@ project-wide literal source searches.
 Reference/type/definition/implementation lists retain at most 64 locations. A finished reference or implementation query is a
 snapshot of the current compiler context; it does not establish a complete
 whole-project index. An empty list means no locations were returned in that context.
+Syntax selection retains at most 16 containing levels and combines adjacent equal
+ranges. Selection stops at the end of visible source text. A range query or
+selection does not save files or add source Undo.
 Formatting accepts at most 32,768 non-overlapping edits and a complete result
 within the source editor's 1 MiB budget. Larger, ambiguous or invalid proposals
 are refused in full. Formatting does not establish that the game compiles.

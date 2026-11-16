@@ -241,6 +241,25 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
             capture.save(captures /
                          (std::string("cpp-") + kind + "-" + std::to_string(width) + ".png"));
     }
+    editor.open(document, "Native/gameplay.cpp", symbol_position.first + 1,
+                symbol_position.second + 1);
+    frame();
+    input.click("cpp:analysis:selection");
+    wait_result();
+    check(editor.active_text() == symbol_draft && !test::ui_targets.contains("cpp:selection"),
+          "Syntax range query edited source or changed the selection");
+    input.select("cpp:analysis:use:0");
+    frame();
+    check(editor.active_text() == symbol_draft && test::ui_targets.contains("cpp:selection") &&
+              ui::read_cpp_source(root / "Native/gameplay.cpp") == saved &&
+              scene.document() == authored,
+          "Syntax range use did not select actual source or changed saved/Scene bytes");
+    reveal_source();
+    if (!captures.empty())
+        capture.save(captures / ("cpp-selection-" + std::to_string(width) + ".png"));
+    editor.undo(false);
+    check(editor.active_text() == completed, "Syntax selection added source Undo");
+    editor.undo(true);
     editor.open(document, "Native/gameplay.cpp", declaration_position.first + 1,
                 declaration_position.second + 1);
     editor.open(document, "Native/forge.registration.hpp");
@@ -324,6 +343,8 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     check(!test::ui_targets.at("cpp:analysis:definition").enabled &&
               !test::ui_targets.at("cpp:analysis:implementation").enabled,
           "Native definition/implementation controls bypassed the source lock");
+    check(!test::ui_targets.at("cpp:analysis:selection").enabled,
+          "Syntax selection query bypassed the source lock");
     check(!test::ui_targets.at("cpp:analysis:format").enabled,
           "Native formatting control bypassed the source lock");
     locked = false;

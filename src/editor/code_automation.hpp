@@ -48,12 +48,17 @@ struct CodeAutomation {
     }
     static Json tab_state(const ui::CppSourceEditor::Tab& tab) {
         const auto cursor = tab.editor.GetCursorPosition();
+        const auto selection = tab.editor.GetSelectedText();
         return {{"path", tab.locator},
                 {"session", tab.session},
                 {"state", hash(tab.editor.GetText())},
                 {"dirty", tab.dirty},
                 {"external", tab.external},
                 {"cursor", {{"line", cursor.mLine + 1}, {"column", cursor.mColumn + 1}}},
+                {"selection",
+                 {{"active", tab.editor.HasSelection()},
+                  {"bytes", selection.size()},
+                  {"state", hash(selection)}}},
                 {"can_undo", tab.editor.CanUndo()},
                 {"can_redo", tab.editor.CanRedo()}};
     }
@@ -299,7 +304,8 @@ struct CodeAutomation {
             "formatted text. Use code.analysis.use to apply completion/formatting or navigate a "
             "declaration/definition/implementation/diagnostic/symbol/reference/type. Reference and "
             "implementation scope is the current compiler "
-            "context, never an exhaustive project index.",
+            "context, never an exhaustive project index. Syntax ranges are bounded containing "
+            "extents; use explicitly selects one in the existing source widget.",
             "code.read",
             automation_object(
                 {{"offset", automation_integer()}, {"limit", automation_integer(1, 8)}}),
@@ -553,7 +559,8 @@ struct CodeAutomation {
                 "definitions use the same "
                 "navigation; signatures/symbol "
                 "information "
-                "are read-only. Reject changed drafts, disk inputs or "
+                "are read-only. Syntax ranges select the existing widget without source edits.  "
+                "Reject changed drafts, disk inputs or "
                 "compiler generation. "
                 "Does not save files or execute provider commands.",
                 "code.write",
@@ -624,7 +631,7 @@ struct CodeAutomation {
                 "code.analysis.start",
                 "Query completion, declaration, call signatures, diagnostics, symbol information "
                 "file symbols, definitions, current-context implementations and references, type "
-                "definitions or reviewed "
+                "definitions, syntax selection or reviewed "
                 "whole-source formatting at "
                 "a UTF-8 "
                 "byte offset in the observed open "

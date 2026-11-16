@@ -71,9 +71,13 @@ class CppSourceEditor {
         active_ = &tab;
         note_navigation(previous);
     }
+    void select_source(Tab& tab, const TextEditor::Coordinates& first,
+                       const TextEditor::Coordinates& last) {
+        tab.editor.SetSelection(first, last);
+        tab.editor.SetCursorPosition(last);
+    }
     void position_source(Tab& tab, const TextEditor::Coordinates& point) {
-        tab.editor.SetSelection(point, point);
-        tab.editor.SetCursorPosition(point);
+        select_source(tab, point, point);
     }
     void select_tab_next_frame(Tab& selected) {
         for (auto& tab : tabs_)
@@ -204,9 +208,18 @@ class CppSourceEditor {
         // Own the row before any source operation can invalidate the derived result.
         const auto item = items.at(index);
         const bool format = result.at("kind").get<std::string>() == "format";
+        const bool selection = result.at("kind").get<std::string>() == "selection";
         if (result.at("kind").get<std::string>() != "completion" && !format) {
             open(project, item.at("path").get<std::string>(), item.at("line").get<int>(),
                  item.at("column").get<int>(), item.at("state").get<std::string>());
+            if (selection) {
+                const auto text = active_->editor.GetText();
+                const auto [end_row, end_column] =
+                    cpp_source_coordinate(text, item.at("end").get<std::size_t>());
+                select_source(*active_,
+                              {item.at("line").get<int>() - 1, item.at("column").get<int>() - 1},
+                              {end_row, end_column});
+            }
             return;
         }
         auto* tab = find(result.at("path").get<std::string>());
@@ -314,8 +327,7 @@ class CppSourceEditor {
         const auto row = match.line - 1, column = match.column - 1;
         const auto [end_row, end_column] =
             cpp_source_coordinate(search_options_.query, match.length, 0, row, column);
-        active_->editor.SetSelection({row, column}, {end_row, end_column});
-        active_->editor.SetCursorPosition({end_row, end_column});
+        select_source(*active_, {row, column}, {end_row, end_column});
     }
     void replace_text(const std::string& text) {
         validate_cpp_text(text);
@@ -747,7 +759,8 @@ class CppSourceEditor {
             {"typeDefinition", "Go to type"},
             {"format", "Format source"},
             {"definition", "Find definition"},
-            {"implementation", "Find implementations"}};
+            {"implementation", "Find implementations"},
+            {"selection", "Select syntax"}};
         for (const auto& [kind, label] : actions) {
             if (!first_button)
                 next_text_button(label);
@@ -787,6 +800,7 @@ class CppSourceEditor {
             const bool references = result.at("kind").get<std::string>() == "references";
             const bool type_definition = result.at("kind").get<std::string>() == "typeDefinition";
             const bool format = result.at("kind").get<std::string>() == "format";
+            const bool selection = result.at("kind").get<std::string>() == "selection";
             const bool definition = result.at("kind").get<std::string>() == "definition";
             const bool implementation = result.at("kind").get<std::string>() == "implementation";
             if (signature)
@@ -803,6 +817,8 @@ class CppSourceEditor {
                     "References in current context (not an exhaustive project index)");
             if (type_definition)
                 ImGui::TextUnformatted("Type definitions");
+            if (selection)
+                ImGui::TextWrapped("Syntax ranges (smallest first). Choose a range to select it.");
             if (definition)
                 ImGui::TextWrapped("Definitions (may fall back to a declaration)");
             if (implementation)
@@ -812,7 +828,7 @@ class CppSourceEditor {
                 ImGui::TextWrapped("Formatting proposal. Source changes when you apply it.");
             ImGui::BeginChild("Analysis results",
                               {0, signature || diagnostics || information || symbols ||
-                                          references || implementation || format
+                                          references || implementation || selection || format
                                       ? 160.f
                                       : 100.f},
                               ImGuiChildFlags_Borders,
@@ -825,6 +841,7 @@ class CppSourceEditor {
                     : symbols         ? "No symbols in this source draft."
                     : references      ? "No references returned in this context."
                     : type_definition ? "No type definition returned."
+                    : selection       ? "No syntax ranges returned at this cursor."
                     : definition      ? "No definition returned in this context."
                     : implementation  ? "No implementations returned in this context."
                     : format          ? "No formatting changes returned."
@@ -874,7 +891,7 @@ class CppSourceEditor {
                                   (item.at("detail").get_ref<const std::string&>().empty()
                                        ? ""
                                        : " — " + item.at("detail").get<std::string>())
-                    : result.at("kind").get<std::string>() == "completion" || format
+                    : result.at("kind").get<std::string>() == "completion" || format || selection
                         ? item.at("label").get<std::string>()
                     : item.at("available").get<bool>()
                         ? item.at("path").get<std::string>() + ":" +

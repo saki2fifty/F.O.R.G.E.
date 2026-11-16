@@ -3048,6 +3048,8 @@ plain read-only symbol information, optional ranges, paged nested file symbols,
 outline count/depth budgets and malformed symbol replies,
 reference/type/definition/implementation locations, advertised capability refusal,
 empty/malformed/limited/external results and non-exhaustive implementation scope,
+syntax range capability/parent/cursor/depth/deduplication and virtual-finalLF checks,
+actual selected source byte-count/digest without source Undo or disk writes,
 changed dependencies and compiler generations, malformed/version/exit failures,
 unsupported commands/external declarations, cancellation and project retirement.
 Successful queries require provider exit0 and supervisor retirement. Forced error
