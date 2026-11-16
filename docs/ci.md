@@ -3040,6 +3040,8 @@ software component/native checks do not imply full Main/Windows/physical review.
 `cpp_source_editor` retains source admission/search coordinate coverage.
 `mcp_code_source` drives the actual TextEditor and supervised finite worker with
 a deterministic protocol peer: completion/Undo/Redo, declaration navigation,
+read-only signatures/overloads/Unicode parameter labels/documentation, zero/empty/
+limited results, malformed signature replies and retired information contexts,
 changed dependencies and compiler generations, malformed/version/exit failures,
 unsupported commands/external declarations, cancellation and project retirement.
 Successful queries require provider exit0 and supervisor retirement. Forced error
@@ -3056,7 +3058,9 @@ an explicitly supplied supported provider and installed exact SDK, without downl
 Pass tools, native code host, SDK, CMake, Ninja, clangd, fresh scratch directory and
 capture path. It builds a genuine managed CMake context, analyzes an unsaved header
 from another source, applies/undoes the member completion and navigates back to the
-header through both MCP envelopes. Actual build/deployment outcomes are retained;
+header and inspects a read-only call with Unicode/astral parameter names through
+both MCP envelopes. Signature queries preserve source bytes, cursor and Undo.
+Actual build/deployment outcomes are retained;
 Linux's Windows-only deployment refusal is distinct from successful configuration
 and analysis. The native control executable also accepts an existing project and
 compiler context for real-provider captures. These checks do not establish full

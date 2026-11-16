@@ -54,8 +54,11 @@ class SdkBuild {
         compiler_ready_ = false;
         analysis_context_ready_ = false;
     }
+    std::string_view semantic_generation() const {
+        return busy() || testing_ || !analysis_context_ready_ ? std::string_view{} : operation_id_;
+    }
     CppSemanticContext semantic_context() const {
-        if (busy() || testing_ || !analysis_context_ready_ || source_ != project_ / "Native" ||
+        if (semantic_generation().empty() || source_ != project_ / "Native" ||
             !std::filesystem::is_regular_file(build_ / "compile_commands.json"))
             throw std::runtime_error(
                 "Build C++ once in this session to prepare the project's analysis context.");

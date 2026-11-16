@@ -61,6 +61,10 @@ class CppSemanticTask {
         if (!operation_.empty())
             stale_ = true;
     }
+    void observe_generation(std::string_view generation) {
+        if (!operation_.empty() && generation != context_generation_)
+            stale_ = true;
+    }
     void observe(std::string_view path, const std::string& text) {
         if (operation_.empty())
             return;
@@ -84,8 +88,8 @@ class CppSemanticTask {
                const std::string& kind, std::size_t offset, CppSearchDrafts drafts) {
         if (busy())
             throw std::runtime_error("Wait for C++ analysis or cancel the current query first");
-        if (kind != "completion" && kind != "declaration")
-            throw std::runtime_error("Choose completion or declaration");
+        if (kind != "completion" && kind != "declaration" && kind != "signature")
+            throw std::runtime_error("Choose completion, declaration or signature information");
         const auto source = drafts.find(std::filesystem::u8path(path));
         if (source == drafts.end() || offset > source->second.size() || drafts.size() > 64)
             throw std::runtime_error("Choose an open source position, with at most 64 open tabs");

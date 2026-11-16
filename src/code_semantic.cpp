@@ -69,6 +69,64 @@ Json normalized_completions(const Json& response, const std::string& source) {
             {"limited",
              items.size() > 64 || (response.is_object() && response.value("isIncomplete", false))}};
 }
+std::string signature_documentation(const Json& value) {
+    if (value.is_null())
+        return {};
+    if (value.is_string())
+        return semantic_string(value, 8192);
+    require(value.at("kind").get<std::string>() == "plaintext",
+            "Signature documentation must use the negotiated plain-text format");
+    return semantic_string(value.at("value"), 8192);
+}
+Json normalized_signatures(const Json& response) {
+    const auto signatures = response.is_null() ? Json::array() : response.at("signatures");
+    require(signatures.is_array(), "C++ signature reply needs a signature list");
+    Json rows = Json::array();
+    bool limited = signatures.size() > 64;
+    for (const auto& signature : signatures) {
+        if (rows.size() == 64)
+            break;
+        Json parameters = Json::array();
+        const auto& inputs = signature.value("parameters", Json::array());
+        require(inputs.is_array(), "C++ signature parameters need an array");
+        limited = limited || inputs.size() > 64;
+        for (const auto& parameter : inputs) {
+            if (parameters.size() == 64)
+                break;
+            // String labels are explicitly negotiated. The selected provider
+            // supplies them directly, without ambiguous label-offset units.
+            parameters.push_back({{"label", semantic_string(parameter.at("label"), 2048)},
+                                  {"documentation", signature_documentation(parameter.value(
+                                                        "documentation", Json{}))}});
+        }
+        rows.push_back(
+            {{"label", semantic_string(signature.at("label"))},
+             {"documentation", signature_documentation(signature.value("documentation", Json{}))},
+             {"parameters", std::move(parameters)}});
+    }
+    Json result{{"items", std::move(rows)},
+                {"limited", limited},
+                {"active_signature", nullptr},
+                {"active_parameter", nullptr},
+                {"readonly", true}};
+    if (signatures.empty())
+        return result;
+    const auto active_value = response.value("activeSignature", Json(0));
+    const auto parameter_value = response.value("activeParameter", Json(0));
+    require(active_value.is_number_integer() && parameter_value.is_number_integer(),
+            "C++ signature active indices need integers");
+    const auto active = active_value.get<std::int64_t>();
+    const auto parameter = parameter_value.get<std::int64_t>();
+    require(active >= 0 && static_cast<std::size_t>(active) < signatures.size() && parameter >= 0,
+            "C++ signature reply has invalid active indices");
+    if (static_cast<std::size_t>(active) < result.at("items").size()) {
+        result["active_signature"] = active;
+        if (static_cast<std::size_t>(parameter) <
+            result.at("items").at(static_cast<std::size_t>(active)).at("parameters").size())
+            result["active_parameter"] = parameter;
+    }
+    return result;
+}
 Json normalized_declarations(const Json& response, const ProjectPaths& paths,
                              const ui::CppSearchDrafts& drafts) {
     const auto locations = response.is_null()    ? Json::array()
@@ -313,7 +371,8 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     require(request.is_object() && request.at("version").get<std::int64_t>() == 1,
             "Unsupported C++ semantic query version");
     const auto kind = request.at("kind").get<std::string>();
-    require(kind == "completion" || kind == "declaration", "Choose completion or declaration");
+    require(kind == "completion" || kind == "declaration" || kind == "signature",
+            "Choose completion, declaration or signature information");
     const ProjectPaths paths(std::filesystem::u8path(request.at("project").get<std::string>()));
     const auto context = paths.resolve(
         paths.relative(std::filesystem::u8path(request.at("context").get<std::string>())));
@@ -350,14 +409,18 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     const auto position = cpp_semantic_position(text, request.at("offset").get<std::size_t>());
     SemanticTransport transport(request.at("tool").get<std::string>(), paths.root(), context);
     const auto initialized = transport.call(
-        "initialize", {{"processId", nullptr},
-                       {"rootUri", local_file_url(paths.root())},
-                       {"capabilities",
-                        {{"general", {{"positionEncodings", {"utf-8"}}}},
-                         {"textDocument",
-                          {{"completion",
-                            {{"completionItem",
-                              {{"snippetSupport", false}, {"insertReplaceSupport", false}}}}}}}}}});
+        "initialize",
+        {{"processId", nullptr},
+         {"rootUri", local_file_url(paths.root())},
+         {"capabilities",
+          {{"general", {{"positionEncodings", {"utf-8"}}}},
+           {"textDocument",
+            {{"completion",
+              {{"completionItem", {{"snippetSupport", false}, {"insertReplaceSupport", false}}}}},
+             {"signatureHelp",
+              {{"signatureInformation",
+                {{"documentationFormat", {"plaintext"}},
+                 {"parameterInformation", {{"labelOffsetSupport", false}}}}}}}}}}}});
     const auto version = semantic_string(initialized.at("serverInfo").at("version"));
     require(initialized.at("serverInfo").at("name").get<std::string>() == "clangd" &&
                 version.starts_with("clangd version 23.1.0 (") &&
@@ -366,6 +429,9 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
             "Semantic tools require the supported clangd 23.1.0 release and UTF-8 positions");
     require(initialized.at("capabilities").at("documentSymbolProvider").get<bool>(),
             "Semantic tools require document-symbol readiness support");
+    if (kind == "signature")
+        require(initialized.at("capabilities").at("signatureHelpProvider").is_object(),
+                "Semantic tools require call-signature support");
     transport.send({{"method", "initialized"}, {"params", Json::object()}});
     const auto open_document = [&](const auto& path, const auto& draft) {
         transport.send({{"method", "textDocument/didOpen"},
@@ -386,15 +452,17 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     (void)transport.call("textDocument/documentSymbol",
                          {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}}});
     auto response = transport.call(
-        "textDocument/" + kind, {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}},
-                                 {"position", position}});
+        "textDocument/" + (kind == "signature" ? std::string("signatureHelp") : kind),
+        {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}},
+         {"position", position}});
     transport.finish();
     const auto current_database =
         asset_storage::read(context / "compile_commands.json", 16 * 1024 * 1024);
     require(current_database && ui::cpp_source_state(*current_database) == context_state,
             "C++ compiler context changed during analysis; query again");
-    auto result = kind == "completion" ? normalized_completions(response, text)
-                                       : normalized_declarations(response, paths, documents);
+    auto result = kind == "completion"  ? normalized_completions(response, text)
+                  : kind == "signature" ? normalized_signatures(response)
+                                        : normalized_declarations(response, paths, documents);
     result.update({{"version", 1},
                    {"id", request.at("id")},
                    {"kind", kind},

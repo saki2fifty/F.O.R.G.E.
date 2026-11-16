@@ -655,6 +655,7 @@ int main(int argc, char** argv) {
         auto sdk_build = std::make_unique<forge::SdkBuild>(files.document.project());
         forge::ui::CppSourceEditor cpp_sources;
         cpp_sources.semantic_context = [&] { return sdk_build->semantic_context(); };
+        cpp_sources.semantic_generation = [&] { return sdk_build->semantic_generation(); };
         cpp_sources.semantic_tool = [&] { return clangd_path; };
         forge::ui::UiSourceEditor ui_source;
         cpp_sources.project_changed(files.document.project());

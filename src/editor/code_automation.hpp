@@ -256,7 +256,8 @@ struct CodeAutomation {
         methods.push_back(automation_method(
             "code.analysis.status",
             "Read the current C++ analysis result in bounded pages. This never launches tooling; "
-            "results are proposals for the exact queried drafts and compiler context. "
+            "Results belong to the exact queried drafts and compiler context. Call signatures "
+            "are read-only; active indices refer to the full result, before pagination. "
             "Use code.analysis.use to apply a completion or open a project declaration.",
             "code.read",
             automation_object(
@@ -274,6 +275,11 @@ struct CodeAutomation {
                 result["items"] = Json::array();
                 const auto& response = editor.semantic_task_.result();
                 if (!response.is_null()) {
+                    if (response.at("kind").get<std::string>() == "signature") {
+                        result["readonly"] = true;
+                        result["active_signature"] = response.at("active_signature");
+                        result["active_parameter"] = response.at("active_parameter");
+                    }
                     const auto& items = response.at("items");
                     const auto offset = request.value("offset", std::size_t{});
                     const auto limit = request.value("limit", std::size_t(8));
@@ -512,7 +518,8 @@ struct CodeAutomation {
         if (permissions.execute) {
             methods.push_back(automation_method(
                 "code.analysis.start",
-                "Query completion or declaration at a UTF-8 byte offset in the observed open "
+                "Query completion, declaration or read-only call signature information at a UTF-8 "
+                "byte offset in the observed open "
                 "C++ tab, using all current open drafts and the existing configured CMake context. "
                 "Requires optional clangd 23.1.0 and a project build this session. Optional tool "
                 "overrides only this launch. Tooling runs with this account's OS access; no "
@@ -522,7 +529,8 @@ struct CodeAutomation {
                     {{"path", automation_text(2047, 1)},
                      {"session", automation_uuid()},
                      {"state", automation_digest()},
-                     {"kind", {{"type", "string"}, {"enum", {"completion", "declaration"}}}},
+                     {"kind",
+                      {{"type", "string"}, {"enum", {"completion", "declaration", "signature"}}}},
                      {"offset", automation_integer(0, ui::max_cpp_source_bytes)},
                      {"tool", automation_text(4096, 1)}},
                     {"path", "session", "state", "kind", "offset"}),

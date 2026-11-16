@@ -738,7 +738,12 @@ Fixed options disable configuration files, background indexing, clang-tidy and
 header insertion; select memory PCH storage, dirty-header buffers, two worker
 threads,64results, error logging and the explicit current CMake database directory.
 No query-driver glob is enabled. The client requires UTF-8 position negotiation
-and document-symbol readiness, then requests only completion/declaration.
+and document-symbol readiness, then requests completion, declaration or call signatures.
+Signature information negotiates plain parameter labels and plain-text documentation.
+The exact [server capability handling](https://github.com/llvm/llvm-project/blob/ea7d852a70e8bdfaf601d6626a760f9771b2c4b4/clang-tools-extra/clangd/ClangdLSPServer.cpp)
+and Protocol serialization strip parameter label offsets when labelOffsetSupport
+is false; matching CodeCompleteTests and the real-provider Unicode/astral probe
+confirm the selected plain-label path. No label-offset conversion is inferred.
 The selected source confirms dirty headers default off and document symbols wait
 for the document AST; both conditions matter for a fresh finite query. Full IDE
 features, provider workspace commands/edits and arbitrary release compatibility

@@ -3820,16 +3820,16 @@ their original attribution.
 
 [Code assistance](../../../manual/images/cpp-code-assistance.png) is the actual
 700×850 CppSourceEditor using a separately installed clangd23.1.0 and a genuine
-managed GNU12.3.0/Release SDK CMake context. It shows the unsaved Spinner member,
-partial reference and returned completion. Real controls apply one source Undo
-and navigate a resolved declaration; saved source and Scene remain unchanged.
-The same fixture passes1180/700/400 widths.700and400captures were visually reviewed.
-The native pointer moves away from the hovered help button and real wheel input
-reveals the source; no pixels, controls or dimensions are edited.
+managed GNU12.3.0/Release SDK CMake context. It shows the call site, returned
+read-only signature, active second argument and plain-text function documentation.
+Real controls also apply/Undo completion and navigate a resolved declaration;
+saved source and Scene remain unchanged. The fixture passes1180/700/400 widths;
+700and400captures were visually reviewed. Real pointer/wheel input reveals the
+call site and moves away from hover help. No pixels or controls are edited.
 
-Capture source is the working tree based on ee775b5. Exact source/executable/provider
-and image hashes, original paths and test command are in
-`AgentFiles/build/phase364-cpp-semantic-navigation/capture-proof-final.json`.
+Capture source is the working tree based on6c9c9d6. Exact source, executable,
+provider and image hashes, original paths and test command are recorded in
+`AgentFiles/build/phase365-cpp-call-signatures/capture-proof-final.json`.
 The canonical PNG is copied byte-for-byte. This software SDL/ImGui source-owner
 fixture has inactive New/build callbacks; it is separate from Windows Main,
 physical desktop/GPU/DPI and performance acceptance.

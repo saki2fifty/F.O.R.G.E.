@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-11-16](20261116/README.md) — Read-only C++ call signatures, overloads and active parameters in C++ Sources and MCP.
+
 - [2026-11-15](20261115/README.md) — Prioritize SDK replies before further world work; retain bounded software rendering with the existing hardware and submission limits; improve final-package acceptance isolation, provenance and cache reuse.
 
 - [2026-11-14](20261114/README.md) — Serialize graph preview retirement and Shader publication, reuse admitted cooked Shader previews, preserve preview values/history, and strengthen native navigation setup and clipped text-entry checks.

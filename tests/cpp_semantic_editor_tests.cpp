@@ -38,6 +38,7 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     test::observe_ui = true;
     ui::CppSourceEditor editor;
     editor.semantic_tool = [&] { return provider; };
+    editor.semantic_generation = [] { return std::string_view("gui-fixture-context"); };
     editor.semantic_context = [&] {
         return CppSemanticContext{root, compiler_context, "gui-fixture-context", nullptr};
     };
@@ -76,16 +77,19 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
         }
     };
     wait_result();
-    const auto source_area = test::ui_targets.at("cpp:editor");
-    ImGui::GetIO().AddMousePosEvent((source_area.minimum.x + source_area.maximum.x) / 2,
-                                    (source_area.minimum.y + source_area.maximum.y) / 2);
-    frame();
-    ImGui::GetIO().AddMouseWheelEvent(0, -30);
-    frame();
-    frame();
-    ImGui::GetIO().AddMousePosEvent(float(width - 40), 12);
-    frame();
-    frame();
+    const auto reveal_source = [&] {
+        const auto source_area = test::ui_targets.at("cpp:editor");
+        ImGui::GetIO().AddMousePosEvent((source_area.minimum.x + source_area.maximum.x) / 2,
+                                        (source_area.minimum.y + source_area.maximum.y) / 2);
+        frame();
+        ImGui::GetIO().AddMouseWheelEvent(0, -30);
+        frame();
+        frame();
+        ImGui::GetIO().AddMousePosEvent(float(width - 40), 12);
+        frame();
+        frame();
+    };
+    reveal_source();
     if (!captures.empty()) {
         std::filesystem::create_directories(captures);
         capture.save(captures / ("cpp-completion-" + std::to_string(width) + ".png"));
@@ -111,6 +115,35 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     check(!test::ui_targets.at("cpp:analysis:completion").enabled &&
               !test::ui_targets.at("cpp:analysis:use:0").enabled,
           "Native code assistance bypassed the source lock");
+    locked = false;
+    frame();
+    const auto call_draft =
+        completed + "\n// Adjust the rotation rate.\nvoid throttle(float speed, float rate);\n"
+                    "void call_signature() { throttle(1, ); }\n";
+    editor.replace_text(call_draft);
+    const auto call_position = ui::cpp_source_coordinate(call_draft, call_draft.rfind("1, ") + 3);
+    editor.open(document, "Native/gameplay.cpp", call_position.first + 1, call_position.second + 1);
+    frame();
+    input.click("cpp:analysis:signature");
+    const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(40);
+    while (!test::ui_targets.contains("cpp:analysis:signature:0")) {
+        check(std::chrono::steady_clock::now() < end, "Native call signature did not arrive");
+        frame();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    check(!test::ui_targets.contains("cpp:analysis:use:0") && editor.active_text() == call_draft &&
+              ui::read_cpp_source(root / "Native/gameplay.cpp") == saved &&
+              scene.document() == authored,
+          "Native signature became applicable or changed source or Scene");
+    reveal_source();
+    if (!captures.empty())
+        capture.save(captures / ("cpp-signature-" + std::to_string(width) + ".png"));
+    editor.undo(false);
+    check(editor.active_text() == completed, "Read-only signature added a source Undo record");
+    locked = true;
+    frame();
+    check(!test::ui_targets.at("cpp:analysis:signature").enabled,
+          "Native signature query bypassed the source lock");
     editor.project_changed(root / "DifferentProject");
     test::observe_ui = false;
 }
@@ -124,8 +157,9 @@ int main(int argc, char** argv) {
         for (const int width : {1180, 700, 400})
             exercise(std::filesystem::u8path(argv[1]), argv[2], std::filesystem::u8path(argv[3]),
                      width, existing_context);
-        std::cout << "Native completion/declaration controls, one-step source Undo, locks and "
-                     "project retirement passed at three widths\n";
+        std::cout
+            << "Native completion/declaration/signature controls, one-step source Undo, locks and "
+               "project retirement passed at three widths\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

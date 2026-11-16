@@ -841,10 +841,16 @@ under `code.read`. They never launch tooling. Status pages accept `offset` and
 `limit`1..8; proposals carry stable per-operation `index`, availability/reason,
 completion range/text or a contained Native declaration/state/location. Finished
 results include `complete`, `cancelled`, `stale`, `limited`, `total` and bounded
-error text. Logs retain timestamps and bounded UTF-8 paging.
+error text. Signature status adds `readonly:true`, `active_signature` and
+`active_parameter` (zero-based or null). Each overload has `label`, plain-text
+`documentation` and a bounded `parameters` list of label/documentation objects.
+Active indices refer to the full retained result before status pagination. A
+limited/missing parameter has a null active marker; an empty call context succeeds
+with no items. Labels support Unicode and carry no offset encoding ambiguity.
+Logs retain timestamps and bounded UTF-8 paging.
 
 With `code.execute`, `forge_code_analysis_start` requires an observed source
-`path`, `session`, `state`, `kind` (`completion`/`declaration`) and UTF-8 byte
+`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`) and UTF-8 byte
 `offset`. Optional `tool` overrides the configured clangd23.1.0 path for that
 launch only. The managed project must have a successful CMake configure this
 session through Build Project Code; a compiler readiness probe is a different
@@ -858,6 +864,7 @@ With `code.write`, `forge_code_analysis_use` takes the operation UUID and result
 index0..63. It rechecks project, operation, all drafts, saved Native input identity,
 compiler generation and database before using the existing source owner. Completion
 adds one ordinary source Undo record; declaration navigates without changing source.
+Signature results reject this operation as read-only and preserve source/cursor/history.
 Neither saves or builds. Normal routing/revision/sequence, permissions, pending
 source-close and authoring locks apply. Reusing an acknowledged mutation sequence
 returns its receipt. Snippets/additional edits/provider commands and declarations

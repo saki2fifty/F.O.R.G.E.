@@ -104,8 +104,13 @@ class CppSourceEditor {
     };
     std::function<void(const std::string&)> request_reveal;
     std::function<CppSemanticContext()> semantic_context;
+    std::function<std::string_view()> semantic_generation;
     std::function<std::string()> semantic_tool;
-    void poll_semantics() { semantic_task_.poll(); }
+    void poll_semantics() {
+        semantic_task_.poll();
+        if (semantic_generation)
+            semantic_task_.observe_generation(semantic_generation());
+    }
     void start_semantics(SceneDocument& project, const std::string& path, const std::string& kind,
                          std::size_t offset, const std::string& tool = {}) {
         project.check_ownership();
@@ -128,6 +133,9 @@ class CppSourceEditor {
             !semantic_task_.current(semantic_context(), source_drafts()))
             throw std::runtime_error("C++ analysis is stale or unfinished; run the query again");
         const auto& result = semantic_task_.result();
+        if (result.at("kind").get<std::string>() == "signature")
+            throw std::runtime_error(
+                "Signature information is read-only; choose a source edit or declaration result");
         const auto& items = result.at("items");
         if (index >= items.size() || !items.at(index).at("available").get<bool>())
             throw std::runtime_error("Choose an available C++ analysis result");
@@ -586,9 +594,11 @@ class CppSourceEditor {
             "Optional clangd 23.1.0. Build Project Code once this session to prepare "
             "the compiler context. Queries use current open drafts.");
         ImGui::BeginDisabled(locked || !active_ || semantic_task_.busy());
-        for (const auto* kind : {"completion", "declaration"}) {
-            if (button(std::string_view(kind) == "completion" ? "Complete" : "Find declaration",
-                       "Analyze the current cursor without saving or changing source."))
+        for (const auto* kind : {"completion", "declaration", "signature"}) {
+            const auto label = std::string_view(kind) == "completion"  ? "Complete"
+                               : std::string_view(kind) == "signature" ? "Signature help"
+                                                                       : "Find declaration";
+            if (button(label, "Analyze the current cursor without saving or changing source."))
                 attempt([&] {
                     const auto cursor = active_->editor.GetCursorPosition();
                     const auto text = active_->editor.GetText();
@@ -607,18 +617,46 @@ class CppSourceEditor {
         } else
             ImGui::NewLine();
         if (semantic_task_.stale())
-            ImGui::TextWrapped("Source changed. Run analysis again before using a result.");
+            ImGui::TextWrapped("Source or compiler context changed. Run analysis again.");
         if (!semantic_task_.error().empty())
             ImGui::TextWrapped("%s", semantic_task_.error().c_str());
         const auto& result = semantic_task_.result();
         if (!result.is_null()) {
             ImGui::PushID(semantic_task_.operation().c_str());
-            ImGui::BeginChild("Analysis results", {0, 100}, ImGuiChildFlags_Borders);
+            const bool signature = result.at("kind").get<std::string>() == "signature";
+            if (signature)
+                ImGui::TextUnformatted("Call signatures (read-only)");
+            ImGui::BeginChild("Analysis results", {0, signature ? 160.f : 100.f},
+                              ImGuiChildFlags_Borders);
             const auto& items = result.at("items");
             if (items.empty())
                 ImGui::TextUnformatted("No results at this cursor.");
             for (std::size_t i = 0; i < items.size(); ++i) {
                 const auto& item = items.at(i);
+                if (signature) {
+                    ImGui::TextWrapped("%s",
+                                       item.at("label").get_ref<const std::string&>().c_str());
+                    const auto& active = result.at("active_signature");
+                    const auto& parameter = result.at("active_parameter");
+                    if (!active.is_null() && active.get<std::size_t>() == i &&
+                        !parameter.is_null()) {
+                        const auto index = parameter.get<std::size_t>();
+                        const auto& value = item.at("parameters").at(index);
+                        ImGui::TextWrapped("Argument %zu: %s", index + 1,
+                                           value.at("label").get_ref<const std::string&>().c_str());
+                        if (!value.at("documentation").get_ref<const std::string&>().empty())
+                            ImGui::TextWrapped(
+                                "%s",
+                                value.at("documentation").get_ref<const std::string&>().c_str());
+                    }
+                    const auto& documentation =
+                        item.at("documentation").get_ref<const std::string&>();
+                    if (!documentation.empty())
+                        ImGui::TextWrapped("%s", documentation.c_str());
+                    ImGui::Separator();
+                    FORGE_UI_PROBE("cpp:analysis:signature:" + std::to_string(i));
+                    continue;
+                }
                 ImGui::PushID(static_cast<int>(i));
                 ImGui::BeginDisabled(locked || semantic_task_.stale() ||
                                      !item.at("available").get<bool>());

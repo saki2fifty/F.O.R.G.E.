@@ -96,10 +96,24 @@ for legacy in protocol_cases():
             assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == completed
             mutate('forge_code_undo', **observed())
             assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
+            signature_draft = completed + '\nvoid throttle(float café, float 𐐀rate);\nvoid call_signature() { throttle(1, ); }\n'
+            mutate('forge_code_replace', **observed(), text=signature_draft)
+            signature_before = read('forge_code_read', path='Native/gameplay.cpp')
+            signature_offset = len(signature_draft[:signature_draft.rfind('1, ') + 3].encode())
+            mutate('forge_code_analysis_start', **observed(), kind='signature', offset=signature_offset, tool=PROVIDER)
+            result = settle('forge_code_analysis_status')
+            (root / 'analysis-signature-result.json').write_text(json.dumps(result, indent=2))
+            assert result['complete'] and result['readonly'] and not result['stale'], result
+            active = result['items'][result['active_signature']]
+            assert result['active_parameter'] == 1 and active['parameters'][1]['label'] == 'float 𐐀rate', result
+            assert read('forge_code_read', path='Native/gameplay.cpp') == signature_before
+            assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
         finish_host(process, root)
     finally:
         write_capture(CAPTURE)
         if process.poll() is None:
             finish_host(process, root)
 write_capture(CAPTURE)
-print('Real separately installed provider, genuine managed SDK CMake context, unsaved completion/Undo/declaration and clean native shutdown passed')
+print('Real separately installed provider, genuine managed SDK CMake context, unsaved completion/Undo/declaration, Unicode call signatures and clean native shutdown passed')

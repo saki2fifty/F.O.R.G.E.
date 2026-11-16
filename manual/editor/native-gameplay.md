@@ -63,7 +63,7 @@ The built-in source editor provides C++ highlighting, line numbers, source-only
 Undo/Redo, **Ctrl+F** and **Find next**. A file changed outside FORGE shows a
 notice; a conflicting Save keeps your draft, and **Reload from disk** asks before
 discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
-be open. Optional code assistance provides completion and declaration lookup. Debugging,
+be open. Optional code assistance provides completion, declaration lookup and call signatures. Debugging,
 project-wide refactoring and arbitrary in-place C++ reload are unavailable.
 
 ## Find code across the project
@@ -99,7 +99,7 @@ default; turning it off ignores ASCII letter case. Non-ASCII text keeps its exac
 spelling. **Whole word** treats letters, digits, underscores and non-ASCII bytes
 as word content, so `speed` does not match `speeds` or `_speed`.
 
-## Complete code and find a declaration
+## Complete code, find declarations and inspect calls
 
 Code assistance uses a separately installed clangd 23.1.0. It analyzes C++ and
 suggests edits; your matching SDK compiler still builds the game. Normal source
@@ -109,10 +109,12 @@ editing and building work without this optional tool.
 2. Choose **Build Project Code** once in the current editor session to prepare your managed project's compiler context. **Test compiler tools** prepares a separate test project. If project compilation fails after configuration succeeds, you can still analyze source to help correct it. A configuration failure must be resolved first.
 3. Open a source in **C++ Sources** and expand **Code assistance**. Place the cursor after a partial member name, such as `rotator.sp`, and choose **Complete**. Click an available suggestion to replace its proposed source range. Source Undo/Redo restores that edit in one step.
 4. Place the cursor within an existing symbol and choose **Find declaration**. Click an available Native path to open its declaration. Existing tabs, unsaved drafts and source history are retained.
+5. Place the cursor inside a function call, after the opening parenthesis or an argument separator, and choose **Signature help**. The read-only list shows available overloads, plain-text documentation when supplied, and **Argument N** for the active parameter. This does not insert text, move the cursor, save files or add an Undo record. Rerun as you move between arguments.
 
-![C++ Sources showing a member completion from the current draft](../images/cpp-code-assistance.png)
+![C++ Sources showing a function call signature and its active second argument](../images/cpp-code-assistance.png)
 
-Choose a completion to update the source draft, then use Save source when ready.
+Signature help identifies the active argument without changing the draft. Choose
+**Complete** when you need a source suggestion, then use **Save source** when ready.
 
 Queries include current open source and header drafts. They do not save files,
 compile the game, apply changes automatically or run commands suggested by the
@@ -127,7 +129,7 @@ correct nearby C++ errors. If the provider cannot start or its version is refuse
 check the executable path and supported release in Compiler setup.
 
 This workflow supports managed projects and their current CMake configuration.
-It returns at most 64 proposals. Completions requiring snippets, extra edits,
+It returns at most 64 proposals or overloads, with up to 64 parameter labels per overload. If an active overload or parameter falls beyond the retained list, no active marker is shown. Parameter names are displayed as plain text, including Unicode names. Completions requiring snippets, extra edits,
 imports or provider commands are unavailable. Declaration navigation is limited
 to supported source/header files under **Native/**; SDK and external declarations
 are displayed as unavailable. Source limits remain 1 MiB per file and 32 open tabs.

@@ -227,6 +227,7 @@ int main(int argc, char** argv) {
             return forge::CppSemanticContext{root, context, generation, environment};
         };
         editor.semantic_tool = [&] { return std::string(argv[2]); };
+        editor.semantic_generation = [&] { return std::string_view(generation); };
         permissions.execute = true;
         methods = forge::CodeAutomation::methods(scene, files, editor, authored, prefab, providers,
                                                  permissions);
@@ -326,6 +327,53 @@ int main(int argc, char** argv) {
                 check(!analysis.at("complete").get<bool>() &&
                           !analysis.at("error").get<std::string>().empty(),
                       "Malformed or failed provider was accepted: " + analysis.dump());
+        }
+        SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+        const auto signature_source = invoke("code.read", {{"path", "Native/First.cpp"}});
+        start_analysis("signature");
+        analysis = settle_analysis();
+        check(analysis.at("complete") && analysis.at("readonly") && analysis.at("total") == 2 &&
+                  analysis.at("active_signature") == 0 && analysis.at("active_parameter") == 1 &&
+                  analysis.at("items").at(0).at("parameters").at(1).at("label") == "float 𐐀rate" &&
+                  analysis.at("items").at(0).at("documentation") == "Adjust speed.",
+              "Call signatures lost overload, plain-text documentation or active Unicode argument");
+        bool signature_readonly = false;
+        try {
+            use_analysis(analysis);
+        } catch (const std::exception& error) {
+            signature_readonly =
+                std::string_view(error.what()).find("read-only") != std::string_view::npos;
+        }
+        check(signature_readonly &&
+                  invoke("code.read", {{"path", "Native/First.cpp"}}) == signature_source,
+              "Read-only signature modified the source, cursor or history");
+        generation = "fixture-context-3";
+        check(invoke("code.analysis.status", forge::Json::object()).at("stale"),
+              "Read-only signature did not detect a retired compiler generation");
+        for (const auto* mode :
+             {"signature-null", "signature-empty", "signature-zero", "signature-limited",
+              "signature-offsets", "signature-markdown", "signature-bad-index",
+              "signature-fractional", "signature-oversized", "signature-unavailable"}) {
+            SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", mode, true);
+            start_analysis("signature");
+            analysis = settle_analysis();
+            const std::string_view selected(mode);
+            if (selected == "signature-null" || selected == "signature-empty")
+                check(analysis.at("complete") && analysis.at("total") == 0 &&
+                          analysis.at("active_signature").is_null(),
+                      "Empty signature result failed");
+            else if (selected == "signature-zero")
+                check(analysis.at("complete") && analysis.at("active_signature") == 0 &&
+                          analysis.at("active_parameter").is_null(),
+                      "Zero-argument signature failed");
+            else if (selected == "signature-limited")
+                check(analysis.at("complete") && analysis.at("limited") &&
+                          analysis.at("total") == 64 && analysis.at("active_signature").is_null(),
+                      "Signature limit lost its bounds");
+            else
+                check(!analysis.at("complete").get<bool>() &&
+                          !analysis.at("error").get<std::string>().empty(),
+                      std::string("Untrusted signature reply was accepted: ") + mode);
         }
         SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
         const auto cancelled = start_analysis();

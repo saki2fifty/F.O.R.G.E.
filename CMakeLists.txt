@@ -2639,6 +2639,7 @@ endif()
 # Source-owner checks also run with the headless editor adapters.
 if(BUILD_TESTING AND TARGET forge_code_semantic)
  add_executable(forge_code_semantic_provider_fixture tests/code_semantic_provider_fixture.cpp)
+ target_compile_options(forge_code_semantic_provider_fixture PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
  target_link_libraries(forge_code_semantic_provider_fixture PRIVATE forge_code_semantic)
  add_executable(forge_code_semantic_tests tests/code_semantic_tests.cpp)
  target_compile_options(forge_code_semantic_tests PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)

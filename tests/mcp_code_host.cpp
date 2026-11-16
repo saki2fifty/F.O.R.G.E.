@@ -46,6 +46,7 @@ int main(int argc, char** argv) {
         forge::SdkBuild build(root);
         forge::ui::CppSourceEditor sources;
         sources.semantic_context = [&] { return build.semantic_context(); };
+        sources.semantic_generation = [&] { return build.semantic_generation(); };
         if (mode == "analysis") {
             // Isolated deterministic protocol context; no SDK/compiler acceptance.
             const auto context = root / ".forge/analysis-fixture";
@@ -53,6 +54,7 @@ int main(int argc, char** argv) {
             sources.semantic_context = [&, context] {
                 return forge::CppSemanticContext{root, context, "fixture-context", nullptr};
             };
+            sources.semantic_generation = [] { return std::string_view("fixture-context"); };
             sources.semantic_tool = [&] { return std::string(argv[3]); };
         }
 
