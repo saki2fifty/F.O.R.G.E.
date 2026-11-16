@@ -105,6 +105,55 @@ void shapes_and_domains() {
                 mixed.scene.entity(remote_id).get<LocalTranslation>().y < -10,
             "3D body collided with the 2D floor or stopped simulating");
 }
+void shared_graph_preflight() {
+    Fixture test;
+    auto input = test.source();
+    auto& parent = input["entities"][0]["components"];
+    parent.erase("forge.physics_body_2d");
+    parent.erase("forge.box_collider_2d");
+    parent["forge.local_translation"] = {{"x", 0}, {"y", 0}, {"z", 7}};
+    parent["forge.local_scale"] = {{"x", 1}, {"y", 1}, {"z", 1}};
+    parent["forge.physics_body"] = {{"motion", 1},    {"density", 1000},  {"mass", 0},
+                                    {"friction", .5}, {"restitution", 0}, {"gravity_factor", 1}};
+    parent["forge.box_collider"] = {{"x", 1}, {"y", 1}, {"z", 1}};
+    auto& child = input["entities"][1];
+    child["parent"] = test.floor;
+    child["spatial"] = {{"mode", "follow_structure"}};
+    child["components"]["forge.local_translation"] = {{"x", 2}, {"y", 0}, {"z", 0}};
+    child["components"]["forge.physics_body_2d"]["motion"] = 0;
+    test.load(input);
+    const auto parent_ref = test.scene.reference(test.floor);
+    const auto child_ref = test.scene.reference(test.actor);
+    test.physics->move_kinematic(parent_ref, {1, 1, 7}, rotation_about_axis({0, 0, 1}, 30));
+    test.tick();
+    const auto moved = test.physics->body_state_2d(child_ref);
+    require(moved && std::abs(moved->position[0] - (1 + std::sqrt(3.))) < 1e-4 &&
+                std::abs(moved->position[1] - 2) < 1e-4 &&
+                test.entity().get<LocalTranslation>() == LocalTranslation{2, 0, 0},
+            "Mixed-domain FIFO reused an evaluation from before its parent target");
+    const auto before = test.scene.snapshot();
+    test.physics->move_kinematic(parent_ref, {2, 2, 7}, rotation_about_axis({1, 0, 0}, 30));
+    rejects([&] { test.physics->synchronize(1.f / 60); });
+    require(test.scene.snapshot() == before && test.physics->body_state_2d(child_ref) == moved,
+            "Rejected mixed-domain tilt changed source/native state or realization epoch");
+    // Repair the current source boundary. The retained request must use a fresh
+    // evaluation, rather than either the rejected plan or the preceding call.
+    test.entity().set<SpatialBinding>({SpatialMode::World, {}});
+    test.physics->synchronize(1.f / 60);
+    const auto independent = test.physics->body_state_2d(child_ref);
+    require(independent && std::abs(independent->position[0] - 2) < 1e-6 &&
+                std::abs(independent->position[1]) < 1e-6 &&
+                test.scene.entity(test.floor).get<LocalTranslation>() == LocalTranslation{2, 2, 7},
+            "Next-call World binding reused a prior graph or lost retained pose intent");
+    test.physics->move_kinematic(parent_ref, {3, 3, 7}, {});
+    test.physics->synchronize(1.f / 60);
+    test.entity().set<SpatialBinding>({SpatialMode::FollowStructure, {}});
+    test.physics->synchronize(0);
+    const auto following = test.physics->body_state_2d(child_ref);
+    require(following && std::abs(following->position[0] - 5) < 1e-5 &&
+                std::abs(following->position[1] - 3) < 1e-5,
+            "Subsequent mixed-domain preflight retained a stale binding evaluation");
+}
 void settings_and_ownership() {
     Fixture sensor;
     auto source = sensor.source();
@@ -442,6 +491,7 @@ void bounded_work_fault() {
 int main() {
     try {
         shapes_and_domains();
+        shared_graph_preflight();
         settings_and_ownership();
         reject_before_retirement();
         kinematic_limits_and_rotation_mapping();

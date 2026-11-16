@@ -621,7 +621,8 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
 Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings,
                             const std::map<std::uint64_t, TransformNode>& nodes,
                             const Native2D* previous, const TileMap2DOverride* candidate,
-                            bool allow_pending_maps) {
+                            bool allow_pending_maps,
+                            const std::map<std::uint64_t, EvaluatedTransform>* evaluated_snapshot) {
     ApplicationStateActivation conditions(context);
     std::vector<flecs::entity_t> candidates;
     auto query = context.world().query<const PhysicsBody2D>();
@@ -639,7 +640,10 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
         throw std::runtime_error("2D physics body capacity 1024 exceeded");
     if (candidates.empty())
         return {};
-    const auto evaluated = evaluate_transforms(nodes);
+    const auto captured_evaluation = evaluated_snapshot
+                                         ? std::map<std::uint64_t, EvaluatedTransform>{}
+                                         : evaluate_transforms(nodes);
+    const auto& evaluated = evaluated_snapshot ? *evaluated_snapshot : captured_evaluation;
     Desired2D result;
     for (auto id : candidates) {
         const auto entity = context.world().entity(id);

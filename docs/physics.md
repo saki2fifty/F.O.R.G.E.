@@ -51,13 +51,16 @@ native diagnostics or changing body, activation or checkpoint ownership.
 
 After preparing required collision assets, each synchronization captures one
 current transform-node snapshot for the initial 3D, 2D and character admissions.
-Private planning functions borrow a supplied snapshot only for the synchronous
-call; callers without one still capture their own. No node pointer or body plan
-is retained across synchronization calls.
+The first 3D admission evaluates the complete graph at its normal validation
+boundary. The 2D and character admissions borrow those evaluated values while
+the detached nodes are unchanged. Private planning functions without a supplied
+snapshot still evaluate independently. No node pointer, evaluated graph or body
+plan is retained across synchronization calls.
 
 FIFO teleport and kinematic targets edit detached nodes. If a pose target was
-admitted, both final body domains are planned again from those nodes. With no pose
-targets, including force/impulse/velocity-only commands, the current call's already
+admitted, both final body domains are planned again with a fresh evaluation of
+those nodes. With no pose targets, including force/impulse/velocity-only commands,
+the current call's already
 validated initial body plans remain the final plans. Joint/shape/capacity checks,
 dynamic-writer validation, native retirement and publication retain their order.
 Every call still validates current configuration: mass, damping, enabled state and

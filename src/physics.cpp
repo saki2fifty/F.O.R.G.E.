@@ -617,9 +617,11 @@ struct PhysicsRuntime::Impl {
     // Same owner and fixed phases; the subordinate XY backend stays lazy.
     std::unique_ptr<physics_detail::Native2D> native_2d;
     physics_detail::Desired2D
-    desired_2d(const std::map<std::uint64_t, TransformNode>* nodes = nullptr) {
+    desired_2d(const std::map<std::uint64_t, TransformNode>* nodes = nullptr,
+               const std::map<std::uint64_t, EvaluatedTransform>* evaluated = nullptr) {
         if (nodes)
-            return physics_detail::desired_bodies_2d(context, config, *nodes, native_2d.get());
+            return physics_detail::desired_bodies_2d(context, config, *nodes, native_2d.get(),
+                                                     nullptr, false, evaluated);
         return physics_detail::desired_bodies_2d(context, config, context.transform_nodes(),
                                                  native_2d.get());
     }
@@ -690,13 +692,17 @@ struct PhysicsRuntime::Impl {
     std::vector<CharacterCommand> character_commands;
     using CharacterDesired =
         std::map<std::uint64_t, std::pair<CharacterController, LocalTransform>>;
-    CharacterDesired
-    desired_characters(const std::map<std::uint64_t, TransformNode>* planned = nullptr) {
+    CharacterDesired desired_characters(
+        const std::map<std::uint64_t, TransformNode>* planned = nullptr,
+        const std::map<std::uint64_t, EvaluatedTransform>* evaluated_snapshot = nullptr) {
         ApplicationStateActivation conditions(context);
         const auto captured =
             planned ? std::map<std::uint64_t, TransformNode>{} : context.transform_nodes();
         const auto& nodes = planned ? *planned : captured;
-        const auto evaluated = evaluate_transforms(nodes);
+        const auto captured_evaluation = evaluated_snapshot
+                                             ? std::map<std::uint64_t, EvaluatedTransform>{}
+                                             : evaluate_transforms(nodes);
+        const auto& evaluated = evaluated_snapshot ? *evaluated_snapshot : captured_evaluation;
         std::vector<flecs::entity_t> candidates;
         auto q = context.world().query<const CharacterController>();
         q.each([&](flecs::entity e, const CharacterController& c) {
@@ -1192,12 +1198,13 @@ struct PhysicsRuntime::Impl {
         bodies.erase(it);
     }
     using Desired3D = std::map<std::uint64_t, std::pair<Configuration, LocalTransform>>;
-    Desired3D desired(const std::map<std::uint64_t, TransformNode>* planned = nullptr) {
+    Desired3D desired(const std::map<std::uint64_t, TransformNode>* planned = nullptr,
+                      std::map<std::uint64_t, EvaluatedTransform>* evaluated_result = nullptr) {
         ApplicationStateActivation conditions(context);
         const auto captured =
             planned ? std::map<std::uint64_t, TransformNode>{} : context.transform_nodes();
         const auto& nodes = planned ? *planned : captured;
-        const auto evaluated = evaluate_transforms(nodes);
+        auto evaluated = evaluate_transforms(nodes);
         std::map<std::uint64_t, std::pair<Configuration, LocalTransform>> result;
         std::vector<flecs::entity_t> candidates;
         auto q = context.world().query<const PhysicsBody>();
@@ -1283,6 +1290,8 @@ struct PhysicsRuntime::Impl {
         }
         if (result.size() > max_bodies)
             throw std::runtime_error("Physics body limit exceeded (8192)");
+        if (evaluated_result)
+            *evaluated_result = std::move(evaluated);
         return result;
     }
     using Desired = std::map<std::uint64_t, std::pair<Configuration, LocalTransform>>;
@@ -1795,9 +1804,12 @@ void PhysicsRuntime::synchronize(float dt) {
     // Detached owner-thread snapshot shared only within this preflight. Every
     // domain still validates current configuration before any native/ECS writes.
     auto nodes = s.context.transform_nodes();
-    const auto initial = s.desired(&nodes);
-    const auto initial_2d = s.desired_2d(&nodes);
-    const auto initial_characters = s.desired_characters(&nodes);
+    // Keep complete graph validation at the first domain's existing boundary.
+    // Subsequent admissions borrow those values only while nodes are unchanged.
+    std::map<std::uint64_t, EvaluatedTransform> initial_evaluation;
+    const auto initial = s.desired(&nodes, &initial_evaluation);
+    const auto initial_2d = s.desired_2d(&nodes, &initial_evaluation);
+    const auto initial_characters = s.desired_characters(&nodes, &initial_evaluation);
     if (initial.size() + initial_2d.size() + initial_characters.size() > max_bodies)
         throw std::runtime_error("Combined rigid/character body capacity exceeded");
     for (const auto& command : s.character_commands) {
@@ -1892,8 +1904,9 @@ void PhysicsRuntime::synchronize(float dt) {
     std::optional<Impl::Desired3D> planned;
     std::optional<physics_detail::Desired2D> planned_2d;
     if (!commanded.empty()) {
-        planned = s.desired(&nodes);
-        planned_2d = s.desired_2d(&nodes);
+        std::map<std::uint64_t, EvaluatedTransform> evaluated;
+        planned = s.desired(&nodes, &evaluated);
+        planned_2d = s.desired_2d(&nodes, &evaluated);
     }
     const auto& desired = planned ? *planned : initial;
     const auto& desired_2d = planned_2d ? *planned_2d : initial_2d;

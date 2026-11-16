@@ -1,5 +1,14 @@
 # 2026-11-16
 
+## Shared physics transform evaluation
+
+Physics synchronization evaluates its detached transform graph once for the
+initial 3D, 2D and character admissions. Pose commands receive a fresh evaluation
+before final body planning. Every domain retains its configuration, reference,
+asset and geometry checks; failed admission preserves native state and pending
+commands for retry. The values live within one synchronization call and use the
+existing transform evaluator.
+
 ## Repeatable 2D CPU reports
 
 The source-checkout CPU report tool supports explicit separated 2D rigid-body

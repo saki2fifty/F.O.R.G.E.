@@ -103,11 +103,13 @@ struct TileMap2DOverride {
     std::uint64_t entity = 0;
     const detail::RuntimeTileMapSnapshot* snapshot = nullptr;
 };
+// An optional evaluation borrows the same nodes during this detached preflight only.
 Desired2D desired_bodies_2d(WorldContext&, const PhysicsConfig&,
                             const std::map<std::uint64_t, TransformNode>&,
                             const Native2D* previous = nullptr,
                             const TileMap2DOverride* candidate = nullptr,
-                            bool allow_pending_maps = false);
+                            bool allow_pending_maps = false,
+                            const std::map<std::uint64_t, EvaluatedTransform>* evaluated = nullptr);
 void validate_shape_capacity_2d(const Desired2D&);
 void validate_ray_2d(Double2, Double2);
 void validate_overlap_2d(const PhysicsOverlap2D&);
