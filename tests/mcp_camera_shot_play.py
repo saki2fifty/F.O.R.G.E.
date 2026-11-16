@@ -1,5 +1,6 @@
 """Smooth Camera Shot authoring and scoped Play through the existing MCP owners."""
 from mcp_test_client import failed
+from copy import deepcopy
 
 
 def check_camera_shot_play(read, ok, control, mutate, until, discovery):
@@ -27,6 +28,23 @@ def check_camera_shot_play(read, ok, control, mutate, until, discovery):
     def value(property='blend_in_seconds'):
         row = next(row for row in read('forge_scene_read')['entities'] if row['id'] == actor)
         return row['components']['forge.camera_shot'][property]
+
+    # Strip gestures publish the same complete reflected timing candidate.
+    # One ordinary command must retain its camera/curve and one Undo step.
+    before_timing = read('forge_scene_read')
+    original_shot = next(row for row in before_timing['entities'] if row['id'] == actor)['components']['forge.camera_shot']
+    start, end = original_shot['start_seconds'], original_shot['end_seconds']
+    inset = (end - start) / 4
+    ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.camera_shot',
+                                                values=dict(start_seconds=start+inset, end_seconds=end-inset)))
+    timed = deepcopy(before_timing)
+    timed_shot = next(row for row in timed['entities'] if row['id'] == actor)['components']['forge.camera_shot']
+    timed_shot.update(start_seconds=start+inset, end_seconds=end-inset)
+    assert read('forge_scene_read') == timed
+    assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_timing
+    assert ok('forge_history_redo')['changed']
+    assert read('forge_scene_read') == timed
+    assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_timing
 
     before_curve = discovery()
     rejected = mutate('forge_property_set', arguments=dict(entity=actor, component='forge.camera_shot', field='blend_curve', value=4))

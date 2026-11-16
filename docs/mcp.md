@@ -2442,6 +2442,13 @@ and sequence bindings remain typed EntityRefs. The animation provider validates
 nonoverlapping intervals and matching adjacent camera composition before playback.
 No additional MCP director or separate Scene implementation exists.
 
+`forge_property_set_many` can set a complete shot timing candidate, including
+`start_seconds` and `end_seconds`, in one Scene Undo step. The native strip editor
+uses this same Scene command for its move/trim release; agents need no pointer
+gesture or separate timing writer. The ordinary source command, grants, revision
+and replay rules remain authoritative. Sequence preparation still reports invalid
+arrangements such as overlapping shots before playback.
+
 `forge_play_tune` accepts an admitted enabled shot's `blend_in_seconds` or `blend_curve` in
 Play, using the current launch/session/generation scope. Poll `forge_play_status`
 for the tuning acknowledgement; failed duration/curve/composition validation leaves the

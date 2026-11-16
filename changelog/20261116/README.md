@@ -1,5 +1,15 @@
 # 2026-11-16
 
+## Direct camera-shot timing edits
+
+Timeline offers explicit shot timing editing with body moves, edge trims and
+millisecond snapping. A transient preview commits one Scene Undo step on valid
+release; invalid bounds, overlaps or blend lengths leave source unchanged.
+Escape, stale edits, focus/selection/view changes, Play, Save and Close cancel
+unfinished gestures. Chronological rows preserve stored order. Numeric fields,
+gestures and MCP use the existing multi-field Scene command; normal scrubbing
+remains available with timing editing off.
+
 ## Camera-shot timing profiles
 
 Incoming shots select Smooth, Linear, EaseIn or EaseOut timing through the existing

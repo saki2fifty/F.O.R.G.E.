@@ -168,13 +168,15 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
                                         : "sequence:track:") +
                      actor + (multiway ? ":skeletal" : ""))
                         .c_str());
+        if (camera_transition)
+            input.click("sequence:shot_timing_mode");
         for (unsigned i = 0; i < 4; ++i)
             frame();
         const auto controls =
             camera_transition
-                ? std::vector<const char*>{"sequence:shot_start", "sequence:shot_end",
-                                           "sequence:shot_blend", "sequence:shot_curve",
-                                           "sequence:apply_shot"}
+                ? std::vector<const char*>{"sequence:shot_timing_mode", "sequence:shot_start",
+                                           "sequence:shot_end",         "sequence:shot_blend",
+                                           "sequence:shot_curve",       "sequence:apply_shot"}
             : nested ? std::vector<const char*>{"sequence:nested_start", "sequence:nested_rate",
                                                 "sequence:nested_loop",  "sequence:apply_nested",
                                                 "sequence:open_nested",  "sequence:remove_nested"}

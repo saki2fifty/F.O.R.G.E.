@@ -15,6 +15,7 @@
 #include <forge/runtime.hpp>
 #include <forge/runtime_resources.hpp>
 #include <limits>
+#include <utility>
 namespace forge {
 // A borrowed Scene editing mode of the Timeline, not another document owner.
 class AnimationSequenceEditor {
@@ -27,10 +28,12 @@ class AnimationSequenceEditor {
     bool dirty() const { return pending_ || (project_ && project_->dirty()); }
     bool pending_fields() const { return pending_; }
     bool can_undo() const {
-        return scene_ && !locked_ && !frame_exporting_ && (pending_ || scene_->can_undo());
+        return scene_ && !locked_ && !frame_exporting_ &&
+               (shot_drag_.active || pending_ || scene_->can_undo());
     }
     bool can_redo() const {
-        return scene_ && !locked_ && !frame_exporting_ && !pending_ && scene_->can_redo();
+        return scene_ && !locked_ && !frame_exporting_ && !pending_ && !shot_drag_.active &&
+               scene_->can_redo();
     }
     EntityRef controller() const { return controller_; }
     void open(SceneDocument& project, Scene& scene, EntityRef controller) {
@@ -46,6 +49,9 @@ class AnimationSequenceEditor {
         refresh();
     }
     void close() {
+        cancel_shot_drag();
+        shot_edit_timing_ = false;
+        shot_drag_cancelled_ = false;
         stop_preview();
         context_.reset();
         catalog_.reset();
@@ -71,10 +77,12 @@ class AnimationSequenceEditor {
         view_ = {};
     }
     void request_save() {
+        cancel_shot_drag();
         if (!pending_ || apply_pending())
             save_requested = true;
     }
     void request_close() {
+        cancel_shot_drag();
         if (pending_)
             closing_ = true;
         else
@@ -112,6 +120,10 @@ class AnimationSequenceEditor {
     void undo() {
         if (!can_undo())
             return;
+        if (shot_drag_.active) {
+            cancel_shot_drag();
+            return;
+        }
         if (pending_)
             pending_ = false;
         else
@@ -209,10 +221,13 @@ class AnimationSequenceEditor {
             return;
         }
         if (locked) {
+            cancel_shot_drag();
             stop_preview();
             return;
         }
         if (scene_->revision() != revision_) {
+            if (shot_drag_.active && scene_->revision() != shot_drag_.revision)
+                cancel_shot_drag();
             stale_ = true;
             stop_preview();
         }
@@ -293,6 +308,7 @@ class AnimationSequenceEditor {
             return;
         const auto entity = scene_->entity(controller_.entity.str());
         if (!entity || !entity.has<AnimationSequence>()) {
+            cancel_shot_drag();
             ImGui::TextWrapped("Sequence controller is missing. Scene Undo can restore it.");
             return;
         }
@@ -394,6 +410,17 @@ class AnimationSequenceEditor {
             view_.zoom(.5, .5);
         const auto selected =
             ui::editor_context ? ui::editor_context->selection.entity() : std::string();
+        if (!ImGui::IsMouseDown(0))
+            shot_drag_cancelled_ = false;
+        if (shot_drag_.active &&
+            (locked || frame_exporting_ || pending_ || scene_->revision() != shot_drag_.revision ||
+             shot_ != shot_drag_.id || selected != shot_drag_.selection ||
+             view_.first != shot_drag_.view.first || view_.span != shot_drag_.view.span ||
+             view_.duration != shot_drag_.view.duration || ImGui::GetIO().AppFocusLost ||
+             !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) ||
+             ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId) ||
+             ImGui::IsKeyPressed(ImGuiKey_Escape)))
+            cancel_shot_drag();
         const bool can_add = !pending_ && !selected.empty() &&
                              selected != controller_.entity.str() && scene_->entity(selected) &&
                              !scene_->entity(selected).has<AnimationSequence>();
@@ -912,6 +939,19 @@ class AnimationSequenceEditor {
     double shot_start_ = 0, shot_end_ = 1, shot_blend_ = 0, cue_time_ = 0;
     Json shot_curve_ = std::uint32_t(CameraShotBlendCurve::Smooth);
     Json shot_curve_schema_;
+    enum class ShotDragPart { Move, Start, End };
+    struct ShotDrag {
+        bool active = false, moved = false, valid = true;
+        std::string id, selection, error;
+        std::uint64_t revision = 0;
+        ShotDragPart part = ShotDragPart::Move;
+        CameraShot original{};
+        AnimationTimelineView view;
+        ImVec2 origin{}, size{};
+        float pointer = 0;
+        double start = 0, end = 0;
+    } shot_drag_;
+    bool shot_edit_timing_ = false, shot_drag_cancelled_ = false;
     AnimationTimelineView view_;
     std::uint64_t revision_ = 0, pending_revision_ = 0, frame_export_serial_ = 0;
     double saved_preview_time_ = 0;
@@ -926,8 +966,9 @@ class AnimationSequenceEditor {
          closing_ = false, locked_ = false;
     bool frame_source_current() const {
         if (!is_open() || !scene_ || !project_ || !context_ || !ready_ || stale_ || pending_ ||
-            locked_ || scene_->asset_id() != controller_.scene || scene_->revision() != revision_ ||
-            project_->project() != project_path_ || project_->generation() != project_generation_)
+            shot_drag_.active || locked_ || scene_->asset_id() != controller_.scene ||
+            scene_->revision() != revision_ || project_->project() != project_path_ ||
+            project_->generation() != project_generation_)
             return false;
         const auto actor = scene_->entity(controller_.entity.str());
         return actor && actor.has<AnimationSequence>() && actor.get<AnimationSequence>().enabled;
@@ -1005,18 +1046,53 @@ class AnimationSequenceEditor {
             throw std::runtime_error("Bound camera shot is no longer available");
         const auto value = actor.get<CameraShot>();
         validate_shot(shot_, shot_camera_, shot_start_, shot_end_, value.enabled, shot_blend_);
-        const auto start = property(shot_, "start_seconds", shot_start_, "forge.camera_shot");
-        const auto end = property(shot_, "end_seconds", shot_end_, "forge.camera_shot");
-        // Each draft command validates its interval. Order the two writes so
-        // disjoint moves still have a valid intermediate draft; publication is atomic.
-        auto commands =
-            shot_end_ > value.end_seconds ? Json::array({end, start}) : Json::array({start, end});
-        commands.insert(commands.begin(),
-                        property(shot_, "blend_in_seconds", 0., "forge.camera_shot"));
-        commands.push_back(property(shot_, "camera", shot_camera_, "forge.camera_shot"));
-        commands.push_back(property(shot_, "blend_in_seconds", shot_blend_, "forge.camera_shot"));
-        commands.push_back(property(shot_, "blend_curve", shot_curve_, "forge.camera_shot"));
-        apply_authoring(*scene_, commands, scene_->revision());
+        // The existing multi-field command validates the complete detached
+        // component before one Scene edit, including disjoint interval moves.
+        authoring_command(*scene_, "property.set_many",
+                          {{"entity", shot_},
+                           {"component", "forge.camera_shot"},
+                           {"values",
+                            {{"start_seconds", shot_start_},
+                             {"end_seconds", shot_end_},
+                             {"camera", shot_camera_},
+                             {"blend_in_seconds", shot_blend_},
+                             {"blend_curve", shot_curve_}}}});
+    }
+    void cancel_shot_drag() {
+        if (shot_drag_.active)
+            shot_drag_cancelled_ = true;
+        if (shot_drag_.active && shot_ == shot_drag_.id) {
+            track_.clear();
+            nested_.clear();
+            cue_.clear();
+        }
+        shot_drag_ = {};
+    }
+    void finish_shot_drag() {
+        const auto drag = shot_drag_;
+        cancel_shot_drag();
+        if (!drag.moved ||
+            (drag.start == drag.original.start_seconds && drag.end == drag.original.end_seconds))
+            return;
+        if (!drag.valid) {
+            error_ = drag.error;
+            return;
+        }
+        shot_start_ = drag.start;
+        shot_end_ = drag.end;
+        shot_blend_ = drag.original.blend_in_seconds;
+        shot_curve_ = drag.original.blend_curve;
+        shot_camera_ = drag.original.camera.entity ? Json(drag.original.camera) : Json();
+        pending_ = true;
+        pending_revision_ = drag.revision;
+        try {
+            apply_shot();
+            error_.clear();
+            stop_preview();
+        } catch (const std::exception& e) {
+            error_ = e.what();
+        }
+        pending_ = false;
     }
     bool draw_nested_sequences(const Json& snapshot, const AnimationSequence& config,
                                const std::string& selected) {
@@ -1300,6 +1376,28 @@ class AnimationSequenceEditor {
         ImGui::SeparatorText("Camera shots");
         ImGui::TextWrapped("Shots switch the Game camera. Gaps use normal scene cameras. "
                            "Enable sequence preview, then open Game to view the result.");
+        ImGui::BeginDisabled(pending_ || shot_drag_.active);
+        ImGui::Checkbox("Edit shot timing", &shot_edit_timing_);
+        FORGE_UI_PROBE("sequence:shot_timing_mode");
+        ImGui::EndDisabled();
+        if (shot_edit_timing_)
+            ImGui::TextWrapped("Drag a shot to move it or an edge to trim, snapping to 0.001 s. "
+                               "Release commits one Scene Undo. Red previews cannot be applied. "
+                               "Escape cancels; empty strip space still scrubs.");
+        std::vector<std::pair<const Json*, CameraShot>> rows;
+        for (const auto& row : snapshot.at("entities")) {
+            if (!row.at("components").contains("forge.camera_shot"))
+                continue;
+            const auto actor = scene_->entity(row.at("id").get<std::string>());
+            if (actor.has<CameraShot>() && actor.get<CameraShot>().sequence == controller_)
+                rows.emplace_back(&row, actor.get<CameraShot>());
+        }
+        std::sort(rows.begin(), rows.end(), [](const auto& a, const auto& b) {
+            if (a.second.start_seconds != b.second.start_seconds)
+                return a.second.start_seconds < b.second.start_seconds;
+            return a.first->at("id").template get<std::string>() <
+                   b.first->at("id").template get<std::string>();
+        });
         ImGui::BeginDisabled(pending_ || selected.empty() || !scene_->entity(selected) ||
                              !scene_->entity(selected).has<Camera>());
         if (ui::button("Add shot from selected camera",
@@ -1350,16 +1448,9 @@ class AnimationSequenceEditor {
         }
         FORGE_UI_PROBE("sequence:add_shot");
         ImGui::EndDisabled();
-        for (const auto& row : snapshot.at("entities")) {
-            if (!row.at("components").contains("forge.camera_shot"))
-                continue;
+        for (const auto& [source, value] : rows) {
+            const auto& row = *source;
             const auto id = row.at("id").get<std::string>();
-            const auto actor = scene_->entity(id);
-            if (!actor.has<CameraShot>())
-                continue;
-            const auto value = actor.get<CameraShot>();
-            if (value.sequence != controller_)
-                continue;
             ImGui::PushID(id.c_str());
             ImGui::BeginDisabled(pending_);
             if (ImGui::Selectable(row.value("name", id).c_str(), shot_ == id)) {
@@ -1388,13 +1479,111 @@ class AnimationSequenceEditor {
                        float(std::clamp(view_.fraction(time * animation_timebase), 0., 1.)) *
                            size.x;
             };
-            draw->AddRectFilled({x(value.start_seconds), origin.y + 3},
-                                {x(value.end_seconds), origin.y + size.y - 3},
-                                value.enabled ? IM_COL32(120, 91, 168, 255)
-                                              : IM_COL32(72, 76, 82, 255));
+            const auto pointer = ImGui::GetIO().MousePos;
+            const auto left = x(value.start_seconds), right = x(value.end_seconds);
+            const float handle = 7 * ui::interface_scale;
+            const bool valid_pointer = ImGui::IsMousePosValid(&pointer) &&
+                                       std::isfinite(pointer.x) && std::isfinite(pointer.y);
+            const bool over_shot =
+                valid_pointer && pointer.x >= left - handle && pointer.x <= right + handle;
+            const bool near_start = over_shot && std::abs(pointer.x - left) <= handle;
+            const bool near_end = over_shot && std::abs(pointer.x - right) <= handle;
+            if (shot_edit_timing_ && !pending_ && !shot_drag_.active && !shot_drag_cancelled_ &&
+                over_shot && ImGui::IsItemActivated()) {
+                shot_drag_.active = true;
+                shot_drag_.id = shot_ = id;
+                shot_drag_.selection = selected;
+                shot_drag_.revision = scene_->revision();
+                shot_drag_.original = value;
+                shot_drag_.view = view_;
+                shot_drag_.origin = origin;
+                shot_drag_.size = size;
+                shot_drag_.pointer = pointer.x;
+                shot_drag_.start = value.start_seconds;
+                shot_drag_.end = value.end_seconds;
+                shot_drag_.part = near_start && (!near_end || pointer.x - left <= right - pointer.x)
+                                      ? ShotDragPart::Start
+                                  : near_end ? ShotDragPart::End
+                                             : ShotDragPart::Move;
+                error_.clear();
+                stop_preview();
+            }
+            if (shot_drag_.active && shot_drag_.id == id) {
+                auto& drag = shot_drag_;
+                if (origin.x != drag.origin.x || origin.y != drag.origin.y ||
+                    size.x != drag.size.x || size.y != drag.size.y || !valid_pointer ||
+                    (!ImGui::IsItemActive() && !ImGui::IsMouseReleased(0))) {
+                    FORGE_UI_PROBE("sequence:shot_cancelled_geometry:" +
+                                   std::to_string(origin.x - drag.origin.x) + ":" +
+                                   std::to_string(origin.y - drag.origin.y) + ":" +
+                                   std::to_string(size.x - drag.size.x) + ":" +
+                                   std::to_string(ImGui::IsItemActive()));
+                    cancel_shot_drag();
+                } else {
+                    drag.moved |=
+                        std::abs(pointer.x - drag.pointer) >= ImGui::GetIO().MouseDragThreshold;
+                    if (drag.moved) {
+                        double delta =
+                            std::round(std::clamp(double(pointer.x - drag.pointer) / size.x *
+                                                      view_.span / animation_timebase,
+                                                  -config.duration, config.duration) *
+                                       1000) /
+                            1000;
+                        if (drag.part == ShotDragPart::Move)
+                            delta = std::clamp(delta, -value.start_seconds,
+                                               config.duration - value.end_seconds);
+                        const double start =
+                            value.start_seconds + (drag.part == ShotDragPart::End ? 0 : delta);
+                        const double end =
+                            value.end_seconds + (drag.part == ShotDragPart::Start ? 0 : delta);
+                        if (start != drag.start || end != drag.end) {
+                            drag.start = start;
+                            drag.end = end;
+                            try {
+                                validate_shot(id, value.camera, start, end, value.enabled,
+                                              value.blend_in_seconds);
+                                drag.valid = true;
+                                drag.error.clear();
+                            } catch (const std::exception& error) {
+                                drag.valid = false;
+                                drag.error = error.what();
+                            }
+                        }
+                    }
+                    if (ImGui::IsMouseReleased(0))
+                        finish_shot_drag();
+                }
+            }
+            const bool editing = shot_drag_.active && shot_drag_.id == id;
+            const double start = editing ? shot_drag_.start : value.start_seconds;
+            const double end = editing ? shot_drag_.end : value.end_seconds;
+            const auto color = editing && !shot_drag_.valid ? IM_COL32(184, 69, 69, 255)
+                               : value.enabled              ? IM_COL32(120, 91, 168, 255)
+                                                            : IM_COL32(72, 76, 82, 255);
+            draw->AddRectFilled({std::min(x(start), x(end)), origin.y + 3},
+                                {std::max(x(start), x(end)), origin.y + size.y - 3}, color);
+            if (shot_edit_timing_) {
+                for (const double edge : {start, end})
+                    draw->AddLine({x(edge), origin.y + 3}, {x(edge), origin.y + size.y - 3},
+                                  IM_COL32(221, 213, 237, 255), 3 * ui::interface_scale);
+                if (editing || (ImGui::IsItemHovered() && over_shot))
+                    ImGui::SetMouseCursor(editing && shot_drag_.part == ShotDragPart::Move
+                                              ? ImGuiMouseCursor_ResizeAll
+                                          : near_start || near_end || editing
+                                              ? ImGuiMouseCursor_ResizeEW
+                                              : ImGuiMouseCursor_ResizeAll);
+                if (editing) {
+                    ImGui::BeginTooltip();
+                    ImGui::Text("%.3f - %.3f s", start, end);
+                    if (!shot_drag_.valid)
+                        ImGui::TextWrapped("%s", shot_drag_.error.c_str());
+                    ImGui::EndTooltip();
+                }
+            }
             draw->AddLine({x(time_), origin.y}, {x(time_), origin.y + size.y},
                           IM_COL32(255, 203, 78, 255), 2);
-            if (ImGui::IsItemActive() && ImGui::IsMouseDown(0)) {
+            if (!shot_drag_.active && !shot_drag_cancelled_ && (!shot_edit_timing_ || !over_shot) &&
+                ImGui::IsItemActive() && ImGui::IsMouseDown(0)) {
                 time_ = view_.time((ImGui::GetIO().MousePos.x - origin.x) / size.x) /
                         animation_timebase;
                 playing_ = false;
@@ -1407,6 +1596,7 @@ class AnimationSequenceEditor {
         if (!actor || !actor.has<CameraShot>() || actor.get<CameraShot>().sequence != controller_)
             return;
         const auto value = actor.get<CameraShot>();
+        ImGui::BeginDisabled(shot_drag_.active);
         if (!pending_) {
             shot_start_ = value.start_seconds;
             shot_end_ = value.end_seconds;
@@ -1481,6 +1671,7 @@ class AnimationSequenceEditor {
             }
         }
         FORGE_UI_PROBE("sequence:remove_shot");
+        ImGui::EndDisabled();
         ImGui::EndDisabled();
     }
     void validate_cue(const Json& source, double time) const {

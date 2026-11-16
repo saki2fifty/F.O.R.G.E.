@@ -492,6 +492,29 @@ To author shots in your own sequence:
 4. Choose **Refresh clips**, then **Preview sequence** and open **Game**. Scrub a shot's strip or the playhead slider to inspect the cuts. Stopping preview restores the authored camera settings.
 5. Choose **Save scene**. Play and export use this saved arrangement; no C++ module is required.
 
+### Move or trim a shot
+
+Turn on **Edit shot timing** under **Camera shots**. Drag the filled body of a
+shot to move it, or drag its left or right edge to trim its interval. Timing snaps
+to 0.001 seconds. The preview stays local until release; a valid release makes
+one Scene Undo step. Moving preserves the shot's length, camera and blend settings
+and stops at the controller's bounds. Rows appear in chronological order.
+
+A red preview cannot be applied. Release leaves the existing interval unchanged
+if the result overlaps an enabled shot, extends outside the sequence, reverses
+the interval or makes it shorter than its blend duration. Adjust the interval or
+blend duration explicitly and try again; trimming never shortens the blend for you.
+
+Press **Escape** or use **Undo** to cancel a gesture. Losing focus, changing the selection or
+Timeline size, entering Play, or changing the Scene also cancels it. **Save scene**
+and closing the Timeline cancel an unfinished gesture; release first to keep an
+edit. Apply or reset pending numeric fields before enabling timing editing.
+After an edit, **Refresh clips** prepares the changed preview. Save the Scene
+before using its arrangement in Play or an export.
+
+Turn **Edit shot timing** off to scrub anywhere on a strip. Empty strip space and
+the playhead slider also scrub while timing editing is enabled.
+
 Keep **Shot blend in = 0** for an exact cut. To move smoothly into an adjacent
 shot, enter a positive duration no longer than that incoming shot. During this
 interval the view eases from the previous camera's current position, orientation
@@ -516,8 +539,8 @@ from a narrow left camera to a wider right camera, then returns. Both cameras
 share an animated rig. Select the incoming shot under **Camera shots**, adjust
 **Shot blend in**, choose **Apply shot fields**, then **Refresh clips** to preview.
 
-![Sequence Timeline with the incoming Camera Shot selected and its blend duration and curve editable](../images/camera-transition-editor.png)
-The incoming shot controls its transition duration and timing curve.
+![Sequence Timeline with shot timing editing enabled, trim edges and the incoming blend controls visible](../images/camera-transition-editor.png)
+Enable timing editing to move or trim shot strips; the selected incoming shot also controls its blend duration and curve.
 
 Open **216-camera-transition-curves** for a twelve-second comparison. Its four
 sections each reset to the left camera, then move to the right over one second

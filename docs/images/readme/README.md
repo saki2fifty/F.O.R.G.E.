@@ -1930,6 +1930,8 @@ and byte proofs remain in the canonical local capability validation owner.
 
 ## Two-clip sequence Timeline and binding example
 
+[Current shared Timeline capture](#current-scene-sequence-timeline-captures) supersedes the original control-image capture record below.
+
 [Sequence crossfade controls](../../../manual/images/sequence-clip-blending.png)
 is the unretouched 720×1100 production Animation Timeline, rendered by the existing
 SDL/ImGui software fixture at 100% with the project font. Actual pointer input
@@ -1938,7 +1940,7 @@ overlap, typed clip pickers, pending timing fields and compatibility hint are vi
 The same run samples Color4/scalar parameters and keyed UI Values at four times,
 checking exact values and unchanged authored Scene content/history. Frame export
 is unavailable in this isolated fixture because it has no graphical Game host.
-PNG SHA256: `43f92fe88289a386cb4ae8860131bf11f1e7a3536e5d5509eaaf49c9386f8a00`.
+Original PNG SHA256: `43f92fe88289a386cb4ae8860131bf11f1e7a3536e5d5509eaaf49c9386f8a00`.
 
 Capture uses `forge_animation_sequence_editor_tests --capture-bindings <Gallery>
 <private-scratch> <png>` from the local binding crossfade extension based on
@@ -1953,7 +1955,7 @@ tick and separate cube/HUD pixel changes. All four authored/relocated image pair
 are bit exact with original sources offline; private/published identities also
 produce four identical images. The canonical PNG is copied byte for byte from
 that published-scene capture.
-PNG SHA256: `8835b5226f90e24ed20e3759ca549195cca4fdfc9e99df49daea4f0701c1bb0d`.
+Original PNG SHA256: `8835b5226f90e24ed20e3759ca549195cca4fdfc9e99df49daea4f0701c1bb0d`.
 
 Capture uses `forge_ui_surface_gallery_vulkan_probe <Gallery> <font> <scratch>
 --sequence-bindings` on the software Vulkan adapter. Exact executable, relevant
@@ -1965,13 +1967,15 @@ acceptance.
 
 ## Nested sequence and child-loop Timeline
 
+[Current shared Timeline capture](#current-scene-sequence-timeline-captures) supersedes the original control-image capture record below.
+
 [Nested sequence placement](../../../manual/images/nested-sequences.png) is the
 unretouched 720×1200 production Timeline, rendered at 100% by the SDL/ImGui software
 fixture with the project font. Actual pointer input selects Gallery188's fast
 repeating child. The image shows its parent-length strip/cycle marks, start/rate/
 Loop in parent controls and shared Scene history actions. All required controls
 are inside the fixture clip bounds. Frame export is disabled because this isolated
-fixture has no graphical Game host. PNG SHA256: `39f61967092b3df681e612311c470f29785b5385c6eba3d8fc2494b2d3ac45c6`.
+fixture has no graphical Game host. Original PNG SHA256: `39f61967092b3df681e612311c470f29785b5385c6eba3d8fc2494b2d3ac45c6`.
 
 Capture: forge_animation_sequence_editor_tests --capture-child-loops, product Scene
 `464f19c9-df21-40d7-bed2-6cc379eba627`, local source based on a5bdcaa with repeated-placement
@@ -1988,7 +1992,7 @@ neither full Windows Main nor physical GPU/DPI/input/performance acceptance.
 Gallery188's actual 640×360 RuntimeWorld/FrameRenderer readback at fixed tick 405,
 approximately 6.75s, on Diligent software Vulkan. Lossless PPM-to-PNG conversion
 preserves all RGB bytes/dimensions. Four exact authored/source-hidden relocated
-pairs cover ticks 75/225/405 plus portrait presentation. PNG SHA256:
+pairs cover ticks 75/225/405 plus portrait presentation. Original PNG SHA256:
 `ce896f6746a0403b8eb16d8854d40c7b3586aa2f7298ab2975b462ca06bfedb2`. C++/CMake input digest:
 `493c04541aca5f6154a28ca59f064e8d249e195f4ab8346c26ddcb47dc987c3f`. Receipts are child-loop-vulkan-build.json
 and child-loop-product-vulkan-tests.json in local batch 285 evidence. All four
@@ -2082,14 +2086,19 @@ external MCP client or graphical EXE acceptance.
 
 ## Smooth Camera Shot controls and view
 
+[Current shared Timeline capture](#current-scene-sequence-timeline-captures) supersedes the original control-image capture record below.
+
 [Incoming shot controls](../../../manual/images/camera-transition-editor.png)
 shows the production Timeline with Gallery153's incoming shot selected and **Shot
-blend in** and **Shot blend curve** editable. The refreshed unretouched720×1400 PNG
+blend in** and **Shot blend curve** editable, plus **Edit shot timing** enabled and
+the native strip trim edges visible. The refreshed unretouched720×1400 PNG
 comes from the actual SDL/ImGui software capture in `tests/sequence_clip_capture.hpp`.
 Its raw bytes, compiled actor/source hashes and capture receipt are recorded in
-`AgentFiles/build/phase378-camera-shot-transition-profiles/capture-proof-final.json`.
-The working tree is based one317a52. The native controls and stopped/frame sampler
-also exercise all four timing profiles; the image shows the default Smooth value.
+`AgentFiles/build/phase379-camera-shot-timeline-editing/capture-proof-final.json`.
+The working tree is based on5b6278a. The native controls also exercise moves,
+trims, single-step history and cancellation at six layout/scale combinations.
+The stopped/frame sampler's four timing profiles retain their earlier attribution;
+the image shows the default Smooth value.
 
 [Transition Game view](../../../manual/images/camera-transition-gallery.png)
 shows the production FrameRenderer at tick 150 in Gallery153 on software Vulkan.
@@ -2694,12 +2703,14 @@ physical GPU/input/DPI, external client and player review remain separate.
 
 ## Skeletal sequence tracks
 
+[Current shared Timeline capture](#current-scene-sequence-timeline-captures) supersedes the original control-image capture record below.
+
 `manual/images/skeletal-sequence-timeline.png` is the unretouched 720×1100 SDL/ImGui
 capture from `skeletal_sequence_editor`. Actual controls bind the original model,
 pick clips, edit both starts with one Undo, preserve independent property/skeletal
 rows, and activate the Inspector's controller Timeline shortcut. The fixture uses
 a writable copy of the original root-motion Scene; it is a subsystem workspace.
-PNG SHA256: `a1902eef6553aa3f9fbf08ad3934068f8d58d25ecf03b55cac2b86ca25f1531d`.
+Original PNG SHA256: `a1902eef6553aa3f9fbf08ad3934068f8d58d25ecf03b55cac2b86ca25f1531d`.
 
 `manual/images/skeletal-sequence-game.png` is the 640×360 Gallery185 Game readback at
 fixed tick 105 (1.75s), captured by `animation_retarget_gallery_vulkan_probe` through
@@ -2707,7 +2718,7 @@ RuntimeWorld/FrameRenderer and Diligent software Vulkan. It shows original direc
 morph and mapped-clip models driven by one controller. Samples at ticks 45/105/150
 and a portrait view match exactly after runtime packaging, relocation and source
 removal. PPM-to-PNG conversion preserves dimensions and all RGB pixels; no cropping,
-resizing or retouching is applied. PNG SHA256:
+resizing or retouching is applied. Original PNG SHA256:
 `e74f0674bfac2cc4f2a43461d23009b48f61f7cd3462cc06902c12e81b75e8cc`.
 
 Capture source is the local skeletal-sequence implementation based on 83fa9a8;
@@ -2743,6 +2754,8 @@ graphical player or performance acceptance.
 
 ## Repeated controller placement controls
 
+[Current shared Timeline capture](#current-scene-sequence-timeline-captures) supersedes the original control-image capture record below.
+
 [Repeated controller placements](../../../manual/images/repeated-sequence-placements.png)
 is the unretouched 720×1700 actual Timeline at 100%, captured through the existing
 SDL/ImGui software fixture from product Gallery189, Scene
@@ -2766,7 +2779,7 @@ is the actual 640×360 RuntimeWorld/FrameRenderer readback from Gallery189 at fi
 tick 405 (approximately 6.75s), on Diligent software Vulkan. Four exact authored /
 source-hidden relocated display pairs cover ticks 75/225/405 and portrait sizing.
 All four images were personally reviewed. Lossless PPM-to-PNG conversion preserves
-every RGB byte and dimension; PNG SHA256:
+every RGB byte and dimension; Original PNG SHA256:
 `19b09f44d21d2e5071efc81f3993c5095843b4b5aed81d6be52fb54320a5309b`.
 The source digest is the same 9f3899b568a9c8a76e088826820e26e3ddf0e058d699885b4a8d5bbd97828ef6
 above. Reproduction uses sequence_placement_gallery_vulkan; local batch 286 owns
@@ -2775,6 +2788,8 @@ provenance receipt. No retouching, cropping or resizing; no Windows/full Main,
 graphical EXE, physical GPU or performance acceptance.
 
 ## Layered sequence clip controls and Game output
+
+[Current shared Timeline capture](#current-scene-sequence-timeline-captures) supersedes the original control-image capture record below.
 
 [Layered sequence controls](../../../manual/images/multiway-sequence-blends.png)
 is an exact byte copy of the real720×1900 Timeline at100%, selecting the center
@@ -3861,3 +3876,32 @@ Canonical PNGs are copied byte-for-byte. This SDL software source-owner fixture
 has inactive New/build callbacks and deliberate code samples. It does not establish
 compiler success, automatic fixes, full Main/Windows/provider/physical desktop/
 GPU/DPI or performance acceptance.
+
+
+## Current Scene sequence Timeline captures
+
+The seven canonical control images below are exact byte copies from the actual
+SDL/ImGui Timeline with direct shot timing editing and stable scrollbar space.
+The working tree is based on5b6278a. All seven raw captures were visually reviewed;
+required control visibility is checked by their existing native input fixtures.
+The original control-capture records above remain historical; use this table for
+current canonical bytes. Separate Game images retain their original rendering
+provenance and acceptance limits.
+
+| Canonical image | Native entry | Size | SHA256 |
+| --- | --- | --- | --- |
+| [camera-transition-editor.png](../../../manual/images/camera-transition-editor.png) | `--capture-camera-transition` | 720×1400 | `c60f9a2a3d56813fb4b65b1207f206f969e6181003a28754195cb34af8dfde1f` |
+| [sequence-clip-blending.png](../../../manual/images/sequence-clip-blending.png) | `--capture-bindings` | 720×1100 | `cd8b3aedfec656463b0c7a345a534487d5e26ed0f3452e097277b7a53c31f15c` |
+| [nested-sequences.png](../../../manual/images/nested-sequences.png) | `--capture-child-loops` | 720×1200 | `d1a3b6f7ff80070fc83edc6f3d37b5b57cabd0d13c60a400037fe214e73e0d30` |
+| [repeated-sequence-placements.png](../../../manual/images/repeated-sequence-placements.png) | `--capture-placements` | 720×1700 | `14736c9025d407aa8ed0bdf7aa4d184df02d09ce8feca6056c047e21b1fda09c` |
+| [multiway-sequence-blends.png](../../../manual/images/multiway-sequence-blends.png) | `--capture-multiway` | 720×1900 | `8d70cac43896645aed01d476a3f475693d9fa45d724dfc29aad9c813c90bb405` |
+| [skeletal-sequence-timeline.png](../../../manual/images/skeletal-sequence-timeline.png) | `--skeletal` | 720×1100 | `79f03a1c8a60355b8bd25cf02cd5ea2c60436c40759af32fa6d4ec591479de50` |
+| [sequence-clip-collection.png](../../../manual/images/sequence-clip-collection.png) | `--collections` | 720×1100 | `5a66e5a1d974a65e1cd4117760c57e9422325d1cd7df02130cc9956638d55d1d` |
+
+Exact actor/source/image hashes, commands and original logs are retained in
+`AgentFiles/build/phase379-camera-shot-timeline-editing/capture-proof-final.json`.
+The timing image shows the actual checked mode and native white trim edges; the
+other images retain their own clip, binding and placement workflows. Scrolling to
+additional controls is ordinary native behavior. No image was retouched. These
+subsystem software captures do not establish full Main, Windows/MSVC/D3D12,
+physical input/DPI/GPU, performance or graphical EXE acceptance.

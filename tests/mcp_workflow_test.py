@@ -294,19 +294,20 @@ for legacy in selected_protocols:
         # observed target for reads; every mutation still discovers fresh revision
         # and sequence guards. Other workflows retain their boundary discovery.
         stable_read_target = {}
+        reuse_read_target = UI_FIELDS_ONLY or UI_SOURCE_ONLY or CAMERA_TRANSITION_ONLY
 
         def discovery():
             value = client.tool('forge_discover')
             assert value['ok'], value
-            if UI_FIELDS_ONLY or UI_SOURCE_ONLY:
+            if reuse_read_target:
                 target = value['result']['target']
                 assert 'value' not in stable_read_target or stable_read_target['value'] == target, \
-                    'Focused UI workflow changed target; refresh the read-target policy'
+                    'Focused workflow changed target; refresh the read-target policy'
                 stable_read_target['value'] = target
             return value
 
         def read(tool, **extra):
-            target = stable_read_target.get('value') if UI_FIELDS_ONLY or UI_SOURCE_ONLY else None
+            target = stable_read_target.get('value') if reuse_read_target else None
             if target is None:
                 target = discovery()['result']['target']
             value = client.tool(tool, target=target, **extra)
@@ -319,7 +320,11 @@ for legacy in selected_protocols:
                         sequence=value['next_sequence'], **extra)
 
         def mutate(tool, **extra):
-            return client.tool(tool, **arguments(**extra))
+            value = client.tool(tool, **arguments(**extra))
+            if CAMERA_TRANSITION_ONLY and tool == 'forge_document_open' and value['ok']:
+                # This explicit Scene boundary retires the previous read target.
+                stable_read_target.clear()
+            return value
 
         def ok(tool, **extra):
             if tool == 'forge_play_start':

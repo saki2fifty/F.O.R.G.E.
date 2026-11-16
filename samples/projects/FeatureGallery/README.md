@@ -9,6 +9,8 @@ second. The rig is stationary so the timing choices are easy to compare.
 
 Stop Play, open the Director's Timeline and select an incoming shot. Choose
 **Shot blend curve**, then **Apply shot fields** and **Refresh clips** to preview.
+Turn on **Edit shot timing** to move the filled shot body or trim either edge;
+release commits one Scene Undo step, and Escape cancels an unfinished gesture.
 Duration and curve commit together in one Scene Undo step. During Play the
 Inspector's **Live gameplay** section exposes **Blend in (seconds)** and
 **Blend curve**; Stop restores authored values and **Keep runtime values** reviews

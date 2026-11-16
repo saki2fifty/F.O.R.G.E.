@@ -3,8 +3,9 @@
 **216-camera-transition-curves** compares Smooth, Linear, EaseIn and EaseOut view
 and lens transitions. Press Play to watch its twelve-second loop, then Stop and
 select an incoming Camera Shot in the Timeline. Change **Shot blend curve**, apply
-the fields and refresh the preview. The cameras, light and geometry are included;
-choose this Scene as startup and save before export. See
+the fields and refresh the preview. Turn on **Edit shot timing** to move the shot
+body or trim an edge before release. The cameras, light and geometry are included.
+Choose this Scene as startup and save before export. See
 [Camera shots](../editor/animation-sequences.md).
 
 **214-ui-material-graphs** uses a visual graph for still and animated textured

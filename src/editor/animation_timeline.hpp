@@ -308,10 +308,11 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         (void)project;
         if (sequence_mode()) {
             bool visible = true;
+            // Revealing shot fields must not change the ruler's drag coordinates.
             const bool expanded =
                 ImGui::Begin(dirty() ? "* Animation Timeline — Scene sequence###Animation Timeline"
                                      : "Animation Timeline — Scene sequence###Animation Timeline",
-                             &visible);
+                             &visible, ImGuiWindowFlags_AlwaysVerticalScrollbar);
             if (!visible)
                 sequence_.request_close();
             if (ui::editor_context && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))

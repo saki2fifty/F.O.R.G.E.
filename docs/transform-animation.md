@@ -428,6 +428,15 @@ consumer invoke that same projection after Scene resolves their copied animated
 hierarchy. No native transform override, virtual identity or additional clock exists.
 
 Timeline borrows Scene history for creation, camera/interval/blend duration/curve edits and removal.
+Its optional timing-edit mode stages body moves and edge trims on the existing
+shot strips, using the shared ruler units with1ms snapping. A valid release uses
+the existing property.set_many detached component candidate and one Scene history
+step. Body moves clamp to controller bounds and preserve duration/blend; invalid
+trim/overlap/compatibility candidates remain local and are refused, without
+shortening an incoming blend. Escape, lost focus, stale Scene revision, changed
+selection/view geometry, lock, Save or Close discard the transient gesture.
+Frame export is unavailable while a gesture is captured. Default strip scrubbing
+is retained; chronological row projection does not reorder stored entities.
 Creation uses the existing `entity.create` recipe command with initial component
 values, so a bound shot is one transaction. Pending edits retain their Scene revision
 and reject stale commits. The existing isolated preview projects the same copied
