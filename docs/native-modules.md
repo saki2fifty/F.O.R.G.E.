@@ -261,7 +261,7 @@ are validated together, sorted, bounded to32768 and rejected on overlap/ambiguou
 starts, malformed UTF8/ranges or a result at/above1MiB. A transient line-start table
 extends the existing position decoder for many ranges; ordinary calls retain
 their existing scan and ABI. The complete candidate is assembled once and follows
-the widget's final-newline contract. No partial formatting is offered.
+the widget's final-newline contract. An invalid edit set yields no proposal.
 
 One proposal exposes its complete text/edit count; normalized cursor-mapping edits
 remain private to the existing task. Source use follows the current target caret
@@ -269,6 +269,18 @@ through those edits and performs one whole-source widget replacement/Undo. Nativ
 preview is derived read-only text, not another draft or history owner. Save/build
 and all existing source/context/permission/receipt guards remain separate. Style
 files outside the source snapshot are not watched; rerun after editing them.
+
+Selected-range formatting uses `textDocument/rangeFormatting` and the advertised
+boolean or options-object range-formatting capability. The native command borrows
+the actual widget selection; automation supplies UTF-8 byte `offset` and
+`end_offset`. Both boundaries must fit the current draft, remain on code-point
+boundaries and define a nonempty forward range. Other query kinds reject
+`end_offset`. The task validates before launch and the worker validates again.
+The provider may include enclosing context in its edits. The existing complete
+source proposal, edit limits, current-caret mapping and one widget Undo apply;
+FORGE never clips a returned edit set to the selection or applies a partial set.
+An empty selection disables **Format selection**. No additional source selection,
+draft, history, provider process or persistent format is introduced.
 
 Reviewed current-source rename uses `textDocument/rename` and the selected
 provider's advertised boolean rename capability. `new_name` is1..256UTF8bytes,

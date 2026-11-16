@@ -531,6 +531,13 @@ saved bytes remain unchanged until Save. Empty/no-op formatting returns no items
 Invalid, overlapping or over-budget edit sets are refused without partial changes.
 Style files are read by the provider at query time; rerun after changing them.
 
+Use `kind:formatSelection` to format part of the observed source. Supply `offset`
+and `end_offset` as UTF-8 byte positions around a nonempty block. Both positions
+must be inside the current draft and must not split a character. Other query kinds
+reject `end_offset`. Read the entire returned proposal: the provider may include
+enclosing context in its formatting edits. Applying, source Undo/Redo and Save
+follow the same workflow as whole-file formatting.
+
 With execution allowed, the agent can test compiler tools, build current saved
 code, inspect its opted-in component types and explicitly migrate old authored
 values. Analysis providers, native code and build recipes run with your account's operating-system

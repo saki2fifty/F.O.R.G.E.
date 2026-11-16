@@ -101,7 +101,12 @@ int main() {
                          mode == "fixes-unavailable" ? Json::array() : Json::array({"quickfix"})}}},
                       {"typeDefinitionProvider", mode != "locations-unavailable"},
                       {"documentFormattingProvider", mode != "format-unavailable"},
+                      {"documentRangeFormattingProvider",
+                       mode == "range-format-object" ? Json{{"rangesSupport", true}}
+                                                     : Json(mode != "range-format-unavailable")},
                       {"hoverProvider", mode != "hover-unavailable"}}}};
+                if (mode == "range-format-absent")
+                    result["capabilities"].erase("documentRangeFormattingProvider");
                 if (mode == "signature-unavailable")
                     result["capabilities"].erase("signatureHelpProvider");
             } else if (method == "textDocument/documentSymbol") {
@@ -412,15 +417,27 @@ int main() {
                     result = nullptr;
                 else if (mode == "fixes-empty")
                     result = Json::array();
-            } else if (method == "textDocument/formatting") {
+            } else if (method == "textDocument/formatting" ||
+                       method == "textDocument/rangeFormatting") {
                 const auto& params = request.at("params");
                 if (params.contains("position") || params.at("options").at("tabSize") != 4 ||
                     params.at("options").at("insertSpaces") != true)
                     throw std::runtime_error("Whole-source formatting request shape is invalid");
                 const auto& text =
                     drafts.at(params.at("textDocument").at("uri").get<std::string>());
-                const auto first = text.find("float ");
-                const auto last = text.find("};", first);
+                const bool selected_range = method == "textDocument/rangeFormatting";
+                if (selected_range != params.contains("range"))
+                    throw std::runtime_error(
+                        "Formatting range was missing or leaked into whole-source query");
+                const auto first =
+                    selected_range
+                        ? forge::cpp_semantic_offset(text, params.at("range").at("start"))
+                        : text.find("float ");
+                const auto last =
+                    selected_range ? forge::cpp_semantic_offset(text, params.at("range").at("end"))
+                                   : text.find("};", first);
+                if (selected_range && first >= last)
+                    throw std::runtime_error("Formatting range must be nonempty and ordered");
                 const auto edit = [&](std::size_t begin, std::size_t end, std::string replacement) {
                     return Json{{"range",
                                  {{"start", forge::cpp_semantic_position(text, begin)},

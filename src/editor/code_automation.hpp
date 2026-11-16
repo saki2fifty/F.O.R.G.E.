@@ -723,7 +723,7 @@ struct CodeAutomation {
                 "file symbols, definitions, current-context implementations and references, type "
                 "definitions, syntax selection, diagnostic quick fixes, reviewed single-file "
                 "rename or "
-                "whole-source formatting at "
+                "whole-source or selected-range formatting at "
                 "a UTF-8 "
                 "byte offset in the observed open "
                 "C++ tab, using all current open drafts and the existing configured CMake context. "
@@ -733,24 +733,31 @@ struct CodeAutomation {
                 "new_name and "
                 "returns a reviewed current-file proposal; cross-file/resource/annotated edits are "
                 "refused. "
-                "Other query kinds reject new_name. Poll code.analysis.status/log.",
+                "Format selection requires end_offset greater than offset in the same draft; "
+                "the provider can include enclosing context in the reviewed file proposal. "
+                "Other kinds reject end_offset. Other query kinds reject new_name. Poll "
+                "code.analysis.status/log.",
                 "code.execute",
                 automation_object({{"path", automation_text(2047, 1)},
                                    {"session", automation_uuid()},
                                    {"state", automation_digest()},
                                    {"kind", {{"type", "string"}, {"enum", cpp_semantic_kinds}}},
                                    {"offset", automation_integer(0, ui::max_cpp_source_bytes)},
+                                   {"end_offset", automation_integer(0, ui::max_cpp_source_bytes)},
                                    {"tool", automation_text(4096, 1)},
                                    {"new_name", automation_text(256, 1)}},
                                   {"path", "session", "state", "kind", "offset"}),
                 true, [&files, &editor, providers](const Json& request) {
                     available(files, providers);
                     const auto& source = tab(editor, files, request);
-                    editor.start_semantics(files.document, source.locator,
-                                           request.at("kind").get<std::string>(),
-                                           request.at("offset").get<std::size_t>(),
-                                           request.value("tool", std::string{}),
-                                           request.value("new_name", std::string{}));
+                    editor.start_semantics(
+                        files.document, source.locator, request.at("kind").get<std::string>(),
+                        request.at("offset").get<std::size_t>(),
+                        request.value("tool", std::string{}),
+                        request.value("new_name", std::string{}),
+                        request.contains("end_offset")
+                            ? std::optional(request.at("end_offset").get<std::size_t>())
+                            : std::nullopt);
                     return editor.semantic_task_.state();
                 }));
             methods.push_back(automation_method(

@@ -736,6 +736,14 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
                 request.at("offset").get<std::int64_t>() >= 0,
             "Use a nonnegative source byte offset");
     const auto position = cpp_semantic_position(text, request.at("offset").get<std::size_t>());
+    std::optional<std::size_t> end_offset;
+    if (request.contains("end_offset")) {
+        require(request.at("end_offset").is_number_integer() &&
+                    request.at("end_offset").get<std::int64_t>() >= 0,
+                "Use a nonnegative formatting end byte offset");
+        end_offset = request.at("end_offset").get<std::size_t>();
+    }
+    validate_cpp_format_range(kind, text, request.at("offset").get<std::size_t>(), end_offset);
     const auto new_name = request.value("new_name", std::string{});
     if (kind == "rename")
         validate_cpp_rename_name(new_name);
@@ -798,6 +806,14 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     if (kind == "format")
         require(initialized.at("capabilities").at("documentFormattingProvider").get<bool>(),
                 "Semantic tools require whole-source formatting support");
+    if (kind == "formatSelection") {
+        const auto& capabilities = initialized.at("capabilities");
+        require(capabilities.contains("documentRangeFormattingProvider") &&
+                    ((capabilities.at("documentRangeFormattingProvider").is_boolean() &&
+                      capabilities.at("documentRangeFormattingProvider").get<bool>()) ||
+                     capabilities.at("documentRangeFormattingProvider").is_object()),
+                "Semantic tools require selected-range formatting support");
+    }
     transport.send({{"method", "initialized"}, {"params", Json::object()}});
     const auto open_document = [&](const auto& path, const auto& draft) {
         transport.send({{"method", "textDocument/didOpen"},
@@ -828,10 +844,13 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         parameters.erase("position");
         parameters["positions"] = Json::array({position});
     }
-    if (kind == "format") {
+    if (kind == "format" || kind == "formatSelection") {
         parameters.erase("position");
         // Mandatory protocol fields; the selected provider obtains style from its files/fallback.
         parameters["options"] = {{"tabSize", 4}, {"insertSpaces", true}};
+        if (kind == "formatSelection")
+            parameters["range"] = {{"start", position},
+                                   {"end", cpp_semantic_position(text, *end_offset)}};
     }
     if (kind == "fixes") {
         const auto publication = transport.diagnostics();
@@ -851,34 +870,39 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         parameters["range"] = {{"start", position}, {"end", position}};
         parameters["context"] = {{"diagnostics", std::move(diagnostics)}, {"only", {"quickfix"}}};
     }
-    auto response = kind == "symbols" ? std::move(symbols)
-                    : kind == "diagnostics"
-                        ? transport.diagnostics()
-                        : transport.call("textDocument/" +
-                                             (kind == "signature"   ? std::string("signatureHelp")
-                                              : kind == "selection" ? std::string("selectionRange")
-                                              : kind == "format"    ? std::string("formatting")
-                                              : kind == "fixes"     ? std::string("codeAction")
-                                                                    : kind),
-                                         parameters);
+    auto response =
+        kind == "symbols" ? std::move(symbols)
+        : kind == "diagnostics"
+            ? transport.diagnostics()
+            : transport.call("textDocument/" +
+                                 (kind == "signature"         ? std::string("signatureHelp")
+                                  : kind == "selection"       ? std::string("selectionRange")
+                                  : kind == "format"          ? std::string("formatting")
+                                  : kind == "formatSelection" ? std::string("rangeFormatting")
+                                  : kind == "fixes"           ? std::string("codeAction")
+                                                              : kind),
+                             parameters);
     transport.finish();
     const auto current_database =
         asset_storage::read(context / "compile_commands.json", 16 * 1024 * 1024);
     require(current_database && ui::cpp_source_state(*current_database) == context_state,
             "C++ compiler context changed during analysis; query again");
-    auto result =
-        kind == "completion"    ? normalized_completions(response, text)
-        : kind == "signature"   ? normalized_signatures(response)
-        : kind == "diagnostics" ? normalized_diagnostics(response, target, text)
-        : kind == "hover"       ? normalized_hover(response, text)
-        : kind == "symbols"     ? normalized_symbols(response, target, text)
-        : kind == "selection"   ? normalized_selection(response, text, path_utf8(target),
-                                                       request.at("offset").get<std::size_t>())
-        : kind == "rename"      ? normalized_workspace_edits(response, text, paths, target,
-                                                             "Apply rename to " + new_name)
-        : kind == "fixes"       ? normalized_fixes(response, text, paths, target)
-        : kind == "format" ? normalized_source_edits(response, text)
-                           : normalized_locations(response, paths, documents, kind == "references");
+    auto result = kind == "completion"    ? normalized_completions(response, text)
+                  : kind == "signature"   ? normalized_signatures(response)
+                  : kind == "diagnostics" ? normalized_diagnostics(response, target, text)
+                  : kind == "hover"       ? normalized_hover(response, text)
+                  : kind == "symbols"     ? normalized_symbols(response, target, text)
+                  : kind == "selection"
+                      ? normalized_selection(response, text, path_utf8(target),
+                                             request.at("offset").get<std::size_t>())
+                  : kind == "rename" ? normalized_workspace_edits(response, text, paths, target,
+                                                                  "Apply rename to " + new_name)
+                  : kind == "fixes"  ? normalized_fixes(response, text, paths, target)
+                  : kind == "format" || kind == "formatSelection"
+                      ? normalized_source_edits(response, text)
+                      : normalized_locations(response, paths, documents, kind == "references");
+    if (kind == "formatSelection")
+        result["range"] = {{"begin", request.at("offset")}, {"end", *end_offset}};
     if (kind == "rename")
         result["new_name"] = new_name;
     if (kind == "references" || kind == "implementation" || kind == "rename" || kind == "fixes")

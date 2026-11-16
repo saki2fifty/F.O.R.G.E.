@@ -51,6 +51,17 @@ int main() {
         rejects([&] { (void)forge::cpp_semantic_offset(text, {{"line", 0}, {"character", 5}}); });
         rejects([&] { (void)forge::cpp_semantic_offset(text, {{"line", 9}, {"character", 0}}); });
         rejects([&] { (void)forge::cpp_semantic_offset(text, {{"line", -1}, {"character", 0}}); });
+        forge::validate_cpp_format_range("formatSelection", text, 1, 3);
+        forge::validate_cpp_format_range("formatSelection", text, 0, text.size());
+        forge::validate_cpp_format_range("format", text, 0, {});
+        rejects([&] { forge::validate_cpp_format_range("format", text, 0, 3); });
+        rejects([&] { forge::validate_cpp_format_range("formatSelection", text, 0, {}); });
+        rejects([&] { forge::validate_cpp_format_range("formatSelection", text, 3, 3); });
+        rejects([&] { forge::validate_cpp_format_range("formatSelection", text, 3, 1); });
+        rejects([&] { forge::validate_cpp_format_range("formatSelection", text, 2, 3); });
+        rejects([&] { forge::validate_cpp_format_range("formatSelection", text, 1, 2); });
+        rejects(
+            [&] { forge::validate_cpp_format_range("formatSelection", text, 0, text.size() + 1); });
         std::cout << "Code semantic file URL checks passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

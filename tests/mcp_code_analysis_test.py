@@ -125,7 +125,7 @@ for legacy in protocol_cases():
                         assert read('forge_code_analysis_status')['operation'] is None
                         continue
                     assert tools['forge_code_analysis_start']['annotations']['openWorldHint']
-                    assert {'signature', 'diagnostics', 'hover', 'symbols'}.issubset(tools['forge_code_analysis_start']['inputSchema']['properties']['kind']['enum'])
+                    assert {'signature', 'diagnostics', 'hover', 'symbols', 'formatSelection'}.issubset(tools['forge_code_analysis_start']['inputSchema']['properties']['kind']['enum'])
                     assert not tools['forge_code_analysis_use']['annotations']['openWorldHint']
                     assert mutate('forge_code_open', path='Native/Spinner.cpp')['ok']
                     assert mutate('forge_code_replace', **observed_args(), text=draft)['ok']
@@ -181,6 +181,37 @@ for legacy in protocol_cases():
                     selected = read('forge_code_read', path='Native/Spinner.cpp')
                     assert selected['text'] == draft and selected['selection']['active'] and selected['selection']['bytes'] > 0
                     assert selected['can_undo'] == before_selection['can_undo'] and selected['can_redo'] == before_selection['can_redo']
+                    range_begin = len(draft[:draft.index('float ')].encode())
+                    range_end = len(draft[:draft.index('};')].encode())
+                    range_args = observed_args() | dict(kind='formatSelection', offset=range_begin, end_offset=range_end)
+                    before_range = read('forge_code_read', path='Native/Spinner.cpp')
+                    before_operation = read('forge_code_analysis_status')['operation']
+                    for invalid in (dict(end_offset=range_begin), dict(end_offset=len(draft.encode())+1),
+                                    dict(kind='format'), dict(offset=range_end), dict(end_offset=-1)):
+                        route = discovery()
+                        rejected_range = client.tool('forge_code_analysis_start', target=route['result']['target'],
+                            expected_revision=route['revision'], sequence=route['next_sequence'],
+                            **(range_args | invalid))
+                        assert not rejected_range['ok'], rejected_range
+                        assert read('forge_code_analysis_status')['operation'] == before_operation
+                        assert read('forge_code_read', path='Native/Spinner.cpp') == before_range
+                    assert mutate('forge_code_analysis_start', **range_args)['ok']
+                    range_result = settle()
+                    assert range_result['complete'] and range_result['total'] == 1, range_result
+                    assert read('forge_code_read', path='Native/Spinner.cpp') == before_range
+                    range_proposal = range_result['items'][0]['text']
+                    route = discovery()
+                    use_range = dict(target=route['result']['target'], expected_revision=route['revision'],
+                        sequence=route['next_sequence'], operation=range_result['operation'], index=0)
+                    used_range = client.tool('forge_code_analysis_use', **use_range)
+                    assert used_range['ok'] and client.tool('forge_code_analysis_use', **use_range) == used_range
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == range_proposal
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
+                    assert mutate('forge_code_redo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == range_proposal
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
                     navigation_source = draft + '\nint diagnostic_probe() { int value = 1 return value; }\n'
                     assert mutate('forge_code_replace', **(observed_args() | dict(text=navigation_source)))['ok']
                     assert mutate('forge_code_open', path='Native/Spinner.cpp',

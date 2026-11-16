@@ -147,7 +147,7 @@ editing and building work without this optional tool.
 8. Choose **Symbols in file** to list the active file’s declarations. Indented entries show nesting and available details. Click an entry to navigate to its source name. Existing drafts and source Undo/Save are preserved. A completed empty outline says **No symbols in this source draft.**
 9. Place the cursor on a symbol and choose **Find references**. Click a returned path/line/column to open a usage. Declarations are excluded. These results cover the provider's current compiler context and can omit other project files; use **Find in Project** when you also need a literal text search.
 10. Place the cursor on a variable or instance and choose **Go to type**. Click an available location to open its type definition under **Native/**. Built-in types may return no location; SDK and external definitions are unavailable here. Use **Back** to return to the original variable.
-11. Choose **Format source** to prepare a formatting proposal for the whole active file. Review **Proposed source**, then choose **Apply formatted source (N edits)**. The query preserves your draft; applying follows the current caret through the edits and creates one source Undo step. Save and Build Project Code remain separate. **No formatting changes returned.** means the provider offered no changes.
+11. Choose **Format source** to prepare a formatting proposal for the whole active file. To format a block, select its source text and choose **Format selection** instead. Review **Proposed source**, then choose **Apply formatted source (N edits)**. The query preserves your draft; applying follows the current caret through the edits and creates one source Undo step. Save and Build Project Code remain separate. **No formatting changes returned.** means the provider offered no changes.
 12. Place the cursor within a function name and choose **Find definition**. Select an available location to open its body under **Native/**. When the provider cannot resolve a body, it can return the declaration instead.
 13. Place the cursor on a virtual function and choose **Find implementations**. Select a returned override to open it. The list covers the current compiler context and may omit implementations in other files. Use **Back** and **Forward** to move between visited locations; navigation preserves drafts and source Undo/Redo.
 14. Place the cursor inside an expression, statement or function and choose **Select syntax**. The list shows containing ranges, smallest first. Choose a range to select it in the source editor; the caret moves to its end. Selection preserves source text and Undo/Redo. You can then use ordinary copy or editing controls.
@@ -195,6 +195,18 @@ Choose **Go to type** at a variable, then select the returned type location.
 Review the complete proposed file before applying. Source Undo/Redo restores the
 whole operation. Formatting uses the provider's `.clang-format` or fallback style;
 the source widget retains LF line endings. Rerun after changing style files.
+
+**Format selection** is available when source text is selected. You can drag over
+a block, select a single-line match with **Find** and **Next**, or choose a
+**Select syntax** result before requesting it. The provider may also format surrounding context;
+review the complete proposed file before applying. Clearing the selection disables
+the command. An unsupported provider capability produces an error and preserves
+the draft. Save the source separately when the result is ready.
+
+![Selected C++ function and its complete formatting proposal in C++ Sources](../images/cpp-selection-formatting.png)
+
+Select a block, choose **Format selection**, then review the complete proposed
+file before applying. The provider can include the surrounding declaration.
 
 ![C++ function definition opened from its separate declaration](../images/cpp-definition.png)
 

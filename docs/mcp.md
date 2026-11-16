@@ -936,8 +936,15 @@ uses one source Undo record and follows the current target caret, including move
 after the query. Style comes from provider files/fallback; rerun after style edits.
 Logs retain timestamps and bounded UTF-8 paging.
 
+Selected-range formatting (`formatSelection`) uses the same complete proposal and
+application rules. Supply `offset` and `end_offset` as UTF-8 byte boundaries in the
+observed draft, with `offset < end_offset`. Missing, reversed, out-of-source or
+code-point-splitting ranges fail before provider launch. Other kinds reject
+`end_offset`. The provider can include surrounding context in the returned edits;
+review the complete proposed file rather than assuming every edit fits the range.
+
 With `code.execute`, `forge_code_analysis_start` requires an observed source
-`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`/`format`/`definition`/`implementation`/`selection`/`rename`/`fixes`) and UTF-8 byte
+`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`/`format`/`formatSelection`/`definition`/`implementation`/`selection`/`rename`/`fixes`) and UTF-8 byte
 `offset`. Optional `tool` overrides the configured clangd23.1.0 path for that
 launch only. The managed project must have a successful CMake configure this
 session through Build Project Code; a compiler readiness probe is a different
@@ -984,7 +991,7 @@ and Save remain unchanged; no provider query is launched.
 With `code.write`, `forge_code_analysis_use` takes the operation UUID and result
 index0..63. It rechecks project, operation, all drafts, saved Native input identity,
 compiler generation and database before using the existing source owner. Completion
-and whole-source formatting add one ordinary source Undo record; declaration/diagnostic/file symbol/reference/type
+and whole-source or selected-range formatting add one ordinary source Undo record; declaration/diagnostic/file symbol/reference/type
 navigates without changing source.
 Signature and symbol-information results reject this operation as read-only and preserve source/cursor/history.
 Neither saves or builds. Normal routing/revision/sequence, permissions, pending

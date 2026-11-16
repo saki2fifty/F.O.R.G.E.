@@ -239,7 +239,8 @@ class CppSourceEditor {
     }
     void start_semantics(SceneDocument& project, const std::string& path, const std::string& kind,
                          std::size_t offset, const std::string& tool = {},
-                         const std::string& new_name = {}) {
+                         const std::string& new_name = {},
+                         std::optional<std::size_t> end_offset = {}) {
         project.check_ownership();
         if (root_ != project.project() || !find(path))
             throw std::runtime_error("Open this project's C++ source first");
@@ -250,7 +251,7 @@ class CppSourceEditor {
             throw std::runtime_error(
                 "Choose the optional clangd provider in Build > Compiler setup");
         semantic_task_.start(semantic_context(), provider, path, kind, offset, source_drafts(),
-                             new_name);
+                             new_name, end_offset);
     }
     bool can_move_diagnostic() const {
         const auto& result = semantic_task_.result();
@@ -316,6 +317,7 @@ class CppSourceEditor {
         // Own the row before any source operation can invalidate the derived result.
         const auto item = items.at(index);
         const bool proposal = result.at("kind").get<std::string>() == "format" ||
+                              result.at("kind").get<std::string>() == "formatSelection" ||
                               result.at("kind").get<std::string>() == "rename" ||
                               result.at("kind").get<std::string>() == "fixes";
         const bool selection = result.at("kind").get<std::string>() == "selection";
@@ -951,10 +953,15 @@ class CppSourceEditor {
     }
     void query_semantics_at(SceneDocument& project, const char* kind, const Location& point,
                             const std::string& new_name = {}) {
-        const auto* target = find(point.path);
+        auto* target = find(point.path);
         if (!target)
             throw std::runtime_error("Open the queried C++ source first");
         const auto text = target->editor.GetText();
+        if (std::string_view(kind) == "formatSelection") {
+            const auto [begin, end] = selection_bytes(*target, text);
+            start_semantics(project, point.path, kind, begin, {}, {}, end);
+            return;
+        }
         start_semantics(project, point.path, kind,
                         cpp_source_byte_offset(text, point.line - 1, point.column - 1), {},
                         new_name);
@@ -1016,24 +1023,20 @@ class CppSourceEditor {
         ImGui::BeginDisabled(locked || !active_ || semantic_task_.busy());
         bool first_button = true;
         constexpr std::pair<const char*, const char*> actions[]{
-            {"completion", "Complete"},
-            {"declaration", "Find declaration"},
-            {"signature", "Signature help"},
-            {"diagnostics", "Check source"},
-            {"hover", "Symbol info"},
-            {"symbols", "Symbols in file"},
-            {"references", "Find references"},
-            {"typeDefinition", "Go to type"},
-            {"format", "Format source"},
-            {"definition", "Find definition"},
-            {"implementation", "Find implementations"},
-            {"selection", "Select syntax"},
-            {"fixes", "Quick fixes"},
+            {"completion", "Complete"},        {"declaration", "Find declaration"},
+            {"signature", "Signature help"},   {"diagnostics", "Check source"},
+            {"hover", "Symbol info"},          {"symbols", "Symbols in file"},
+            {"references", "Find references"}, {"typeDefinition", "Go to type"},
+            {"format", "Format source"},       {"formatSelection", "Format selection"},
+            {"definition", "Find definition"}, {"implementation", "Find implementations"},
+            {"selection", "Select syntax"},    {"fixes", "Quick fixes"},
             {"rename", "Rename in file..."}};
         for (const auto& [kind, label] : actions) {
             if (!first_button)
                 next_text_button(label);
             first_button = false;
+            ImGui::BeginDisabled(std::string_view(kind) == "formatSelection" &&
+                                 (!active_ || !active_->editor.HasSelection()));
             if (button(
                     label,
                     "Analyze the current source or position without saving or changing source.")) {
@@ -1048,6 +1051,7 @@ class CppSourceEditor {
                     attempt([&] { query_semantics_at(project, kind, *location()); });
             }
             FORGE_UI_PROBE(std::string("cpp:analysis:") + kind);
+            ImGui::EndDisabled();
         }
         ImGui::EndDisabled();
         if (semantic_task_.busy()) {
@@ -1073,7 +1077,8 @@ class CppSourceEditor {
             const bool symbols = result.at("kind").get<std::string>() == "symbols";
             const bool references = result.at("kind").get<std::string>() == "references";
             const bool type_definition = result.at("kind").get<std::string>() == "typeDefinition";
-            const bool format = result.at("kind").get<std::string>() == "format";
+            const bool format = result.at("kind").get<std::string>() == "format" ||
+                                result.at("kind").get<std::string>() == "formatSelection";
             const bool rename = result.at("kind").get<std::string>() == "rename";
             const bool fixes = result.at("kind").get<std::string>() == "fixes";
             const bool proposal = format || rename || fixes;

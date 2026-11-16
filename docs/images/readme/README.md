@@ -3905,3 +3905,43 @@ other images retain their own clip, binding and placement workflows. Scrolling t
 additional controls is ordinary native behavior. No image was retouched. These
 subsystem software captures do not establish full Main, Windows/MSVC/D3D12,
 physical input/DPI/GPU, performance or graphical EXE acceptance.
+
+
+## Current C++ selection-formatting controls
+
+The following current canonical images come from the genuine optional clangd
+23.1.0 provider and a managed compiler context using the matching development SDK.
+The working tree is based on `095dc2d`. The actual native source-owner workflow
+passes at widths of 1180, 700 and 400 pixels; the canonical captures use 700 × 850. The new selection image
+shows the actual selected function and its complete reviewed formatting proposal.
+Twelve existing controls images are refreshed for the additional command; the
+literal Find/Replace recapture is byte-identical to its earlier reviewed image.
+Earlier image records retain historical producer provenance; this table owns the
+current bytes for these names.
+
+| Canonical image | Native raw capture | SHA-256 |
+| --- | --- | --- |
+| [cpp-code-assistance.png](../../../manual/images/cpp-code-assistance.png) | `cpp-signature-700.png` | `820dc386bbafc8752ae2ea34ba0c4e2e292177b47751a527721da792bacd1f00` |
+| [cpp-source-diagnostics.png](../../../manual/images/cpp-source-diagnostics.png) | `cpp-diagnostics-700.png` | `00d861783c156ddff55004826def8142f0483d0ac6efab09470f37b3c77add00` |
+| [cpp-symbol-information.png](../../../manual/images/cpp-symbol-information.png) | `cpp-symbol-info-700.png` | `1d22d89d204ee6bb567370e6915885b2eb7f46d99f801ef0c439122e2437120a` |
+| [cpp-file-outline.png](../../../manual/images/cpp-file-outline.png) | `cpp-file-symbols-700.png` | `f3abc26db4de0b15f6cd351595c1fe40d222df6016b76908458887e73028ba7f` |
+| [cpp-references.png](../../../manual/images/cpp-references.png) | `cpp-references-700.png` | `bafead205f351a8b36a7571716952b101ec12e36fed66084b135ea5456301fa6` |
+| [cpp-type-definition.png](../../../manual/images/cpp-type-definition.png) | `cpp-typeDefinition-700.png` | `7979ad1281c8b681eb8fe242a11ab138cb576ae7da42727825dd2992b03ee4a6` |
+| [cpp-source-formatting.png](../../../manual/images/cpp-source-formatting.png) | `cpp-format-700.png` | `0c871d4437851ba76eca70ab0248ec2e56826b8d8febfcefbef0dacc26f3ca2f` |
+| [cpp-definition.png](../../../manual/images/cpp-definition.png) | `cpp-definition-700.png` | `157451f5ab67b157fd2739c844072d8b605052275b6a777b2f1e58e46a6486aa` |
+| [cpp-implementations.png](../../../manual/images/cpp-implementations.png) | `cpp-implementation-700.png` | `c2899a9ba2ff154d1dfee5539fb9a8412435a6ee4ddfe1f4969d7316f78cdf9a` |
+| [cpp-syntax-selection.png](../../../manual/images/cpp-syntax-selection.png) | `cpp-selection-700.png` | `3944338fabf620114ebf02b2c231ee235d4338ee8f2166a9f93a3b8c1322f96e` |
+| [cpp-source-rename.png](../../../manual/images/cpp-source-rename.png) | `cpp-rename-700.png` | `df723a00fc39b17891c4e0ead01af0068fef58e064de2e7e8c5d26b1ea8290bb` |
+| [cpp-quick-fixes.png](../../../manual/images/cpp-quick-fixes.png) | `cpp-quick-fixes-700.png` | `0d63dfd8230f8c9fb28840b7dceb149ea2607bee6738b854135cc9a1d29a28bf` |
+| [cpp-literal-find-replace.png](../../../manual/images/cpp-literal-find-replace.png) | `cpp-literal-find-replace-700.png` | `f499e3e8980bb6dcf3f965d6eff4f93267574ef86156935b96fd393f6fbc24a1` |
+| [cpp-selection-formatting.png](../../../manual/images/cpp-selection-formatting.png) | `cpp-format-selection-700.png` | `3e872e48285eb7a54b93adbd0d06a797cc1d0981edb3379fbd9a593186d5d146` |
+
+All thirteen changed images were visually reviewed before exact raw-byte copies.
+The unchanged literal image retains its prior visual review. Forty-eight original
+raw captures and exact source, actor, worker, provider, command and log hashes are
+recorded in `AgentFiles/build/phase380-cpp-source-transformations/capture-proof-final.json`.
+The provider and native helper finish normally for successful queries. The fixture
+has inactive New/build callbacks and deliberate source examples; it uses the real
+source owner and SDL software capture. No image is retouched. These images do not
+establish full-editor integration, Windows desktop, physical GPU/DPI, provider
+desktop or hardware performance acceptance.

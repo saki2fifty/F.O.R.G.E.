@@ -86,7 +86,7 @@ class CppSemanticTask {
     }
     void start(const CppSemanticContext& context, const std::string& tool, const std::string& path,
                const std::string& kind, std::size_t offset, CppSearchDrafts drafts,
-               const std::string& new_name = {}) {
+               const std::string& new_name = {}, std::optional<std::size_t> end_offset = {}) {
         if (busy())
             throw std::runtime_error("Wait for C++ analysis or cancel the current query first");
         if (!cpp_semantic_kind(kind))
@@ -103,6 +103,7 @@ class CppSemanticTask {
         if (offset < source->second.size() &&
             (static_cast<unsigned char>(source->second[offset]) & 0xc0) == 0x80)
             throw std::runtime_error("C++ analysis cursor splits a UTF-8 character");
+        validate_cpp_format_range(kind, source->second, offset, end_offset);
         close();
         try {
             project_ = context.project;
@@ -131,20 +132,22 @@ class CppSemanticTask {
             nlohmann::json documents = nlohmann::json::array();
             for (const auto& [locator, text] : drafts_)
                 documents.push_back({{"path", path_utf8(locator)}, {"text", text}});
-            const auto request = nlohmann::json{{"version", 1},
-                                                {"id", operation_},
-                                                {"project", path_utf8(project_)},
-                                                {"context", path_utf8(context.directory)},
-                                                {"tool", tool},
-                                                {"kind", kind_},
-                                                {"new_name", new_name},
-                                                {"path", path_},
-                                                {"offset", offset},
-                                                {"documents", std::move(documents)}}
-                                     .dump();
-            if (request.size() > 64 * 1024 * 1024)
+            auto request = nlohmann::json{{"version", 1},
+                                          {"id", operation_},
+                                          {"project", path_utf8(project_)},
+                                          {"context", path_utf8(context.directory)},
+                                          {"tool", tool},
+                                          {"kind", kind_},
+                                          {"new_name", new_name},
+                                          {"path", path_},
+                                          {"offset", offset},
+                                          {"documents", std::move(documents)}};
+            if (end_offset)
+                request["end_offset"] = *end_offset;
+            const auto serialized = request.dump();
+            if (serialized.size() > 64 * 1024 * 1024)
                 throw std::runtime_error("C++ analysis request exceeds its byte budget");
-            asset_storage::replace(directory_ / "request.json", request);
+            asset_storage::replace(directory_ / "request.json", serialized);
             auto helper = self_executable().parent_path() / "forge_tools";
 #ifdef _WIN32
             helper += ".exe";

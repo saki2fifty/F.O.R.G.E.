@@ -569,6 +569,60 @@ int main(int argc, char** argv) {
         check(!analysis.at("complete").get<bool>(),
               "Syntax selection admitted a cursor past the visible final newline");
         editor.open(files.document, "Native/First.cpp", 1, 1);
+        const auto range_begin = draft.find("float "), range_end = draft.find("};", range_begin);
+        const auto range_args = [&](const std::string& kind = "formatSelection") {
+            const auto observed = invoke("code.read", {{"path", "Native/First.cpp"}});
+            return forge::Json{{"path", "Native/First.cpp"},    {"session", observed.at("session")},
+                               {"state", observed.at("state")}, {"kind", kind},
+                               {"offset", range_begin},         {"end_offset", range_end}};
+        };
+        for (const auto* mode :
+             {"range-format-object", "range-format-unavailable", "range-format-absent"}) {
+            SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", mode, true);
+            const auto before_range = invoke("code.read", {{"path", "Native/First.cpp"}});
+            invoke("code.analysis.start", range_args());
+            analysis = settle_analysis();
+            if (std::string_view(mode) == "range-format-object") {
+                check(analysis.at("complete").get<bool>() &&
+                          analysis.at("total").get<std::size_t>() == 1 &&
+                          invoke("code.read", {{"path", "Native/First.cpp"}}) == before_range,
+                      "Selected formatting did not retain read-only review/source state");
+                const auto proposal = analysis.at("items").at(0).at("text").get<std::string>();
+                check(proposal.substr(0, range_begin) == draft.substr(0, range_begin) &&
+                          proposal.ends_with(draft.substr(range_end)),
+                      "Fixture selected-format proposal changed unselected neighboring source");
+                use_analysis(analysis);
+                check(editor.active_text() == proposal,
+                      "Selected format differed from reviewed proposal");
+                editor.undo(false);
+                check(editor.active_text() == draft, "Selected formatting was not one source Undo");
+                editor.undo(true);
+                check(editor.active_text() == proposal,
+                      "Selected formatting Redo lost its proposal");
+                editor.undo(false);
+            } else
+                check(!analysis.at("complete").get<bool>() &&
+                          !analysis.at("error").get<std::string>().empty(),
+                      "Unsupported range formatting capability was admitted");
+            check(forge::ui::read_cpp_source(root / "Native/First.cpp") == disk_before_analysis,
+                  "Range query or proposal changed saved bytes");
+        }
+        SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+        const auto before_invalid_range = invoke("code.analysis.status", {});
+        for (const auto& invalid :
+             {forge::Json{{"end_offset", range_begin}},
+              forge::Json{{"end_offset", draft.size() + 1}}, forge::Json{{"kind", "format"}}}) {
+            auto arguments = range_args();
+            arguments.update(invalid);
+            bool refused = false;
+            try {
+                invoke("code.analysis.start", arguments);
+            } catch (const std::exception&) {
+                refused = true;
+            }
+            check(refused && invoke("code.analysis.status", {}) == before_invalid_range,
+                  "Invalid formatting range launched or retired an existing task");
+        }
         const auto before_format = invoke("code.read", {{"path", "Native/First.cpp"}});
         start_analysis("format");
         analysis = settle_analysis();

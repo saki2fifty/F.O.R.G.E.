@@ -347,6 +347,34 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     editor.undo(true);
     check(editor.active_text() == format_after, "Native formatting Redo lost its proposal");
     editor.undo(false);
+    input.type("cpp:find:query", "void tick(){speed+=1;}", false);
+    input.click("cpp:find:next");
+    frame();
+    check(test::ui_targets.contains("cpp:selection"),
+          "Native Find did not create the actual selection for range formatting");
+    input.click("cpp:analysis:formatSelection");
+    wait_result();
+    check(editor.active_text() == format_before && !editor.can_undo(),
+          "Native selected-format query changed its draft/history before review");
+    reveal_source();
+    if (!captures.empty())
+        capture.save(captures / ("cpp-format-selection-" + std::to_string(width) + ".png"));
+    input.select("cpp:analysis:use:0");
+    frame();
+    const auto range_after = editor.active_text();
+    check(range_after != format_before && ui::read_cpp_source(format_path) == format_disk,
+          "Native selected format lost its reviewed source/disk boundary");
+    editor.undo(false);
+    check(editor.active_text() == format_before && !editor.can_undo(),
+          "Native selected format required more than one widget Undo");
+    editor.undo(true);
+    check(editor.active_text() == range_after, "Native selected-format Redo lost the candidate");
+    editor.undo(false);
+    editor.open(document, "Native/FormatProbe.hpp", 1, 1);
+    frame();
+    check(test::ui_targets.contains("cpp:analysis:formatSelection") &&
+              !test::ui_targets.at("cpp:analysis:formatSelection").enabled,
+          "Native selection formatting stayed enabled without an active selection");
     const std::string rename_saved = "#pragma once\n// café\ninline float eval(float rename_rate) "
                                      "{ return rename_rate + rename_rate; }";
     const auto rename_path = root / "Native/RenameProbe.hpp";

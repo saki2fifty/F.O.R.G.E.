@@ -315,6 +315,33 @@ for legacy in protocol_cases():
             mutate('forge_code_undo', **observed())
             assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == symbol_text
             assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original
+            range_text = symbol_text + '\nint range_first(){return 1;}\nint range_second(){return 2;}\n'
+            mutate('forge_code_replace', **observed(), text=range_text)
+            range_before = read('forge_code_read', path='Native/gameplay.cpp')
+            range_start = range_text.index('int range_first()')
+            range_stop = range_text.index('\n', range_start)
+            mutate('forge_code_analysis_start', **observed(), kind='formatSelection',
+                   offset=len(range_text[:range_start].encode()),
+                   end_offset=len(range_text[:range_stop].encode()), tool=PROVIDER)
+            range_result = settle('forge_code_analysis_status')
+            (root / 'analysis-format-selection-result.json').write_text(json.dumps(range_result, indent=2))
+            assert range_result['complete'] and range_result['total'] == 1, range_result
+            assert read('forge_code_read', path='Native/gameplay.cpp') == range_before
+            range_proposal = range_result['items'][0]['text']
+            assert range_proposal.startswith(range_text[:range_start])
+            assert range_proposal.endswith(range_text[range_stop:])
+            assert range_proposal != range_text
+            mutate('forge_code_analysis_use', operation=range_result['operation'], index=0)
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == range_proposal
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == range_text
+            mutate('forge_code_redo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == range_proposal
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == range_text
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == symbol_text
+            assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original
             mutate('forge_code_analysis_start', **observed(), kind='hover', offset=len(symbol_text.encode()), tool=PROVIDER)
             result = settle('forge_code_analysis_status')
             assert result['complete'] and result['readonly'] and result['total'] == 0, result

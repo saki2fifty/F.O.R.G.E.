@@ -3,6 +3,7 @@
 #include <array>
 #include <filesystem>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -10,13 +11,26 @@
 struct SDL_Environment;
 
 namespace forge {
-inline constexpr std::array<std::string_view, 14> cpp_semantic_kinds{
+inline constexpr std::array<std::string_view, 15> cpp_semantic_kinds{
     "completion",     "declaration", "signature",      "diagnostics", "hover",
     "symbols",        "references",  "typeDefinition", "format",      "definition",
-    "implementation", "selection",   "rename",         "fixes"};
+    "implementation", "selection",   "rename",         "fixes",       "formatSelection"};
 inline bool cpp_semantic_kind(std::string_view kind) {
     return std::find(cpp_semantic_kinds.begin(), cpp_semantic_kinds.end(), kind) !=
            cpp_semantic_kinds.end();
+}
+inline void validate_cpp_format_range(std::string_view kind, std::string_view text,
+                                      std::size_t offset, std::optional<std::size_t> end) {
+    if (kind != "formatSelection") {
+        if (end)
+            throw std::runtime_error("An end offset applies only to Format selection");
+        return;
+    }
+    if (!end || offset >= *end || *end > text.size())
+        throw std::runtime_error("Choose a nonempty C++ source range within the current draft");
+    for (const auto position : {offset, *end})
+        if (position < text.size() && (static_cast<unsigned char>(text[position]) & 0xc0) == 0x80)
+            throw std::runtime_error("C++ formatting range splits a UTF-8 character");
 }
 struct CppSemanticContext {
     std::filesystem::path project, directory;

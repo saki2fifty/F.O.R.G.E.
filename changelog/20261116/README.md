@@ -1,5 +1,13 @@
 # 2026-11-16
 
+## Selected C++ source formatting
+
+Code assistance can prepare formatting for the current source selection. Native
+controls and automation/MCP share the existing finite analysis task, reviewed
+complete-file proposal, caret mapping and one source Undo. UTF-8 range and provider
+capability checks preserve the draft on refusal. Whole-file formatting, Save and
+Build remain available through their existing workflows.
+
 ## Direct camera-shot timing edits
 
 Timeline offers explicit shot timing editing with body moves, edge trims and
