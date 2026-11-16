@@ -746,7 +746,10 @@ Signature information negotiates plain parameter labels and plain-text documenta
 The exact [server capability handling](https://github.com/llvm/llvm-project/blob/ea7d852a70e8bdfaf601d6626a760f9771b2c4b4/clang-tools-extra/clangd/ClangdLSPServer.cpp)
 and Protocol serialization strip parameter label offsets when labelOffsetSupport
 is false; matching CodeCompleteTests and the real-provider Unicode/astral probe
-confirm the selected plain-label path. No label-offset conversion is inferred.
+confirm the selected plain-label path. Hover content explicitly negotiates plaintext;
+hierarchical documentSymbols includes source/selection ranges and nested declarations.
+Exact cached Protocol/server contracts and real-provider Unicode/empty-result
+probes verify both formats; source-position interpretation stays UTF8. No label-offset conversion is inferred.
 The selected source confirms dirty headers default off and document symbols wait
 for the document AST; both conditions matter for a fresh finite query. Full IDE
 features, provider workspace commands/edits and arbitrary release compatibility

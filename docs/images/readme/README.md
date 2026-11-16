@@ -3818,23 +3818,27 @@ their original attribution.
 
 ## C++ code assistance
 
-[Call signatures](../../../manual/images/cpp-code-assistance.png) and
-[source diagnostics](../../../manual/images/cpp-source-diagnostics.png) show the
-actual700×850 CppSourceEditor using a separately installed clangd23.1.0 and a
-genuine managed GNU12.3.0/Release SDK CMake context. Signature information shows
-the call site and active second parameter. The diagnostic capture shows deliberate
-current-draft errors/warnings, receive date/time/offset, clickable Native locations
-and the selected source line. These views do not imply compiler success or fixes.
+[Call signatures](../../../manual/images/cpp-code-assistance.png),
+[source diagnostics](../../../manual/images/cpp-source-diagnostics.png),
+[symbol information](../../../manual/images/cpp-symbol-information.png) and
+[file outlines](../../../manual/images/cpp-file-outline.png) show the actual
+700×850 CppSourceEditor with a separately installed clangd23.1.0 and a genuine
+managed GNU12.3.0/Release SDK CMake context. Each task has one canonical image.
+Signature/diagnostic captures are refreshed for the current six-button toolbar;
+their content/behavior remains as in the reviewed preceding capture.
 
-The same real-control fixture passes1180/700/400 widths, completion/Undo, declaration,
-signatures and diagnostic navigation. Both700and400versions were visually reviewed.
-Check source wraps onto another line at400. Real mouse/wheel input reveals the
-source and moves away from hover help; pixels and controls are not retouched.
-Saved source and Scene remain unchanged; diagnostic navigation adds no source Undo.
+Symbol information shows the field type and plain-text declaration. The outline
+is naturally scrolled to a nested namespace/struct/field and selected source name.
+Both new views were reviewed at700and400. The existing responsive helper wraps
+controls into two lines at400. Real mouse/wheel/selection input reveals source
+and outline rows and moves away from help; no pixels or controls are retouched.
+All six assistance modes pass actual controls at1180/700/400. Navigation/information
+preserve source Undo and Save; saved files and Scene remain unchanged.
 
-Capture source is the working tree based on49c3787. Exact source, executable,
-provider and image hashes, original paths and the test command are recorded in
-`AgentFiles/build/phase366-cpp-source-diagnostics/capture-proof-final.json`.
-Each canonical PNG is copied byte-for-byte. This software SDL/ImGui source-owner
-fixture has inactive New/build callbacks; it is separate from Windows Main/provider,
+Capture source is the working tree based on25bac67. Exact source, executable,
+provider and image hashes, original paths and test command are recorded in
+`AgentFiles/build/phase367-cpp-symbol-inspection/capture-proof-final.json`.
+Canonical PNGs are copied byte-for-byte. This software SDL/ImGui source-owner
+fixture has inactive New/build callbacks and deliberate incomplete code examples;
+it is separate from compiler success, automatic fixes, full Windows Main/provider,
 physical desktop/GPU/DPI and performance acceptance.

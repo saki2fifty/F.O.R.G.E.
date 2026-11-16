@@ -3044,6 +3044,8 @@ read-only signatures/overloads/Unicode parameter labels/documentation, zero/empt
 limited results, malformed signature replies and retired information contexts,
 versioned diagnostic publication ordering/empty/missing/external/malformed cases,
 receive timestamps and guarded diagnostic navigation,
+plain read-only symbol information, optional ranges, paged nested file symbols,
+outline count/depth budgets and malformed symbol replies,
 changed dependencies and compiler generations, malformed/version/exit failures,
 unsupported commands/external declarations, cancellation and project retirement.
 Successful queries require provider exit0 and supervisor retirement. Forced error
@@ -3064,6 +3066,10 @@ header and inspects a read-only call with Unicode/astral parameter names through
 both MCP envelopes. Signature queries preserve source bytes, cursor and Undo.
 Actual diagnostic checks cover clean code, UTF8 error ranges and unsaved headers
 through both adapters; diagnostic navigation preserves source bytes and Undo.
+Real symbol checks exercise plain Unicode type information/ranges, nested namespace/
+struct/field/method outlines and paged navigation, empty hover/outline results and
+unchanged source history/disk. All existing semantic modes run through the shared
+transport/location normalizer in the same integration.
 Actual build/deployment outcomes are retained;
 Linux's Windows-only deployment refusal is distinct from successful configuration
 and analysis. The native control executable also accepts an existing project and

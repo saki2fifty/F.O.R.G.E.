@@ -143,10 +143,49 @@ for legacy in protocol_cases():
                 assert (root / 'Native/Spinner.hpp').read_bytes() == header_saved
                 mutate('forge_code_undo', **observed())
                 assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
+            header = read('forge_code_read', path='Native/Spinner.hpp')
+            mutate('forge_code_replace', **{key: header[key] for key in ('path', 'session', 'state')}, text=header_draft)
+            symbol_text = clean + '\nnamespace OutlineProbe { struct Pivot { /// Angular rate.\nfloat café; float 𐐀rate; void tick(); }; }\nvoid inspect() { OutlineProbe::Pivot p; (void)p.café; }\n'
+            mutate('forge_code_replace', **observed(), text=symbol_text)
+            symbol_before = read('forge_code_read', path='Native/gameplay.cpp')
+            symbol_offset = len(symbol_text[:symbol_text.rindex('p.café') + 2].encode())
+            mutate('forge_code_analysis_start', **observed(), kind='hover', offset=symbol_offset, tool=PROVIDER)
+            result = settle('forge_code_analysis_status')
+            (root / 'analysis-hover-result.json').write_text(json.dumps(result, indent=2))
+            assert result['complete'] and result['readonly'] and result['total'] == 1, result
+            assert 'café' in result['items'][0]['documentation'] and 'float' in result['items'][0]['documentation']
+            assert result['items'][0]['begin'] == symbol_offset
+            assert read('forge_code_read', path='Native/gameplay.cpp') == symbol_before
+            mutate('forge_code_analysis_start', **observed(), kind='symbols', offset=0, tool=PROVIDER)
+            result = settle('forge_code_analysis_status')
+            assert result['complete'] and not result['limited'] and not result['stale'], result
+            pages = [read('forge_code_analysis_status', offset=offset, limit=8) for offset in range(0, result['total'], 8)]
+            items = [item for page in pages for item in page['items']]
+            (root / 'analysis-symbols-result.json').write_text(json.dumps(dict(status=result, pages=pages), indent=2))
+            assert {'OutlineProbe', 'Pivot', 'café', '𐐀rate', 'tick'}.issubset({item['label'] for item in items}), items
+            member = next(item for item in items if item['label'] == 'café')
+            assert member['depth'] == 2 and member['begin'] == len(symbol_text[:symbol_text.index('float café') + 6].encode()), member
+            assert read('forge_code_read', path='Native/gameplay.cpp') == symbol_before
+            mutate('forge_code_analysis_use', operation=result['operation'], index=member['index'])
+            source = read('forge_code_read', path='Native/gameplay.cpp')
+            assert source['text'] == symbol_text and source['cursor']['line'] == member['line']
+            mutate('forge_code_analysis_start', **observed(), kind='hover', offset=len(symbol_text.encode()), tool=PROVIDER)
+            result = settle('forge_code_analysis_status')
+            assert result['complete'] and result['readonly'] and result['total'] == 0, result
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
+            mutate('forge_code_replace', **observed(), text='// no declarations\n')
+            mutate('forge_code_analysis_start', **observed(), kind='symbols', offset=0, tool=PROVIDER)
+            result = settle('forge_code_analysis_status')
+            assert result['complete'] and result['total'] == 0, result
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
+            assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original
+            assert (root / 'Native/Spinner.hpp').read_bytes() == header_saved
         finish_host(process, root)
     finally:
         write_capture(CAPTURE)
         if process.poll() is None:
             finish_host(process, root)
 write_capture(CAPTURE)
-print('Real separately installed provider, genuine managed SDK CMake context, unsaved completion/Undo/declaration, Unicode call signatures, versioned diagnostics/clean-code/unsaved-header checks and clean native shutdown passed')
+print('Real separately installed provider, genuine managed SDK CMake context, unsaved completion/Undo/declaration, Unicode call signatures, versioned diagnostics, plain symbol information, nested file outline/empty results and clean native shutdown passed')

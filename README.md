@@ -273,19 +273,20 @@ same views; physical Windows/full editor and graphical EXE review remains pendin
 
 ## Current implementation
 
-**Windows Build 213:** [native MCP authoring tools](manual/editor/mcp.md) connect AI
+**Windows Build 230:** [native MCP authoring tools](manual/editor/mcp.md) connect AI
 clients to the editor's existing project, scene, asset, C++, Play, capture and
 export tools. Separate grants control native execution and output folders.
-The [packaged Windows check](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/40093162001)
+The [packaged Windows check](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/43745427943)
 creates a C++ cube project, compiles and plays it, captures the Game view, and
 verifies its saved C++ behavior in the exported game. Automated rendering uses
 D3D12 WARP and offline audio; physical hardware and AI application testing remain
 separate.
-See the [capability checklist and validation limits](docs/mcp.md).
+See the [capability checklist and validation limits](docs/mcp.md). Newer source includes the optional C++ assistance below; those additions are outside the Build 230 ZIP.
 
 - Flecs scene state, stable authored IDs, independent local translation/rotation/scale, derived world transforms, structured prefabs, reflected properties, atomic scene replacement and saves, undo/redo, and unknown-component preservation.
 - Runtime-owned fixed clock, unscaled C++ timers during Pause/zero speed, Pause/Step/Resume, derived hierarchical pose interpolation and a separate Play process with protocol 2. Project C++ gameplay registers Flecs components and systems through the exact matching SDK.
 - Built-in C++ source editing, Component/System creation, incremental CMake builds and isolated candidate validation. Code iteration uses Stop → Save → Build → Play; changed source is never silently run or exported from an older module.
+- Optional [C++ code assistance](manual/editor/native-gameplay.md): completion, declarations, call signatures, current-draft diagnostics, plain symbol information and file outlines. A separately installed supported clangd uses the managed CMake context and open drafts. Native controls and MCP share source/navigation/history guards; the provider is not bundled.
 - Restart-bound plugin package validation/staging library. Native editor-plugin loading is not implemented.
 - Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, Hierarchy/Inspector/Content/Scene panels, CPU performance diagnostics, and shared Diligent Scene/Game rendering with imported models, PBR materials, cameras, lights, skins and morphs. Windows compilation is validated in GitHub Actions; the initial editor and subsequent UI controls have been exercised on a Windows desktop.
 

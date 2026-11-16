@@ -154,12 +154,58 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
         capture.save(captures / ("cpp-diagnostics-" + std::to_string(width) + ".png"));
     editor.undo(false);
     check(editor.active_text() == completed, "Diagnostic navigation added a source Undo record");
+    const auto symbol_draft =
+        completed + "\nnamespace SymbolProbe { struct Pivot { float outline_member; }; }\n"
+                    "void symbol_use() { SymbolProbe::Pivot p; (void)p.outline_member; }\n";
+    editor.replace_text(symbol_draft);
+    const auto symbol_position =
+        ui::cpp_source_coordinate(symbol_draft, symbol_draft.rfind("p.outline_member") + 2);
+    editor.open(document, "Native/gameplay.cpp", symbol_position.first + 1,
+                symbol_position.second + 1);
+    frame();
+    input.click("cpp:analysis:hover");
+    const auto info_end = std::chrono::steady_clock::now() + std::chrono::seconds(40);
+    while (!test::ui_targets.contains("cpp:analysis:info:0")) {
+        check(std::chrono::steady_clock::now() < info_end,
+              "Native symbol information did not arrive");
+        frame();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    check(editor.active_text() == symbol_draft && !test::ui_targets.contains("cpp:analysis:use:0"),
+          "Native symbol information became a source edit");
+    reveal_source();
+    if (!captures.empty())
+        capture.save(captures / ("cpp-symbol-info-" + std::to_string(width) + ".png"));
+    editor.undo(false);
+    check(editor.active_text() == completed, "Symbol information added a source Undo record");
+    editor.undo(true);
+    frame();
+    input.click("cpp:analysis:symbols");
+    const auto symbols_end = std::chrono::steady_clock::now() + std::chrono::seconds(40);
+    while (!test::ui_targets.contains("cpp:analysis:symbol:outline_member")) {
+        check(std::chrono::steady_clock::now() < symbols_end, "Native file outline did not arrive");
+        frame();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    input.select("cpp:analysis:symbol:outline_member");
+    reveal_source();
+    if (!captures.empty())
+        capture.save(captures / ("cpp-file-symbols-" + std::to_string(width) + ".png"));
+    check(editor.active_text() == symbol_draft &&
+              ui::read_cpp_source(root / "Native/gameplay.cpp") == saved &&
+              scene.document() == authored,
+          "Native file outline changed source or Scene");
+    editor.undo(false);
+    check(editor.active_text() == completed, "File outline navigation added a source Undo record");
     locked = true;
     frame();
     check(!test::ui_targets.at("cpp:analysis:signature").enabled,
           "Native signature query bypassed the source lock");
     check(!test::ui_targets.at("cpp:analysis:diagnostics").enabled,
           "Native diagnostic query bypassed the source lock");
+    check(!test::ui_targets.at("cpp:analysis:hover").enabled &&
+              !test::ui_targets.at("cpp:analysis:symbols").enabled,
+          "Native symbol controls bypassed the source lock");
     editor.project_changed(root / "DifferentProject");
     test::observe_ui = false;
 }

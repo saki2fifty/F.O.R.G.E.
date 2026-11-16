@@ -57,6 +57,13 @@ int main() {
                 if (signature.at("parameterInformation").at("labelOffsetSupport").get<bool>() ||
                     signature.at("documentationFormat") != Json::array({"plaintext"}))
                     throw std::runtime_error("Signature plain-label negotiation missing");
+                const auto& document = request.at("params").at("capabilities").at("textDocument");
+                if (document.at("hover").at("contentFormat") != Json::array({"plaintext"}) ||
+                    !document.at("documentSymbol")
+                         .at("hierarchicalDocumentSymbolSupport")
+                         .get<bool>())
+                    throw std::runtime_error(
+                        "Plain symbol information/hierarchical outline negotiation missing");
                 result = {
                     {"serverInfo",
                      {{"name", "clangd"},
@@ -67,13 +74,56 @@ int main() {
                     {"capabilities",
                      {{"positionEncoding", "utf-8"},
                       {"documentSymbolProvider", true},
-                      {"signatureHelpProvider", Json::object()}}}};
+                      {"signatureHelpProvider", Json::object()},
+                      {"hoverProvider", mode != "hover-unavailable"}}}};
                 if (mode == "signature-unavailable")
                     result["capabilities"].erase("signatureHelpProvider");
             } else if (method == "textDocument/documentSymbol") {
                 ready = request.at("params").at("textDocument").at("uri").get<std::string>();
                 result = Json::array();
                 const auto& text = drafts.at(ready);
+                const std::string field = text.find("outline_member") != text.npos
+                                              ? "outline_member"
+                                              : "degrees_per_second";
+                const auto field_begin = text.find(field);
+                if (field_begin != text.npos) {
+                    const Json range{
+                        {"start", forge::cpp_semantic_position(text, field_begin)},
+                        {"end", forge::cpp_semantic_position(text, field_begin + field.size())}};
+                    Json item{{"name", field},
+                              {"detail", "float"},
+                              {"kind", 8},
+                              {"range", range},
+                              {"selectionRange", range}};
+                    Json parent{{"name", "Fixture scope"},
+                                {"kind", 3},
+                                {"range",
+                                 {{"start", forge::cpp_semantic_position(text, 0)},
+                                  {"end", forge::cpp_semantic_position(text, text.size())}}},
+                                {"selectionRange",
+                                 {{"start", forge::cpp_semantic_position(text, 0)},
+                                  {"end", forge::cpp_semantic_position(text, 0)}}},
+                                {"children", Json::array({item})}};
+                    result = Json::array({parent});
+                    if (mode == "symbols-empty")
+                        result = Json::array();
+                    else if (mode == "symbols-range")
+                        result[0]["children"][0]["selectionRange"] = parent["selectionRange"];
+                    else if (mode == "symbols-kind")
+                        result[0]["kind"] = 27;
+                    else if (mode == "symbols-label")
+                        result[0]["name"] = std::string(2049, 'x');
+                    else if (mode == "symbols-limited") {
+                        result = Json::array();
+                        for (int i = 0; i != 65; ++i)
+                            result.push_back(item);
+                    } else if (mode == "symbols-depth") {
+                        for (int i = 0; i != 17; ++i) {
+                            parent["children"] = result;
+                            result = Json::array({parent});
+                        }
+                    }
+                }
                 const auto begin = text.find("degrees_per_second");
                 Json diagnostics = Json::array();
                 if (begin != text.npos) {
@@ -134,6 +184,27 @@ int main() {
                 if (mode == "invalid-range")
                     item["textEdit"]["range"]["start"]["character"] = 999999;
                 result = {{"items", Json::array({item})}, {"isIncomplete", false}};
+            } else if (method == "textDocument/hover") {
+                const auto& params = request.at("params");
+                if (ready != params.at("textDocument").at("uri").get<std::string>())
+                    throw std::runtime_error("Symbol information ran before document readiness");
+                const auto& text = drafts.at(ready);
+                const auto begin = forge::cpp_semantic_offset(text, params.at("position"));
+                result = {
+                    {"contents", {{"kind", "plaintext"}, {"value", "Current symbol\nType: float"}}},
+                    {"range",
+                     {{"start", forge::cpp_semantic_position(text, begin)},
+                      {"end", forge::cpp_semantic_position(text, begin)}}}};
+                if (mode == "hover-null")
+                    result = nullptr;
+                else if (mode == "hover-markdown")
+                    result["contents"]["kind"] = "markdown";
+                else if (mode == "hover-range")
+                    result["range"]["start"]["character"] = 999999;
+                else if (mode == "hover-oversized")
+                    result["contents"]["value"] = std::string(8193, 'x');
+                else if (mode == "hover-no-range")
+                    result.erase("range");
             } else if (method == "textDocument/signatureHelp") {
                 if (ready != request.at("params").at("textDocument").at("uri").get<std::string>())
                     throw std::runtime_error("Signature ran before document readiness");

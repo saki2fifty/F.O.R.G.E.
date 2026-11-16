@@ -64,7 +64,7 @@ for legacy in protocol_cases():
                         assert read('forge_code_analysis_status')['operation'] is None
                         continue
                     assert tools['forge_code_analysis_start']['annotations']['openWorldHint']
-                    assert {'signature', 'diagnostics'}.issubset(tools['forge_code_analysis_start']['inputSchema']['properties']['kind']['enum'])
+                    assert {'signature', 'diagnostics', 'hover', 'symbols'}.issubset(tools['forge_code_analysis_start']['inputSchema']['properties']['kind']['enum'])
                     assert not tools['forge_code_analysis_use']['annotations']['openWorldHint']
                     assert mutate('forge_code_open', path='Native/Spinner.cpp')['ok']
                     assert mutate('forge_code_replace', **observed_args(), text=draft)['ok']
@@ -123,6 +123,23 @@ for legacy in protocol_cases():
                     assert mutate('forge_code_analysis_use', operation=status['operation'], index=0)['ok']
                     source = read('forge_code_read', path='Native/Spinner.cpp')
                     assert source['text'] == draft and source['cursor']['line'] == diagnostic['line']
+                    information_before = read('forge_code_read', path='Native/Spinner.cpp')
+                    started = mutate('forge_code_analysis_start', **(observed_args() | dict(kind='hover', offset=args['offset'])))
+                    assert started['ok'], started
+                    status = settle()
+                    assert status['complete'] and status['readonly'] and 'float' in status['items'][0]['documentation'], status
+                    refused = mutate('forge_code_analysis_use', operation=status['operation'], index=0)
+                    assert not refused['ok'] and 'read-only' in str(refused), refused
+                    assert read('forge_code_read', path='Native/Spinner.cpp') == information_before
+                    started = mutate('forge_code_analysis_start', **(observed_args() | dict(kind='symbols', offset=0)))
+                    assert started['ok'], started
+                    status = settle()
+                    assert status['complete'] and status['total'] == 2, status
+                    child = read('forge_code_analysis_status', offset=1, limit=1)['items'][0]
+                    assert child['index'] == 1 and child['depth'] == 1 and child['label'] == 'degrees_per_second'
+                    assert mutate('forge_code_analysis_use', operation=status['operation'], index=child['index'])['ok']
+                    source = read('forge_code_read', path='Native/Spinner.cpp')
+                    assert source['text'] == draft and source['cursor']['line'] == child['line']
                     started = mutate('forge_code_analysis_start', **(observed_args() | dict(kind='completion', offset=args['offset'])))
                     assert started['ok'], started
                     status = settle()

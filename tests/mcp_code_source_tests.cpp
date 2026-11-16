@@ -414,6 +414,59 @@ int main(int argc, char** argv) {
                       std::string("Malformed or missing diagnostics accepted: ") + mode);
         }
         SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+        const auto information_source = invoke("code.read", {{"path", "Native/First.cpp"}});
+        start_analysis("hover");
+        analysis = settle_analysis();
+        check(analysis.at("complete") && analysis.at("readonly") && analysis.at("total") == 1 &&
+                  analysis.at("items").at(0).at("documentation").get<std::string>().find("float") !=
+                      std::string::npos,
+              "Symbol information lost negotiated plain text");
+        bool information_readonly = false;
+        try {
+            use_analysis(analysis);
+        } catch (const std::exception& error) {
+            information_readonly =
+                std::string_view(error.what()).find("read-only") != std::string_view::npos;
+        }
+        check(information_readonly &&
+                  invoke("code.read", {{"path", "Native/First.cpp"}}) == information_source,
+              "Symbol information changed source, cursor or history");
+        start_analysis("symbols");
+        analysis = settle_analysis();
+        const auto nested = invoke("code.analysis.status", {{"offset", 1}, {"limit", 1}});
+        check(analysis.at("complete") && analysis.at("total") == 2 &&
+                  nested.at("items").at(0).at("depth") == 1 &&
+                  nested.at("items").at(0).at("label") == "degrees_per_second",
+              "File outline lost nested source symbols or paged indices");
+        invoke("code.analysis.use", {{"operation", analysis.at("operation")}, {"index", 1}});
+        check(editor.active_text() == draft &&
+                  invoke("code.read", {{"path", "Native/First.cpp"}}).at("cursor").at("line") == 2,
+              "File outline navigation changed source or chose the wrong location");
+        for (const auto* mode :
+             {"hover-null", "hover-no-range", "hover-markdown", "hover-range", "hover-oversized",
+              "hover-unavailable", "symbols-empty", "symbols-limited", "symbols-depth",
+              "symbols-range", "symbols-kind", "symbols-label"}) {
+            SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", mode, true);
+            const std::string_view selected(mode);
+            start_analysis(selected.starts_with("hover") ? "hover" : "symbols");
+            analysis = settle_analysis();
+            if (selected == "hover-null" || selected == "symbols-empty")
+                check(analysis.at("complete") && analysis.at("total") == 0,
+                      "Empty symbol query failed");
+            else if (selected == "hover-no-range")
+                check(analysis.at("complete") && analysis.at("readonly") &&
+                          !analysis.at("items").at(0).contains("begin"),
+                      "Optional information range was invented");
+            else if (selected == "symbols-limited" || selected == "symbols-depth")
+                check(analysis.at("complete") && analysis.at("limited") &&
+                          analysis.at("total") == (selected == "symbols-limited" ? 64 : 16),
+                      "File symbol count/depth exceeded its bounds");
+            else
+                check(!analysis.at("complete").get<bool>() &&
+                          !analysis.at("error").get<std::string>().empty(),
+                      std::string("Malformed symbol reply accepted: ") + mode);
+        }
+        SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
         const auto cancelled = start_analysis();
         invoke("code.analysis.cancel", {{"operation", cancelled.at("operation")}});
         analysis = settle_analysis();

@@ -259,7 +259,9 @@ struct CodeAutomation {
             "Results belong to the exact queried drafts and compiler context. Call signatures "
             "are read-only; active indices refer to the full result, before pagination. "
             "Diagnostics carry receive date/time, severity, message and a guarded source location. "
-            "Use code.analysis.use to apply a completion or navigate a declaration/diagnostic.",
+            "Symbol information is read-only; file symbols provide a bounded hierarchical outline. "
+            "Use code.analysis.use to apply a completion or navigate a "
+            "declaration/diagnostic/symbol.",
             "code.read",
             automation_object(
                 {{"offset", automation_integer()}, {"limit", automation_integer(1, 8)}}),
@@ -276,10 +278,11 @@ struct CodeAutomation {
                 result["items"] = Json::array();
                 const auto& response = editor.semantic_task_.result();
                 if (!response.is_null()) {
+                    if (response.value("readonly", false))
+                        result["readonly"] = true;
                     if (response.contains("occurred_at"))
                         result["occurred_at"] = response.at("occurred_at");
                     if (response.at("kind").get<std::string>() == "signature") {
-                        result["readonly"] = true;
                         result["active_signature"] = response.at("active_signature");
                         result["active_parameter"] = response.at("active_parameter");
                     }
@@ -458,7 +461,9 @@ struct CodeAutomation {
                 "Use an available result of the exact analysis operation. Completion changes "
                 "the existing source tab with one Undo record; declaration/diagnostic opens only a "
                 "contained "
-                "Native source. Signatures are read-only. Reject changed drafts, disk inputs or "
+                "Native source. File symbols use the same navigation; signatures/symbol "
+                "information "
+                "are read-only. Reject changed drafts, disk inputs or "
                 "compiler generation. "
                 "Does not save files or execute provider commands.",
                 "code.write",
@@ -523,7 +528,8 @@ struct CodeAutomation {
         if (permissions.execute) {
             methods.push_back(automation_method(
                 "code.analysis.start",
-                "Query completion, declaration, read-only call signatures or source diagnostics at "
+                "Query completion, declaration, call signatures, diagnostics, symbol information "
+                "or file symbols at "
                 "a UTF-8 "
                 "byte offset in the observed open "
                 "C++ tab, using all current open drafts and the existing configured CMake context. "
@@ -531,16 +537,17 @@ struct CodeAutomation {
                 "overrides only this launch. Tooling runs with this account's OS access; no "
                 "provider command or workspace edit is accepted. Poll code.analysis.status/log.",
                 "code.execute",
-                automation_object(
-                    {{"path", automation_text(2047, 1)},
-                     {"session", automation_uuid()},
-                     {"state", automation_digest()},
-                     {"kind",
-                      {{"type", "string"},
-                       {"enum", {"completion", "declaration", "signature", "diagnostics"}}}},
-                     {"offset", automation_integer(0, ui::max_cpp_source_bytes)},
-                     {"tool", automation_text(4096, 1)}},
-                    {"path", "session", "state", "kind", "offset"}),
+                automation_object({{"path", automation_text(2047, 1)},
+                                   {"session", automation_uuid()},
+                                   {"state", automation_digest()},
+                                   {"kind",
+                                    {{"type", "string"},
+                                     {"enum",
+                                      {"completion", "declaration", "signature", "diagnostics",
+                                       "hover", "symbols"}}}},
+                                   {"offset", automation_integer(0, ui::max_cpp_source_bytes)},
+                                   {"tool", automation_text(4096, 1)}},
+                                  {"path", "session", "state", "kind", "offset"}),
                 true, [&files, &editor, providers](const Json& request) {
                     available(files, providers);
                     const auto& source = tab(editor, files, request);

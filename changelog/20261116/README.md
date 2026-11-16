@@ -18,3 +18,13 @@ receive date/time, severity, message and guarded source navigation. Empty comple
 publications are distinct from absent or malformed data. Native controls and MCP
 share the same bounded task and source/context guards; navigation adds no source
 Undo or Save. Compiler output and Problems retain their existing owners.
+
+## C++ symbol inspection
+
+Symbol info returns bounded plain-text type/documentation at the current cursor.
+Symbols in file lists nested declarations and navigates through the existing
+source guards. Both workflows share the finite provider task, managed compiler
+context and current drafts. The outline reuses the existing AST-ready response;
+shared source-location normalization keeps declaration/diagnostic/outline behavior
+consistent. Read-only information and navigation preserve source Undo and Save.
+Native controls wrap at narrow widths; MCP exposes the same query kinds and pages.

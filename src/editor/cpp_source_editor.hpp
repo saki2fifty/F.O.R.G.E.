@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <imgui_internal.h>
 #include <memory>
+#include <utility>
 
 namespace forge {
 struct CodeAutomation;
@@ -133,16 +134,18 @@ class CppSourceEditor {
             !semantic_task_.current(semantic_context(), source_drafts()))
             throw std::runtime_error("C++ analysis is stale or unfinished; run the query again");
         const auto& result = semantic_task_.result();
-        if (result.at("kind").get<std::string>() == "signature")
+        if (result.at("kind").get<std::string>() == "signature" ||
+            result.at("kind").get<std::string>() == "hover")
             throw std::runtime_error(
-                "Signature information is read-only; choose a source edit or declaration result");
+                "This information is read-only; choose a source edit or navigation result");
         const auto& items = result.at("items");
         if (index >= items.size() || !items.at(index).at("available").get<bool>())
             throw std::runtime_error("Choose an available C++ analysis result");
         // Own the row before any source operation can invalidate the derived result.
         const auto item = items.at(index);
         if (result.at("kind").get<std::string>() == "declaration" ||
-            result.at("kind").get<std::string>() == "diagnostics") {
+            result.at("kind").get<std::string>() == "diagnostics" ||
+            result.at("kind").get<std::string>() == "symbols") {
             open(project, item.at("path").get<std::string>(), item.at("line").get<int>(),
                  item.at("column").get<int>(), item.at("state").get<std::string>());
             return;
@@ -596,15 +599,16 @@ class CppSourceEditor {
             "the compiler context. Queries use current open drafts.");
         ImGui::BeginDisabled(locked || !active_ || semantic_task_.busy());
         bool first_button = true;
-        for (const auto* kind : {"completion", "declaration", "signature", "diagnostics"}) {
-            const auto label = std::string_view(kind) == "completion"    ? "Complete"
-                               : std::string_view(kind) == "signature"   ? "Signature help"
-                               : std::string_view(kind) == "diagnostics" ? "Check source"
-                                                                         : "Find declaration";
+        constexpr std::pair<const char*, const char*> actions[]{
+            {"completion", "Complete"},      {"declaration", "Find declaration"},
+            {"signature", "Signature help"}, {"diagnostics", "Check source"},
+            {"hover", "Symbol info"},        {"symbols", "Symbols in file"}};
+        for (const auto& [kind, label] : actions) {
             if (!first_button)
                 next_text_button(label);
             first_button = false;
-            if (button(label, "Analyze the current cursor without saving or changing source."))
+            if (button(label,
+                       "Analyze the current source or position without saving or changing source."))
                 attempt([&] {
                     const auto cursor = active_->editor.GetCursorPosition();
                     const auto text = active_->editor.GetText();
@@ -630,20 +634,35 @@ class CppSourceEditor {
             ImGui::PushID(semantic_task_.operation().c_str());
             const bool signature = result.at("kind").get<std::string>() == "signature";
             const bool diagnostics = result.at("kind").get<std::string>() == "diagnostics";
+            const bool information = result.at("kind").get<std::string>() == "hover";
+            const bool symbols = result.at("kind").get<std::string>() == "symbols";
             if (signature)
                 ImGui::TextUnformatted("Call signatures (read-only)");
             if (diagnostics)
                 ImGui::TextWrapped("Diagnostics received: %s",
                                    result.at("occurred_at").get_ref<const std::string&>().c_str());
-            ImGui::BeginChild("Analysis results", {0, signature || diagnostics ? 160.f : 100.f},
-                              ImGuiChildFlags_Borders);
+            if (information)
+                ImGui::TextUnformatted("Symbol information (read-only)");
+            if (symbols)
+                ImGui::TextUnformatted("Symbols in file");
+            ImGui::BeginChild(
+                "Analysis results",
+                {0, signature || diagnostics || information || symbols ? 160.f : 100.f},
+                ImGuiChildFlags_Borders);
             const auto& items = result.at("items");
             if (items.empty())
                 ImGui::TextUnformatted(diagnostics
                                            ? "No diagnostics reported for this source draft."
-                                           : "No results at this cursor.");
+                                       : symbols ? "No symbols in this source draft."
+                                                 : "No results at this cursor.");
             for (std::size_t i = 0; i < items.size(); ++i) {
                 const auto& item = items.at(i);
+                if (information) {
+                    ImGui::TextWrapped(
+                        "%s", item.at("documentation").get_ref<const std::string&>().c_str());
+                    FORGE_UI_PROBE("cpp:analysis:info:" + std::to_string(i));
+                    continue;
+                }
                 if (signature) {
                     ImGui::TextWrapped("%s",
                                        item.at("label").get_ref<const std::string&>().c_str());
@@ -676,7 +695,12 @@ class CppSourceEditor {
                 ImGui::BeginDisabled(locked || semantic_task_.stale() ||
                                      !item.at("available").get<bool>());
                 const auto label =
-                    result.at("kind").get<std::string>() == "completion"
+                    symbols ? std::string(item.at("depth").get<std::size_t>() * 2, ' ') +
+                                  item.at("label").get<std::string>() +
+                                  (item.at("detail").get_ref<const std::string&>().empty()
+                                       ? ""
+                                       : " — " + item.at("detail").get<std::string>())
+                    : result.at("kind").get<std::string>() == "completion"
                         ? item.at("label").get<std::string>()
                     : diagnostics
                         ? item.at("path").get<std::string>() + ":" +
@@ -686,6 +710,8 @@ class CppSourceEditor {
                 if (ImGui::Selectable(label.c_str()))
                     attempt([&] { use_semantic_result(project, semantic_task_.operation(), i); });
                 FORGE_UI_PROBE("cpp:analysis:use:" + std::to_string(i));
+                if (symbols)
+                    FORGE_UI_PROBE("cpp:analysis:symbol:" + item.at("label").get<std::string>());
                 ImGui::EndDisabled();
                 if (!item.at("available").get<bool>())
                     ImGui::TextWrapped("%s",

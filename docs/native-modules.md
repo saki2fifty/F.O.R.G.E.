@@ -157,7 +157,7 @@ values, including prefab intent, scene persistence and Undo/Redo.
 
 ## Optional C++ source analysis
 
-`CppSourceEditor` owns one ephemeral completion/declaration/signature/diagnostic task over its existing
+`CppSourceEditor` owns one ephemeral completion/declaration/signature/diagnostic/symbol task over its existing
 open drafts. An optional separately installed clangd23.1.0 is the analysis provider;
 its exact revision and options are recorded in [dependencies](dependencies.md).
 The SDK compiler, source files, source history and authoring ownership are unchanged.
@@ -199,6 +199,15 @@ finite task stamps receipt using the existing local event-time helper. Navigatio
 shares declaration/source guards and adds no source Undo/Save. Compiler logs and
 Problems retain their owners; no second problem database or background provider
 service is introduced.
+
+Explicit symbol information negotiates plain hover content, validates optional UTF8
+ranges and cannot apply source edits. The file outline negotiates hierarchical
+document symbols and reuses the AST-ready request instead of querying again.
+Normalization flattens64rows/16levels with depth, detail and selection ranges;
+selection must be inside the symbol source range. Shared source-location
+normalization serves declarations, diagnostics and outline navigation while each
+caller retains containment, draft/read and failure ownership. No symbol registry
+or provider markup engine is introduced.
 
 Queries snapshot all open drafts, saved Native build-input identity and the actual
 compile-database digest. Response/apply checks preserve project, operation,

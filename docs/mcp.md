@@ -854,10 +854,18 @@ Only a matching target draft/version publication can complete, including a valid
 zero-row publication. Missing/malformed/versionless data fails closed. Results are
 bounded to64rows; status pagination and stale/cancel/context guards are shared.
 Only the queried file is collected; unrelated/external diagnostic content is omitted.
+Symbol information (`hover`) adds `readonly:true` and up to one item with plain
+`documentation` (8KiB) and optional UTF8 `begin`/`end`. Empty symbol contexts
+complete with zero items. File symbols (`symbols`) expose `label`, `detail`,
+zero-based `depth`, provider `symbol_kind`1..26 and the shared guarded source
+location/state fields. The flattened outline retains64rows/16levels and marks
+truncation with `limited`; status paging retains operation indices. Hierarchical
+selection ranges must fit their enclosing ranges. The existing AST-readiness
+request supplies the outline, without a second symbol request.
 Logs retain timestamps and bounded UTF-8 paging.
 
 With `code.execute`, `forge_code_analysis_start` requires an observed source
-`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`) and UTF-8 byte
+`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`) and UTF-8 byte
 `offset`. Optional `tool` overrides the configured clangd23.1.0 path for that
 launch only. The managed project must have a successful CMake configure this
 session through Build Project Code; a compiler readiness probe is a different
@@ -870,8 +878,8 @@ its proposals. Only one query is active; project retirement clears old results/l
 With `code.write`, `forge_code_analysis_use` takes the operation UUID and result
 index0..63. It rechecks project, operation, all drafts, saved Native input identity,
 compiler generation and database before using the existing source owner. Completion
-adds one ordinary source Undo record; declaration/diagnostic navigates without changing source.
-Signature results reject this operation as read-only and preserve source/cursor/history.
+adds one ordinary source Undo record; declaration/diagnostic/file symbol navigates without changing source.
+Signature and symbol-information results reject this operation as read-only and preserve source/cursor/history.
 Neither saves or builds. Normal routing/revision/sequence, permissions, pending
 source-close and authoring locks apply. Reusing an acknowledged mutation sequence
 returns its receipt. Snippets/additional edits/provider commands and declarations

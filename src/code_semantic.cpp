@@ -69,13 +69,13 @@ Json normalized_completions(const Json& response, const std::string& source) {
             {"limited",
              items.size() > 64 || (response.is_object() && response.value("isIncomplete", false))}};
 }
-std::string signature_documentation(const Json& value) {
+std::string semantic_documentation(const Json& value) {
     if (value.is_null())
         return {};
     if (value.is_string())
         return semantic_string(value, 8192);
     require(value.at("kind").get<std::string>() == "plaintext",
-            "Signature documentation must use the negotiated plain-text format");
+            "Code assistance documentation must use the negotiated plain-text format");
     return semantic_string(value.at("value"), 8192);
 }
 Json normalized_signatures(const Json& response) {
@@ -96,12 +96,12 @@ Json normalized_signatures(const Json& response) {
             // String labels are explicitly negotiated. The selected provider
             // supplies them directly, without ambiguous label-offset units.
             parameters.push_back({{"label", semantic_string(parameter.at("label"), 2048)},
-                                  {"documentation", signature_documentation(parameter.value(
+                                  {"documentation", semantic_documentation(parameter.value(
                                                         "documentation", Json{}))}});
         }
         rows.push_back(
             {{"label", semantic_string(signature.at("label"))},
-             {"documentation", signature_documentation(signature.value("documentation", Json{}))},
+             {"documentation", semantic_documentation(signature.value("documentation", Json{}))},
              {"parameters", std::move(parameters)}});
     }
     Json result{{"items", std::move(rows)},
@@ -126,6 +126,69 @@ Json normalized_signatures(const Json& response) {
             result["active_parameter"] = parameter;
     }
     return result;
+}
+Json source_location(const std::string& text, const Json& range, const std::string& path,
+                     const std::string& state) {
+    const auto begin = cpp_semantic_offset(text, range.at("start"));
+    const auto end = cpp_semantic_offset(text, range.at("end"));
+    require(begin <= end, "Reversed C++ source location range");
+    const auto [line, column] = ui::cpp_source_coordinate(text, begin);
+    return {{"available", true}, {"reason", ""}, {"path", path},     {"state", state},
+            {"begin", begin},    {"end", end},   {"line", line + 1}, {"column", column + 1}};
+}
+Json normalized_hover(const Json& response, const std::string& text) {
+    Json items = Json::array();
+    if (!response.is_null()) {
+        Json item{{"documentation", semantic_documentation(response.at("contents"))}};
+        if (response.contains("range")) {
+            const auto begin = cpp_semantic_offset(text, response.at("range").at("start"));
+            const auto end = cpp_semantic_offset(text, response.at("range").at("end"));
+            require(begin <= end, "Reversed C++ symbol information range");
+            item.update({{"begin", begin}, {"end", end}});
+        }
+        items.push_back(std::move(item));
+    }
+    return {{"items", std::move(items)}, {"limited", false}, {"readonly", true}};
+}
+Json normalized_symbols(const Json& response, const std::filesystem::path& target,
+                        const std::string& text) {
+    Json items = Json::array();
+    const auto path = path_utf8(target), state = ui::cpp_source_state(text);
+    bool limited = false;
+    const auto visit = [&](auto&& self, const Json& symbols, std::size_t depth) -> void {
+        require(symbols.is_array(), "C++ file symbols need a list");
+        if (symbols.empty())
+            return;
+        if (depth == 16) {
+            limited = true;
+            return;
+        }
+        for (const auto& symbol : symbols) {
+            if (items.size() == 64) {
+                limited = true;
+                return;
+            }
+            auto item = source_location(text, symbol.at("selectionRange"), path, state);
+            const auto begin = cpp_semantic_offset(text, symbol.at("range").at("start"));
+            const auto end = cpp_semantic_offset(text, symbol.at("range").at("end"));
+            require(begin <= item.at("begin").get<std::size_t>() &&
+                        item.at("end").get<std::size_t>() <= end,
+                    "C++ symbol selection must be inside its source range");
+            const auto kind = symbol.at("kind");
+            require(kind.is_number_integer() && kind.get<std::int64_t>() >= 1 &&
+                        kind.get<std::int64_t>() <= 26,
+                    "C++ file symbol has an unsupported kind");
+            item.update({{"label", semantic_string(symbol.at("name"), 2048)},
+                         {"detail", semantic_string(symbol.value("detail", Json("")))},
+                         {"depth", depth},
+                         {"symbol_kind", kind}});
+            items.push_back(std::move(item));
+            if (symbol.contains("children"))
+                self(self, symbol.at("children"), depth + 1);
+        }
+    };
+    visit(visit, response.is_null() ? Json::array() : response, 0);
+    return {{"items", std::move(items)}, {"limited", limited}};
 }
 Json normalized_declarations(const Json& response, const ProjectPaths& paths,
                              const ui::CppSearchDrafts& drafts) {
@@ -152,18 +215,8 @@ Json normalized_declarations(const Json& response, const ProjectPaths& paths,
         const auto draft = drafts.find(locator);
         const auto text = draft != drafts.end() ? draft->second : ui::read_cpp_source(path);
         const auto& range = location.at(link ? "targetSelectionRange" : "range");
-        const auto begin = cpp_semantic_offset(text, range.at("start"));
-        const auto end = cpp_semantic_offset(text, range.at("end"));
-        require(begin <= end, "Reversed C++ semantic declaration range");
-        const auto [row, column] = ui::cpp_source_coordinate(text, begin);
-        output.push_back({{"available", true},
-                          {"reason", ""},
-                          {"path", path_utf8(locator)},
-                          {"state", ui::cpp_source_state(text)},
-                          {"begin", begin},
-                          {"end", end},
-                          {"line", row + 1},
-                          {"column", column + 1}});
+        output.push_back(
+            source_location(text, range, path_utf8(locator), ui::cpp_source_state(text)));
     }
     return {{"items", std::move(output)}, {"limited", locations.size() > 64}};
 }
@@ -177,28 +230,17 @@ Json normalized_diagnostics(const Json& response, const std::filesystem::path& t
     for (const auto& diagnostic : diagnostics) {
         if (items.size() == 64)
             break;
-        const auto& range = diagnostic.at("range");
-        const auto begin = cpp_semantic_offset(text, range.at("start"));
-        const auto end = cpp_semantic_offset(text, range.at("end"));
-        require(begin <= end, "Reversed C++ diagnostic range");
+        auto item = source_location(text, diagnostic.at("range"), path, state);
         const auto severity = diagnostic.value("severity", Json(0));
         require(severity.is_number_integer() && severity.get<std::int64_t>() >= 0 &&
                     severity.get<std::int64_t>() <= 4,
                 "C++ diagnostic severity needs an integer from zero through four");
         static constexpr const char* severities[]{"Diagnostic", "Error", "Warning", "Information",
                                                   "Hint"};
-        const auto [line, column] = ui::cpp_source_coordinate(text, begin);
-        items.push_back({{"message", semantic_string(diagnostic.at("message"), 8192)},
-                         {"code", semantic_string(diagnostic.value("code", Json("")), 2048)},
-                         {"severity", severities[severity.get<std::size_t>()]},
-                         {"available", true},
-                         {"reason", ""},
-                         {"path", path},
-                         {"state", state},
-                         {"begin", begin},
-                         {"end", end},
-                         {"line", line + 1},
-                         {"column", column + 1}});
+        item.update({{"message", semantic_string(diagnostic.at("message"), 8192)},
+                     {"code", semantic_string(diagnostic.value("code", Json("")), 2048)},
+                     {"severity", severities[severity.get<std::size_t>()]}});
+        items.push_back(std::move(item));
     }
     return {{"items", std::move(items)}, {"limited", diagnostics.size() > 64}};
 }
@@ -443,8 +485,8 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
             "Unsupported C++ semantic query version");
     const auto kind = request.at("kind").get<std::string>();
     require(kind == "completion" || kind == "declaration" || kind == "signature" ||
-                kind == "diagnostics",
-            "Choose completion, declaration, signature or diagnostics");
+                kind == "diagnostics" || kind == "hover" || kind == "symbols",
+            "Choose completion, declaration, signature, diagnostics, hover or symbols");
     const ProjectPaths paths(std::filesystem::u8path(request.at("project").get<std::string>()));
     const auto context = paths.resolve(
         paths.relative(std::filesystem::u8path(request.at("context").get<std::string>())));
@@ -489,6 +531,8 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
           {{"general", {{"positionEncodings", {"utf-8"}}}},
            {"textDocument",
             {{"publishDiagnostics", {{"versionSupport", true}}},
+             {"hover", {{"contentFormat", {"plaintext"}}}},
+             {"documentSymbol", {{"hierarchicalDocumentSymbolSupport", true}}},
              {"completion",
               {{"completionItem", {{"snippetSupport", false}, {"insertReplaceSupport", false}}}}},
              {"signatureHelp",
@@ -506,6 +550,9 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     if (kind == "signature")
         require(initialized.at("capabilities").at("signatureHelpProvider").is_object(),
                 "Semantic tools require call-signature support");
+    if (kind == "hover")
+        require(initialized.at("capabilities").at("hoverProvider").get<bool>(),
+                "Semantic tools require symbol-information support");
     transport.send({{"method", "initialized"}, {"params", Json::object()}});
     const auto open_document = [&](const auto& path, const auto& draft) {
         transport.send({{"method", "textDocument/didOpen"},
@@ -523,10 +570,12 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         if (!paths.same_locator(path, target))
             open_document(path, draft);
     open_document(target, text);
-    (void)transport.call("textDocument/documentSymbol",
-                         {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}}});
+    auto symbols =
+        transport.call("textDocument/documentSymbol",
+                       {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}}});
     auto response =
-        kind == "diagnostics"
+        kind == "symbols" ? std::move(symbols)
+        : kind == "diagnostics"
             ? transport.diagnostics()
             : transport.call("textDocument/" +
                                  (kind == "signature" ? std::string("signatureHelp") : kind),
@@ -540,6 +589,8 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     auto result = kind == "completion"    ? normalized_completions(response, text)
                   : kind == "signature"   ? normalized_signatures(response)
                   : kind == "diagnostics" ? normalized_diagnostics(response, target, text)
+                  : kind == "hover"       ? normalized_hover(response, text)
+                  : kind == "symbols"     ? normalized_symbols(response, target, text)
                                           : normalized_declarations(response, paths, documents);
     result.update({{"version", 1},
                    {"id", request.at("id")},

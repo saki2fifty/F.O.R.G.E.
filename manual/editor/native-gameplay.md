@@ -63,7 +63,7 @@ The built-in source editor provides C++ highlighting, line numbers, source-only
 Undo/Redo, **Ctrl+F** and **Find next**. A file changed outside FORGE shows a
 notice; a conflicting Save keeps your draft, and **Reload from disk** asks before
 discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
-be open. Optional code assistance provides completion, declaration lookup, call signatures and source diagnostics. Debugging,
+be open. Optional code assistance provides completion, declaration lookup, call signatures, source diagnostics, symbol information and file outlines. Debugging,
 project-wide refactoring and arbitrary in-place C++ reload are unavailable.
 
 ## Find code across the project
@@ -99,7 +99,7 @@ default; turning it off ignores ASCII letter case. Non-ASCII text keeps its exac
 spelling. **Whole word** treats letters, digits, underscores and non-ASCII bytes
 as word content, so `speed` does not match `speeds` or `_speed`.
 
-## Complete code, inspect calls and check source
+## Use code assistance
 
 Code assistance uses a separately installed clangd 23.1.0. It analyzes C++ and
 suggests edits; your matching SDK compiler still builds the game. Normal source
@@ -111,6 +111,8 @@ editing and building work without this optional tool.
 4. Place the cursor within an existing symbol and choose **Find declaration**. Click an available Native path to open its declaration. Existing tabs, unsaved drafts and source history are retained.
 5. Place the cursor inside a function call, after the opening parenthesis or an argument separator, and choose **Signature help**. The read-only list shows available overloads, plain-text documentation when supplied, and **Argument N** for the active parameter. This does not insert text, move the cursor, save files or add an Undo record. Rerun as you move between arguments.
 6. Choose **Check source** to analyze the active source draft. **Diagnostics received** shows the local date, time and offset of the returned snapshot. Rows show severity and message; click a Native path/line/column to navigate without changing source or adding Undo. A completed empty list says **No diagnostics reported for this source draft.** Missing, mismatched or failed provider data produces an error instead.
+7. Place the cursor within a symbol and choose **Symbol info**. Read the returned plain-text type and documentation. This query preserves the cursor and source history; rerun at a different symbol when needed.
+8. Choose **Symbols in file** to list the active file’s declarations. Indented entries show nesting and available details. Click an entry to navigate to its source name. Existing drafts and source Undo/Save are preserved. A completed empty outline says **No symbols in this source draft.**
 
 ![C++ Sources showing a function call signature and its active second argument](../images/cpp-code-assistance.png)
 
@@ -121,6 +123,15 @@ Signature help identifies the active argument without changing the draft. Choose
 
 Choose **Check source**, then click a reported path and location to inspect that
 part of the current draft. Diagnostics remain separate from source Undo and Save.
+
+![Plain-text type information for a field in the current C++ draft](../images/cpp-symbol-information.png)
+
+Choose **Symbol info** at a source name to read its type and available documentation.
+
+![Nested C++ file symbols with a field selected in its source declaration](../images/cpp-file-outline.png)
+
+Choose **Symbols in file**, then select an indented declaration to navigate. Scroll
+the outline to reach further entries.
 
 Queries include current open source and header drafts. They do not save files,
 compile the game, apply changes automatically or run commands suggested by the
@@ -139,7 +150,11 @@ It returns at most 64 proposals or overloads, with up to 64 parameter labels per
 imports or provider commands are unavailable. Declaration navigation is limited
 to supported source/header files under **Native/**; SDK and external declarations
 are displayed as unavailable. Source limits remain 1 MiB per file and 32 open tabs.
-Analysis has a bounded timeout; it is separate from game compilation and is not a
+File outlines retain up to 64 symbols across 16 nesting levels. Symbol information
+is limited to 8 KiB of plain text; unsupported markup or invalid ranges produce an
+analysis error. The outline covers the active file; use **Find in Project** for
+project-wide literal source searches. Analysis has a bounded timeout; it is separate
+from game compilation and is not a
 debugger or a project-wide refactoring service.
 
 **Check source** is an explicit snapshot of the active file, including issues from
