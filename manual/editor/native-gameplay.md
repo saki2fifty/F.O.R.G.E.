@@ -60,7 +60,8 @@ Write the query or observer in that function; the empty template has no gameplay
 behavior. Choosing a component still creates the rotation example.
 
 The built-in source editor provides C++ highlighting, line numbers, source-only
-Undo/Redo, **Ctrl+F** and **Find next**. A file changed outside FORGE shows a
+Undo/Redo and active-file **Find**, **Previous** and **Next** controls. **Ctrl+F**
+focuses Find. A file changed outside FORGE shows a
 notice; a conflicting Save keeps your draft, and **Reload from disk** asks before
 discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
 be open. Optional code assistance provides completion, declaration/type lookup,
@@ -70,7 +71,7 @@ project-wide refactoring and arbitrary in-place C++ reload are unavailable.
 
 Use **Back** and **Forward** above the source tabs to return between files and
 locations after opening declarations, outline entries, search matches or tabs.
-**Find next** also records a return location. These controls preserve current
+Finding a match also records a return location. These controls preserve current
 drafts and source Undo/Redo; they do not save or restore discarded edits. A closed
 file reopens from disk. After edits, an old location is clamped to a valid
 line/column. A deleted or unavailable file reports an error and leaves the
@@ -79,11 +80,29 @@ project. **Clear navigation** empties this list without closing or changing file
 Opening or returning to a location clears an earlier text selection. Opening a
 search match selects that new match instead.
 
+## Find and replace in the active file
+
+1. Open a source file and enter literal text in **Find**, using **Ctrl+F** to focus the field if needed. Matching is case-sensitive.
+2. Choose **Next** or **Previous**. Search begins at the live cursor, or after/before the current exact matching selection, and wraps at the file boundary. Each match is selected. **Back** returns to the preceding source location.
+3. Choose **Replace...** to show **Replace with**. Enter replacement text; it may contain multiple lines, or be empty to delete matched text.
+4. Choose **Replace next** to replace the selected exact match. Without a matching selection, it replaces the next match from the cursor, wrapping if needed. **Replace all** replaces every non-overlapping match in this file and follows the current cursor through those edits.
+5. Use source Undo/Redo to reverse/reapply each replacement action in one step. Choose **Save source** to write the draft, then build when ready. Replacement does not save, compile or change the Scene.
+
+![C++ Sources with Find and Replace with fields, Replace next and Replace all controls, and two replaced Unicode names](../images/cpp-literal-find-replace.png)
+
+The replacement panel is hidden until **Replace...** is chosen. No match or a
+replacement identical to the query leaves source history and the cursor unchanged.
+Find accepts one UTF-8 line up to 255 bytes; replacement accepts LF text up to
+4096 bytes. Replace all accepts at most 32768 matches, and the resulting source
+must fit below 1 MiB. A limit error preserves the entire draft. Regex matching and
+replacement across multiple files are unavailable. These controls need no compiler
+or optional analysis provider. Editing is disabled while source authoring is locked.
+
 ## Find code across the project
 
 In **C++ Sources**, expand **Find in Project**, or press **Ctrl+Shift+F** while
 that document has keyboard focus. Enter literal text, choose **Match case** and
-**Whole word**, then press Enter or **Search project**. **Ctrl+F** and **Find next**
+**Whole word**, then press Enter or **Search project**. **Ctrl+F** and the **Find** controls
 continue to search only the active file.
 
 ![C++ Sources showing project search results and an unsaved component tab](../images/cpp-project-search.png)

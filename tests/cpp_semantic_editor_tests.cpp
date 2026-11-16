@@ -51,14 +51,14 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     const auto offset = draft.rfind("s.de") + 4;
     const auto position = ui::cpp_source_coordinate(draft, offset);
     editor.open(document, "Native/gameplay.cpp", position.first + 1, position.second + 1);
-    bool locked = false;
+    bool locked = false, save_locked = false;
     const auto frame = [&] {
         test::ui_targets.clear();
         capture.new_frame();
         ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
         if (auto* window = ImGui::FindWindowByName("###C++ Sources"))
             ImGui::SetWindowSize(window, {float(width), 850}, ImGuiCond_Always);
-        editor.draw(document, context, locked);
+        editor.draw(document, context, locked, save_locked);
         capture.render();
     };
     test::ImGuiInputDriver input(frame);
@@ -517,6 +517,97 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     check(!test::ui_targets.contains("cpp:selection") && editor.active_text() == symbol_draft &&
               test::ui_targets.contains(cursor_key(symbol_position)),
           "Back retained an old search selection or changed source");
+    input.click("cpp:assistance");
+    const std::string literal_source = "// café\n\tfloat speed = 1; // speed\n";
+    editor.replace_text(literal_source);
+    editor.open(document, "Native/gameplay.cpp", 1, 1);
+    frame();
+    check(!test::ui_targets.contains("cpp:find:replacement"),
+          "Literal replacement controls were not hidden initially");
+    input.type("cpp:find:query", "speed", false);
+    input.click("cpp:find:next");
+    frame();
+    check(test::ui_targets.contains("cpp:selection"), "Native literal Find did not select a match");
+    const auto first_cursor = cursor_key(ui::cpp_source_coordinate(
+        literal_source, literal_source.find("speed") + std::string("speed").size()));
+    const auto last_cursor = cursor_key(ui::cpp_source_coordinate(
+        literal_source, literal_source.rfind("speed") + std::string("speed").size()));
+    check(test::ui_targets.contains(first_cursor), "Native Find selected the wrong first match");
+    input.click("cpp:find:previous");
+    frame();
+    check(test::ui_targets.contains(last_cursor), "Native Previous did not wrap to the last match");
+    input.click("cpp:find:next");
+    input.click("cpp:find:expand");
+    input.type("cpp:find:replacement", "rate", false);
+    input.click("cpp:find:replace_next");
+    check(editor.active_text() == "// café\n\tfloat rate = 1; // speed\n",
+          "Native Replace next skipped its selected tab/UTF8 match");
+    editor.undo(false);
+    check(editor.active_text() == literal_source, "Native Replace next was not one source Undo");
+    input.type("cpp:find:replacement", "vitesse_é", false);
+    input.click("cpp:find:replace_all");
+    check(editor.active_text() == "// café\n\tfloat vitesse_é = 1; // vitesse_é\n",
+          "Native Replace all did not replace every literal match");
+    editor.undo(false);
+    check(editor.active_text() == literal_source, "Native Replace all was not one source Undo");
+    editor.undo(true);
+    frame();
+    reveal_source();
+    if (!captures.empty())
+        capture.save(captures / ("cpp-literal-find-replace-" + std::to_string(width) + ".png"));
+    locked = true;
+    frame();
+    check(!test::ui_targets.at("cpp:find:replace_next").enabled &&
+              !test::ui_targets.at("cpp:find:replace_all").enabled,
+          "Native literal replacement bypassed the source lock");
+    bool readonly_rejected = false;
+    try {
+        editor.replace_literal(document, "vitesse_é", "rate", true);
+    } catch (const std::exception&) {
+        readonly_rejected = true;
+    }
+    check(readonly_rejected, "Literal source owner accepted a read-only widget");
+    locked = false;
+    save_locked = true;
+    frame();
+    check(!test::ui_targets.at("cpp:find:replace_next").enabled &&
+              !test::ui_targets.at("cpp:find:replace_all").enabled,
+          "Native literal replacement bypassed the build/file lock");
+    save_locked = false;
+    frame();
+    editor.undo(false);
+    editor.undo(false);
+    editor.replace_text("gogo\n");
+    frame();
+    input.click("cpp:editor");
+    auto& literal_io = ImGui::GetIO();
+    const auto literal_key = [&](ImGuiKey key, bool ctrl = false, bool shift = false) {
+        literal_io.AddKeyEvent(ImGuiMod_Ctrl, ctrl);
+        literal_io.AddKeyEvent(ImGuiMod_Shift, shift);
+        literal_io.AddKeyEvent(key, true);
+        frame();
+        literal_io.AddKeyEvent(key, false);
+        literal_io.AddKeyEvent(ImGuiMod_Ctrl, false);
+        literal_io.AddKeyEvent(ImGuiMod_Shift, false);
+        frame();
+    };
+    literal_key(ImGuiKey_Home, true);
+    for (int i = 0; i < 4; ++i)
+        literal_key(ImGuiKey_RightArrow);
+    literal_key(ImGuiKey_LeftArrow, false, true);
+    literal_key(ImGuiKey_LeftArrow, false, true);
+    input.type("cpp:find:query", "go", false);
+    input.type("cpp:find:replacement", "rate", false);
+    input.click("cpp:find:replace_next");
+    check(editor.active_text() == "gorate\n",
+          "Native replacement lost the actual reversed selection between adjacent equal matches");
+    editor.undo(false);
+    check(editor.active_text() == "gogo\n", "Reversed selected replacement was not one Undo");
+    editor.undo(false);
+    check(editor.active_text() == symbol_draft &&
+              ui::read_cpp_source(root / "Native/gameplay.cpp") == saved &&
+              scene.document() == authored,
+          "Native literal editing changed preceding source history, saved source or Scene");
     editor.project_changed(root / "DifferentProject");
     test::observe_ui = false;
 }

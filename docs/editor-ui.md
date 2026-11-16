@@ -321,7 +321,7 @@ results; a result cannot adopt into another project's source tabs.
 Result widgets also belong to the search operation, so a held pointer cannot
 activate a different job's replacement row.
 
-Find next and project results share the source-widget coordinate conversion.
+Active-file literal Find and project results share the source-widget coordinate conversion.
 Result activation reuses normal source opening with an expected digest: stale
 dirty text, changed clean-tab disk baselines and changed unopened files reject
 before tab/focus/cursor changes. Opening never creates a history entry or saves.
@@ -332,6 +332,21 @@ the same editor owner through automation/MCP. See the
 [user workflow and bounds](../manual/editor/native-gameplay.md) and
 [agent contract](mcp.md). These are editor-only tools, absent from runtime targets
 and exports; no public native SDK or gameplay ABI change is required.
+
+Active-file Previous/Next borrow the widget's actual selection endpoints when its
+selection exactly matches the query; otherwise they start at the live cursor.
+They wrap and use existing source Back/Forward navigation. Replace next prefers
+that exact selection, including reversed selections between adjacent equal matches.
+Replace all collects non-overlapping matches before mutation and maps the live
+caret through the same edit mapping as semantic proposals. Both reuse the ordinary
+widget replacement/history owner. No-op/absent matches preserve text and history.
+The inline replacement panel is hidden by default. Native controls and
+`code.find`/`code.replace_matches` share this implementation; source witnesses,
+locks and normal automation receipts apply. The query/replacement buffers are UI
+inputs, not another source or selection authority. Query, replacement, match and
+output limits are checked before mutation; no compiler/provider or global key
+binding is added. The guarded pinned widget header exposes two FORGE-owned inline
+selection observations without changing its layout or the original checkout.
 
 ## Reviewed runtime tuning
 

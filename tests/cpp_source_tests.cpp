@@ -160,6 +160,13 @@ int main(int argc, char** argv) {
         io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
         TextEditor editor;
         editor.SetTabSize(4);
+        editor.SetText("\té go go\n");
+        editor.SetSelection({0, 11}, {0, 9});
+        editor.SetCursorPosition({0, 9});
+        require(editor.GetSelectionStart() == TextEditor::Coordinates(0, 9) &&
+                    editor.GetSelectionEnd() == TextEditor::Coordinates(0, 11) &&
+                    editor.GetSelectedText() == "go",
+                "Borrowed reverse selection endpoints lost tab/UTF8 coordinates");
         for (const auto& replacement : {"\té\n", "a\té😀\tlast\n", "\t\tx\nnext\té\n", ""}) {
             editor.SetText("\told\té\ntrailing\n");
             const auto original = editor.GetText();

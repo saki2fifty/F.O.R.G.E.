@@ -480,6 +480,16 @@ installed SDK. Source changes appear in the normal editor tabs; replacement shar
 one source Undo step. File conflicts preserve the draft. Saving does not grant
 permission to run code: an ungranted save never queues Build on Save.
 
+With code editing allowed, `forge_code_find` selects the next or previous literal,
+case-sensitive match in the observed active file, wrapping at either end.
+`forge_code_replace_matches` uses `mode:next` for the selected exact match (or the
+next match from the cursor) and `mode:all` for every non-overlapping match. Each
+replacement action shares one source Undo step; Save and Build remain separate.
+Both tools require the current path/session/state and normal revision/sequence.
+They need no compiler, optional provider or execution permission. See
+[active-file find and replacement](native-gameplay.md)
+for text and size limits.
+
 Project-wide source search is also available with read-only access. The agent
 starts `forge_code_search_start`, polls `forge_code_search_status`, and can cancel
 the returned operation with `forge_code_search_cancel`. Results include open draft

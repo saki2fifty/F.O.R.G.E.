@@ -104,6 +104,13 @@ struct CodeAutomation {
             throw AuthoringError("code_busy", "Settle the pending source close request");
         return *source;
     }
+    static ui::CppSourceEditor::Tab& active_tab(ui::CppSourceEditor& editor, EditorFiles& files,
+                                                const Json& request) {
+        auto& source = tab(editor, files, request);
+        if (&source != editor.active_)
+            throw AuthoringError("stale_source", "The active C++ source changed; read it again");
+        return source;
+    }
     static void source_ready(const ui::CppSourceEditor& editor) {
         if (editor.close_pending())
             throw AuthoringError("code_busy", "Settle the pending source close request");
@@ -600,14 +607,63 @@ struct CodeAutomation {
                     {"path", "session", "state", "operation", "direction"}),
                 true, [&files, &editor, providers](const Json& request) {
                     available(files, providers);
-                    const auto& observed = tab(editor, files, request);
-                    if (&observed != editor.active_)
-                        throw AuthoringError("stale_source",
-                                             "The active C++ source changed; read it again");
+                    (void)active_tab(editor, files, request);
                     editor.move_diagnostic(files.document,
                                            request.at("operation").get<std::string>(),
                                            request.at("direction").get<std::string>());
                     return tab_state(*editor.active_);
+                }));
+            methods.push_back(automation_method(
+                "code.find",
+                "Find a literal case-sensitive next/previous match in the observed active source. "
+                "A selected exact match advances from its end/start; otherwise use the live "
+                "cursor. "
+                "Wrap at the ends, select the match and use source Back/Forward. No text/Undo/Save "
+                "or provider query changes. Query is a single line within255UTF8bytes. "
+                "Return found/begin/end and source metadata; no match preserves cursor/selection.",
+                "code.write",
+                automation_object(
+                    {{"path", automation_text(2047, 1)},
+                     {"session", automation_uuid()},
+                     {"state", automation_digest()},
+                     {"query", automation_text(255, 1)},
+                     {"direction", {{"type", "string"}, {"enum", {"next", "previous"}}}}},
+                    {"path", "session", "state", "query", "direction"}),
+                true, [&files, &editor, providers](const Json& request) {
+                    available(files, providers);
+                    (void)active_tab(editor, files, request);
+                    auto result =
+                        editor.find_literal(files.document, request.at("query").get<std::string>(),
+                                            request.at("direction").get<std::string>());
+                    result["source"] = tab_state(*editor.active_);
+                    return result;
+                }));
+            methods.push_back(automation_method(
+                "code.replace_matches",
+                "Replace literal case-sensitive matches in the observed active source. "
+                "Mode next replaces the widget's selected exact match, otherwise the next from "
+                "the live cursor with wrap. Mode all replaces non-overlapping matches and maps "
+                "the current caret. One ordinary source Undo, no OS clipboard or Save/Build. "
+                "Single-line query<=255UTF8bytes, LF replacement<=4096bytes,32768matches and "
+                "source1MiB limits; reject before mutation. Return matches/changed/source "
+                "metadata.",
+                "code.write",
+                automation_object({{"path", automation_text(2047, 1)},
+                                   {"session", automation_uuid()},
+                                   {"state", automation_digest()},
+                                   {"query", automation_text(255, 1)},
+                                   {"replacement", automation_text(4096)},
+                                   {"mode", {{"type", "string"}, {"enum", {"next", "all"}}}}},
+                                  {"path", "session", "state", "query", "replacement", "mode"}),
+                true, [&files, &editor, providers](const Json& request) {
+                    available(files, providers);
+                    (void)active_tab(editor, files, request);
+                    auto result = editor.replace_literal(
+                        files.document, request.at("query").get<std::string>(),
+                        request.at("replacement").get<std::string>(),
+                        request.at("mode").get<std::string>() == "all");
+                    result["source"] = tab_state(*editor.active_);
+                    return result;
                 }));
             for (const auto* action : {"replace", "save", "undo", "redo", "close"}) {
                 Json properties{{"path", automation_text(2047, 1)},

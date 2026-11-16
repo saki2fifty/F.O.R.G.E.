@@ -68,6 +68,59 @@ for legacy in protocol_cases():
                     assert ('forge_code_navigation_clear' in tools) == (mode != 'read')
                     assert ('forge_code_analysis_start' in tools) == (mode == 'analysis')
                     assert ('forge_code_analysis_cancel' in tools) == (mode == 'analysis')
+                    for name in ('forge_code_find', 'forge_code_replace_matches'):
+                        assert (name in tools) == (mode != 'read')
+                        if mode == 'read':
+                            refused = client.request('tools/call', dict(name=name, arguments={}))
+                            assert refused['error']['code'] == -32602 and 'not available' in refused['error']['message'], refused
+                    # Exercise literal editing once per envelope without execution permission.
+                    # The analysis role retains the same code.write tools and its query suite.
+                    if mode == 'write':
+                        assert mutate('forge_code_open', path='Native/Spinner.cpp')['ok']
+                        literal_source = '// café\n\tfloat speed = 1; // speed\n'
+                        assert mutate('forge_code_replace', **observed_args(), text=literal_source)['ok']
+                        found = mutate('forge_code_find', **observed_args(), query='speed', direction='next')
+                        assert found['ok'] and found['result']['found'] and found['result']['source']['selection']['bytes'] == 5, found
+                        changed = mutate('forge_code_replace_matches', **observed_args(), query='speed', replacement='rate', mode='next')
+                        assert changed['ok'] and changed['result']['matches'] == 1 and changed['result']['changed'], changed
+                        assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == literal_source.replace('speed', 'rate', 1)
+                        assert mutate('forge_code_undo', **observed_args())['ok']
+                        assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == literal_source
+                        route = discovery()
+                        request = dict(target=route['result']['target'], expected_revision=route['revision'],
+                                       sequence=route['next_sequence'], **observed_args(), query='speed',
+                                       replacement='vitesse_é', mode='all')
+                        changed = client.tool('forge_code_replace_matches', **request)
+                        assert changed['ok'] and changed['result']['matches'] == 2 and changed['result']['changed'], changed
+                        assert client.tool('forge_code_replace_matches', **request) == changed
+                        assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == literal_source.replace('speed', 'vitesse_é')
+                        assert mutate('forge_code_undo', **observed_args())['ok']
+                        before_literal_noop = read('forge_code_read', path='Native/Spinner.cpp')
+                        for query, replacement in [('speed', 'speed'), ('absent', '')]:
+                            value = mutate('forge_code_replace_matches', **observed_args(), query=query, replacement=replacement, mode='all')
+                            assert value['ok'] and not value['result']['changed'], value
+                            assert read('forge_code_read', path='Native/Spinner.cpp') == before_literal_noop
+                        rejected = mutate('forge_code_replace_matches', **(observed_args() | dict(state='0' * 64)),
+                                          query='speed', replacement='rate', mode='all')
+                        assert not rejected['ok'] and read('forge_code_read', path='Native/Spinner.cpp') == before_literal_noop
+                        for invalid in (dict(query=''), dict(query='x' * 256), dict(query='a\nb'),
+                                        dict(replacement='\r\n'), dict(replacement='a\0b'),
+                                        dict(replacement='x' * 4097), dict(mode='unknown'),
+                                        dict(session='00000000-0000-0000-0000-000000000000')):
+                            rejected = mutate('forge_code_replace_matches', **(observed_args() | dict(
+                                query='speed', replacement='rate', mode='all') | invalid))
+                            assert not rejected['ok'] and read('forge_code_read', path='Native/Spinner.cpp') == before_literal_noop, rejected
+                        (native / 'Other.hpp').write_text('// other source\n', encoding='utf-8')
+                        old_source = observed_args()
+                        assert mutate('forge_code_open', path='Native/Other.hpp')['ok']
+                        for name, args in [('forge_code_find', dict(direction='next')),
+                                           ('forge_code_replace_matches', dict(mode='all', replacement='rate'))]:
+                            rejected = mutate(name, **old_source, query='speed', **args)
+                            assert not rejected['ok'] and 'stale_source' in str(rejected), rejected
+                        assert mutate('forge_code_open', path='Native/Spinner.cpp')['ok']
+                        assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == literal_source
+                        assert (native / 'Spinner.cpp').read_bytes() == original.encode('utf-8')
+                        assert read('forge_code_analysis_status')['operation'] is None, 'Literal editing launched a provider query'
                     if mode != 'analysis':
                         assert read('forge_code_analysis_status')['operation'] is None
                         continue

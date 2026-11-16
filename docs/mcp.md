@@ -798,6 +798,29 @@ a new session. Open-tab observations also return a one-based visual `cursor`
 line/column, allowing clients to verify source navigation. Logical redirects into another owner, generated paths and external
 save conflicts are rejected.
 
+`forge_code_find` and `forge_code_replace_matches` require `code.write`, the observed
+active `path`/`session`/`state`, and ordinary routing/revision/sequence receipts.
+They share native source operations and require no execution grant, compiler or
+optional provider. A different active tab, stale witness, pending close or locked
+authoring is refused before mutation. `find` takes `query` and `direction`
+(`next`/`previous`), selects a literal case-sensitive match from the live caret or
+after/before an exact matching selection, and wraps. It returns `found`, optional
+UTF-8 byte `begin`/`end`, and `source` tab metadata, and uses source Back/Forward.
+No match preserves selection, cursor and source history.
+
+`replace_matches` takes `query`, `replacement` and `mode` (`next`/`all`). Next
+replaces the actual selected exact match, including a reversed selection;
+otherwise it uses next/wrap from the live caret. All replaces non-overlapping
+matches without rescanning replacement text and maps the current caret through
+those edits. Return values are `matches`, `changed` and `source` tab metadata;
+use `forge_code_read` to read text. Each changed action creates one source Undo
+record. Identical replacement/no match preserves source/history. Neither action
+saves, compiles, uses the OS clipboard or changes the Scene. Queries are one
+nonempty UTF-8 line of at most255bytes; replacements accept empty or LF-only text
+of at most4096bytes. Replace all allows32768matches; changed output must fit below
+1MiB. Invalid text/limits reject before any partial publication. No regex,
+project-wide replacement or semantic rename is implied.
+
 `forge_code_search_start` starts the source editor's single background literal
 search with `query` (1..255 UTF-8 bytes, no line breaks), `match_case` (default true)
 and `whole_word` (default false). It snapshots open tabs without moving focus or
@@ -847,7 +870,7 @@ clearing an already empty history is a no-op. Existing routing/revision/sequence
 and receipt replay rules apply. No execution permission or provider is needed.
 
 The source owner retains at most 128 locations across Back/Forward. Explicit
-opens, source tab changes, Find next and analysis/search navigation share this
+opens, source tab changes, active-file Find and analysis/search navigation share this
 history. Internal save routing does not add locations. Edited targets clamp old
 position hints to current UTF-8/tab/line boundaries; closed targets reopen through
 ordinary contained-source admission. Drafts, source Undo and saved bytes are never

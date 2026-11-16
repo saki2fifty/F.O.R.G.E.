@@ -489,7 +489,13 @@ including its defining header; FORGE's wrapper includes it explicitly. The immut
 checkout is preserved. A signature-checked build-tree copy corrects tab insertion
 columns so Paste and Undo/Redo retain exact text; see the
 [known-source finding](dependency-known-issues.md#text-widget-tab-insertion-coordinates).
-This editor-only repair changes no dependency version, public API or SDK layout.
+The tab repair changes no dependency version or SDK layout. The checked build-tree
+header also adds two FORGE-owned inline selection-coordinate observations. They
+read the widget's existing selection instead of maintaining a second selection
+model for literal find/replacement. This extends only the internal editor widget
+interface; class layout, original checkout, pin, license and gameplay SDK remain
+unchanged. Original/compiled source and header digests are recorded in the build's
+`forge-cpp-text-editor/source.json`; a changed upstream header stops configuration.
 Upstream identifier descriptions are cleared
 so its intrinsic popups cannot bypass FORGE's global Tooltips preference. Diagnostic
 navigation/help is owned by FORGE rather than upstream error-marker popups.

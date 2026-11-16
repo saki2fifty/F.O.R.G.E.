@@ -1,6 +1,7 @@
 #include "editor/code_automation.hpp"
 #include <iostream>
 #include <thread>
+#include <tuple>
 
 namespace {
 void check(bool value, const std::string& message) {
@@ -1058,6 +1059,145 @@ int main(int argc, char** argv) {
             editor.undo(false);
             check(editor.active_text() == draft,
                   "Diagnostic navigation added a source Undo record");
+        }
+        {
+            const std::string source =
+                "// café\n\tfloat speed = 1; // speed\nfloat speed_copy = speed;\n";
+            editor.replace_text(source);
+            editor.open(files.document, "Native/First.cpp", 1, 1);
+            const auto arguments = [&] {
+                const auto observed = invoke("code.read", {{"path", "Native/First.cpp"}});
+                return forge::Json{{"path", observed.at("path")},
+                                   {"session", observed.at("session")},
+                                   {"state", observed.at("state")}};
+            };
+            const auto find = [&](const std::string& query, const char* direction) {
+                auto args = arguments();
+                args.update({{"query", query}, {"direction", direction}});
+                return invoke("code.find", args);
+            };
+            const auto replace = [&](const std::string& query, const std::string& value,
+                                     const char* mode) {
+                auto args = arguments();
+                args.update({{"query", query}, {"replacement", value}, {"mode", mode}});
+                return invoke("code.replace_matches", args);
+            };
+            const auto first = source.find("speed"), last = source.rfind("speed");
+            check(find("speed", "next").at("begin").get<std::size_t>() == first,
+                  "Literal find did not select its first UTF8/tab-aware match");
+            check(find("speed", "previous").at("begin").get<std::size_t>() == last,
+                  "Previous literal find did not wrap from the selected match");
+            check(find("speed", "next").at("begin").get<std::size_t>() == first,
+                  "Next literal find did not wrap to the first match");
+            auto changed = replace("speed", "rate", "next");
+            auto expected = source;
+            expected.replace(first, 5, "rate");
+            check(changed.at("matches").get<std::size_t>() == 1 &&
+                      changed.at("changed").get<bool>() && editor.active_text() == expected,
+                  "Replace next skipped the widget's selected literal match");
+            editor.undo(false);
+            check(editor.active_text() == source, "Literal replacement was not one Undo");
+            editor.undo(true);
+            check(editor.active_text() == expected, "Literal replacement Redo failed");
+            editor.undo(false);
+            const auto caret = forge::ui::cpp_source_coordinate(source, last + 2);
+            editor.open(files.document, "Native/First.cpp", caret.first + 1, caret.second + 1);
+            changed = replace("speed", "vitesse_é", "all");
+            expected = source;
+            for (std::size_t from = 0, match;
+                 (match = expected.find("speed", from)) != expected.npos;) {
+                expected.replace(match, 5, "vitesse_é");
+                from = match + std::string("vitesse_é").size();
+            }
+            const auto mapped = forge::ui::cpp_source_coordinate(
+                expected, expected.rfind("vitesse_é") + std::string("vitesse_é").size());
+            check(changed.at("matches").get<std::size_t>() == 4 &&
+                      editor.active_text() == expected &&
+                      changed.at("source").at("cursor") ==
+                          forge::Json{{"line", mapped.first + 1}, {"column", mapped.second + 1}},
+                  "Replace all lost its Unicode result, match count or current-caret mapping");
+            editor.undo(false);
+            check(editor.active_text() == source, "Replace all required multiple Undo steps");
+            const auto before_noop = invoke("code.read", {{"path", "Native/First.cpp"}});
+            check(!replace("speed", "speed", "all").at("changed").get<bool>() &&
+                      !replace("absent", "value", "all").at("changed").get<bool>() &&
+                      !find("absent", "next").at("found").get<bool>() &&
+                      invoke("code.read", {{"path", "Native/First.cpp"}}) == before_noop,
+                  "No-op or absent literal operation changed source/caret/history");
+            for (const auto& query : {std::string{}, std::string(256, 'x'), std::string("a\nb"),
+                                      std::string("bad\xFF", 4)}) {
+                bool rejected = false;
+                try {
+                    replace(query, "x", "all");
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                check(rejected &&
+                          invoke("code.read", {{"path", "Native/First.cpp"}}) == before_noop,
+                      "Invalid literal query partially changed source");
+            }
+            editor.undo(false);
+            check(editor.active_text() == draft,
+                  "Literal operations lost preceding source history");
+            for (const auto& [input, query, value, expected, count] : std::vector<
+                     std::tuple<std::string, std::string, std::string, std::string, std::size_t>>{
+                     {"aaaaa\n", "aa", "a", "aaa\n", 2},
+                     {"go go\n", "go", "go go", "go go go go\n", 2},
+                     {"// café\n\tgo go\n", "go", "é\n\t🚀", "// café\n\té\n\t🚀 é\n\t🚀\n", 2},
+                     {"go go\n", "go", "", " \n", 2},
+                     {"go\n", "go", "", "\n", 1},
+                     {"ééé\n", "éé", "🚀", "🚀é\n", 1},
+                     {std::string(32768, 'x') + "\n", "x", "z", std::string(32768, 'z') + "\n",
+                      32768},
+                     {std::string(255, 'x') + "\n", std::string(255, 'x'), "ok", "ok\n", 1},
+                     {"go\n", "go", std::string(4096, 'x'), std::string(4096, 'x') + "\n", 1}}) {
+                editor.replace_text(input);
+                const auto result = replace(query, value, "all");
+                check(result.at("matches").get<std::size_t>() == count &&
+                          editor.active_text() == expected,
+                      "Literal bulk replacement lost non-overlap, UTF8/LF, empty or boundary text");
+                editor.undo(false);
+                check(editor.active_text() == input,
+                      "Boundary literal replacement did not restore one source Undo");
+                editor.undo(true);
+                check(editor.active_text() == expected, "Boundary literal Redo was not exact");
+                editor.undo(false);
+                editor.undo(false);
+                check(editor.active_text() == draft,
+                      "Boundary literal replacement damaged preceding source history");
+            }
+            editor.replace_text("go\n");
+            const auto before_invalid = invoke("code.read", {{"path", "Native/First.cpp"}});
+            for (const auto& replacement : {std::string(4097, 'x'), std::string("\r\n"),
+                                            std::string("a\0b", 3), std::string("bad\xFF", 4)}) {
+                bool rejected = false;
+                try {
+                    replace("go", replacement, "all");
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                check(rejected &&
+                          invoke("code.read", {{"path", "Native/First.cpp"}}) == before_invalid,
+                      "Invalid replacement partially changed source/caret/history");
+            }
+            editor.undo(false);
+            for (const auto& input :
+                 {std::string(32769, 'x') + "\n", std::string(1024, 'x') + "\n"}) {
+                editor.replace_text(input);
+                const auto before_limit = invoke("code.read", {{"path", "Native/First.cpp"}});
+                bool rejected = false;
+                try {
+                    replace("x", input.size() > 32768 ? "z" : std::string(4096, 'z'), "all");
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                check(rejected &&
+                          invoke("code.read", {{"path", "Native/First.cpp"}}) == before_limit,
+                      "Literal match/output budget allowed partial replacement");
+                editor.undo(false);
+                check(editor.active_text() == draft,
+                      "Rejected literal replacement changed the source Undo history");
+            }
         }
         const auto cancelled = start_analysis();
         invoke("code.analysis.cancel", {{"operation", cancelled.at("operation")}});

@@ -1,5 +1,16 @@
 # 2026-11-16
 
+## Active-file C++ find and replacement
+
+C++ Sources provides literal case-sensitive Previous/Next with wrap and a hidden
+inline replacement panel. Replace next uses the actual matching selection or the
+next match; Replace all handles non-overlapping matches and follows the live caret.
+Both use one existing source Undo step, preserve saved files and Scene state, and
+check text/match/output limits before mutation. Native controls and guarded MCP
+operations share the source owner without compiler/provider requirements. Pinned
+widget selection observations are staged in the build tree; the original checkout,
+revision, class layout, SDK and runtime ABI remain unchanged.
+
 ## C++ diagnostic navigation
 
 Next diagnostic and Previous diagnostic navigate retained Check source locations

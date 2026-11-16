@@ -83,6 +83,59 @@ class CppSourceEditor {
     void position_source(Tab& tab, const TextEditor::Coordinates& point) {
         select_source(tab, point, point);
     }
+    static std::size_t mapped_source_offset(std::size_t offset, const nlohmann::json& edits) {
+        std::size_t source_from = 0, target_from = 0;
+        for (const auto& edit : edits) {
+            const auto first = edit.at("begin").get<std::size_t>();
+            const auto last = edit.at("end").get<std::size_t>();
+            if (offset < first)
+                return target_from + offset - source_from;
+            const auto following = target_from + first - source_from +
+                                   edit.at("text").get_ref<const std::string&>().size();
+            if (offset < last)
+                return following;
+            source_from = last;
+            target_from = following;
+        }
+        return target_from + offset - source_from;
+    }
+    static std::pair<std::size_t, std::size_t> selection_bytes(Tab& tab, const std::string& text) {
+        const auto first = tab.editor.GetSelectionStart(), last = tab.editor.GetSelectionEnd();
+        const auto start = cpp_source_clamped_coordinate(text, first.mLine, first.mColumn);
+        const auto end = cpp_source_clamped_coordinate(text, last.mLine, last.mColumn);
+        return {cpp_source_byte_offset(text, start.first, start.second),
+                cpp_source_byte_offset(text, end.first, end.second)};
+    }
+    static void validate_literal_query(const std::string& query) {
+        validate_cpp_text(query);
+        if (query.empty() || query.size() > 255 || query.find_first_of("\r\n") != query.npos)
+            throw std::runtime_error("Use a single-line literal query within 255 UTF-8 bytes");
+    }
+    static std::optional<std::pair<std::size_t, std::size_t>>
+    literal_match(Tab& tab, const std::string& text, const std::string& query, bool forward,
+                  bool prefer_selection) {
+        const auto cursor = tab.editor.GetCursorPosition();
+        const auto point = cpp_source_clamped_coordinate(text, cursor.mLine, cursor.mColumn);
+        auto boundary = cpp_source_byte_offset(text, point.first, point.second);
+        if (tab.editor.HasSelection() && tab.editor.GetSelectedText() == query) {
+            const auto selected = selection_bytes(tab, text);
+            if (selected.second < selected.first ||
+                selected.second - selected.first != query.size() ||
+                text.compare(selected.first, query.size(), query) != 0)
+                throw std::runtime_error("Source selection changed; select the match again");
+            if (prefer_selection)
+                return selected;
+            boundary = forward ? selected.second : selected.first;
+        }
+        auto found = forward                    ? text.find(query, boundary)
+                     : boundary >= query.size() ? text.rfind(query, boundary - query.size())
+                                                : std::string::npos;
+        if (found == std::string::npos)
+            found = forward ? text.find(query) : text.rfind(query);
+        if (found == std::string::npos)
+            return {};
+        return std::pair{found, found + query.size()};
+    }
     void select_tab_next_frame(Tab& selected) {
         for (auto& tab : tabs_)
             tab->selected = tab.get() == &selected;
@@ -104,9 +157,10 @@ class CppSourceEditor {
             throw std::runtime_error("Settle the pending C++ source close request");
     }
     bool open_ = false, focus_ = false, close_all_ = false, close_popup_ = false;
-    std::string close_target_, error_, search_;
-    char locator_[256] = "Native/gameplay.cpp", query_[256] = "", rename_name_[257] = "";
-    std::size_t search_from_ = 0;
+    std::string close_target_, error_, literal_status_;
+    char locator_[256] = "Native/gameplay.cpp", query_[256] = "", rename_name_[257] = "",
+         replacement_[4097] = "";
+    bool show_replacement_ = false;
     Uint64 checked_disk_ = 0;
     CppSemanticTask semantic_task_;
     void source_changed(Tab& tab) {
@@ -299,28 +353,7 @@ class CppSourceEditor {
             const auto cursor = tab->editor.GetCursorPosition();
             const auto point = cpp_source_clamped_coordinate(before, cursor.mLine, cursor.mColumn);
             const auto offset = cpp_source_byte_offset(before, point.first, point.second);
-            std::size_t source_from = 0, target_from = 0, mapped = offset;
-            bool located = false;
-            for (const auto& edit : result.at("source_edits").at(index)) {
-                const auto first = edit.at("begin").get<std::size_t>();
-                const auto last = edit.at("end").get<std::size_t>();
-                if (offset < first) {
-                    mapped = target_from + offset - source_from;
-                    located = true;
-                    break;
-                }
-                const auto following = target_from + first - source_from +
-                                       edit.at("text").get_ref<const std::string&>().size();
-                if (offset < last) {
-                    mapped = following;
-                    located = true;
-                    break;
-                }
-                source_from = last;
-                target_from = following;
-            }
-            if (!located)
-                mapped = target_from + offset - source_from;
+            const auto mapped = mapped_source_offset(offset, result.at("source_edits").at(index));
             replace_source_widget_text(tab->editor, after);
             const auto next = cpp_source_coordinate(after, std::min(mapped, after.size()));
             position_source(*tab, TextEditor::Coordinates(next.first, next.second));
@@ -399,6 +432,103 @@ class CppSourceEditor {
         replace_source_widget_text(active_->editor, text);
         source_changed(*active_);
     }
+    nlohmann::json find_literal(SceneDocument& project, const std::string& query,
+                                const std::string& direction) {
+        project.check_ownership();
+        validate_literal_query(query);
+        if (direction != "next" && direction != "previous")
+            throw std::runtime_error("Choose next or previous source match");
+        if (root_ != project.project() || !active_ || close_pending())
+            throw std::runtime_error("Open this project's source and settle pending source closes");
+        const auto text = active_->editor.GetText();
+        const auto match = literal_match(*active_, text, query, direction == "next", false);
+        std::copy(query.begin(), query.end(), query_);
+        query_[query.size()] = '\0';
+        if (!match) {
+            literal_status_ = "No match in the active source.";
+            return {{"found", false}};
+        }
+        const auto previous = location();
+        const auto first = cpp_source_coordinate(text, match->first);
+        const auto last = cpp_source_coordinate(text, match->second);
+        select_source(*active_, {first.first, first.second}, {last.first, last.second});
+        note_navigation(previous);
+        literal_status_.clear();
+        return {{"found", true}, {"begin", match->first}, {"end", match->second}};
+    }
+    nlohmann::json replace_literal(SceneDocument& project, const std::string& query,
+                                   const std::string& replacement, bool all) {
+        project.check_ownership();
+        validate_literal_query(query);
+        validate_cpp_text(replacement);
+        if (replacement.size() > 4096 || replacement.find('\r') != replacement.npos)
+            throw std::runtime_error("Use LF replacement text within 4096 UTF-8 bytes");
+        if (root_ != project.project() || !active_ || active_->editor.IsReadOnly() ||
+            close_pending())
+            throw std::runtime_error(
+                "Open an editable project source and settle pending source closes");
+        if (!ImGui::GetCurrentContext())
+            throw std::runtime_error("C++ editing requires the owning editor UI context");
+        const auto before = active_->editor.GetText();
+        std::vector<std::pair<std::size_t, std::size_t>> matches;
+        if (all) {
+            for (std::size_t from = 0, found; (found = before.find(query, from)) != before.npos;) {
+                if (matches.size() == 32768)
+                    throw std::runtime_error("Replace all exceeds 32768 matches; refine the query");
+                matches.emplace_back(found, found + query.size());
+                from = found + query.size();
+            }
+        } else if (const auto match = literal_match(*active_, before, query, true, true))
+            matches.push_back(*match);
+        const auto bytes =
+            before.size() - matches.size() * query.size() + matches.size() * replacement.size();
+        if (!matches.empty() && query != replacement && bytes >= max_cpp_source_bytes)
+            throw std::runtime_error("Replacement exceeds the source editor's 1 MiB budget");
+        auto after = before;
+        nlohmann::json edits = nlohmann::json::array();
+        if (!matches.empty() && query != replacement) {
+            after.clear();
+            after.reserve(bytes);
+            std::size_t from = 0;
+            for (const auto& [first, last] : matches) {
+                after.append(before, from, first - from);
+                after += replacement;
+                edits.push_back({{"begin", first}, {"end", last}, {"text", replacement}});
+                from = last;
+            }
+            after.append(before, from, before.size() - from);
+            validate_cpp_text(after);
+        }
+        const bool changed = after != before;
+        if (changed) {
+            if (all) {
+                const auto cursor = active_->editor.GetCursorPosition();
+                const auto point =
+                    cpp_source_clamped_coordinate(before, cursor.mLine, cursor.mColumn);
+                const auto offset = cpp_source_byte_offset(before, point.first, point.second);
+                const auto mapped = mapped_source_offset(offset, edits);
+                replace_source_widget_text(active_->editor, after);
+                const auto next = cpp_source_coordinate(after, std::min(mapped, after.size()));
+                position_source(*active_, {next.first, next.second});
+            } else {
+                const auto first = cpp_source_coordinate(before, matches.front().first);
+                const auto last = cpp_source_coordinate(before, matches.front().second);
+                replace_source_widget_text(
+                    active_->editor, replacement,
+                    std::pair{TextEditor::Coordinates(first.first, first.second),
+                              TextEditor::Coordinates(last.first, last.second)});
+            }
+            source_changed(*active_);
+        }
+        std::copy(query.begin(), query.end(), query_);
+        query_[query.size()] = '\0';
+        std::copy(replacement.begin(), replacement.end(), replacement_);
+        replacement_[replacement.size()] = '\0';
+        literal_status_ = std::to_string(matches.size()) +
+                          (matches.size() == 1 ? " match" : " matches") +
+                          (changed ? " replaced." : "; source unchanged.");
+        return {{"matches", matches.size()}, {"changed", changed}};
+    }
     bool dirty() const {
         return std::any_of(tabs_.begin(), tabs_.end(), [](const auto& tab) { return tab->dirty; });
     }
@@ -421,6 +551,9 @@ class CppSourceEditor {
         rename_state_.clear();
         rename_stale_ = false;
         rename_name_[0] = '\0';
+        query_[0] = replacement_[0] = '\0';
+        literal_status_.clear();
+        show_replacement_ = false;
         back_locations_.clear();
         forward_locations_.clear();
         replaying_navigation_ = false;
@@ -625,35 +758,50 @@ class CppSourceEditor {
                 ImGui::IsKeyPressed(ImGuiKey_F) &&
                 ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
                 ImGui::SetKeyboardFocusHere();
-            if (ImGui::InputText("Find", query_, sizeof(query_),
-                                 ImGuiInputTextFlags_EnterReturnsTrue))
-                search_from_ = 0;
-            help("Case-sensitive search in the active source. Find next wraps to the start.");
-            ImGui::SameLine();
-            if (button("Find next", "Select the next occurrence of the search text.")) {
-                if (active_ && query_[0]) {
-                    const auto text = active_->editor.GetText();
-                    if (search_ != query_)
-                        search_from_ = 0;
-                    search_ = query_;
-                    auto pos = text.find(search_, search_from_);
-                    if (pos == std::string::npos)
-                        pos = text.find(search_);
-                    if (pos != std::string::npos) {
-                        const auto previous_location = location();
-                        auto coordinate = [&](std::size_t end) {
-                            const auto [row, col] = cpp_source_coordinate(text, end);
-                            return TextEditor::Coordinates(row, col);
-                        };
-                        active_->editor.SetSelection(coordinate(pos),
-                                                     coordinate(pos + search_.size()));
-                        active_->editor.SetCursorPosition(coordinate(pos + search_.size()));
-                        note_navigation(previous_location);
-                        search_from_ = pos + search_.size();
-                    } else
-                        error_ = "No match in the active source.";
-                }
+            const auto& style = ImGui::GetStyle();
+            const float find_controls = ImGui::CalcTextSize("FindPreviousNextReplace...").x +
+                                        6 * style.FramePadding.x + 4 * style.ItemSpacing.x;
+            ImGui::SetNextItemWidth(
+                std::max(96.f, ImGui::GetContentRegionAvail().x - find_controls));
+            if (ImGui::InputText("Find", query_, sizeof(query_)))
+                literal_status_.clear();
+            FORGE_UI_PROBE("cpp:find:query");
+            help("Literal, case-sensitive search in the active source. Previous and Next wrap.");
+            next_text_button("Previous");
+            ImGui::BeginDisabled(!active_ || !query_[0]);
+            if (button("Previous",
+                       "Select the previous literal match before the cursor or current match."))
+                attempt([&] { find_literal(project, query_, "previous"); });
+            FORGE_UI_PROBE("cpp:find:previous");
+            next_text_button("Next");
+            if (button("Next", "Select the next literal match after the cursor or current match."))
+                attempt([&] { find_literal(project, query_, "next"); });
+            FORGE_UI_PROBE("cpp:find:next");
+            ImGui::EndDisabled();
+            next_text_button("Replace...");
+            if (button("Replace...", "Show literal replacement controls for the active source."))
+                show_replacement_ = !show_replacement_;
+            FORGE_UI_PROBE("cpp:find:expand");
+            if (show_replacement_) {
+                ImGui::TextUnformatted("Replace with");
+                ImGui::InputTextMultiline("##cpp-replacement", replacement_, sizeof(replacement_),
+                                          {-1, ImGui::GetTextLineHeightWithSpacing() * 3});
+                FORGE_UI_PROBE("cpp:find:replacement");
+                ImGui::BeginDisabled(locked || save_locked || !active_ || !query_[0]);
+                if (button(
+                        "Replace next",
+                        "Replace the selected match, otherwise the next match. One source Undo."))
+                    attempt([&] { replace_literal(project, query_, replacement_, false); });
+                FORGE_UI_PROBE("cpp:find:replace_next");
+                next_text_button("Replace all");
+                if (button("Replace all",
+                           "Replace all non-overlapping matches in this source. One source Undo."))
+                    attempt([&] { replace_literal(project, query_, replacement_, true); });
+                FORGE_UI_PROBE("cpp:find:replace_all");
+                ImGui::EndDisabled();
             }
+            if (!literal_status_.empty())
+                ImGui::TextWrapped("%s", literal_status_.c_str());
             draw_project_search(project, locked);
             draw_semantics(project, locked);
             if (ImGui::BeginTabBar("cpp_source_tabs")) {
