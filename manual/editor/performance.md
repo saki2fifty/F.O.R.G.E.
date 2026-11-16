@@ -229,8 +229,24 @@ depth, rotation, scale and source controls keep their separate checks. Use
 `--workloads physics` for 3D bodies, or list several workload names to combine
 them. The2D profile supports up to1024bodies and defaults to64/512/1024; selections
 without2D default to64/512/4096. These separated-body scenes measure the shared
-physics stages; contacts,
-characters and rendering need their own workloads.
+physics stages. Use the contact selection below for supported boxes; characters
+and rendering need their own workloads.
+
+To measure solid support response, choose `--workloads contacts2d`:
+
+```sh
+python tools/benchmark_runtime.py --runtime /path/to/build/forge_runtime --workloads contacts2d --counts 64 512 --warmup 8 --samples 16 --repeats 3 --output /path/to/evidence/contacts.json
+```
+
+Each pair contains a Static support and a Dynamic Box under gravity. Rotation is
+locked and sleeping is disabled. Counts include both bodies: choose even numbers
+from 2 to 1024. The default counts are 64/512/1024. Before saving results, the tool
+checks every supported Box position, unchanged supports/settings and native body/
+shape counts. Each result records its verified support-pair count and 0.01 m height
+allowance; other position and matrix channels keep 0.0002 m checks. These are
+isolated uniform pairs, so results do not describe stacks, complex collisions,
+characters or rendering. The reported pairs come from pose checks rather than a
+native contact-event counter.
 
 Choose a new report path for a comparison and add `--baseline` pointing to the
 earlier file. Workloads, sampling, numeric policy, machine, compiler flags and

@@ -454,10 +454,11 @@ Select workloads explicitly to include isolated free-falling boxes:
 python tools/benchmark_runtime.py --runtime /path/to/build/forge_runtime --workloads physics --counts 64 512 4096 --warmup 8 --samples 16 --repeats 3 --output /path/to/evidence/physics.json
 ```
 
-`--workloads` accepts distinct `flat`, `hierarchy` and `physics` names. The default
-keeps the original two transform workloads/revision1 reports. A custom selection
-uses workload revision2; it compares only against the same selection, fixture and
-sampling policy. Selecting physics additionally collects the existing
+`--workloads` accepts distinct `flat`, `hierarchy`, `physics`, `physics2d` and
+`contacts2d` names. The default keeps the original two transform workloads/revision1
+reports. A custom selection without 2D uses workload revision2; it compares only
+against the same selection, fixture and sampling policy. Selecting physics
+additionally collects the existing
 PhysicsSynchronization, PhysicsStep and PhysicsAdoption wall-time scopes for each
 case, alongside complete tick and pose capture. These stages are included in the
 complete tick: do not sum them with that parent scope. PhysicsStep joins native
@@ -494,9 +495,9 @@ remain separate acceptance.
 starting at `y=100+3*floor(index/64)` with fixed `z=7`. Sleeping and damping are
 disabled. It shares the existing runtime client, scope sampling, statistics,
 complete readback, replacement and Quit owners. The existing default reports
-and selected 3D reports retain workload revisions1/2; any selection containing
-`physics2d` uses revision3 inside the same report format. Other layouts may be
-combined with it. The public2D source profile admits at most1024bodies; its default
+and selected 3D reports retain workload revisions1/2; a selection containing
+`physics2d` without `contacts2d` uses revision3 inside the same report format.
+Other layouts may be combined with it. The public2D source profile admits at most1024bodies; its default
 counts are64/512/1024. Selections without2D retain64/512/4096. Explicit counts must
 fit every selected profile and are checked before native startup. No new runtime
 protocol or game-authoring/MCP operation is added.
@@ -531,3 +532,34 @@ other reports, configured source metadata is a hint rather than proof of which
 source produced an arbitrary binary; `binary_origin_verified` remains false.
 Retain its matching build receipt. Native Windows and physical workload review
 remain separate acceptance.
+
+### Supported 2D contact workload
+
+`--workloads contacts2d` places independent pairs of one Dynamic unit Box touching
+its own Static support, 2 m wide. Pair centers are 4 m apart on an XY grid, with `z=7`.
+Gravity is enabled, damping/sleeping are disabled and rotation is locked. Counts
+include both source entities/native bodies: even numbers from 2 to 1024, or 1 to
+512 support pairs. Defaults remain 64/512/1024 for either 2D profile.
+
+```sh
+python tools/benchmark_runtime.py --runtime /path/to/build/forge_runtime --workloads contacts2d --counts 64 512 1024 --warmup 8 --samples 16 --repeats 3 --output /path/to/evidence/contacts.json
+```
+
+Selections containing `contacts2d` use revision4 and may include the earlier
+layouts. Revisions 1/2/3 keep their fixtures and numeric policies. The report stores
+the contact policy, per-run `support_tolerance_m` and `verified_support_pairs`;
+validation rejects altered policies, incomplete pairs and incompatible baselines.
+Sampling, phase scopes, native provenance and graceful cleanup reuse the existing
+report path. No game-authoring/MCP/runtime operation is added.
+
+Every final Dynamic local/world position must remain within 0.01 m of its initial
+supported height; Static positions and other affine channels retain 0.0002 m
+tolerances. Rotation, scale, identity and source controls must remain unchanged.
+Native body/shape counts, tick/gravity and absence of 3D bodies/joints/characters
+are checked as in the separated2D profile. Free fall already exceeds the support
+allowance at the shortest allowed measurement. This independently verifies solid
+support response under gravity; the pair count is pose evidence, not a copied
+native touching-contact or event count. The workload covers uniform isolated
+supports with locked rotation, not piles, frictional motion, complex shapes,
+sensors, joints, characters or representative whole-game collision performance.
+Physical hardware and native Windows execution remain separate acceptance.

@@ -22,16 +22,18 @@ def report(values=(1, 2, 3), layouts=None):
                 scopes=list(bench.SCOPES), native_systems=False, chunk_ticks=8,
                 discard_observation_tick=True)
     if layouts is not None:
-        work.update(revision=3 if 'physics2d' in layouts else 2, layouts=layouts,
+        work.update(revision=4 if 'contacts2d' in layouts else 3 if 'physics2d' in layouts else 2, layouts=layouts,
                     scopes=list(bench.PHYSICS_SCOPES if any(name in bench.PHYSICS_LAYOUTS for name in layouts) else bench.SCOPES))
         if 'physics2d' in layouts:
             work['physics2d_oracle'] = dict(bench.PLANAR_ORACLE)
+        if 'contacts2d' in layouts:
+            work['contacts2d_oracle'] = dict(bench.CONTACT_ORACLE)
     data = dict(format=bench.FORMAT, workload=work, units='microseconds', cases={},
                 provenance=dict(configuration={'type': 'Release'}, compiler_sha256='compiler',
                                 environment={'cpu': 'test'}, runtime_sha256='runtime'))
     if layouts is not None and 'physics' in layouts:
         data['provenance']['native_physics'] = dict(source_revision='a' * 40, configuration={})
-    if layouts is not None and 'physics2d' in layouts:
+    if layouts is not None and any(name in bench.PLANAR_LAYOUTS for name in layouts):
         data['provenance']['native_physics_2d'] = dict(source_revision='a' * 40,
             configuration={'BOX2D_DOUBLE_PRECISION': 'ON'}, c_compiler_sha256='c' * 64,
             snapshot=dict(upstream_commit='a' * 40, upstream_lf_sha256='b' * 64,
@@ -48,6 +50,9 @@ def report(values=(1, 2, 3), layouts=None):
             data['cases'][layout + '/4']['runs'][0].update(verified_bodies=4, final_tick=6)
         if layout == 'physics2d':
             data['cases'][layout + '/4']['runs'][0]['vertical_tolerance_m'] = .0002
+        if layout == 'contacts2d':
+            data['cases'][layout + '/4']['runs'][0].update(
+                verified_support_pairs=2, support_tolerance_m=.01)
     return data
 
 
@@ -341,6 +346,112 @@ class BenchmarkTests(unittest.TestCase):
         simulated['entities'][0]['components']['forge.local_translation']['y'] = 100 + drop + .05
         with self.assertRaises(ValueError):
             bench.verify_physics(state, source, expected, planar=True)
+
+    def test_contact_fixture_and_independent_support(self):
+        for count in (0, 1, 3, 1025, True):
+            with self.assertRaises(ValueError):
+                bench.fixture('contacts2d', count)
+        self.assertEqual(len(bench.fixture('contacts2d', 1024)[0]['entities']), 1024)
+        source, expected = bench.fixture('contacts2d', 4)
+        rows = source['entities']
+        self.assertEqual(list(expected.values()), [[0,-.5,7], [0,.5,7], [4,-.5,7], [4,.5,7]])
+        self.assertEqual([r['components']['forge.physics_body_2d']['motion'] for r in rows], [0,2,0,2])
+        self.assertEqual([r['components']['forge.box_collider_2d']['x'] for r in rows], [2,1,2,1])
+        self.assertTrue(all(r['components']['forge.physics_body_2d']['lock_rotation'] is True and
+                            r['components']['forge.physics_body_2d']['allow_sleeping'] is False and
+                            r['spatial']['mode'] == 'world' and 'parent' not in r for r in rows))
+        simulated = copy.deepcopy(source)
+        for row in simulated['entities'][1::2]:
+            row['components']['forge.local_translation']['y'] -= .002
+        effective = copy.deepcopy(simulated)
+        for row in effective['entities']:
+            p = row['components']['forge.local_translation']
+            row.update(spatial_resolved=True, world_affine=[1,0,0,p['x'],0,1,0,p['y'],0,0,1,p['z']])
+        state = dict(timing=dict(tick=4), scene=simulated, effective_scene=effective,
+                     physics=dict(tick=4, bodies=0, active_dynamic=0, sleeping_dynamic=0,
+                                  characters=0, bodies_2d=4, shapes_2d=4, native_2d_realized=True,
+                                  joints=0, joints_2d=0, gravity=[0,-9.81,0]))
+        self.assertEqual(bench.verify_physics(state, source, expected, planar=True, contacts=True), .01)
+        controls = lambda v, i: v['scene']['entities'][i]['components']
+        for mutate in (
+                lambda v: controls(v, 1)['forge.local_translation'].update(y=.5-.0231625),
+                lambda v: controls(v, 0)['forge.local_translation'].update(y=-.501),
+                lambda v: controls(v, 1)['forge.local_translation'].update(x=.001),
+                lambda v: controls(v, 1)['forge.local_translation'].update(z=0),
+                lambda v: controls(v, 1)['forge.local_rotation'].update(z=.001),
+                lambda v: controls(v, 1)['forge.physics_body_2d'].update(allow_sleeping=True),
+                lambda v: controls(v, 1)['forge.physics_body_2d'].update(gravity_factor=0),
+                lambda v: controls(v, 1)['forge.physics_body_2d'].update(lock_rotation=False),
+                lambda v: controls(v, 0)['forge.physics_body_2d'].update(motion=2),
+                lambda v: v['effective_scene']['entities'][1]['world_affine'].__setitem__(7, .4),
+                lambda v: v['effective_scene']['entities'][0]['world_affine'].__setitem__(7, -.501),
+                lambda v: v['physics'].update(bodies_2d=3),
+                lambda v: v['physics'].update(shapes_2d=3),
+                lambda v: v['physics'].update(gravity=[0,0,0])):
+            bad = copy.deepcopy(state)
+            mutate(bad)
+            with self.assertRaises(ValueError):
+                bench.verify_physics(bad, source, expected, planar=True, contacts=True)
+        self.assertEqual(source, bench.fixture('contacts2d', 4)[0])
+        # Even the shortest CLI run ends after at least three fixed ticks.
+        # Without solid response, independent free fall exceeds the support bound.
+        self.assertGreater(abs(bench.physics_reference(3, True)[0]), .01)
+
+    def test_contact_report_policy_and_baseline_admission(self):
+        original = report(layouts=['contacts2d', 'physics2d', 'physics', 'flat'])
+        self.assertEqual(original['workload']['revision'], 4)
+        bench.validate_report(original)
+        self.assertEqual(set(bench.compare(original, original)['changes']['contacts2d/4']), set(bench.PHYSICS_SCOPES))
+        for mutate in (
+                lambda v: v['workload'].update(revision=3),
+                lambda v: v['workload'].update(layouts=['physics2d']),
+                lambda v: v['workload'].update(counts=[3]),
+                lambda v: v['workload']['contacts2d_oracle'].update(support_tolerance_m=.1),
+                lambda v: v['workload']['contacts2d_oracle'].update(sleeping=True),
+                lambda v: v['workload']['contacts2d_oracle'].update(sleeping=0),
+                lambda v: v['workload']['contacts2d_oracle'].update(rotation_locked=False),
+                lambda v: v['workload']['contacts2d_oracle'].update(rotation_locked=1),
+                lambda v: v['provenance'].pop('native_physics_2d'),
+                lambda v: v['provenance']['native_physics_2d'].update(substeps=1),
+                lambda v: v['cases']['contacts2d/4']['runs'][0].update(verified_support_pairs=1),
+                lambda v: v['cases']['contacts2d/4']['runs'][0].update(verified_support_pairs=True),
+                lambda v: v['cases']['contacts2d/4']['runs'][0].update(support_tolerance_m=.1)):
+            bad = copy.deepcopy(original)
+            mutate(bad)
+            with self.assertRaises(ValueError):
+                bench.validate_report(bad)
+        contact_only = report(layouts=['contacts2d'])
+        for mutate in (
+                lambda v: v['provenance']['native_physics_2d'].update(c_compiler_sha256='f'*64),
+                lambda v: v['provenance']['native_physics_2d']['configuration'].update(BOX2D_DISABLE_SIMD='ON')):
+            bad = copy.deepcopy(contact_only)
+            mutate(bad)
+            with self.assertRaises(ValueError):
+                bench.compare(contact_only, bad)
+        bench.validate_report(report(layouts=['physics2d']))
+
+    @unittest.skipUnless(RUNTIME, 'requires a runtime executable')
+    def test_real_contact_process_report(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            first, second = root/'contacts.json', root/'compared.json'
+            args = [sys.executable, str(ROOT/'tools/benchmark_runtime.py'), '--runtime', str(RUNTIME),
+                    '--workloads', 'contacts2d', 'physics2d', '--counts', '2', '64', '--warmup', '2',
+                    '--samples', '3', '--repeats', '1']
+            subprocess.run([*args, '--output', str(first)], check=True)
+            subprocess.run([*args, '--baseline', str(first), '--output', str(second)], check=True)
+            data = json.loads(second.read_text())
+            bench.validate_report(data)
+            self.assertEqual(data['workload']['revision'], 4)
+            self.assertEqual(data['cases']['contacts2d/64']['runs'][0]['verified_support_pairs'], 32)
+            before = first.read_bytes()
+            rejected = subprocess.run([*args, '--output', str(first)], capture_output=True, text=True)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(first.read_bytes(), before)
+            failed = root/'failed.json'
+            rejected = subprocess.run([*args, '--counts', '3', '--output', str(failed)], capture_output=True, text=True)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertFalse(failed.exists())
 
     @unittest.skipUnless(RUNTIME, 'Pass a built forge_runtime for planar physics reports')
     def test_real_planar_reports_and_baselines(self):

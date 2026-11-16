@@ -23,11 +23,14 @@ from runtime_client import Runtime
 FORMAT = 'forge.runtime_cpu_benchmark.v1'
 SCOPES = ('FixedSimulationTick', 'PresentationPoseCapture')
 PHYSICS_SCOPES = SCOPES + ('PhysicsSynchronization', 'PhysicsStep', 'PhysicsAdoption')
-LAYOUTS = ('flat', 'hierarchy', 'physics', 'physics2d')
-LAYOUT_LIMITS = {name: 1024 if name == 'physics2d' else 4096 for name in LAYOUTS}
-PHYSICS_LAYOUTS = ('physics', 'physics2d')
+PLANAR_LAYOUTS = ('physics2d', 'contacts2d')
+LAYOUTS = ('flat', 'hierarchy', 'physics', *PLANAR_LAYOUTS)
+LAYOUT_LIMITS = {name: 1024 if name in PLANAR_LAYOUTS else 4096 for name in LAYOUTS}
+PHYSICS_LAYOUTS = ('physics', *PLANAR_LAYOUTS)
 PLANAR_ORACLE = dict(substeps=4, base_tolerance_m=.0002,
                      rounding_unit=2 ** -24, operation_margin=16)
+CONTACT_ORACLE = dict(support_tolerance_m=.01, other_channels_tolerance_m=.0002,
+                      sleeping=False, rotation_locked=True, bodies_per_pair=2)
 NAMESPACE = uuid.UUID('16100000-1610-4161-8161-161000000000')
 
 
@@ -43,6 +46,8 @@ def fixture_id(label):
 def fixture(layout, count):
     if layout not in LAYOUTS or type(count) is not int or not 1 <= count <= LAYOUT_LIMITS[layout]:
         raise ValueError('Expected a supported workload and entity count within its profile limit')
+    if layout == 'contacts2d' and count % 2:
+        raise ValueError('Contact workloads require even total body counts in2..1024')
     ids = [fixture_id(f'{layout}/{count}/{i}') for i in range(count)]
     rows, expected = [], {}
     for i, identity in enumerate(ids):
@@ -53,7 +58,7 @@ def fixture(layout, count):
                                'forge.local_scale': dict(x=1, y=1, z=1)})
         if layout in PHYSICS_LAYOUTS:
             # Equal1m boxes at3m centers: identical free fall preserves separation.
-            planar = layout == 'physics2d'
+            planar = layout in PLANAR_LAYOUTS
             local = ([3 * (i % 64), 100 + 3 * (i // 64), 7] if planar else
                      [3 * (i % 64), 100, 3 * (i // 64)])
             row['spatial']['mode'] = 'world'
@@ -63,6 +68,15 @@ def fixture(layout, count):
                 gravity_factor=1, linear_damping=0, angular_damping=0, allow_sleeping=False)
             row['components']['forge.box_collider_2d' if planar else 'forge.box_collider'] = (
                 dict(x=1, y=1) if planar else dict(x=1, y=1, z=1))
+            if layout == 'contacts2d':
+                # Each unit Dynamic Box touches its own2m-wide Static support.
+                # Separate pairs and lock rotation to bound the measured profile.
+                pair, dynamic = divmod(i, 2)
+                local = [4 * (pair % 32), 4 * (pair // 32) + (.5 if dynamic else -.5), 7]
+                row['components']['forge.local_translation'] = dict(zip('xyz', local))
+                row['components']['forge.physics_body_2d'].update(
+                    motion=2 if dynamic else 0, lock_rotation=True)
+                row['components']['forge.box_collider_2d']['x'] = 1 if dynamic else 2
         position = local
         if layout == 'hierarchy' and i:
             row['parent'] = ids[(i - 1) // 4]
@@ -101,7 +115,7 @@ def physics_reference(tick, planar):
     return drop, tolerance
 
 
-def verify_physics(state, source, expected, *, planar=False):
+def verify_physics(state, source, expected, *, planar=False, contacts=False):
     """Check native integration independently, allowing only simulated translation."""
     tick = state['timing']['tick']
     physics = state['physics']
@@ -117,9 +131,16 @@ def verify_physics(state, source, expected, *, planar=False):
         raise ValueError('Planar workload native body/shape realization changed')
     # Independent symplectic sum, with four native substeps per2D tick and one
     # per3D tick. Zero initial speed/drag and separated bodies exclude responses.
-    drop, vertical_tolerance = physics_reference(tick, planar)
+    if contacts and not planar:
+        raise ValueError('Contact profile requires planar physics')
+    drop, vertical_tolerance = ((0, CONTACT_ORACLE['support_tolerance_m']) if contacts else
+                               physics_reference(tick, planar))
     observed = copy.deepcopy(state['scene'])
     original = {row['id']: row for row in source['entities']}
+    def vertical_limit(identity):
+        if contacts and original[identity]['components']['forge.physics_body_2d']['motion'] == 0:
+            return CONTACT_ORACLE['other_channels_tolerance_m']
+        return vertical_tolerance
     rows = observed['entities']
     effective = state['effective_scene']['entities']
     for group in (rows, effective):
@@ -130,10 +151,10 @@ def verify_physics(state, source, expected, *, planar=False):
             position = [x, y + drop, z]
             local = row['components']['forge.local_translation']
             for key, value in zip('xyz', position):
-                tolerance = vertical_tolerance if key == 'y' else .0002
+                tolerance = vertical_limit(row['id']) if key == 'y' else .0002
                 if (type(local[key]) not in (int, float) or not math.isfinite(local[key]) or
                         abs(local[key] - value) > tolerance):
-                    raise ValueError(f'Physics local position differs from independent free fall: '
+                    raise ValueError(f'Physics local position differs from independent reference: '
                                      f'{row["id"]} {key}={local[key]!r}, expected={value}, tolerance={tolerance}')
     for row in effective:
         x, y, z = expected[row['id']]
@@ -141,9 +162,9 @@ def verify_physics(state, source, expected, *, planar=False):
         actual = row.get('world_affine', [])
         if (not row.get('spatial_resolved') or len(actual) != 12 or
                 any(type(a) not in (int, float) or not math.isfinite(a) or
-                    abs(a - z) > (vertical_tolerance if i == 7 else .0002)
+                    abs(a - z) > (vertical_limit(row['id']) if i == 7 else .0002)
                     for i, (a, z) in enumerate(zip(actual, affine)))):
-            raise ValueError('Physics world matrix differs from independent free fall')
+            raise ValueError('Physics world matrix differs from independent reference')
     for row in rows:
         row['components']['forge.local_translation'] = original[row['id']]['components']['forge.local_translation']
     if observed != source:
@@ -158,22 +179,30 @@ def workload_policy(work):
         layouts, scopes = ('flat', 'hierarchy'), SCOPES
         if 'layouts' in work:
             raise ValueError('Legacy workload must not override layouts')
-    elif work['revision'] in (2, 3):
+    elif work['revision'] in (2, 3, 4):
         layouts = work['layouts']
-        allowed = LAYOUTS if work['revision'] == 3 else LAYOUTS[:3]
+        allowed = LAYOUTS[:3] if work['revision'] == 2 else LAYOUTS[:4] if work['revision'] == 3 else LAYOUTS
         if (not isinstance(layouts, list) or not 1 <= len(layouts) <= len(LAYOUTS) or
                 any(not isinstance(name, str) or name not in allowed for name in layouts) or
                 len(set(layouts)) != len(layouts)):
             raise ValueError('Invalid selected workloads')
         if work['revision'] == 3 and 'physics2d' not in layouts:
             raise ValueError('Planar workload revision requires physics2d')
-        if work['revision'] == 3 and work.get('physics2d_oracle') != PLANAR_ORACLE:
+        if 'physics2d' in layouts and work.get('physics2d_oracle') != PLANAR_ORACLE:
             raise ValueError('Unsupported planar numeric policy')
+        if work['revision'] == 4:
+            policy = work.get('contacts2d_oracle')
+            if ('contacts2d' not in layouts or policy != CONTACT_ORACLE or
+                    any(type(policy[k]) is not type(v) for k, v in CONTACT_ORACLE.items())):
+                raise ValueError('Contact workload revision requires its supported numeric policy')
         scopes = PHYSICS_SCOPES if any(name in PHYSICS_LAYOUTS for name in layouts) else SCOPES
     else:
         raise ValueError('Unsupported workload revision')
     if work['scopes'] != list(scopes):
         raise ValueError('Unsupported workload scopes')
+    if any(type(n) is not int or not 1 <= n <= min(LAYOUT_LIMITS[name] for name in layouts)
+           or ('contacts2d' in layouts and n % 2) for n in work['counts']):
+        raise ValueError('Invalid entity count for the selected workload profile')
     return layouts, scopes
 
 
@@ -228,7 +257,8 @@ def collect(runtime, layout, count, warmup, samples, scopes=SCOPES):
                     measured[scope].append(rows[0]['seconds'] * 1000000)
             ticks.extend(chunk)
         if layout in PHYSICS_LAYOUTS:
-            tolerance = verify_physics(state, source, expected, planar=layout == 'physics2d')
+            tolerance = verify_physics(state, source, expected, planar=layout in PLANAR_LAYOUTS,
+                                       contacts=layout == 'contacts2d')
         else:
             verify_world(state, source, expected)
         # Final readback is complete. Unload through the existing replacement owner
@@ -240,10 +270,12 @@ def collect(runtime, layout, count, warmup, samples, scopes=SCOPES):
             raise ValueError('Runtime exited unsuccessfully')
         result = dict(ticks=ticks, microseconds=measured, verified_entities=len(expected))
         if layout in PHYSICS_LAYOUTS:
-            result.update(verified_bodies=state['physics']['bodies_2d' if layout == 'physics2d' else 'bodies'],
+            result.update(verified_bodies=state['physics']['bodies_2d' if layout in PLANAR_LAYOUTS else 'bodies'],
                           final_tick=state['timing']['tick'])
         if layout == 'physics2d':
             result['vertical_tolerance_m'] = tolerance
+        if layout == 'contacts2d':
+            result.update(verified_support_pairs=count // 2, support_tolerance_m=tolerance)
         return result
     finally:
         worker.close()
@@ -347,7 +379,8 @@ def compatible_headers(current, baseline):
             raise ValueError(f'Incompatible baseline {key}')
     for key in ('configuration', 'compiler_sha256', 'environment', 'native_physics', 'native_physics_2d'):
         layout = {'native_physics': 'physics', 'native_physics_2d': 'physics2d'}.get(key)
-        if layout and layout not in current['workload'].get('layouts', []):
+        layouts = current['workload'].get('layouts', [])
+        if layout and not (set(PLANAR_LAYOUTS).intersection(layouts) if layout == 'physics2d' else layout in layouts):
             continue
         if current['provenance'][key] != baseline['provenance'][key]:
             raise ValueError(f'Incompatible baseline {key}')
@@ -369,7 +402,7 @@ def validate_report(report):
             work['discard_observation_tick'] is not True):
         raise ValueError('Unsupported workload policy')
     for layout, key in (('physics', 'native_physics'), ('physics2d', 'native_physics_2d')):
-        if layout not in layouts:
+        if not (set(PLANAR_LAYOUTS).intersection(layouts) if layout == 'physics2d' else layout in layouts):
             continue
         native = report['provenance'].get(key)
         if not isinstance(native, dict):
@@ -412,6 +445,10 @@ def validate_report(report):
                     raise ValueError('Missing physics body/tick correctness coverage')
                 if layout == 'physics2d' and run.get('vertical_tolerance_m') != physics_reference(run['final_tick'], True)[1]:
                     raise ValueError('Planar numeric tolerance differs from its declared policy')
+                if layout == 'contacts2d' and (type(run.get('verified_support_pairs')) is not int or
+                        run['verified_support_pairs'] != count // 2 or
+                        run.get('support_tolerance_m') != CONTACT_ORACLE['support_tolerance_m']):
+                    raise ValueError('Missing independently verified supported pairs or numeric policy')
                 if set(run['microseconds']) != set(scopes):
                     raise ValueError('Missing measured scopes')
                 for values in run['microseconds'].values():
@@ -468,6 +505,8 @@ def main():
         args.counts = [64, 512, limit]
     if len(args.counts) > 6 or len(set(args.counts)) != len(args.counts) or any(not 1 <= n <= limit for n in args.counts):
         parser.error(f'Choose1..6 distinct entity counts in1..{limit} for these workloads')
+    if 'contacts2d' in args.workloads and any(n % 2 for n in args.counts):
+        parser.error('Contact workloads require even total body counts in2..1024')
     if not 1 <= args.warmup <= 128 or not 1 <= args.samples <= 128 or not 1 <= args.repeats <= 5:
         parser.error('Warmup/samples must be1..128; repeats1..5')
     if len(set(args.workloads)) != len(args.workloads):
@@ -477,15 +516,17 @@ def main():
     runtime = args.runtime.resolve(strict=True)
     cache = (args.cache or runtime.parent / 'CMakeCache.txt').resolve(strict=True)
     provenance = metadata(runtime, cache, physics='physics' in args.workloads,
-                          physics2d='physics2d' in args.workloads)
+                          physics2d=bool(set(PLANAR_LAYOUTS).intersection(args.workloads)))
     workload = dict(revision=1, counts=args.counts, warmup=args.warmup, samples=args.samples,
                     repeats=args.repeats, simulation_hz=60, scopes=list(SCOPES),
                     native_systems=False, chunk_ticks=8, discard_observation_tick=True)
     if args.workloads != ['flat', 'hierarchy']:
-        workload.update(revision=3 if 'physics2d' in args.workloads else 2, layouts=args.workloads,
+        workload.update(revision=4 if 'contacts2d' in args.workloads else 3 if 'physics2d' in args.workloads else 2, layouts=args.workloads,
                         scopes=list(PHYSICS_SCOPES if any(name in PHYSICS_LAYOUTS for name in args.workloads) else SCOPES))
     if 'physics2d' in args.workloads:
         workload['physics2d_oracle'] = dict(PLANAR_ORACLE)
+    if 'contacts2d' in args.workloads:
+        workload['contacts2d_oracle'] = dict(CONTACT_ORACLE)
     layouts, scopes = workload_policy(workload)
     report = dict(format=FORMAT, recorded_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                   workload=workload, provenance=provenance, units='microseconds', cases={},

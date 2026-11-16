@@ -1,5 +1,14 @@
 # 2026-11-16
 
+## Supported 2D contact CPU reports
+
+The source-checkout CPU report tool offers isolated Dynamic Box/Static support
+pairs alongside free-fall and transform workloads. It checks supported poses,
+unchanged controls and native body/shape counts before reporting; the declared
+support tolerance and verified pair count accompany each run. Existing profiling,
+configured native provenance, compatible-baseline comparison and graceful cleanup
+are reused. Earlier report revisions and fixtures remain supported.
+
 ## Shared physics transform evaluation
 
 Physics synchronization evaluates its detached transform graph once for the
