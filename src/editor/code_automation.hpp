@@ -582,6 +582,33 @@ struct CodeAutomation {
                                                request.at("index").get<std::size_t>());
                     return tab_state(*editor.active_);
                 }));
+            methods.push_back(automation_method(
+                "code.analysis.diagnostic_move",
+                "Navigate next/previous from the live cursor through retained diagnostic locations "
+                "of the exact completed Check source operation. Wrap at the ends; equal positions "
+                "share one stop. From another source, next chooses the first and previous the "
+                "last. "
+                "Recheck active source/session/state and existing analysis/source/context guards. "
+                "Uses source Back/Forward, preserves text/Undo/Save and runs no provider query.",
+                "code.write",
+                automation_object(
+                    {{"path", automation_text(2047, 1)},
+                     {"session", automation_uuid()},
+                     {"state", automation_digest()},
+                     {"operation", automation_uuid()},
+                     {"direction", {{"type", "string"}, {"enum", {"next", "previous"}}}}},
+                    {"path", "session", "state", "operation", "direction"}),
+                true, [&files, &editor, providers](const Json& request) {
+                    available(files, providers);
+                    const auto& observed = tab(editor, files, request);
+                    if (&observed != editor.active_)
+                        throw AuthoringError("stale_source",
+                                             "The active C++ source changed; read it again");
+                    editor.move_diagnostic(files.document,
+                                           request.at("operation").get<std::string>(),
+                                           request.at("direction").get<std::string>());
+                    return tab_state(*editor.active_);
+                }));
             for (const auto* action : {"replace", "save", "undo", "redo", "close"}) {
                 Json properties{{"path", automation_text(2047, 1)},
                                 {"session", automation_uuid()},

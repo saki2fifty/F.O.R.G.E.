@@ -152,10 +152,34 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
               scene.document() == authored,
           "Diagnostic query changed the source or Scene");
     input.select("cpp:analysis:use:0");
+    frame();
+    std::string diagnostic_cursor;
+    for (const auto& [key, target] : test::ui_targets) {
+        (void)target;
+        if (key.starts_with("cpp:cursor:"))
+            diagnostic_cursor = key;
+    }
+    check(!diagnostic_cursor.empty(), "Diagnostic use did not expose its native cursor");
+    input.click("cpp:analysis:diagnostic:next");
+    input.click("cpp:analysis:diagnostic:previous");
+    frame();
+    check(test::ui_targets.contains(diagnostic_cursor) && editor.active_text() == call_draft,
+          "Native next/previous diagnostic controls lost the source location or changed text");
+    locked = true;
+    frame();
+    check(!test::ui_targets.at("cpp:analysis:diagnostic:next").enabled &&
+              !test::ui_targets.at("cpp:analysis:diagnostic:previous").enabled,
+          "Native diagnostic navigation bypassed the source lock");
+    locked = false;
+    frame();
     reveal_source();
     if (!captures.empty())
         capture.save(captures / ("cpp-diagnostics-" + std::to_string(width) + ".png"));
     editor.undo(false);
+    frame();
+    check(!test::ui_targets.at("cpp:analysis:diagnostic:next").enabled &&
+              !test::ui_targets.at("cpp:analysis:diagnostic:previous").enabled,
+          "Native stale diagnostic navigation remained enabled");
     check(editor.active_text() == completed, "Diagnostic navigation added a source Undo record");
     const auto symbol_draft =
         completed + "\nnamespace SymbolProbe { struct Pivot { float outline_member; }; }\n"

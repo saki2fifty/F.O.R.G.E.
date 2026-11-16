@@ -305,6 +305,18 @@ current caret through the selected proposal and records one Undo. No separate
 action, draft or multi-file history owner is introduced. Native controls and MCP
 share permission, project/context/source/receipt and retirement guards.
 
+Diagnostic next/previous navigation is derived from the existing result's retained
+available `(begin,index)` locations. It sorts those borrowed pairs only on explicit
+navigation and uses the live queried-file widget cursor; no selected-diagnostic
+index or second history is stored. Strictly next/previous positions wrap, with
+equal positions sharing a stop. From another source, first/last are chosen. The
+selected stable result index passes through the existing `use_semantic_result`
+validation and source Back/Forward owner. Native controls and
+`code.analysis.diagnostic_move` share this responsibility. The tool additionally
+observes the active source path/session/state and uses code.write/revisions/
+receipts. No new worker kind, query, background compiler or persisted state is
+introduced.
+
 Queries snapshot all open drafts, saved Native build-input identity and the actual
 compile-database digest. Response/apply checks preserve project, operation,
 compiler generation, current drafts, saved input identity and database identity.

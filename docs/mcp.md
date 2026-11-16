@@ -947,6 +947,17 @@ and `limited` is true. Apply an available exact operation/index through
 Private per-proposal mapping edits remain withheld. Scope is the current compiler
 context, without exhaustive indexing; Save and Build remain separate.
 
+`forge_code_analysis_diagnostic_move` requires `code.write`, the observed active
+source `path/session/state`, the completed diagnostic `operation` and `direction`
+(`next` or `previous`). It chooses the nearest strictly following/preceding
+retained diagnostic position relative to the live cursor and wraps at the ends.
+Equal positions share a stop. From another source, next chooses the first and
+previous the last location in the checked file. It returns the resulting source
+state (cursor, source digest and history availability) and uses ordinary mutation
+receipts, source/context guards and Back/Forward. Read the source separately for text.
+Stale/empty/non-diagnostic/retired operations cannot navigate. Text, source Undo
+and Save remain unchanged; no provider query is launched.
+
 With `code.write`, `forge_code_analysis_use` takes the operation UUID and result
 index0..63. It rechecks project, operation, all drafts, saved Native input identity,
 compiler generation and database before using the existing source owner. Completion

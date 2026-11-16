@@ -8,6 +8,7 @@
 #include "widgets.hpp"
 #include <SDL3/SDL.h>
 #include <TextEditor.h>
+#include <algorithm>
 #include <cstdint>
 #include <deque>
 #include <imgui_internal.h>
@@ -196,6 +197,51 @@ class CppSourceEditor {
                 "Choose the optional clangd provider in Build > Compiler setup");
         semantic_task_.start(semantic_context(), provider, path, kind, offset, source_drafts(),
                              new_name);
+    }
+    bool can_move_diagnostic() const {
+        const auto& result = semantic_task_.result();
+        if (semantic_task_.busy() || semantic_task_.stale() || result.is_null() ||
+            result.at("kind").get<std::string>() != "diagnostics")
+            return false;
+        const auto& items = result.at("items");
+        return std::any_of(items.begin(), items.end(), [](const nlohmann::json& item) {
+            return item.at("available").get<bool>();
+        });
+    }
+    void move_diagnostic(SceneDocument& project, const std::string& operation,
+                         const std::string& direction) {
+        project.check_ownership();
+        if (direction != "next" && direction != "previous")
+            throw std::runtime_error("Choose next or previous diagnostic location");
+        poll_semantics();
+        if (project.project() != root_ || operation.empty() ||
+            operation != semantic_task_.operation() || !can_move_diagnostic())
+            throw std::runtime_error(
+                "Run Check source and choose its current diagnostic operation");
+        const auto& result = semantic_task_.result();
+        const auto& items = result.at("items");
+        std::vector<std::pair<std::size_t, std::size_t>> locations;
+        for (std::size_t i = 0; i < items.size(); ++i)
+            if (items.at(i).at("available").get<bool>())
+                locations.emplace_back(items.at(i).at("begin").get<std::size_t>(), i);
+        std::sort(locations.begin(), locations.end());
+        const bool forward = direction == "next";
+        auto target = forward ? locations.front() : locations.back();
+        if (active_ && active_->locator == result.at("path").get<std::string>()) {
+            const auto text = active_->editor.GetText();
+            const auto cursor = active_->editor.GetCursorPosition();
+            const auto point = cpp_source_clamped_coordinate(text, cursor.mLine, cursor.mColumn);
+            const auto offset = cpp_source_byte_offset(text, point.first, point.second);
+            for (const auto& location : locations) {
+                if (forward && location.first > offset) {
+                    target = location;
+                    break;
+                }
+                if (!forward && location.first < offset)
+                    target = location;
+            }
+        }
+        use_semantic_result(project, operation, target.second);
     }
     void use_semantic_result(SceneDocument& project, const std::string& operation,
                              std::size_t index) {
@@ -891,6 +937,21 @@ class CppSourceEditor {
             if (diagnostics)
                 ImGui::TextWrapped("Diagnostics received: %s",
                                    result.at("occurred_at").get_ref<const std::string&>().c_str());
+            if (diagnostics) {
+                ImGui::BeginDisabled(locked || !can_move_diagnostic());
+                if (button(
+                        "Previous diagnostic",
+                        "Go to the previous retained diagnostic location, wrapping at the start."))
+                    attempt(
+                        [&] { move_diagnostic(project, semantic_task_.operation(), "previous"); });
+                FORGE_UI_PROBE("cpp:analysis:diagnostic:previous");
+                next_text_button("Next diagnostic");
+                if (button("Next diagnostic",
+                           "Go to the next retained diagnostic location, wrapping at the end."))
+                    attempt([&] { move_diagnostic(project, semantic_task_.operation(), "next"); });
+                FORGE_UI_PROBE("cpp:analysis:diagnostic:next");
+                ImGui::EndDisabled();
+            }
             if (information)
                 ImGui::TextUnformatted("Symbol information (read-only)");
             if (symbols)

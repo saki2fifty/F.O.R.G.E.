@@ -3835,16 +3835,21 @@ managed GNU12.3.0/Release SDK CMake context. Each task has one canonical image.
 All fourteen modes pass real native controls at1180/700/400. Analysis actions wrap
 into five rows at400; Back/Forward/Clear and queried-file captions remain.
 
-Quick-fix views at700and400 were reviewed. The cursor uses the reported diagnostic
-token, which differs from the suggested insertion position. Actual input previews
-the complete source and applies the missing semicolon with current-caret mapping
-and one Undo/Redo. Saved source and Scene bytes remain unchanged. Rename retains
-its typed/stale/Cancel/preview/apply checks, and other task content retains its
-preceding reviews with the toolbar refreshed. Formatting still preserves savedCRLF
-with an LF source/proposal and one Undo/Redo. Pixels are not retouched.
+Diagnostic navigation views at700and400 were reviewed. Actual input moves next
+and previous through the retained positions and returns to its original cursor,
+preserving source text/Undo and saved bytes. Locked and stale controls are disabled.
+The refreshed diagnostic canonical is700×850. At400 the fixture scrolls the small
+source pane toward its end, so the cursor status can refer above the visible lines;
+desktop resize/scroll review remains separate. The other eleven task images keep
+their preceding attributable captures and reviews. Their visible workflows are
+unchanged. Pixels are not retouched.
 
-Capture source is the working tree based on8e3a9b3. Exact source/test hashes,
+The refreshed diagnostic capture is from the working tree based on43bfcb2.
+Exact source/test hashes,
 actual actor/tool/provider bytes, original paths and test command are retained in
+`AgentFiles/build/phase376-cpp-diagnostic-navigation/capture-proof-final.json`.
+The eleven reused task images retain their source/actor provenance from the
+8e3a9b3-based working tree in
 `AgentFiles/build/phase375-cpp-diagnostic-actions/capture-proof-final.json`.
 The run logger confirms those executable inputs stayed unchanged during capture.
 Canonical PNGs are copied byte-for-byte. This SDL software source-owner fixture

@@ -968,6 +968,97 @@ int main(int argc, char** argv) {
             editor.undo(false);
             check(editor.active_text() == draft, "Quick-fix checks lost preceding source history");
         }
+        {
+            const auto source =
+                draft + "\n// café\nint diagnostic_probe() { int value = 1 return value; }\n";
+            editor.replace_text(source);
+            const auto first =
+                forge::ui::cpp_source_coordinate(source, source.find("degrees_per_second"));
+            const auto last = forge::ui::cpp_source_coordinate(source, source.find("1 return") + 2);
+            const auto cursor = [&](const auto& point) {
+                return forge::Json{{"line", point.first + 1}, {"column", point.second + 1}};
+            };
+            const auto move = [&](const forge::Json& operation, const char* direction) {
+                const auto observed = invoke("code.read", {{"path", editor.active_source()}});
+                return invoke("code.analysis.diagnostic_move", {{"path", observed.at("path")},
+                                                                {"session", observed.at("session")},
+                                                                {"state", observed.at("state")},
+                                                                {"operation", operation},
+                                                                {"direction", direction}});
+            };
+            for (const auto* mode : {"", "diagnostic-disordered", "diagnostic-duplicate"}) {
+                SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", mode, true);
+                editor.open(files.document, "Native/First.cpp", 1, 1);
+                start_analysis("diagnostics");
+                analysis = settle_analysis();
+                check(analysis.at("complete").get<bool>(), "Diagnostic navigation query failed");
+                const auto operation = analysis.at("operation");
+                check(move(operation, "next").at("cursor") == cursor(first),
+                      "Next diagnostic did not choose the nearest first source location");
+                check(move(operation, "next").at("cursor") == cursor(last),
+                      "Next diagnostic repeated an equal-position diagnostic");
+                check(move(operation, "next").at("cursor") == cursor(first),
+                      "Next diagnostic did not wrap at the end");
+                check(move(operation, "previous").at("cursor") == cursor(last),
+                      "Previous diagnostic did not wrap at the start");
+                check(move(operation, "previous").at("cursor") == cursor(first),
+                      "Previous diagnostic did not choose the preceding source location");
+                const auto before = invoke("code.read", {{"path", "Native/First.cpp"}});
+                for (const auto* direction : {"other", ""}) {
+                    bool rejected = false;
+                    try {
+                        move(operation, direction);
+                    } catch (const std::exception&) {
+                        rejected = true;
+                    }
+                    check(rejected && invoke("code.read", {{"path", "Native/First.cpp"}}) == before,
+                          "Invalid diagnostic direction changed the source or caret");
+                }
+                bool wrong_operation = false;
+                try {
+                    move(forge::AssetId::generate().str(), "next");
+                } catch (const std::exception&) {
+                    wrong_operation = true;
+                }
+                check(wrong_operation &&
+                          invoke("code.read", {{"path", "Native/First.cpp"}}) == before,
+                      "Wrong diagnostic operation navigated source");
+                editor.open(files.document, "Native/Second.hpp");
+                check(move(operation, "previous").at("cursor") == cursor(last) &&
+                          editor.active_source() == "Native/First.cpp",
+                      "Previous diagnostic from another source did not choose the final location");
+                const auto back = invoke("code.navigation.status", forge::Json::object());
+                invoke("code.navigation.move", {{"path", back.at("source").at("path")},
+                                                {"session", back.at("source").at("session")},
+                                                {"state", back.at("source").at("state")},
+                                                {"navigation_revision", back.at("revision")},
+                                                {"direction", "back"}});
+                check(editor.active_source() == "Native/Second.hpp",
+                      "Diagnostic move bypassed source Back history");
+                check(move(operation, "next").at("cursor") == cursor(first) &&
+                          editor.active_source() == "Native/First.cpp",
+                      "Next diagnostic from another source did not choose the first location");
+                check(editor.active_text() == source, "Diagnostic navigation changed source text");
+            }
+            SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE",
+                                       "diagnostic-empty", true);
+            start_analysis("diagnostics");
+            analysis = settle_analysis();
+            const auto empty_source = invoke("code.read", {{"path", "Native/First.cpp"}});
+            bool empty_rejected = false;
+            try {
+                move(analysis.at("operation"), "next");
+            } catch (const std::exception&) {
+                empty_rejected = true;
+            }
+            check(empty_rejected &&
+                      invoke("code.read", {{"path", "Native/First.cpp"}}) == empty_source,
+                  "Empty diagnostics navigated source");
+            SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+            editor.undo(false);
+            check(editor.active_text() == draft,
+                  "Diagnostic navigation added a source Undo record");
+        }
         const auto cancelled = start_analysis();
         invoke("code.analysis.cancel", {{"operation", cancelled.at("operation")}});
         analysis = settle_analysis();

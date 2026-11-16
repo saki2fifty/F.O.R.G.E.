@@ -1,5 +1,14 @@
 # 2026-11-16
 
+## C++ diagnostic navigation
+
+Next diagnostic and Previous diagnostic navigate retained Check source locations
+relative to the live cursor, wrapping and grouping equal positions. From another
+tab they open the first/last location in the checked source. Native controls and
+MCP share existing result/source/context guards and Back/Forward; text, source
+Undo and Save remain separate. No additional provider query or navigation state
+is created.
+
 ## Reviewed C++ diagnostic quick fixes
 
 Quick fixes requests suggestions at the source cursor using diagnostics for the

@@ -58,6 +58,11 @@ for legacy in protocol_cases():
                         assert tools['forge_code_analysis_' + name]['annotations']['readOnlyHint']
                         assert not tools['forge_code_analysis_' + name]['annotations']['openWorldHint']
                     assert ('forge_code_analysis_use' in tools) == (mode != 'read')
+                    assert ('forge_code_analysis_diagnostic_move' in tools) == (mode != 'read')
+                    if mode != 'read':
+                        diagnostic_tool = tools['forge_code_analysis_diagnostic_move']
+                        assert not diagnostic_tool['annotations']['readOnlyHint']
+                        assert diagnostic_tool['inputSchema']['properties']['direction']['enum'] == ['next', 'previous']
                     assert tools['forge_code_navigation_status']['annotations']['readOnlyHint']
                     assert ('forge_code_navigation_move' in tools) == (mode != 'read')
                     assert ('forge_code_navigation_clear' in tools) == (mode != 'read')
@@ -123,6 +128,45 @@ for legacy in protocol_cases():
                     selected = read('forge_code_read', path='Native/Spinner.cpp')
                     assert selected['text'] == draft and selected['selection']['active'] and selected['selection']['bytes'] > 0
                     assert selected['can_undo'] == before_selection['can_undo'] and selected['can_redo'] == before_selection['can_redo']
+                    navigation_source = draft + '\nint diagnostic_probe() { int value = 1 return value; }\n'
+                    assert mutate('forge_code_replace', **(observed_args() | dict(text=navigation_source)))['ok']
+                    assert mutate('forge_code_open', path='Native/Spinner.cpp',
+                                  line=navigation_source.count('\n') + 1, column=1)['ok']
+                    assert mutate('forge_code_analysis_start', **(observed_args() | dict(kind='diagnostics', offset=0)))['ok']
+                    diagnostic_result = settle()
+                    assert diagnostic_result['complete'] and diagnostic_result['total'] == 2, diagnostic_result
+                    def diagnostic_cursor(offset):
+                        start = navigation_source.rfind('\n', 0, offset) + 1
+                        return dict(line=navigation_source.count('\n', 0, offset) + 1,
+                                    column=len(navigation_source[start:offset].expandtabs(4)) + 1)
+                    first_cursor = diagnostic_cursor(navigation_source.index('degrees_per_second'))
+                    last_cursor = diagnostic_cursor(navigation_source.index('1 return') + 2)
+                    route = discovery()
+                    request = dict(target=route['result']['target'], expected_revision=route['revision'],
+                                   sequence=route['next_sequence'], **observed_args(),
+                                   operation=diagnostic_result['operation'], direction='next')
+                    jumped = client.tool('forge_code_analysis_diagnostic_move', **request)
+                    assert jumped['ok'] and jumped['result']['cursor'] == first_cursor, jumped
+                    assert client.tool('forge_code_analysis_diagnostic_move', **request) == jumped
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['cursor'] == first_cursor
+                    for direction, expected in [('next', last_cursor), ('next', first_cursor),
+                                                ('previous', last_cursor), ('previous', first_cursor)]:
+                        value = mutate('forge_code_analysis_diagnostic_move', **observed_args(),
+                                       operation=diagnostic_result['operation'], direction=direction)
+                        assert value['ok'] and value['result']['cursor'] == expected, value
+                        assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == navigation_source
+                    before_bad_navigation = read('forge_code_read', path='Native/Spinner.cpp')
+                    for extra in [dict(direction='bad'), dict(operation='00000000-0000-0000-0000-000000000000'),
+                                  dict(state='0' * 64)]:
+                        arguments = observed_args() | dict(operation=diagnostic_result['operation'], direction='next') | extra
+                        assert not mutate('forge_code_analysis_diagnostic_move', **arguments)['ok']
+                        assert read('forge_code_read', path='Native/Spinner.cpp') == before_bad_navigation
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
+                    after_navigation_undo = read('forge_code_read', path='Native/Spinner.cpp')
+                    assert not mutate('forge_code_analysis_diagnostic_move', **observed_args(),
+                                      operation=diagnostic_result['operation'], direction='next')['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp') == after_navigation_undo
                     rename_draft = draft + '\nfloat rename_probe(float rename_rate) { return rename_rate + rename_rate; }\n'
                     assert mutate('forge_code_replace', **(observed_args() | dict(text=rename_draft)))['ok']
                     before_rename = read('forge_code_read', path='Native/Spinner.cpp')
@@ -210,6 +254,10 @@ for legacy in protocol_cases():
                     assert started['ok'], started
                     status = settle()
                     assert status['complete'] and status['readonly'] and status['total'] == 2, status
+                    before_wrong_kind = read('forge_code_read', path='Native/Spinner.cpp')
+                    assert not mutate('forge_code_analysis_diagnostic_move', **observed_args(),
+                                      operation=status['operation'], direction='next')['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp') == before_wrong_kind
                     assert status['active_signature'] == 0 and status['active_parameter'] == 1, status
                     assert status['items'][0]['parameters'][1] == dict(label='float 𐐀rate', documentation='Rate to apply.')
                     other = read('forge_code_analysis_status', offset=1, limit=1)

@@ -180,6 +180,10 @@ int main() {
                     diagnostics[0]["range"]["start"]["character"] = 999999;
                 if (mode == "diagnostic-severity")
                     diagnostics[0]["severity"] = 5;
+                if (mode == "diagnostic-disordered")
+                    std::reverse(diagnostics.begin(), diagnostics.end());
+                if (mode == "diagnostic-duplicate" && !diagnostics.empty())
+                    diagnostics.push_back(diagnostics.at(0));
                 if (mode == "diagnostic-oversized")
                     diagnostics[0]["message"] = std::string(8193, 'x');
                 Json notification{

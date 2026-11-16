@@ -3087,6 +3087,12 @@ multiple alternatives and their distinct caret mappings, unavailable commands/
 deferred/cross-file/annotated edits, malformed metadata/ranges and aggregate result
 budgets. Actual-provider checks repair a missing semicolon in a Unicode draft
 through both MCP formats and native controls, preserving saved source and Scene.
+Diagnostic-navigation checks exercise source-order selection, wrap, equal-position
+stops, out-of-order publications, cross-tab first/last navigation, Back history,
+source Undo, empty/stale/non-diagnostic operations, active source witnesses,
+permissions and mutation replay. Native controls exercise next/previous with the
+actual provider and refuse locked/stale use. The unchanged fourteen-kind provider
+producer matrix can be reused; a new owner/UI method needs its own consumer proof.
 Actual build/deployment outcomes are retained;
 Linux's Windows-only deployment refusal is distinct from successful configuration
 and analysis. The native control executable also accepts an existing project and

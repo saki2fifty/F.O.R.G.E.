@@ -135,12 +135,20 @@ editing and building work without this optional tool.
 15. Place the cursor within a symbol and choose **Rename in file...**. Enter its **New name**, then choose **Preview rename**. Review **Proposed source** and choose **Apply rename to NAME (N edits)** when ready. Applying follows the current caret through the edits and creates one source Undo step. **Save source** and **Build Project Code** remain separate.
 16. Place the cursor at a reported error and choose **Quick fixes**. You can first choose **Check source** and select an error's location. Review the **Proposed source** for an available suggestion, then choose its **Apply quick fix** action. Each application creates one source Undo step and follows the current caret through its edits. Save and build when ready.
 
+After **Check source**, use **Next diagnostic** or **Previous diagnostic** to move
+between the retained source locations. Navigation follows the current cursor and
+wraps at either end. Diagnostics at the same position share one stop. From another
+source tab, Next opens the first location in the checked file and Previous opens
+the last. **Back** returns to the earlier source location. These actions change
+the cursor, preserve source text and Undo, and do not save or run another check.
+Rerun **Check source** when its results become stale.
+
 ![C++ Sources showing a function call signature and its active second argument](../images/cpp-code-assistance.png)
 
 Signature help identifies the active argument without changing the draft. Choose
 **Complete** when you need a source suggestion, then use **Save source** when ready.
 
-![C++ Sources showing timestamped errors and warnings with clickable source locations](../images/cpp-source-diagnostics.png)
+![C++ Sources showing timestamped diagnostics and Previous diagnostic and Next diagnostic controls](../images/cpp-source-diagnostics.png)
 
 Choose **Check source**, then click a reported path and location to inspect that
 part of the current draft. Diagnostics remain separate from source Undo and Save.
