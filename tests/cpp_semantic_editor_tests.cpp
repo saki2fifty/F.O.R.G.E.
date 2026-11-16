@@ -208,6 +208,33 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     reveal_source();
     if (!captures.empty())
         capture.save(captures / ("cpp-file-symbols-" + std::to_string(width) + ".png"));
+    for (const auto* kind : {"references", "typeDefinition"}) {
+        const bool references = std::string_view(kind) == "references";
+        const auto query_position =
+            references
+                ? symbol_position
+                : ui::cpp_source_coordinate(symbol_draft, symbol_draft.rfind("p.outline_member"));
+        editor.open(document, "Native/gameplay.cpp", query_position.first + 1,
+                    query_position.second + 1);
+        frame();
+        input.click((std::string("cpp:analysis:") + kind).c_str());
+        wait_result();
+        check(editor.active_text() == symbol_draft, "Native reference/type query edited its draft");
+        input.select("cpp:analysis:use:0");
+        frame();
+        const auto target =
+            references
+                ? symbol_position
+                : ui::cpp_source_coordinate(symbol_draft, symbol_draft.find("struct Pivot") + 7);
+        check(test::ui_targets.contains(cursor_key(target)) && editor.active_text() == symbol_draft,
+              "Native reference/type action chose the wrong source position");
+        reveal_source();
+        if (!captures.empty())
+            capture.save(captures /
+                         (std::string("cpp-") + kind + "-" + std::to_string(width) + ".png"));
+    }
+    editor.open(document, "Native/gameplay.cpp", declaration_position.first + 1,
+                declaration_position.second + 1);
     editor.open(document, "Native/forge.registration.hpp");
     editor.open(document, "Native/gameplay.cpp", declaration_position.first + 1,
                 declaration_position.second + 1);
@@ -245,6 +272,38 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     check(!test::ui_targets.at("cpp:navigation:back").enabled &&
               !test::ui_targets.at("cpp:navigation:clear").enabled,
           "Native navigation bypassed the source lock");
+    check(!test::ui_targets.at("cpp:analysis:references").enabled &&
+              !test::ui_targets.at("cpp:analysis:typeDefinition").enabled,
+          "Native reference/type controls bypassed the source lock");
+    locked = false;
+    frame();
+    editor.undo(true);
+    editor.open(document, "Native/gameplay.cpp", symbol_position.first + 1,
+                symbol_position.second + 1);
+    editor.search_project(document, {"outline_member", true, false});
+    const auto search_end = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (!test::ui_targets.contains("cpp:project-open:0")) {
+        check(std::chrono::steady_clock::now() < search_end, "Native source search did not finish");
+        frame();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    editor.open_search_result(document, 0);
+    frame();
+    check(test::ui_targets.contains("cpp:selection"),
+          "Search match did not select its source text");
+    editor.open(document, "Native/gameplay.cpp", symbol_position.first + 1,
+                symbol_position.second + 1);
+    frame();
+    check(!test::ui_targets.contains("cpp:selection"),
+          "Explicit source jump retained an old selection");
+    editor.open_search_result(document, 0);
+    frame();
+    check(test::ui_targets.contains("cpp:selection"), "Repeated search lost its source selection");
+    input.click("cpp:navigation:back");
+    frame();
+    check(!test::ui_targets.contains("cpp:selection") && editor.active_text() == symbol_draft &&
+              test::ui_targets.contains(cursor_key(symbol_position)),
+          "Back retained an old search selection or changed source");
     editor.project_changed(root / "DifferentProject");
     test::observe_ui = false;
 }

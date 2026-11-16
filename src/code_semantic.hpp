@@ -1,4 +1,6 @@
 #pragma once
+#include <algorithm>
+#include <array>
 #include <filesystem>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -7,6 +9,13 @@
 struct SDL_Environment;
 
 namespace forge {
+inline constexpr std::array<std::string_view, 8> cpp_semantic_kinds{
+    "completion", "declaration", "signature",  "diagnostics",
+    "hover",      "symbols",     "references", "typeDefinition"};
+inline bool cpp_semantic_kind(std::string_view kind) {
+    return std::find(cpp_semantic_kinds.begin(), cpp_semantic_kinds.end(), kind) !=
+           cpp_semantic_kinds.end();
+}
 struct CppSemanticContext {
     std::filesystem::path project, directory;
     std::string generation;

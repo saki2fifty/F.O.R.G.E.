@@ -71,6 +71,10 @@ class CppSourceEditor {
         active_ = &tab;
         note_navigation(previous);
     }
+    void position_source(Tab& tab, const TextEditor::Coordinates& point) {
+        tab.editor.SetSelection(point, point);
+        tab.editor.SetCursorPosition(point);
+    }
     void select_tab_next_frame(Tab& selected) {
         for (auto& tab : tabs_)
             tab->selected = tab.get() == &selected;
@@ -199,9 +203,7 @@ class CppSourceEditor {
             throw std::runtime_error("Choose an available C++ analysis result");
         // Own the row before any source operation can invalidate the derived result.
         const auto item = items.at(index);
-        if (result.at("kind").get<std::string>() == "declaration" ||
-            result.at("kind").get<std::string>() == "diagnostics" ||
-            result.at("kind").get<std::string>() == "symbols") {
+        if (result.at("kind").get<std::string>() != "completion") {
             open(project, item.at("path").get<std::string>(), item.at("line").get<int>(),
                  item.at("column").get<int>(), item.at("state").get<std::string>());
             return;
@@ -371,8 +373,8 @@ class CppSourceEditor {
         select_tab_next_frame(*tab);
         active_ = tab;
         open_ = focus_ = true;
-        tab->editor.SetCursorPosition(
-            TextEditor::Coordinates(std::max(line - 1, 0), std::max(column - 1, 0)));
+        position_source(*tab,
+                        TextEditor::Coordinates(std::max(line - 1, 0), std::max(column - 1, 0)));
         note_navigation(previous_location);
     }
     bool can_navigate(bool forward) const {
@@ -395,7 +397,7 @@ class CppSourceEditor {
                 std::clamp(target.line - 1, 0, std::max(active_->editor.GetTotalLines() - 1, 0));
             const auto point =
                 cpp_source_clamped_coordinate(active_->editor.GetText(), row, target.column - 1);
-            active_->editor.SetCursorPosition(TextEditor::Coordinates(point.first, point.second));
+            position_source(*active_, TextEditor::Coordinates(point.first, point.second));
         } catch (...) {
             replaying_navigation_ = false;
             throw;
@@ -571,6 +573,8 @@ class CppSourceEditor {
                                                {available.x, std::max(80.0f, available.y - 35.0f)});
                             tab->editor.SetHandleKeyboardInputs(true);
                             FORGE_UI_PROBE("cpp:editor");
+                            if (tab->editor.HasSelection())
+                                FORGE_UI_PROBE("cpp:selection");
                             if (tab->editor.IsTextChanged())
                                 source_changed(*tab);
                             const auto cursor = tab->editor.GetCursorPosition();
@@ -700,9 +704,10 @@ class CppSourceEditor {
         ImGui::BeginDisabled(locked || !active_ || semantic_task_.busy());
         bool first_button = true;
         constexpr std::pair<const char*, const char*> actions[]{
-            {"completion", "Complete"},      {"declaration", "Find declaration"},
-            {"signature", "Signature help"}, {"diagnostics", "Check source"},
-            {"hover", "Symbol info"},        {"symbols", "Symbols in file"}};
+            {"completion", "Complete"},        {"declaration", "Find declaration"},
+            {"signature", "Signature help"},   {"diagnostics", "Check source"},
+            {"hover", "Symbol info"},          {"symbols", "Symbols in file"},
+            {"references", "Find references"}, {"typeDefinition", "Go to type"}};
         for (const auto& [kind, label] : actions) {
             if (!first_button)
                 next_text_button(label);
@@ -739,6 +744,8 @@ class CppSourceEditor {
             const bool diagnostics = result.at("kind").get<std::string>() == "diagnostics";
             const bool information = result.at("kind").get<std::string>() == "hover";
             const bool symbols = result.at("kind").get<std::string>() == "symbols";
+            const bool references = result.at("kind").get<std::string>() == "references";
+            const bool type_definition = result.at("kind").get<std::string>() == "typeDefinition";
             if (signature)
                 ImGui::TextUnformatted("Call signatures (read-only)");
             if (diagnostics)
@@ -748,16 +755,24 @@ class CppSourceEditor {
                 ImGui::TextUnformatted("Symbol information (read-only)");
             if (symbols)
                 ImGui::TextUnformatted("Symbols in file");
-            ImGui::BeginChild(
-                "Analysis results",
-                {0, signature || diagnostics || information || symbols ? 160.f : 100.f},
-                ImGuiChildFlags_Borders);
+            if (references)
+                ImGui::TextWrapped(
+                    "References in current context (not an exhaustive project index)");
+            if (type_definition)
+                ImGui::TextUnformatted("Type definitions");
+            ImGui::BeginChild("Analysis results",
+                              {0, signature || diagnostics || information || symbols || references
+                                      ? 160.f
+                                      : 100.f},
+                              ImGuiChildFlags_Borders);
             const auto& items = result.at("items");
             if (items.empty())
                 ImGui::TextUnformatted(diagnostics
                                            ? "No diagnostics reported for this source draft."
-                                       : symbols ? "No symbols in this source draft."
-                                                 : "No results at this cursor.");
+                                       : symbols         ? "No symbols in this source draft."
+                                       : references      ? "No references returned in this context."
+                                       : type_definition ? "No type definition returned."
+                                                         : "No results at this cursor.");
             for (std::size_t i = 0; i < items.size(); ++i) {
                 const auto& item = items.at(i);
                 if (information) {
@@ -805,11 +820,11 @@ class CppSourceEditor {
                                        : " — " + item.at("detail").get<std::string>())
                     : result.at("kind").get<std::string>() == "completion"
                         ? item.at("label").get<std::string>()
-                    : diagnostics
+                    : item.at("available").get<bool>()
                         ? item.at("path").get<std::string>() + ":" +
                               std::to_string(item.at("line").get<int>()) + ":" +
                               std::to_string(item.at("column").get<int>())
-                        : item.value("path", item.value("file", std::string("Declaration")));
+                        : item.value("file", std::string("Source location"));
                 if (ImGui::Selectable(label.c_str()))
                     attempt([&] { use_semantic_result(project, semantic_task_.operation(), i); });
                 FORGE_UI_PROBE("cpp:analysis:use:" + std::to_string(i));

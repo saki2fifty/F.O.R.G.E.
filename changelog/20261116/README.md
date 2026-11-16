@@ -45,3 +45,17 @@ immutable checkout and MIT notice while correcting exact single-step Undo/Redo
 for C++ and UI source. No dependency version, runtime, SDK, ABI or saved format
 changes. Actual widget tests cover partial replacements, Unicode and repeated
 Undo/Redo.
+
+## C++ reference and type navigation
+
+Find references lists provider-reported usages in the current compiler context,
+excluding declarations. Go to type navigates from a variable to an available
+Native type definition. Both share the finite provider/task and source-location
+owner, guarded native/MCP navigation, Back/Forward and source Undo/Save boundaries.
+Reference scope is explicitly non-exhaustive; the finite provider has background
+indexing disabled. Shared supported-kind metadata keeps task/worker/MCP discovery
+aligned. Empty, malformed, unavailable, external and limited results retain their
+distinct outcomes. Existing six assistance modes remain supported.
+Location links require their selection to fit the enclosing target range. Source
+jumps collapse earlier selections while project search still selects its new
+match, preserving text, caret and source Undo ownership.

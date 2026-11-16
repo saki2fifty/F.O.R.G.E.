@@ -296,7 +296,8 @@ struct CodeAutomation {
             "Diagnostics carry receive date/time, severity, message and a guarded source location. "
             "Symbol information is read-only; file symbols provide a bounded hierarchical outline. "
             "Use code.analysis.use to apply a completion or navigate a "
-            "declaration/diagnostic/symbol.",
+            "declaration/diagnostic/symbol/reference/type. Reference scope is the current compiler "
+            "context, never an exhaustive project index.",
             "code.read",
             automation_object(
                 {{"offset", automation_integer()}, {"limit", automation_integer(1, 8)}}),
@@ -317,6 +318,10 @@ struct CodeAutomation {
                         result["readonly"] = true;
                     if (response.contains("occurred_at"))
                         result["occurred_at"] = response.at("occurred_at");
+                    if (response.contains("scope")) {
+                        result["scope"] = response.at("scope");
+                        result["exhaustive"] = response.at("exhaustive");
+                    }
                     if (response.at("kind").get<std::string>() == "signature") {
                         result["active_signature"] = response.at("active_signature");
                         result["active_parameter"] = response.at("active_parameter");
@@ -541,7 +546,8 @@ struct CodeAutomation {
                 "Use an available result of the exact analysis operation. Completion changes "
                 "the existing source tab with one Undo record; declaration/diagnostic opens only a "
                 "contained "
-                "Native source. File symbols use the same navigation; signatures/symbol "
+                "Native source. File symbols, references and type definitions use the same "
+                "navigation; signatures/symbol "
                 "information "
                 "are read-only. Reject changed drafts, disk inputs or "
                 "compiler generation. "
@@ -613,7 +619,7 @@ struct CodeAutomation {
             methods.push_back(automation_method(
                 "code.analysis.start",
                 "Query completion, declaration, call signatures, diagnostics, symbol information "
-                "or file symbols at "
+                "file symbols, current-context references or type definitions at "
                 "a UTF-8 "
                 "byte offset in the observed open "
                 "C++ tab, using all current open drafts and the existing configured CMake context. "
@@ -624,11 +630,7 @@ struct CodeAutomation {
                 automation_object({{"path", automation_text(2047, 1)},
                                    {"session", automation_uuid()},
                                    {"state", automation_digest()},
-                                   {"kind",
-                                    {{"type", "string"},
-                                     {"enum",
-                                      {"completion", "declaration", "signature", "diagnostics",
-                                       "hover", "symbols"}}}},
+                                   {"kind", {{"type", "string"}, {"enum", cpp_semantic_kinds}}},
                                    {"offset", automation_integer(0, ui::max_cpp_source_bytes)},
                                    {"tool", automation_text(4096, 1)}},
                                   {"path", "session", "state", "kind", "offset"}),

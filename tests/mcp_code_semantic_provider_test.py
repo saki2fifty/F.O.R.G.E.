@@ -170,6 +170,25 @@ for legacy in protocol_cases():
             mutate('forge_code_analysis_use', operation=result['operation'], index=member['index'])
             source = read('forge_code_read', path='Native/gameplay.cpp')
             assert source['text'] == symbol_text and source['cursor']['line'] == member['line']
+            for kind, offset in (('references', symbol_offset),
+                                 ('typeDefinition', len(symbol_text[:symbol_text.rindex('p.café')].encode()))):
+                before_navigation = read('forge_code_read', path='Native/gameplay.cpp')
+                mutate('forge_code_analysis_start', **observed(), kind=kind, offset=offset, tool=PROVIDER)
+                result = settle('forge_code_analysis_status')
+                (root / ('analysis-' + kind + '-result.json')).write_text(json.dumps(result, indent=2))
+                assert result['complete'] and not result['stale'] and result['total'] > 0, result
+                assert read('forge_code_read', path='Native/gameplay.cpp') == before_navigation
+                if kind == 'references':
+                    assert result['scope'] == 'current_context' and result['exhaustive'] is False
+                    location = next(item for item in result['items'] if item['begin'] == symbol_offset)
+                    assert all(item['begin'] != member['begin'] for item in result['items']), result
+                else:
+                    type_begin = len(symbol_text[:symbol_text.index('struct Pivot') + 7].encode())
+                    location = next(item for item in result['items'] if item['begin'] == type_begin)
+                mutate('forge_code_analysis_use', operation=result['operation'], index=location['index'])
+                navigated = read('forge_code_read', path='Native/gameplay.cpp')
+                assert navigated['text'] == symbol_text and navigated['cursor']['line'] == location['line']
+                assert navigated['can_undo'] == before_navigation['can_undo'] and navigated['can_redo'] == before_navigation['can_redo']
             mutate('forge_code_analysis_start', **observed(), kind='hover', offset=len(symbol_text.encode()), tool=PROVIDER)
             result = settle('forge_code_analysis_status')
             assert result['complete'] and result['readonly'] and result['total'] == 0, result
@@ -179,6 +198,10 @@ for legacy in protocol_cases():
             mutate('forge_code_analysis_start', **observed(), kind='symbols', offset=0, tool=PROVIDER)
             result = settle('forge_code_analysis_status')
             assert result['complete'] and result['total'] == 0, result
+            for kind in ('references', 'typeDefinition'):
+                mutate('forge_code_analysis_start', **observed(), kind=kind, offset=0, tool=PROVIDER)
+                result = settle('forge_code_analysis_status')
+                assert result['complete'] and result['total'] == 0, result
             mutate('forge_code_undo', **observed())
             assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
             assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original

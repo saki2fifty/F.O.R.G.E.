@@ -467,6 +467,57 @@ int main(int argc, char** argv) {
                       std::string("Malformed symbol reply accepted: ") + mode);
         }
         SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+        for (const auto* kind : {"references", "typeDefinition"}) {
+            const auto before_query = invoke("code.read", {{"path", "Native/First.cpp"}});
+            start_analysis(kind);
+            analysis = settle_analysis();
+            check(analysis.at("complete") && analysis.at("total") == 1 &&
+                      invoke("code.read", {{"path", "Native/First.cpp"}}) == before_query,
+                  "Symbol-navigation query changed source/cursor/history");
+            if (std::string_view(kind) == "references")
+                check(analysis.at("scope") == "current_context" &&
+                          !analysis.at("exhaustive").get<bool>(),
+                      "Reference results claimed an exhaustive project index");
+            use_analysis(analysis);
+            const auto after_jump = invoke("code.read", {{"path", "Native/First.cpp"}});
+            check(after_jump.at("text") == draft && after_jump.at("cursor").at("line") == 2 &&
+                      after_jump.at("can_undo") == before_query.at("can_undo") &&
+                      after_jump.at("can_redo") == before_query.at("can_redo"),
+                  "Reference/type navigation edited source or its Undo/Redo");
+            for (const auto* mode :
+                 {"locations-null", "locations-empty", "locations-object", "locations-link",
+                  "locations-link-bounds", "locations-range", "locations-fractional",
+                  "locations-limited", "locations-unavailable", "external"}) {
+                SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", mode, true);
+                start_analysis(kind);
+                analysis = settle_analysis();
+                const std::string_view selected(mode);
+                const bool references = std::string_view(kind) == "references";
+                if (selected == "locations-null" || selected == "locations-empty")
+                    check(analysis.at("complete") && analysis.at("total") == 0,
+                          "Empty symbol-navigation reply failed");
+                else if (selected == "locations-limited") {
+                    const auto last =
+                        invoke("code.analysis.status", {{"offset", 63}, {"limit", 1}});
+                    check(analysis.at("complete") && analysis.at("limited") &&
+                              analysis.at("total") == 64 &&
+                              last.at("items").at(0).at("index") == 63,
+                          "Symbol-navigation paging exceeded its bound");
+                } else if (selected == "external")
+                    check(analysis.at("complete") &&
+                              !analysis.at("items").at(0).at("available").get<bool>(),
+                          "External symbol navigation read or admitted a private source");
+                else if (!references &&
+                         (selected == "locations-object" || selected == "locations-link"))
+                    check(analysis.at("complete") && analysis.at("total") == 1,
+                          "Valid type-definition location/link failed");
+                else
+                    check(!analysis.at("complete").get<bool>() &&
+                              !analysis.at("error").get<std::string>().empty(),
+                          std::string("Malformed/unavailable symbol navigation accepted: ") + mode);
+            }
+            SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+        }
         {
             // Actual isolated source owner; navigation has no compiler/provider dependency.
             forge::atomic_write(root / "Native/NavA.cpp", "first\nsecond\nthird\n");

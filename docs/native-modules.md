@@ -166,7 +166,7 @@ history database is introduced. Failed/stale operations preserve the stacks;
 project retirement clears them. MCP uses the same owner with navigation revision
 and current-tab witnesses; see [the tooling contract](mcp.md#c-project-code).
 
-`CppSourceEditor` owns one ephemeral completion/declaration/signature/diagnostic/symbol task over its existing
+`CppSourceEditor` owns one ephemeral completion/declaration/signature/diagnostic/symbol/reference/type task over its existing
 open drafts. An optional separately installed clangd23.1.0 is the analysis provider;
 its exact revision and options are recorded in [dependencies](dependencies.md).
 The SDK compiler, source files, source history and authoring ownership are unchanged.
@@ -217,6 +217,20 @@ selection must be inside the symbol source range. Shared source-location
 normalization serves declarations, diagnostics and outline navigation while each
 caller retains containment, draft/read and failure ownership. No symbol registry
 or provider markup engine is introduced.
+
+Explicit Find references requires the advertised references capability and sends
+`textDocument/references` with `includeDeclaration:false`. It accepts only ordinary
+location arrays/null and exposes `scope:current_context` and `exhaustive:false`.
+The finite provider disables background indexing; its standard response omits the
+internal HasMore flag. Do not equate successful query completion with whole-project
+index coverage. Go to type requires `typeDefinitionProvider` and accepts ordinary
+locations or selection links. A link's selection must fit its enclosing target
+range. Source jumps collapse previous selections; project-search navigation then
+selects its new match. Both share the existing source-location normalizer,
+64-row retention/paging, external-basename-only disclosure and guarded Native
+navigation/BackForward without source edits, Save or Undo. A shared supported-kind
+array keeps worker, source task and MCP discovery consistent; no symbol database
+or persistent indexing service is added.
 
 Queries snapshot all open drafts, saved Native build-input identity and the actual
 compile-database digest. Response/apply checks preserve project, operation,

@@ -88,10 +88,8 @@ class CppSemanticTask {
                const std::string& kind, std::size_t offset, CppSearchDrafts drafts) {
         if (busy())
             throw std::runtime_error("Wait for C++ analysis or cancel the current query first");
-        if (kind != "completion" && kind != "declaration" && kind != "signature" &&
-            kind != "diagnostics" && kind != "hover" && kind != "symbols")
-            throw std::runtime_error(
-                "Choose completion, declaration, signature, diagnostics, hover or symbols");
+        if (!cpp_semantic_kind(kind))
+            throw std::runtime_error("Choose a supported C++ analysis kind");
         const auto source = drafts.find(std::filesystem::u8path(path));
         if (source == drafts.end() || offset > source->second.size() || drafts.size() > 64)
             throw std::runtime_error("Choose an open source position, with at most 64 open tabs");

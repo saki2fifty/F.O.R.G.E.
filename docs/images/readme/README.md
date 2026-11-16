@@ -3821,26 +3821,32 @@ their original attribution.
 [Call signatures](../../../manual/images/cpp-code-assistance.png),
 [source diagnostics](../../../manual/images/cpp-source-diagnostics.png),
 [symbol information](../../../manual/images/cpp-symbol-information.png) and
-[file outlines](../../../manual/images/cpp-file-outline.png) show the actual
+[file outlines](../../../manual/images/cpp-file-outline.png),
+[references](../../../manual/images/cpp-references.png) and
+[type definitions](../../../manual/images/cpp-type-definition.png) show the actual
 700×850 CppSourceEditor with a separately installed clangd23.1.0 and a genuine
 managed GNU12.3.0/Release SDK CMake context. Each task has one canonical image.
-The four captures include the current Back/Forward/Clear navigation controls,
-six analysis actions and the queried-file caption. Outline views at700and400 and
-the signature view at700 were reviewed after actual native navigation. The outline
+The six captures include Back/Forward/Clear navigation controls,
+eight analysis actions and the queried-file caption. Reference/type views at700and400
+were reviewed; the existing four tasks retain their previously reviewed content.
+All eight modes pass native controls at1180/700/400. The outline
 is captured before a later test opens another header and invalidates its snapshot.
 
 Symbol information shows the field type and plain-text declaration. The outline
 is naturally scrolled to a nested namespace/struct/field and selected source name.
-Symbol information retains the previously reviewed content; the refreshed outline
-is reviewed at700and400. The existing responsive helper wraps
-controls into two lines at400. Real mouse/wheel/selection input reveals source
+The responsive helper wraps the eight analysis actions into three lines at400.
+Real mouse/wheel/selection input reveals source
 and outline rows and moves away from help; no pixels or controls are retouched.
-All six assistance modes pass actual controls at1180/700/400. Navigation/information
+Navigation/information
 preserve source Undo and Save; saved files and Scene remain unchanged.
 
-Capture source is the working tree based one4247f3. Exact source, executable,
-provider and image hashes, original paths and test command are recorded in
-`AgentFiles/build/phase369-cpp-source-navigation/capture-proof-final.json`.
+Capture source is the working tree based ona8b67b4. The successful build's exact
+source-input digest, provider/image hashes, original paths and test command are in
+`AgentFiles/build/phase370-cpp-reference-navigation/capture-proof-final.json`.
+These captures precede a later search-selection correction and its appended native
+regression. Their selection-free task views and visible controls are unchanged;
+the later branch has separate current-binary normal/sanitizer evidence. No claim
+is made that the captures exercised that branch.
 Canonical PNGs are copied byte-for-byte. This software SDL/ImGui source-owner
 fixture has inactive New/build callbacks and deliberate incomplete code examples;
 it is separate from compiler success, automatic fixes, full Windows Main/provider,

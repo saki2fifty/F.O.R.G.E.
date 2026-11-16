@@ -506,6 +506,14 @@ source Undo step or opens its Native declaration. Changed drafts, saved inputs
 and compiler contexts are refused. `forge_code_analysis_cancel` withdraws the
 current query. See [Code assistance](native-gameplay.md) for setup and limits.
 
+The same analysis tools accept `kind:references` for current-context usages
+(declarations excluded) and `kind:typeDefinition` for a variable's type. Reference
+status reports `scope:current_context` and `exhaustive:false`; other project files
+can be omitted. Both results navigate with `forge_code_analysis_use`, retain source
+Undo/Redo and use the same Back/Forward list. Empty queries return no locations;
+external type/reference files are unavailable. No refactoring or source edits are
+performed by these navigation actions.
+
 With execution allowed, the agent can test compiler tools, build current saved
 code, inspect its opted-in component types and explicitly migrate old authored
 values. Analysis providers, native code and build recipes run with your account's operating-system

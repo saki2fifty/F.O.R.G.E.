@@ -752,6 +752,13 @@ and Protocol serialization strip parameter label offsets when labelOffsetSupport
 is false; matching CodeCompleteTests and the real-provider Unicode/astral probe
 confirm the selected plain-label path. Hover content explicitly negotiates plaintext;
 hierarchical documentSymbols includes source/selection ranges and nested declarations.
+The exact server advertises reference and type-definition capabilities.
+`ReferenceParams.context.includeDeclaration` controls declaration inclusion;
+FORGE selects false. The standard reference reply carries locations without the
+server's internal HasMore flag. With background indexing disabled, current-context
+results must not be claimed exhaustive. Type-definition results use the same
+validated contained source locations. No additional provider process/service or
+dependency revision is introduced.
 Exact cached Protocol/server contracts and real-provider Unicode/empty-result
 probes verify both formats; source-position interpretation stays UTF8. No label-offset conversion is inferred.
 The selected source confirms dirty headers default off and document symbols wait

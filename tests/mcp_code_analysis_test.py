@@ -102,6 +102,18 @@ for legacy in protocol_cases():
                     assert status['complete'], status
                     assert mutate('forge_code_analysis_use', operation=status['operation'], index=0)['ok']
                     assert read('forge_code_read', path='Native/Spinner.cpp')['cursor']['line'] == 2
+                    for kind in ('references', 'typeDefinition'):
+                        before_navigation = read('forge_code_read', path='Native/Spinner.cpp')
+                        started = mutate('forge_code_analysis_start', **(observed_args() | dict(kind=kind, offset=args['offset'])))
+                        assert started['ok'], started
+                        status = settle()
+                        assert status['complete'] and status['total'] == 1, status
+                        if kind == 'references':
+                            assert status['scope'] == 'current_context' and status['exhaustive'] is False, status
+                        assert read('forge_code_read', path='Native/Spinner.cpp') == before_navigation
+                        assert mutate('forge_code_analysis_use', operation=status['operation'], index=0)['ok']
+                        after_navigation = read('forge_code_read', path='Native/Spinner.cpp')
+                        assert after_navigation['text'] == draft and after_navigation['can_redo'] == before_navigation['can_redo']
                     before_signature = read('forge_code_read', path='Native/Spinner.cpp')
                     started = mutate('forge_code_analysis_start', **(observed_args() | dict(kind='signature', offset=args['offset'])))
                     assert started['ok'], started

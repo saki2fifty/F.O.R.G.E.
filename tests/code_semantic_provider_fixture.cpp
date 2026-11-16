@@ -75,6 +75,8 @@ int main() {
                      {{"positionEncoding", "utf-8"},
                       {"documentSymbolProvider", true},
                       {"signatureHelpProvider", Json::object()},
+                      {"referencesProvider", mode != "locations-unavailable"},
+                      {"typeDefinitionProvider", mode != "locations-unavailable"},
                       {"hoverProvider", mode != "hover-unavailable"}}}};
                 if (mode == "signature-unavailable")
                     result["capabilities"].erase("signatureHelpProvider");
@@ -239,11 +241,22 @@ int main() {
                         result["signatures"].push_back(item);
                     result["activeSignature"] = 64;
                 }
-            } else if (method == "textDocument/declaration") {
+            } else if (method == "textDocument/declaration" ||
+                       method == "textDocument/references" ||
+                       method == "textDocument/typeDefinition") {
+                if (method == "textDocument/references" &&
+                    request.at("params").at("context").at("includeDeclaration") != false)
+                    throw std::runtime_error("Reference query must exclude declarations");
                 const auto uri =
                     request.at("params").at("textDocument").at("uri").get<std::string>();
                 const auto& text = drafts.at(uri);
-                const auto begin = text.find("degrees_per_second");
+                const std::string marker =
+                    method == "textDocument/typeDefinition"
+                        ? (text.find("Pivot") != text.npos ? "Pivot" : "Spinner")
+                    : text.find("outline_member") != text.npos ? "outline_member"
+                                                               : "degrees_per_second";
+                const auto begin =
+                    method == "textDocument/references" ? text.rfind(marker) : text.find(marker);
                 result = Json::array(
                     {{{"uri",
                        mode == "external"
@@ -252,7 +265,30 @@ int main() {
                            : uri},
                       {"range",
                        {{"start", forge::cpp_semantic_position(text, begin)},
-                        {"end", forge::cpp_semantic_position(text, begin + 18)}}}}});
+                        {"end", forge::cpp_semantic_position(text, begin + marker.size())}}}}});
+                if (mode == "locations-null")
+                    result = nullptr;
+                else if (mode == "locations-empty")
+                    result = Json::array();
+                else if (mode == "locations-object")
+                    result = result.at(0);
+                else if (mode == "locations-range")
+                    result[0]["range"]["start"]["character"] = 999999;
+                else if (mode == "locations-fractional")
+                    result[0]["range"]["start"]["character"] = 1.5;
+                else if (mode == "locations-link" || mode == "locations-link-bounds") {
+                    const auto item = result.at(0);
+                    result = Json::array({{{"targetUri", item.at("uri")},
+                                           {"targetRange", item.at("range")},
+                                           {"targetSelectionRange", item.at("range")}}});
+                    if (mode == "locations-link-bounds")
+                        result[0]["targetRange"] = {{"start", {{"line", 0}, {"character", 0}}},
+                                                    {"end", {{"line", 0}, {"character", 0}}}};
+                } else if (mode == "locations-limited") {
+                    const auto item = result.at(0);
+                    for (int i = 1; i != 65; ++i)
+                        result.push_back(item);
+                }
             }
             if (mode == "bad-frame") {
                 std::cout << "Content-Length: 9000000\r\n\r\n" << std::flush;

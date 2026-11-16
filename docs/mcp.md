@@ -879,10 +879,17 @@ location/state fields. The flattened outline retains64rows/16levels and marks
 truncation with `limited`; status paging retains operation indices. Hierarchical
 selection ranges must fit their enclosing ranges. The existing AST-readiness
 request supplies the outline, without a second symbol request.
+References (`references`) return up to64 source locations with
+`scope:current_context` and `exhaustive:false`; declarations are excluded. The
+finite provider has no background index, and its standard reply does not expose
+its internal truncation flag. `limited` describes FORGE's retained-row bound,
+not whole-project coverage. Type definitions (`typeDefinition`) share the same
+guarded path/state/UTF8 range and visual location fields. Null/empty replies are
+valid zero-location results; malformed arrays/ranges or missing capabilities fail.
 Logs retain timestamps and bounded UTF-8 paging.
 
 With `code.execute`, `forge_code_analysis_start` requires an observed source
-`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`) and UTF-8 byte
+`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`) and UTF-8 byte
 `offset`. Optional `tool` overrides the configured clangd23.1.0 path for that
 launch only. The managed project must have a successful CMake configure this
 session through Build Project Code; a compiler readiness probe is a different
@@ -895,7 +902,8 @@ its proposals. Only one query is active; project retirement clears old results/l
 With `code.write`, `forge_code_analysis_use` takes the operation UUID and result
 index0..63. It rechecks project, operation, all drafts, saved Native input identity,
 compiler generation and database before using the existing source owner. Completion
-adds one ordinary source Undo record; declaration/diagnostic/file symbol navigates without changing source.
+adds one ordinary source Undo record; declaration/diagnostic/file symbol/reference/type
+navigates without changing source.
 Signature and symbol-information results reject this operation as read-only and preserve source/cursor/history.
 Neither saves or builds. Normal routing/revision/sequence, permissions, pending
 source-close and authoring locks apply. Reusing an acknowledged mutation sequence

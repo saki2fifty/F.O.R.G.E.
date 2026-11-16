@@ -63,7 +63,9 @@ The built-in source editor provides C++ highlighting, line numbers, source-only
 Undo/Redo, **Ctrl+F** and **Find next**. A file changed outside FORGE shows a
 notice; a conflicting Save keeps your draft, and **Reload from disk** asks before
 discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
-be open. Optional code assistance provides completion, declaration lookup, call signatures, source diagnostics, symbol information and file outlines. Debugging,
+be open. Optional code assistance provides completion, declaration/type lookup,
+current-context references, call signatures, source diagnostics, symbol information
+and file outlines. Debugging,
 project-wide refactoring and arbitrary in-place C++ reload are unavailable.
 
 Use **Back** and **Forward** above the source tabs to return between files and
@@ -74,6 +76,8 @@ file reopens from disk. After edits, an old location is clamped to a valid
 line/column. A deleted or unavailable file reports an error and leaves the
 navigation history intact. Up to 128 locations are retained for the current
 project. **Clear navigation** empties this list without closing or changing files.
+Opening or returning to a location clears an earlier text selection. Opening a
+search match selects that new match instead.
 
 ## Find code across the project
 
@@ -122,6 +126,8 @@ editing and building work without this optional tool.
 6. Choose **Check source** to analyze the active source draft. **Diagnostics received** shows the local date, time and offset of the returned snapshot. Rows show severity and message; click a Native path/line/column to navigate without changing source or adding Undo. A completed empty list says **No diagnostics reported for this source draft.** Missing, mismatched or failed provider data produces an error instead.
 7. Place the cursor within a symbol and choose **Symbol info**. Read the returned plain-text type and documentation. This query preserves the cursor and source history; rerun at a different symbol when needed.
 8. Choose **Symbols in file** to list the active file’s declarations. Indented entries show nesting and available details. Click an entry to navigate to its source name. Existing drafts and source Undo/Save are preserved. A completed empty outline says **No symbols in this source draft.**
+9. Place the cursor on a symbol and choose **Find references**. Click a returned path/line/column to open a usage. Declarations are excluded. These results cover the provider's current compiler context and can omit other project files; use **Find in Project** when you also need a literal text search.
+10. Place the cursor on a variable or instance and choose **Go to type**. Click an available location to open its type definition under **Native/**. Built-in types may return no location; SDK and external definitions are unavailable here. Use **Back** to return to the original variable.
 
 ![C++ Sources showing a function call signature and its active second argument](../images/cpp-code-assistance.png)
 
@@ -141,6 +147,15 @@ Choose **Symbol info** at a source name to read its type and available documenta
 
 Choose **Symbols in file**, then select an indented declaration to navigate. Scroll
 the outline to reach further entries.
+
+![Current-context C++ references with guarded source locations](../images/cpp-references.png)
+
+Choose **Find references** at a symbol to inspect its returned usages. The list
+preserves your draft and source Undo/Redo; Save remains a separate action.
+
+![A C++ variable's type definition opened in the current source](../images/cpp-type-definition.png)
+
+Choose **Go to type** at a variable, then select the returned type location.
 
 Queries include current open source and header drafts. They do not save files,
 compile the game, apply changes automatically or run commands suggested by the
@@ -163,7 +178,11 @@ are displayed as unavailable. Source limits remain 1 MiB per file and 32 open ta
 File outlines retain up to 64 symbols across 16 nesting levels. Symbol information
 is limited to 8 KiB of plain text; unsupported markup or invalid ranges produce an
 analysis error. The outline covers the active file; use **Find in Project** for
-project-wide literal source searches. Analysis has a bounded timeout; it is separate
+project-wide literal source searches.
+Reference/type lists retain at most 64 locations. A finished reference query is a
+snapshot of the current compiler context; it does not establish a complete
+whole-project index. An empty list means no locations were returned in that context.
+Analysis has a bounded timeout; it is separate
 from game compilation and is not a
 debugger or a project-wide refactoring service.
 

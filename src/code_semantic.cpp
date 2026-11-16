@@ -190,8 +190,10 @@ Json normalized_symbols(const Json& response, const std::filesystem::path& targe
     visit(visit, response.is_null() ? Json::array() : response, 0);
     return {{"items", std::move(items)}, {"limited", limited}};
 }
-Json normalized_declarations(const Json& response, const ProjectPaths& paths,
-                             const ui::CppSearchDrafts& drafts) {
+Json normalized_locations(const Json& response, const ProjectPaths& paths,
+                          const ui::CppSearchDrafts& drafts, bool references) {
+    require(!references || response.is_null() || response.is_array(),
+            "C++ references must be a location array or null");
     const auto locations = response.is_null()    ? Json::array()
                            : response.is_array() ? response
                                                  : Json::array({response});
@@ -200,6 +202,7 @@ Json normalized_declarations(const Json& response, const ProjectPaths& paths,
         if (output.size() == 64)
             break;
         const bool link = location.contains("targetUri");
+        require(!references || !link, "C++ references require ordinary source locations");
         const auto path =
             local_file_url_path(semantic_string(location.at(link ? "targetUri" : "uri"), 8192));
         std::filesystem::path locator;
@@ -209,14 +212,21 @@ Json normalized_declarations(const Json& response, const ProjectPaths& paths,
         } catch (const std::exception&) {
             output.push_back({{"available", false},
                               {"file", path_utf8(path.filename())},
-                              {"reason", "Declaration is outside editable Native sources"}});
+                              {"reason", "Source location is outside editable Native sources"}});
             continue;
         }
         const auto draft = drafts.find(locator);
         const auto text = draft != drafts.end() ? draft->second : ui::read_cpp_source(path);
         const auto& range = location.at(link ? "targetSelectionRange" : "range");
-        output.push_back(
-            source_location(text, range, path_utf8(locator), ui::cpp_source_state(text)));
+        auto item = source_location(text, range, path_utf8(locator), ui::cpp_source_state(text));
+        if (link) {
+            const auto begin = cpp_semantic_offset(text, location.at("targetRange").at("start"));
+            const auto end = cpp_semantic_offset(text, location.at("targetRange").at("end"));
+            require(begin <= item.at("begin").get<std::size_t>() &&
+                        item.at("end").get<std::size_t>() <= end,
+                    "C++ symbol selection must be inside its target range");
+        }
+        output.push_back(std::move(item));
     }
     return {{"items", std::move(output)}, {"limited", locations.size() > 64}};
 }
@@ -484,9 +494,7 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     require(request.is_object() && request.at("version").get<std::int64_t>() == 1,
             "Unsupported C++ semantic query version");
     const auto kind = request.at("kind").get<std::string>();
-    require(kind == "completion" || kind == "declaration" || kind == "signature" ||
-                kind == "diagnostics" || kind == "hover" || kind == "symbols",
-            "Choose completion, declaration, signature, diagnostics, hover or symbols");
+    require(cpp_semantic_kind(kind), "Choose a supported C++ analysis kind");
     const ProjectPaths paths(std::filesystem::u8path(request.at("project").get<std::string>()));
     const auto context = paths.resolve(
         paths.relative(std::filesystem::u8path(request.at("context").get<std::string>())));
@@ -553,6 +561,9 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     if (kind == "hover")
         require(initialized.at("capabilities").at("hoverProvider").get<bool>(),
                 "Semantic tools require symbol-information support");
+    if (kind == "references" || kind == "typeDefinition")
+        require(initialized.at("capabilities").at(kind + "Provider").get<bool>(),
+                "Semantic tools require the requested symbol-navigation support");
     transport.send({{"method", "initialized"}, {"params", Json::object()}});
     const auto open_document = [&](const auto& path, const auto& draft) {
         transport.send({{"method", "textDocument/didOpen"},
@@ -573,14 +584,17 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     auto symbols =
         transport.call("textDocument/documentSymbol",
                        {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}}});
+    Json parameters{{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}},
+                    {"position", position}};
+    if (kind == "references")
+        parameters["context"] = {{"includeDeclaration", false}};
     auto response =
         kind == "symbols" ? std::move(symbols)
         : kind == "diagnostics"
             ? transport.diagnostics()
             : transport.call("textDocument/" +
                                  (kind == "signature" ? std::string("signatureHelp") : kind),
-                             {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}},
-                              {"position", position}});
+                             parameters);
     transport.finish();
     const auto current_database =
         asset_storage::read(context / "compile_commands.json", 16 * 1024 * 1024);
@@ -590,8 +604,11 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
                   : kind == "signature"   ? normalized_signatures(response)
                   : kind == "diagnostics" ? normalized_diagnostics(response, target, text)
                   : kind == "hover"       ? normalized_hover(response, text)
-                  : kind == "symbols"     ? normalized_symbols(response, target, text)
-                                          : normalized_declarations(response, paths, documents);
+                  : kind == "symbols"
+                      ? normalized_symbols(response, target, text)
+                      : normalized_locations(response, paths, documents, kind == "references");
+    if (kind == "references")
+        result.update({{"scope", "current_context"}, {"exhaustive", false}});
     result.update({{"version", 1},
                    {"id", request.at("id")},
                    {"kind", kind},
