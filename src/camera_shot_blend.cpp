@@ -4,6 +4,21 @@
 #include <stdexcept>
 
 namespace forge {
+double camera_shot_blend_weight(std::uint32_t curve, double time) {
+    if (!std::isfinite(time) || time < 0 || time > 1)
+        throw std::runtime_error("Camera Shot blend time must be within zero to one");
+    switch (CameraShotBlendCurve(curve)) {
+    case CameraShotBlendCurve::Smooth:
+        return time * time * (3 - 2 * time);
+    case CameraShotBlendCurve::Linear:
+        return time;
+    case CameraShotBlendCurve::EaseIn:
+        return time * time;
+    case CameraShotBlendCurve::EaseOut:
+        return time * (2 - time);
+    }
+    throw std::runtime_error("Camera Shot blend curve is unavailable");
+}
 void validate_shot_camera(const Camera& camera) {
     if (camera.render_texture.id)
         throw std::runtime_error("Camera Shot requires a camera with main Game output");

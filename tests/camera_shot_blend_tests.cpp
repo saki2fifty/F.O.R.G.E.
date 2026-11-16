@@ -29,6 +29,23 @@ LocalRotation yaw(double degrees) {
 } // namespace
 int main() {
     try {
+        const std::array<double, 4> quarter_weights{.15625, .25, .0625, .4375};
+        for (std::uint32_t curve = 0; curve < quarter_weights.size(); ++curve) {
+            near(camera_shot_blend_weight(curve, 0), 0);
+            near(camera_shot_blend_weight(curve, 1), 1);
+            near(camera_shot_blend_weight(curve, .25), quarter_weights[curve]);
+            double previous = 0;
+            for (int step = 0; step <= 1000; ++step) {
+                const double weight = camera_shot_blend_weight(curve, step / 1000.);
+                check(weight >= previous && weight >= 0 && weight <= 1,
+                      "Camera Shot timing overshot or reversed");
+                previous = weight;
+            }
+        }
+        for (const double value : {-1., 1.01, std::numeric_limits<double>::infinity(),
+                                   std::numeric_limits<double>::quiet_NaN()})
+            rejects([&] { camera_shot_blend_weight(0, value); });
+        rejects([&] { camera_shot_blend_weight(4, .5); });
         RenderCamera a{EntityId::generate(), {}, {}}, b{EntityId::generate(), {}, {}};
         a.camera.enabled = false;
         a.camera.near_plane = .1;

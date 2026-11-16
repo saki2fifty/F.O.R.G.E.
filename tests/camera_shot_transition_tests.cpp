@@ -6,6 +6,7 @@
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <numbers>
 #include <thread>
 
@@ -143,6 +144,49 @@ int main(int argc, char** argv) {
                  {{1, 0}, {1.25, .15625}, {1.5, .5}, {1.75, .84375}, {2, 1}}})
             sample(live, time, 100 + 10 * weight, std::lerp(start_fov, end_fov, weight));
         sample(live, 1.5, 105, 5 * std::numbers::pi / 12);
+        for (const auto& [curve, quarter, three_quarters] : std::array<std::array<double, 3>, 4>{
+                 {{0, .15625, .84375}, {1, .25, .75}, {2, .0625, .5625}, {3, .4375, .9375}}}) {
+            auto curved_source = source;
+            set(curved_source, authored.incoming, "forge.camera_shot", "blend_curve",
+                std::uint32_t(curve));
+            World curved(root, curved_source);
+            sample(curved, 1, 100, start_fov);
+            sample(curved, 1.75, 100 + 10 * three_quarters,
+                   std::lerp(start_fov, end_fov, three_quarters));
+            sample(curved, 2, 110, end_fov);
+            sample(curved, 1.25, 100 + 10 * quarter, std::lerp(start_fov, end_fov, quarter));
+            const auto checkpoint = curved.animation->checkpoint();
+            const auto version = checkpoint.at("version").get<unsigned>();
+            check(version == (curve == 0 ? 8u : 16u),
+                  "Camera curve changed a legacy profile or omitted its new recovery profile");
+            World restored_curve(root, curved_source);
+            restored_curve.animation->restore(checkpoint);
+            near(row(restored_curve.simulation.presentation(1), authored.second)
+                     .at("world_affine")
+                     .at(3),
+                 100 + 10 * quarter);
+            if (curve == 0)
+                continue;
+            check(checkpoint.at("camera_curve_profile").get<unsigned>() == 8,
+                  "Camera curve recovery lost its underlying transition profile");
+            const auto before_invalid = restored_curve.animation->checkpoint();
+            auto wrong_curve = checkpoint;
+            for (auto& shot : wrong_curve["camera_shots"])
+                if (shot.at("entity").get<EntityRef>().entity == EntityId::parse(authored.incoming))
+                    shot["blend_curve"] = 0u;
+            rejects([&] { restored_curve.animation->restore(wrong_curve); });
+            auto older = checkpoint;
+            older["version"] = 8u;
+            older.erase("camera_curve_profile");
+            for (auto& shot : older["camera_shots"])
+                shot.erase("blend_curve");
+            rejects([&] { restored_curve.animation->restore(older); });
+            auto bad_profile = checkpoint;
+            bad_profile["camera_curve_profile"] = 3u;
+            rejects([&] { restored_curve.animation->restore(bad_profile); });
+            check(restored_curve.animation->checkpoint() == before_invalid,
+                  "Rejected camera curve recovery changed clocks or configuration");
+        }
         // Projection preserves forward-compatible Camera data and source-local values.
         auto opaque = live.scene.effective_document();
         for (auto& item : opaque["entities"])
@@ -183,6 +227,24 @@ int main(int argc, char** argv) {
         near(AnimationPlaybackAccess::tune_camera_shot(*live.animation, incoming_ref, .5), .5);
         near(live.scene.entity(authored.incoming).get<CameraShot>().blend_in_seconds, .5);
         AnimationPlaybackAccess::tune_camera_shot(*live.animation, incoming_ref, 1.);
+        const auto before_curve_tuning = live.animation->checkpoint();
+        for (const auto& invalid : {Json(-1), Json(4), Json(1.5), Json(),
+                                    Json(std::numeric_limits<std::uint64_t>::max())}) {
+            rejects([&] {
+                AnimationPlaybackAccess::tune_camera_shot(*live.animation, incoming_ref, invalid,
+                                                          "blend_curve");
+            });
+            check(live.animation->checkpoint() == before_curve_tuning,
+                  "Rejected live curve changed configuration or clocks");
+        }
+        const auto tuned = AnimationPlaybackAccess::tune_camera_shot(*live.animation, incoming_ref,
+                                                                     2u, "blend_curve");
+        check(tuned.get<unsigned>() == 2 &&
+                  live.scene.entity(authored.incoming).get<CameraShot>().blend_curve == 2,
+              "Live curve did not publish the validated native value");
+        AnimationPlaybackAccess::tune_camera_shot(*live.animation, incoming_ref, 0u, "blend_curve");
+        check(live.animation->checkpoint() == before_curve_tuning,
+              "Live curve tuning changed clock or unrelated shot configuration");
         const auto checkpoint = live.animation->checkpoint();
         check(checkpoint.at("version") == 8 &&
                   checkpoint.at("camera_shots").at(1).contains("blend_in_seconds"),
@@ -200,12 +262,31 @@ int main(int argc, char** argv) {
              105);
         auto legacy = source;
         for (auto& item : legacy["entities"])
-            if (item["components"].contains("forge.camera_shot"))
+            if (item["components"].contains("forge.camera_shot")) {
                 item["components"]["forge.camera_shot"].erase("blend_in_seconds");
+                item["components"]["forge.camera_shot"].erase("blend_curve");
+            }
         World cut(root, legacy);
         sample(cut, 1.5, 110, end_fov);
         check(cut.animation->checkpoint().at("version") == 4,
               "Zero/default blends changed the legacy recovery profile");
+        check(cut.scene.entity(authored.incoming).get<CameraShot>().blend_curve == 0,
+              "Missing source curve did not retain smooth timing");
+        auto curved_cut_source = legacy;
+        set(curved_cut_source, authored.incoming, "forge.camera_shot", "blend_curve", 3u);
+        World curved_cut(root, curved_cut_source);
+        sample(curved_cut, 1.5, 110, end_fov);
+        const auto curved_cut_checkpoint = curved_cut.animation->checkpoint();
+        check(curved_cut_checkpoint.at("version").get<unsigned>() == 16 &&
+                  curved_cut_checkpoint.at("camera_curve_profile").get<unsigned>() == 4,
+              "Zero-duration curve did not preserve the legacy cut recovery shape inside its "
+              "envelope");
+        World restored_curved_cut(root, curved_cut_source);
+        restored_curved_cut.animation->restore(curved_cut_checkpoint);
+        near(row(restored_curved_cut.simulation.presentation(1), authored.second)
+                 .at("world_affine")
+                 .at(3),
+             110);
         auto looping_source = source;
         set(looping_source, authored.controller, "forge.animation_sequence", "loop", true);
         World looping(root, looping_source);
@@ -244,6 +325,22 @@ int main(int argc, char** argv) {
         const auto nested_checkpoint = nested.animation->checkpoint();
         check(nested_checkpoint.at("sequence_profile") == 7,
               "Nested camera transitions lost their existing recovery profile");
+        auto nested_curve_source = nested_source;
+        set(nested_curve_source, authored.incoming, "forge.camera_shot", "blend_curve", 1u);
+        World nested_curve(root, nested_curve_source);
+        AnimationPlaybackAccess::control(*nested_curve.animation, outer_ref,
+                                         {{"operation", "seek"}, {"position_seconds", 1.75}});
+        const auto nested_curve_checkpoint = nested_curve.animation->checkpoint();
+        check(nested_curve_checkpoint.at("version").get<unsigned>() == 16 &&
+                  nested_curve_checkpoint.at("camera_curve_profile").get<unsigned>() == 8 &&
+                  nested_curve_checkpoint.at("sequence_profile").get<unsigned>() == 7,
+              "Curve recovery lost the nested controller/transition profile");
+        World nested_curve_restored(root, nested_curve_source);
+        nested_curve_restored.animation->restore(nested_curve_checkpoint);
+        near(row(nested_curve_restored.simulation.presentation(1), authored.second)
+                 .at("world_affine")
+                 .at(3),
+             102.5);
         World nested_restored(root, nested_source);
         nested_restored.animation->restore(nested_checkpoint);
         near(row(nested_restored.simulation.presentation(1), authored.second)

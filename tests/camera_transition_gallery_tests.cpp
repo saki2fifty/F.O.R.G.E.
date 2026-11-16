@@ -112,7 +112,9 @@ void author(const std::filesystem::path& root) {
     const std::array roots{record.id};
     prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
 }
-void exercise(const std::filesystem::path& root, const Json& source) {
+enum class ShotProfile { Smooth, Curves, MixedLinear };
+Json exercise(const std::filesystem::path& root, const Json& source,
+              ShotProfile profile = ShotProfile::Smooth, const Json& recovery = {}) {
     EngineContext engine(WorldRole::Runtime, false, {animation_module(root)});
     Scene scene(engine.world());
     RuntimeSimulation simulation(engine.world(), scene);
@@ -123,6 +125,11 @@ void exercise(const std::filesystem::path& root, const Json& source) {
         check(std::chrono::steady_clock::now() < deadline, "Camera rig admission timed out");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    if (!recovery.is_null()) {
+        animation->restore(recovery);
+        check(animation->checkpoint() == recovery,
+              "Camera curve recovery did not restore its complete clocks/configuration");
+    }
     EntityRef controller;
     EntityId incoming;
     for (const auto& row : source.at("entities")) {
@@ -130,15 +137,41 @@ void exercise(const std::filesystem::path& root, const Json& source) {
         const auto actor = scene.entity(id);
         if (actor.has<AnimationSequence>())
             controller = {scene.asset_id(), EntityId::parse(id)};
-        if (actor.has<CameraShot>() && actor.get<CameraShot>().start_seconds == 2)
+        if (actor.has<CameraShot>() &&
+            actor.get<CameraShot>().start_seconds == (profile == ShotProfile::Curves ? 1 : 2))
             incoming = actor.get<CameraShot>().camera.entity;
     }
     check(bool(controller.entity) && bool(incoming), "Camera transition Gallery tracks missing");
+    if (profile == ShotProfile::Curves) {
+        const std::array<std::array<double, 5>, 4> weights{{{0, .15625, .5, .84375, 1},
+                                                            {0, .25, .5, .75, 1},
+                                                            {0, .0625, .25, .5625, 1},
+                                                            {0, .4375, .75, .9375, 1}}};
+        for (unsigned curve = 0; curve < weights.size(); ++curve)
+            for (unsigned step = 0; step < weights[curve].size(); ++step) {
+                const double time = curve * 3 + 1 + step * .25;
+                AnimationPlaybackAccess::control(
+                    *animation, controller, {{"operation", "seek"}, {"position_seconds", time}});
+                const auto render = extract_render_scene(simulation.presentation(1));
+                const double weight = weights[curve][step];
+                check(render.cameras.size() == 1 && render.cameras[0].entity == incoming,
+                      "Curve Gallery lost its incoming Camera identity");
+                check(std::abs(render.cameras[0].world.m[3] - (-2 + 4 * weight)) < 1e-5 &&
+                          std::abs(render.cameras[0].camera.vertical_fov -
+                                   std::lerp(.9, 1.2, weight)) < 1e-6,
+                      "Curve Gallery pose/lens differs from its independent timing table");
+                check(scene.entity(incoming.str()).get<LocalTranslation>().x == 2,
+                      "Curve Gallery changed the native Camera pose");
+            }
+        return animation->checkpoint();
+    }
     for (double time : {2., 2.25, 2.5, 2.75, 3.}) {
         AnimationPlaybackAccess::control(*animation, controller,
                                          {{"operation", "seek"}, {"position_seconds", time}});
         const auto render = extract_render_scene(simulation.presentation(1));
-        const double linear = time - 2, weight = linear * linear * (3 - 2 * linear);
+        const double linear = time - 2;
+        const double weight =
+            profile == ShotProfile::MixedLinear ? linear : linear * linear * (3 - 2 * linear);
         check(render.cameras.size() == 1 && render.cameras[0].entity == incoming,
               "Animated transition lost the incoming Camera identity");
         const auto rig_x = time * .2;
@@ -149,6 +182,7 @@ void exercise(const std::filesystem::path& root, const Json& source) {
         check(scene.entity(incoming.str()).get<LocalTranslation>().x == 2,
               "Gallery transition wrote native Camera translation");
     }
+    return animation->checkpoint();
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -165,16 +199,38 @@ int main(int argc, char** argv) {
         Json source;
         std::ifstream(root / scene_path) >> source;
         exercise(root, source);
-        const std::array roots{source.at("asset_id").get<AssetId>()};
+        Json curves;
+        std::ifstream(root / "Scenes/216-camera-transition-curves.scene.json") >> curves;
+        const auto curve_checkpoint = exercise(root, curves, ShotProfile::Curves);
+        exercise(root, curves, ShotProfile::Curves, curve_checkpoint);
+        auto mixed = source;
+        for (auto& row : mixed["entities"]) {
+            auto& components = row["components"];
+            if (components.contains("forge.transform_animator"))
+                components["forge.transform_animator"]["sequence_multiway"] = true;
+            if (components.contains("forge.camera_shot") &&
+                components["forge.camera_shot"].at("blend_in_seconds").get<double>() > 0)
+                components["forge.camera_shot"]["blend_curve"] = 1u;
+        }
+        const auto mixed_checkpoint = exercise(root, mixed, ShotProfile::MixedLinear);
+        check(mixed_checkpoint.at("version").get<unsigned>() == 16 &&
+                  mixed_checkpoint.at("camera_curve_profile").get<unsigned>() == 15 &&
+                  mixed_checkpoint.at("sequence_mixing_profile").get<unsigned>() == 8,
+              "Camera curves lost the layered sequence recovery envelope");
+        exercise(root, mixed, ShotProfile::MixedLinear, mixed_checkpoint);
+        const std::array roots{source.at("asset_id").get<AssetId>(),
+                               curves.at("asset_id").get<AssetId>()};
         const auto package = scratch / "export";
         package_runtime_content(root, package, roots, {"windows", "d3d12"});
         const auto relocated = scratch / "relocated";
         std::filesystem::rename(package, relocated);
         const auto catalog = open_runtime_content(relocated, {"windows", "d3d12"});
-        check(catalog.records().size() == 2, "Camera transition closure differs");
+        check(catalog.records().size() == 3, "Camera transition/curve closure differs");
         std::filesystem::rename(root, scratch / "SourcesOffline");
         exercise(relocated, load_game_scene(relocated, {roots[0]}));
-        std::cout << "Original animated camera-transition Gallery and relocated two-asset closure "
+        exercise(relocated, load_game_scene(relocated, {roots[1]}), ShotProfile::Curves);
+        std::cout << "Original animated and four-curve Camera Gallery, recovery16/15/8 and "
+                     "relocated three-asset closure "
                      "passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

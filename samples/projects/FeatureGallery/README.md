@@ -1,5 +1,21 @@
 # Feature Gallery
 
+## Camera transition curves
+
+Open `Scenes/216-camera-transition-curves.scene.json` and press Play. Four
+three-second sections compare Smooth, Linear, EaseIn and EaseOut. Each section
+cuts to the same left camera, then transitions to the same right camera over one
+second. The rig is stationary so the timing choices are easy to compare.
+
+Stop Play, open the Director's Timeline and select an incoming shot. Choose
+**Shot blend curve**, then **Apply shot fields** and **Refresh clips** to preview.
+Duration and curve commit together in one Scene Undo step. During Play the
+Inspector's **Live gameplay** section exposes **Blend in (seconds)** and
+**Blend curve**; Stop restores authored values and **Keep runtime values** reviews
+them for a Scene edit. Save the Scene and choose it as startup before export.
+This example uses built-in geometry, cameras and a light; no project C++ module
+or external content is required.
+
 ## Programmable Sprite materials
 
 Open `Scenes/215-programmable-sprite-materials.scene.json` on Windows and press

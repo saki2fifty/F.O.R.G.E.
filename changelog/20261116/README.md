@@ -1,5 +1,16 @@
 # 2026-11-16
 
+## Camera-shot timing profiles
+
+Incoming shots select Smooth, Linear, EaseIn or EaseOut timing through the existing
+copied view/lens projection. Smooth preserves prior timing. Timeline duration and
+curve edits share one Scene transaction; live tuning and Keep runtime values use
+the same typed owner and reflected controls/MCP. Private recovery16 retains exact
+nondefault curves and the prior nested profile; default checkpoints keep their
+existing shapes. The public component header requires a matching SDK rebuild.
+The editable Camera transition curves Gallery scene compares the four profiles
+without a project C++ module.
+
 ## Active-file C++ find and replacement
 
 C++ Sources provides literal case-sensitive Previous/Next with wrap and a hidden

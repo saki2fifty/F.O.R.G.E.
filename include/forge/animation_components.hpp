@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <forge/asset_ref.hpp>
 #include <forge/model_asset.hpp>
 #include <vector>
@@ -59,11 +60,13 @@ struct AnimationSequence {
 };
 // Scene-owned shot arrangement. Selection is derived in copied presentation;
 // authored Camera components and the sequence's existing clock remain unchanged.
+enum class CameraShotBlendCurve : std::uint32_t { Smooth, Linear, EaseIn, EaseOut };
 struct CameraShot {
     EntityRef sequence{}, camera{};
     double start_seconds = 0, end_seconds = 1;
     bool enabled = true;
     double blend_in_seconds = 0; // Adjacent incoming view/lens transition; zero retains a cut.
+    std::uint32_t blend_curve = std::uint32_t(CameraShotBlendCurve::Smooth);
     bool operator==(const CameraShot&) const = default;
 };
 // A point event on the existing sequence clock. AudioSource owns the sound;

@@ -285,7 +285,10 @@ void camera_shot_identity(const std::filesystem::path& root) {
     const EntityRef group{scene.asset_id(), EntityId::parse(controller)};
     const EntityRef lens{scene.asset_id(), EntityId::parse(camera)};
     const auto shot = create("Shot", "animation.camera_shot",
-                             {{"sequence", group}, {"camera", lens}, {"blend_in_seconds", .5}});
+                             {{"sequence", group},
+                              {"camera", lens},
+                              {"blend_in_seconds", .5},
+                              {"blend_curve", std::uint32_t(CameraShotBlendCurve::EaseIn)}});
     scene.reparent_entity(camera, controller, ReparentMode::KeepLocal);
     scene.reparent_entity(shot, controller, ReparentMode::KeepLocal);
     auto original = scene.snapshot();
@@ -299,7 +302,8 @@ void camera_shot_identity(const std::filesystem::path& root) {
     const auto copied = scene.entity(copy_shot).get<CameraShot>();
     check(copied.sequence == EntityRef{scene.asset_id(), EntityId::parse(duplicate)} &&
               copied.camera == EntityRef{scene.asset_id(), EntityId::parse(copy_camera)} &&
-              copied.blend_in_seconds == .5,
+              copied.blend_in_seconds == .5 &&
+              copied.blend_curve == std::uint32_t(CameraShotBlendCurve::EaseIn),
           "Subtree copy did not remap both Camera Shot references");
     check(row(scene.document(), copy_shot).at("components").at("future.shot") ==
               Json{{"sequence", group}, {"camera", lens}},
@@ -317,6 +321,7 @@ void camera_shot_identity(const std::filesystem::path& root) {
     const auto verify = [&](const Scene& target, const std::string& actor) {
         const auto child = target.entity(named(target, "Shot", actor)).get<CameraShot>();
         check(child.blend_in_seconds == .5 &&
+                  child.blend_curve == std::uint32_t(CameraShotBlendCurve::EaseIn) &&
                   child.sequence == EntityRef{target.asset_id(), EntityId::parse(actor)} &&
                   child.camera ==
                       EntityRef{target.asset_id(), EntityId::parse(named(target, "Camera", actor))},

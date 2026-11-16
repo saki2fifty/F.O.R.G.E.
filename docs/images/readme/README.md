@@ -2084,8 +2084,12 @@ external MCP client or graphical EXE acceptance.
 
 [Incoming shot controls](../../../manual/images/camera-transition-editor.png)
 shows the production Timeline with Gallery153's incoming shot selected and **Shot
-blend in** editable. The unretouched 720×1400 PNG comes from the actual SDL/ImGui
-software capture in `tests/sequence_clip_capture.hpp`.
+blend in** and **Shot blend curve** editable. The refreshed unretouched720×1400 PNG
+comes from the actual SDL/ImGui software capture in `tests/sequence_clip_capture.hpp`.
+Its raw bytes, compiled actor/source hashes and capture receipt are recorded in
+`AgentFiles/build/phase378-camera-shot-transition-profiles/capture-proof-final.json`.
+The working tree is based one317a52. The native controls and stopped/frame sampler
+also exercise all four timing profiles; the image shows the default Smooth value.
 
 [Transition Game view](../../../manual/images/camera-transition-gallery.png)
 shows the production FrameRenderer at tick 150 in Gallery153 on software Vulkan.
@@ -2094,9 +2098,9 @@ Four source/source-hidden relocated display pairs match exactly; the stopped
 Timeline's three exported PNG samples also match independently read display pixels.
 Lossless P6 RGB-to-PNG conversion retains every source pixel.
 
-Both canonical images were personally reviewed. Local unassigned source is based
-on f076f8d with the smooth camera-view implementation. Exact executable/image/source
-hashes and capture receipts are in
+The refreshed controls image was visually reviewed. The unchanged default Game
+view retains its original review and f076f8d-based smooth camera-view provenance.
+Its exact executable/image/source hashes and capture receipts remain in
 `AgentFiles/build/phase233-camera-shot-transitions/manual-captures.json`.
 The captures do not establish full Main, Windows/MSVC/D3D12, physical GPU/DPI,
 external MCP client or graphical EXE acceptance.

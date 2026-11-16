@@ -3396,12 +3396,12 @@ void AnimationPlaybackAccess::control(AnimationRuntime& runtime, EntityRef ref,
     }
 }
 Json AnimationPlaybackAccess::tune_camera_shot(AnimationRuntime& runtime, EntityRef target,
-                                               const Json& value) {
+                                               const Json& value, std::string_view property) {
     if (!runtime.impl_ || runtime.impl_->context.role() != WorldRole::Runtime ||
         !runtime.impl_->context.on_owner_thread() || runtime.impl_->context.world().is_readonly())
         throw ArchiveError("Live Camera Shot tuning requires the writable animation owner");
     runtime.impl_->synchronize();
-    return runtime.impl_->transforms.tune_camera_shot(target, value);
+    return runtime.impl_->transforms.tune_camera_shot(target, value, property);
 }
 Json AnimationPlaybackAccess::tune_rig(AnimationRuntime& runtime, EntityRef ref,
                                        const std::string& type, const std::string& property,
@@ -3771,12 +3771,33 @@ Json AnimationRuntime::checkpoint() const {
         result["sequence_mixing_profile"] = result.at("version").get<unsigned>();
         result["version"] = 15;
     }
+    if (impl_ && impl_->transforms.has_camera_blend_curves()) {
+        result["camera_curve_profile"] = result.at("version").get<unsigned>();
+        result["version"] = 16;
+        result["camera_shots"] = impl_->transforms.camera_shots_checkpoint(true, true);
+    }
     return result;
 }
-void AnimationRuntime::restore(const Json& input) {
+void AnimationRuntime::restore(const Json& original) {
     if (!impl_)
         throw ArchiveError("Animation runtime is unavailable");
     std::optional<Json> normalized;
+    const auto& encoded_version = original.at("version");
+    const bool camera_curve_profile =
+        encoded_version.is_number_integer() && encoded_version.get<std::uint64_t>() == 16;
+    if (camera_curve_profile) {
+        const auto underlying = original.find("camera_curve_profile");
+        if (underlying == original.end() || !underlying->is_number_unsigned())
+            throw ArchiveError("Camera Shot curve recovery profile is invalid");
+        const auto profile = underlying->get<std::uint64_t>();
+        if (profile < 4 || profile > 15)
+            throw ArchiveError("Camera Shot curve recovery profile is invalid");
+        normalized = original;
+        normalized->at("version") = unsigned(profile);
+        normalized->erase("camera_curve_profile");
+    } else if (original.contains("camera_curve_profile"))
+        throw ArchiveError("Unexpected Camera Shot curve recovery profile");
+    const auto& input = normalized ? *normalized : original;
     const bool mixing_profile = input.at("version") == 15;
     if (mixing_profile) {
         if (!input.at("version").is_number_integer() ||
@@ -3785,7 +3806,8 @@ void AnimationRuntime::restore(const Json& input) {
             input.at("sequence_mixing_profile").get<unsigned>() < 3 ||
             input.at("sequence_mixing_profile").get<unsigned>() > 14)
             throw ArchiveError("Sequence mixing recovery profile is invalid");
-        normalized = input;
+        if (!normalized)
+            normalized = input;
         normalized->at("version") = input.at("sequence_mixing_profile");
         normalized->erase("sequence_mixing_profile");
     } else if (input.contains("sequence_mixing_profile"))
@@ -3947,7 +3969,8 @@ void AnimationRuntime::restore(const Json& input) {
         !data.at("entries").is_array() || data.at("entries").size() != impl_->states.size() ||
         !impl_->errors.empty())
         throw ArchiveError("Animation recovery configuration differs");
-    unsigned sequence_profile = data.at("version").get<unsigned>();
+    const auto data_version = data.at("version").get<unsigned>();
+    unsigned sequence_profile = data_version;
     if (sequence_profile == 8) {
         if (!data.contains("sequence_profile") ||
             !data.at("sequence_profile").is_number_unsigned() ||
@@ -3956,10 +3979,12 @@ void AnimationRuntime::restore(const Json& input) {
             throw ArchiveError("Camera Shot recovery sequence profile differs");
         sequence_profile = data.at("sequence_profile").get<unsigned>();
     }
-    if ((data.at("version") < 8 && impl_->transforms.has_camera_blends()) ||
-        (data.at("version") < 4 && data.contains("camera_shots")) ||
-        (data.at("version") >= 4 ? data.at("camera_shots") : Json::array()) !=
-            impl_->transforms.camera_shots_checkpoint(data.at("version") >= 8))
+    if (camera_curve_profile != impl_->transforms.has_camera_blend_curves() ||
+        (data_version < 8 && impl_->transforms.has_camera_blends()) ||
+        (data_version < 4 && data.contains("camera_shots")) ||
+        (data_version >= 4 ? data.at("camera_shots") : Json::array()) !=
+            impl_->transforms.camera_shots_checkpoint(data_version >= 8 || camera_curve_profile,
+                                                      camera_curve_profile))
         throw ArchiveError("Camera Shot recovery configuration differs");
     if ((data.at("version") < 5 && data.contains("audio_cues")) ||
         (data.at("version") >= 5 ? data.at("audio_cues") : Json::array()) !=

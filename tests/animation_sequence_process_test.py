@@ -8,7 +8,18 @@ import sys
 import tempfile
 import time
 import uuid
-from physics_velocity_example_test import Worker
+from physics_velocity_example_test import Worker as ProtocolWorker
+
+
+class Worker(ProtocolWorker):
+    def close(self):
+        requested_quit = self.process.poll() is None
+        super().close()
+        diagnostic = self.process.stderr.read()
+        if diagnostic:
+            print(diagnostic, file=sys.stderr, end='')
+        if requested_quit:
+            print('Sequence SDK worker: quit acknowledged; native exit 0', file=sys.stderr, flush=True)
 
 def multiway_layers(time, duration, step):
     weights = [0.] * 8
@@ -46,6 +57,9 @@ def check_multiway_watch(status, player, time, duration, step):
 
 
 runtime, gallery, module = (Path(arg).resolve() for arg in sys.argv[1:4])
+camera_only = sys.argv[4:] == ['--camera-transition-only']
+if sys.argv[4:] and not camera_only:
+    raise SystemExit('Unknown sequence process profile')
 with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.parent) as scratch:
     root = Path(scratch) / 'project'
     shutil.copytree(gallery, root, ignore=shutil.ignore_patterns('*.lock'))
@@ -76,6 +90,8 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
     scenarios = [(*scenario, False) for scenario in scenarios]
     scenarios.extend((name, False, False, True, False, False, True) for name in (
         '36-animation-root-motion.scene.json', '145-sequence-clip-blending.scene.json'))
+    if camera_only:
+        scenarios = [scenario for scenario in scenarios if scenario[0] == '68-sequence-camera-shots.scene.json']
     for scene_name, mixed, rated, collections, child_loop, placements, multiway in scenarios:
         label = (scene_name, mixed, rated, collections, child_loop, placements, multiway)
         print('SDK sequence scenario:', label, flush=True)
@@ -155,6 +171,7 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
             for name in ('background_r', 'background_g', 'background_b', 'background_a'):
                 second_camera[name] = first_camera[name]
             shot_tracks[1]['blend_in_seconds'] = .75
+            shot_tracks[1]['blend_curve'] = 1
         dt = struct.unpack('f', struct.pack('f', 1/60))[0]
 
         def rows(state):
@@ -225,16 +242,20 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                     assert len(player.get('sequence_extra_clips', [])) == (6 if collections else 0)
                     assert abs(status['blend_weight']-weight) < 2e-6
             if transition:
-                # Native C++ updates only the duration. The actual copied view
-                # uses that value while preserving both native/local Camera poses.
+                # Native C++ updates duration and curve. Copied views use both
+                # while preserving the authored/native Camera poses.
                 target = next(row for row in state['effective_scene']['entities']
                               if row['id'] == shot_tracks[1]['camera']['entity'])
+                incoming_id = next(row['id'] for row in source['entities']
+                                   if row['components'].get('forge.camera_shot') is shot_tracks[1])
+                curve = values[incoming_id]['forge.camera_shot']['blend_curve']
+                assert curve == (1 if tick < 3 else 2), (tick, curve)
                 if 2 <= expected < 2 + probe['blend']:
                     cameras = {row['id']: row for row in source['entities']}
                     a = cameras[shot_tracks[0]['camera']['entity']]['components']['forge.local_translation']
                     b = cameras[shot_tracks[1]['camera']['entity']]['components']['forge.local_translation']
                     linear = (expected - 2) / probe['blend']
-                    weight = linear*linear*(3-2*linear)
+                    weight = linear if curve == 1 else linear*linear
                     for index, name in ((3, 'x'), (7, 'y'), (11, 'z')):
                         assert abs(target['world_affine'][index] - (a[name]+(b[name]-a[name])*weight)) < 2e-6
                     assert target['components']['forge.local_translation'] == b

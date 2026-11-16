@@ -7,6 +7,7 @@
 #include <forge/transform_animation.hpp>
 #include <memory>
 #include <set>
+#include <string_view>
 namespace forge {
 template <> struct ResourceTraits<TransformAnimationAsset> {
     using Data = TransformAnimationClip;
@@ -44,9 +45,11 @@ class TransformAnimationPlayback {
     bool seek(EntityRef, double seconds);
     Json sequence_checkpoint(unsigned profile = 3, bool rates = false, bool loops = false,
                              bool placements = false) const;
-    Json camera_shots_checkpoint(bool transitions = false) const;
+    Json camera_shots_checkpoint(bool transitions = false, bool curves = false) const;
     bool has_camera_blends() const;
-    Json tune_camera_shot(EntityRef, const Json& value);
+    bool has_camera_blend_curves() const;
+    Json tune_camera_shot(EntityRef, const Json& value,
+                          std::string_view property = "blend_in_seconds");
     void project_camera_shots(Json&, double alpha) const;
     Json audio_cues_checkpoint() const;
     Json camera_presentation(flecs::entity_t, double alpha) const;

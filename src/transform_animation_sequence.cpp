@@ -660,6 +660,7 @@ void TransformAnimationPlayback::synchronize_camera_shots() {
             if (!std::isfinite(config.blend_in_seconds) || config.blend_in_seconds < 0 ||
                 config.blend_in_seconds > config.end_seconds - config.start_seconds)
                 throw std::runtime_error("Camera Shot blend must fit within its interval");
+            (void)camera_shot_blend_weight(config.blend_curve, 0);
             candidate[membership].push_back({config, *ref, resolved.entity, camera.entity});
         } catch (const std::exception& e) {
             invalid_scenes.insert(membership);
@@ -739,7 +740,7 @@ TransformAnimationPlayback::sample_camera_shot(flecs::entity_t membership, doubl
             shots[i - 1].config.end_seconds == shot.config.start_seconds) {
             result.previous = &shots[i - 1];
             const double linear = std::clamp((time - start) / span, 0., 1.);
-            result.weight = linear * linear * (3 - 2 * linear);
+            result.weight = camera_shot_blend_weight(shot.config.blend_curve, linear);
         }
         return result;
     }
@@ -752,7 +753,10 @@ Json TransformAnimationPlayback::camera_presentation(flecs::entity_t id, double 
     const auto sample = sample_camera_shot(scene_membership(entity), alpha);
     return sample.current ? Json(id == sample.current->camera) : Json();
 }
-Json TransformAnimationPlayback::tune_camera_shot(EntityRef target, const Json& value) {
+Json TransformAnimationPlayback::tune_camera_shot(EntityRef target, const Json& value,
+                                                  std::string_view property) {
+    if (property != "blend_in_seconds" && property != "blend_curve")
+        throw std::runtime_error("Only Camera Shot blend duration and curve can be tuned live");
     for (auto& [membership, shots] : shot_scenes_) {
         for (std::size_t i = 0; i < shots.size(); ++i) {
             auto& shot = shots[i];
@@ -767,7 +771,7 @@ Json TransformAnimationPlayback::tune_camera_shot(EntityRef target, const Json& 
                 throw std::runtime_error("Live Camera Shot target is unavailable");
             auto actor = context_.world().entity(resolved.entity);
             auto candidate = codec->read(actor, true);
-            candidate["blend_in_seconds"] = value;
+            candidate[std::string(property)] = value;
             detail::validate_components({{"forge.camera_shot", candidate}});
             const auto config = std::get<CameraShot>(codec->decode(candidate));
             detail::validate_reflected_value(actor, config);
@@ -778,11 +782,21 @@ Json TransformAnimationPlayback::tune_camera_shot(EntityRef target, const Json& 
                     context_.world().entity(shot.camera).get<Camera>());
             actor.set(config);
             shot.config = config;
-            return config.blend_in_seconds;
+            return property == "blend_curve" ? Json(config.blend_curve)
+                                             : Json(config.blend_in_seconds);
         }
         (void)membership;
     }
     throw std::runtime_error("Live Camera Shot tuning needs an admitted enabled shot");
+}
+bool TransformAnimationPlayback::has_camera_blend_curves() const {
+    for (const auto& [membership, shots] : shot_scenes_) {
+        (void)membership;
+        for (const auto& shot : shots)
+            if (shot.config.blend_curve != std::uint32_t(CameraShotBlendCurve::Smooth))
+                return true;
+    }
+    return false;
 }
 bool TransformAnimationPlayback::has_camera_blends() const {
     for (const auto& [membership, shots] : shot_scenes_) {
@@ -831,7 +845,7 @@ void TransformAnimationPlayback::project_camera_shots(Json& document, double alp
         row["world_affine"] = at->second.world.m;
     }
 }
-Json TransformAnimationPlayback::camera_shots_checkpoint(bool transitions) const {
+Json TransformAnimationPlayback::camera_shots_checkpoint(bool transitions, bool curves) const {
     auto result = Json::array();
     for (const auto& [membership, shots] : shot_scenes_) {
         (void)membership;
@@ -843,6 +857,8 @@ Json TransformAnimationPlayback::camera_shots_checkpoint(bool transitions) const
                               {"end_seconds", shot.config.end_seconds}});
             if (transitions)
                 result.back()["blend_in_seconds"] = shot.config.blend_in_seconds;
+            if (curves)
+                result.back()["blend_curve"] = shot.config.blend_curve;
         }
     }
     // Native entity/membership allocation order is not persistent identity.

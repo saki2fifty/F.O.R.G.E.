@@ -161,7 +161,8 @@ template <class T> Json encode(const T& p) {
                 {"start_seconds", p.start_seconds},
                 {"end_seconds", p.end_seconds},
                 {"enabled", p.enabled},
-                {"blend_in_seconds", p.blend_in_seconds}};
+                {"blend_in_seconds", p.blend_in_seconds},
+                {"blend_curve", p.blend_curve}};
     else if constexpr (std::is_same_v<T, SoundCue>)
         return sound_cue_json(p);
     else if constexpr (std::is_same_v<T, AudioCue>)
@@ -566,6 +567,15 @@ template <class T> Value decode(const Json& p) {
         v.end_seconds = p.at("end_seconds");
         v.enabled = p.at("enabled");
         v.blend_in_seconds = p.value("blend_in_seconds", 0.);
+        const auto curve =
+            p.value("blend_curve", Json(std::uint32_t(CameraShotBlendCurve::Smooth)));
+        if (!curve.is_number_integer() ||
+            (!curve.is_number_unsigned() && curve.get<std::int64_t>() < 0))
+            throw std::runtime_error("Camera Shot blend curve must be an integer from 0 to 3");
+        const auto curve_value = curve.get<std::uint64_t>();
+        if (curve_value > std::uint32_t(CameraShotBlendCurve::EaseOut))
+            throw std::runtime_error("Camera Shot blend curve must be an integer from 0 to 3");
+        v.blend_curve = std::uint32_t(curve_value);
         if (!std::isfinite(v.blend_in_seconds) || v.blend_in_seconds < 0 ||
             v.blend_in_seconds > v.end_seconds - v.start_seconds)
             throw std::runtime_error("Camera Shot blend must fit within its interval");
@@ -1522,7 +1532,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<double>("start_seconds")
             .template member<double>("end_seconds")
             .template member<bool>("enabled")
-            .template member<double>("blend_in_seconds");
+            .template member<double>("blend_in_seconds")
+            .template member<std::uint32_t>("blend_curve");
     } else if constexpr (std::is_same_v<T, SoundCue>) {
         (void)authoring_value_adapters(w);
         w.component<SoundCueEdge>("forge.sound_cue_edge")
@@ -3311,6 +3322,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
         } else if (field == "camera") {
             value["display_name"] = "Camera";
             value["description"] = "Camera in the same loaded Scene; selection never binds by name";
+        } else if (field == "blend_curve") {
+            value["display_name"] = "Blend curve";
+            value["minimum"] = 0;
+            value["maximum"] = 3;
+            value["description"] = "Incoming view/lens timing: Smooth, Linear, EaseIn or EaseOut. "
+                                   "Cuts, first shots and gaps retain their existing behavior.";
         } else if (field == "blend_in_seconds") {
             value["display_name"] = "Blend in (seconds)";
             value["minimum"] = 0;
@@ -3856,6 +3873,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.navigation_link" && field == "plane") {
         type = "forge.NavigationPlane";
         names = {"Spatial3D", "PlanarXY"};
+    } else if (component == "forge.camera_shot" && field == "blend_curve") {
+        type = "forge.CameraShotBlendCurve";
+        names = {"Smooth", "Linear", "EaseIn", "EaseOut"};
     } else if (component == "forge.camera" && field == "projection") {
         type = "forge.CameraProjection";
         names = {"Perspective", "Orthographic"};
@@ -4109,6 +4129,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.camera_shot") {
             world.component<ReflectedMemberDefault>(reflected_member_default_type);
             c.lookup("blend_in_seconds").set<ReflectedMemberDefault>({0.});
+            c.lookup("blend_curve")
+                .set<ReflectedMemberDefault>({std::uint32_t(CameraShotBlendCurve::Smooth)});
         }
         if (name == "forge.mesh_renderer") {
             // Reuse the native annotation owner for this nested value type;

@@ -83,7 +83,8 @@ AUDIO_PAUSE_ONLY = SOUND_PLAYLIST_ONLY or SOUND_CUES_ONLY or AUDIO_ROUTING_ONLY 
 GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
 MESSAGES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--input-messages-only'
 UI_SEQUENCE_ONLY = sys.argv[7:] == ['--ui-sequence-only']
-CAMERA_TRANSITION_ONLY = sys.argv[7:] == ['--camera-transition-only']
+CAMERA_TRANSITION_SDK = sys.argv[7:] == ['--camera-transition-sdk-only']
+CAMERA_TRANSITION_ONLY = sys.argv[7:] == ['--camera-transition-only'] or CAMERA_TRANSITION_SDK
 UI_ANIMATION_ONLY = sys.argv[7:] == ['--ui-animation-only']
 UI_LOCALIZATION_ONLY = sys.argv[7:] == ['--ui-localization-only']
 LIFETIMES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--state-lifetimes-only'
@@ -263,7 +264,7 @@ def editor(mode='full'):
             command.append(str(audio_profile_project_template(root)))
         elif SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if (AUDIO_PAUSE_ONLY and os.environ.get('FORGE_MCP_TEST_SDK') == '1') or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK or UI_FONT_COLLECTIONS_SDK:
+        if (AUDIO_PAUSE_ONLY and os.environ.get('FORGE_MCP_TEST_SDK') == '1') or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK or UI_FONT_COLLECTIONS_SDK or CAMERA_TRANSITION_SDK:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -596,7 +597,7 @@ for legacy in selected_protocols:
             continue
         if CAMERA_TRANSITION_ONLY:
             check_camera_shot_play(read, ok, control, mutate, until, discovery)
-            print(('legacy' if legacy else 'current') + ': Camera Shot blend discovery/authoring/Undo, real scoped Play/seek/tuning/review and stale generation checks passed')
+            print(('legacy' if legacy else 'current') + (': SDK' if CAMERA_TRANSITION_SDK else ': static') + ' Camera Shot duration/curve discovery/authoring/Undo, scoped Play/seek/tuning/review and stale generation checks passed')
             continue
         if UI_SEQUENCE_ONLY:
             check_ui_sequence_play(read, ok, control, mutate, until, discovery, advertised)

@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**216-camera-transition-curves** compares Smooth, Linear, EaseIn and EaseOut view
+and lens transitions. Press Play to watch its twelve-second loop, then Stop and
+select an incoming Camera Shot in the Timeline. Change **Shot blend curve**, apply
+the fields and refresh the preview. The cameras, light and geometry are included;
+choose this Scene as startup and save before export. See
+[Camera shots](../editor/animation-sequences.md).
+
 **214-ui-material-graphs** uses a visual graph for still and animated textured
 UI panels. Stop Play and open `Assets/UI/GraphEffects/Panel.shader.json` in the
 Material Graph workspace to inspect its laid-out UV, UI Time/Size, image and math

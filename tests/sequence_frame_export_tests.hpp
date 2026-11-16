@@ -152,7 +152,7 @@ void frame_source(const std::filesystem::path& gallery, const std::filesystem::p
 // The stopped Timeline and its frame-export lease project the shared view after
 // Scene has resolved the copied animated hierarchy, exactly as the editor does.
 void camera_transition_frame_source(const std::filesystem::path& gallery,
-                                    const std::filesystem::path& scratch) {
+                                    const std::filesystem::path& scratch, std::uint32_t curve) {
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
     EngineContext engine;
@@ -179,6 +179,7 @@ void camera_transition_frame_source(const std::filesystem::path& gallery,
     scene.entity(incoming).set(profile);
     auto shot = shots[1].second;
     shot.blend_in_seconds = 1;
+    shot.blend_curve = curve;
     scene.entity(shots[1].first).set(shot);
     const auto authored = scene.document();
     const auto revision = scene.revision();
@@ -204,7 +205,10 @@ void camera_transition_frame_source(const std::filesystem::path& gallery,
         const auto render = extract_render_scene(source);
         check(render.cameras.size() == 1 && render.cameras[0].entity == EntityId::parse(incoming),
               "Stopped transition preview changed its incoming identity");
-        const double linear = time - 2, weight = linear * linear * (3 - 2 * linear);
+        const double linear = time - 2;
+        const std::array<double, 4> weights{linear * linear * (3 - 2 * linear), linear,
+                                            linear * linear, linear * (2 - linear)};
+        const double weight = weights.at(curve);
         for (unsigned i : {3u, 7u, 11u})
             expect_close(row(source, incoming).at("world_affine").at(i),
                          std::lerp(row(resolved, outgoing).at("world_affine").at(i).get<double>(),

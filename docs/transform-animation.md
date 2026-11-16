@@ -375,7 +375,7 @@ Gallery70 combines editable sound points, two camera shots and object animation.
 
 `CameraShot` is a Scene-owned native component with `sequence` and `camera`
 EntityRefs, `start_seconds`, `end_seconds`, `enabled` and optional
-`blend_in_seconds` (default zero). An unbound shot is inactive. Blend duration must
+`blend_in_seconds` (default zero) and `blend_curve` (default0, Smooth). An unbound shot is inactive. Blend duration must
 be finite and between zero and the shot's own duration.
 The existing transform provider prepares up to 256 enabled/bound shots per world;
 both references resolve in the shot's loaded Scene membership. The controller must
@@ -395,7 +395,18 @@ in that membership become disabled. Render-texture producer cameras remain indep
 
 Zero blend duration retains an exact cut. A positive incoming duration interpolates
 from the immediately adjacent previous shot over the beginning of the incoming
-interval, with smoothstep weight `u*u*(3-2*u)`. First shots, gaps and the loop start
+interval. The incoming shot selects its timing profile:
+
+| Value | Profile | Weight for normalized time `u` |
+| --- | --- | --- |
+| 0 | Smooth | `u*u*(3-2*u)` |
+| 1 | Linear | `u` |
+| 2 | EaseIn | `u*u` |
+| 3 | EaseOut | `u*(2-u)` |
+
+The default preserves the original polynomial exactly. Only integer0..3 is
+admitted; fractional, negative, overflowing and unknown values reject. All profiles
+are monotonic with exact endpoints and no overshoot. First shots, gaps and the loop start
 cut; there is no transition from the previous cycle. Both endpoints use their
 current copied world poses, including parent and clip animation. Shared rigid-frame
 validation and existing quaternion interpolation provide position/orientation;
@@ -416,7 +427,7 @@ has resolved every copied world pose. Stopped Timeline preview and its frame-exp
 consumer invoke that same projection after Scene resolves their copied animated
 hierarchy. No native transform override, virtual identity or additional clock exists.
 
-Timeline borrows Scene history for creation, camera/interval/blend edits and removal.
+Timeline borrows Scene history for creation, camera/interval/blend duration/curve edits and removal.
 Creation uses the existing `entity.create` recipe command with initial component
 values, so a bound shot is one transaction. Pending edits retain their Scene revision
 and reject stale commits. The existing isolated preview projects the same copied
@@ -430,20 +441,27 @@ active blends use checkpoint8, recording exact shot durations and an explicit
 Recovery validates the source configuration and nested profile before adopting
 clocks. Earlier profiles reject active blends they cannot describe. Optional source
 fields read as zero through both codec and generic reflected Scene admission.
+When any admitted shot carries a nondefault curve, private recovery16 wraps its
+existing profile4..15 in `camera_curve_profile` and records exact durations and
+curves. This includes configured curves on cuts, preserving their future intent.
+Restore validates the wrapper, source curve configuration and underlying profile
+before adopting clocks. Older recovery cannot describe nondefault curves and is
+refused. Default curves retain their existing checkpoint shapes byte-for-byte.
 
-Live Play tuning admits only `CameraShot.blend_in_seconds` on an already admitted,
+Live Play tuning admits `CameraShot.blend_in_seconds` and `blend_curve` on an already admitted,
 enabled shot. The animation owner validates the detached typed candidate, interval
-bound and adjacent pair before publishing the native duration and existing shot
+bound and adjacent pair before publishing the native value and existing shot
 configuration together. It preserves controller time and rejects changes to camera,
 sequence, interval and enabled state. Inspector and MCP use this same operation;
-Keep runtime values can review/apply the duration through ordinary Scene Undo.
+Keep runtime values can review/apply duration and curve through ordinary Scene Undo.
 
 Scene/Prefab/clip formats and ABI1 function tables are unchanged. The installed
 animation component header changes the exact SDK fingerprint; rebuild native
 modules with the matching SDK. ADR021/022 retain clock and portable-reference
 ownership. Gallery68 demonstrates legacy cuts. Gallery153 demonstrates smooth
 incoming/return views with an animated shared camera rig, a normal-composition gap
-and source-free export.
+and source-free export. Gallery216 compares all four timing profiles with static
+cameras, eight adjacent shots and built-in geometry over a twelve-second loop.
 
 ## Reflected component fields
 

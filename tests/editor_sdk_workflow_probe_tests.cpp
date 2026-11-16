@@ -118,6 +118,27 @@ const nlohmann::json level_snapshot() {
 
 int main() {
     using Workflow = forge::test::EditorSdkWorkflow;
+    {
+        nlohmann::json input{{"actions", nlohmann::json::array({{{"id", reference::jump},
+                                                                 {"held", true},
+                                                                 {"presses", 7u},
+                                                                 {"pressed_tick", 231u}}})}};
+        require(!Workflow::jump_press_observed(input, 180, 6) &&
+                    !Workflow::jump_press_observed(input, 231, 6),
+                "Editor frames or same-tick input cannot acknowledge a fixed-tick J pulse");
+        require(Workflow::jump_press_observed(input, 232, 6),
+                "A fresh held Jump followed by a fixed tick must release the synthetic key");
+        require(!Workflow::jump_press_observed(input, 232, 7),
+                "An earlier Jump press cannot acknowledge a later synthetic key");
+        input["actions"][0]["held"] = false;
+        require(!Workflow::jump_press_observed(input, 232, 6),
+                "A collapsed Down/Up pulse cannot establish held runtime input");
+        input["actions"][0]["held"] = true;
+        input["actions"][0]["id"] = reference::move;
+        require(!Workflow::jump_press_observed(input, 232, 6) &&
+                    !Workflow::jump_press_observed(nlohmann::json::object(), 232, 0),
+                "An unrelated or unpublished action cannot acknowledge Jump");
+    }
     require(Workflow::stage_deadline_budget(true, false) > 25000 &&
                 Workflow::stage_deadline_budget(true, false) <= 120000,
             "Cold staged preparation must have a finite loading allowance");

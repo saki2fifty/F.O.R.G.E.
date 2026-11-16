@@ -95,7 +95,9 @@ class EditorSdkWorkflow {
     StableYState pre_continue_jump_{};
     StableYState pre_restart_continue_jump_{};
     bool held_w_ = false;
-    bool pending_j_release_ = false; // Release synthetic J on the next editor input frame.
+    bool pending_j_release_ = false;
+    std::uint64_t j_press_baseline_ = 0;
+    std::string j_press_session_;
     bool failed_ = false;
     bool done_ = false;
     bool captured_failure_ = false;
@@ -224,12 +226,23 @@ class EditorSdkWorkflow {
         key_down(window, code, value);
         key_up(window, code, value);
     }
-    // A real key press spans input frames. Sending J down and up before the
-    // same SDL_PollEvent pass can collapse the edge under WARP/CI timing,
-    // leaving rebinding or a later jump unobserved.
-    void press_j(SDL_Window* window) {
+    static const Json* jump_action(const Json& input) {
+        const auto actions = input.find("actions");
+        if (actions == input.end() || !actions->is_array())
+            return nullptr;
+        for (const auto& action : *actions)
+            if (action.is_object() && action.value("id", std::string{}) == reference::jump)
+                return &action;
+        return nullptr;
+    }
+    // Separate editor frames do not guarantee a fixed runtime tick between
+    // events. Keep the real SDL key down until its runtime effect is observed.
+    void press_j(SDL_Window* window, const PlaySession& play) {
         if (pending_j_release_)
             throw std::runtime_error("previous J press was not released");
+        const auto* action = jump_action(play.input_status());
+        j_press_baseline_ = action ? action->value("presses", std::uint64_t{}) : 0;
+        j_press_session_ = play.session();
         key_down(window, SDL_SCANCODE_J, SDLK_J);
         pending_j_release_ = true;
     }
@@ -328,6 +341,13 @@ class EditorSdkWorkflow {
                                       std::string_view status, std::string_view log) {
         return attempts > 0 && attempts < 3 && elapsed >= 500 && !active &&
                status.starts_with("Stopped.") && log.empty();
+    }
+    static bool jump_press_observed(const Json& input, std::uint64_t tick,
+                                    std::uint64_t baseline_presses) {
+        const auto* action = jump_action(input);
+        return action && action->value("held", false) &&
+               action->value("presses", std::uint64_t{}) > baseline_presses &&
+               tick > action->value("pressed_tick", std::uint64_t{});
     }
     // Select the active reference UI document from the snapshot by
     // "single visible document": 0 visible -> empty (unready),
@@ -584,6 +604,8 @@ class EditorSdkWorkflow {
                       {"start_version", pre_restart_continue_jump_.start_version},
                       {"last_version", pre_restart_continue_jump_.last_version}}},
                     {"pending_j_release", pending_j_release_},
+                    {"j_press_baseline", j_press_baseline_},
+                    {"j_press_session", j_press_session_},
                     {"timing", play.timing()},
                     {"input", play.input_status()},
                     {"input_routing", game_input_captured()},
@@ -711,9 +733,22 @@ class EditorSdkWorkflow {
             release_held(window);
             return;
         }
-        // Complete any J press from the prior input frame before observing or
-        // sending another workflow action. SDL_PollEvent follows this callback.
-        release_pending_j(window);
+        const auto model = ui_model(play);
+        if (pending_j_release_) {
+            if (play.session() != j_press_session_) {
+                record_failure("Runtime session changed during a pending J press", play);
+                release_held(window);
+                return;
+            }
+            // Rebinding acknowledges the key through its candidate model while
+            // paused. Gameplay must observe a new held action and a later fixed
+            // tick, so Down/Up cannot collapse into one input sampling interval.
+            if ((stage_ == 8 && model_binding(model) == "key.j") ||
+                jump_press_observed(play.input_status(),
+                                    play.timing().value("tick", std::uint64_t{}),
+                                    j_press_baseline_))
+                release_pending_j(window);
+        }
         // Pump staged toolbar click first so its second-frame up is observed.
         pump_toolbar_click(window);
         // Same for the outside-surrender split-click: DOWN is sent
@@ -722,7 +757,6 @@ class EditorSdkWorkflow {
         // tick long so it reaches ImGui as a real press.
         pump_outside_click(window);
 
-        const auto model = ui_model(play);
         const auto page = model_page(model);
         const auto rel_mouse = SDL_GetWindowRelativeMouseMode(window);
         // A restored page/pose can arrive before the new world's cursor effect
@@ -1153,7 +1187,7 @@ class EditorSdkWorkflow {
         if (stage_ == 7 && model_binding(model).rfind("Press a key", 0) == 0 && live_rml &&
             menu_input_ready) {
             capture("sdk-listening", play);
-            press_j(window);
+            press_j(window, play);
             append_stage(8, play, "J pressed");
             return;
         }
@@ -1180,7 +1214,7 @@ class EditorSdkWorkflow {
                 return;
             jump_baseline_y_ = player_position(play)[1];
             jump_baseline_recorded_ = false;
-            press_j(window);
+            press_j(window, play);
             append_stage(12, play, "rebound jump");
             return;
         }
@@ -1299,7 +1333,7 @@ class EditorSdkWorkflow {
                 return;
             jump_baseline_y_ = player_position(play)[1];
             jump_baseline_recorded_ = false;
-            press_j(window);
+            press_j(window, play);
             append_stage(17, play, "post-restart jump");
             return;
         }
@@ -1380,7 +1414,7 @@ class EditorSdkWorkflow {
                 return;
             jump_baseline_y_ = player_position(play)[1];
             jump_baseline_recorded_ = false;
-            press_j(window);
+            press_j(window, play);
             append_stage(22, play, "restarted persisted binding jump");
             return;
         }

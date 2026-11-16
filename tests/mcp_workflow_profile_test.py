@@ -10,7 +10,7 @@ tests = {row['name']: row for row in json.loads(subprocess.check_output(
     [ctest, '--test-dir', build, '--show-only=json-v1'], text=True))['tests']}
 shared = sdk == '1'
 for name in ('ui_forms', 'ui_fields', 'ui_font_collections', 'mesh_wind',
-             'animation_graph', 'fog_volumes'):
+             'animation_graph', 'fog_volumes', 'camera_transition'):
     assert ('mcp_' + name + '_sdk_stdio' in tests) == shared, name
 for name in ('audio_pause', 'audio_stream_play', 'audio_routing_play',
              'sound_cues_play', 'finite_sound_cues_play', 'sound_playlist'):

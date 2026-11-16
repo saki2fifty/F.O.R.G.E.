@@ -16,15 +16,26 @@ def check_camera_shot_play(read, ok, control, mutate, until, discovery):
     field = next(row for row in schema['fields'] if row['id'] == 'blend_in_seconds')
     assert field['default_if_missing'] == 0 and field['minimum'] == 0
     assert 'match' in field['description']
+    curve = next(row for row in schema['fields'] if row['id'] == 'blend_curve')
+    assert curve['default_if_missing'] == 0 and [row['value'] for row in curve['choices']] == [0, 1, 2, 3]
     # These original cameras deliberately have distinct backgrounds. Author a
     # compatible composition before enabling the incoming view/lens transition.
     first_camera = by_id[previous_camera]['components']['forge.camera']
     for name in ('background_r', 'background_g', 'background_b', 'background_a'):
         ok('forge_property_set', arguments=dict(entity=camera, component='forge.camera', field=name, value=first_camera[name]))
 
-    def value():
+    def value(property='blend_in_seconds'):
         row = next(row for row in read('forge_scene_read')['entities'] if row['id'] == actor)
-        return row['components']['forge.camera_shot']['blend_in_seconds']
+        return row['components']['forge.camera_shot'][property]
+
+    before_curve = discovery()
+    rejected = mutate('forge_property_set', arguments=dict(entity=actor, component='forge.camera_shot', field='blend_curve', value=4))
+    assert not rejected['ok'] and discovery()['revision'] == before_curve['revision'] and value('blend_curve') == 0
+    ok('forge_property_set', arguments=dict(entity=actor, component='forge.camera_shot', field='blend_curve', value=2))
+    assert value('blend_curve') == 2
+    assert ok('forge_history_undo')['changed'] and value('blend_curve') == 0
+    assert ok('forge_history_redo')['changed'] and value('blend_curve') == 2
+    assert ok('forge_history_undo')['changed'] and value('blend_curve') == 0
 
     before = discovery()
     rejected = mutate('forge_property_set', arguments=dict(entity=actor, component='forge.camera_shot', field='blend_in_seconds', value=3))
@@ -63,14 +74,22 @@ def check_camera_shot_play(read, ok, control, mutate, until, discovery):
     until(lambda: read('forge_play_status'), lambda row: row['tune_ack'] is not None)
     linear = .25 / .75
     until(poses, lambda rows: at_weight(rows, linear*linear*(3-2*linear)))
+    control('forge_play_tune', entity=actor, component='forge.camera_shot', property='blend_curve', value=1)
+    until(poses, lambda rows: at_weight(rows, linear))
+    control('forge_play_tune', entity=actor, component='forge.camera_shot', property='blend_curve', value=4)
+    rejected_curve = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+    assert not rejected_curve['tune_ack']['ok'], rejected_curve
+    assert at_weight(poses(), linear) and read('forge_scene_read') == authored
     scope = read('forge_play_status')
     failed(mutate('forge_play_tune', launch=scope['launch'], session=scope['session'], generation=scope['generation']+1,
                   entity=actor, component='forge.camera_shot', property='blend_in_seconds', value=.5), 'stale_play')
     review = control('forge_play_tuning_capture', entity=actor)
     assert any(row['component'] == 'forge.camera_shot' and row['property'] == 'blend_in_seconds' for row in review['fields'])
+    assert any(row['component'] == 'forge.camera_shot' and row['property'] == 'blend_curve' for row in review['fields'])
     control('forge_play_stop')
     assert read('forge_scene_read') == authored
     review = read('forge_play_tuning_read')
     ok('forge_play_tuning_apply', state=review['state'])
     assert value() == .75
+    assert value('blend_curve') == 1
     assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == authored

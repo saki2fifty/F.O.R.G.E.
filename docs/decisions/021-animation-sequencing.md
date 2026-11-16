@@ -538,3 +538,28 @@ Inspector/MCP/review path. Private recovery8 records blend durations and preserv
 the preexisting nested sequence profile explicitly. Zero-duration cuts retain their
 older recovery shapes. Exact compatibility and migration behavior live in
 [transform animation](../transform-animation.md#sequence-camera-shots).
+
+## Camera transition timing profiles — 2026-11-16
+
+The incoming CameraShot also carries a zero-default blend_curve. Smooth retains
+its exact smoothstep polynomial; Linear, EaseIn and EaseOut change only the
+existing normalized blend weight. The same director, root clock, copied world
+poses and shared lens/rigid-pose projection serve Runtime, stopped Timeline and
+frame export. Cut/first/gap/loop rules and camera identities are unchanged.
+
+Builtin codec/reflection own exact integer validation, choices and missing defaults.
+Timeline borrows that metadata and the existing property drawer; pending duration
+and curve edits commit in one Scene transaction. Live tuning admits either field
+through the existing detached candidate/interval/pair validation and typed native
+publication, preserving clocks. Inspector, automation/MCP and Keep runtime values
+retain their existing owners and history/revision/permission rules.
+
+Private recovery16 wraps the preceding4..15 profile only for nondefault curves
+on admitted shots, recording durations and curves even on cuts. Restore validates
+that envelope and exact source configuration before adopting clocks. Default
+curves retain prior shapes; older recovery rejects curves it cannot represent.
+Scene/Prefab formats and ABI1 function tables are unchanged. The public component
+layout changes the exact SDK fingerprint, requiring matching SDK/module rebuilds.
+No dependency upgrade, additional camera controller or native transform writer is
+introduced. Operational bounds and compatibility live in the camera-shot section
+of transform-animation.md.

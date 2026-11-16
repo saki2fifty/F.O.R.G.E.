@@ -59,10 +59,10 @@ Json RuntimeWorld::tune_property(EntityRef target, const std::string& type,
         if (!RuntimePropertyTune::camera_shot_property(property) ||
             !engine.services().available(Capability::Animation))
             throw std::runtime_error(
-                "Only an admitted Camera Shot blend duration can be tuned live");
+                "Only an admitted Camera Shot blend duration and curve can be tuned live");
         return AnimationPlaybackAccess::tune_camera_shot(
             *std::static_pointer_cast<AnimationRuntime>(engine.services().animation()), target,
-            value);
+            value, property);
     }
     if (AnimationPlaybackAccess::rig_type(type)) {
         if (!engine.services().available(Capability::Animation))

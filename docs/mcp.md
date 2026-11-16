@@ -2433,19 +2433,22 @@ source provenance reports an empty component string for this registration.
 ## Smooth Camera Shot views
 
 Discovery exposes native `forge.camera_shot.blend_in_seconds` with an optional
-zero default and seconds metadata. Existing `forge_property_set` and atomic property
-batches author it; the ordinary history tools Undo/Redo the Scene value. Camera
+zero default and seconds metadata, plus optional `blend_curve` with default0 and
+enum choices0Smooth/1Linear/2EaseIn/3EaseOut. Exact integers0..3 are required;
+fractional, negative, overflowing and unknown values reject. Existing
+`forge_property_set` and atomic property batches author both fields; the ordinary
+history tools Undo/Redo the Scene values. Camera
 and sequence bindings remain typed EntityRefs. The animation provider validates
 nonoverlapping intervals and matching adjacent camera composition before playback.
 No additional MCP director or separate Scene implementation exists.
 
-`forge_play_tune` accepts only an admitted enabled shot's `blend_in_seconds` in
+`forge_play_tune` accepts an admitted enabled shot's `blend_in_seconds` or `blend_curve` in
 Play, using the current launch/session/generation scope. Poll `forge_play_status`
-for the tuning acknowledgement; failed duration/profile validation leaves the
+for the tuning acknowledgement; failed duration/curve/composition validation leaves the
 runtime value unchanged. Camera, sequence, interval and enabled state remain Edit
 operations. Paused `forge_play_animation_control` seeking updates the copied view
-without a simulation tick. Runtime tuning capture/read/apply can review the duration
-and apply it with the ordinary Scene history owner. Stopping Play preserves source.
+without a simulation tick. Runtime tuning capture/read/apply can review duration
+and curve and apply them with the ordinary Scene history owner. Stopping Play preserves source.
 
 Both current and legacy stdio framing use the same native descriptor and operation.
 See [camera-shot behavior](transform-animation.md#sequence-camera-shots) and the

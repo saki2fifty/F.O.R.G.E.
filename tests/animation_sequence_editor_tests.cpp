@@ -396,8 +396,12 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     const auto blend = std::min(.25, (initial_shot.end_seconds - initial_shot.start_seconds) * .5);
     const auto blend_text = std::to_string(blend);
     type("sequence:shot_blend", blend_text.c_str());
+    click("sequence:shot_curve");
+    click("property:choice:blend_curve:1");
     click("sequence:apply_shot");
     expect_close(scene.entity(shot).get<CameraShot>().blend_in_seconds, blend);
+    check(scene.entity(shot).get<CameraShot>().blend_curve == 1,
+          "Timeline curve did not use the reflected enum choices");
     editor.undo();
     frame();
     check(scene.entity(shot).get<CameraShot>() == initial_shot,
@@ -405,6 +409,8 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     editor.redo();
     frame();
     expect_close(scene.entity(shot).get<CameraShot>().blend_in_seconds, blend);
+    check(scene.entity(shot).get<CameraShot>().blend_curve == 1,
+          "Shot curve Redo did not restore its value with the duration");
     editor.undo();
     frame();
     type("sequence:shot_blend", "9999");
@@ -692,7 +698,8 @@ int main(int argc, char** argv) {
         check(argc == 3, "Need Gallery and sequence UI scratch root");
         frame_plans();
         frame_source(argv[1], argv[2]);
-        camera_transition_frame_source(argv[1], argv[2]);
+        for (std::uint32_t curve = 0; curve < 4; ++curve)
+            camera_transition_frame_source(argv[1], argv[2], curve);
         for (float scale : {1.f, 1.5f, 2.f})
             for (auto display : {ImVec2{1400, 1500}, ImVec2{960, 640}})
                 exercise(argv[1], argv[2], scale, display);

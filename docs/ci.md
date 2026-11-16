@@ -11,6 +11,20 @@ The fixed Ninja build profiles continue independent compilation after an error,
 collecting remaining compiler diagnostics in the same job. A failed build still
 fails the gate; its test steps do not run against older executables.
 
+The complete native SDK sequence process suite retains fourteen scenarios and
+allows 180 seconds. Its installed-only counterpart allows 240 seconds for SDK
+installation, client compilation and relocated execution, with a 180-second bound
+for the nested sequence driver. Individual worker request and shutdown guards
+remain unchanged. The focused camera-transition profile runs one existing
+scenario through the same driver and matching SDK module.
+
+The packaged SDK workflow holds its synthetic J key until the paused rebinding
+candidate acknowledges it, or gameplay reports a fresh held Jump action followed
+by a later fixed tick. A pending key belongs to its runtime session. Editor-frame
+spacing alone does not establish runtime input sampling on a software renderer.
+The existing rise, landing, binding persistence and stage deadlines remain required;
+terminal cleanup releases held keys.
+
 The editor input, Sprite/sequence frame, root-motion, mixer, audio preview,
 sequence cue and Save image fixtures keep the full editor window and controls at
 their requested scale while limiting Scene/Game raster images to 512 pixels along

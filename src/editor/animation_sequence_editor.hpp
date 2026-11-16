@@ -57,6 +57,7 @@ class AnimationSequenceEditor {
         nested_.clear();
         shot_.clear();
         shot_camera_ = nullptr;
+        shot_curve_schema_ = nullptr;
         cue_.clear();
         cue_source_ = nullptr;
         pending_ = false;
@@ -909,6 +910,8 @@ class AnimationSequenceEditor {
     std::string track_component_ = "forge.transform_animator";
     Json shot_camera_ = nullptr, cue_source_ = nullptr;
     double shot_start_ = 0, shot_end_ = 1, shot_blend_ = 0, cue_time_ = 0;
+    Json shot_curve_ = std::uint32_t(CameraShotBlendCurve::Smooth);
+    Json shot_curve_schema_;
     AnimationTimelineView view_;
     std::uint64_t revision_ = 0, pending_revision_ = 0, frame_export_serial_ = 0;
     double saved_preview_time_ = 0;
@@ -1012,6 +1015,7 @@ class AnimationSequenceEditor {
                         property(shot_, "blend_in_seconds", 0., "forge.camera_shot"));
         commands.push_back(property(shot_, "camera", shot_camera_, "forge.camera_shot"));
         commands.push_back(property(shot_, "blend_in_seconds", shot_blend_, "forge.camera_shot"));
+        commands.push_back(property(shot_, "blend_curve", shot_curve_, "forge.camera_shot"));
         apply_authoring(*scene_, commands, scene_->revision());
     }
     bool draw_nested_sequences(const Json& snapshot, const AnimationSequence& config,
@@ -1407,6 +1411,7 @@ class AnimationSequenceEditor {
             shot_start_ = value.start_seconds;
             shot_end_ = value.end_seconds;
             shot_blend_ = value.blend_in_seconds;
+            shot_curve_ = value.blend_curve;
             shot_camera_ = value.camera.entity ? Json(value.camera) : Json();
         }
         const auto changed = [&] {
@@ -1431,6 +1436,25 @@ class AnimationSequenceEditor {
             "Zero keeps a cut. A positive duration smoothly blends view and lens from an "
             "adjacent previous shot; first shots and gaps cut. Projection, basis, aspect, "
             "viewport, layers and clear settings must match. Output cameras remain independent.");
+        if (shot_curve_schema_.is_null()) {
+            const auto schema = scene_->schema();
+            for (const auto& type : schema.at("components")) {
+                if (type.at("id").get<std::string>() != "forge.camera_shot")
+                    continue;
+                for (const auto& field : type.at("fields"))
+                    if (field.at("id").get<std::string>() == "blend_curve") {
+                        shot_curve_schema_ = field;
+                        shot_curve_schema_["display_name"] = "Shot blend curve";
+                        break;
+                    }
+                break;
+            }
+        }
+        if (shot_curve_schema_.is_object()) {
+            if (property_field(project_path_, shot_curve_schema_, shot_curve_))
+                changed();
+            FORGE_UI_PROBE("sequence:shot_curve");
+        }
         if (ui::button("Apply shot fields",
                        "Validate the interval/camera and commit one Scene Undo step."))
             apply_pending();

@@ -22,6 +22,8 @@ static_assert(forge::sequence_clip_limit == 8);
 static_assert(forge::sequence_placement_limit == 8);
 static_assert(forge::sequence_placement_runtime_profile_version == 1);
 static_assert(forge::sequence_mixing_runtime_profile_version == 1);
+static_assert(std::uint32_t(forge::CameraShotBlendCurve::Smooth) == 0);
+static_assert(std::uint32_t(forge::CameraShotBlendCurve::EaseOut) == 3);
 struct SequenceProbe {
     std::uint32_t ticks = 0;
     double time = 0, blend = 0;
@@ -321,13 +323,18 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                         });
                         check(found && shot.enabled && shot.start_seconds < shot.end_seconds &&
                                   shot.blend_in_seconds >= 0 &&
-                                  shot.blend_in_seconds <= shot.end_seconds - shot.start_seconds,
+                                  shot.blend_in_seconds <= shot.end_seconds - shot.start_seconds &&
+                                  shot.blend_curve <=
+                                      std::uint32_t(forge::CameraShotBlendCurve::EaseOut),
                               "Camera Shot typed data/reference unavailable through matching SDK");
                         if (shot.blend_in_seconds > 0) {
-                            check(shot.blend_in_seconds == .75,
+                            check(shot.blend_in_seconds == .75 &&
+                                      shot.blend_curve ==
+                                          std::uint32_t(forge::CameraShotBlendCurve::Linear),
                                   "Matching SDK Camera Shot blend layout differs");
                             auto next = shot;
                             next.blend_in_seconds = 1;
+                            next.blend_curve = std::uint32_t(forge::CameraShotBlendCurve::EaseIn);
                             actor.set(next);
                         }
                         ++shots;

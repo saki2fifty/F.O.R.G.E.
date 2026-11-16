@@ -558,6 +558,21 @@ assert len({row['camera']['entity'] for row in transition_shots}) == 2
 rigs = [row for row in transitions['entities'] if 'forge.transform_animator' in row['components']]
 assert len(rigs) == 1 and rigs[0]['components']['forge.transform_animator']['clip'] == by_source['Assets/CameraTransitions/Rig.animation.json']['id']
 
+curve_scene_path = 'Scenes/216-camera-transition-curves.scene.json'
+curve_scene = json.loads((project_root / curve_scene_path).read_text(encoding='utf-8'))
+assert curve_scene['asset_id'] == by_source[curve_scene_path]['id'] == 'ce9de7ef-f6f8-4a48-a374-a79146fe2745'
+curve_shots = sorted((row['components']['forge.camera_shot'] for row in curve_scene['entities']
+                     if 'forge.camera_shot' in row['components']), key=lambda row: row['start_seconds'])
+assert len(curve_shots) == 8 and len({row['camera']['entity'] for row in curve_shots}) == 2
+for index, curve in enumerate(range(4)):
+    reset, incoming = curve_shots[index*2:index*2+2]
+    assert (reset['start_seconds'], reset['end_seconds'], reset['blend_in_seconds']) == (index*3, index*3+1, 0)
+    assert (incoming['start_seconds'], incoming['end_seconds'], incoming['blend_in_seconds'], incoming['blend_curve']) == (index*3+1, index*3+3, 1, curve)
+assert all('forge.transform_animator' not in row['components'] for row in curve_scene['entities'])
+curve_director = next(row['components']['forge.animation_sequence'] for row in curve_scene['entities']
+                      if 'forge.animation_sequence' in row['components'])
+assert curve_director['duration'] == 12 and curve_director['loop']
+
 camera_ui = json.loads((project_root / 'Scenes/154-camera-output-ui.scene.json').read_text())
 assert camera_ui['asset_id'] == by_source['Scenes/154-camera-output-ui.scene.json']['id']
 panels = [row for row in camera_ui['entities'] if 'forge.ui_document' in row['components']]
@@ -1015,6 +1030,7 @@ try:
             shot = row['components'].get('forge.camera_shot')
             if shot is not None:
                 shot.setdefault('blend_in_seconds', 0.)
+                shot.setdefault('blend_curve', 0)
             light = row['components'].get('forge.light')
             if light is not None:
                 light.setdefault('shadow_source_radius', 0.)

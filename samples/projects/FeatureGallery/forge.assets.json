@@ -16845,6 +16845,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "ce9de7ef-f6f8-4a48-a374-a79146fe2745",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/216-camera-transition-curves.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "cf8130ea-5707-491c-90e9-a371c5ed9039",
       "metadata": {
         "forge.ui_source": {

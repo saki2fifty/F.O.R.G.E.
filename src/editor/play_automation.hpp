@@ -574,7 +574,7 @@ struct PlayAutomation {
             "Queue one reflected runtime property through the actual live-tuning "
             "owner, including an existing Mesh Renderer's complete wind value (static Mesh "
             "geometry only; authored transforms and collision remain unchanged), "
-            "an admitted Camera Shot's blend_in_seconds (its camera, "
+            "an admitted Camera Shot's blend_in_seconds or blend_curve (its camera, "
             "sequence and interval remain Edit-only), Reflection Probe scalar controls and diffuse "
             "intensity (map "
             "assignment is Edit-only), Fog Volume enabled, shape, linear RGB color, density, "

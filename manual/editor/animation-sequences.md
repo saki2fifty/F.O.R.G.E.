@@ -488,7 +488,7 @@ To author shots in your own sequence:
 
 1. Create the cameras and position them in the Scene. Standby cameras can have **Enabled** turned off; a shot activates its chosen camera in the rendered view.
 2. Open the controller's sequence Timeline. Select a camera in Hierarchy and choose **Add shot from selected camera**. The shot fills the next free interval at or after the playhead.
-3. Select its row under **Camera shots**. Choose **Shot camera**, enter **Shot start**, **Shot end** and **Shot blend in**, then choose **Apply shot fields**. The edit uses one Scene Undo step. Apply or reset pending fields before switching tracks.
+3. Select its row under **Camera shots**. Choose **Shot camera**, enter **Shot start**, **Shot end** and **Shot blend in**, and choose **Shot blend curve**, then choose **Apply shot fields**. The edit uses one Scene Undo step. Apply or reset pending fields before switching tracks.
 4. Choose **Refresh clips**, then **Preview sequence** and open **Game**. Scrub a shot's strip or the playhead slider to inspect the cuts. Stopping preview restores the authored camera settings.
 5. Choose **Save scene**. Play and export use this saved arrangement; no C++ module is required.
 
@@ -497,6 +497,12 @@ shot, enter a positive duration no longer than that incoming shot. During this
 interval the view eases from the previous camera's current position, orientation
 and lens to the incoming camera. Animated and parented cameras keep moving during
 the transition. First shots, gaps and the start of each loop use a cut.
+
+**Shot blend curve** controls the incoming transition's timing. **Smooth** is the
+default and eases both ends. **Linear** advances at a constant rate. **EaseIn**
+starts slowly and accelerates; **EaseOut** starts quickly and slows toward arrival.
+Every choice reaches the same view and lens endpoints. A zero blend duration
+keeps a cut regardless of the selected curve.
 
 For a blend, both cameras must use the same projection, basis, aspect policy,
 viewport, flips, Layers, Order, infinite-far, Clear and background settings.
@@ -510,12 +516,18 @@ from a narrow left camera to a wider right camera, then returns. Both cameras
 share an animated rig. Select the incoming shot under **Camera shots**, adjust
 **Shot blend in**, choose **Apply shot fields**, then **Refresh clips** to preview.
 
-![Sequence Timeline with the incoming Camera Shot selected and its blend duration editable](../images/camera-transition-editor.png)
-The selected incoming shot controls the duration of its smooth view and lens transition.
+![Sequence Timeline with the incoming Camera Shot selected and its blend duration and curve editable](../images/camera-transition-editor.png)
+The incoming shot controls its transition duration and timing curve.
 
-During Play, select a shot and adjust **Blend in (seconds)** in Inspector's
-**Live gameplay** section. This changes the running duration. Stop restores the
-authored value; use **Keep runtime values** to review a value for the Scene before
+Open **216-camera-transition-curves** for a twelve-second comparison. Its four
+sections each reset to the left camera, then move to the right over one second
+using Smooth, Linear, EaseIn or EaseOut. Select the incoming shot to edit the
+curve, apply the fields, then refresh the preview. Choose this Scene as startup
+and save before exporting it; the example needs no project C++ module.
+
+During Play, select a shot and adjust **Blend in (seconds)** or **Blend curve** in Inspector's
+**Live gameplay** section. This changes the running transition. Stop restores the
+authored values; use **Keep runtime values** to review values for the Scene before
 saving. Camera links, interval bounds and Enabled remain Edit controls.
 
 Shots cannot overlap and must fit inside the controller's duration. Gaps use normal enabled cameras and their

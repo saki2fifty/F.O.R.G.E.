@@ -24,7 +24,7 @@ struct RuntimePropertyTune {
     }
     static bool camera_shot_type(std::string_view type) { return type == "forge.camera_shot"; }
     static bool camera_shot_property(std::string_view property) {
-        return property == "blend_in_seconds";
+        return property == "blend_in_seconds" || property == "blend_curve";
     }
     static bool state_condition_type(std::string_view type) {
         return type == "forge.application_state_gate";
