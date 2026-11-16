@@ -241,6 +241,85 @@ void camera_shot_strip_workflow(Scene& scene, AnimationTimelineEditor& editor,
     click("sequence:track:" + actor);
 }
 
+template <class Frame, class Click, class Type>
+void camera_shot_operations_workflow(Scene& scene, AnimationTimelineEditor& editor,
+                                     const std::string& controller, const std::string& shot,
+                                     const std::string& actor, Frame&& frame, Click&& click,
+                                     Type&& type) {
+    const auto before_setup = scene.document();
+    click("sequence:shot:" + shot);
+    auto value = scene.entity(shot).get<CameraShot>();
+    authoring_command(scene, "property.set_many",
+                      {{"entity", shot},
+                       {"component", "forge.camera_shot"},
+                       {"values",
+                        {{"blend_in_seconds", (value.end_seconds - value.start_seconds) / 4},
+                         {"blend_curve", 2u}}}});
+    frame();
+    value = scene.entity(shot).get<CameraShot>();
+    const auto before = scene.document();
+    const auto set_time = [&](double time) {
+        const auto text = std::to_string(time);
+        auto& io = ImGui::GetIO();
+        io.AddKeyEvent(ImGuiMod_Ctrl, true);
+        io.AddKeyEvent(ImGuiKey_LeftCtrl, true);
+        frame();
+        type("sequence:playhead", text.c_str());
+    };
+    const auto history = [&](Json after) {
+        editor.undo();
+        frame();
+        check(scene.document() == before, "Native shot operation was not one Scene Undo");
+        editor.redo();
+        frame();
+        check(scene.document() == after, "Native shot operation Redo changed data/identity");
+        editor.undo();
+        frame();
+        check(scene.document() == before, "Native shot operation repeat Undo lost source");
+        click("sequence:shot:" + shot);
+    };
+    set_time(value.start_seconds);
+    const auto revision = scene.revision();
+    click("sequence:split_shot");
+    check(scene.document() == before && scene.revision() == revision,
+          "Native boundary split published partial source");
+    const double split = (value.start_seconds + value.end_seconds) / 2;
+    set_time(split);
+    click("sequence:split_shot");
+    const auto split_source = scene.document();
+    check(scene.entity(shot).get<CameraShot>().end_seconds == split && split_source != before,
+          "Native Split at playhead did not update the selected Shot");
+    check(!editor.frame_export_ready(), "Split left a stale frame source available");
+    history(split_source);
+    set_time(value.end_seconds);
+    click("sequence:duplicate_shot");
+    const auto copied_source = scene.document();
+    check(copied_source.at("entities").size() == before.at("entities").size() + 1 &&
+              scene.entity(shot).get<CameraShot>() == value,
+          "Native duplication changed original timing or failed to create its copy");
+    history(copied_source);
+    set_time(scene.entity(controller).get<AnimationSequence>().duration);
+    const auto no_space_revision = scene.revision();
+    click("sequence:duplicate_shot");
+    check(scene.document() == before && scene.revision() == no_space_revision,
+          "Native no-space duplication changed source/history");
+    const auto pending_start = std::to_string(value.start_seconds + .01);
+    type("sequence:shot_start", pending_start.c_str());
+    frame();
+    for (const auto* probe : {"sequence:split_shot", "sequence:duplicate_shot"})
+        check(test::ui_targets.contains(probe) && !test::ui_targets.at(probe).enabled,
+              "Pending fields did not disable shot transformations");
+    editor.undo();
+    frame();
+    check(scene.document() == before, "Pending shot cancellation changed source");
+    editor.undo();
+    frame();
+    check(scene.document() == before_setup,
+          "Shot controls fixture did not restore its source setup");
+    set_time(0);
+    click("sequence:track:" + actor);
+}
+
 // Shared actual-control workflow for the full Timeline and focused camera gate.
 template <class Frame, class Click, class Type, class Target, class Mouse>
 std::string camera_sequence_workflow(Scene& scene, AnimationTimelineEditor& editor,

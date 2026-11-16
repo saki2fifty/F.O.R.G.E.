@@ -2456,6 +2456,18 @@ gesture or separate timing writer. The ordinary source command, grants, revision
 and replay rules remain authoritative. Sequence preparation still reports invalid
 arrangements such as overlapping shots before playback.
 
+`forge_camera_shot_split` accepts `arguments.entity` and `arguments.time` strictly
+inside the shot. It retains the original incoming blend/curve and creates a
+continuation with the same camera/enabled state and zero incoming blend.
+`forge_camera_shot_duplicate` accepts the same arguments and searches for the first
+full-length free span at or after `time`, preserving camera, length, blend and
+curve. Both accept an optional new-entity `name`. They use the ordinary `scene.edit`
+grant, target/revision/sequence and receipt replay rules. `results[0].selected`
+identifies the new Shot; `original` identifies the source. Each operation publishes
+one Scene Undo step or rejects the complete candidate. Source bounds, enabled-shot
+limit, overlap/director and transition compatibility checks remain authoritative;
+the commands never shorten a copy/blend or extend the controller automatically.
+
 `forge_play_tune` accepts an admitted enabled shot's `blend_in_seconds` or `blend_curve` in
 Play, using the current launch/session/generation scope. Poll `forge_play_status`
 for the tuning acknowledgement; failed duration/curve/composition validation leaves the

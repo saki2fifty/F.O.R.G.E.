@@ -1,3 +1,4 @@
+#include "camera_shot_blend.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/render_view.hpp>
@@ -38,6 +39,28 @@ void validate_affine(const AffineTransform& a) {
         require(finite(x), "Nonfinite camera/light world transform");
 }
 } // namespace
+void validate_shot_camera(const Camera& camera) {
+    if (camera.render_texture.id)
+        throw std::runtime_error("Camera Shot requires a camera with main Game output");
+}
+void validate_camera_shot_blend(Camera from, Camera to) {
+    validate_camera(from);
+    validate_camera(to);
+    validate_shot_camera(from);
+    validate_shot_camera(to);
+    if (from.projection == unsigned(CameraProjection::Orthographic) &&
+        ((from.orthographic_width == 0) != (to.orthographic_width == 0)))
+        throw std::runtime_error(
+            "Camera Shot blends require matching automatic/fixed orthographic width");
+    from.enabled = to.enabled = true;
+    for (auto member : {&Camera::vertical_fov, &Camera::orthographic_height,
+                        &Camera::orthographic_width, &Camera::near_plane, &Camera::far_plane})
+        from.*member = to.*member = 1;
+    if (from != to)
+        throw std::runtime_error("Camera Shot blends require matching projection, basis, aspect, "
+                                 "viewport, layers and clear settings");
+}
+
 void validate_camera(const Camera& c) {
     require(c.projection <= std::uint32_t(CameraProjection::Orthographic) &&
                 c.basis <= std::uint32_t(ViewBasis::GltfNegativeZ),

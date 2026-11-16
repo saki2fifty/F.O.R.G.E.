@@ -179,6 +179,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
                                                    click, type, target, mouse);
         camera_shot_strip_workflow(scene, editor, context, controller, shot, actor, locked, display,
                                    frame, click, target, mouse);
+        camera_shot_operations_workflow(scene, editor, controller, shot, actor, frame, click, type);
         test::observe_ui = false;
         ImGui::DestroyContext();
         progress("camera workflow passed");
@@ -381,6 +382,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
                                                click, type, target, mouse);
     camera_shot_strip_workflow(scene, editor, context, controller, shot, actor, locked, display,
                                frame, click, target, mouse);
+    camera_shot_operations_workflow(scene, editor, controller, shot, actor, frame, click, type);
     // One central workspace keeps the two document owners' pending choices distinct.
     progress("camera shots passed");
     const auto speaker =

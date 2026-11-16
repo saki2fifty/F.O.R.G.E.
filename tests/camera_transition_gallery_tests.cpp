@@ -114,7 +114,8 @@ void author(const std::filesystem::path& root) {
 }
 enum class ShotProfile { Smooth, Curves, MixedLinear };
 Json exercise(const std::filesystem::path& root, const Json& source,
-              ShotProfile profile = ShotProfile::Smooth, const Json& recovery = {}) {
+              ShotProfile profile = ShotProfile::Smooth, const Json& recovery = {},
+              const std::string& duplicate = {}) {
     EngineContext engine(WorldRole::Runtime, false, {animation_module(root)});
     Scene scene(engine.world());
     RuntimeSimulation simulation(engine.world(), scene);
@@ -182,6 +183,21 @@ Json exercise(const std::filesystem::path& root, const Json& source,
         check(scene.entity(incoming.str()).get<LocalTranslation>().x == 2,
               "Gallery transition wrote native Camera translation");
     }
+    if (!duplicate.empty()) {
+        for (double time : {3.49, 3.5, 3.51, 6.25}) {
+            AnimationPlaybackAccess::control(*animation, controller,
+                                             {{"operation", "seek"}, {"position_seconds", time}});
+            const auto render = extract_render_scene(simulation.presentation(1));
+            check(render.cameras.size() == 1 && render.cameras[0].entity == incoming,
+                  "Authored split/copy changed the expected Camera identity");
+            const double weight = .75 * .75 * (3 - 2 * .75);
+            const double fov = time < 4 ? 1.2 : std::lerp(.9, 1.2, weight);
+            check(std::abs(render.cameras[0].camera.vertical_fov - fov) < 1e-6,
+                  "Authored split/copy changed its incoming lens transition");
+        }
+        check(scene.entity(duplicate).has<CameraShot>(),
+              "Packaged authored copy lost its stable entity identity");
+    }
     return animation->checkpoint();
 }
 } // namespace
@@ -218,6 +234,33 @@ int main(int argc, char** argv) {
                   mixed_checkpoint.at("sequence_mixing_profile").get<unsigned>() == 8,
               "Camera curves lost the layered sequence recovery envelope");
         exercise(root, mixed, ShotProfile::MixedLinear, mixed_checkpoint);
+        EngineContext editor_engine;
+        Scene edited(editor_engine.world());
+        edited.reset(source);
+        std::string edited_controller, edited_shot;
+        for (const auto& actor : source.at("entities")) {
+            const auto id = actor.at("id").get<std::string>();
+            if (actor.at("components").contains("forge.animation_sequence"))
+                edited_controller = id;
+            if (actor.at("components").contains("forge.camera_shot") &&
+                actor.at("components").at("forge.camera_shot").at("start_seconds").get<double>() ==
+                    2)
+                edited_shot = id;
+        }
+        check(!edited_controller.empty() && !edited_shot.empty(),
+              "Authored shot fixture is unavailable");
+        authoring_command(edited, "camera_shot.split", {{"entity", edited_shot}, {"time", 3.5}});
+        authoring_command(edited, "property.set_many",
+                          {{"entity", edited_controller},
+                           {"component", "forge.animation_sequence"},
+                           {"values", {{"duration", 8.}}}});
+        const auto duplicated = authoring_command(edited, "camera_shot.duplicate",
+                                                  {{"entity", edited_shot}, {"time", 5.5}})
+                                    .at("selected")
+                                    .get<std::string>();
+        const auto edited_source = edited.document();
+        exercise(root, edited_source, ShotProfile::Smooth, {}, duplicated);
+        edited.save(root / scene_path);
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                curves.at("asset_id").get<AssetId>()};
         const auto package = scratch / "export";
@@ -227,10 +270,11 @@ int main(int argc, char** argv) {
         const auto catalog = open_runtime_content(relocated, {"windows", "d3d12"});
         check(catalog.records().size() == 3, "Camera transition/curve closure differs");
         std::filesystem::rename(root, scratch / "SourcesOffline");
-        exercise(relocated, load_game_scene(relocated, {roots[0]}));
+        exercise(relocated, load_game_scene(relocated, {roots[0]}), ShotProfile::Smooth, {},
+                 duplicated);
         exercise(relocated, load_game_scene(relocated, {roots[1]}), ShotProfile::Curves);
         std::cout << "Original animated and four-curve Camera Gallery, recovery16/15/8 and "
-                     "relocated three-asset closure "
+                     "authored split/copy and relocated three-asset closure "
                      "passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

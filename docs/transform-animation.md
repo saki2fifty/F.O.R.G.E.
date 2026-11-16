@@ -437,6 +437,20 @@ shortening an incoming blend. Escape, lost focus, stale Scene revision, changed
 selection/view geometry, lock, Save or Close discard the transient gesture.
 Frame export is unavailable while a gesture is captured. Default strip scrubbing
 is retained; chronological row projection does not reorder stored entities.
+Camera Shot split/duplicate are registered source-authoring operations shared by
+native controls and automation/MCP. Split shortens the original and creates a
+continuation with zero incoming blend; duplication preserves clip values and finds
+a complete free span at or after an explicit time. Existing property/create
+operations prepare the worldless Scene draft and generate the new identity. The
+complete candidate is validated before one Scene publication/Undo, including
+incoming blend bounds, affected successor transitions, output/composition,
+director/overlap and enabled-shot limits.
+Opaque component extensions follow the existing builtin extension owner. Prefab
+source intent uses normal property overrides and remains separate from native
+instance storage. Source validation reads the effective document through builtin
+decoders; no temporary World or additional history/identity owner is introduced.
+Camera output/composition checks live beside the existing core Camera validation;
+the animation runtime retains its weight/pose interpolation and admission owners.
 Creation uses the existing `entity.create` recipe command with initial component
 values, so a bound shot is one transaction. Pending edits retain their Scene revision
 and reject stale commits. The existing isolated preview projects the same copied

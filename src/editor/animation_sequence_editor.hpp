@@ -2,7 +2,7 @@
 #include "../animation_component_values.hpp"
 #include "../animation_material_patch.hpp"
 #include "../animation_playback_access.hpp"
-#include "../camera_shot_blend.hpp"
+#include "../camera_shot_authoring.hpp"
 #include "../sequence_clock_mapping.hpp"
 #include "animation_timeline_view.hpp"
 #include "document.hpp"
@@ -10,6 +10,7 @@
 #include "property_drawer.hpp"
 #include "sequence_frame_source.hpp"
 #include "widgets.hpp"
+#include <array>
 #include <forge/animation.hpp>
 #include <forge/authoring.hpp>
 #include <forge/runtime.hpp>
@@ -986,56 +987,8 @@ class AnimationSequenceEditor {
     }
     void validate_shot(const std::string& id, const Json& camera, double start, double end,
                        bool enabled = true, double blend = 0) const {
-        const auto controller = scene_->entity(controller_.entity.str());
-        if (!controller || !controller.has<AnimationSequence>())
-            throw std::runtime_error("Sequence controller is no longer available");
-        const auto duration = controller.get<AnimationSequence>().duration;
-        if (!std::isfinite(start) || !std::isfinite(end) || start < 0 || start >= end ||
-            end > duration)
-            throw std::runtime_error("Shot requires 0 <= start < end <= sequence duration");
-        if (!std::isfinite(blend) || blend < 0 || blend > end - start)
-            throw std::runtime_error("Camera Shot blend must fit within its interval");
-        if (camera.is_null())
-            throw std::runtime_error("Select a camera in this Scene");
-        const auto reference = camera.get<EntityRef>();
-        const auto target = scene_->entity(reference.entity.str());
-        if (reference.scene != scene_->asset_id() || !target || !target.has<Camera>())
-            throw std::runtime_error("Shot camera must be a Camera in this Scene");
-        validate_shot_camera(target.get<Camera>());
-        std::size_t count = 0;
-        const auto snapshot = scene_->effective_document();
-        for (const auto& row : snapshot.at("entities")) {
-            const auto other_id = row.at("id").get<std::string>();
-            if (other_id == id)
-                continue;
-            const auto actor = scene_->entity(other_id);
-            if (!actor.has<CameraShot>())
-                continue;
-            const auto other = actor.get<CameraShot>();
-            if (!other.enabled || !other.sequence.entity)
-                continue;
-            ++count;
-            if (!enabled)
-                continue;
-            if (other.sequence != controller_) {
-                const auto owner = scene_->entity(other.sequence.entity.str());
-                if (other.sequence.scene == scene_->asset_id() && owner &&
-                    owner.has<AnimationSequence>() && owner.get<AnimationSequence>().enabled)
-                    throw std::runtime_error("Only one camera-shot sequence may direct this Scene");
-            } else {
-                if (start < other.end_seconds && end > other.start_seconds)
-                    throw std::runtime_error(
-                        "Shot overlaps another camera shot; use adjacent intervals");
-                if (blend > 0 && other.end_seconds == start) {
-                    const auto previous = scene_->entity(other.camera.entity.str());
-                    if (!previous || !previous.has<Camera>())
-                        throw std::runtime_error("Previous shot Camera is unavailable");
-                    validate_camera_shot_blend(previous.get<Camera>(), target.get<Camera>());
-                }
-            }
-        }
-        if (enabled && count >= 256)
-            throw std::runtime_error("Camera Shot limit (256) exceeded");
+        validate_authored_camera_shot(scene_->effective_document(), controller_, id, camera, start,
+                                      end, enabled, blend);
     }
     void apply_shot() {
         if (pending_ && scene_->revision() != pending_revision_)
@@ -1656,6 +1609,31 @@ class AnimationSequenceEditor {
         if (ui::button("Select shot", "Show this shot's typed fields in Inspector.") &&
             ui::editor_context)
             ui::editor_context->selection.select_entity(shot_);
+        for (const auto& [operation, label, probe, help] :
+             {std::array<const char*, 4>{"camera_shot.split", "Split at playhead",
+                                         "sequence:split_shot",
+                                         "Split this interval at the playhead in one Scene Undo. "
+                                         "The new shot continues with a cut."},
+              std::array<const char*, 4>{"camera_shot.duplicate", "Duplicate shot",
+                                         "sequence:duplicate_shot",
+                                         "Copy to the next full-length free interval at or after "
+                                         "the playhead, preserving camera and blend."}}) {
+            if (ui::button(label, help)) {
+                try {
+                    const auto result =
+                        authoring_command(*scene_, operation, {{"entity", shot_}, {"time", time_}});
+                    shot_ = result.at("selected").get<std::string>();
+                    track_.clear();
+                    nested_.clear();
+                    cue_.clear();
+                    stop_preview();
+                    error_.clear();
+                } catch (const std::exception& error) {
+                    error_ = error.what();
+                }
+            }
+            FORGE_UI_PROBE(probe);
+        }
         if (ui::button("Remove shot from sequence",
                        "Retain this entity and camera; clear only its sequence binding.")) {
             try {

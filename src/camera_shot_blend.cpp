@@ -19,27 +19,6 @@ double camera_shot_blend_weight(std::uint32_t curve, double time) {
     }
     throw std::runtime_error("Camera Shot blend curve is unavailable");
 }
-void validate_shot_camera(const Camera& camera) {
-    if (camera.render_texture.id)
-        throw std::runtime_error("Camera Shot requires a camera with main Game output");
-}
-void validate_camera_shot_blend(Camera from, Camera to) {
-    validate_camera(from);
-    validate_camera(to);
-    validate_shot_camera(from);
-    validate_shot_camera(to);
-    if (from.projection == unsigned(CameraProjection::Orthographic) &&
-        ((from.orthographic_width == 0) != (to.orthographic_width == 0)))
-        throw std::runtime_error(
-            "Camera Shot blends require matching automatic/fixed orthographic width");
-    from.enabled = to.enabled = true;
-    for (auto member : {&Camera::vertical_fov, &Camera::orthographic_height,
-                        &Camera::orthographic_width, &Camera::near_plane, &Camera::far_plane})
-        from.*member = to.*member = 1;
-    if (from != to)
-        throw std::runtime_error("Camera Shot blends require matching projection, basis, aspect, "
-                                 "viewport, layers and clear settings");
-}
 RenderCamera blend_camera_shot(const RenderCamera& from, const RenderCamera& to, double weight) {
     if (!std::isfinite(weight) || weight < 0 || weight > 1)
         throw std::runtime_error("Camera Shot blend weight must be within zero to one");

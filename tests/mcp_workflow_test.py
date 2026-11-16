@@ -601,7 +601,24 @@ for legacy in selected_protocols:
             print(('legacy' if legacy else 'current') + ': Wind schema/authoring/scatter/history, scoped native Play/tuning/Step/review passed')
             continue
         if CAMERA_TRANSITION_ONLY:
-            check_camera_shot_play(read, ok, control, mutate, until, discovery)
+            shot_tools = {item['name']: item for item in client.request('tools/list')['result']['tools']}
+            for name in ('forge_camera_shot_split', 'forge_camera_shot_duplicate'):
+                assert name in shot_tools and shot_tools[name]['annotations']['readOnlyHint'] is False
+            commands = discovery()['result']['commands']
+            for operation in ('camera_shot.split', 'camera_shot.duplicate'):
+                command = next(item for item in commands if item['id'] == operation)
+                assert command['capability'] == 'scene.edit'
+                assert set(command['input_schema']['required']) == {'entity', 'time'}
+            def replay_shot_edit(tool, **extra):
+                stale = arguments(**extra)
+                stale['expected_revision'] -= 1
+                refused = client.tool(tool, **stale)
+                assert not refused['ok'], refused
+                request = arguments(**extra)
+                accepted = client.tool(tool, **request)
+                assert accepted['ok'] and client.tool(tool, **request) == accepted, accepted
+                return accepted['result']
+            check_camera_shot_play(read, ok, control, mutate, until, discovery, replay_shot_edit)
             print(('legacy' if legacy else 'current') + (': SDK' if CAMERA_TRANSITION_SDK else ': static') + ' Camera Shot duration/curve discovery/authoring/Undo, scoped Play/seek/tuning/review and stale generation checks passed')
             continue
         if UI_SEQUENCE_ONLY:

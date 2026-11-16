@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include "camera_shot_authoring.hpp"
 #include "mesh_scatter_authoring.hpp"
 #include "model_variant_edit.hpp"
 #include "reflected_value.hpp"
@@ -337,7 +338,82 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         result["selected"] = scene.instantiate_prefab(a.at("asset").get<AssetId>());
     else if (op == "prefab.revert_name")
         scene.revert_prefab_name(id);
-    else if (op == "entity.create") {
+    else if (op == "camera_shot.split" || op == "camera_shot.duplicate") {
+        try {
+            const auto snapshot = scene.effective_document();
+            const auto source = entity(snapshot, id);
+            const auto original = authored_camera_shot(source);
+            validate_authored_camera_shot(snapshot, original.sequence, id, Json(original.camera),
+                                          original.start_seconds, original.end_seconds,
+                                          original.enabled, original.blend_in_seconds);
+            auto copied = original;
+            const double time = a.at("time").get<double>();
+            if (op == "camera_shot.split") {
+                if (!std::isfinite(time) || time <= original.start_seconds ||
+                    time >= original.end_seconds)
+                    throw CommandError("invalid_arguments", "Split time must be inside the shot");
+                execute(scene, "property.set_many",
+                        {{"entity", id},
+                         {"component", "forge.camera_shot"},
+                         {"values", {{"end_seconds", time}}}});
+                copied.start_seconds = time;
+                copied.blend_in_seconds = 0;
+            } else {
+                const auto& sequence_row = entity(snapshot, original.sequence.entity.str());
+                const auto sequence = detail::camera_shot_source_value<AnimationSequence>(
+                    sequence_row.at("components").at("forge.animation_sequence"),
+                    "forge.animation_sequence");
+                copied.start_seconds =
+                    camera_shot_duplicate_start(snapshot, original, time, sequence.duration);
+                copied.end_seconds =
+                    copied.start_seconds + (original.end_seconds - original.start_seconds);
+            }
+            Json arguments{
+                {"recipe", "animation.camera_shot"},
+                {"component_values", detail::encode_builtin_value(detail::Value{copied})}};
+            if (a.contains("name"))
+                arguments["name"] = a.at("name");
+            const auto created =
+                execute(scene, "entity.create", arguments).at("selected").get<std::string>();
+            // Copy unknown component extensions through their existing owner too.
+            // Entity construction and stable identity remain with entity.create.
+            const auto& codec = detail::camera_shot_source_codec("forge.camera_shot");
+            const auto extensions =
+                detail::builtin_extensions(codec, source.at("components").at("forge.camera_shot"));
+            if (!extensions.empty()) {
+                auto document = scene.document();
+                auto& component = entity(document, created)["components"]["forge.camera_shot"];
+                component = detail::merge_builtin_extensions(codec, component, extensions);
+                scene.edit(document);
+            }
+            const auto complete = scene.effective_document();
+            const auto validate = [&](const std::string& target) {
+                const auto shot = authored_camera_shot(entity(complete, target));
+                validate_authored_camera_shot(complete, shot.sequence, target, Json(shot.camera),
+                                              shot.start_seconds, shot.end_seconds, shot.enabled,
+                                              shot.blend_in_seconds);
+            };
+            validate(id);
+            validate(created);
+            // A copy can fill a gap immediately before an existing blended shot.
+            // Validate that shot against its new predecessor before publication.
+            if (copied.enabled)
+                for (const auto& row : complete.at("entities")) {
+                    if (!row.at("components").contains("forge.camera_shot"))
+                        continue;
+                    const auto next = authored_camera_shot(row);
+                    if (next.enabled && next.sequence == copied.sequence &&
+                        next.start_seconds == copied.end_seconds && next.blend_in_seconds > 0)
+                        validate(row.at("id").get<std::string>());
+                }
+            result["selected"] = created;
+            result["original"] = id;
+        } catch (const CommandError&) {
+            throw;
+        } catch (const std::exception& error) {
+            throw CommandError("invalid_arguments", error.what());
+        }
+    } else if (op == "entity.create") {
         auto doc = scene.document();
         const auto created = free_id(doc);
         const auto* recipe = a.contains("recipe") ? entity_recipe(a.at("recipe")) : nullptr;
@@ -757,6 +833,20 @@ Json authoring_commands() {
         "material slot overrides remain authoritative; nested model instances are unchanged.",
         {{"entity", text_type()}, {"variant", {{"anyOf", {text_type(), {{"type", "null"}}}}}}},
         {"entity", "variant"});
+    auto shot_edit = entity_arg;
+    shot_edit["time"] = number(0, 1e100);
+    shot_edit["name"] = text_type();
+    add("camera_shot.split", "Split Camera Shot",
+        "Split a Camera Shot strictly inside its interval in one Scene Undo. The original "
+        "keeps its incoming blend; a new Shot continues with the same camera/curve/enabled state "
+        "and zero incoming blend. Refused candidates do not publish partial edits.",
+        shot_edit, {"entity", "time"});
+    add("camera_shot.duplicate", "Duplicate Camera Shot",
+        "Copy Camera Shot values to the first full-length free interval at or after time, "
+        "in one Scene Undo. Preserve camera, length, enabled state, blend and curve. "
+        "Refuse insufficient space or incompatible transitions without shortening/extending "
+        "the sequence. The new entity uses the existing Camera Shot recipe.",
+        shot_edit, {"entity", "time"});
     auto recipe_ids = Json::array();
     for (const auto& r : entity_recipes())
         recipe_ids.push_back(r.id);

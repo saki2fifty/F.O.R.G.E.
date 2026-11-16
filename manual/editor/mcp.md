@@ -362,6 +362,15 @@ time keeps its identity. The agent must discover the new scene target after a
 filename or scene change. Saving checks for external file changes and will not
 silently overwrite someone else's edits. File saves are not reversed by Scene Undo.
 
+With scene editing allowed, `forge_camera_shot_split` splits a Camera Shot at an
+explicit time inside its interval. `forge_camera_shot_duplicate` copies its clip
+values into the first complete free interval at or after that time. Supply
+`arguments.entity` and `arguments.time`; the standard result identifies the new
+Shot in `results[0].selected`. Each command creates one Scene Undo step or leaves
+the scene unchanged on refusal. Stop Play before editing and save the Scene before
+export. See [Camera shots](animation-sequences.md) for
+blend limits and the matching Timeline controls.
+
 ## Work with assets
 
 For navigation decisions, the agent can discover both state graphs and behavior

@@ -515,6 +515,26 @@ before using its arrangement in Play or an export.
 Turn **Edit shot timing** off to scrub anywhere on a strip. Empty strip space and
 the playhead slider also scrub while timing editing is enabled.
 
+### Split or duplicate a shot
+
+Select a shot under **Camera shots**. Move the playhead inside its interval and
+choose **Split at playhead**. The original keeps its camera, incoming blend and
+timing curve. The new shot continues from that exact time with the same camera
+and a zero incoming blend. The split must leave enough of the original interval
+for its existing blend. Both parts meet without a gap.
+
+Choose **Duplicate shot** to copy its clip values into the first full-length free
+interval at or after the playhead. The copy keeps its camera, duration, blend,
+curve and enabled state. If no interval fits, extend the sequence duration or
+move the playhead earlier and try again. The command preserves the existing
+sequence length and refuses incompatible transitions.
+
+The new shot becomes selected in the Timeline. Each command makes one Scene Undo
+step; Undo/Redo restores the same source identities. Apply or reset pending fields
+before using these actions. Choose **Refresh clips** to prepare the changed
+preview, then **Save scene** before Play or export. An invalid operation reports
+the reason and leaves the scene unchanged.
+
 Keep **Shot blend in = 0** for an exact cut. To move smoothly into an adjacent
 shot, enter a positive duration no longer than that incoming shot. During this
 interval the view eases from the previous camera's current position, orientation
@@ -540,7 +560,7 @@ share an animated rig. Select the incoming shot under **Camera shots**, adjust
 **Shot blend in**, choose **Apply shot fields**, then **Refresh clips** to preview.
 
 ![Sequence Timeline with shot timing editing enabled, trim edges and the incoming blend controls visible](../images/camera-transition-editor.png)
-Enable timing editing to move or trim shot strips; the selected incoming shot also controls its blend duration and curve.
+Use the selected shot controls to move, trim, split or duplicate its interval and adjust its incoming blend.
 
 Open **216-camera-transition-curves** for a twelve-second comparison. Its four
 sections each reset to the left camera, then move to the right over one second

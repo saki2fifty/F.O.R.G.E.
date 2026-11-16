@@ -3945,3 +3945,19 @@ has inactive New/build callbacks and deliberate source examples; it uses the rea
 source owner and SDL software capture. No image is retouched. These images do not
 establish full-editor integration, Windows desktop, physical GPU/DPI, provider
 desktop or hardware performance acceptance.
+
+
+## Current Camera Shot split and duplicate controls
+
+The current [Camera Shot controls](../../../manual/images/camera-transition-editor.png)
+show **Split at playhead** and **Duplicate shot**, together with timing gestures
+and the selected blend fields. The unretouched 720 × 1400 PNG comes from the actual
+SDL/ImGui source Timeline capture based on `17acb8c`. It was visually reviewed
+before an exact raw-byte copy. Its SHA-256 is `a3483017337026cbd7ed52fde2d29a1d19266a9d77a5bba0b89f5e90bd488247`.
+
+Six other sequence control images were recaptured and exactly match their earlier
+reviewed bytes. Exact actor/source/image/command/log hashes and prior-review reuse
+are recorded in `AgentFiles/build/phase381-camera-shot-split-and-duplicate/capture-proof-final.json`.
+Earlier records retain historical producer provenance; this record owns the
+current Camera Shot image bytes. These software captures do not establish full
+editor, Windows desktop, physical GPU/DPI or performance acceptance.

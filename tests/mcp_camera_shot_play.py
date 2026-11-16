@@ -3,7 +3,7 @@ from mcp_test_client import failed
 from copy import deepcopy
 
 
-def check_camera_shot_play(read, ok, control, mutate, until, discovery):
+def check_camera_shot_play(read, ok, control, mutate, until, discovery, replay_shot_edit):
     ok('forge_document_open', path='Scenes/68-sequence-camera-shots.scene.json', discard=True)
     source = read('forge_scene_read')
     by_id = {row['id']: row for row in source['entities']}
@@ -45,6 +45,41 @@ def check_camera_shot_play(read, ok, control, mutate, until, discovery):
     assert ok('forge_history_redo')['changed']
     assert read('forge_scene_read') == timed
     assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_timing
+
+    # Semantic shot operations share source scope, one Undo and ordinary replay.
+    before_split = read('forge_scene_read')
+    current = next(row for row in before_split['entities'] if row['id'] == actor)['components']['forge.camera_shot']
+    split_time = current['start_seconds'] + (current['end_seconds'] - current['start_seconds'] + current['blend_in_seconds']) / 2
+    before_refusal = discovery()['revision']
+    rejected = mutate('forge_camera_shot_split', arguments=dict(entity=actor, time=current['start_seconds']))
+    assert not rejected['ok'] and discovery()['revision'] == before_refusal
+    assert read('forge_scene_read') == before_split
+    split_reply = replay_shot_edit('forge_camera_shot_split', arguments=dict(entity=actor, time=split_time, name='Continued shot'))
+    continuation = split_reply['results'][0]['selected']
+    after_split = read('forge_scene_read')
+    assert next(row for row in after_split['entities'] if row['id'] == continuation)['name'] == 'Continued shot'
+    first_part = next(row for row in after_split['entities'] if row['id'] == actor)['components']['forge.camera_shot']
+    last_part = next(row for row in after_split['entities'] if row['id'] == continuation)['components']['forge.camera_shot']
+    assert first_part == current | dict(end_seconds=split_time)
+    assert last_part == current | dict(start_seconds=split_time, blend_in_seconds=0)
+    assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_split
+    assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == after_split
+    assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_split
+    controller_row = next(row for row in before_split['entities'] if row['id'] == root)
+    duration = controller_row['components']['forge.animation_sequence']['duration']
+    length = current['end_seconds'] - current['start_seconds']
+    ok('forge_property_set', arguments=dict(entity=root, component='forge.animation_sequence', field='duration', value=duration+length))
+    before_copy = read('forge_scene_read')
+    copy_reply = replay_shot_edit('forge_camera_shot_duplicate', arguments=dict(entity=actor, time=duration, name='Copied shot'))
+    copied = copy_reply['results'][0]['selected']
+    after_copy = read('forge_scene_read')
+    assert next(row for row in after_copy['entities'] if row['id'] == copied)['name'] == 'Copied shot'
+    copied_value = next(row for row in after_copy['entities'] if row['id'] == copied)['components']['forge.camera_shot']
+    assert copied_value == current | dict(start_seconds=duration, end_seconds=duration+length)
+    assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_copy
+    assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == after_copy
+    assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_copy
+    assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_split
 
     before_curve = discovery()
     rejected = mutate('forge_property_set', arguments=dict(entity=actor, component='forge.camera_shot', field='blend_curve', value=4))

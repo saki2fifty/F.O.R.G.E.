@@ -1,5 +1,13 @@
 # 2026-11-16
 
+## Camera Shot splitting and duplication
+
+Timeline can split a shot at the playhead or copy its clip values into a complete
+free interval. The existing Scene command owner publishes one Undo step, preserves
+camera/curve/source intent and rejects invalid timing or incompatible transitions.
+Automation/MCP exposes the same commands with normal scope, permission and replay
+guards. Source candidate checks are shared with the worldless command draft.
+
 ## Selected C++ source formatting
 
 Code assistance can prepare formatting for the current source selection. Native
