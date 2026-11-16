@@ -157,7 +157,10 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     check(editor.active_text() == completed, "Diagnostic navigation added a source Undo record");
     const auto symbol_draft =
         completed + "\nnamespace SymbolProbe { struct Pivot { float outline_member; }; }\n"
-                    "void symbol_use() { SymbolProbe::Pivot p; (void)p.outline_member; }\n";
+                    "void symbol_use() { SymbolProbe::Pivot p; (void)p.outline_member; }\n"
+                    "void navigation_body();\nvoid navigation_body() {}\n"
+                    "struct NavigationBase { virtual void tick() = 0; };\n"
+                    "struct NavigationDerived : NavigationBase { void tick() override {} };\n";
     editor.replace_text(symbol_draft);
     const auto symbol_position =
         ui::cpp_source_coordinate(symbol_draft, symbol_draft.rfind("p.outline_member") + 2);
@@ -208,26 +211,31 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     reveal_source();
     if (!captures.empty())
         capture.save(captures / ("cpp-file-symbols-" + std::to_string(width) + ".png"));
-    for (const auto* kind : {"references", "typeDefinition"}) {
-        const bool references = std::string_view(kind) == "references";
-        const auto query_position =
-            references
-                ? symbol_position
-                : ui::cpp_source_coordinate(symbol_draft, symbol_draft.rfind("p.outline_member"));
+    for (const auto* kind : {"references", "typeDefinition", "definition", "implementation"}) {
+        const std::string_view selected(kind);
+        const auto query_offset =
+            selected == "references"       ? symbol_draft.rfind("p.outline_member") + 2
+            : selected == "typeDefinition" ? symbol_draft.rfind("p.outline_member")
+            : selected == "definition"     ? symbol_draft.find("navigation_body")
+                                           : symbol_draft.find("virtual void tick") + 13;
+        const auto query_position = ui::cpp_source_coordinate(symbol_draft, query_offset);
         editor.open(document, "Native/gameplay.cpp", query_position.first + 1,
                     query_position.second + 1);
         frame();
         input.click((std::string("cpp:analysis:") + kind).c_str());
         wait_result();
-        check(editor.active_text() == symbol_draft, "Native reference/type query edited its draft");
+        check(editor.active_text() == symbol_draft,
+              "Native symbol navigation query edited its draft");
         input.select("cpp:analysis:use:0");
         frame();
-        const auto target =
-            references
-                ? symbol_position
-                : ui::cpp_source_coordinate(symbol_draft, symbol_draft.find("struct Pivot") + 7);
+        const auto target_offset =
+            selected == "references"       ? symbol_draft.rfind("p.outline_member") + 2
+            : selected == "typeDefinition" ? symbol_draft.find("struct Pivot") + 7
+            : selected == "definition"     ? symbol_draft.rfind("navigation_body")
+                                           : symbol_draft.find("tick() override");
+        const auto target = ui::cpp_source_coordinate(symbol_draft, target_offset);
         check(test::ui_targets.contains(cursor_key(target)) && editor.active_text() == symbol_draft,
-              "Native reference/type action chose the wrong source position");
+              "Native symbol navigation chose the wrong source position");
         reveal_source();
         if (!captures.empty())
             capture.save(captures /
@@ -313,6 +321,9 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     check(!test::ui_targets.at("cpp:analysis:references").enabled &&
               !test::ui_targets.at("cpp:analysis:typeDefinition").enabled,
           "Native reference/type controls bypassed the source lock");
+    check(!test::ui_targets.at("cpp:analysis:definition").enabled &&
+              !test::ui_targets.at("cpp:analysis:implementation").enabled,
+          "Native definition/implementation controls bypassed the source lock");
     check(!test::ui_targets.at("cpp:analysis:format").enabled,
           "Native formatting control bypassed the source lock");
     locked = false;

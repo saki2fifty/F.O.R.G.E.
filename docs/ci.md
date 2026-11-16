@@ -3046,6 +3046,8 @@ versioned diagnostic publication ordering/empty/missing/external/malformed cases
 receive timestamps and guarded diagnostic navigation,
 plain read-only symbol information, optional ranges, paged nested file symbols,
 outline count/depth budgets and malformed symbol replies,
+reference/type/definition/implementation locations, advertised capability refusal,
+empty/malformed/limited/external results and non-exhaustive implementation scope,
 changed dependencies and compiler generations, malformed/version/exit failures,
 unsupported commands/external declarations, cancellation and project retirement.
 Successful queries require provider exit0 and supervisor retirement. Forced error
@@ -3069,7 +3071,9 @@ through both adapters; diagnostic navigation preserves source bytes and Undo.
 Real symbol checks exercise plain Unicode type information/ranges, nested namespace/
 struct/field/method outlines and paged navigation, empty hover/outline results and
 unchanged source history/disk. All existing semantic modes run through the shared
-transport/location normalizer in the same integration.
+transport/location normalizer in the same integration. Definitions distinguish
+function declarations from their bodies; implementations navigate from a virtual method to an override
+in the unsaved current source. Both preserve source Undo/Redo and disk bytes.
 Actual build/deployment outcomes are retained;
 Linux's Windows-only deployment refusal is distinct from successful configuration
 and analysis. The native control executable also accepts an existing project and

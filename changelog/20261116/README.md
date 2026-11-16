@@ -71,3 +71,12 @@ partial formatting. Source-position decoding retains its existing public path an
 uses a transient line-start table for many formatting ranges. Private cursor edits
 stay with the task; MCP exposes the complete proposal and edit count. Style comes
 from the pinned provider's style files/fallback, without new preferences or pins.
+
+## C++ definition and implementation navigation
+
+Find definition opens an available Native function body, with declaration fallback
+when a body is unresolved. Find implementations lists overrides in the current
+compiler context with explicit non-exhaustive scope. Native controls and MCP reuse
+the existing finite provider/task, location validation and guarded Back/Forward
+navigation. Querying preserves cursor/draft/history; explicit navigation preserves
+source Undo/Redo and saved files. All existing assistance modes remain supported.

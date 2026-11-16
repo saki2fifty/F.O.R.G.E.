@@ -3823,26 +3823,29 @@ their original attribution.
 [symbol information](../../../manual/images/cpp-symbol-information.png),
 [file outlines](../../../manual/images/cpp-file-outline.png),
 [references](../../../manual/images/cpp-references.png),
-[type definitions](../../../manual/images/cpp-type-definition.png) and
-[formatting](../../../manual/images/cpp-source-formatting.png) show the actual
+[type definitions](../../../manual/images/cpp-type-definition.png),
+[formatting](../../../manual/images/cpp-source-formatting.png),
+[definitions](../../../manual/images/cpp-definition.png) and
+[implementations](../../../manual/images/cpp-implementations.png) show the actual
 700×850 CppSourceEditor with separately installed clangd23.1.0 and a genuine
 managed GNU12.3.0/Release SDK CMake context. Each task has one canonical image.
-All nine modes pass real native controls at1180/700/400. The nine analysis actions
-wrap into three rows at400; Back/Forward/Clear and queried-file captions remain.
+All eleven modes pass real native controls at1180/700/400. Analysis actions wrap
+into four rows at400; Back/Forward/Clear and queried-file captions remain.
 
-The formatting views at700and400 were reviewed. The dedicated FormatProbe.hpp
-fixture starts with CRLF saved bytes and an LF source draft. Its proposed formatted
-header is shown before Apply; the current source remains visible below. Real
-native use verifies current-caret mapping, exactly one Undo/Redo and unchanged disk.
-The fixture also exercises search/select/open/Back selection collapse. Other task
-content retains its preceding reviews with the current toolbar refreshed. Real
-pointer/wheel/selectable input reveals the views; pixels and controls are not retouched.
+Definition and implementation views at700and400 were visually reviewed. The
+first opens a function body from its separate declaration; the second opens an
+override from a virtual base method and discloses current-context scope. Source
+query/use preserves draft bytes and source Undo/Redo. Other task content retains
+its preceding reviews, with current controls refreshed. The formatting header
+still starts with savedCRLF and current/proposalLF, explicit Apply/current-caret
+mapping and exactly oneUndo/Redo. Real input exercises search/select/open/Back
+selection collapse and unchanged saved bytes. Pixels are not retouched.
 
-Capture source is the working tree based ona9eb8ca. Exact source/test hashes,
-actual invoked actor/tool/provider bytes, original image paths and test command are
-in `AgentFiles/build/phase371-cpp-source-formatting/capture-proof-final.json`.
-The run logger confirms those inputs did not change during capture. Canonical PNGs
-are copied byte-for-byte. This SDL software source-owner fixture has inactive
-New/build callbacks and deliberate code examples. It does not establish compiler
-success, automatic fixes, full Main/Windows/provider/physical desktop/GPU/DPI or
-performance acceptance.
+Capture source is the working tree based on6132fb3. Exact source/test hashes,
+actual actor/tool/provider bytes, original paths and test command are retained in
+`AgentFiles/build/phase372-cpp-definition-implementation/capture-proof-final.json`.
+The run logger confirms those executable inputs stayed unchanged during capture.
+Canonical PNGs are copied byte-for-byte. This SDL software source-owner fixture
+has inactive New/build callbacks and deliberate code samples. It does not establish
+compiler success, automatic fixes, full Main/Windows/provider/physical desktop/
+GPU/DPI or performance acceptance.

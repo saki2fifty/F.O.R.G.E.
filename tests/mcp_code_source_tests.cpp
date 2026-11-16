@@ -467,23 +467,24 @@ int main(int argc, char** argv) {
                       std::string("Malformed symbol reply accepted: ") + mode);
         }
         SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
-        for (const auto* kind : {"references", "typeDefinition"}) {
+        for (const auto* kind : {"references", "typeDefinition", "definition", "implementation"}) {
             const auto before_query = invoke("code.read", {{"path", "Native/First.cpp"}});
             start_analysis(kind);
             analysis = settle_analysis();
             check(analysis.at("complete") && analysis.at("total") == 1 &&
                       invoke("code.read", {{"path", "Native/First.cpp"}}) == before_query,
                   "Symbol-navigation query changed source/cursor/history");
-            if (std::string_view(kind) == "references")
+            if (std::string_view(kind) == "references" ||
+                std::string_view(kind) == "implementation")
                 check(analysis.at("scope") == "current_context" &&
                           !analysis.at("exhaustive").get<bool>(),
-                      "Reference results claimed an exhaustive project index");
+                      "Symbol navigation claimed an exhaustive project index");
             use_analysis(analysis);
             const auto after_jump = invoke("code.read", {{"path", "Native/First.cpp"}});
             check(after_jump.at("text") == draft && after_jump.at("cursor").at("line") == 2 &&
                       after_jump.at("can_undo") == before_query.at("can_undo") &&
                       after_jump.at("can_redo") == before_query.at("can_redo"),
-                  "Reference/type navigation edited source or its Undo/Redo");
+                  "Symbol navigation edited source or its Undo/Redo");
             for (const auto* mode :
                  {"locations-null", "locations-empty", "locations-object", "locations-link",
                   "locations-link-bounds", "locations-range", "locations-fractional",
@@ -510,7 +511,7 @@ int main(int argc, char** argv) {
                 else if (!references &&
                          (selected == "locations-object" || selected == "locations-link"))
                     check(analysis.at("complete") && analysis.at("total") == 1,
-                          "Valid type-definition location/link failed");
+                          "Valid symbol-navigation location/link failed");
                 else
                     check(!analysis.at("complete").get<bool>() &&
                               !analysis.at("error").get<std::string>().empty(),

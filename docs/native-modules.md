@@ -232,6 +232,16 @@ navigation/BackForward without source edits, Save or Undo. A shared supported-ki
 array keeps worker, source task and MCP discovery consistent; no symbol database
 or persistent indexing service is added.
 
+Find definition and Find implementations require `definitionProvider` and
+`implementationProvider`, respectively, and send standard position requests
+`textDocument/definition` and `textDocument/implementation`. They share the same
+contained location normalizer, 64-row bound and guarded source navigation.
+Definition may resolve to a declaration when a body is unavailable. Implementation
+results expose `scope:current_context` and `exhaustive:false`; disabled background
+indexing does not establish whole-project override coverage. No source or history
+mutation occurs until the user explicitly navigates; navigation itself preserves
+source Undo/Redo and saved bytes.
+
 Whole-source formatting uses `textDocument/formatting` and the advertised
 documentFormattingProvider. The selected provider ignores protocol indentation
 options and reads its style files/fallback. Native source drafts use LF. All edits

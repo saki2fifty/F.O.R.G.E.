@@ -76,6 +76,8 @@ int main() {
                       {"documentSymbolProvider", true},
                       {"signatureHelpProvider", Json::object()},
                       {"referencesProvider", mode != "locations-unavailable"},
+                      {"definitionProvider", mode != "locations-unavailable"},
+                      {"implementationProvider", mode != "locations-unavailable"},
                       {"typeDefinitionProvider", mode != "locations-unavailable"},
                       {"documentFormattingProvider", mode != "format-unavailable"},
                       {"hoverProvider", mode != "hover-unavailable"}}}};
@@ -312,7 +314,9 @@ int main() {
                     std::reverse(result.begin(), result.end());
             } else if (method == "textDocument/declaration" ||
                        method == "textDocument/references" ||
-                       method == "textDocument/typeDefinition") {
+                       method == "textDocument/typeDefinition" ||
+                       method == "textDocument/definition" ||
+                       method == "textDocument/implementation") {
                 if (method == "textDocument/references" &&
                     request.at("params").at("context").at("includeDeclaration") != false)
                     throw std::runtime_error("Reference query must exclude declarations");
@@ -320,12 +324,18 @@ int main() {
                     request.at("params").at("textDocument").at("uri").get<std::string>();
                 const auto& text = drafts.at(uri);
                 const std::string marker =
-                    method == "textDocument/typeDefinition"
+                    method == "textDocument/definition" && text.find("navigation_body") != text.npos
+                        ? "navigation_body"
+                    : method == "textDocument/implementation" && text.find("override") != text.npos
+                        ? "tick() override"
+                    : method == "textDocument/typeDefinition"
                         ? (text.find("Pivot") != text.npos ? "Pivot" : "Spinner")
                     : text.find("outline_member") != text.npos ? "outline_member"
                                                                : "degrees_per_second";
                 const auto begin =
-                    method == "textDocument/references" ? text.rfind(marker) : text.find(marker);
+                    method == "textDocument/references" || method == "textDocument/definition"
+                        ? text.rfind(marker)
+                        : text.find(marker);
                 result = Json::array(
                     {{{"uri",
                        mode == "external"

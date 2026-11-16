@@ -649,7 +649,8 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     if (kind == "hover")
         require(initialized.at("capabilities").at("hoverProvider").get<bool>(),
                 "Semantic tools require symbol-information support");
-    if (kind == "references" || kind == "typeDefinition")
+    if (kind == "references" || kind == "typeDefinition" || kind == "definition" ||
+        kind == "implementation")
         require(initialized.at("capabilities").at(kind + "Provider").get<bool>(),
                 "Semantic tools require the requested symbol-navigation support");
     if (kind == "format")
@@ -705,7 +706,7 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
                   : kind == "format"
                       ? normalized_formatting(response, text)
                       : normalized_locations(response, paths, documents, kind == "references");
-    if (kind == "references")
+    if (kind == "references" || kind == "implementation")
         result.update({{"scope", "current_context"}, {"exhaustive", false}});
     result.update({{"version", 1},
                    {"id", request.at("id")},

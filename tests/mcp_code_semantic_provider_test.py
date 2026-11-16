@@ -146,7 +146,7 @@ for legacy in protocol_cases():
                 assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
             header = read('forge_code_read', path='Native/Spinner.hpp')
             mutate('forge_code_replace', **{key: header[key] for key in ('path', 'session', 'state')}, text=header_draft)
-            symbol_text = clean + '\nnamespace OutlineProbe { struct Pivot { /// Angular rate.\nfloat café; float 𐐀rate; void tick(); }; }\nvoid inspect() { OutlineProbe::Pivot p; (void)p.café; }\n'
+            symbol_text = clean + '\nnamespace OutlineProbe { struct Pivot { /// Angular rate.\nfloat café; float 𐐀rate; void tick(); }; }\nvoid inspect() { OutlineProbe::Pivot p; (void)p.café; }\nvoid navigation_body();\nvoid navigation_body() {}\nstruct NavigationBase { virtual void tick() = 0; };\nstruct NavigationDerived : NavigationBase { void tick() override {} };\n'
             mutate('forge_code_replace', **observed(), text=symbol_text)
             symbol_before = read('forge_code_read', path='Native/gameplay.cpp')
             symbol_offset = len(symbol_text[:symbol_text.rindex('p.café') + 2].encode())
@@ -171,7 +171,9 @@ for legacy in protocol_cases():
             source = read('forge_code_read', path='Native/gameplay.cpp')
             assert source['text'] == symbol_text and source['cursor']['line'] == member['line']
             for kind, offset in (('references', symbol_offset),
-                                 ('typeDefinition', len(symbol_text[:symbol_text.rindex('p.café')].encode()))):
+                                 ('typeDefinition', len(symbol_text[:symbol_text.rindex('p.café')].encode())),
+                                 ('definition', len(symbol_text[:symbol_text.index('navigation_body')].encode())),
+                                 ('implementation', len(symbol_text[:symbol_text.index('virtual void tick') + 13].encode()))):
                 before_navigation = read('forge_code_read', path='Native/gameplay.cpp')
                 mutate('forge_code_analysis_start', **observed(), kind=kind, offset=offset, tool=PROVIDER)
                 result = settle('forge_code_analysis_status')
@@ -183,7 +185,12 @@ for legacy in protocol_cases():
                     location = next(item for item in result['items'] if item['begin'] == symbol_offset)
                     assert all(item['begin'] != member['begin'] for item in result['items']), result
                 else:
-                    type_begin = len(symbol_text[:symbol_text.index('struct Pivot') + 7].encode())
+                    if kind == 'implementation':
+                        assert result['scope'] == 'current_context' and result['exhaustive'] is False
+                    target_offset = (symbol_text.index('struct Pivot') + 7 if kind == 'typeDefinition' else
+                                     symbol_text.rindex('navigation_body') if kind == 'definition' else
+                                     symbol_text.index('tick() override'))
+                    type_begin = len(symbol_text[:target_offset].encode())
                     location = next(item for item in result['items'] if item['begin'] == type_begin)
                 mutate('forge_code_analysis_use', operation=result['operation'], index=location['index'])
                 navigated = read('forge_code_read', path='Native/gameplay.cpp')

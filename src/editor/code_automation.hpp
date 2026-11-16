@@ -297,7 +297,8 @@ struct CodeAutomation {
             "Symbol information is read-only; file symbols provide a bounded hierarchical outline. "
             "Formatting returns one complete current-source proposal, including its edit count and "
             "formatted text. Use code.analysis.use to apply completion/formatting or navigate a "
-            "declaration/diagnostic/symbol/reference/type. Reference scope is the current compiler "
+            "declaration/definition/implementation/diagnostic/symbol/reference/type. Reference and "
+            "implementation scope is the current compiler "
             "context, never an exhaustive project index.",
             "code.read",
             automation_object(
@@ -548,7 +549,8 @@ struct CodeAutomation {
                 "the existing source tab with one Undo record. Formatting applies one complete "
                 "proposal and maps the current target cursor; declaration/diagnostic opens only a "
                 "contained "
-                "Native source. File symbols, references and type definitions use the same "
+                "Native source. Definitions, implementations, file symbols, references and type "
+                "definitions use the same "
                 "navigation; signatures/symbol "
                 "information "
                 "are read-only. Reject changed drafts, disk inputs or "
@@ -621,7 +623,8 @@ struct CodeAutomation {
             methods.push_back(automation_method(
                 "code.analysis.start",
                 "Query completion, declaration, call signatures, diagnostics, symbol information "
-                "file symbols, current-context references, type definitions or reviewed "
+                "file symbols, definitions, current-context implementations and references, type "
+                "definitions or reviewed "
                 "whole-source formatting at "
                 "a UTF-8 "
                 "byte offset in the observed open "

@@ -129,6 +129,8 @@ editing and building work without this optional tool.
 9. Place the cursor on a symbol and choose **Find references**. Click a returned path/line/column to open a usage. Declarations are excluded. These results cover the provider's current compiler context and can omit other project files; use **Find in Project** when you also need a literal text search.
 10. Place the cursor on a variable or instance and choose **Go to type**. Click an available location to open its type definition under **Native/**. Built-in types may return no location; SDK and external definitions are unavailable here. Use **Back** to return to the original variable.
 11. Choose **Format source** to prepare a formatting proposal for the whole active file. Review **Proposed source**, then choose **Apply formatted source (N edits)**. The query preserves your draft; applying follows the current caret through the edits and creates one source Undo step. Save and Build Project Code remain separate. **No formatting changes returned.** means the provider offered no changes.
+12. Place the cursor within a function name and choose **Find definition**. Select an available location to open its body under **Native/**. When the provider cannot resolve a body, it can return the declaration instead.
+13. Place the cursor on a virtual function and choose **Find implementations**. Select a returned override to open it. The list covers the current compiler context and may omit implementations in other files. Use **Back** and **Forward** to move between visited locations; navigation preserves drafts and source Undo/Redo.
 
 ![C++ Sources showing a function call signature and its active second argument](../images/cpp-code-assistance.png)
 
@@ -164,6 +166,16 @@ Review the complete proposed file before applying. Source Undo/Redo restores the
 whole operation. Formatting uses the provider's `.clang-format` or fallback style;
 the source widget retains LF line endings. Rerun after changing style files.
 
+![C++ function definition opened from its separate declaration](../images/cpp-definition.png)
+
+Choose **Find definition** on a function declaration, then select its returned
+location to open the body. Use **Back** to return.
+
+![Virtual C++ method override returned by current-context implementation navigation](../images/cpp-implementations.png)
+
+Choose **Find implementations** on a virtual method and select an available
+override. Other files may contain implementations absent from this context.
+
 Queries include current open source and header drafts. They do not save files,
 compile the game, apply changes automatically or run commands suggested by the
 provider. **Results for** identifies the queried file, even after you switch tabs.
@@ -179,14 +191,14 @@ check the executable path and supported release in Compiler setup.
 
 This workflow supports managed projects and their current CMake configuration.
 It returns at most 64 proposals or overloads, with up to 64 parameter labels per overload. If an active overload or parameter falls beyond the retained list, no active marker is shown. Parameter names are displayed as plain text, including Unicode names. Completions requiring snippets, extra edits,
-imports or provider commands are unavailable. Declaration navigation is limited
-to supported source/header files under **Native/**; SDK and external declarations
+imports or provider commands are unavailable. Declaration, definition and implementation navigation is limited
+to supported source/header files under **Native/**; SDK and external locations
 are displayed as unavailable. Source limits remain 1 MiB per file and 32 open tabs.
 File outlines retain up to 64 symbols across 16 nesting levels. Symbol information
 is limited to 8 KiB of plain text; unsupported markup or invalid ranges produce an
 analysis error. The outline covers the active file; use **Find in Project** for
 project-wide literal source searches.
-Reference/type lists retain at most 64 locations. A finished reference query is a
+Reference/type/definition/implementation lists retain at most 64 locations. A finished reference or implementation query is a
 snapshot of the current compiler context; it does not establish a complete
 whole-project index. An empty list means no locations were returned in that context.
 Formatting accepts at most 32,768 non-overlapping edits and a complete result

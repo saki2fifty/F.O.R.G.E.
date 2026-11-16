@@ -886,6 +886,13 @@ its internal truncation flag. `limited` describes FORGE's retained-row bound,
 not whole-project coverage. Type definitions (`typeDefinition`) share the same
 guarded path/state/UTF8 range and visual location fields. Null/empty replies are
 valid zero-location results; malformed arrays/ranges or missing capabilities fail.
+Definitions (`definition`) and implementations (`implementation`) share these
+same guarded locations and 64-row bound. Definition may fall back to declaration
+when the body is unavailable. Implementation results expose
+`scope:current_context` and `exhaustive:false`; a completed query is not an
+exhaustive project index. Querying preserves the active cursor, draft and source
+Undo/Redo; `forge_code_analysis_use` explicitly navigates through the same owner
+and records ordinary Back/Forward history.
 Whole-source formatting (`format`) returns at most one available proposal with
 complete LF `text`, `edit_count`, label and whole-source byte range. The internal
 cursor-mapping edit list is not exposed in MCP status. Null/empty/no-op replies
@@ -897,7 +904,7 @@ after the query. Style comes from provider files/fallback; rerun after style edi
 Logs retain timestamps and bounded UTF-8 paging.
 
 With `code.execute`, `forge_code_analysis_start` requires an observed source
-`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`/`format`) and UTF-8 byte
+`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`/`format`/`definition`/`implementation`) and UTF-8 byte
 `offset`. Optional `tool` overrides the configured clangd23.1.0 path for that
 launch only. The managed project must have a successful CMake configure this
 session through Build Project Code; a compiler readiness probe is a different

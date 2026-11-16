@@ -737,11 +737,17 @@ class CppSourceEditor {
         ImGui::BeginDisabled(locked || !active_ || semantic_task_.busy());
         bool first_button = true;
         constexpr std::pair<const char*, const char*> actions[]{
-            {"completion", "Complete"},        {"declaration", "Find declaration"},
-            {"signature", "Signature help"},   {"diagnostics", "Check source"},
-            {"hover", "Symbol info"},          {"symbols", "Symbols in file"},
-            {"references", "Find references"}, {"typeDefinition", "Go to type"},
-            {"format", "Format source"}};
+            {"completion", "Complete"},
+            {"declaration", "Find declaration"},
+            {"signature", "Signature help"},
+            {"diagnostics", "Check source"},
+            {"hover", "Symbol info"},
+            {"symbols", "Symbols in file"},
+            {"references", "Find references"},
+            {"typeDefinition", "Go to type"},
+            {"format", "Format source"},
+            {"definition", "Find definition"},
+            {"implementation", "Find implementations"}};
         for (const auto& [kind, label] : actions) {
             if (!first_button)
                 next_text_button(label);
@@ -781,6 +787,8 @@ class CppSourceEditor {
             const bool references = result.at("kind").get<std::string>() == "references";
             const bool type_definition = result.at("kind").get<std::string>() == "typeDefinition";
             const bool format = result.at("kind").get<std::string>() == "format";
+            const bool definition = result.at("kind").get<std::string>() == "definition";
+            const bool implementation = result.at("kind").get<std::string>() == "implementation";
             if (signature)
                 ImGui::TextUnformatted("Call signatures (read-only)");
             if (diagnostics)
@@ -795,24 +803,32 @@ class CppSourceEditor {
                     "References in current context (not an exhaustive project index)");
             if (type_definition)
                 ImGui::TextUnformatted("Type definitions");
+            if (definition)
+                ImGui::TextWrapped("Definitions (may fall back to a declaration)");
+            if (implementation)
+                ImGui::TextWrapped(
+                    "Implementations in current context (not an exhaustive project index)");
             if (format)
                 ImGui::TextWrapped("Formatting proposal. Source changes when you apply it.");
-            ImGui::BeginChild(
-                "Analysis results",
-                {0, signature || diagnostics || information || symbols || references || format
-                        ? 160.f
-                        : 100.f},
-                ImGuiChildFlags_Borders,
-                format ? ImGuiWindowFlags_HorizontalScrollbar : ImGuiWindowFlags_None);
+            ImGui::BeginChild("Analysis results",
+                              {0, signature || diagnostics || information || symbols ||
+                                          references || implementation || format
+                                      ? 160.f
+                                      : 100.f},
+                              ImGuiChildFlags_Borders,
+                              format ? ImGuiWindowFlags_HorizontalScrollbar
+                                     : ImGuiWindowFlags_None);
             const auto& items = result.at("items");
             if (items.empty())
-                ImGui::TextUnformatted(diagnostics
-                                           ? "No diagnostics reported for this source draft."
-                                       : symbols         ? "No symbols in this source draft."
-                                       : references      ? "No references returned in this context."
-                                       : type_definition ? "No type definition returned."
-                                       : format          ? "No formatting changes returned."
-                                                         : "No results at this cursor.");
+                ImGui::TextUnformatted(
+                    diagnostics       ? "No diagnostics reported for this source draft."
+                    : symbols         ? "No symbols in this source draft."
+                    : references      ? "No references returned in this context."
+                    : type_definition ? "No type definition returned."
+                    : definition      ? "No definition returned in this context."
+                    : implementation  ? "No implementations returned in this context."
+                    : format          ? "No formatting changes returned."
+                                      : "No results at this cursor.");
             for (std::size_t i = 0; i < items.size(); ++i) {
                 const auto& item = items.at(i);
                 if (information) {
