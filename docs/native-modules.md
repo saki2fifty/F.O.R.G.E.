@@ -270,6 +270,24 @@ preview is derived read-only text, not another draft or history owner. Save/buil
 and all existing source/context/permission/receipt guards remain separate. Style
 files outside the source snapshot are not watched; rerun after editing them.
 
+Reviewed current-source rename uses `textDocument/rename` and the selected
+provider's advertised boolean rename capability. `new_name` is1..256UTF8bytes,
+without ASCII spaces/controls; the existing JSON UTF8 facility validates it in
+the shared kind header, so native source consumers keep their existing lightweight
+link dependencies. The provider owns C++ identifier grammar. Other query kinds
+reject a nonempty new name before launch.
+
+Only plain `WorkspaceEdit.changes` for at most one URI, equal to the active
+contained Native file, is admitted. Extra files, resource/documentChanges,
+changeAnnotations/annotationId and command payloads fail without partial edits.
+Null/empty/no-op replies return no proposal. The same normalized source-edit
+admission/one-pass candidate/current-caret mapping as formatting produces one
+complete read-only proposal and one explicit source Undo. Private mapping edits
+use `source_edits` and stay with the existing task. `new_name` and explicit
+current_context/exhaustive:false scope accompany the result. Provider callbacks
+never apply workspace writes. Save/build and all source/context/receipt/lifetime
+owners remain separate; this is not exhaustive project refactoring.
+
 Queries snapshot all open drafts, saved Native build-input identity and the actual
 compile-database digest. Response/apply checks preserve project, operation,
 compiler generation, current drafts, saved input identity and database identity.

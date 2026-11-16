@@ -3050,6 +3050,8 @@ reference/type/definition/implementation locations, advertised capability refusa
 empty/malformed/limited/external results and non-exhaustive implementation scope,
 syntax range capability/parent/cursor/depth/deduplication and virtual-finalLF checks,
 actual selected source byte-count/digest without source Undo or disk writes,
+reviewed rename/name/prelaunch checks, shared whole-source proposal/caret/oneUndo,
+no-op/order/late-invalid/multi-file/resource/annotation/command refusal,
 changed dependencies and compiler generations, malformed/version/exit failures,
 unsupported commands/external declarations, cancellation and project retirement.
 Successful queries require provider exit0 and supervisor retirement. Forced error
@@ -3076,8 +3078,18 @@ unchanged source history/disk. All existing semantic modes run through the share
 transport/location normalizer in the same integration. Definitions distinguish
 function declarations from their bodies; implementations navigate from a virtual method to an override
 in the unsaved current source. Both preserve source Undo/Redo and disk bytes.
+Real rename checks include a Unicode new name, three local references, a cursor
+move after the query, one source Undo/Redo, invalid identifier failure and refusal
+of a header-plus-source proposal through both MCP formats. Native checks type the
+actual name-entry popup and review/apply through the same source owner.
 Actual build/deployment outcomes are retained;
 Linux's Windows-only deployment refusal is distinct from successful configuration
 and analysis. The native control executable also accepts an existing project and
 compiler context for real-provider captures. These checks do not establish full
 Windows Main, Windows-provider, physical GPU or external-client acceptance.
+
+UI source save checks decode authored RML/RCSS as UTF-8 explicitly. Their text
+comparisons retain universal newline handling; separate byte assertions verify
+preserved CRLF storage and no-op Save. Do not rely on Python's platform default
+encoding for authored Unicode text. The control-properties workflow covers saved
+Unicode binding labels through both MCP formats.

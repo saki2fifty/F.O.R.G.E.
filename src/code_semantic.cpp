@@ -103,11 +103,13 @@ Json normalized_completions(const Json& response, const std::string& source) {
             {"limited",
              items.size() > 64 || (response.is_object() && response.value("isIncomplete", false))}};
 }
-Json normalized_formatting(const Json& response, const std::string& source) {
+Json normalized_source_edits(const Json& response, const std::string& source,
+                             std::string_view action = "Apply formatted source") {
     require(response.is_null() || response.is_array(),
-            "C++ formatting needs an edit array or null");
-    require(response.size() <= 32768, "C++ formatting exceeds 32768 edits; no changes proposed");
-    require(source.find('\r') == source.npos, "Format source requires the editor's LF draft");
+            "C++ source proposal needs an edit array or null");
+    require(response.size() <= 32768,
+            "C++ source proposal exceeds 32768 edits; no changes proposed");
+    require(source.find('\r') == source.npos, "Source proposal requires the editor's LF draft");
     Json items = Json::array();
     if (response.empty())
         return {{"items", std::move(items)}, {"limited", false}};
@@ -129,11 +131,11 @@ Json normalized_formatting(const Json& response, const std::string& source) {
     for (const auto& edit : response) {
         const auto begin = source_offset(source, edit.at("range").at("start"), lines);
         const auto end = source_offset(source, edit.at("range").at("end"), lines);
-        require(begin <= end, "Reversed C++ formatting range");
+        require(begin <= end, "Reversed C++ source edit range");
         auto text = semantic_string(edit.at("newText"), ui::max_cpp_source_bytes);
         std::erase(text, '\r'); // Source widgets retain LF, including provider CRLF proposals.
         require(text.size() <= ui::max_cpp_source_bytes - inserted,
-                "C++ formatting replacement text exceeds 1 MiB");
+                "C++ source replacement text exceeds 1 MiB");
         inserted += text.size();
         changes.push_back({begin, end, std::move(text)});
     }
@@ -142,12 +144,12 @@ Json normalized_formatting(const Json& response, const std::string& source) {
     for (std::size_t i = 0; i < changes.size(); ++i) {
         const auto& edit = changes[i];
         require(i == 0 || (changes[i - 1].end <= edit.begin && changes[i - 1].begin != edit.begin),
-                "Overlapping or ambiguous C++ formatting edits");
+                "Overlapping or ambiguous C++ source edits");
         removed += edit.end - edit.begin;
     }
     const auto bytes = source.size() - removed + inserted;
     require(bytes < ui::max_cpp_source_bytes,
-            "Formatted C++ source exceeds the editor's 1 MiB budget");
+            "Proposed C++ source exceeds the editor's 1 MiB budget");
     std::string candidate;
     candidate.reserve(bytes);
     Json edits = Json::array();
@@ -163,20 +165,48 @@ Json normalized_formatting(const Json& response, const std::string& source) {
     if (candidate.empty() || candidate.back() != '\n')
         candidate += '\n';
     require(candidate.size() < ui::max_cpp_source_bytes,
-            "Leave room for the formatted source's final newline within 1 MiB");
+            "Leave room for the proposed source's final newline within 1 MiB");
     ui::validate_cpp_text(candidate);
     if (candidate != source)
         items.push_back(
             {{"available", true},
              {"reason", ""},
-             {"label", "Apply formatted source (" + std::to_string(edits.size()) + " edits)"},
+             {"label", std::string(action) + " (" + std::to_string(edits.size()) + " edits)"},
              {"begin", 0},
              {"end", source.size()},
              {"text", std::move(candidate)},
              {"edit_count", edits.size()}});
     if (items.empty())
         edits.clear();
-    return {{"items", std::move(items)}, {"limited", false}, {"format_edits", std::move(edits)}};
+    return {{"items", std::move(items)}, {"limited", false}, {"source_edits", std::move(edits)}};
+}
+Json normalized_rename(const Json& response, const std::string& source, const ProjectPaths& paths,
+                       const std::filesystem::path& target, const std::string& name) {
+    const auto action = "Apply rename to " + name;
+    if (response.is_null())
+        return normalized_source_edits(nullptr, source, action);
+    require(response.is_object() && response.size() == 1 && response.contains("changes") &&
+                response.at("changes").is_object() && response.at("changes").size() <= 1,
+            "Rename in file requires one plain file edit; multi-file/resource/annotated edits are "
+            "refused");
+    const auto& changes = response.at("changes");
+    if (changes.empty())
+        return normalized_source_edits(Json::array(), source, action);
+    const auto entry = changes.begin();
+    std::filesystem::path locator;
+    try {
+        locator = paths.relative(local_file_url_path(entry.key()));
+        (void)ui::cpp_source_path(paths.root(), locator);
+    } catch (const std::exception&) {
+        throw std::runtime_error("Rename in file rejects edits outside its active Native source");
+    }
+    require(paths.same_locator(locator, target), "Rename in file cannot edit another source file");
+    require(entry.value().is_array(), "Rename in file requires a plain text edit array");
+    for (const auto& edit : entry.value())
+        require(edit.is_object() && edit.size() == 2 && edit.contains("range") &&
+                    edit.contains("newText"),
+                "Rename in file requires plain unannotated text edits without extra payloads");
+    return normalized_source_edits(entry.value(), source, action);
 }
 std::string semantic_documentation(const Json& value) {
     if (value.is_null())
@@ -658,6 +688,11 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
                 request.at("offset").get<std::int64_t>() >= 0,
             "Use a nonnegative source byte offset");
     const auto position = cpp_semantic_position(text, request.at("offset").get<std::size_t>());
+    const auto new_name = request.value("new_name", std::string{});
+    if (kind == "rename")
+        validate_cpp_rename_name(new_name);
+    else
+        require(new_name.empty(), "A new name applies only to Rename in file");
     SemanticTransport transport(request.at("tool").get<std::string>(), paths, context,
                                 kind == "diagnostics" ? target : std::filesystem::path{});
     const auto initialized = transport.call(
@@ -694,6 +729,9 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         kind == "implementation")
         require(initialized.at("capabilities").at(kind + "Provider").get<bool>(),
                 "Semantic tools require the requested symbol-navigation support");
+    if (kind == "rename")
+        require(initialized.at("capabilities").at("renameProvider").get<bool>(),
+                "Semantic tools require symbol rename support");
     if (kind == "selection")
         require(initialized.at("capabilities").at("selectionRangeProvider").get<bool>(),
                 "Semantic tools require syntax-selection support");
@@ -722,6 +760,8 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
                        {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}}});
     Json parameters{{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}},
                     {"position", position}};
+    if (kind == "rename")
+        parameters["newName"] = new_name;
     if (kind == "references")
         parameters["context"] = {{"includeDeclaration", false}};
     if (kind == "selection") {
@@ -755,9 +795,12 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         : kind == "symbols"     ? normalized_symbols(response, target, text)
         : kind == "selection"   ? normalized_selection(response, text, path_utf8(target),
                                                        request.at("offset").get<std::size_t>())
-        : kind == "format" ? normalized_formatting(response, text)
+        : kind == "rename"      ? normalized_rename(response, text, paths, target, new_name)
+        : kind == "format" ? normalized_source_edits(response, text)
                            : normalized_locations(response, paths, documents, kind == "references");
-    if (kind == "references" || kind == "implementation")
+    if (kind == "rename")
+        result["new_name"] = new_name;
+    if (kind == "references" || kind == "implementation" || kind == "rename")
         result.update({{"scope", "current_context"}, {"exhaustive", false}});
     result.update({{"version", 1},
                    {"id", request.at("id")},

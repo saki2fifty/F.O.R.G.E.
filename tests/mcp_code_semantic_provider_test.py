@@ -15,6 +15,12 @@ from mcp_test_client import Client, finish_host, protocol_cases, write_capture
 TOOLS, HOST, SDK, CMAKE, NINJA, PROVIDER, SCRATCH, CAPTURE = sys.argv[1:]
 scratch = Path(SCRATCH).resolve()
 scratch.mkdir(parents=True, exist_ok=True)
+def source_cursor(text, index):
+    start = text.rfind('\n', 0, index) + 1
+    return dict(line=text.count('\n', 0, index) + 1,
+                column=len(text[start:index].expandtabs(4)) + 1)
+
+
 for legacy in protocol_cases():
     root = scratch / ('legacy' if legacy else 'current')
     assert not root.exists(), 'Use fresh project storage for this integration run'
@@ -197,6 +203,50 @@ for legacy in protocol_cases():
                 navigated = read('forge_code_read', path='Native/gameplay.cpp')
                 assert navigated['text'] == symbol_text and navigated['cursor']['line'] == location['line']
                 assert navigated['can_undo'] == before_navigation['can_undo'] and navigated['can_redo'] == before_navigation['can_redo']
+            rename_text = symbol_text + '\nfloat rename_probe(float rename_rate) { /* café */ return rename_rate + rename_rate; }\n'
+            mutate('forge_code_replace', **observed(), text=rename_text)
+            rename_before = read('forge_code_read', path='Native/gameplay.cpp')
+            rename_name = 'vitesse_é'
+            rename_offset = len(rename_text[:rename_text.index('rename_rate')].encode())
+            mutate('forge_code_analysis_start', **observed(), kind='rename', offset=rename_offset,
+                   new_name=rename_name, tool=PROVIDER)
+            rename = settle('forge_code_analysis_status')
+            (root / 'analysis-rename-result.json').write_text(json.dumps(rename, indent=2))
+            assert rename['complete'] and rename['total'] == 1 and rename['new_name'] == rename_name, rename
+            assert rename['scope'] == 'current_context' and rename['exhaustive'] is False and 'source_edits' not in rename
+            proposal = rename['items'][0]
+            renamed_text = symbol_text + '\nfloat rename_probe(float vitesse_é) { /* café */ return vitesse_é + vitesse_é; }\n'
+            assert proposal['text'] == renamed_text and proposal['edit_count'] == 3
+            assert read('forge_code_read', path='Native/gameplay.cpp') == rename_before
+            mutate('forge_code_open', path='Native/gameplay.cpp', state=rename_before['state'],
+                   **source_cursor(rename_text, rename_text.rindex('rename_rate') + 2))
+            mutate('forge_code_analysis_use', operation=rename['operation'], index=0)
+            renamed = read('forge_code_read', path='Native/gameplay.cpp')
+            assert renamed['text'] == renamed_text
+            assert renamed['cursor'] == source_cursor(renamed_text, renamed_text.rindex(rename_name) + len(rename_name))
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == rename_text
+            mutate('forge_code_redo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == renamed_text
+            mutate('forge_code_undo', **observed())
+            rejected_before = read('forge_code_read', path='Native/gameplay.cpp')
+            mutate('forge_code_analysis_start', **observed(), kind='rename', offset=rename_offset,
+                   new_name='7invalid', tool=PROVIDER)
+            invalid_rename = settle('forge_code_analysis_status')
+            assert not invalid_rename['complete'] and invalid_rename['error'], invalid_rename
+            assert read('forge_code_read', path='Native/gameplay.cpp') == rejected_before
+            cross_offset = len(rename_text[:rename_text.index('s.degrees_per_second') + 2].encode())
+            mutate('forge_code_analysis_start', **observed(), kind='rename', offset=cross_offset,
+                   new_name='angular_speed', tool=PROVIDER)
+            cross_rename = settle('forge_code_analysis_status')
+            (root / 'analysis-rename-cross-file-result.json').write_text(json.dumps(cross_rename, indent=2))
+            assert not cross_rename['complete'] and cross_rename['error'], cross_rename
+            assert read('forge_code_read', path='Native/gameplay.cpp') == rejected_before
+            assert read('forge_code_read', path='Native/Spinner.hpp')['text'] == header_draft
+            assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original
+            assert (root / 'Native/Spinner.hpp').read_bytes() == header_saved
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == symbol_text
             selection_before = read('forge_code_read', path='Native/gameplay.cpp')
             mutate('forge_code_analysis_start', **observed(), kind='selection', offset=symbol_offset, tool=PROVIDER)
             selection = settle('forge_code_analysis_status')
@@ -216,12 +266,8 @@ for legacy in protocol_cases():
             (root / 'analysis-format-result.json').write_text(json.dumps(formatting, indent=2))
             assert formatting['complete'] and formatting['total'] == 1, formatting
             proposal = formatting['items'][0]
-            assert proposal['edit_count'] > 0 and 'format_edits' not in formatting
+            assert proposal['edit_count'] > 0 and 'format_edits' not in formatting and 'source_edits' not in formatting
             assert read('forge_code_read', path='Native/gameplay.cpp') == format_before
-            def source_cursor(text, index):
-                start = text.rfind('\n', 0, index) + 1
-                return dict(line=text.count('\n', 0, index) + 1,
-                            column=len(text[start:index].expandtabs(4)) + 1)
             mutate('forge_code_open', path='Native/gameplay.cpp', state=format_before['state'],
                    **source_cursor(symbol_text, symbol_text.rindex('p.café') + 2))
             mutate('forge_code_analysis_use', operation=formatting['operation'], index=proposal['index'])

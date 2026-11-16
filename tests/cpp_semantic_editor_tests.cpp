@@ -69,6 +69,8 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     frame();
     input.click("cpp:analysis:completion");
     const auto wait_result = [&] {
+        // Popup actions run after the assistance panel; discard its previous-frame probes.
+        frame();
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(40);
         while (!test::ui_targets.contains("cpp:analysis:use:0")) {
             check(std::chrono::steady_clock::now() < end,
@@ -321,6 +323,79 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     editor.undo(true);
     check(editor.active_text() == format_after, "Native formatting Redo lost its proposal");
     editor.undo(false);
+    const std::string rename_saved = "#pragma once\n// café\ninline float eval(float rename_rate) "
+                                     "{ return rename_rate + rename_rate; }";
+    const auto rename_path = root / "Native/RenameProbe.hpp";
+    if (!std::filesystem::exists(rename_path))
+        atomic_write(rename_path, rename_saved);
+    check(ui::read_cpp_source(rename_path) == rename_saved,
+          "Rename fixture would overwrite an existing header");
+    editor.open(document, "Native/RenameProbe.hpp");
+    const auto rename_before = editor.active_text();
+    const std::string rename_after = "#pragma once\n// café\ninline float eval(float "
+                                     "angular_speed) { return angular_speed + angular_speed; }\n";
+    const auto rename_position =
+        ui::cpp_source_coordinate(rename_before, rename_before.find("rename_rate") + 2);
+    editor.open(document, "Native/RenameProbe.hpp", rename_position.first + 1,
+                rename_position.second + 1);
+    frame();
+    input.click("cpp:analysis:rename");
+    input.type("cpp:rename:name", "angular_speed", false);
+    const auto require_rename_popup = [&](const char* stage) {
+        if (!test::ui_targets.contains("cpp:rename:preview")) {
+            if (!captures.empty())
+                capture.save(captures / ("cpp-rename-missing-" + std::to_string(width) + ".png"));
+            std::cerr << "Rename popup missing " << stage
+                      << "; active source: " << editor.active_source() << '\n';
+            for (const auto& [key, target] : test::ui_targets)
+                if (key.starts_with("cpp:rename:") || key == "cpp:analysis:cancel")
+                    std::cerr << key << '\n';
+            throw std::runtime_error("Rename popup context was lost");
+        }
+    };
+    require_rename_popup("after typing");
+    editor.replace_text(rename_before + "// Changed while the rename dialog is open\n");
+    frame();
+    require_rename_popup("after source change");
+    check(test::ui_targets.contains("cpp:rename:stale") &&
+              !test::ui_targets.at("cpp:rename:preview").enabled,
+          "Rename popup followed changed source instead of refusing its stale target");
+    input.click("cpp:rename:cancel");
+    editor.undo(false);
+    check(editor.active_text() == rename_before, "Cancelling stale rename lost source history");
+    editor.open(document, "Native/RenameProbe.hpp", rename_position.first + 1,
+                rename_position.second + 1);
+    frame();
+    input.click("cpp:analysis:rename");
+    input.type("cpp:rename:name", "angular_speed", false);
+    frame();
+    if (!captures.empty())
+        capture.save(captures / ("cpp-rename-dialog-" + std::to_string(width) + ".png"));
+    input.click("cpp:rename:preview");
+    wait_result();
+    check(editor.active_text() == rename_before && ui::read_cpp_source(rename_path) == rename_saved,
+          "Native rename preview changed source or saved bytes");
+    reveal_source();
+    if (!captures.empty())
+        capture.save(captures / ("cpp-rename-" + std::to_string(width) + ".png"));
+    const auto moved_caret =
+        ui::cpp_source_coordinate(rename_before, rename_before.rfind("rename_rate") + 2);
+    editor.open(document, "Native/RenameProbe.hpp", moved_caret.first + 1, moved_caret.second + 1);
+    input.select("cpp:analysis:use:0");
+    frame();
+    const auto renamed_caret =
+        ui::cpp_source_coordinate(rename_after, rename_after.rfind("angular_speed") +
+                                                    std::string_view("angular_speed").size());
+    check(editor.active_text() == rename_after &&
+              test::ui_targets.contains(cursor_key(renamed_caret)),
+          "Native rename lost its complete proposal or current-caret mapping");
+    editor.undo(false);
+    check(editor.active_text() == rename_before, "Native rename was not one source Undo");
+    editor.undo(true);
+    check(editor.active_text() == rename_after, "Native rename Redo lost its proposal");
+    editor.undo(false);
+    check(ui::read_cpp_source(rename_path) == rename_saved && scene.document() == authored,
+          "Native rename changed saved source or Scene data");
     editor.open(document, "Native/gameplay.cpp", declaration_position.first + 1,
                 declaration_position.second + 1);
     editor.undo(false);
@@ -343,6 +418,8 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     check(!test::ui_targets.at("cpp:analysis:definition").enabled &&
               !test::ui_targets.at("cpp:analysis:implementation").enabled,
           "Native definition/implementation controls bypassed the source lock");
+    check(!test::ui_targets.at("cpp:analysis:rename").enabled,
+          "Native rename bypassed the source lock");
     check(!test::ui_targets.at("cpp:analysis:selection").enabled,
           "Syntax selection query bypassed the source lock");
     check(!test::ui_targets.at("cpp:analysis:format").enabled,

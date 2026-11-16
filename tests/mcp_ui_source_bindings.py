@@ -97,7 +97,7 @@ def check_bindings(read, mutate, root, advertised, client, arguments, guard, edi
     assert edit('undo')['text'] == command['text']
     assert (root / 'Game' / path).read_bytes() == disk
     edit('save')
-    assert (root / 'Game' / path).read_text() == command['text']
+    assert (root / 'Game' / path).read_text(encoding='utf-8') == command['text']
     custom = edit('replace', text=source.replace('Literal', 'Score {{health}} / {{tick}}'))
     view = read('forge_ui_source_bindings', **guard(), element=2)['text']
     assert view['authored'] and not view['available'] and view['reason']

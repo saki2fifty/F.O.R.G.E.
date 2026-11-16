@@ -1,5 +1,11 @@
 # 2026-11-16
 
+## Portable UI source acceptance
+
+UI source save assertions explicitly decode UTF-8 instead of using the host's
+default encoding. Unicode binding labels retain the same expected contents and
+the existing CRLF/no-op Save byte checks remain in place.
+
 ## C++ call signatures
 
 C++ Sources includes read-only Signature help through the optional supported
@@ -89,3 +95,13 @@ source/history owner serves native controls, project search, collapsed positioni
 and MCP. Borrowed status reports selection active/bytes/digest; source bytes,
 Undo/Redo and Save stay separate. The implicit finalLF is excluded from selectable
 extents. No selection manager, persisted state or dependency change is introduced.
+
+## Reviewed C++ rename in file
+
+Rename in file previews a complete current-source rename and applies only on
+request through the existing source Undo/caret path. Native name entry and MCP
+new_name use the same task/provider/admission. Extra-file/resource/annotated or
+command replies fail without partial edits. Formatting and rename share complete
+source-edit validation and private mapping data; source tab consumers retain their
+existing lightweight dependencies. Save and Build remain separate. Current-context
+scope is explicit; project-wide refactoring remains unavailable.

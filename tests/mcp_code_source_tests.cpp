@@ -573,7 +573,7 @@ int main(int argc, char** argv) {
         analysis = settle_analysis();
         check(analysis.at("complete") && analysis.at("total") == 1 &&
                   analysis.at("items").at(0).at("edit_count") == 2 &&
-                  !analysis.contains("format_edits") &&
+                  !analysis.contains("format_edits") && !analysis.contains("source_edits") &&
                   invoke("code.read", {{"path", "Native/First.cpp"}}) == before_format,
               "Formatting preview changed source/history or exposed internal cursor edits");
         const auto formatted = analysis.at("items").at(0).at("text").get<std::string>();
@@ -757,6 +757,110 @@ int main(int argc, char** argv) {
             navigator.project_changed(root / "AnotherProject");
             check(navigation().at("revision").is_null() && navigation().at("source").is_null(),
                   "Navigation leaked a retired project's source or locations");
+        }
+        {
+            const auto rename_source = draft + "\nfloat rename_probe(float rename_rate) { /* café "
+                                               "*/ return rename_rate + rename_rate; }\n";
+            const auto rename_after = draft + "\nfloat rename_probe(float angular_speed) { /* café "
+                                              "*/ return angular_speed + angular_speed; }\n";
+            editor.replace_text(rename_source);
+            const auto rename_query = [&](const std::string& name, const char* kind = "rename") {
+                const auto observed = invoke("code.read", {{"path", "Native/First.cpp"}});
+                return invoke("code.analysis.start", {{"path", "Native/First.cpp"},
+                                                      {"session", observed.at("session")},
+                                                      {"state", observed.at("state")},
+                                                      {"kind", kind},
+                                                      {"offset", rename_source.find("rename_rate")},
+                                                      {"new_name", name}});
+            };
+            const auto before = invoke("code.read", {{"path", "Native/First.cpp"}});
+            rename_query("angular_speed");
+            analysis = settle_analysis();
+            check(analysis.at("complete").get<bool>() &&
+                      analysis.at("total").get<std::size_t>() == 1 &&
+                      analysis.at("new_name").get<std::string>() == "angular_speed" &&
+                      analysis.at("scope").get<std::string>() == "current_context" &&
+                      !analysis.at("exhaustive").get<bool>() &&
+                      analysis.at("items").at(0).at("text").get<std::string>() == rename_after &&
+                      analysis.at("items").at(0).at("edit_count").get<std::size_t>() == 3 &&
+                      !analysis.contains("source_edits") && !analysis.contains("format_edits") &&
+                      invoke("code.read", {{"path", "Native/First.cpp"}}) == before,
+                  "Rename preview changed source/selection/history or lost its complete "
+                  "proposal/scope");
+            const auto caret = forge::ui::cpp_source_coordinate(
+                rename_source, rename_source.rfind("rename_rate") + 2);
+            editor.open(files.document, "Native/First.cpp", caret.first + 1, caret.second + 1);
+            use_analysis(analysis);
+            const auto mapped = forge::ui::cpp_source_coordinate(
+                rename_after,
+                rename_after.rfind("angular_speed") + std::string_view("angular_speed").size());
+            auto renamed = invoke("code.read", {{"path", "Native/First.cpp"}});
+            check(renamed.at("text").get<std::string>() == rename_after &&
+                      renamed.at("cursor") ==
+                          forge::Json{{"line", mapped.first + 1}, {"column", mapped.second + 1}},
+                  "Rename did not map the current caret through its shared source edit path");
+            editor.undo(false);
+            check(editor.active_text() == rename_source, "Rename was not one source Undo");
+            editor.undo(true);
+            check(editor.active_text() == rename_after, "Rename Redo lost edits");
+            editor.undo(false);
+            rename_query("rename_rate");
+            analysis = settle_analysis();
+            check(analysis.at("complete").get<bool>() &&
+                      analysis.at("total").get<std::size_t>() == 0,
+                  "Equal-name rename created a source proposal");
+            for (const auto* mode :
+                 {"rename-null", "rename-empty", "rename-count", "rename-other", "rename-multi",
+                  "rename-foreign", "rename-document-changes", "rename-resource",
+                  "rename-annotations", "rename-annotated-edit", "rename-command", "rename-range",
+                  "rename-overlap", "rename-split", "rename-disordered", "rename-unavailable"}) {
+                SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", mode, true);
+                const auto observed = invoke("code.read", {{"path", "Native/First.cpp"}});
+                rename_query("angular_speed");
+                analysis = settle_analysis();
+                const std::string_view value(mode);
+                if (value == "rename-null" || value == "rename-empty")
+                    check(analysis.at("complete").get<bool>() &&
+                              analysis.at("total").get<std::size_t>() == 0,
+                          "Empty rename reply failed");
+                else if (value == "rename-disordered")
+                    check(analysis.at("complete").get<bool>() &&
+                              analysis.at("total").get<std::size_t>() == 1 &&
+                              analysis.at("items").at(0).at("text").get<std::string>() ==
+                                  rename_after,
+                          "Unordered rename edits lost the whole proposal");
+                else
+                    check(!analysis.at("complete").get<bool>() &&
+                              !analysis.at("error").get<std::string>().empty(),
+                          std::string("Unsafe rename reply accepted: ") + mode);
+                check(invoke("code.read", {{"path", "Native/First.cpp"}}) == observed,
+                      "Rejected or preview-only rename changed source/caret/selection/history");
+            }
+            SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+            for (const auto& name : {std::string{}, std::string("not valid"), std::string(257, 'x'),
+                                     std::string("bad\xFF", 4)}) {
+                const auto operation =
+                    invoke("code.analysis.status", forge::Json::object()).at("operation");
+                bool rejected = false;
+                try {
+                    rename_query(name);
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                check(rejected &&
+                          invoke("code.analysis.status", forge::Json::object()).at("operation") ==
+                              operation,
+                      "Invalid rename name retired the query or launched a tool");
+            }
+            bool wrong_kind = false;
+            try {
+                rename_query("angular_speed", "completion");
+            } catch (const std::exception&) {
+                wrong_kind = true;
+            }
+            check(wrong_kind, "Another query accepted a rename name");
+            editor.undo(false);
+            check(editor.active_text() == draft, "Rename checks lost the preceding source history");
         }
         const auto cancelled = start_analysis();
         invoke("code.analysis.cancel", {{"operation", cancelled.at("operation")}});

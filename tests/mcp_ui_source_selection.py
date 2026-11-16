@@ -110,6 +110,6 @@ def check_selection(read, ok, mutate, root, advertised, client, arguments, guard
     assert edit('redo')['text'] == copied['text']
     assert (root / 'Game' / path).read_bytes() == disk
     edit('save')
-    assert (root / 'Game' / path).read_text() == copied['text']
+    assert (root / 'Game' / path).read_text(encoding='utf-8') == copied['text']
     assert (root / 'Game/forge.assets.json').read_bytes() == catalog
     assert read('forge_scene_read') == scene

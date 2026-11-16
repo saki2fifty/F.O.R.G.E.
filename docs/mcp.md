@@ -914,15 +914,27 @@ after the query. Style comes from provider files/fallback; rerun after style edi
 Logs retain timestamps and bounded UTF-8 paging.
 
 With `code.execute`, `forge_code_analysis_start` requires an observed source
-`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`/`format`/`definition`/`implementation`/`selection`) and UTF-8 byte
+`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`/`hover`/`symbols`/`references`/`typeDefinition`/`format`/`definition`/`implementation`/`selection`/`rename`) and UTF-8 byte
 `offset`. Optional `tool` overrides the configured clangd23.1.0 path for that
 launch only. The managed project must have a successful CMake configure this
 session through Build Project Code; a compiler readiness probe is a different
 context. The same source editor supplies all current drafts and the exact current
 SDK compiler environment/database. Tool execution has the account's OS access;
-provider workspace edits/commands are not accepted. Poll status/log until idle.
+automatic provider workspace writes and commands are not accepted. Poll status/log until idle.
 `forge_code_analysis_cancel` requires that exact operation UUID and withdraws
 its proposals. Only one query is active; project retirement clears old results/logs.
+
+For `kind:rename`, provide `new_name` (1..256UTF8bytes, no ASCII spaces/controls).
+Other kinds reject a nonempty new_name. The optional provider validates C++ name
+grammar. Rename returns at most one whole-source proposal with `text` and
+`edit_count`, plus `new_name`, `scope:current_context` and `exhaustive:false` in
+status. Private `source_edits` mapping data is not exposed. Null/empty/equal-name
+results have no proposal. Only plain edits to the active Native file are admitted;
+other files, resource/documentChanges, annotations and commands fail without
+partial application. No provider workspace write is executed. Use the exact
+operation/index to apply through the existing one-Undo source/current-caret owner;
+Save and Build remain separate. This bounded profile is not project-wide
+refactoring, and a rejected proposal leaves the source and source history unchanged.
 
 With `code.write`, `forge_code_analysis_use` takes the operation UUID and result
 index0..63. It rechecks project, operation, all drafts, saved Native input identity,

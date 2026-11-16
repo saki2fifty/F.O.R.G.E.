@@ -85,11 +85,16 @@ class CppSemanticTask {
             log_.append("C++ analysis cancelled\n");
     }
     void start(const CppSemanticContext& context, const std::string& tool, const std::string& path,
-               const std::string& kind, std::size_t offset, CppSearchDrafts drafts) {
+               const std::string& kind, std::size_t offset, CppSearchDrafts drafts,
+               const std::string& new_name = {}) {
         if (busy())
             throw std::runtime_error("Wait for C++ analysis or cancel the current query first");
         if (!cpp_semantic_kind(kind))
             throw std::runtime_error("Choose a supported C++ analysis kind");
+        if (kind == "rename")
+            validate_cpp_rename_name(new_name);
+        else if (!new_name.empty())
+            throw std::runtime_error("A new name applies only to Rename in file");
         const auto source = drafts.find(std::filesystem::u8path(path));
         if (source == drafts.end() || offset > source->second.size() || drafts.size() > 64)
             throw std::runtime_error("Choose an open source position, with at most 64 open tabs");
@@ -132,6 +137,7 @@ class CppSemanticTask {
                                                 {"context", path_utf8(context.directory)},
                                                 {"tool", tool},
                                                 {"kind", kind_},
+                                                {"new_name", new_name},
                                                 {"path", path_},
                                                 {"offset", offset},
                                                 {"documents", std::move(documents)}}

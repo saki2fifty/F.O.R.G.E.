@@ -300,8 +300,9 @@ struct CodeAutomation {
             "are read-only; active indices refer to the full result, before pagination. "
             "Diagnostics carry receive date/time, severity, message and a guarded source location. "
             "Symbol information is read-only; file symbols provide a bounded hierarchical outline. "
-            "Formatting returns one complete current-source proposal, including its edit count and "
-            "formatted text. Use code.analysis.use to apply completion/formatting or navigate a "
+            "Formatting and single-file rename return one complete current-source proposal, "
+            "including its edit count and "
+            "resulting text. Use code.analysis.use to apply completion/formatting or navigate a "
             "declaration/definition/implementation/diagnostic/symbol/reference/type. Reference and "
             "implementation scope is the current compiler "
             "context, never an exhaustive project index. Syntax ranges are bounded containing "
@@ -324,6 +325,8 @@ struct CodeAutomation {
                 if (!response.is_null()) {
                     if (response.value("readonly", false))
                         result["readonly"] = true;
+                    if (response.contains("new_name"))
+                        result["new_name"] = response.at("new_name");
                     if (response.contains("occurred_at"))
                         result["occurred_at"] = response.at("occurred_at");
                     if (response.contains("scope")) {
@@ -552,14 +555,15 @@ struct CodeAutomation {
             methods.push_back(automation_method(
                 "code.analysis.use",
                 "Use an available result of the exact analysis operation. Completion changes "
-                "the existing source tab with one Undo record. Formatting applies one complete "
+                "the existing source tab with one Undo record. Formatting and single-file rename "
+                "apply one complete "
                 "proposal and maps the current target cursor; declaration/diagnostic opens only a "
                 "contained "
                 "Native source. Definitions, implementations, file symbols, references and type "
                 "definitions use the same "
                 "navigation; signatures/symbol "
                 "information "
-                "are read-only. Syntax ranges select the existing widget without source edits.  "
+                "are read-only. Syntax ranges select the existing widget without source edits. "
                 "Reject changed drafts, disk inputs or "
                 "compiler generation. "
                 "Does not save files or execute provider commands.",
@@ -631,21 +635,26 @@ struct CodeAutomation {
                 "code.analysis.start",
                 "Query completion, declaration, call signatures, diagnostics, symbol information "
                 "file symbols, definitions, current-context implementations and references, type "
-                "definitions, syntax selection or reviewed "
+                "definitions, syntax selection, reviewed single-file rename or "
                 "whole-source formatting at "
                 "a UTF-8 "
                 "byte offset in the observed open "
                 "C++ tab, using all current open drafts and the existing configured CMake context. "
                 "Requires optional clangd 23.1.0 and a project build this session. Optional tool "
                 "overrides only this launch. Tooling runs with this account's OS access; no "
-                "provider command or workspace edit is accepted. Poll code.analysis.status/log.",
+                "provider command or automatic workspace write is accepted. Rename requires "
+                "new_name and "
+                "returns a reviewed current-file proposal; cross-file/resource/annotated edits are "
+                "refused. "
+                "Other query kinds reject new_name. Poll code.analysis.status/log.",
                 "code.execute",
                 automation_object({{"path", automation_text(2047, 1)},
                                    {"session", automation_uuid()},
                                    {"state", automation_digest()},
                                    {"kind", {{"type", "string"}, {"enum", cpp_semantic_kinds}}},
                                    {"offset", automation_integer(0, ui::max_cpp_source_bytes)},
-                                   {"tool", automation_text(4096, 1)}},
+                                   {"tool", automation_text(4096, 1)},
+                                   {"new_name", automation_text(256, 1)}},
                                   {"path", "session", "state", "kind", "offset"}),
                 true, [&files, &editor, providers](const Json& request) {
                     available(files, providers);
@@ -653,7 +662,8 @@ struct CodeAutomation {
                     editor.start_semantics(files.document, source.locator,
                                            request.at("kind").get<std::string>(),
                                            request.at("offset").get<std::size_t>(),
-                                           request.value("tool", std::string{}));
+                                           request.value("tool", std::string{}),
+                                           request.value("new_name", std::string{}));
                     return editor.semantic_task_.state();
                 }));
             methods.push_back(automation_method(

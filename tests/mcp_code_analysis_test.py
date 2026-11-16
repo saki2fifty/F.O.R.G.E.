@@ -123,13 +123,52 @@ for legacy in protocol_cases():
                     selected = read('forge_code_read', path='Native/Spinner.cpp')
                     assert selected['text'] == draft and selected['selection']['active'] and selected['selection']['bytes'] > 0
                     assert selected['can_undo'] == before_selection['can_undo'] and selected['can_redo'] == before_selection['can_redo']
+                    rename_draft = draft + '\nfloat rename_probe(float rename_rate) { return rename_rate + rename_rate; }\n'
+                    assert mutate('forge_code_replace', **(observed_args() | dict(text=rename_draft)))['ok']
+                    before_rename = read('forge_code_read', path='Native/Spinner.cpp')
+                    rename_args = observed_args() | dict(kind='rename', offset=len(rename_draft[:rename_draft.index('rename_rate')].encode()), new_name='angular_speed')
+                    before_name_validation = read('forge_code_analysis_status')['operation']
+                    for invalid_name in ('', 'x' * 257, 42):
+                        route = discovery()
+                        rejected_name = client.tool('forge_code_analysis_start', target=route['result']['target'],
+                            expected_revision=route['revision'], sequence=route['next_sequence'],
+                            **(rename_args | dict(new_name=invalid_name)))
+                        assert not rejected_name['ok'], rejected_name
+                        assert read('forge_code_analysis_status')['operation'] == before_name_validation
+                        assert read('forge_code_read', path='Native/Spinner.cpp') == before_rename
+                    route = discovery()
+                    wrong_kind = client.tool('forge_code_analysis_start', target=route['result']['target'],
+                        expected_revision=route['revision'], sequence=route['next_sequence'],
+                        **(rename_args | dict(kind='completion')))
+                    assert not wrong_kind['ok'], wrong_kind
+                    assert read('forge_code_analysis_status')['operation'] == before_name_validation
+                    assert mutate('forge_code_analysis_start', **rename_args)['ok']
+                    rename = settle()
+                    assert rename['complete'] and rename['total'] == 1 and rename['new_name'] == 'angular_speed', rename
+                    assert rename['scope'] == 'current_context' and rename['exhaustive'] is False and 'source_edits' not in rename
+                    expected_rename = draft + '\nfloat rename_probe(float angular_speed) { return angular_speed + angular_speed; }\n'
+                    assert rename['items'][0]['text'] == expected_rename and rename['items'][0]['edit_count'] == 3
+                    assert read('forge_code_read', path='Native/Spinner.cpp') == before_rename
+                    route = discovery()
+                    apply_rename = dict(target=route['result']['target'], expected_revision=route['revision'],
+                                        sequence=route['next_sequence'], operation=rename['operation'], index=0)
+                    applied = client.tool('forge_code_analysis_use', **apply_rename)
+                    assert applied['ok'] and client.tool('forge_code_analysis_use', **apply_rename) == applied
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == expected_rename
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == rename_draft
+                    assert mutate('forge_code_redo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == expected_rename
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
                     before_signature = read('forge_code_read', path='Native/Spinner.cpp')
                     started = mutate('forge_code_analysis_start', **(observed_args() | dict(kind='format', offset=args['offset'])))
                     assert started['ok'], started
                     status = settle()
                     assert status['complete'] and status['total'] == 1, status
                     proposal = status['items'][0]
-                    assert proposal['edit_count'] == 2 and 'format_edits' not in status
+                    assert proposal['edit_count'] == 2 and 'format_edits' not in status and 'source_edits' not in status
                     assert read('forge_code_read', path='Native/Spinner.cpp') == before_signature
                     route = discovery()
                     request = dict(target=route['result']['target'], expected_revision=route['revision'],

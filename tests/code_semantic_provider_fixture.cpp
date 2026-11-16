@@ -8,6 +8,22 @@
 #include <io.h>
 #endif
 
+namespace {
+bool identifier_byte(unsigned char c) {
+    return c >= 128 || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+           c == '_';
+}
+std::pair<std::size_t, std::size_t> fixture_identifier(const std::string& text,
+                                                       std::size_t offset) {
+    auto begin = offset, end = offset;
+    while (begin && identifier_byte(text[begin - 1]))
+        --begin;
+    while (end < text.size() && identifier_byte(text[end]))
+        ++end;
+    return {begin, end};
+}
+} // namespace
+
 // Deterministic protocol peer, not a semantic compiler. Real-provider evidence
 // uses a separately installed tool; this fixture exercises trust boundaries.
 int main() {
@@ -79,6 +95,7 @@ int main() {
                       {"definitionProvider", mode != "locations-unavailable"},
                       {"implementationProvider", mode != "locations-unavailable"},
                       {"selectionRangeProvider", mode != "selection-unavailable"},
+                      {"renameProvider", mode != "rename-unavailable"},
                       {"typeDefinitionProvider", mode != "locations-unavailable"},
                       {"documentFormattingProvider", mode != "format-unavailable"},
                       {"hoverProvider", mode != "hover-unavailable"}}}};
@@ -245,6 +262,71 @@ int main() {
                         result["signatures"].push_back(item);
                     result["activeSignature"] = 64;
                 }
+            } else if (method == "textDocument/rename") {
+                const auto& parameters = request.at("params");
+                const auto uri = parameters.at("textDocument").at("uri").get<std::string>();
+                const auto& text = drafts.at(uri);
+                const auto offset = forge::cpp_semantic_offset(text, parameters.at("position"));
+                const auto [first, last] = fixture_identifier(text, offset);
+                const auto word = text.substr(first, last - first);
+                if (word.empty())
+                    throw std::runtime_error("Choose a fixture source name");
+                Json edits = Json::array();
+                for (std::size_t from = 0;;) {
+                    const auto begin = text.find(word, from);
+                    if (begin == text.npos)
+                        break;
+                    const auto end = begin + word.size();
+                    from = end;
+                    if ((begin && identifier_byte(text[begin - 1])) ||
+                        (end < text.size() && identifier_byte(text[end])))
+                        continue;
+                    edits.push_back({{"range",
+                                      {{"start", forge::cpp_semantic_position(text, begin)},
+                                       {"end", forge::cpp_semantic_position(text, end)}}},
+                                     {"newText", parameters.at("newName")}});
+                }
+                result = {{"changes", {{uri, edits}}}};
+                const auto other =
+                    forge::local_file_url(std::filesystem::current_path() / "Native/Other.hpp");
+                if (mode == "rename-null")
+                    result = nullptr;
+                else if (mode == "rename-empty")
+                    result = {{"changes", Json::object()}};
+                else if (mode == "rename-count")
+                    result["changes"] = Json::array();
+                else if (mode == "rename-other")
+                    result = {{"changes", {{other, edits}}}};
+                else if (mode == "rename-multi")
+                    result["changes"][other] = edits;
+                else if (mode == "rename-foreign")
+                    result = {
+                        {"changes",
+                         {{forge::local_file_url(std::filesystem::current_path().parent_path() /
+                                                 "Outside/Private.hpp"),
+                           edits}}}};
+                else if (mode == "rename-document-changes")
+                    result = {{"documentChanges", Json::array()}};
+                else if (mode == "rename-resource")
+                    result["documentChanges"] =
+                        Json::array({{{"kind", "rename"}, {"oldUri", uri}, {"newUri", other}}});
+                else if (mode == "rename-annotations")
+                    result["changeAnnotations"] = {
+                        {"confirmation", {{"label", "Unreviewed"}, {"needsConfirmation", true}}}};
+                else if (mode == "rename-annotated-edit")
+                    result["changes"][uri][0]["annotationId"] = "confirmation";
+                else if (mode == "rename-command")
+                    result["changes"][uri][0]["command"] = {{"command", "No execution allowed"}};
+                else if (mode == "rename-range")
+                    result["changes"][uri].back()["range"]["end"]["character"] = 999999;
+                else if (mode == "rename-overlap")
+                    result["changes"][uri].push_back(edits.at(0));
+                else if (mode == "rename-split") {
+                    auto point = forge::cpp_semantic_position(text, text.find("\xC3\xA9"));
+                    point["character"] = point["character"].get<std::size_t>() + 1;
+                    result["changes"][uri].back()["range"]["start"] = point;
+                } else if (mode == "rename-disordered")
+                    std::reverse(result["changes"][uri].begin(), result["changes"][uri].end());
             } else if (method == "textDocument/formatting") {
                 const auto& params = request.at("params");
                 if (params.contains("position") || params.at("options").at("tabSize") != 4 ||
@@ -321,15 +403,7 @@ int main() {
                 const auto& text = drafts.at(uri);
                 const auto offset =
                     forge::cpp_semantic_offset(text, parameters.at("positions").at(0));
-                auto begin = offset, end = offset;
-                const auto identifier = [](unsigned char c) {
-                    return c >= 128 || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-                           (c >= '0' && c <= '9') || c == '_';
-                };
-                while (begin && identifier(text[begin - 1]))
-                    --begin;
-                while (end < text.size() && identifier(text[end]))
-                    ++end;
+                const auto [begin, end] = fixture_identifier(text, offset);
                 const auto range = [&](std::size_t first, std::size_t last) {
                     return Json{{"start", forge::cpp_semantic_position(text, first)},
                                 {"end", forge::cpp_semantic_position(text, last)}};

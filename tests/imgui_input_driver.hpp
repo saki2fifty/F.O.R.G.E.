@@ -86,7 +86,7 @@ class ImGuiInputDriver {
     }
 
   public:
-    void type(const char* key, const char* value) {
+    void type(const char* key, const char* value, bool submit = true) {
         auto& io = ImGui::GetIO();
 
         click(key);
@@ -97,10 +97,12 @@ class ImGuiInputDriver {
         io.AddKeyEvent(ImGuiMod_Ctrl, false);
         io.AddInputCharactersUTF8(value);
         frame_();
-        io.AddKeyEvent(ImGuiKey_Enter, true);
-        frame_();
-        io.AddKeyEvent(ImGuiKey_Enter, false);
-        frame_();
+        if (submit) {
+            io.AddKeyEvent(ImGuiKey_Enter, true);
+            frame_();
+            io.AddKeyEvent(ImGuiKey_Enter, false);
+            frame_();
+        }
     }
 };
 } // namespace forge::test

@@ -845,7 +845,7 @@ body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
     external = '<rml><body><p>External</p></body></rml>'
     (root / 'Game' / path).write_text(external, encoding='utf-8')
     failed(mutate('forge_ui_source_save', **guard(state)), 'source_conflict')
-    assert (root / 'Game' / path).read_text() == external
+    assert (root / 'Game' / path).read_text(encoding='utf-8') == external
     failed(mutate('forge_ui_source_reload', **guard()), 'unsaved_source')
     reloaded = edit('reload', discard=True)
     assert reloaded['session'] != state['session'] and not reloaded['dirty']
@@ -927,5 +927,5 @@ body {display:block;width:100%;height:100%;font-family:Lato;font-size:20px;}
     assert edit('undo')['text'] == state['text']
     edit('save')
     edit('close')
-    assert 'blue' in (root / 'Game' / style).read_text()
+    assert 'blue' in (root / 'Game' / style).read_text(encoding='utf-8')
     assert read('forge_scene_read') == before_scene
