@@ -110,10 +110,43 @@ for legacy in protocol_cases():
             assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original
             mutate('forge_code_undo', **observed())
             assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
+            clean = completed.replace('s.degrees_per_second }', '(void)s.degrees_per_second; }')
+            for case in ('clean', 'unicode-error', 'unsaved-header'):
+                text = clean
+                if case == 'unicode-error':
+                    text += '\nvoid diagnostic_probe() { float café = 1; (void)café; missing_symbol(); }\n'
+                if case == 'unsaved-header':
+                    header = read('forge_code_read', path='Native/Spinner.hpp')
+                    mutate('forge_code_replace', **{key: header[key] for key in ('path', 'session', 'state')},
+                           text='#pragma once\nstruct Spinner { MissingType degrees_per_second; };\n')
+                mutate('forge_code_replace', **observed(), text=text)
+                diagnostic_before = read('forge_code_read', path='Native/gameplay.cpp')
+                mutate('forge_code_analysis_start', **observed(), kind='diagnostics', offset=0, tool=PROVIDER)
+                result = settle('forge_code_analysis_status')
+                (root / ('analysis-diagnostic-' + case + '-result.json')).write_text(json.dumps(result, indent=2))
+                assert result['complete'] and not result['stale'] and result['occurred_at'], result
+                assert read('forge_code_read', path='Native/gameplay.cpp') == diagnostic_before
+                if case == 'clean':
+                    assert result['total'] == 0, result
+                else:
+                    assert result['total'] > 0, result
+                    if case == 'unicode-error':
+                        error = next(item for item in result['items'] if 'missing_symbol' in item['message'])
+                        assert error['begin'] == len(text[:text.index('missing_symbol')].encode()), error
+                    else:
+                        error = next(item for item in result['items'] if 'MissingType' in item['message'])
+                    assert error['severity'] == 'Error' and error['path'] == 'Native/gameplay.cpp', error
+                    mutate('forge_code_analysis_use', operation=result['operation'], index=error['index'])
+                    source = read('forge_code_read', path='Native/gameplay.cpp')
+                    assert source['text'] == text and source['cursor']['line'] == error['line']
+                assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original
+                assert (root / 'Native/Spinner.hpp').read_bytes() == header_saved
+                mutate('forge_code_undo', **observed())
+                assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
         finish_host(process, root)
     finally:
         write_capture(CAPTURE)
         if process.poll() is None:
             finish_host(process, root)
 write_capture(CAPTURE)
-print('Real separately installed provider, genuine managed SDK CMake context, unsaved completion/Undo/declaration, Unicode call signatures and clean native shutdown passed')
+print('Real separately installed provider, genuine managed SDK CMake context, unsaved completion/Undo/declaration, Unicode call signatures, versioned diagnostics/clean-code/unsaved-header checks and clean native shutdown passed')

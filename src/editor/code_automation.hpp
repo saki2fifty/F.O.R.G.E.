@@ -258,7 +258,8 @@ struct CodeAutomation {
             "Read the current C++ analysis result in bounded pages. This never launches tooling; "
             "Results belong to the exact queried drafts and compiler context. Call signatures "
             "are read-only; active indices refer to the full result, before pagination. "
-            "Use code.analysis.use to apply a completion or open a project declaration.",
+            "Diagnostics carry receive date/time, severity, message and a guarded source location. "
+            "Use code.analysis.use to apply a completion or navigate a declaration/diagnostic.",
             "code.read",
             automation_object(
                 {{"offset", automation_integer()}, {"limit", automation_integer(1, 8)}}),
@@ -275,6 +276,8 @@ struct CodeAutomation {
                 result["items"] = Json::array();
                 const auto& response = editor.semantic_task_.result();
                 if (!response.is_null()) {
+                    if (response.contains("occurred_at"))
+                        result["occurred_at"] = response.at("occurred_at");
                     if (response.at("kind").get<std::string>() == "signature") {
                         result["readonly"] = true;
                         result["active_signature"] = response.at("active_signature");
@@ -453,8 +456,10 @@ struct CodeAutomation {
             methods.push_back(automation_method(
                 "code.analysis.use",
                 "Use an available result of the exact analysis operation. Completion changes "
-                "the existing source tab with one Undo record; declaration opens only a contained "
-                "Native source. Reject changed drafts, disk inputs or compiler generation. "
+                "the existing source tab with one Undo record; declaration/diagnostic opens only a "
+                "contained "
+                "Native source. Signatures are read-only. Reject changed drafts, disk inputs or "
+                "compiler generation. "
                 "Does not save files or execute provider commands.",
                 "code.write",
                 automation_object(
@@ -518,7 +523,8 @@ struct CodeAutomation {
         if (permissions.execute) {
             methods.push_back(automation_method(
                 "code.analysis.start",
-                "Query completion, declaration or read-only call signature information at a UTF-8 "
+                "Query completion, declaration, read-only call signatures or source diagnostics at "
+                "a UTF-8 "
                 "byte offset in the observed open "
                 "C++ tab, using all current open drafts and the existing configured CMake context. "
                 "Requires optional clangd 23.1.0 and a project build this session. Optional tool "
@@ -530,7 +536,8 @@ struct CodeAutomation {
                      {"session", automation_uuid()},
                      {"state", automation_digest()},
                      {"kind",
-                      {{"type", "string"}, {"enum", {"completion", "declaration", "signature"}}}},
+                      {{"type", "string"},
+                       {"enum", {"completion", "declaration", "signature", "diagnostics"}}}},
                      {"offset", automation_integer(0, ui::max_cpp_source_bytes)},
                      {"tool", automation_text(4096, 1)}},
                     {"path", "session", "state", "kind", "offset"}),

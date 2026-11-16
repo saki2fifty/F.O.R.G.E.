@@ -167,7 +167,45 @@ Json normalized_declarations(const Json& response, const ProjectPaths& paths,
     }
     return {{"items", std::move(output)}, {"limited", locations.size() > 64}};
 }
+Json normalized_diagnostics(const Json& response, const std::filesystem::path& target,
+                            const std::string& text) {
+    const auto& diagnostics = response.at("diagnostics");
+    require(diagnostics.is_array(), "C++ diagnostics reply needs a diagnostic list");
+    Json items = Json::array();
+    const auto state = ui::cpp_source_state(text);
+    const auto path = path_utf8(target);
+    for (const auto& diagnostic : diagnostics) {
+        if (items.size() == 64)
+            break;
+        const auto& range = diagnostic.at("range");
+        const auto begin = cpp_semantic_offset(text, range.at("start"));
+        const auto end = cpp_semantic_offset(text, range.at("end"));
+        require(begin <= end, "Reversed C++ diagnostic range");
+        const auto severity = diagnostic.value("severity", Json(0));
+        require(severity.is_number_integer() && severity.get<std::int64_t>() >= 0 &&
+                    severity.get<std::int64_t>() <= 4,
+                "C++ diagnostic severity needs an integer from zero through four");
+        static constexpr const char* severities[]{"Diagnostic", "Error", "Warning", "Information",
+                                                  "Hint"};
+        const auto [line, column] = ui::cpp_source_coordinate(text, begin);
+        items.push_back({{"message", semantic_string(diagnostic.at("message"), 8192)},
+                         {"code", semantic_string(diagnostic.value("code", Json("")), 2048)},
+                         {"severity", severities[severity.get<std::size_t>()]},
+                         {"available", true},
+                         {"reason", ""},
+                         {"path", path},
+                         {"state", state},
+                         {"begin", begin},
+                         {"end", end},
+                         {"line", line + 1},
+                         {"column", column + 1}});
+    }
+    return {{"items", std::move(items)}, {"limited", diagnostics.size() > 64}};
+}
 class SemanticTransport {
+    const ProjectPaths& paths_;
+    std::filesystem::path diagnostic_source_;
+    Json diagnostics_;
     SDL_Process* process_ = nullptr;
     SDL_IOStream *input_ = nullptr, *output_ = nullptr;
     Uint64 deadline_ = SDL_GetTicks() + 30000;
@@ -220,18 +258,50 @@ class SemanticTransport {
         require(length.has_value(), "C++ semantic reply has no length");
         std::string body(*length, '\0');
         transfer(body.data(), body.size(), false);
-        return asset_detail::parse_bounded_json(std::as_bytes(std::span(body.data(), body.size())),
-                                                frame_limit);
+        auto message = asset_detail::parse_bounded_json(
+            std::as_bytes(std::span(body.data(), body.size())), frame_limit);
+        require(message.is_object() && message.value("jsonrpc", "") == "2.0",
+                "Invalid C++ semantic response envelope");
+        return message;
+    }
+    bool notification(const Json& message) {
+        if (!message.contains("method"))
+            return false;
+        if (message.contains("id")) {
+            send({{"id", message.at("id")},
+                  {"error", {{"code", -32601}, {"message", "Client commands are disabled"}}}});
+        } else if (!diagnostic_source_.empty() &&
+                   message.at("method") == "textDocument/publishDiagnostics") {
+            const auto& params = message.at("params");
+            const auto file = local_file_url_path(semantic_string(params.at("uri"), 8192));
+            std::filesystem::path locator;
+            try {
+                locator = paths_.relative(file);
+            } catch (const std::exception&) {
+                return true; // External diagnostics never authorize a source read.
+            }
+            if (paths_.same_locator(locator, diagnostic_source_)) {
+                require(params.at("version").is_number_integer() &&
+                            params.at("version").get<std::int64_t>() == 1,
+                        "C++ diagnostic reply does not match the queried draft version");
+                require(params.at("diagnostics").is_array(),
+                        "C++ diagnostics reply needs a diagnostic list");
+                diagnostics_ = params;
+            }
+        }
+        return true;
     }
 
   public:
     SemanticTransport(const SemanticTransport&) = delete;
     SemanticTransport& operator=(const SemanticTransport&) = delete;
-    SemanticTransport(const std::string& tool, const std::filesystem::path& project,
-                      const std::filesystem::path& context) {
+    SemanticTransport(const std::string& tool, const ProjectPaths& paths,
+                      const std::filesystem::path& context,
+                      std::filesystem::path diagnostic_source = {})
+        : paths_(paths), diagnostic_source_(std::move(diagnostic_source)) {
         require(!tool.empty() && tool.size() <= 8192 && tool.find('\0') == tool.npos,
                 "Choose a clangd 23.1.0 executable");
-        const auto directory = path_utf8(project);
+        const auto directory = path_utf8(paths.root());
         const auto database = "--compile-commands-dir=" + path_utf8(context);
         const char* args[]{tool.c_str(),
                            "--enable-config=false",
@@ -298,15 +368,8 @@ class SemanticTransport {
         send({{"id", id}, {"method", method}, {"params", std::move(params)}});
         for (unsigned i = 0; i < 512; ++i) {
             auto message = receive();
-            require(message.is_object() && message.value("jsonrpc", "") == "2.0",
-                    "Invalid C++ semantic response envelope");
-            if (message.contains("method")) {
-                if (message.contains("id"))
-                    send({{"id", message.at("id")},
-                          {"error",
-                           {{"code", -32601}, {"message", "Client commands are disabled"}}}});
+            if (notification(message))
                 continue;
-            }
             require(message.contains("id") && message.at("id").get<std::int64_t>() == id,
                     "C++ semantic response does not match the current query");
             require(message.contains("result") && !message.contains("error"),
@@ -314,6 +377,14 @@ class SemanticTransport {
             return message.at("result");
         }
         throw std::runtime_error("C++ semantic notification budget exhausted");
+    }
+    Json diagnostics() {
+        for (unsigned i = 0; i < 512; ++i) {
+            if (!diagnostics_.is_null())
+                return diagnostics_;
+            require(notification(receive()), "Unexpected C++ diagnostic response");
+        }
+        throw std::runtime_error("C++ diagnostic notification budget exhausted");
     }
     void finish() {
         call("shutdown", nullptr);
@@ -371,8 +442,9 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     require(request.is_object() && request.at("version").get<std::int64_t>() == 1,
             "Unsupported C++ semantic query version");
     const auto kind = request.at("kind").get<std::string>();
-    require(kind == "completion" || kind == "declaration" || kind == "signature",
-            "Choose completion, declaration or signature information");
+    require(kind == "completion" || kind == "declaration" || kind == "signature" ||
+                kind == "diagnostics",
+            "Choose completion, declaration, signature or diagnostics");
     const ProjectPaths paths(std::filesystem::u8path(request.at("project").get<std::string>()));
     const auto context = paths.resolve(
         paths.relative(std::filesystem::u8path(request.at("context").get<std::string>())));
@@ -407,7 +479,8 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
                 request.at("offset").get<std::int64_t>() >= 0,
             "Use a nonnegative source byte offset");
     const auto position = cpp_semantic_position(text, request.at("offset").get<std::size_t>());
-    SemanticTransport transport(request.at("tool").get<std::string>(), paths.root(), context);
+    SemanticTransport transport(request.at("tool").get<std::string>(), paths, context,
+                                kind == "diagnostics" ? target : std::filesystem::path{});
     const auto initialized = transport.call(
         "initialize",
         {{"processId", nullptr},
@@ -415,7 +488,8 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
          {"capabilities",
           {{"general", {{"positionEncodings", {"utf-8"}}}},
            {"textDocument",
-            {{"completion",
+            {{"publishDiagnostics", {{"versionSupport", true}}},
+             {"completion",
               {{"completionItem", {{"snippetSupport", false}, {"insertReplaceSupport", false}}}}},
              {"signatureHelp",
               {{"signatureInformation",
@@ -451,18 +525,22 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     open_document(target, text);
     (void)transport.call("textDocument/documentSymbol",
                          {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}}});
-    auto response = transport.call(
-        "textDocument/" + (kind == "signature" ? std::string("signatureHelp") : kind),
-        {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}},
-         {"position", position}});
+    auto response =
+        kind == "diagnostics"
+            ? transport.diagnostics()
+            : transport.call("textDocument/" +
+                                 (kind == "signature" ? std::string("signatureHelp") : kind),
+                             {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}},
+                              {"position", position}});
     transport.finish();
     const auto current_database =
         asset_storage::read(context / "compile_commands.json", 16 * 1024 * 1024);
     require(current_database && ui::cpp_source_state(*current_database) == context_state,
             "C++ compiler context changed during analysis; query again");
-    auto result = kind == "completion"  ? normalized_completions(response, text)
-                  : kind == "signature" ? normalized_signatures(response)
-                                        : normalized_declarations(response, paths, documents);
+    auto result = kind == "completion"    ? normalized_completions(response, text)
+                  : kind == "signature"   ? normalized_signatures(response)
+                  : kind == "diagnostics" ? normalized_diagnostics(response, target, text)
+                                          : normalized_declarations(response, paths, documents);
     result.update({{"version", 1},
                    {"id", request.at("id")},
                    {"kind", kind},

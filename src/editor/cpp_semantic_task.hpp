@@ -88,8 +88,9 @@ class CppSemanticTask {
                const std::string& kind, std::size_t offset, CppSearchDrafts drafts) {
         if (busy())
             throw std::runtime_error("Wait for C++ analysis or cancel the current query first");
-        if (kind != "completion" && kind != "declaration" && kind != "signature")
-            throw std::runtime_error("Choose completion, declaration or signature information");
+        if (kind != "completion" && kind != "declaration" && kind != "signature" &&
+            kind != "diagnostics")
+            throw std::runtime_error("Choose completion, declaration, signature or diagnostics");
         const auto source = drafts.find(std::filesystem::u8path(path));
         if (source == drafts.end() || offset > source->second.size() || drafts.size() > 64)
             throw std::runtime_error("Choose an open source position, with at most 64 open tabs");
@@ -185,6 +186,8 @@ class CppSemanticTask {
                 !result.at("items").is_array() || result.at("items").size() > 64)
                 throw std::runtime_error("C++ analysis returned an invalid result envelope");
             stale_ = stale_ || gameplay_source_digest(project_) != disk_state_;
+            if (kind_ == "diagnostics")
+                result["occurred_at"] = event_time_local();
             result_ = std::move(result);
             log_.append("C++ analysis completed\n");
         } catch (const std::exception& error) {

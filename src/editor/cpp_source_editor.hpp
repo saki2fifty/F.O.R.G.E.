@@ -141,7 +141,8 @@ class CppSourceEditor {
             throw std::runtime_error("Choose an available C++ analysis result");
         // Own the row before any source operation can invalidate the derived result.
         const auto item = items.at(index);
-        if (result.at("kind").get<std::string>() == "declaration") {
+        if (result.at("kind").get<std::string>() == "declaration" ||
+            result.at("kind").get<std::string>() == "diagnostics") {
             open(project, item.at("path").get<std::string>(), item.at("line").get<int>(),
                  item.at("column").get<int>(), item.at("state").get<std::string>());
             return;
@@ -594,10 +595,15 @@ class CppSourceEditor {
             "Optional clangd 23.1.0. Build Project Code once this session to prepare "
             "the compiler context. Queries use current open drafts.");
         ImGui::BeginDisabled(locked || !active_ || semantic_task_.busy());
-        for (const auto* kind : {"completion", "declaration", "signature"}) {
-            const auto label = std::string_view(kind) == "completion"  ? "Complete"
-                               : std::string_view(kind) == "signature" ? "Signature help"
-                                                                       : "Find declaration";
+        bool first_button = true;
+        for (const auto* kind : {"completion", "declaration", "signature", "diagnostics"}) {
+            const auto label = std::string_view(kind) == "completion"    ? "Complete"
+                               : std::string_view(kind) == "signature"   ? "Signature help"
+                               : std::string_view(kind) == "diagnostics" ? "Check source"
+                                                                         : "Find declaration";
+            if (!first_button)
+                next_text_button(label);
+            first_button = false;
             if (button(label, "Analyze the current cursor without saving or changing source."))
                 attempt([&] {
                     const auto cursor = active_->editor.GetCursorPosition();
@@ -606,16 +612,15 @@ class CppSourceEditor {
                                     cpp_source_byte_offset(text, cursor.mLine, cursor.mColumn));
                 });
             FORGE_UI_PROBE(std::string("cpp:analysis:") + kind);
-            ImGui::SameLine();
         }
         ImGui::EndDisabled();
         if (semantic_task_.busy()) {
+            next_text_button("Cancel analysis");
             if (button("Cancel analysis",
                        "Cancel this query through the existing task supervisor."))
                 attempt([&] { semantic_task_.cancel(semantic_task_.operation()); });
             FORGE_UI_PROBE("cpp:analysis:cancel");
-        } else
-            ImGui::NewLine();
+        }
         if (semantic_task_.stale())
             ImGui::TextWrapped("Source or compiler context changed. Run analysis again.");
         if (!semantic_task_.error().empty())
@@ -624,13 +629,19 @@ class CppSourceEditor {
         if (!result.is_null()) {
             ImGui::PushID(semantic_task_.operation().c_str());
             const bool signature = result.at("kind").get<std::string>() == "signature";
+            const bool diagnostics = result.at("kind").get<std::string>() == "diagnostics";
             if (signature)
                 ImGui::TextUnformatted("Call signatures (read-only)");
-            ImGui::BeginChild("Analysis results", {0, signature ? 160.f : 100.f},
+            if (diagnostics)
+                ImGui::TextWrapped("Diagnostics received: %s",
+                                   result.at("occurred_at").get_ref<const std::string&>().c_str());
+            ImGui::BeginChild("Analysis results", {0, signature || diagnostics ? 160.f : 100.f},
                               ImGuiChildFlags_Borders);
             const auto& items = result.at("items");
             if (items.empty())
-                ImGui::TextUnformatted("No results at this cursor.");
+                ImGui::TextUnformatted(diagnostics
+                                           ? "No diagnostics reported for this source draft."
+                                           : "No results at this cursor.");
             for (std::size_t i = 0; i < items.size(); ++i) {
                 const auto& item = items.at(i);
                 if (signature) {
@@ -658,11 +669,19 @@ class CppSourceEditor {
                     continue;
                 }
                 ImGui::PushID(static_cast<int>(i));
+                if (diagnostics)
+                    ImGui::TextWrapped("%s: %s",
+                                       item.at("severity").get_ref<const std::string&>().c_str(),
+                                       item.at("message").get_ref<const std::string&>().c_str());
                 ImGui::BeginDisabled(locked || semantic_task_.stale() ||
                                      !item.at("available").get<bool>());
                 const auto label =
                     result.at("kind").get<std::string>() == "completion"
                         ? item.at("label").get<std::string>()
+                    : diagnostics
+                        ? item.at("path").get<std::string>() + ":" +
+                              std::to_string(item.at("line").get<int>()) + ":" +
+                              std::to_string(item.at("column").get<int>())
                         : item.value("path", item.value("file", std::string("Declaration")));
                 if (ImGui::Selectable(label.c_str()))
                     attempt([&] { use_semantic_result(project, semantic_task_.operation(), i); });

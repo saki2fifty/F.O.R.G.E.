@@ -140,10 +140,26 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
         capture.save(captures / ("cpp-signature-" + std::to_string(width) + ".png"));
     editor.undo(false);
     check(editor.active_text() == completed, "Read-only signature added a source Undo record");
+    editor.undo(true);
+    frame();
+    input.click("cpp:analysis:diagnostics");
+    wait_result();
+    check(editor.active_text() == call_draft &&
+              ui::read_cpp_source(root / "Native/gameplay.cpp") == saved &&
+              scene.document() == authored,
+          "Diagnostic query changed the source or Scene");
+    input.select("cpp:analysis:use:0");
+    reveal_source();
+    if (!captures.empty())
+        capture.save(captures / ("cpp-diagnostics-" + std::to_string(width) + ".png"));
+    editor.undo(false);
+    check(editor.active_text() == completed, "Diagnostic navigation added a source Undo record");
     locked = true;
     frame();
     check(!test::ui_targets.at("cpp:analysis:signature").enabled,
           "Native signature query bypassed the source lock");
+    check(!test::ui_targets.at("cpp:analysis:diagnostics").enabled,
+          "Native diagnostic query bypassed the source lock");
     editor.project_changed(root / "DifferentProject");
     test::observe_ui = false;
 }

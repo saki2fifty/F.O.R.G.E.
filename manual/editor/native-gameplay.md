@@ -63,7 +63,7 @@ The built-in source editor provides C++ highlighting, line numbers, source-only
 Undo/Redo, **Ctrl+F** and **Find next**. A file changed outside FORGE shows a
 notice; a conflicting Save keeps your draft, and **Reload from disk** asks before
 discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
-be open. Optional code assistance provides completion, declaration lookup and call signatures. Debugging,
+be open. Optional code assistance provides completion, declaration lookup, call signatures and source diagnostics. Debugging,
 project-wide refactoring and arbitrary in-place C++ reload are unavailable.
 
 ## Find code across the project
@@ -99,7 +99,7 @@ default; turning it off ignores ASCII letter case. Non-ASCII text keeps its exac
 spelling. **Whole word** treats letters, digits, underscores and non-ASCII bytes
 as word content, so `speed` does not match `speeds` or `_speed`.
 
-## Complete code, find declarations and inspect calls
+## Complete code, inspect calls and check source
 
 Code assistance uses a separately installed clangd 23.1.0. It analyzes C++ and
 suggests edits; your matching SDK compiler still builds the game. Normal source
@@ -110,11 +110,17 @@ editing and building work without this optional tool.
 3. Open a source in **C++ Sources** and expand **Code assistance**. Place the cursor after a partial member name, such as `rotator.sp`, and choose **Complete**. Click an available suggestion to replace its proposed source range. Source Undo/Redo restores that edit in one step.
 4. Place the cursor within an existing symbol and choose **Find declaration**. Click an available Native path to open its declaration. Existing tabs, unsaved drafts and source history are retained.
 5. Place the cursor inside a function call, after the opening parenthesis or an argument separator, and choose **Signature help**. The read-only list shows available overloads, plain-text documentation when supplied, and **Argument N** for the active parameter. This does not insert text, move the cursor, save files or add an Undo record. Rerun as you move between arguments.
+6. Choose **Check source** to analyze the active source draft. **Diagnostics received** shows the local date, time and offset of the returned snapshot. Rows show severity and message; click a Native path/line/column to navigate without changing source or adding Undo. A completed empty list says **No diagnostics reported for this source draft.** Missing, mismatched or failed provider data produces an error instead.
 
 ![C++ Sources showing a function call signature and its active second argument](../images/cpp-code-assistance.png)
 
 Signature help identifies the active argument without changing the draft. Choose
 **Complete** when you need a source suggestion, then use **Save source** when ready.
+
+![C++ Sources showing timestamped errors and warnings with clickable source locations](../images/cpp-source-diagnostics.png)
+
+Choose **Check source**, then click a reported path and location to inspect that
+part of the current draft. Diagnostics remain separate from source Undo and Save.
 
 Queries include current open source and header drafts. They do not save files,
 compile the game, apply changes automatically or run commands suggested by the
@@ -135,6 +141,13 @@ to supported source/header files under **Native/**; SDK and external declaration
 are displayed as unavailable. Source limits remain 1 MiB per file and 32 open tabs.
 Analysis has a bounded timeout; it is separate from game compilation and is not a
 debugger or a project-wide refactoring service.
+
+**Check source** is an explicit snapshot of the active file, including issues from
+unsaved headers that the provider reports at that file. It does not continuously
+check edits, apply fixes or collect every project file. A provider message can
+mention a fix; edit the source yourself because automatic fixes are unavailable. Rerun after source/context
+changes. Use **Build Project Code** to verify the actual compiler result; its
+**Compiler output** and the Problems panel retain their existing workflows.
 
 ## Run an ECS system on worker stages
 

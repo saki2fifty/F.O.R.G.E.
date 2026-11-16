@@ -64,7 +64,7 @@ for legacy in protocol_cases():
                         assert read('forge_code_analysis_status')['operation'] is None
                         continue
                     assert tools['forge_code_analysis_start']['annotations']['openWorldHint']
-                    assert 'signature' in tools['forge_code_analysis_start']['inputSchema']['properties']['kind']['enum']
+                    assert {'signature', 'diagnostics'}.issubset(tools['forge_code_analysis_start']['inputSchema']['properties']['kind']['enum'])
                     assert not tools['forge_code_analysis_use']['annotations']['openWorldHint']
                     assert mutate('forge_code_open', path='Native/Spinner.cpp')['ok']
                     assert mutate('forge_code_replace', **observed_args(), text=draft)['ok']
@@ -111,6 +111,18 @@ for legacy in protocol_cases():
                     refused = mutate('forge_code_analysis_use', operation=status['operation'], index=0)
                     assert not refused['ok'] and 'read-only' in str(refused), refused
                     assert read('forge_code_read', path='Native/Spinner.cpp') == before_signature
+                    diagnostic_before = read('forge_code_read', path='Native/Spinner.cpp')
+                    started = mutate('forge_code_analysis_start', **(observed_args() | dict(kind='diagnostics', offset=args['offset'])))
+                    assert started['ok'], started
+                    status = settle()
+                    assert status['complete'] and status['total'] == 1, status
+                    diagnostic = status['items'][0]
+                    assert diagnostic['severity'] == 'Warning' and diagnostic['code'] == 'fixture-warning'
+                    assert status['occurred_at'] and diagnostic['path'] == 'Native/Spinner.cpp'
+                    assert read('forge_code_read', path='Native/Spinner.cpp') == diagnostic_before
+                    assert mutate('forge_code_analysis_use', operation=status['operation'], index=0)['ok']
+                    source = read('forge_code_read', path='Native/Spinner.cpp')
+                    assert source['text'] == draft and source['cursor']['line'] == diagnostic['line']
                     started = mutate('forge_code_analysis_start', **(observed_args() | dict(kind='completion', offset=args['offset'])))
                     assert started['ok'], started
                     status = settle()

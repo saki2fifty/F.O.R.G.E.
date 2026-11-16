@@ -847,10 +847,17 @@ error text. Signature status adds `readonly:true`, `active_signature` and
 Active indices refer to the full retained result before status pagination. A
 limited/missing parameter has a null active marker; an empty call context succeeds
 with no items. Labels support Unicode and carry no offset encoding ambiguity.
+Diagnostic status adds `occurred_at` (local receive date/time/offset). Rows expose
+`message`, optional-empty `code`, `severity` (Diagnostic/Error/Warning/Information/Hint),
+contained `path`/`state`, UTF8 `begin`/`end` and one-based visual `line`/`column`.
+Only a matching target draft/version publication can complete, including a valid
+zero-row publication. Missing/malformed/versionless data fails closed. Results are
+bounded to64rows; status pagination and stale/cancel/context guards are shared.
+Only the queried file is collected; unrelated/external diagnostic content is omitted.
 Logs retain timestamps and bounded UTF-8 paging.
 
 With `code.execute`, `forge_code_analysis_start` requires an observed source
-`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`) and UTF-8 byte
+`path`, `session`, `state`, `kind` (`completion`/`declaration`/`signature`/`diagnostics`) and UTF-8 byte
 `offset`. Optional `tool` overrides the configured clangd23.1.0 path for that
 launch only. The managed project must have a successful CMake configure this
 session through Build Project Code; a compiler readiness probe is a different
@@ -863,7 +870,7 @@ its proposals. Only one query is active; project retirement clears old results/l
 With `code.write`, `forge_code_analysis_use` takes the operation UUID and result
 index0..63. It rechecks project, operation, all drafts, saved Native input identity,
 compiler generation and database before using the existing source owner. Completion
-adds one ordinary source Undo record; declaration navigates without changing source.
+adds one ordinary source Undo record; declaration/diagnostic navigates without changing source.
 Signature results reject this operation as read-only and preserve source/cursor/history.
 Neither saves or builds. Normal routing/revision/sequence, permissions, pending
 source-close and authoring locks apply. Reusing an acknowledged mutation sequence

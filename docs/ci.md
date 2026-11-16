@@ -3042,6 +3042,8 @@ software component/native checks do not imply full Main/Windows/physical review.
 a deterministic protocol peer: completion/Undo/Redo, declaration navigation,
 read-only signatures/overloads/Unicode parameter labels/documentation, zero/empty/
 limited results, malformed signature replies and retired information contexts,
+versioned diagnostic publication ordering/empty/missing/external/malformed cases,
+receive timestamps and guarded diagnostic navigation,
 changed dependencies and compiler generations, malformed/version/exit failures,
 unsupported commands/external declarations, cancellation and project retirement.
 Successful queries require provider exit0 and supervisor retirement. Forced error
@@ -3060,6 +3062,8 @@ capture path. It builds a genuine managed CMake context, analyzes an unsaved hea
 from another source, applies/undoes the member completion and navigates back to the
 header and inspects a read-only call with Unicode/astral parameter names through
 both MCP envelopes. Signature queries preserve source bytes, cursor and Undo.
+Actual diagnostic checks cover clean code, UTF8 error ranges and unsaved headers
+through both adapters; diagnostic navigation preserves source bytes and Undo.
 Actual build/deployment outcomes are retained;
 Linux's Windows-only deployment refusal is distinct from successful configuration
 and analysis. The native control executable also accepts an existing project and

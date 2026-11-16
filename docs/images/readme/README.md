@@ -3818,18 +3818,23 @@ their original attribution.
 
 ## C++ code assistance
 
-[Code assistance](../../../manual/images/cpp-code-assistance.png) is the actual
-700×850 CppSourceEditor using a separately installed clangd23.1.0 and a genuine
-managed GNU12.3.0/Release SDK CMake context. It shows the call site, returned
-read-only signature, active second argument and plain-text function documentation.
-Real controls also apply/Undo completion and navigate a resolved declaration;
-saved source and Scene remain unchanged. The fixture passes1180/700/400 widths;
-700and400captures were visually reviewed. Real pointer/wheel input reveals the
-call site and moves away from hover help. No pixels or controls are edited.
+[Call signatures](../../../manual/images/cpp-code-assistance.png) and
+[source diagnostics](../../../manual/images/cpp-source-diagnostics.png) show the
+actual700×850 CppSourceEditor using a separately installed clangd23.1.0 and a
+genuine managed GNU12.3.0/Release SDK CMake context. Signature information shows
+the call site and active second parameter. The diagnostic capture shows deliberate
+current-draft errors/warnings, receive date/time/offset, clickable Native locations
+and the selected source line. These views do not imply compiler success or fixes.
 
-Capture source is the working tree based on6c9c9d6. Exact source, executable,
-provider and image hashes, original paths and test command are recorded in
-`AgentFiles/build/phase365-cpp-call-signatures/capture-proof-final.json`.
-The canonical PNG is copied byte-for-byte. This software SDL/ImGui source-owner
-fixture has inactive New/build callbacks; it is separate from Windows Main,
+The same real-control fixture passes1180/700/400 widths, completion/Undo, declaration,
+signatures and diagnostic navigation. Both700and400versions were visually reviewed.
+Check source wraps onto another line at400. Real mouse/wheel input reveals the
+source and moves away from hover help; pixels and controls are not retouched.
+Saved source and Scene remain unchanged; diagnostic navigation adds no source Undo.
+
+Capture source is the working tree based on49c3787. Exact source, executable,
+provider and image hashes, original paths and the test command are recorded in
+`AgentFiles/build/phase366-cpp-source-diagnostics/capture-proof-final.json`.
+Each canonical PNG is copied byte-for-byte. This software SDL/ImGui source-owner
+fixture has inactive New/build callbacks; it is separate from Windows Main/provider,
 physical desktop/GPU/DPI and performance acceptance.

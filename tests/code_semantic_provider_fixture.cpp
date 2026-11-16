@@ -21,6 +21,10 @@ int main() {
         const std::string mode = selected ? selected : "normal";
         std::map<std::string, std::string> drafts;
         std::string ready;
+        const auto send = [](const Json& value) {
+            const auto reply = value.dump();
+            std::cout << "Content-Length: " << reply.size() << "\r\n\r\n" << reply << std::flush;
+        };
         for (;;) {
             std::string line;
             if (!std::getline(std::cin, line))
@@ -43,6 +47,7 @@ int main() {
             if (!request.contains("id"))
                 continue;
             Json result;
+            Json delayed;
             if (method == "initialize") {
                 const auto& signature = request.at("params")
                                             .at("capabilities")
@@ -68,6 +73,47 @@ int main() {
             } else if (method == "textDocument/documentSymbol") {
                 ready = request.at("params").at("textDocument").at("uri").get<std::string>();
                 result = Json::array();
+                const auto& text = drafts.at(ready);
+                const auto begin = text.find("degrees_per_second");
+                Json diagnostics = Json::array();
+                if (begin != text.npos) {
+                    Json item{{"range",
+                               {{"start", forge::cpp_semantic_position(text, begin)},
+                                {"end", forge::cpp_semantic_position(text, begin + 18)}}},
+                              {"severity", 2},
+                              {"code", "fixture-warning"},
+                              {"message", "Test warning for current source."}};
+                    diagnostics.push_back(item);
+                    if (mode == "diagnostic-limited")
+                        for (int i = 1; i != 65; ++i)
+                            diagnostics.push_back(item);
+                }
+                if (mode == "diagnostic-empty")
+                    diagnostics = Json::array();
+                if (mode == "diagnostic-range")
+                    diagnostics[0]["range"]["start"]["character"] = 999999;
+                if (mode == "diagnostic-severity")
+                    diagnostics[0]["severity"] = 5;
+                if (mode == "diagnostic-oversized")
+                    diagnostics[0]["message"] = std::string(8193, 'x');
+                Json notification{
+                    {"jsonrpc", "2.0"},
+                    {"method", "textDocument/publishDiagnostics"},
+                    {"params", {{"uri", ready}, {"version", 1}, {"diagnostics", diagnostics}}}};
+                if (mode == "diagnostic-version")
+                    notification["params"]["version"] = 0;
+                if (mode == "diagnostic-unversioned")
+                    notification["params"].erase("version");
+                if (mode == "diagnostic-external") {
+                    auto external = notification;
+                    external["params"]["uri"] = forge::local_file_url(
+                        std::filesystem::current_path().parent_path() / "Outside/Private.hpp");
+                    send(external);
+                }
+                if (mode == "diagnostic-late")
+                    delayed = notification;
+                else if (mode != "diagnostic-missing")
+                    send(notification);
             } else if (method == "textDocument/completion") {
                 if (ready != request.at("params").at("textDocument").at("uri").get<std::string>())
                     throw std::runtime_error("Completion ran before initial document readiness");
@@ -137,13 +183,15 @@ int main() {
                        {{"start", forge::cpp_semantic_position(text, begin)},
                         {"end", forge::cpp_semantic_position(text, begin + 18)}}}}});
             }
-            const auto reply =
-                Json{{"jsonrpc", "2.0"}, {"id", request.at("id")}, {"result", result}}.dump();
             if (mode == "bad-frame") {
                 std::cout << "Content-Length: 9000000\r\n\r\n" << std::flush;
                 return 0;
             }
-            std::cout << "Content-Length: " << reply.size() << "\r\n\r\n" << reply << std::flush;
+            send(Json{{"jsonrpc", "2.0"}, {"id", request.at("id")}, {"result", result}});
+            if (!delayed.is_null())
+                send(delayed);
+            if (mode == "diagnostic-missing" && method == "textDocument/documentSymbol")
+                return 0;
         }
     } catch (const std::exception& error) {
         std::cerr << "Semantic protocol fixture: " << error.what() << '\n';

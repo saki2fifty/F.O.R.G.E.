@@ -489,7 +489,7 @@ changed source returns `stale_source`. Search never grants editing or execution.
 See [Find code across the project](native-gameplay.md) for matching rules and limits.
 
 With execution allowed and the optional supported provider installed, the agent
-can request member completion, a declaration or read-only call signatures at an observed source byte offset. Signature status lists overloads, documentation and the active parameter; it never inserts source text or adds Undo.
+can request member completion, a declaration, read-only call signatures or source diagnostics at an observed source byte offset. Signature status lists overloads, documentation and the active parameter; it never inserts source text or adds Undo. Diagnostic status carries receive date/time, severity, message and a guarded source location. A completed empty publication is distinct from missing or failed provider data; use a location to navigate without editing.
 Use `forge_code_analysis_start`, then poll `forge_code_analysis_status` and
 `forge_code_analysis_log`; those result reads do not launch tools. The project
 needs a managed **Build Project Code** configuration in this editor session.

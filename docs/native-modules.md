@@ -157,7 +157,7 @@ values, including prefab intent, scene persistence and Undo/Redo.
 
 ## Optional C++ source analysis
 
-`CppSourceEditor` owns one ephemeral completion/declaration/signature task over its existing
+`CppSourceEditor` owns one ephemeral completion/declaration/signature/diagnostic task over its existing
 open drafts. An optional separately installed clangd23.1.0 is the analysis provider;
 its exact revision and options are recorded in [dependencies](dependencies.md).
 The SDK compiler, source files, source history and authoring ownership are unchanged.
@@ -190,6 +190,15 @@ active indices. Missing/truncated active parameters have a null marker. Signatur
 results are read-only: there is no application, source edit, Save or Undo. The
 existing compiler operation generation cheaply marks information stale when a
 new build/configuration retires its context; it does not scan files on each paint.
+
+Explicit diagnostics collect only version1 publications for the contained target
+draft, alongside existing AST readiness. Missing/versionless/mismatched data cannot
+become a successful empty result. UTF8 ranges, message/code/severity and64rows are
+validated/bounded; unrelated external publications authorize no source read. The
+finite task stamps receipt using the existing local event-time helper. Navigation
+shares declaration/source guards and adds no source Undo/Save. Compiler logs and
+Problems retain their owners; no second problem database or background provider
+service is introduced.
 
 Queries snapshot all open drafts, saved Native build-input identity and the actual
 compile-database digest. Response/apply checks preserve project, operation,

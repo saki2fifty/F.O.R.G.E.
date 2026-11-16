@@ -376,6 +376,44 @@ int main(int argc, char** argv) {
                       std::string("Untrusted signature reply was accepted: ") + mode);
         }
         SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+        const auto diagnostic_source = invoke("code.read", {{"path", "Native/First.cpp"}});
+        start_analysis("diagnostics");
+        analysis = settle_analysis();
+        check(analysis.at("complete") && analysis.at("total") == 1 &&
+                  analysis.at("items").at(0).at("severity") == "Warning" &&
+                  analysis.at("items").at(0).at("code") == "fixture-warning" &&
+                  !analysis.at("occurred_at").get<std::string>().empty() &&
+                  invoke("code.read", {{"path", "Native/First.cpp"}}) == diagnostic_source,
+              "Diagnostics lost severity/date/source guards or changed source during query");
+        use_analysis(analysis);
+        check(editor.active_text() == draft &&
+                  invoke("code.read", {{"path", "Native/First.cpp"}}).at("cursor").at("line") ==
+                      analysis.at("items").at(0).at("line"),
+              "Diagnostic navigation changed source or chose the wrong line");
+        for (const auto* mode :
+             {"diagnostic-late", "diagnostic-empty", "diagnostic-external", "diagnostic-limited",
+              "diagnostic-version", "diagnostic-unversioned", "diagnostic-range",
+              "diagnostic-severity", "diagnostic-oversized", "diagnostic-missing"}) {
+            SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", mode, true);
+            start_analysis("diagnostics");
+            analysis = settle_analysis();
+            const std::string_view selected(mode);
+            if (selected == "diagnostic-late" || selected == "diagnostic-external")
+                check(analysis.at("complete") && analysis.at("total") == 1,
+                      "Diagnostics did not wait for or filter the target notification");
+            else if (selected == "diagnostic-empty")
+                check(analysis.at("complete") && analysis.at("total") == 0,
+                      "A valid empty diagnostic publication was refused");
+            else if (selected == "diagnostic-limited")
+                check(analysis.at("complete") && analysis.at("limited") &&
+                          analysis.at("total") == 64,
+                      "Diagnostics exceeded their result budget");
+            else
+                check(!analysis.at("complete").get<bool>() &&
+                          !analysis.at("error").get<std::string>().empty(),
+                      std::string("Malformed or missing diagnostics accepted: ") + mode);
+        }
+        SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
         const auto cancelled = start_analysis();
         invoke("code.analysis.cancel", {{"operation", cancelled.at("operation")}});
         analysis = settle_analysis();
