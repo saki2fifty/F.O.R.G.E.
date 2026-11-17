@@ -1,4 +1,10 @@
-# Aim a camera at an object
+# Follow and aim a camera
+
+Use Camera Aim to turn a view toward an object, and Camera Follow to place its
+eye relative to an object. Both are components on the Camera entity and can be
+used together. The entity's Transform remains its base pose.
+
+## Aim at an object
 
 **Camera Aim** turns a Camera's view toward another Scene object. The camera stays
 at its authored position, and meshes, lights and children on its entity keep their
@@ -43,3 +49,41 @@ transform omits that camera and reports the reason in Problems. Select a valid
 target or disable Camera Aim to restore it. Reflected, collapsed or sheared camera
 frames remain invalid; aiming does not repair them. A target uses its node pose,
 so aiming one camera at another does not create a recursive view dependency.
+
+## Follow target position
+
+1. Create or select a Camera. Choose **Add Component** in Inspector and add **Camera Follow**.
+2. Choose the object to follow in **Target**. Keep **Enabled** on and **Weight** at **1**.
+3. Set **Offset X**, **Offset Y** and **Offset Z** to place the camera eye away from the target. The defaults are **0**, **2** and **-6**.
+4. Choose **World** in **Offset Space** for offsets in world metres. Choose **Target** for offsets along the target's own axes, including its rotation, scale and parents.
+5. Add **Camera Aim** to the same Camera and assign its Target when the view should face an object. The eye follows first, then the view aims from that eye.
+6. Press Play and open Game. Move or animate the target to see the camera follow. Stop and save the Scene before exporting with the matching runtime kit.
+
+![Camera Follow Inspector with target, offsets, weight and World coordinate space](../images/camera-follow-controls.png)
+
+Weight **1** uses the target plus its offset. **0** uses the Camera's own resolved
+Transform. Intermediate values blend these positions. Following does not add a
+delay or avoid obstacles. Its target always supplies its node pose; another
+camera's derived view does not feed back into this calculation.
+
+The Transform fields keep your base camera pose. Adjust the Follow offsets or
+move the target to change the followed eye. The Scene camera icon and view volume
+show the derived eye; transform handles stay with the authored node. Attached
+meshes, lights and children keep their ordinary node poses.
+
+During Play, **Live gameplay** exposes Enabled, Weight, the offsets and Offset
+Space. Assign Target in Edit. Stop and review **Keep runtime values** to retain
+selected changes, then save. A reusable Prefab can contain both the camera and
+its target: each placed instance then keeps its own target binding.
+
+Open **220-camera-follow** in the Feature Gallery. The Camera follows a yellow
+cube and aims above its center. Blue cubes and a floor show the camera's motion.
+Select **Following Camera - derived eye and aim** to compare both components.
+The Scene includes its light and transform animation and needs no project C++
+module. Save and select this Scene as startup before exporting.
+
+A missing, foreign or unresolved Follow target omits that camera and reports the
+reason in Problems. Clear Target, disable Follow or choose a valid object to
+restore a valid view. Keep the eye away from its aim point when using both
+components: coincident points cannot define a viewing direction. Invalid Camera
+frames retain the restrictions described above.

@@ -89,6 +89,22 @@ or later; larger lists require capability 11. Older receiving Shader cooks keep 
 original capacities and complete-set fallback. Source normal scale and per-channel
 UV transforms are retained; clearcoat and optics remain with the receiving material.
 
+## Camera Follow values
+
+`forge::CameraFollow` in `forge/render_components.hpp` derives a Camera's eye
+from a stable same-Scene `EntityRef target`, offset and weight. Default offset
+is(0,2,-6). `offset_space` is `std::uint32_t(CameraFollowSpace::World)` or
+`std::uint32_t(CameraFollowSpace::Target)`; World offsets are metres and Target
+offsets use the complete resolved target frame. Keep offsets finite and Weight
+in[0,1]. The native Camera frame must remain valid. Following runs before Camera
+Aim in the shared view resolver, without writing node TRS or creating another clock.
+
+The installed `camera_output_gameplay` sample checks the public Follow layout and
+sets Weight0.25, Offset Y1.5 and Target space during fixed ticks, preserving its
+target binding. The same sample exercises Camera, Aim and UI fields. Rebuild
+modules with the matching exact SDK fingerprint; Camera/Aim layouts and ABI1
+tables are unchanged.
+
 ## Camera Aim values
 
 Include `forge/render_components.hpp` and use `forge::CameraAim` on an entity

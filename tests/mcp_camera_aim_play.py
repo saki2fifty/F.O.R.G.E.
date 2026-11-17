@@ -3,7 +3,7 @@ from math import sqrt
 from mcp_test_client import failed
 
 
-def check_camera_aim_play(read, ok, control, mutate, until, discovery, client, arguments):
+def check_camera_aim_play(read, ok, control, mutate, until, discovery, client, arguments, follow=False):
     ok('forge_document_open', path='Scenes/68-sequence-camera-shots.scene.json', discard=True)
     source = read('forge_scene_read')
     rows = {row['id']: row for row in source['entities']}
@@ -28,6 +28,26 @@ def check_camera_aim_play(read, ok, control, mutate, until, discovery, client, a
         configured = read('forge_scene_read')
         assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before
         assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == configured
+    if follow:
+        follow_schema = next(row for row in discovery()['result']['schema']['components'] if row['id'] == 'forge.camera_follow')
+        follow_fields = {row['id']: row for row in follow_schema['fields']}
+        assert follow_schema['optional'] and set(follow_fields) == set(fields) | {'offset_space'}
+        assert follow_fields['offset_space']['default'] == 0
+        for actor in (outgoing, incoming):
+            ok('forge_component_add', arguments=dict(entity=actor, component='forge.camera_follow'))
+            before_follow = read('forge_scene_read')
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.camera_follow', values=dict(
+                enabled=True, target=dict(scene=source['asset_id'], entity=target),
+                offset_x=1, offset_y=2, offset_z=-6, offset_space=0, weight=1)))
+            configured_follow = read('forge_scene_read')
+            assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_follow
+            assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == configured_follow
+        ok('forge_property_set_many', arguments=dict(entity=target, component='forge.local_scale',
+                                                    values=dict(x=2, y=3, z=4)))
+        revision = discovery()['revision']
+        refused = mutate('forge_property_set', arguments=dict(entity=outgoing, component='forge.camera_follow',
+                          field='offset_space', value=.5))
+        assert not refused['ok'] and discovery()['revision'] == revision
     before = discovery()['revision']
     refused = mutate('forge_property_set', arguments=dict(entity=outgoing, component='forge.camera_aim', field='weight', value=1.1))
     assert not refused['ok'] and discovery()['revision'] == before
@@ -55,15 +75,16 @@ def check_camera_aim_play(read, ok, control, mutate, until, discovery, client, a
     empty_output = read('forge_play_cameras', width=800, height=600,
                         output='8f5cb432-1032-450e-89b4-8bbf088dcc95')
     assert empty_output['total'] == 0 and empty_output['cameras'] == []
-    state = read('forge_play_status')
-    refused = mutate('forge_play_tune', launch=state['launch'], session=state['session'],
-                     generation=state['generation'], entity=outgoing, component='forge.camera_aim',
-                     property='target', value=dict(scene=source['asset_id'], entity=target))
-    if refused['ok']:
-        # SDK Play admits reflected requests before the native owner validates them.
-        acknowledgement = until(lambda: read('forge_play_status'),
-                                lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
-        assert not acknowledgement['tune_ack']['ok'], acknowledgement
+    for component in (('forge.camera_aim', 'forge.camera_follow') if follow else ('forge.camera_aim',)):
+        state = read('forge_play_status')
+        refused = mutate('forge_play_tune', launch=state['launch'], session=state['session'],
+                         generation=state['generation'], entity=outgoing, component=component,
+                         property='target', value=dict(scene=source['asset_id'], entity=target))
+        if refused['ok']:
+            # SDK Play admits reflected requests before the native owner validates them.
+            acknowledgement = until(lambda: read('forge_play_status'),
+                                    lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+            assert not acknowledgement['tune_ack']['ok'], acknowledgement
     assert discovery()['revision'] == inspection_revision
     control('forge_play_watch', entity=controller)
     until(lambda: read('forge_play_animation'), lambda row: row.get('value') and row['value'].get('available'))
@@ -95,6 +116,12 @@ def check_camera_aim_play(read, ok, control, mutate, until, discovery, client, a
         offset = [aim[key] for key in ('offset_x', 'offset_y', 'offset_z')]
         focus = [target_matrix[4*r+3] + sum(target_matrix[4*r+c]*offset[c] for c in range(3)) for r in range(3)]
         eye = [base['world_affine'][index] for index in (3, 7, 11)]
+        tracking = base['components'].get('forge.camera_follow')
+        if tracking and tracking['enabled'] and tracking['weight']:
+            delta = [tracking[key] for key in ('offset_x', 'offset_y', 'offset_z')]
+            desired = [target_matrix[4*r+3] + (delta[r] if tracking['offset_space'] == 0
+                       else sum(target_matrix[4*r+c]*delta[c] for c in range(3))) for r in range(3)]
+            eye = [a + (b-a)*tracking['weight'] for a, b in zip(eye, desired)]
         toward = unit([point-place for point, place in zip(focus, eye)])
         native = forward(base['world_affine'], base['components']['forge.camera'])
         if aim['weight'] == 0:
@@ -116,6 +143,16 @@ def check_camera_aim_play(read, ok, control, mutate, until, discovery, client, a
     until(observation, lambda value: at_aim(value, incoming))
     control('forge_play_animation_control', entity=controller, operation='seek', position_seconds=start)
     until(observation, lambda value: at_aim(value, outgoing))
+    if follow:
+        for field, value in (('weight', .25), ('offset_space', 1), ('offset_y', 1.5),
+                             ('enabled', False), ('enabled', True)):
+            control('forge_play_tune', entity=outgoing, component='forge.camera_follow', property=field, value=value)
+            until(observation, lambda observed: observed[0][outgoing]['components']['forge.camera_follow'][field] == value
+                  and at_aim(observed, outgoing))
+        before_invalid = snapshot()[outgoing]['components']['forge.camera_follow']
+        control('forge_play_tune', entity=outgoing, component='forge.camera_follow', property='offset_space', value=.5)
+        ack = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+        assert not ack['tune_ack']['ok'] and snapshot()[outgoing]['components']['forge.camera_follow'] == before_invalid
     for weight in (0, .5):
         control('forge_play_tune', entity=outgoing, component='forge.camera_aim', property='weight', value=weight)
         until(observation, lambda value: value[0][outgoing]['components']['forge.camera_aim']['weight'] == weight and at_aim(value, outgoing))
@@ -130,6 +167,8 @@ def check_camera_aim_play(read, ok, control, mutate, until, discovery, client, a
                   entity=outgoing, component='forge.camera_aim', property='weight', value=1), 'stale_play')
     review = control('forge_play_tuning_capture', entity=outgoing)
     assert {'weight', 'offset_y'} <= {row['property'] for row in review['fields'] if row['component'] == 'forge.camera_aim'}
+    if follow:
+        assert {'weight', 'offset_y', 'offset_space'} <= {row['property'] for row in review['fields'] if row['component'] == 'forge.camera_follow'}
     control('forge_play_stop')
     assert read('forge_scene_read') == authored
     review = read('forge_play_tuning_read')

@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**220-camera-follow** follows a moving yellow cube and aims above its center.
+Blue cubes and the floor show the camera's motion. Inspect **Camera Follow** and
+**Camera Aim** on the following Camera to adjust its eye and viewing direction.
+Its camera, light and animation are included; no project C++ module is needed.
+Save and select this Scene as startup before export. See [Camera following](../editor/camera-aim.md).
+
 **219-camera-aim** follows a moving yellow cube from a stationary Camera. Blue
 cubes and a floor show the change in viewing direction. Select the Camera and
 inspect **Camera Aim** to change its target, local offsets and turn weight. The

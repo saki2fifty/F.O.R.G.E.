@@ -8,7 +8,9 @@ namespace forge::detail {
 using Json = nlohmann::json;
 Json render_value(const Camera&);
 Json render_value(const CameraAim&);
+Json render_value(const CameraFollow&);
 CameraAim camera_aim_value(const Json&);
+CameraFollow camera_follow_value(const Json&);
 Json render_value(const Light&);
 Json render_value(const DecalProjector&);
 DecalProjector decal_value(const Json&);

@@ -406,7 +406,8 @@ ParticleEmitter particle_emitter_value(const Json& p) {
     value.tint_b = p.value("tint_b", 1.f);
     return value;
 }
-Json render_value(const CameraAim& value) {
+namespace {
+template <class T> Json camera_target_fields(const T& value) {
     return {{"enabled", value.enabled},
             {"target", value.target.scene || value.target.entity ? Json(value.target) : Json()},
             {"offset_x", value.offset_x},
@@ -414,23 +415,46 @@ Json render_value(const CameraAim& value) {
             {"offset_z", value.offset_z},
             {"weight", value.weight}};
 }
-CameraAim camera_aim_value(const Json& source) {
-    CameraAim value;
-    value.enabled = source.value("enabled", true);
+template <class T>
+T camera_target_value(const Json& source, const char* label, const char* offset_label) {
+    T value;
+    value.enabled = source.value("enabled", value.enabled);
     if (const auto at = source.find("target"); at != source.end() && !at->is_null())
         value.target = at->get<EntityRef>();
-    value.offset_x = source.value("offset_x", 0.);
-    value.offset_y = source.value("offset_y", 0.);
-    value.offset_z = source.value("offset_z", 0.);
-    value.weight = source.value("weight", 1.);
+    value.offset_x = source.value("offset_x", value.offset_x);
+    value.offset_y = source.value("offset_y", value.offset_y);
+    value.offset_z = source.value("offset_z", value.offset_z);
+    value.weight = source.value("weight", value.weight);
     if (bool(value.target.scene) != bool(value.target.entity))
-        throw std::invalid_argument(
-            "Camera Aim target must contain both Scene and entity identities");
+        throw std::invalid_argument(std::string(label) +
+                                    " target must contain both Scene and entity identities");
     for (const auto offset : {value.offset_x, value.offset_y, value.offset_z})
         if (!std::isfinite(offset))
-            throw std::invalid_argument("Camera Aim target-local offsets must be finite");
+            throw std::invalid_argument(std::string(label) + " " + offset_label +
+                                        " must be finite");
     if (!std::isfinite(value.weight) || value.weight < 0 || value.weight > 1)
-        throw std::invalid_argument("Camera Aim weight must be finite and between zero and one");
+        throw std::invalid_argument(std::string(label) +
+                                    " weight must be finite and between zero and one");
+    return value;
+}
+} // namespace
+Json render_value(const CameraAim& value) { return camera_target_fields(value); }
+CameraAim camera_aim_value(const Json& source) {
+    return camera_target_value<CameraAim>(source, "Camera Aim", "target-local offsets");
+}
+Json render_value(const CameraFollow& value) {
+    auto result = camera_target_fields(value);
+    result["offset_space"] = value.offset_space;
+    return result;
+}
+CameraFollow camera_follow_value(const Json& source) {
+    auto value = camera_target_value<CameraFollow>(source, "Camera Follow", "offsets");
+    if (const auto at = source.find("offset_space"); at != source.end()) {
+        if (!at->is_number_integer() || *at < 0 || *at > 1)
+            throw std::invalid_argument(
+                "Camera Follow offset space must be integer World(0) or Target(1)");
+        value.offset_space = at->get<std::uint32_t>();
+    }
     return value;
 }
 Json render_value(const Camera& p) {

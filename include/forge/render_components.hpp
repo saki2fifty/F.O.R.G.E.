@@ -137,6 +137,16 @@ struct CameraAim {
     double weight = 1;
     bool operator==(const CameraAim&) const = default;
 };
+enum class CameraFollowSpace : std::uint32_t { World, Target };
+// Derive the Camera eye from a node target; other producers retain the authored pose.
+struct CameraFollow {
+    bool enabled = true;
+    EntityRef target;
+    double offset_x = 0, offset_y = 2, offset_z = -6;
+    double weight = 1;
+    std::uint32_t offset_space = std::uint32_t(CameraFollowSpace::World);
+    bool operator==(const CameraFollow&) const = default;
+};
 enum class LightKind : std::uint32_t { Directional, Point, Spot, Rectangle, Sphere };
 struct Light {
     bool enabled = true;

@@ -152,14 +152,15 @@ void frame_source(const std::filesystem::path& gallery, const std::filesystem::p
 // The stopped Timeline and its frame-export lease project the shared view after
 // Scene has resolved the copied animated hierarchy, exactly as the editor does.
 void camera_aim_frame_source(const std::filesystem::path& gallery,
-                             const std::filesystem::path& scratch) {
+                             const std::filesystem::path& scratch, bool following = false) {
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
     EngineContext engine;
     Scene scene(engine.world());
     SceneDocument project(scene);
     project.open_project(root);
-    project.open_scene("Scenes/219-camera-aim.scene.json");
+    project.open_scene(following ? "Scenes/220-camera-follow.scene.json"
+                                 : "Scenes/219-camera-aim.scene.json");
     const auto authored = scene.document();
     const auto revision = scene.revision();
     EntityRef sequence;
@@ -192,14 +193,14 @@ void camera_aim_frame_source(const std::filesystem::path& gallery,
               "Stopped Camera Aim frame lost its view");
         const auto u = time / 2;
         const auto x = -2 + 4 * u * u * (3 - 2 * u);
-        const auto distance = std::sqrt(x * x + 65);
+        const auto distance = following ? std::sqrt(38.25) : std::sqrt(x * x + 65);
         const auto& view = views.cameras[0].view;
-        expect_close(view.position[0], 0);
-        expect_close(view.position[1], 3);
-        expect_close(view.position[2], -8);
-        expect_close(view.forward[0], x / distance);
-        expect_close(view.forward[1], -1 / distance);
-        expect_close(view.forward[2], 8 / distance);
+        expect_close(view.position[0], following ? x : 0);
+        expect_close(view.position[1], following ? 3.5 : 3);
+        expect_close(view.position[2], following ? -6 : -8);
+        expect_close(view.forward[0], following ? 0 : x / distance);
+        expect_close(view.forward[1], (following ? -1.5 : -1) / distance);
+        expect_close(view.forward[2], (following ? 6 : 8) / distance);
     }
     timeline.end_frame_export(lease);
     check(scene.document() == authored && scene.revision() == revision,

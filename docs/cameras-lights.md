@@ -26,6 +26,38 @@ Nonuniform positive scale is removed from camera orientation and does not alter
 FOV or clipping distances. Explicit orthogonality and normalized determinant checks
 use a1e-5 tolerance, consistent with float-authored rotation and double evaluation.
 
+## Camera Follow
+
+`forge.camera_follow` is optional native `CameraFollow` in the installed
+`render_components.hpp`. It uses enabled/EntityRef target/XYZ offset/weight and
+`CameraFollowSpace` (World0, Target1). Defaults are enabled, unbound, offset(0,2,-6),
+weight1 and World. Offset-space JSON must be integer0or1; fractional, negative,
+unknown and narrowing-wrap values reject before mutation. Other finite/target/
+weight validation shares the existing Camera Aim value owner.
+
+The shared snapshot resolver validates the native Camera frame, follows position,
+then applies Camera Aim. World offsets add metres to the target's resolved node
+location; Target offsets transform by its complete resolved frame. `std::lerp`
+mixes each native eye coordinate toward the desired eye by Weight. Camera Shot
+endpoints consume this completed view before their existing interpolation. There
+is no motion integrator, damping, obstruction solver, transform writer, new clock
+or dependency recursion. Source TRS and other producers keep their native poses.
+
+Inactive/unbound/zero-weight following bypasses target lookup. Active invalid
+targets/nonfinite desired eyes produce `render.camera_follow.invalid` with
+`forge.camera_follow` and the original camera identity. Private
+`camera_follow_error` carries endpoint failures; existing `camera_aim_error`, Aim
+category/property and payload shape remain unchanged. A shared private failure
+base routes either kind without duplicating camera-authoring behavior.
+
+Typed defaults/enum/help/reference adapters share the normal Scene/Prefab/history
+owners. Native Inspector, live scalar/space review, generic automation and MCP use
+the same operations. Target assignment stays Edit-only. `play.cameras` includes
+both modifiers using its existing bounded projection owner and explicit extent.
+Matching SDK modules rebuild for the expanded public header; Camera/Aim layouts
+and ABI1 tables are unchanged. Gallery220 reuses existing animation and validates
+source/hidden relocated runtime; stopped frame sampling uses the same resolver.
+
 ## Camera Aim
 
 `forge.camera_aim` is the optional native `CameraAim` value in the installed
@@ -95,7 +127,7 @@ explicit float GPU conversion. Nonfinite, overflowed or underflowed projection
 coefficients reject before upload. `orientation_reversed` includes the imported
 view-basis and image-flip parity for the render owner; it is not authored truth.
 
-## Camera Aim validation and capture
+## Camera target validation and captures
 
 `camera_aim_math` uses independent angular/coordinate oracles for both forward
 bases, weights, roll, opposite/vertical targets, extreme finite directions and
@@ -117,6 +149,23 @@ GPU acceptance claim. `camera_output_process` and
 `native_sdk_camera_output_installed` exercise matching public layout/field access;
 the latter builds from the installed SDK and runs after relocation. The two
 `mcp_camera_aim_*` routes exercise ordinary/SDK Play over both framing formats.
+
+`camera_follow` adds independent weighted World/Target-space eye oracles, both
+forward bases, Aim composition, attached-producer isolation, self/mutual targets,
+coincidence and bounded input/failure checks. Shared authoring/Prefab tests verify
+both modifier references. `camera_follow_gallery` reuses the Gallery fixture's
+`--follow` profile for Scene220, including recovery and relocated two-asset closure.
+The shot and stopped-frame fixtures include composed Follow/Aim samples.
+
+`camera_follow_editor` uses the same actual Inspector fixture with `--follow`,
+including coordinate-space selection, target and numeric history at three scales.
+Its `--follow --capture image.png` option produces the canonical
+`manual/images/camera-follow-controls.png`, an unretouched 780 by 400 SDL/ImGui
+capture with the real Scene context. The reviewed image shows Moving target,
+offset(0,2,-6), Weight1 and World space after history restoration. The SDK process
+checks include native Follow fields. Both `mcp_camera_follow_*` routes additionally
+check composed eyes, space/weight/offset/enabled tuning, fractional-space refusal
+and runtime value review in ordinary/SDK Play over both framing formats.
 
 ## Punctual lights
 

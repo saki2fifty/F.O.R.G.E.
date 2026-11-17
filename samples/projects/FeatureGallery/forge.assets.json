@@ -8281,6 +8281,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "5cd012d0-ef9c-4e86-983c-1d3c0cce8bb0",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/220-camera-follow.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "5cd198a0-faf9-487f-ab7c-5d5269747cad",
       "metadata": {},
       "schema_version": 3,

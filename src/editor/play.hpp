@@ -295,6 +295,8 @@ class PlaySession {
                RuntimePropertyTune::camera_shot_property(property)) &&
              !(RuntimePropertyTune::camera_aim_type(type) &&
                RuntimePropertyTune::camera_aim_property(property)) &&
+             !(RuntimePropertyTune::camera_follow_type(type) &&
+               RuntimePropertyTune::camera_follow_property(property)) &&
              !(RuntimePropertyTune::state_condition_type(type) &&
                RuntimePropertyTune::state_condition_property(property)) &&
              !(RuntimePropertyTune::ui_values_type(type) &&

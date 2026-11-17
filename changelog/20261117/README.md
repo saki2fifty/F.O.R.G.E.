@@ -1,5 +1,14 @@
 # 2026-11-17
 
+## Camera Follow
+
+Camera Follow derives an eye position from a same-Scene target with weighted
+World or Target offsets. It composes before Camera Aim and Camera Shot blending,
+preserving native node poses and independent producers. Inspector, Prefab reference
+remapping, Scene history, live review, SDK and automation/MCP share the existing
+owners. An editable Gallery Scene demonstrates moving-target following, including
+source-free export and stopped Timeline frame sampling.
+
 ## Camera Aim
 
 Camera Aim follows a same-Scene target through a camera-only view correction,

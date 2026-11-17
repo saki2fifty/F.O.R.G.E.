@@ -11,6 +11,8 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char*, uint32_t) {
     const auto* info = ecs_get_type_info(world, type);
     const auto aim = world.component<forge::CameraAim>("forge.camera_aim");
     const auto* aim_info = ecs_get_type_info(world, aim);
+    const auto follow = world.component<forge::CameraFollow>("forge.camera_follow");
+    const auto* follow_info = ecs_get_type_info(world, follow);
     const auto ui = world.component<forge::UiDocument>("forge.ui_document");
     const auto* ui_info = ecs_get_type_info(world, ui);
     const auto surface = world.component<forge::UiSurfaceInput>("forge.ui_surface_input");
@@ -22,10 +24,20 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char*, uint32_t) {
            surface_info->size == sizeof(forge::UiSurfaceInput) &&
            surface_info->alignment == alignof(forge::UiSurfaceInput) && aim_info &&
            aim_info->size == sizeof(forge::CameraAim) &&
-           aim_info->alignment == alignof(forge::CameraAim);
+           aim_info->alignment == alignof(forge::CameraAim) && follow_info &&
+           follow_info->size == sizeof(forge::CameraFollow) &&
+           follow_info->alignment == alignof(forge::CameraFollow);
 }
 int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
     flecs::world world(host->world);
+    world.system<forge::CameraFollow>("project.AdjustCameraFollow")
+        .kind(host->fixed_phase)
+        .each([](forge::CameraFollow& follow) {
+            follow.weight = .25;
+            follow.offset_y = 1.5;
+            follow.offset_space = std::uint32_t(forge::CameraFollowSpace::Target);
+        })
+        .add(host->fixed_tag);
     world.system<forge::CameraAim>("project.AdjustCameraAim")
         .kind(host->fixed_phase)
         .each([](forge::CameraAim& aim) {

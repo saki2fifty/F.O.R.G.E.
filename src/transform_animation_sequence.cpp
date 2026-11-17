@@ -814,7 +814,7 @@ void TransformAnimationPlayback::project_camera_shots(Json& document, double alp
     const auto rows = detail::index_json_rows(document.at("entities"));
     const auto scene = document.at("asset_id").get<AssetId>();
     std::map<std::string, RenderCamera> candidate;
-    std::map<std::string, Json> aim_errors;
+    std::map<std::string, std::pair<const char*, Json>> view_errors;
     const auto read = [&](flecs::entity_t id) {
         const auto ref = context_.reference(id);
         if (!ref || !rows.contains(ref->entity.str()))
@@ -835,27 +835,32 @@ void TransformAnimationPlayback::project_camera_shots(Json& document, double alp
             auto value = blend_camera_shot(read(sample.previous->camera),
                                            read(sample.current->camera), sample.weight);
             candidate.emplace(value.entity.str(), std::move(value));
-        } catch (const detail::CameraAimFailure& error) {
+        } catch (const detail::CameraViewFailure& error) {
             const auto incoming = context_.reference(sample.current->camera);
             if (!incoming)
                 throw;
-            aim_errors.emplace(incoming->entity.str(),
-                               Json{{"entity", error.camera},
-                                    {"message", std::string(error.what()).substr(0, 4096)}});
+            view_errors.emplace(
+                incoming->entity.str(),
+                std::pair{error.projection_key(),
+                          Json{{"entity", error.camera},
+                               {"message", std::string(error.what()).substr(0, 4096)}}});
         }
     }
     // Build every view before publishing any override into this copied document.
     for (auto& row : document.at("entities")) {
         const auto& id = row.at("id").get_ref<const std::string&>();
-        if (const auto error = aim_errors.find(id); error != aim_errors.end()) {
+        if (const auto error = view_errors.find(id); error != view_errors.end()) {
             row.erase("camera_world_affine");
-            row["camera_aim_error"] = error->second;
+            row.erase("camera_aim_error");
+            row.erase("camera_follow_error");
+            row[error->second.first] = error->second.second;
             continue;
         }
         const auto at = candidate.find(id);
         if (at == candidate.end())
             continue;
         row.erase("camera_aim_error");
+        row.erase("camera_follow_error");
         const auto values = detail::render_value(at->second.camera);
         for (const auto* field : {"vertical_fov", "orthographic_height", "orthographic_width",
                                   "near_plane", "far_plane"})

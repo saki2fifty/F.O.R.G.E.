@@ -1,7 +1,13 @@
 #pragma once
 // Included beside the Camera Aim fixture and its independent view oracles.
 void authoring_and_instances(Fixture& f, const std::filesystem::path& scratch) {
+    CameraFollow follow;
+    follow.enabled = false;
+    follow.target = {f.scene.asset_id(), EntityId::parse(f.target)};
+    f.scene.entity(f.view).set(follow);
     auto source = f.scene.document();
+    row(source, f.view)["components"]["forge.camera_follow"]["future_follow"] = {
+        {"identity_like_text", f.target}, {"kept", true}};
     row(source, f.view)["components"]["forge.camera_aim"]["future_aim"] = {
         {"identity_like_text", f.target}, {"kept", true}};
     f.scene.edit(source);
@@ -18,6 +24,17 @@ void authoring_and_instances(Fixture& f, const std::filesystem::path& scratch) {
     check(f.scene.undo() && f.scene.document() == before && f.scene.redo() &&
               f.scene.document() == after && f.scene.undo() && f.scene.document() == before,
           "Camera Aim fields did not retain one ordinary history step");
+    authoring_command(f.scene, "property.set_many",
+                      {{"entity", f.view},
+                       {"component", "forge.camera_follow"},
+                       {"values", {{"offset_space", 1u}, {"weight", .25}, {"offset_x", 1.5}}}});
+    auto followed = f.scene.document();
+    check(f.scene.entity(f.view).get<CameraFollow>().offset_space == 1 &&
+              row(after, f.view)["components"]["forge.camera_follow"]["future_follow"] ==
+                  row(followed, f.view)["components"]["forge.camera_follow"]["future_follow"] &&
+              f.scene.undo() && f.scene.document() == before && f.scene.redo() &&
+              f.scene.document() == followed && f.scene.undo() && f.scene.document() == before,
+          "Camera Follow field transaction lost history or opaque data");
     const auto root = authoring_command(f.scene, "entity.create", {{"recipe", "empty"}})
                           .at("selected")
                           .get<std::string>();
@@ -42,6 +59,11 @@ void authoring_and_instances(Fixture& f, const std::filesystem::path& scratch) {
               row(copied, copy_camera)["components"]["forge.camera_aim"]["future_aim"]
                                       ["identity_like_text"] == f.target,
           "Camera Aim duplication failed typed remapping or searched opaque identity-like text");
+    check(f.scene.entity(copy_camera).get<CameraFollow>().target ==
+                  EntityRef{f.scene.asset_id(), EntityId::parse(copy_target)} &&
+              row(copied, copy_camera)["components"]["forge.camera_follow"]["future_follow"]
+                                      ["identity_like_text"] == f.target,
+          "Camera Follow duplication lost typed reference remapping or opaque text");
     check(f.scene.undo() && f.scene.document() == before_copy && f.scene.redo() &&
               f.scene.document() == copied,
           "Camera Aim subtree duplication changed identities across history");
@@ -54,6 +76,8 @@ void authoring_and_instances(Fixture& f, const std::filesystem::path& scratch) {
             check(reference.at("prefab") == Json(definition.asset()),
                   "Camera Aim Prefab capture did not use the definition reference owner");
             target_member = reference.at("member").get<PrefabMemberId>();
+            check(member.at("components").at("forge.camera_follow").at("target") == reference,
+                  "Camera Follow Prefab capture differs from the shared reference owner");
         }
     check(bool(camera_member) && bool(target_member), "Camera Aim Prefab references are missing");
     const PrefabSources definitions{{definition.asset(), definition.source}};
@@ -70,6 +94,8 @@ void authoring_and_instances(Fixture& f, const std::filesystem::path& scratch) {
         binding = {*camera_ref, *target_ref};
         check(f.scene.entity(camera_ref->entity.str()).get<CameraAim>().target == *target_ref,
               "Camera Aim instance retained a definition or another instance's target");
+        check(f.scene.entity(camera_ref->entity.str()).get<CameraFollow>().target == *target_ref,
+              "Camera Follow instance retained another scope's target");
     }
     check(bindings[0].second != bindings[1].second, "Camera Aim instances share a target identity");
     authoring_command(f.scene, "property.set",

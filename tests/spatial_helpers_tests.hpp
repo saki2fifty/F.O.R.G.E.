@@ -31,6 +31,20 @@ inline void test_camera_aim_spatial_helpers() {
     require(scene.document() == source &&
                 scene.entity(camera).get<LocalRotation>() == LocalRotation{},
             "Camera Aim guide changed the authored pose or source");
+    CameraFollow follow;
+    follow.target = aim.target;
+    follow.offset_y = 0;
+    follow.offset_z = -4;
+    scene.entity(camera).set(follow);
+    const auto followed_source = scene.document();
+    const auto followed = ui::spatial_markers(scene.effective_document(), 800, 600, 10);
+    require(followed.size() == 1 && followed[0].lines.size() == 12 &&
+                followed[0].position == Double3{10, 0, -4} &&
+                std::abs(followed[0].lines.front().second[2]) < 1e-6,
+            "Camera Follow icon/frustum differs from its derived eye and aimed direction");
+    require(scene.document() == followed_source &&
+                scene.entity(camera).get<LocalTranslation>() == LocalTranslation{0, 0, 0},
+            "Camera Follow guide changed the node pose or source");
     aim.target.entity = EntityId::generate();
     scene.entity(camera).set(aim);
     const auto unavailable = ui::spatial_markers(scene.effective_document(), 800, 600, 10);

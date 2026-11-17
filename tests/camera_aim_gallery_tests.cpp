@@ -12,7 +12,9 @@
 
 using namespace forge;
 namespace {
-constexpr auto scene_path = "Scenes/219-camera-aim.scene.json";
+const char* scene_path(bool following) {
+    return following ? "Scenes/220-camera-follow.scene.json" : "Scenes/219-camera-aim.scene.json";
+}
 void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
@@ -22,8 +24,9 @@ void near(double actual, double expected) {
         throw std::runtime_error("Camera Aim Gallery oracle: " + std::to_string(actual) + " vs " +
                                  std::to_string(expected));
 }
-void author(const std::filesystem::path& root) {
-    check(!std::filesystem::exists(root / scene_path), "Camera Aim Gallery already exists");
+void author(const std::filesystem::path& root, bool following) {
+    check(!std::filesystem::exists(root / scene_path(following)),
+          "Camera target Gallery already exists");
     EngineContext engine;
     Scene scene(engine.world());
     const auto create = [&](const char* name, const char* recipe = "empty") {
@@ -44,11 +47,18 @@ void author(const std::filesystem::path& root) {
     TransformAnimator motion{{AssetId::parse("a5fa9266-52e5-48da-9771-86cb37294118")}};
     motion.sequence = sequence;
     scene.entity(target).set(mesh).set(motion).set<LocalTranslation>({-2, 1.5, 0});
-    const auto camera = create("Tracking Camera - view correction only", "render.camera");
+    const auto camera = create(following ? "Following Camera - derived eye and aim"
+                                         : "Tracking Camera - view correction only",
+                               "render.camera");
     scene.entity(camera)
         .set<LocalTranslation>({0, 3, -8})
         .set<LocalRotation>({})
         .set<CameraAim>({true, {scene.asset_id(), EntityId::parse(target)}, 0, .5});
+    if (following) {
+        CameraFollow follow;
+        follow.target = {scene.asset_id(), EntityId::parse(target)};
+        scene.entity(camera).set(follow);
+    }
     for (int index = -2; index <= 2; ++index) {
         const auto id = create(("Blue reference " + std::to_string(index + 3)).c_str());
         mesh.material_parameters[0].parameter.value = std::array<float, 4>{.06f, .3f, .8f, 1};
@@ -58,9 +68,9 @@ void author(const std::filesystem::path& root) {
     mesh.material_parameters[0].parameter.value = std::array<float, 4>{.2f, .25f, .3f, 1};
     scene.entity(floor).set(mesh).set<LocalTranslation>({0, -.15, 1}).set<LocalScale>({14, .2, 10});
     create("Directional light", "render.light");
-    scene.save(root / scene_path);
+    scene.save(root / scene_path(following));
     auto catalog = AssetCatalog::open_project(root);
-    const auto record = catalog.add_scene(scene_path);
+    const auto record = catalog.add_scene(scene_path(following));
     catalog.save(AssetCatalog::project_index(root));
     const std::array roots{record.id};
     const ProjectLease lease(root);
@@ -88,6 +98,7 @@ Json exercise(const std::filesystem::path& root, const Json& source, const Json&
     }
     check(bool(sequence.entity) && !camera.empty(), "Camera Aim Gallery lost its actors");
     const auto original_camera = scene.entity(camera).get<LocalRotation>();
+    const bool following = scene.entity(camera).has<CameraFollow>();
     if (!recovery.is_null()) {
         animation->restore(recovery);
         check(animation->checkpoint() == recovery, "Camera Aim recovery changed its shared clock");
@@ -103,24 +114,29 @@ Json exercise(const std::filesystem::path& root, const Json& source, const Json&
         // SlidingDoor uses a cubic segment with zero endpoint translation tangents.
         const auto u = time / 2;
         const auto x = -2 + 4 * u * u * (3 - 2 * u);
-        const auto distance = std::sqrt(x * x + 65);
-        near(view.position[0], 0);
-        near(view.position[1], 3);
-        near(view.position[2], -8);
-        near(view.forward[0], x / distance);
-        near(view.forward[1], -1 / distance);
-        near(view.forward[2], 8 / distance);
+        const auto distance = following ? std::sqrt(38.25) : std::sqrt(x * x + 65);
+        near(view.position[0], following ? x : 0);
+        near(view.position[1], following ? 3.5 : 3);
+        near(view.position[2], following ? -6 : -8);
+        near(view.forward[0], following ? 0 : x / distance);
+        near(view.forward[1], (following ? -1.5 : -1) / distance);
+        near(view.forward[2], (following ? 6 : 8) / distance);
         check(scene.entity(camera).get<LocalRotation>() == original_camera,
               "Camera Aim Gallery changed native camera rotation");
+        const auto native_eye = scene.entity(camera).get<LocalTranslation>();
+        check(native_eye == LocalTranslation{0, 3, -8},
+              "Camera following changed native camera position");
     }
     return animation->checkpoint();
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3, "Need Gallery and scratch root, or --author and Gallery root");
+        const bool following = argc == 4 && std::string_view(argv[3]) == "--follow";
+        check(argc == 3 || following,
+              "Need Gallery and scratch root, or --author and Gallery root; optional --follow");
         if (std::string_view(argv[1]) == "--author") {
-            author(argv[2]);
+            author(argv[2], following);
             return 0;
         }
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
@@ -128,7 +144,7 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(scratch);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         Json source;
-        std::ifstream(root / scene_path) >> source;
+        std::ifstream(root / scene_path(following)) >> source;
         const auto checkpoint = exercise(root, source);
         exercise(root, source, checkpoint);
         const std::array roots{source.at("asset_id").get<AssetId>()};
@@ -141,7 +157,7 @@ int main(int argc, char** argv) {
         std::filesystem::rename(root, scratch / "SourcesOffline");
         exercise(relocated, load_game_scene(relocated, {roots[0]}));
         std::cout
-            << "Camera Aim animated target, native pose isolation, recovery and source-hidden "
+            << "Camera target animated view, native pose isolation, recovery and source-hidden "
                "relocated two-asset Gallery passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

@@ -549,6 +549,7 @@ int main(int argc, char** argv) {
             for (std::uint32_t curve = 0; curve < 4; ++curve)
                 camera_transition_frame_source(argv[2], argv[3], curve);
             camera_aim_frame_source(argv[2], argv[3]);
+            camera_aim_frame_source(argv[2], argv[3], true);
             std::cout << "Stopped Camera transition frame source, all timing curves and attached "
                          "producer isolation, and animated Camera Aim frame source PASS\n";
             return 0;

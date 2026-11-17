@@ -88,8 +88,10 @@ MESSAGES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--input-messages-only'
 UI_SEQUENCE_ONLY = sys.argv[7:] == ['--ui-sequence-only']
 CAMERA_TRANSITION_SDK = sys.argv[7:] == ['--camera-transition-sdk-only']
 CAMERA_TRANSITION_ONLY = sys.argv[7:] == ['--camera-transition-only'] or CAMERA_TRANSITION_SDK
-CAMERA_AIM_SDK = sys.argv[7:] == ['--camera-aim-sdk-only']
-CAMERA_AIM_ONLY = sys.argv[7:] == ['--camera-aim-only'] or CAMERA_AIM_SDK
+CAMERA_FOLLOW_SDK = sys.argv[7:] == ['--camera-follow-sdk-only']
+CAMERA_FOLLOW_ONLY = sys.argv[7:] == ['--camera-follow-only'] or CAMERA_FOLLOW_SDK
+CAMERA_AIM_SDK = sys.argv[7:] == ['--camera-aim-sdk-only'] or CAMERA_FOLLOW_SDK
+CAMERA_AIM_ONLY = sys.argv[7:] == ['--camera-aim-only'] or CAMERA_AIM_SDK or CAMERA_FOLLOW_ONLY
 UI_ANIMATION_ONLY = sys.argv[7:] == ['--ui-animation-only']
 UI_LOCALIZATION_ONLY = sys.argv[7:] == ['--ui-localization-only']
 LIFETIMES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--state-lifetimes-only'
@@ -606,13 +608,15 @@ for legacy in selected_protocols:
             print(('legacy' if legacy else 'current') + ': Wind schema/authoring/scatter/history, scoped native Play/tuning/Step/review passed')
             continue
         if CAMERA_AIM_ONLY:
-            check_camera_aim_play(read, ok, control, mutate, until, discovery, client, arguments)
+            check_camera_aim_play(read, ok, control, mutate, until, discovery, client, arguments, CAMERA_FOLLOW_ONLY)
             with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
                 readable = {item['name'] for item in readonly.request('tools/list')['result']['tools']}
                 assert 'forge_component_add' not in readable and 'forge_property_set' not in readable
                 denied = readonly.request('tools/call', dict(name='forge_property_set', arguments={}))
                 assert denied.get('error') or denied.get('result', {}).get('isError'), denied
-            print(('legacy' if legacy else 'current') + (': SDK' if CAMERA_AIM_SDK else ': static') + ' Camera Aim authoring/history, target-local views, scoped live tuning/review and permission/stale-generation refusals passed')
+            print(('legacy' if legacy else 'current') + (': SDK' if CAMERA_AIM_SDK else ': static') +
+                  (' Camera Follow/Aim' if CAMERA_FOLLOW_ONLY else ' Camera Aim') +
+                  ' authoring/history, composed views, scoped live tuning/review and permission/stale-generation refusals passed')
             continue
         if CAMERA_TRANSITION_ONLY:
             shot_tools = {item['name']: item for item in client.request('tools/list')['result']['tools']}

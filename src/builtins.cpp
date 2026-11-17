@@ -50,7 +50,8 @@ template <class T> Json encode(const T& p) {
         return {{"visible", p.visible}};
     else if constexpr (std::is_same_v<T, NodeSelectability>)
         return {{"selectable", p.selectable}};
-    else if constexpr (std::is_same_v<T, Camera> || std::is_same_v<T, CameraAim>)
+    else if constexpr (std::is_same_v<T, Camera> || std::is_same_v<T, CameraAim> ||
+                       std::is_same_v<T, CameraFollow>)
         return render_value(p);
     else if constexpr (std::is_same_v<T, Light>)
         return render_value(p);
@@ -378,6 +379,8 @@ template <class T> Value decode(const Json& p) {
         return camera_value(p);
     else if constexpr (std::is_same_v<T, CameraAim>)
         return camera_aim_value(p);
+    else if constexpr (std::is_same_v<T, CameraFollow>)
+        return camera_follow_value(p);
     else if constexpr (std::is_same_v<T, Light>)
         return light_value(p);
     else if constexpr (std::is_same_v<T, DecalProjector>)
@@ -908,7 +911,7 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         c.template member<bool>("visible");
     else if constexpr (std::is_same_v<T, NodeSelectability>)
         c.template member<bool>("selectable");
-    else if constexpr (std::is_same_v<T, CameraAim>) {
+    else if constexpr (std::is_same_v<T, CameraAim> || std::is_same_v<T, CameraFollow>) {
         (void)authoring_value_adapters(w);
         c.template member<bool>("enabled")
             .template member<EntityRef>("target")
@@ -916,6 +919,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<double>("offset_y")
             .template member<double>("offset_z")
             .template member<double>("weight");
+        if constexpr (std::is_same_v<T, CameraFollow>)
+            c.template member<std::uint32_t>("offset_space");
     } else if constexpr (std::is_same_v<T, Camera>) {
         register_asset_ref<RenderTextureAsset>(w, "forge.render_texture_ref");
         c.template member<bool>("enabled")
@@ -2165,6 +2170,11 @@ const std::array<Builtin, builtin_count>& builtins() {
             "Aim the camera view at a Scene target without changing node transforms", "unitless",
             {}, {},
             [](flecs::world& w) { return register_type<CameraAim>(w, "forge.camera_aim"); }),
+        descriptor<CameraFollow>(
+            "forge.camera_follow",
+            "Follow a Scene target with the Camera eye without moving node transforms", "unitless",
+            {}, {},
+            [](flecs::world& w) { return register_type<CameraFollow>(w, "forge.camera_follow"); }),
         descriptor<Light>("forge.light", "Directional, point or spot light with physical intensity",
                           "unitless", {}, {},
                           [](flecs::world& w) { return register_type<Light>(w, "forge.light"); }),
@@ -2502,6 +2512,23 @@ Json registration_options(const Builtin& type, const std::string& field) {
         } else if (field.starts_with("offset_")) {
             value["description"] =
                 "Aim-point offset in the target's local axes before its resolved world transform";
+            value["unit"] = "meters";
+        }
+    }
+    if (name == "forge.camera_follow") {
+        if (field == "target")
+            value["description"] = "Scene entity whose resolved node pose supplies the desired "
+                                   "Camera eye; an unbound target is inactive";
+        else if (field == "weight") {
+            value["description"] =
+                "Fraction of the displacement from the native Camera eye to the target plus offset";
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+        } else if (field == "offset_space")
+            value["description"] = "World offsets use metres; Target offsets follow the target's "
+                                   "rotation, scale and parents";
+        else if (field.starts_with("offset_")) {
+            value["description"] = "Desired eye offset in the selected coordinate space";
             value["unit"] = "meters";
         }
     }
@@ -3923,6 +3950,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.camera_shot" && field == "blend_curve") {
         type = "forge.CameraShotBlendCurve";
         names = {"Smooth", "Linear", "EaseIn", "EaseOut"};
+    } else if (component == "forge.camera_follow" && field == "offset_space") {
+        type = "forge.CameraFollowSpace";
+        names = {"World", "Target"};
     } else if (component == "forge.camera" && field == "projection") {
         type = "forge.CameraProjection";
         names = {"Perspective", "Orthographic"};
@@ -4191,6 +4221,17 @@ Json register_builtins(flecs::world& world, unsigned family) {
             for (const auto* field : {"offset_x", "offset_y", "offset_z"})
                 c.lookup(field).set<ReflectedMemberDefault>({0.});
         }
+        if (name == "forge.camera_follow") {
+            world.component<ReflectedMemberDefault>(reflected_member_default_type);
+            c.lookup("enabled").set<ReflectedMemberDefault>({true});
+            c.lookup("target").set<ReflectedMemberDefault>({nullptr});
+            c.lookup("weight").set<ReflectedMemberDefault>({1.});
+            c.lookup("offset_x").set<ReflectedMemberDefault>({0.});
+            c.lookup("offset_y").set<ReflectedMemberDefault>({2.});
+            c.lookup("offset_z").set<ReflectedMemberDefault>({-6.});
+            c.lookup("offset_space")
+                .set<ReflectedMemberDefault>({std::uint32_t(CameraFollowSpace::World)});
+        }
         if (name == "forge.mesh_renderer") {
             // Reuse the native annotation owner for this nested value type;
             // it is not a separately addable authoring component.
@@ -4236,7 +4277,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.animator" || name == "forge.physics_joint" ||
             name == "forge.physics_joint_2d" || name == "forge.transform_animator" ||
             name == "forge.animation_sequence" || name == "forge.camera_shot" ||
-            name == "forge.camera_aim" || name == "forge.audio_cue" || name == "forge.sound_cue" ||
+            name == "forge.camera_aim" || name == "forge.camera_follow" ||
+            name == "forge.audio_cue" || name == "forge.sound_cue" ||
             name == "forge.navigation_behavior")
             references = authoring_value_adapters(world);
         // Native typed identity remains authoritative even when an earlier SDK
@@ -4327,7 +4369,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
                   name == "forge.input_message" || name == "forge.application_state_gate" ||
                   name == "forge.mesh_renderer" || name == "forge.particle_emitter" ||
                   name == "forge.sprite_renderer" || name == "forge.tile_map_renderer" ||
-                  name == "forge.camera" || name == "forge.camera_aim" || name == "forge.light" ||
+                  name == "forge.camera" || name == "forge.camera_aim" ||
+                  name == "forge.camera_follow" || name == "forge.light" ||
                   name == "forge.reflection_probe" || name == "forge.decal" ||
                   name == "forge.fog_volume" || name == "forge.node_visibility" ||
                   name == "forge.node_selectability"}});

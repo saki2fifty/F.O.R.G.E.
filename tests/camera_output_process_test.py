@@ -44,13 +44,15 @@ with tempfile.TemporaryDirectory(prefix='camera-output-', dir=scratch) as tempor
             scene_id, target = str(uuid.uuid4()), str(uuid.uuid4())
             aim = defaults('forge.camera_aim')
             aim.update(target=dict(scene=scene_id, entity=target), extension=dict(retain='aim'))
+            follow = defaults('forge.camera_follow')
+            follow.update(target=dict(scene=scene_id, entity=target), extension=dict(retain='follow'))
             source = dict(version=3, asset_id=scene_id, entities=[dict(
                 id=actor, name='Public output camera', components={
                     'forge.local_translation': defaults('forge.local_translation'),
                     'forge.local_rotation': defaults('forge.local_rotation'),
                     'forge.local_scale': defaults('forge.local_scale'), 'forge.camera': camera,
                     'forge.ui_document': ui, 'forge.mesh_renderer': mesh, 'forge.ui_surface_input': surface,
-                    'forge.camera_aim': aim}), dict(id=target, name='Aim target', components={
+                    'forge.camera_aim': aim, 'forge.camera_follow': follow}), dict(id=target, name='Camera target', components={
                         'forge.local_translation': dict(x=3, y=1, z=5),
                         'forge.local_rotation': defaults('forge.local_rotation'),
                         'forge.local_scale': defaults('forge.local_scale')})])
@@ -64,6 +66,8 @@ with tempfile.TemporaryDirectory(prefix='camera-output-', dir=scratch) as tempor
                 assert components['forge.ui_surface_input'] == expected_surface, components
                 expected_aim = aim if components['forge.camera']['render_texture'] else aim | dict(weight=.5, offset_y=.75)
                 assert components['forge.camera_aim'] == expected_aim, components
+                expected_follow = follow if components['forge.camera']['render_texture'] else follow | dict(weight=.25, offset_y=1.5, offset_space=1)
+                assert components['forge.camera_follow'] == expected_follow, components
                 return components['forge.camera']
             active = activate(host, source, sdk)
             assert values(active) == camera

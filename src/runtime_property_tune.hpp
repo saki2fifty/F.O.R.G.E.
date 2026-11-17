@@ -28,6 +28,10 @@ struct RuntimePropertyTune {
         return property == "enabled" || property == "weight" || property == "offset_x" ||
                property == "offset_y" || property == "offset_z";
     }
+    static bool camera_follow_type(std::string_view type) { return type == "forge.camera_follow"; }
+    static bool camera_follow_property(std::string_view property) {
+        return camera_aim_property(property) || property == "offset_space";
+    }
     static bool camera_shot_property(std::string_view property) {
         return property == "blend_in_seconds" || property == "blend_curve";
     }

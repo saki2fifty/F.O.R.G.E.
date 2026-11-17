@@ -830,9 +830,14 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
                ui_values = RuntimePropertyTune::ui_values_type(type_key),
                localization = RuntimePropertyTune::ui_localization_type(type_key),
                condition = RuntimePropertyTune::state_condition_type(type_key),
-               camera_aim = RuntimePropertyTune::camera_aim_type(type_key);
+               camera_aim = RuntimePropertyTune::camera_aim_type(type_key),
+               camera_follow = RuntimePropertyTune::camera_follow_type(type_key);
     if (sprite || material || probe || fog || light || decal || localization || ui_values ||
-        condition || camera_aim) {
+        condition || camera_aim || camera_follow) {
+        if (camera_follow && (!RuntimePropertyTune::camera_follow_property(property_key) ||
+                              !target.has<CameraFollow>()))
+            throw std::runtime_error("Only existing Camera Follow weight, offsets, space and "
+                                     "enabled state can be tuned live");
         if (camera_aim &&
             (!RuntimePropertyTune::camera_aim_property(property_key) || !target.has<CameraAim>()))
             throw std::runtime_error(

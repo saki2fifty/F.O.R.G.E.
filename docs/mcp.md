@@ -1076,7 +1076,7 @@ scope/snapshot facts, `asset_id`, requested extent/output, `total`, paged `camer
 bounded `diagnostics` and `omitted_diagnostics`. Each camera includes `entity`,
 copied `settings`, world `position/right/up/forward`, row-major 3x4 `view`, row-major
 4x4 `projection`, pixel `viewport` and `orientation_reversed`. These come from the
-same extraction/composition owners as Game, including Camera Aim and Camera Shots.
+same extraction/composition owners as Game, including Camera Follow, Camera Aim and Camera Shots.
 Pause for stable paged reads. The operation changes no clock, output configuration,
 source, history or GPU state and supplies no pixels. The requested extent controls
 projection inspection; it does not resize the actual Game panel.
@@ -1085,6 +1085,15 @@ Add `forge.camera_aim` through ordinary component/property operations. Its Targe
 is a nullable same-Scene entity reference. Enabled, offsets and Weight are tunable
 through `forge_play_tune`; Target assignment is Edit-only. Existing stale scope,
 source revision, permissions, Undo and runtime value review apply.
+
+`forge.camera_follow` uses the same component/property/history operations. Its
+Target is a nullable same-Scene entity reference. Enabled, offsets, Weight and
+`offset_space` are live tunable; Target assignment remains Edit-only. World0
+adds offsets in metres, Target1 transforms them by the target node. The offset
+space must be an integer0or1: fractional and out-of-range values reject without
+changing source or live values. SDK Play may acknowledge queue admission before
+native validation; inspect `tune_ack` for the actual result. `forge_play_cameras`
+reports the resulting eye and orientation after Follow, Aim and Shot composition.
 
 Mesh Renderer `wind` is one tunable complete struct through `forge_play_tune`,
 using the current launch/session/generation and `play.execute` grant. It changes

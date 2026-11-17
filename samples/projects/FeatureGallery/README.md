@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Camera Follow
+
+Open `Scenes/220-camera-follow.scene.json` and press Play. The Camera follows
+the yellow cube and aims above its center. Blue cubes and the floor provide
+stationary references. Select **Following Camera - derived eye and aim** to
+inspect **Camera Follow** and **Camera Aim**.
+
+Follow's World offset is in metres; Target offset follows the target's axes,
+rotation and scale. Weight blends the base camera eye toward that point. During
+Play, Enabled, offsets, Weight and Offset Space are live values; assign Target
+in Edit. Stop, review kept values and save before exporting this Scene as startup.
+The existing two-second animation and light are included; no project C++ module
+is needed. See [Camera following](../../../manual/editor/camera-aim.md).
+
 ## Camera Aim
 
 Open `Scenes/219-camera-aim.scene.json` and press Play. The stationary Camera

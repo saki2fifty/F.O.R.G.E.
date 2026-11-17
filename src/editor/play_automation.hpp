@@ -162,7 +162,8 @@ struct PlayAutomation {
             "play.cameras",
             "Inspect Game camera composition from the current effective Play snapshot at the "
             "requested pixel extent. Uses the same view extraction/projection as rendering, "
-            "including Camera Aim, Camera Shots and render-texture output selection. Returns "
+            "including Camera Follow, Camera Aim, Camera Shots and render-texture output "
+            "selection. Returns "
             "bounded camera settings, positions, axes, matrices, viewports and diagnostics. "
             "Pause for stable inspection. This does not capture a framebuffer, advance time, "
             "change output dimensions or alter authored data.",
@@ -641,7 +642,9 @@ struct PlayAutomation {
             "geometry only; authored transforms and collision remain unchanged), "
             "an admitted Camera Shot's blend_in_seconds or blend_curve (its camera, "
             "sequence and interval remain Edit-only), Camera Aim enabled, weight and offsets "
-            "(target assignment stays Edit-only), Reflection Probe scalar controls and diffuse "
+            "(target assignment stays Edit-only), Camera Follow enabled, weight, offsets and "
+            "offset_space (target assignment stays Edit-only), Reflection Probe scalar controls "
+            "and diffuse "
             "intensity (map "
             "assignment is Edit-only), Fog Volume enabled, shape, linear RGB color, density, "
             "local half extents, layers and priority, "

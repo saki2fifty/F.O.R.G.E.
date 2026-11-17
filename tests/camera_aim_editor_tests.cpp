@@ -2,6 +2,7 @@
 #include "imgui_software_capture.hpp"
 #include <forge/authoring.hpp>
 #include <iostream>
+#include <type_traits>
 
 using namespace forge;
 namespace {
@@ -9,11 +10,17 @@ void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
 }
+template <class Modifier>
 void exercise(const std::filesystem::path& scratch, float scale,
               const std::filesystem::path& image = {}) {
+    constexpr bool follows = std::is_same_v<Modifier, CameraFollow>;
+    const std::string component = follows ? "forge.camera_follow" : "forge.camera_aim";
+    const auto field_key = [&](const char* field) {
+        return "component-field:" + component + ":" + field;
+    };
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(scratch);
-    SceneDocument::create_project(root, "Camera Aim controls");
+    SceneDocument::create_project(root, "Camera target controls");
     EngineContext engine;
     Scene scene(engine.world());
     SceneDocument project(scene);
@@ -25,16 +32,15 @@ void exercise(const std::filesystem::path& scratch, float scale,
     };
     const auto target = create("Moving target", "empty");
     const auto actor = create("Tracking Camera", "render.camera");
-    authoring_command(scene, "component.add",
-                      {{"entity", actor}, {"component", "forge.camera_aim"}});
-    authoring_command(
-        scene, "property.set_many",
-        {{"entity", actor},
-         {"component", "forge.camera_aim"},
-         {"values",
-          {{"target", EntityRef{scene.asset_id(), EntityId::parse(target)}}, {"offset_y", .5}}}});
+    authoring_command(scene, "component.add", {{"entity", actor}, {"component", component}});
+    authoring_command(scene, "property.set_many",
+                      {{"entity", actor},
+                       {"component", component},
+                       {"values",
+                        {{"target", EntityRef{scene.asset_id(), EntityId::parse(target)}},
+                         {"offset_y", follows ? 2. : .5}}}});
     const auto before = scene.document();
-    const int height = image.empty() ? 760 : 360;
+    const int height = image.empty() ? 760 : follows ? 400 : 360;
     test::ImGuiSoftwareCapture capture(780, height);
     auto& io = ImGui::GetIO();
     io.ConfigInputTrickleEventQueue = false;
@@ -44,7 +50,7 @@ void exercise(const std::filesystem::path& scratch, float scale,
     ui::ContextScope scope(context);
     test::observe_ui = true;
     ComponentInspector inspector;
-    inspector.fixture_focus_component = "forge.camera_aim";
+    inspector.fixture_focus_component = component;
     const auto frame = [&] {
         test::ui_targets.clear();
         capture.new_frame();
@@ -74,26 +80,34 @@ void exercise(const std::filesystem::path& scratch, float scale,
         io.AddMouseButtonEvent(0, false);
         frame();
     };
-    click("component-field:forge.camera_aim:target");
+    click(field_key("target"));
     click("entity-picker-clear");
-    check(!scene.entity(actor).get<CameraAim>().target.entity && scene.undo() &&
+    check(!scene.entity(actor).template get<Modifier>().target.entity && scene.undo() &&
               scene.document() == before && scene.redo() &&
-              !scene.entity(actor).get<CameraAim>().target.entity,
+              !scene.entity(actor).template get<Modifier>().target.entity,
           "Camera Aim target clear lost typed Scene history");
-    click("component-field:forge.camera_aim:target");
+    click(field_key("target"));
     click("entity-picker-row:" + target);
     check(scene.document() == before && scene.undo() &&
-              !scene.entity(actor).get<CameraAim>().target.entity && scene.redo() &&
+              !scene.entity(actor).template get<Modifier>().target.entity && scene.redo() &&
               scene.document() == before,
           "Camera Aim target selection lost typed Scene history");
+    if constexpr (follows) {
+        click(field_key("offset_space"));
+        click("property:choice:offset_space:1");
+        check(scene.entity(actor).template get<Modifier>().offset_space == 1 && scene.undo() &&
+                  scene.document() == before && scene.redo() &&
+                  scene.entity(actor).template get<Modifier>().offset_space == 1 && scene.undo() &&
+                  scene.document() == before,
+              "Camera Follow coordinate-space choice lost typed Scene history");
+    }
     frame();
     for (const auto* field : {"enabled", "target", "offset_x", "offset_y", "offset_z", "weight"}) {
-        const auto found =
-            test::ui_targets.find(std::string("component-field:forge.camera_aim:") + field);
+        const auto found = test::ui_targets.find(field_key(field));
         check(found != test::ui_targets.end() && found->second.enabled,
               "Native Camera Aim Inspector lost an editable reflected field");
     }
-    const auto box = test::ui_targets.at("component-field:forge.camera_aim:weight");
+    const auto box = test::ui_targets.at(field_key("weight"));
     const auto x = std::max(box.minimum.x, box.clip_minimum.x);
     const auto right = std::min(box.maximum.x, box.clip_maximum.x);
     const auto y = std::max(box.minimum.y, box.clip_minimum.y);
@@ -117,9 +131,9 @@ void exercise(const std::filesystem::path& scratch, float scale,
     frame();
     io.AddKeyEvent(ImGuiKey_Enter, false);
     frame();
-    check(std::abs(scene.entity(actor).get<CameraAim>().weight - .4) < 1e-6 && scene.undo() &&
-              scene.document() == before && scene.redo() &&
-              std::abs(scene.entity(actor).get<CameraAim>().weight - .4) < 1e-6,
+    check(std::abs(scene.entity(actor).template get<Modifier>().weight - .4) < 1e-6 &&
+              scene.undo() && scene.document() == before && scene.redo() &&
+              std::abs(scene.entity(actor).template get<Modifier>().weight - .4) < 1e-6,
           "Native Camera Aim weight edit lost its ordinary Scene history");
     check(scene.undo() && scene.document() == before, "Camera Aim Inspector restore failed");
     for (unsigned index = 0; index < 4; ++index)
@@ -131,15 +145,31 @@ void exercise(const std::filesystem::path& scratch, float scale,
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2 || (argc == 4 && std::string_view(argv[2]) == "--capture"),
-              "Need scratch and optional --capture image.png");
+        check(argc >= 2, "Need scratch and optional --follow and --capture image.png");
         const auto scratch = std::filesystem::absolute(argv[1]);
-        if (argc == 4)
-            exercise(scratch, 1, std::filesystem::absolute(argv[3]));
+        int argument = 2;
+        const bool follows = argument < argc && std::string_view(argv[argument]) == "--follow";
+        if (follows)
+            ++argument;
+        std::filesystem::path image;
+        if (argument < argc) {
+            check(argument + 2 == argc && std::string_view(argv[argument]) == "--capture",
+                  "Unknown Camera target controls option");
+            image = std::filesystem::absolute(argv[argument + 1]);
+        }
+        const auto run = [&](float scale) {
+            if (follows)
+                exercise<CameraFollow>(scratch, scale, image);
+            else
+                exercise<CameraAim>(scratch, scale, image);
+        };
+        if (!image.empty())
+            run(1);
         else
             for (const auto scale : {1.f, 1.5f, 2.f})
-                exercise(scratch, scale);
-        std::cout << "Native Camera Aim fields, weight interaction and Undo/Redo passed\n";
+                run(scale);
+        std::cout
+            << "Native Camera target fields, choices, weight interaction and Undo/Redo passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

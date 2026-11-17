@@ -55,44 +55,99 @@ template <class T> T component(const Json& values, const char* name) {
             return std::get<T>(type.decode(raw));
     throw std::runtime_error("Render component is not registered");
 }
+[[noreturn]] void camera_failure(detail::CameraViewModifier kind, EntityId camera,
+                                 std::string message) {
+    if (kind == detail::CameraViewModifier::Aim)
+        throw detail::CameraAimFailure(camera, std::move(message));
+    throw detail::CameraFollowFailure(camera, std::move(message));
+}
+template <class T>
+T camera_modifier(const Json& values, const char* name, EntityId camera,
+                  detail::CameraViewModifier kind) {
+    try {
+        return component<T>(values, name);
+    } catch (const std::exception& error) {
+        camera_failure(kind, camera, error.what());
+    }
+}
+Double3 camera_target(AssetId scene, EntityRef reference, Double3 offset, bool local,
+                      const detail::JsonRowIndex& rows, const char* label) {
+    const auto require_target = [&](bool value, const char* reason) {
+        if (!value)
+            throw std::runtime_error(std::string(label) + reason);
+    };
+    require_target(reference.scene == scene, " target belongs to a different Scene");
+    const auto target = rows.find(reference.entity.str());
+    require_target(target != rows.end(), " target is unavailable in this Scene");
+    require_target(!target->second->value("prefab", false),
+                   " target is a Prefab declaration rather than an instance");
+    const auto world = world_transform(*target->second);
+    if (local)
+        return world.point(offset);
+    auto point = world.point({0, 0, 0});
+    for (unsigned index = 0; index < 3; ++index)
+        point[index] += offset[index];
+    return point;
+}
 } // namespace
 RenderCamera detail::snapshot_camera_view(AssetId scene, EntityId camera, Camera settings,
                                           const JsonRowIndex& rows, bool use_projected) {
     const auto at = rows.find(camera.str());
     require(at != rows.end(), "Camera view is missing from copied presentation");
     const auto& row = *at->second;
-    if (use_projected && row.contains("camera_aim_error")) {
-        const auto& error = row.at("camera_aim_error");
+    for (const auto kind : {CameraViewModifier::Follow, CameraViewModifier::Aim}) {
+        const auto* key = CameraViewFailure::projection_key(kind);
+        if (!use_projected || !row.contains(key))
+            continue;
+        const auto& error = row.at(key);
         const auto origin = error.at("entity").get<EntityId>();
         const auto& message = error.at("message").get_ref<const std::string&>();
         require(rows.contains(origin.str()) && !message.empty() && message.size() <= 4096,
-                "Malformed Camera Aim error projection");
-        throw CameraAimFailure(origin, message);
+                "Malformed Camera modifier error projection");
+        camera_failure(kind, origin, message);
     }
     CameraAim aim;
     const auto& values = row.at("components");
     const bool has_aim = values.contains("forge.camera_aim");
     if (has_aim)
-        try {
-            aim = component<CameraAim>(values, "forge.camera_aim");
-        } catch (const std::exception& error) {
-            throw CameraAimFailure(camera, error.what());
-        }
+        aim =
+            camera_modifier<CameraAim>(values, "forge.camera_aim", camera, CameraViewModifier::Aim);
+    CameraFollow follow;
+    const bool has_follow = values.contains("forge.camera_follow");
+    if (has_follow)
+        follow = camera_modifier<CameraFollow>(values, "forge.camera_follow", camera,
+                                               CameraViewModifier::Follow);
     if (use_projected && row.contains("camera_world_affine"))
         return {camera, settings, world_transform(row, "camera_world_affine")};
     const auto world = world_transform(row);
-    if (!has_aim || !aim.enabled || !aim.target.entity || aim.weight == 0)
+    const bool aim_active = has_aim && aim.enabled && aim.target.entity && aim.weight > 0;
+    const bool follow_active =
+        has_follow && follow.enabled && follow.target.entity && follow.weight > 0;
+    if (!aim_active && !follow_active)
         return {camera, settings, world};
     // Reject invalid source cameras before considering a modifier or target.
-    const auto rigid = camera_rigid_transform(world);
+    auto rigid = camera_rigid_transform(world);
+    if (follow_active) {
+        try {
+            const auto eye = camera_target(
+                scene, follow.target, {follow.offset_x, follow.offset_y, follow.offset_z},
+                follow.offset_space == std::uint32_t(CameraFollowSpace::Target), rows,
+                "Camera Follow");
+            for (unsigned index = 0; index < 3; ++index) {
+                require(std::isfinite(eye[index]), "Camera Follow desired eye must be finite");
+                rigid.m[4 * index + 3] =
+                    std::lerp(rigid.m[4 * index + 3], eye[index], follow.weight);
+            }
+        } catch (const std::exception& error) {
+            throw CameraFollowFailure(camera, error.what());
+        }
+    }
+    if (!aim_active)
+        return {camera, settings, rigid};
     try {
-        require(aim.target.scene == scene, "Camera Aim target belongs to a different Scene");
-        const auto target = rows.find(aim.target.entity.str());
-        require(target != rows.end(), "Camera Aim target is unavailable in this Scene");
-        require(!target->second->value("prefab", false),
-                "Camera Aim target is a Prefab declaration rather than an instance");
-        const auto target_world = world_transform(*target->second);
-        const auto point = target_world.point({aim.offset_x, aim.offset_y, aim.offset_z});
+        const auto point =
+            camera_target(scene, aim.target, {aim.offset_x, aim.offset_y, aim.offset_z}, true, rows,
+                          "Camera Aim");
         return {camera, settings, aim_camera_transform(settings, rigid, point, aim.weight)};
     } catch (const std::exception& error) {
         throw CameraAimFailure(camera, error.what());
@@ -224,10 +279,9 @@ RenderScene extract_render_scene(const Json& source) {
                 try {
                     result.cameras.push_back(
                         detail::snapshot_camera_view(result.scene, id, c, rows));
-                } catch (const detail::CameraAimFailure& error) {
-                    report(result,
-                           diagnostic(result.scene, error.camera, "render.camera_aim.invalid",
-                                      error.what(), "forge.camera_aim"));
+                } catch (const detail::CameraViewFailure& error) {
+                    report(result, diagnostic(result.scene, error.camera, error.category(),
+                                              error.what(), error.component()));
                 }
         });
         admit("forge.light", "render.light.invalid", [&] {
