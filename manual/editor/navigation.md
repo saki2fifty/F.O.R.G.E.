@@ -230,8 +230,8 @@ not rebuild or change the asset.
 
 ## Connect separated walkable parts
 
-Use **Navigation Link** to connect two static walkable parts. The Agent moves in a
-straight line between the admitted endpoints at its current Speed. This is useful
+Use **Navigation Link** to connect two static walkable parts. With **Arc height = 0**,
+the Agent moves in a straight line between the admitted endpoints at its current Speed. This is useful
 for a deliberate crossing that ordinary ground routing cannot follow. It does not
 simulate a jump or drive a physics character.
 
@@ -274,7 +274,7 @@ exit. Stopping distance cannot stop an already active crossing midway. Ground
 avoidance resumes after the crossing; it does not steer sideways across the gap.
 
 If a dynamic obstacle disconnects an endpoint, the Agent holds its current span
-until the connection is usable again. Endpoint, direction, radius and transform edits make the selected profile stale.
+until the connection is usable again. Endpoint, direction, radius, arc height and transform edits make the selected profile stale.
 Stop Play and rebuild after editing. Changing Plane or Build profile removes the
 link from the old selection and adds it to the new one; rebuild both affected
 assets. Gameplay code that changes an Agent's NavMesh cancels its old crossing; place it on
@@ -286,7 +286,35 @@ both locally and after transformation. With **Dynamic obstacles**, the endpoints
 must lie in the same or adjacent tile coordinates. Tiles are 32 cells wide; at the
 default 0.2 m Cell size this is 6.4 m. If the build reports a tile-span limit,
 shorten/reposition the link or choose a coarser Cell size and rebuild. Moving
-platform attachments and simulated jumps are unavailable.
+platform attachments and physics-driven jumps are unavailable.
+
+### Follow an authored arc
+
+Open **Scenes/218-navigation-link-arcs.scene.json** in Feature Gallery and press
+Play. The cyan agent repeatedly crosses the upper gap using a 1.5 m arc; the orange
+agent follows a 1 m one-way arc across the lower gap.
+
+1. Stop Play and select **Two-way connection - Loop profile** in Hierarchy.
+2. In **Inspector → Navigation Link**, change **Arc height**. Zero gives straight traversal; positive values lift the route toward world **+Y**. Height is in world metres and is independent of the link entity's rotation and scale.
+3. Open **Content → Create / Register → Navigation**. Choose **Build profile → Loop** and **Plane → 2D (XY)**, then click **Build NavMesh**. Rebuild **OneWay** instead when editing the lower connection.
+4. Save the Scene and Play. **Speed** measures distance along the complete arc, so a taller arc takes longer at the same speed. During a crossing, **Live gameplay → Navigation progress** shows the admitted arc height.
+5. Select the saved Scene as startup before exporting. The built navigation and saved height travel with the exported game.
+
+![Navigation Link Inspector showing the Loop profile and an Arc height of 1.5 metres](../images/navigation-link-arc-inspector.png)
+
+The upper connection uses the dynamic Loop profile. Stop before changing its
+height, rebuild that profile, and save before testing or exporting.
+
+Height accepts **0–100 m**. A curved link needs at least **0.01 m** of horizontal
+separation after transformation and ground attachment. In XY this requires
+different world X coordinates. Curves must stay within the navigation world
+bounds. Existing endpoint attachment and dynamic tile-span limits still apply.
+
+Arcs prescribe movement without gravity or collision sweeps. Keep the route clear
+and keep its sources static. Holds, retargeting, stale-source blocking and endpoint
+revalidation follow the same rules as straight links. Setting an instance's height
+to zero gives that instance straight traversal; property **Revert** resumes its
+Prefab source value.
 
 Links use normal component/property Undo, prefab inheritance and Scene saving.
 An exported game carries the built connections and needs no navigation builder,
@@ -527,4 +555,4 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 - **Physics ownership error:** remove the agent's Physics Body and any moving physics spatial ancestor, or use an independent World spatial binding.
 - **Build/query limit:** reduce the included area or geometry, or increase cell size. A single build supports at most 512 × 512 cells.
 
-Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight links connect static walkable parts; simulated jumps, moving-platform routes, automatic physics-character movement and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
+Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts; simulated jumps, moving-platform routes, automatic physics-character movement and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.

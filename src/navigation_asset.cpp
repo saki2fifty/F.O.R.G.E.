@@ -52,23 +52,27 @@ NavigationSettings provenance_settings(const nlohmann::json& meta) {
     const auto version = meta.at("version");
     require(version.is_number_integer() &&
                 (version == 1 || version == 2 || version == 3 || version == 4 || version == 5 ||
-                 version == 6 || version == 7),
+                 version == 6 || version == 7 || version == 8),
             "Unsupported navigation envelope version");
     auto settings = meta.at("settings").get<NavigationSettings>();
-    require((version == 7) == settings.collect_static_colliders,
-            "Static collision collection requires navigation version 7");
-    require(version == 7 ||
+    require(version == 8 || (version == 7) == settings.collect_static_colliders,
+            "Static collision collection requires navigation version 7 or 8");
+    require(version == 7 || version == 8 ||
                 ((version == 4 || (version == 6 && settings.dynamic_obstacles)) ==
                      settings.dynamic_obstacles &&
                  (version == 4 || version == 6 ||
                   (version == 3 || version == 5) == (settings.plane == NavigationPlane::PlanarXY))),
             "Navigation envelope version/profile/plane mismatch");
-    if (version == 6 || (version == 7 && meta.contains("links")))
-        require(!read_navigation_links(meta.at("links"), settings.plane).empty(),
-                "Navigation link metadata requires at least one authored link");
-    else
-        require(!meta.contains("links"), "Authored links require navigation version 6 or 7");
-    if (version == 7 && settings.plane == NavigationPlane::Spatial3D)
+    if (version == 6 || version == 8 || (version == 7 && meta.contains("links"))) {
+        const auto links = read_navigation_links(meta.at("links"), settings.plane, version == 8);
+        require(!links.empty(), "Navigation link metadata requires at least one authored link");
+        require((version == 8) == std::ranges::any_of(
+                                      links, [](const auto& link) { return link.arc_height != 0; }),
+                "Navigation arc metadata requires version 8 and at least one arced link");
+    } else
+        require(!meta.contains("links"), "Authored links require navigation version 6, 7 or 8");
+    if ((version == 7 || version == 8) && settings.collect_static_colliders &&
+        settings.plane == NavigationPlane::Spatial3D)
         resource_inputs(meta.at("collision_inputs"), "Collision");
     else
         require(!meta.contains("collision_inputs"),
@@ -102,9 +106,10 @@ std::vector<std::byte> envelope(nlohmann::json meta, std::span<const std::byte> 
     if (!meta.contains("version"))
         meta["version"] = 1;
     const auto settings = provenance_settings(meta);
-    const auto connections = meta.contains("links")
-                                 ? read_navigation_links(meta.at("links"), settings.plane)
-                                 : std::vector<NavigationLinkData>{};
+    const auto connections =
+        meta.contains("links")
+            ? read_navigation_links(meta.at("links"), settings.plane, meta.at("version") == 8)
+            : std::vector<NavigationLinkData>{};
     if (settings.dynamic_obstacles) {
         const auto layers = decode_layers(tile);
         require(layers.settings == settings, "Navigation layer/settings mismatch");
@@ -137,7 +142,7 @@ Admitted admit(std::span<const std::byte> bytes) {
                        [](char a, std::byte b) { return a == std::to_integer<char>(b); }) &&
                 (u32(bytes, 8) == 1 || u32(bytes, 8) == 2 || u32(bytes, 8) == 3 ||
                  u32(bytes, 8) == 4 || u32(bytes, 8) == 5 || u32(bytes, 8) == 6 ||
-                 u32(bytes, 8) == 7),
+                 u32(bytes, 8) == 7 || u32(bytes, 8) == 8),
             "Unsupported navigation envelope");
     const auto n = u32(bytes, 12), t = u32(bytes, 16);
     require(n > 0 && n <= 65536 && t > 0 && t <= max_nav_bytes &&
@@ -158,9 +163,10 @@ Admitted admit(std::span<const std::byte> bytes) {
     require(digest(meta.at("geometry_sha256").get<std::string>()),
             "Invalid navigation geometry digest");
     const auto settings = provenance_settings(meta);
-    const auto connections = meta.contains("links")
-                                 ? read_navigation_links(meta.at("links"), settings.plane)
-                                 : std::vector<NavigationLinkData>{};
+    const auto connections =
+        meta.contains("links")
+            ? read_navigation_links(meta.at("links"), settings.plane, meta.at("version") == 8)
+            : std::vector<NavigationLinkData>{};
     const auto expected_layout = layout(settings.dynamic_obstacles, !connections.empty());
     require(meta.at("layout") == expected_layout, "Incompatible navigation layout/profile");
     const auto& ids = meta.at("sources");
@@ -198,7 +204,7 @@ Admitted load(const std::filesystem::path& root, const AssetRecord& record) {
                 (record.schema_version == 1 || record.schema_version == 2 ||
                  record.schema_version == 3 || record.schema_version == 4 ||
                  record.schema_version == 5 || record.schema_version == 6 ||
-                 record.schema_version == 7),
+                 record.schema_version == 7 || record.schema_version == 8),
             "Wrong navigation asset type/version");
     auto bytes =
         asset_detail::read_bytes(ProjectPaths(root).resolve(record.source), max_nav_bytes + 65556);

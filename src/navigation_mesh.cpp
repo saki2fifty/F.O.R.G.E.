@@ -1,4 +1,5 @@
 #include "navigation_mesh.hpp"
+#include "navigation_link_curve.hpp"
 #include <DetourNavMesh.h>
 #include <DetourNavMeshBuilder.h>
 #include <DetourNavMeshQuery.h>
@@ -485,19 +486,35 @@ Query::Route Query::route(Double3 a, Double3 b) {
         const auto begin = out.path.points.size() - 1;
         if (!append(world_coordinates(impl_->owner->space(), native_exit, a[2])))
             return failure(NavStatus::Limit);
-        out.links.push_back({impl_->owner->impl_->connections[connection->userId - 1].entity, begin,
-                             out.path.points.size() - 1});
+        const auto& selected = impl_->owner->impl_->connections[connection->userId - 1];
+        if (selected.arc_height != 0) {
+            try {
+                (void)NavigationLinkCurve(out.path.points[begin], out.path.points.back(),
+                                          selected.arc_height);
+            } catch (const std::exception&) {
+                return failure(NavStatus::Invalid);
+            }
+        }
+        out.links.push_back(
+            {selected.entity, begin, out.path.points.size() - 1, selected.arc_height});
     }
     return out;
 }
-bool Query::link_available(EntityId source, Double3 entry, Double3 exit) const {
+bool Query::link_available(EntityId source, Double3 entry, Double3 exit, float arc_height) const {
     if (!point(entry) || !point(exit) || (impl_->owner->dynamic_obstacles() && !impl_->tiles))
         return false;
     const auto& admitted = impl_->owner->impl_->connections;
     const auto selected = std::find_if(admitted.begin(), admitted.end(),
                                        [&](const auto& link) { return link.entity == source; });
-    if (selected == admitted.end())
+    if (selected == admitted.end() || selected->arc_height != arc_height)
         return false;
+    if (arc_height != 0) {
+        try {
+            (void)NavigationLinkCurve(entry, exit, arc_height);
+        } catch (const std::exception&) {
+            return false;
+        }
+    }
     const auto ordinal = unsigned(selected - admitted.begin()) + 1;
     const auto* native = impl_->query->getAttachedNavMesh();
     const auto space = impl_->owner->space();

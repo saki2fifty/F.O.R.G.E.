@@ -2,7 +2,7 @@
 // Called by the authored-link pipeline with normally published Nav assets.
 void movement(const Json& snapshot, const std::filesystem::path& root, EntityId actor_id,
               const AssetRecord& nav, const AssetRecord& other, EntityId source, Double3 start,
-              NavigationPlane plane) {
+              NavigationPlane plane, float arc_height = 0) {
     for (bool avoiding : {false, true}) {
         EngineContext engine(WorldRole::Runtime, false, {navigation_module(root)});
         Scene scene(engine.world());
@@ -37,12 +37,22 @@ void movement(const Json& snapshot, const std::filesystem::path& root, EntityId 
                 check(!debug.at("link").is_null() &&
                           debug.at("link").at("source").get<EntityId>() == source,
                       "Agent in the gap did not retain its explicit link source");
+                if (arc_height != 0) {
+                    const auto entry = debug.at("link").at("entry").get<Double3>();
+                    const auto exit = debug.at("link").at("exit").get<Double3>();
+                    const auto t = (position.x - entry[0]) / (exit[0] - entry[0]);
+                    const auto expected =
+                        entry[1] + (exit[1] - entry[1]) * t + 4 * arc_height * t * (1 - t);
+                    check(debug.at("link").at("arc_height") == arc_height &&
+                              std::abs(position.y - expected) < 1e-6,
+                          "Agent did not follow its independently evaluated authored arc");
+                }
                 if (!paused) {
                     paused = true;
                     const auto checkpoint = navigation->checkpoint();
-                    check(checkpoint.at("version") == 4 &&
+                    check(checkpoint.at("version") == (arc_height != 0 ? 5 : 4) &&
                               checkpoint.at("agents").at(0).contains("link"),
-                          "Active traversal was not captured in additive recovery version 4");
+                          "Active traversal did not select its matching recovery profile");
                     const auto saved = scene.snapshot();
                     {
                         EngineContext recovered(WorldRole::Runtime, false,
@@ -64,7 +74,8 @@ void movement(const Json& snapshot, const std::filesystem::path& root, EntityId 
                         }
                     }
                     if (!avoiding) {
-                        for (unsigned damage = 0; damage != 8; ++damage) {
+                        for (unsigned damage = 0; damage != (arc_height != 0 ? 12u : 8u);
+                             ++damage) {
                             auto invalid = checkpoint;
                             auto& row = invalid["agents"][0];
                             if (damage == 0)
@@ -84,6 +95,14 @@ void movement(const Json& snapshot, const std::filesystem::path& root, EntityId 
                                 row["link"]["entry"].push_back(0);
                             if (damage == 7)
                                 row["link"]["exit"].erase(2);
+                            if (damage == 8)
+                                invalid["version"] = 4;
+                            if (damage == 9)
+                                row["link"].erase("arc_height");
+                            if (damage == 10)
+                                row["link"]["arc_height"] = arc_height + .1f;
+                            if (damage == 11)
+                                row["link"]["arc_height"] = false;
                             EngineContext rejected(WorldRole::Runtime, false,
                                                    {navigation_module(root)});
                             Scene candidate(rejected.world());

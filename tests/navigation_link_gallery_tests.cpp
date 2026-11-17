@@ -10,6 +10,7 @@
 using namespace forge;
 namespace {
 constexpr const char* scene_path = "Scenes/140-navigation-links.scene.json";
+constexpr const char* arc_scene_path = "Scenes/218-navigation-link-arcs.scene.json";
 constexpr const char* loop_name = "Cyan patrol - two-way link";
 constexpr const char* one_way_name = "Orange traveler - one-way link";
 void check(bool value, const std::string& why) {
@@ -29,7 +30,9 @@ flecs::entity create(Scene& scene, const char* name, Double3 position = {}, unsi
     entity.set<LocalTranslation>({position[0], position[1], position[2]});
     return entity;
 }
-void prepare(const std::filesystem::path& root, const std::filesystem::path& worker) {
+void prepare(const std::filesystem::path& root, const std::filesystem::path& worker,
+             bool arcs = false) {
+    const auto source = arcs ? arc_scene_path : scene_path;
     const auto lease = std::make_shared<ProjectLease>(root);
     const auto initial = AssetCatalog::open_project(root);
     AssetId patrol;
@@ -40,8 +43,8 @@ void prepare(const std::filesystem::path& root, const std::filesystem::path& wor
     check(bool(patrol), "The existing original Patrol behavior is missing");
     EngineContext engine;
     Scene scene(engine.world());
-    if (std::filesystem::exists(root / scene_path)) {
-        scene.load(root / scene_path);
+    if (std::filesystem::exists(root / source)) {
+        scene.load(root / source);
     } else {
         for (double y : {0., -6.}) {
             const bool loop = y == 0;
@@ -61,6 +64,7 @@ void prepare(const std::filesystem::path& root, const std::filesystem::path& wor
             link.bidirectional = loop;
             link.start_x = -2;
             link.end_x = 2;
+            link.arc_height = arcs ? (loop ? 1.5f : 1.f) : 0.f;
             create(scene,
                    loop ? "Two-way connection - Loop profile"
                         : "Start to End only - OneWay profile",
@@ -116,12 +120,14 @@ void prepare(const std::filesystem::path& root, const std::filesystem::path& wor
             entity.set<NavigationAgent>(agent);
         }
     }
-    scene.save(root / scene_path);
+    scene.save(root / source);
     const std::array roots{scene.asset_id()};
     prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
-    std::cout << "Gallery140 links prepared through ordinary Scene/navigation/resource owners\n";
+    std::cout << (arcs ? "Gallery218 arcs" : "Gallery140 links")
+              << " prepared through ordinary Scene/navigation/resource owners\n";
 }
-void exercise(const std::filesystem::path& root, const std::filesystem::path& source) {
+void exercise(const std::filesystem::path& root, const std::filesystem::path& source,
+              bool arcs = false) {
     const auto saved = read(root / source);
     GameSessionConfig config;
     config.content_root = root;
@@ -159,7 +165,11 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& so
         const auto at = loop.get<LocalTranslation>(), other = one_way.get<LocalTranslation>();
         minx = std::min(minx, at.x);
         maxx = std::max(maxx, at.x);
-        check(at.z == -1 && other.z == -1 && std::abs(at.y) < .001 && std::abs(other.y + 6) < .001,
+        const auto lift = [&](double x, double height) {
+            return arcs && std::abs(x) < 2 ? height * (1 - x * x / 4) : 0;
+        };
+        check(at.z == -1 && other.z == -1 && std::abs(at.y - lift(at.x, 1.5)) < .001 &&
+                  std::abs(other.y + 6 - lift(other.x, 1)) < .001,
               "Link Gallery changed lane or visual depth");
         if (std::abs(at.x) < .75) {
             check(!navigation->debug(loop.id()).at("link").is_null(),
@@ -192,8 +202,10 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& so
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 4 && std::string_view(argv[1]) == "--prepare") {
-            prepare(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]));
+        if (argc == 4 && (std::string_view(argv[1]) == "--prepare" ||
+                          std::string_view(argv[1]) == "--prepare-arcs")) {
+            prepare(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                    std::string_view(argv[1]) == "--prepare-arcs");
             return 0;
         }
         check(argc == 3, "Need Gallery and link scratch root");
@@ -201,15 +213,23 @@ int main(int argc, char** argv) {
         const auto root = scratch / "Gallery";
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
-        exercise(root, scene_path);
-        const auto saved = read(root / scene_path);
-        const std::array roots{saved.at("asset_id").get<AssetId>()};
-        package_runtime_content(root, scratch / "Export", roots, {"windows", "d3d12"});
-        std::filesystem::rename(scratch / "Export", scratch / "Relocated");
+        std::array<AssetId, 2> roots;
+        for (unsigned i = 0; i != 2; ++i) {
+            const auto source = i ? arc_scene_path : scene_path;
+            exercise(root, source, i != 0);
+            roots[i] = read(root / source).at("asset_id").get<AssetId>();
+            const std::array selected{roots[i]};
+            const auto exported = scratch / ("Export" + std::to_string(i));
+            package_runtime_content(root, exported, selected, {"windows", "d3d12"});
+            std::filesystem::rename(exported, scratch / ("Relocated" + std::to_string(i)));
+        }
         std::filesystem::rename(root, scratch / "SourcesOffline");
-        const auto catalog = open_runtime_content(scratch / "Relocated", {"windows", "d3d12"});
-        exercise(scratch / "Relocated", catalog.records().at(roots[0]).source);
-        std::cout << "Gallery140 actual two-way patrol/one-way movement and source-hidden "
+        for (unsigned i = 0; i != 2; ++i) {
+            const auto relocated = scratch / ("Relocated" + std::to_string(i));
+            const auto catalog = open_runtime_content(relocated, {"windows", "d3d12"});
+            exercise(relocated, catalog.records().at(roots[i]).source, i != 0);
+        }
+        std::cout << "Gallery140/218 actual two-way patrol/one-way movement and source-hidden "
                      "relocated export PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

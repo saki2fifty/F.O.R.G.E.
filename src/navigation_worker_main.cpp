@@ -30,7 +30,8 @@ int main(int argc, char** argv) {
         auto meta = input.at("metadata");
         const auto settings = provenance_settings(meta);
         if (meta.contains("links"))
-            g.connections = read_navigation_links(meta.at("links"), settings.plane);
+            g.connections =
+                read_navigation_links(meta.at("links"), settings.plane, meta.at("version") == 8);
         if (settings.plane == NavigationPlane::PlanarXY) {
             const auto& masks = input.at("obstacles");
             if (!masks.is_array() || masks.size() > 512)

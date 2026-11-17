@@ -9,6 +9,7 @@
 #include "tile_asset_resources.hpp"
 #include "tile_map_variants.hpp"
 #include "worker_staging.hpp"
+#include <algorithm>
 #include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
 #include <fstream>
@@ -174,7 +175,10 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
     c->geometry_digest = g.digest;
     const unsigned geometry_version =
         settings.plane == NavigationPlane::PlanarXY ? (collider_sources(source) ? 5 : 3) : 2;
-    const unsigned version = settings.collect_static_colliders ? 7
+    const bool arcs =
+        std::ranges::any_of(g.connections, [](const auto& link) { return link.arc_height != 0; });
+    const unsigned version = arcs                                ? 8
+                             : settings.collect_static_colliders ? 7
                              : !g.connections.empty()
                                  ? 6
                                  : (settings.dynamic_obstacles ? 4 : geometry_version);

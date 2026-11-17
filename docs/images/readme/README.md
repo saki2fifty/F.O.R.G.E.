@@ -3977,3 +3977,11 @@ Exact source, command and log provenance is retained in
 `AgentFiles/build/phase382-one-way-sensor-events/capture-proof.json`. This native
 component capture does not establish full Main, Windows/D3D12, physical GPU or
 physical DPI acceptance. Unchanged figures retain their original attribution.
+
+## Navigation link height controls
+
+[navigation-link-inspector.png](../../../manual/images/navigation-link-inspector.png) is an unretouched 860 × 720 capture of the actual `ComponentInspector.draw` controls for `140-navigation-links.scene.json`. The native SDL software fixture checks visible control bounds and unchanged saved Scene state. Image SHA-256: `90896151a88935b0bd79f57f4363dcc235a57e5bf90362f23201f7e5b510141a`. Scene SHA-256: `cf01ce5e80540e86ba84e1a57976fb6f8bd8494b13184527fd0e91d576e9336c`.
+
+[navigation-link-arc-inspector.png](../../../manual/images/navigation-link-arc-inspector.png) is an unretouched 860 × 720 capture of the actual `ComponentInspector.draw` controls for `218-navigation-link-arcs.scene.json`. The native SDL software fixture checks visible control bounds and unchanged saved Scene state. Image SHA-256: `2640fe315ecb31797f0460226cd27ca37ec730e0f8a100615c6c79853fa779d1`. Scene SHA-256: `4fc5ce2eecc09a9fc49a019efdcbc984325e2e09e8eecc7c55bfa779c66a0795`.
+
+Capture actor SHA-256: `0bdbbd798dc38ee8dc20a662444ecb1b8ccc154ace9a67946f12fccb1db98c85`; producer `tests/navigation_link_editor_tests.cpp --capture` / `--capture-arcs`, based on `cbedf37` with the recorded navigation integration. Both figures were visually reviewed and copied byte-for-byte. These figures show actual native controls; they do not establish full editor, Windows desktop, physical GPU or physical DPI acceptance.

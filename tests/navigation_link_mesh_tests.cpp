@@ -158,6 +158,34 @@ void exercise(bool xy, bool dynamic) {
               std::to_string(boundary.links.size()));
     const auto entry = forward.points[route.links[0].entry],
                exit = forward.points[route.links[0].exit];
+    auto curved = meta;
+    curved["version"] = 8;
+    curved["links"][0]["arc_height"] = 1;
+    const auto arc = admit(envelope(curved, bytes));
+    Query arced_query(arc.mesh);
+    const auto arc_route = arced_query.route(start, end);
+    check(arc_route.path.status == NavStatus::Success && arc_route.links.size() == 1 &&
+              arc_route.links[0].arc_height == 1 &&
+              arced_query.link_available(arc_route.links[0].source, entry, exit, 1) &&
+              !arced_query.link_available(arc_route.links[0].source, entry, exit) &&
+              !arced_query.link_available(arc_route.links[0].source, entry, exit, 1.1f),
+          "Curved Nav admission or oriented height revalidation changed");
+    for (unsigned damage = 0; damage != 6; ++damage) {
+        auto invalid = curved;
+        if (damage == 0)
+            invalid["version"] = 6;
+        if (damage == 1)
+            invalid["version"] = 7;
+        if (damage == 2)
+            invalid["links"][0]["arc_height"] = 0;
+        if (damage == 3)
+            invalid["links"][0].erase("arc_height");
+        if (damage == 4)
+            invalid["links"][0]["arc_height"] = true;
+        if (damage == 5)
+            invalid["links"][0]["arc_height"] = 101;
+        rejects([&] { (void)envelope(invalid, bytes); });
+    }
     check(query.link_available(route.links[0].source, entry, exit) &&
               !query.link_available(route.links[0].source, exit, entry),
           "Direct connection validation lost its admitted one-way orientation");

@@ -14,6 +14,7 @@
 #include <forge/navigation_build.hpp>
 #include <forge/render_scene.hpp>
 #include <future>
+#include <optional>
 namespace forge {
 class NavigationTools {
     friend struct NavigationAutomation;
@@ -430,7 +431,31 @@ class NavigationTools {
                 ++drawn_links;
                 const auto color = IM_COL32(210, 150, 255, 255);
                 const auto scale = ui::interface_scale;
-                draw->AddLine(*a, *b, color, 2 * scale);
+                ImVec2 minimum{std::min(a->x, b->x), std::min(a->y, b->y)},
+                    maximum{std::max(a->x, b->x), std::max(a->y, b->y)};
+                const auto curve =
+                    link.arc_height == 0
+                        ? std::optional<navigation_detail::NavigationLinkCurve>{}
+                        : std::optional{navigation_detail::NavigationLinkCurve(
+                              {link.start[0], link.start[1], link.start[2]},
+                              {link.end[0], link.end[1], link.end[2]}, link.arc_height)};
+                if (!curve)
+                    draw->AddLine(*a, *b, color, 2 * scale);
+                else {
+                    auto previous = a;
+                    for (unsigned sample = 1; sample <= 24; ++sample) {
+                        const auto point = overlay(curve->point(double(sample) / 24));
+                        if (previous && point)
+                            draw->AddLine(*previous, *point, color, 2 * scale);
+                        if (point) {
+                            minimum.x = std::min(minimum.x, point->x);
+                            minimum.y = std::min(minimum.y, point->y);
+                            maximum.x = std::max(maximum.x, point->x);
+                            maximum.y = std::max(maximum.y, point->y);
+                        }
+                        previous = point;
+                    }
+                }
                 draw->AddCircle(*a, 5 * scale, color, 12, 1.5f * scale);
                 draw->AddCircle(*b, 5 * scale, color, 12, 1.5f * scale);
                 const auto arrow = [&](ImVec2 from, ImVec2 to) {
@@ -444,14 +469,23 @@ class NavigationTools {
                         tip, {tip.x - (x * 8 + y * 4) * scale, tip.y - (y * 8 - x * 4) * scale},
                         {tip.x - (x * 8 - y * 4) * scale, tip.y - (y * 8 + x * 4) * scale}, color);
                 };
-                arrow(*a, *b);
-                if (link.bidirectional)
-                    arrow(*b, *a);
-                FORGE_UI_RECT_PROBE(
-                    ("navigation:link:" + link.entity.str()).c_str(),
-                    (ImVec2{std::min(a->x, b->x) - 5 * scale, std::min(a->y, b->y) - 5 * scale}),
-                    (ImVec2{std::max(a->x, b->x) + 5 * scale, std::max(a->y, b->y) + 5 * scale}),
-                    true);
+                if (curve) {
+                    const auto from = overlay(curve->point(.55)), to = overlay(curve->point(.85));
+                    if (from && to)
+                        arrow(*from, *to);
+                    if (link.bidirectional) {
+                        const auto back = overlay(curve->point(.15));
+                        if (from && back)
+                            arrow(*from, *back);
+                    }
+                } else {
+                    arrow(*a, *b);
+                    if (link.bidirectional)
+                        arrow(*b, *a);
+                }
+                FORGE_UI_RECT_PROBE(("navigation:link:" + link.entity.str()).c_str(),
+                                    (ImVec2{minimum.x - 5 * scale, minimum.y - 5 * scale}),
+                                    (ImVec2{maximum.x + 5 * scale, maximum.y + 5 * scale}), true);
             } catch (const std::exception&) {
                 // Invalid source intent is reported by the shared bake/status validator.
             }

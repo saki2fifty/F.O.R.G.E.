@@ -1,4 +1,5 @@
 #pragma once
+#include "navigation_link_curve.hpp"
 #include "navigation_link_shape.hpp"
 #include "navigation_links.hpp"
 #include "navigation_profile.hpp"
@@ -9,15 +10,19 @@ inline void validate_link_value(const NavigationLink& value) {
     validate_link_shape({value.start_x, value.start_y, value.start_z},
                         {value.end_x, value.end_y, value.end_z}, value.radius,
                         MeshSpace(value.plane));
+    NavigationLinkCurve::validate_height(value.arc_height);
 }
 inline nlohmann::json link_value(const NavigationLink& value) {
     validate_link_value(value);
-    return {{"enabled", value.enabled}, {"bidirectional", value.bidirectional},
-            {"plane", value.plane},     {"profile", value.profile},
-            {"start_x", value.start_x}, {"start_y", value.start_y},
-            {"start_z", value.start_z}, {"end_x", value.end_x},
-            {"end_y", value.end_y},     {"end_z", value.end_z},
-            {"radius", value.radius}};
+    auto result = nlohmann::json{{"enabled", value.enabled}, {"bidirectional", value.bidirectional},
+                                 {"plane", value.plane},     {"profile", value.profile},
+                                 {"start_x", value.start_x}, {"start_y", value.start_y},
+                                 {"start_z", value.start_z}, {"end_x", value.end_x},
+                                 {"end_y", value.end_y},     {"end_z", value.end_z},
+                                 {"radius", value.radius}};
+    if (value.arc_height != 0)
+        result["arc_height"] = value.arc_height;
+    return result;
 }
 inline NavigationLink link_from_value(const nlohmann::json& value) {
     NavigationLink link;
@@ -38,6 +43,9 @@ inline NavigationLink link_from_value(const nlohmann::json& value) {
     link.end_y = value.at("end_y").get<float>();
     link.end_z = value.at("end_z").get<float>();
     link.radius = value.at("radius").get<float>();
+    if (value.contains("arc_height") && !value.at("arc_height").is_number())
+        throw std::runtime_error("Navigation link arc height must be numeric");
+    link.arc_height = value.value("arc_height", 0.f);
     validate_link_value(link);
     return link;
 }
@@ -46,7 +54,7 @@ inline NavigationLinkData derive_link(EntityId entity, const NavigationLink& val
     validate_link_value(value);
     const auto start = transform.point({value.start_x, value.start_y, value.start_z});
     const auto end = transform.point({value.end_x, value.end_y, value.end_z});
-    NavigationLinkData link{entity, {}, {}, value.radius, value.bidirectional};
+    NavigationLinkData link{entity, {}, {}, value.radius, value.bidirectional, value.arc_height};
     for (unsigned axis = 0; axis < 3; ++axis) {
         link.start[axis] =
             value.plane == unsigned(MeshSpace::PlanarXY) && axis == 2 ? 0 : float(start[axis]);
@@ -54,6 +62,9 @@ inline NavigationLinkData derive_link(EntityId entity, const NavigationLink& val
             value.plane == unsigned(MeshSpace::PlanarXY) && axis == 2 ? 0 : float(end[axis]);
     }
     validate_link_shape(link.start, link.end, link.radius, MeshSpace(value.plane));
+    if (link.arc_height != 0)
+        (void)NavigationLinkCurve({link.start[0], link.start[1], link.start[2]},
+                                  {link.end[0], link.end[1], link.end[2]}, link.arc_height);
     return link;
 }
 } // namespace forge::navigation_detail

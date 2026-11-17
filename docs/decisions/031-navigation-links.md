@@ -20,6 +20,11 @@ attachment radius and travel direction. At most32links are admitted. These links
 request automatic straight traversal; they do not drive physics characters,
 simulate jumping or bind moving platforms.
 
+[ADR049](049-navigation-link-arcs.md) defines an optional authored arc extension
+under implementation. It retains this straight profile and its old positive
+formats. See that decision's status and acceptance boundary before claiming arc
+availability.
+
 ## Native integration and compatibility
 
 Use the exact pinned dependency's public builder parameters and path flags. Link

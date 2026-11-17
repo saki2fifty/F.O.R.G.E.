@@ -23,6 +23,8 @@ struct NavigationLink {
     float start_x = -1, start_y = 0, start_z = 0;
     float end_x = 1, end_y = 0, end_z = 0;
     float radius = .5f;
+    // World +Y lift above the entry/exit chord. Zero retains straight traversal.
+    float arc_height = 0;
     bool operator==(const NavigationLink&) const = default;
 };
 inline constexpr std::size_t navigation_region_vertex_limit = 64;

@@ -426,7 +426,7 @@ No callback-table field or independent authoring path is added. `FORGE_SDK_NAVIG
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, cost editing, simulated jumping, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, cost editing, physics-driven jumping, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 
@@ -617,7 +617,8 @@ adds a derived state only for selected linked profiles, bounded by the existing
 8-asset cache. New writable selections capture on demand; a first read-only linked
 selection waits for the next writable boundary.
 
-Nonempty links use envelope6, with base `geometry_version`2/3/5 unchanged. One
+Zero-height links use envelope6, or envelope7 with static collision collection,
+with base `geometry_version`2/3/5 unchanged. One
 metadata `links` list owns source EntityId, start/end float3, radius and direction.
 The binary envelope header, catalog and runtime-package admissions accept6.
 Static layout `le-polyref32-detour7-links-single-v1` admits matching off-mesh
@@ -638,7 +639,7 @@ exactly at an entry can omit its off-mesh flag; the first matching native corrid
 connection recovers that boundary using admitted native endpoints. The existing
 64-waypoint cap includes inserted exits. Native pointers/references do not escape.
 
-Agent state retains the active span and applies linear movement through the same
+For zero-height links, Agent state retains the active span and applies linear movement through the same
 fixed-tick world-distance speed budget and sole LocalTranslation writer. Avoidance
 runs on ground; active crossers are excluded from its ground-plane participant
 sampling. Speed0, disabled and no-destination hold an active crossing. Retargeting
@@ -655,7 +656,7 @@ Public Agent observation and experimental C-table layout are unchanged. The adde
 public component header changes the exact SDK fingerprint; native modules rebuild
 with the matching SDK. Scene/prefab formats remain additive.
 
-Ephemeral navigation recovery4 is emitted only for active crossings. It retains
+Ephemeral navigation recovery4 is emitted for active straight crossings. It retains
 source identity and oriented endpoints alongside the existing semantic pose /
 configuration/ownership and exact asset revisions. Restore validates the admitted
 oriented span, revision and finite in-span world pose, then continues to the exit
@@ -671,7 +672,45 @@ owners. Manual captures, matching SDK and platform acceptance have separate
 provenance; portable logic/export tests do not establish Windows or physical GPU
 acceptance.
 
+### Authored arc traversal
+
+[ADR049](decisions/049-navigation-link-arcs.md) adds optional
+`NavigationLink.arc_height`, finite0..100m of world +Y lift. Zero is omitted from
+canonical source and derived descriptors. The complete builtin authoring-default
+table still declares the C++ default, including for sparse Prefab overrides;
+reflected missing-value metadata serves Inspector reads. No default source or
+positive old cooked profile is rewritten. Height is static and non-animatable.
+
+Nonzero arcs use envelope8 and the same native endpoint-link tile layout, including
+static/dynamic obstacle and collision-collection profiles. Versions6/7 reject arc
+fields; version8 requires at least one nonzero descriptor. Query retains the
+admitted height and validates the native attached horizontal span. Source and
+attached endpoints must admit the bounded curve; XY retains the caller's depth.
+
+The existing Agent writer follows `a+(b-a)*t+(0,4*h*t*(1-t),0)`. Horizontal span is
+at least0.01m and curve coordinates stay within4096m. Interval lengths integrate
+the affine derivative norm using a factored primitive difference; tiny heights and
+short advances avoid cancellation. At most48 bisection iterations invert a
+distance budget. No progress clock is added: horizontal projection derives `t`
+from the current pose. Remaining distance includes arcs. The old straight path is
+retained; tiny ground approaches consume budget to reach the exact arc entry.
+
+Existing holds, post-exit retargeting, avoidance exclusion, stale-source blocking
+and direct reposition cancellation remain. Active arcs revalidate oriented
+identity/height against the current native query. Recovery5 is emitted only with
+an active arc; it carries admitted height and rejects downgrade, changed revision,
+height or off-curve pose. Straight recovery2/3/4 remains unchanged. SDK Play retains
+authored restart and copied pose/velocity observation; its C table is unchanged.
+The expanded public component requires matching exact-SDK modules.
+
+Inspector, Scene intent curves, existing source/build MCP operations and Gallery218
+share these owners. The Gallery has ready two-way and one-way profiles and uses
+the existing Patrol behavior. These arcs prescribe navigation movement; gravity,
+collision sweeps, physics-character driving and moving-platform attachment are
+outside the profile.
+
 ## Profile-scoped static collision collection
+
 
 `NavigationSettings.collect_static_colliders`, default false, enables collection;
 `collision_layers`, default `UINT32_MAX`, selects physical body layers. Both default

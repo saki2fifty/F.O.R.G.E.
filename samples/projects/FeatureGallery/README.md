@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## Navigation link arcs
+
+Open `Scenes/218-navigation-link-arcs.scene.json` and press Play. The cyan agent
+patrols across the upper gap using a 1.5 m arc in both directions. The orange
+agent follows a 1 m one-way arc across the lower gap. Both use ready navigation
+assets and the existing patrol behavior; no project C++ module is required.
+
+Stop Play, select a connection and change **Arc height** in **Navigation Link**.
+Rebuild its matching **Build profile** with **Plane → 2D (XY)**, then save and Play.
+Zero keeps straight traversal. Speed measures distance along the arc, so a taller
+arc takes longer at the same speed. These are prescribed routes without gravity
+or collision sweeps. Select the saved Scene as startup before export.
+
 ## Directional sensor events
 
 Open `Scenes/217-directional-sensor-events.scene.json` and press Play. The two

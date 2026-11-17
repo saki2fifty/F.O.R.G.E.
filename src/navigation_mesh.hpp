@@ -31,6 +31,7 @@ class Query {
     struct RouteLink {
         EntityId source;
         std::size_t entry = 0, exit = 0;
+        float arc_height = 0;
     };
     struct Route {
         NavResult path;
@@ -50,7 +51,7 @@ class Query {
     // Same path owner, retaining explicit traversal boundaries for Agent movement.
     Route route(Double3 start, Double3 end);
     // Validate the retained connection directly; another shortest route may use a different link.
-    bool link_available(EntityId source, Double3 entry, Double3 exit) const;
+    bool link_available(EntityId source, Double3 entry, Double3 exit, float arc_height = 0) const;
     NavResult move(Double3 start, Double3 target);
     // Owned velocity in points[0]; private engine steering, not a public route API.
     NavResult avoid_velocity(Double3 position, Double3 desired, Double3 previous, float speed,

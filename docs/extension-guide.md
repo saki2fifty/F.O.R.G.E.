@@ -602,7 +602,7 @@ original C++ return journey: when the prior tick reports Arrived, ordinary Flecs
 NavigationAgent destination fields change, then navigation replans/moves on the
 next boundary. Observation does not queue movement or introduce an AI controller.
 The callback changes the exact private SDK fingerprint: rebuild modules with the
-matching SDK. Existing authored NavigationAgent layout and NavMesh format are unchanged.
+matching SDK. Existing authored NavigationAgent layout and no-link NavMesh formats are unchanged.
 
 ### XY navigation assets
 
@@ -625,6 +625,21 @@ invalidate that asset; they do not rebuild it. The installed sample target
 through the matching shared SDK. Rebuild modules against that exact SDK; authored
 NavigationAgent layout and recovery2 stay unchanged. XY assets use the guarded
 navigation envelope3; existing3D envelope1/2 assets retain their original semantics.
+
+### Authored link arcs
+
+`NavigationLink.arc_height` is a public float in world metres, default zero.
+Nonzero0..100m lift prescribes a world +Y arc through the existing Agent movement
+owner. It is independent of source scale/rotation; XY retains visual depth. Bake
+the matching profile after editing. Curved profiles use Nav envelope8, while zero
+height retains old source and cooked forms. Matching SDK modules must be rebuilt.
+
+Ordinary typed component access reads and copies the height. The navigation probe
+checks its native member, size/alignment and independent nonzero/zero copies.
+Existing copied agent pose/velocity APIs observe movement along the arc without a
+callback-table change. Editor/MCP progress also identifies the active link and
+admitted height. Speed is distance along the curve. These routes do not apply
+gravity or collision sweeps, and cannot drive a physics body or character.
 
 ## Overlapping audio effects
 

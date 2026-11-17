@@ -41,7 +41,8 @@ FOG_VOLUMES_ONLY = sys.argv[7:] == ['--fog-volumes-only'] or FOG_VOLUMES_SDK
 WORKERS_SDK = len(sys.argv) == 9 and sys.argv[7] == '--ecs-workers-sdk-only'
 WORKERS_ONLY = WORKERS_SDK
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
-NAVIGATION_LINKS_ONLY = sys.argv[7:] == ['--navigation-links-only']
+NAVIGATION_LINKS_SDK = sys.argv[7:] == ['--navigation-links-sdk-only']
+NAVIGATION_LINKS_ONLY = sys.argv[7:] == ['--navigation-links-only'] or NAVIGATION_LINKS_SDK
 NAVIGATION_COLLECTION_ONLY = sys.argv[7:] == ['--navigation-collection-only']
 SCOPE_TRACE_ONLY = sys.argv[7:] == ['--scope-trace-only']
 MAP_PROFILE_SDK = sys.argv[7:] == ['--map-profile-sdk-only']
@@ -265,7 +266,7 @@ def editor(mode='full'):
             command.append(str(audio_profile_project_template(root)))
         elif SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if (AUDIO_PAUSE_ONLY and os.environ.get('FORGE_MCP_TEST_SDK') == '1') or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK or UI_FONT_COLLECTIONS_SDK or CAMERA_TRANSITION_SDK or MAP_PROFILE_SDK:
+        if (AUDIO_PAUSE_ONLY and os.environ.get('FORGE_MCP_TEST_SDK') == '1') or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK or UI_FONT_COLLECTIONS_SDK or CAMERA_TRANSITION_SDK or MAP_PROFILE_SDK or NAVIGATION_LINKS_SDK:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -724,7 +725,9 @@ for legacy in selected_protocols:
                                if c['id'] == 'forge.navigation_link')
             fields = {f['id']: f for f in link_schema['fields']}
             assert set(fields) == {'enabled', 'bidirectional', 'plane', 'profile', 'start_x',
-                                   'start_y', 'start_z', 'end_x', 'end_y', 'end_z', 'radius'}, fields
+                                   'start_y', 'start_z', 'end_x', 'end_y', 'end_z', 'radius', 'arc_height'}, fields
+            assert fields['arc_height']['default'] == fields['arc_height']['default_if_missing'] == 0
+            assert fields['arc_height']['minimum'] == 0 and fields['arc_height']['maximum'] == 100
             assert [(c['value'], c['label']) for c in fields['plane']['choices']] == [(0, '3D'), (1, '2D (XY)')]
             assert not any(f['animatable'] for f in fields.values())
             assert 'Navigation Link' in advertised['forge_navigation_build']['description']
@@ -738,7 +741,7 @@ for legacy in selected_protocols:
             before = read('forge_scene_read')
             old_request = arguments(arguments=dict(entity=link, component='forge.navigation_link', field='radius', value=.6))
             ok('forge_property_set_many', arguments=dict(entity=link, component='forge.navigation_link',
-                values=dict(plane=1, profile='Bridge', start_x=-2, end_x=2, bidirectional=False)))
+                values=dict(plane=1, profile='Bridge', start_x=-2, end_x=2, bidirectional=False, arc_height=1.5)))
             authored_link = read('forge_scene_read')
             assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before
             assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == authored_link
@@ -746,7 +749,8 @@ for legacy in selected_protocols:
             stale_request['expected_revision'] = old_request['expected_revision']
             stale = client.tool('forge_property_set', **stale_request)
             assert not stale['ok'] and read('forge_scene_read') == authored_link, stale
-            for field, value in [('plane', 2), ('radius', 0), ('profile', '../Bridge'), ('end_x', -2), ('start_z', 1)]:
+            for field, value in [('plane', 2), ('radius', 0), ('profile', '../Bridge'), ('end_x', -2), ('start_z', 1),
+                                 ('arc_height', -1), ('arc_height', 101), ('arc_height', True)]:
                 rejected = mutate('forge_property_set', arguments=dict(entity=link, component='forge.navigation_link', field=field, value=value))
                 assert not rejected['ok'] and read('forge_scene_read') == authored_link, rejected
             settings = dict(radius=.4, height=2, climb=.4, slope=45, cell_size=.2, cell_height=.1,
@@ -776,10 +780,16 @@ for legacy in selected_protocols:
             paused = until(lambda: read('forge_play_status'), lambda r: r['paused'] and r['control_ready'])
             before = traveler()
             assert before['navigation_debug']['link']['source'] == link, before
+            assert before['navigation_debug']['link']['arc_height'] == 1.5, before
             control('forge_play_step')
             stepped = until(lambda: read('forge_play_status'), lambda r: r['timing']['tick'] == paused['timing']['tick'] + 1 and r['control_ready'])
             after = traveler()
             assert after['world_affine'][3] > before['world_affine'][3] and after['world_affine'][11] == 7, after
+            span = after['navigation_debug']['link']
+            entry, exit = span['entry'], span['exit']
+            fraction = (after['world_affine'][3] - entry[0]) / (exit[0] - entry[0])
+            expected_height = entry[1] + (exit[1] - entry[1]) * fraction + 6 * fraction * (1 - fraction)
+            assert abs(after['world_affine'][7] - expected_height) < 1e-6, after
             control('forge_play_tune', entity=actor, component='forge.navigation_agent', property='speed', value=4)
             until(lambda: read('forge_play_status'), lambda r: not r['tune_pending'] and r['tune_ack'] is not None)
             control('forge_play_resume')

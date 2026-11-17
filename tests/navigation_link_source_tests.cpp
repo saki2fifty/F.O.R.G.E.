@@ -29,12 +29,18 @@ int main() {
         const auto initial = scene.entity(id).get<NavigationLink>();
         check(initial == NavigationLink{}, "Ordinary Add Component did not use link defaults");
         const auto schema = scene.schema();
-        bool plane_choices = false;
+        check(!navigation_detail::link_value(initial).contains("arc_height"),
+              "Straight link defaults changed their canonical source representation");
+        bool plane_choices = false, arc_field = false;
         for (const auto& component : schema.at("components"))
             if (component.at("id") == "forge.navigation_link")
                 for (const auto& field : component.at("fields")) {
                     check(!field.at("animatable").get<bool>(),
                           "Static authored link input was advertised as animatable");
+                    if (field.at("id") == "arc_height")
+                        arc_field = field.at("minimum") == 0 && field.at("maximum") == 100 &&
+                                    field.at("display_name") == "Arc height" &&
+                                    field.at("default") == 0 && field.at("default_if_missing") == 0;
                     if (field.at("id") == "plane") {
                         const auto& choices = field.at("choices");
                         plane_choices = choices.size() == 2 && choices[0].at("value") == 0 &&
@@ -44,7 +50,7 @@ int main() {
                                         !field.at("animatable").get<bool>();
                     }
                 }
-        check(plane_choices,
+        check(plane_choices && arc_field,
               "Inspector/automation discovery lost the typed navigation plane choices");
         const auto set = [&](const char* field, Json value) {
             authoring_command(scene, "property.set",
@@ -53,6 +59,11 @@ int main() {
                                {"field", field},
                                {"value", value}});
         };
+        set("arc_height", 1);
+        check(scene.entity(id).get<NavigationLink>().arc_height == 1 && scene.undo() &&
+                  scene.entity(id).get<NavigationLink>().arc_height == 0 && scene.redo() &&
+                  scene.entity(id).get<NavigationLink>().arc_height == 1,
+              "Arc height did not use ordinary Scene property history and default restoration");
         set("profile", "Large");
         set("plane", 1);
         const auto saved = scene.document();
@@ -67,6 +78,9 @@ int main() {
                                                                  {"radius", 0},
                                                                  {"radius", 6},
                                                                  {"radius", true},
+                                                                 {"arc_height", -1},
+                                                                 {"arc_height", 101},
+                                                                 {"arc_height", true},
                                                                  {"end_x", -1},
                                                                  {"start_z", 1}}) {
             rejects([&] { set(field, value); });
@@ -79,7 +93,7 @@ int main() {
         Scene copied(copied_engine.world());
         copied.restore_snapshot(saved);
         auto value = copied.entity(id).get<NavigationLink>();
-        check(value.profile == "Large" && value.plane == 1 &&
+        check(value.profile == "Large" && value.plane == 1 && value.arc_height == 1 &&
                   navigation_detail::link_from_value(navigation_detail::link_value(value)) == value,
               "Link profile, basis or source value did not survive ordinary Scene restoration");
         value.profile = "Small";
@@ -108,6 +122,32 @@ int main() {
             {{"entity", instance}, {"component", "forge.navigation_link"}, {"field", "profile"}});
         check(scene.entity(instance).get<NavigationLink>().profile == "Large",
               "Prefab link property Revert did not resume the source profile");
+        authoring_command(scene, "property.set",
+                          {{"entity", instance},
+                           {"component", "forge.navigation_link"},
+                           {"field", "arc_height"},
+                           {"value", 2}});
+        check(scene.entity(instance).get<NavigationLink>().arc_height == 2 &&
+                  scene.entity(id).get<NavigationLink>().arc_height == 1,
+              "Prefab arc override changed its source");
+        authoring_command(scene, "property.set",
+                          {{"entity", instance},
+                           {"component", "forge.navigation_link"},
+                           {"field", "arc_height"},
+                           {"value", 0}});
+        check(scene.entity(instance).get<NavigationLink>().arc_height == 0 && scene.undo() &&
+                  scene.entity(instance).get<NavigationLink>().arc_height == 2 && scene.redo(),
+              "Explicit straight override lost its value or Scene history");
+        copied.restore_snapshot(scene.snapshot());
+        check(copied.entity(instance).get<NavigationLink>().arc_height == 0 &&
+                  copied.entity(id).get<NavigationLink>().arc_height == 1,
+              "Saved straight override did not preserve its optional field mask");
+        authoring_command(scene, "property.revert",
+                          {{"entity", instance},
+                           {"component", "forge.navigation_link"},
+                           {"field", "arc_height"}});
+        check(scene.entity(instance).get<NavigationLink>().arc_height == 1,
+              "Prefab arc Revert did not restore its inherited height");
         const auto duplicate = authoring_command(scene, "entity.duplicate", {{"entity", instance}})
                                    .at("selected")
                                    .get<std::string>();

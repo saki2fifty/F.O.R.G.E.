@@ -72,7 +72,7 @@ void exercise(const std::filesystem::path& root, float scale) {
     frame();
     frame();
     for (const auto* field : {"enabled", "bidirectional", "plane", "profile", "start_x", "start_y",
-                              "start_z", "end_x", "end_y", "end_z", "radius"})
+                              "start_z", "end_x", "end_y", "end_z", "radius", "arc_height"})
         check(test::ui_targets.contains(std::string("component-field:forge.navigation_link:") +
                                         field),
               "Link Inspector omitted a reflected field");
@@ -88,6 +88,23 @@ void exercise(const std::filesystem::path& root, float scale) {
           "Real typed Plane dropdown did not commit XY selection");
     check(scene.undo() && scene.entity(id).get<NavigationLink>().plane == 0 && scene.redo(),
           "Typed Plane widget did not preserve native numeric source/history");
+    auto& input = ImGui::GetIO();
+    input.AddKeyEvent(ImGuiMod_Ctrl, true);
+    click(frame, "component-field:forge.navigation_link:arc_height");
+    input.AddKeyEvent(ImGuiKey_A, true);
+    frame();
+    input.AddKeyEvent(ImGuiKey_A, false);
+    input.AddKeyEvent(ImGuiMod_Ctrl, false);
+    input.AddInputCharactersUTF8("1.5");
+    frame();
+    input.AddKeyEvent(ImGuiKey_Enter, true);
+    frame();
+    input.AddKeyEvent(ImGuiKey_Enter, false);
+    frame();
+    check(scene.entity(id).get<NavigationLink>().arc_height == 1.5f && scene.undo() &&
+              scene.entity(id).get<NavigationLink>().arc_height == 0 && scene.redo() &&
+              scene.entity(id).get<NavigationLink>().arc_height == 1.5f,
+          "Actual arc-height control lost optional-default editing or Scene history");
     auto link = scene.entity(id).get<NavigationLink>();
     link.profile = "Bridge";
     scene.entity(id).set<NavigationLink>(link);
@@ -132,6 +149,17 @@ void exercise(const std::filesystem::path& root, float scale) {
     const auto guide = "navigation:link:" + id;
     check(test::ui_targets.contains(guide),
           "Selected profile has no transformed link direction guide");
+    const auto curved = test::ui_targets.at(guide);
+    authoring_command(scene, "property.set",
+                      {{"entity", id},
+                       {"component", "forge.navigation_link"},
+                       {"field", "arc_height"},
+                       {"value", 0}});
+    overlay();
+    const auto straight = test::ui_targets.at(guide);
+    check(curved.minimum.y < straight.minimum.y - 20 * scale && scene.undo(),
+          "Navigation overlay did not show authored world-Y lift or preserve source history");
+    overlay();
     navigation.select_profile(scene, project, catalog, "Other");
     overlay();
     check(!test::ui_targets.contains(guide), "Another profile displayed an unselected link guide");
@@ -147,6 +175,10 @@ void exercise(const std::filesystem::path& root, float scale) {
     ui.frame([&] { inspector.draw_navigation_state(progress); });
     check(test::ui_targets.contains("navigation_agent:link"),
           "Held traversal progress is absent from the Inspector");
+    progress["link"]["arc_height"] = 1.5;
+    ui.frame([&] { inspector.draw_navigation_state(progress); });
+    check(test::ui_targets.contains("navigation_agent:arc_height"),
+          "Held arc progress omitted its admitted height");
 }
 void status(const std::filesystem::path& root, const std::filesystem::path& worker) {
     SceneDocument::create_project(root, "Link build profiles");
@@ -221,7 +253,8 @@ void status(const std::filesystem::path& root, const std::filesystem::path& work
               NavigationAutomation::state(navigation, scene, files).at("link_count") == 0,
           "An unrelated profile became stale or exposed another profile's links");
 }
-void capture_gallery(const std::filesystem::path& gallery, const std::filesystem::path& output) {
+void capture_gallery(const std::filesystem::path& gallery, const std::filesystem::path& output,
+                     bool arcs = false) {
     const auto root = output / "Gallery";
     std::filesystem::create_directories(root);
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
@@ -229,14 +262,15 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     Scene scene(engine.world());
     SceneDocument project(scene);
     project.open_project(root);
-    project.open_scene(root / "Scenes/140-navigation-links.scene.json");
+    project.open_scene(root / (arcs ? "Scenes/218-navigation-link-arcs.scene.json"
+                                    : "Scenes/140-navigation-links.scene.json"));
     std::string selected;
     const auto document = scene.document();
     for (const auto& entity : document.at("entities"))
         if (entity.at("name") == "Two-way connection - Loop profile")
             selected = entity.at("id");
     check(!selected.empty(), "Gallery link capture source is missing");
-    test::ImGuiSoftwareCapture capture(860, 560);
+    test::ImGuiSoftwareCapture capture(860, 720);
     ui::style(1);
     test::observe_ui = true;
     ComponentInspector inspector;
@@ -244,14 +278,14 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
         test::ui_targets.clear();
         capture.new_frame();
         ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
-        ImGui::SetNextWindowSize({860, 560}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize({860, 720}, ImGuiCond_Always);
         ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
         inspector.draw(scene, project, selected);
         ImGui::End();
         capture.render();
     }
-    for (const auto* field :
-         {"enabled", "bidirectional", "plane", "profile", "start_x", "end_x", "radius"}) {
+    for (const auto* field : {"enabled", "bidirectional", "plane", "profile", "start_x", "end_x",
+                              "radius", "arc_height"}) {
         const auto& box =
             test::ui_targets.at(std::string("component-field:forge.navigation_link:") + field);
         check(box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y &&
@@ -260,7 +294,8 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     }
     check(scene.document() == document && !project.dirty(),
           "Inspector capture changed the saved Gallery");
-    capture.save(output / "navigation-link-inspector.png");
+    capture.save(output /
+                 (arcs ? "navigation-link-arc-inspector.png" : "navigation-link-inspector.png"));
     test::observe_ui = false;
 }
 void capture_collection(const std::filesystem::path& gallery, const std::filesystem::path& output) {
@@ -310,8 +345,10 @@ void capture_collection(const std::filesystem::path& gallery, const std::filesys
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 4 && std::string_view(argv[1]) == "--capture") {
-            capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]));
+        if (argc == 4 && (std::string_view(argv[1]) == "--capture" ||
+                          std::string_view(argv[1]) == "--capture-arcs")) {
+            capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                            std::string_view(argv[1]) == "--capture-arcs");
             return 0;
         }
         if (argc == 4 && std::string_view(argv[1]) == "--capture-collection") {

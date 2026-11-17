@@ -101,10 +101,20 @@ class ComponentInspector {
             ImGui::TextWrapped("Link traversal: %s",
                                status.at("link").at("source").get<std::string>().c_str());
             FORGE_UI_PROBE("navigation_agent:link");
+            const bool arc = status.at("link").contains("arc_height");
+            if (arc) {
+                ImGui::Text("Arc height: %.3f m", status.at("link").at("arc_height").get<double>());
+                FORGE_UI_PROBE("navigation_agent:arc_height");
+            }
             ui::help(
-                "Uses the Agent speed along this admitted straight span. Disable, clear the "
-                "destination "
-                "or set speed to zero to hold; retargeting finishes the span before replanning.");
+                arc ? "Uses the Agent world-distance speed along this admitted arc. Disable, clear "
+                      "the "
+                      "destination or set speed to zero to hold; retargeting finishes the span "
+                      "before replanning."
+                    : "Uses the Agent speed along this admitted straight span. Disable, clear the "
+                      "destination "
+                      "or set speed to zero to hold; retargeting finishes the span before "
+                      "replanning.");
         }
         if (phase == "Failed") {
             ImGui::TextWrapped("Reason: %s", status.value("status", std::string()).c_str());
@@ -411,7 +421,7 @@ class ComponentInspector {
                                 "Temporary sprite appearance; Stop restores authored values.");
                 }
                 ui::IdScope field_scope(name.c_str());
-                auto value = components.at(key).at(name);
+                auto value = detail::reflected_member_value(field, components.at(key));
                 const bool read_only = field.value("read_only", false);
                 ImGui::BeginDisabled(read_only);
                 bool changed = key == "forge.mesh_renderer" && name == "material_parameters" &&
@@ -734,7 +744,7 @@ class ComponentInspector {
                     !values.at(key).at("points").empty())
                     continue;
                 ui::IdScope field_scope(name.c_str());
-                auto value = values.at(key).at(name);
+                auto value = detail::reflected_member_value(field, values.at(key));
                 const bool region_points = key == "forge.navigation_region_2d" && name == "points";
                 const bool rectangle_region = region_points && value.empty();
                 if (rectangle_region)

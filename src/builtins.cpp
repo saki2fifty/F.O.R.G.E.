@@ -1444,7 +1444,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("end_x")
             .template member<float>("end_y")
             .template member<float>("end_z")
-            .template member<float>("radius");
+            .template member<float>("radius")
+            .template member<float>("arc_height");
     } else if constexpr (std::is_same_v<T, NavigationRegion2D>) {
         const auto vertex = w.component<NavigationRegionVertex>("forge.navigation_region_vertex");
         ecs_struct_desc_t fields{};
@@ -1933,7 +1934,12 @@ template <class T>
 Builtin descriptor(const char* name, const char* description, const char* unit,
                    std::optional<double> low, std::optional<double> high,
                    flecs::entity (*reg)(flecs::world&)) {
-    return {name, description, unit,    low,      high,    encode(T{}),
+    auto defaults = encode(T{});
+    // The authoring field table remains complete even when a source serializer
+    // omits a default-valued optional field for canonical compatibility.
+    if constexpr (std::is_same_v<T, NavigationLink>)
+        defaults["arc_height"] = NavigationLink{}.arc_height;
+    return {name, description, unit,    low,      high,    std::move(defaults),
             reg,  decode<T>,   read<T>, owner<T>, apply<T>};
 }
 } // namespace
@@ -2658,6 +2664,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["unit"] = "meters";
             value["display_name"] = "Endpoint radius";
             value["description"] = "World-space ground attachment radius; rebuild after editing";
+        } else if (field == "arc_height") {
+            value["minimum"] = 0;
+            value["maximum"] = 100;
+            value["unit"] = "meters";
+            value["display_name"] = "Arc height";
+            value["description"] =
+                "World +Y lift; zero keeps straight traversal. Rebuild after editing";
         } else if (field.starts_with("start_") || field.starts_with("end_")) {
             value["minimum"] = -4090;
             value["maximum"] = 4090;
@@ -4093,9 +4106,13 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("repeat_mode").set<ReflectedMemberDefault>({0});
             c.lookup("repeat_event_limit").set<ReflectedMemberDefault>({0});
         }
-        if (name == "forge.navigation_link")
+        if (name == "forge.navigation_link") {
             for (const auto& [member, value] : type.defaults.items())
                 c.lookup(member.c_str()).add<ReflectedNoAnimation>();
+            c.lookup("arc_height")
+                .set<ReflectedMemberDefault>({NavigationLink{}.arc_height})
+                .add<ReflectedNoAnimation>();
+        }
         if (name == "forge.transform_animator" || name == "forge.animator") {
             c.lookup("sequence_extra_clips")
                 .set<ReflectedSequenceLimit>({sequence_clip_limit - 2})

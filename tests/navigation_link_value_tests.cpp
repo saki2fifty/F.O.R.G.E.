@@ -1,3 +1,4 @@
+#include "navigation_link_curve.hpp"
 #include "navigation_links.hpp"
 #include <DetourNavMesh.h>
 #include <DetourNavMeshBuilder.h>
@@ -20,9 +21,87 @@ template <class F> void rejects(F call) {
     }
     throw std::runtime_error("Malformed navigation link was admitted");
 }
+void curve_geometry() {
+    struct Case {
+        Double3 start, end;
+        double height;
+    };
+    const std::array cases{Case{{0, 0, 7}, {4, 0, 7}, 0},
+                           Case{{0, 0, 7}, {4, 0, 7}, 1},
+                           Case{{0, 0, 7}, {double(.01f), 0, 7}, 100},
+                           Case{{0, -4090, 0}, {double(.01f), 4090, 0}, .001},
+                           Case{{0, 4090, 0}, {double(.01f), -4090, 0}, .001},
+                           Case{{-20, 2, -30}, {40, 5, 25}, 10},
+                           Case{{0, 0, 7}, {4, 3, 7}, 1e-30},
+                           Case{{0, 0, 7}, {4, -3, 7}, std::numeric_limits<float>::denorm_min()},
+                           Case{{0, 0, 0}, {0, 3, 0}, 0}};
+    for (const auto& c : cases) {
+        const NavigationLinkCurve curve(c.start, c.end, c.height);
+        check(curve.point(0) == c.start && curve.point(1) == c.end &&
+                  curve.advance(0, curve.length()) == 1 && curve.advance(.5, 0) == .5,
+              "Navigation curve lost exact endpoints or zero-distance hold");
+        const auto middle = curve.point(.5);
+        check(std::abs(middle[1] - ((c.start[1] + c.end[1]) * .5 + c.height)) < 1e-10,
+              "Navigation curve midpoint lost authored world-Y lift");
+        // Norm of an affine derivative is convex. Independent midpoint/trapezoid
+        // integration bounds the true arc length, without using its primitive.
+        const auto speed = [&](long double t) {
+            const auto x = static_cast<long double>(c.end[0]) - c.start[0];
+            const auto z = static_cast<long double>(c.end[2]) - c.start[2];
+            const auto y =
+                static_cast<long double>(c.end[1]) - c.start[1] + 4 * c.height * (1 - 2 * t);
+            return std::sqrt(x * x + y * y + z * z);
+        };
+        constexpr unsigned subdivisions = 32768;
+        long double lower = 0, upper = (speed(0) + speed(1)) * .5;
+        for (unsigned i = 0; i != subdivisions; ++i) {
+            lower += speed((static_cast<long double>(i) + .5) / subdivisions);
+            if (i)
+                upper += speed(static_cast<long double>(i) / subdivisions);
+        }
+        lower /= subdivisions;
+        upper /= subdivisions;
+        check(curve.length() >= lower - 5e-8 && curve.length() <= upper + 5e-8,
+              "Navigation curve length escaped independent integration bounds");
+        const NavigationLinkCurve reverse(c.end, c.start, c.height);
+        check(std::abs(reverse.length() - curve.length()) < 5e-8,
+              "Reversing a navigation arc changed its world-distance length");
+        double t = 0;
+        for (unsigned step = 0; step != 200 && t != 1; ++step) {
+            const auto next = curve.advance(t, .017);
+            check(next > t && curve.length(t, next) <= .017 + 1e-9,
+                  "Navigation arc exceeded its per-tick distance budget or stopped advancing");
+            const auto a = curve.point(t), b = curve.point(next);
+            check(std::hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) <= .017 + 1e-9,
+                  "Navigation arc world displacement exceeded its distance budget");
+            check(std::abs(curve.parameter(b) - next) < 1e-10,
+                  "Navigation arc progress did not derive from its current pose");
+            t = next;
+        }
+        check(std::abs(curve.length(0, .25) + curve.length(.25, 1) - curve.length()) < 5e-8,
+              "Navigation arc interval distances do not compose");
+    }
+    const NavigationLinkCurve curve({0, 0, 7}, {4, 0, 7}, 1);
+    check(curve.parameter({-1, 0, 7}) < 0 && curve.parameter({5, 0, 7}) > 1,
+          "Navigation curve silently clamped off-span recovery poses");
+    for (double invalid : {-1., 1.1, std::numeric_limits<double>::quiet_NaN(),
+                           std::numeric_limits<double>::infinity()}) {
+        rejects([&] { (void)curve.point(invalid); });
+        rejects([&] { (void)curve.advance(invalid, 1); });
+    }
+    rejects([&] { (void)curve.length(.8, .2); });
+    rejects([&] { (void)curve.advance(0, -.1); });
+    rejects([&] { (void)curve.advance(0, std::numeric_limits<double>::infinity()); });
+    rejects([] { (void)NavigationLinkCurve({0, 0, 0}, {0, 3, 0}, 1); });
+    rejects([] { (void)NavigationLinkCurve({0, 0, 0}, {.001, 0, 0}, 1); });
+    rejects([] { (void)NavigationLinkCurve({0, 0, 0}, {4, 0, 0}, -1); });
+    rejects([] { (void)NavigationLinkCurve({0, 0, 0}, {4, 0, 0}, 101); });
+    rejects([] { (void)NavigationLinkCurve({0, 4090, 0}, {4, 4090, 0}, 10); });
+}
 } // namespace
 int main() {
     try {
+        curve_geometry();
         NavigationLinkData a{EntityId::parse("11111111-1111-4111-8111-111111111111"),
                              {1, 2, 3},
                              {-2, 6, 7},
@@ -106,8 +185,7 @@ int main() {
                                         std::numeric_limits<float>::infinity());
         });
         rejects([&] { validate_navigation_links({}, MeshSpace(2)); });
-        std::cout << "Bounded navigation link values/native parameters PASS; traversal integration "
-                     "pending\n";
+        std::cout << "Bounded navigation link values/native parameters and curve geometry PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

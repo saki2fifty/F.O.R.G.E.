@@ -25,7 +25,7 @@ Json record(const AssetCatalog& catalog, AssetId id) {
 }
 #include "navigation_link_runtime_tests.hpp"
 void run(const std::filesystem::path& root, const std::filesystem::path& worker,
-         NavigationPlane plane, bool dynamic) {
+         NavigationPlane plane, bool dynamic, bool arc) {
     using namespace navigation_detail;
     SceneDocument::create_project(root, "Authored navigation connections");
     EngineContext engine;
@@ -68,6 +68,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
     NavigationLink link;
     link.plane = unsigned(plane);
     link.profile = settings.profile;
+    link.arc_height = arc ? 1.f : 0.f;
     link.bidirectional = false;
     link.end_y = plane == NavigationPlane::Spatial3D ? 2.f : 0.f;
     link.start_x = plane == NavigationPlane::PlanarXY ? 1.f : .25f;
@@ -96,10 +97,11 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
     const auto baked = publish(settings);
     const auto catalog = AssetCatalog::open_project(root);
     check(catalog.resolve(AssetRef<NavMeshAsset>{baked.id}).state == AssetState::Available &&
-              baked.schema_version == 6 && baked.metadata.at("version") == 6 &&
+              baked.schema_version == (arc ? 8u : 6u) &&
+              baked.metadata.at("version") == (arc ? 8 : 6) &&
               baked.metadata.at("links").at(0).at("entity").get<EntityId>() ==
                   EntityId::parse(left),
-          "Normal candidate/catalog did not publish an available version-6 linked Nav asset");
+          "Normal candidate/catalog did not publish the matching linked Nav profile");
     check(record(catalog, untouched.id) == old_row && read(root / untouched.source) == old_bytes,
           "Publishing a linked profile changed another profile's record or immutable artifact");
     Query query(load(root, baked).mesh);
@@ -109,6 +111,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
     const auto route = query.route(start, end);
     check(route.path.status == NavStatus::Success && route.links.size() == 1 &&
               route.links.front().source == EntityId::parse(left) &&
+              route.links.front().arc_height == link.arc_height &&
               query.path(end, start).status != NavStatus::Success,
           "Published link lost source identity, reachability or one-way direction");
     const auto actor_id =
@@ -130,7 +133,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
         .set<LocalTranslation>({2, plane == NavigationPlane::Spatial3D ? 2. : 0., 0})
         .set<NavigationObstacle>({false, 1, 2});
     movement(scene.snapshot(), root, EntityId::parse(actor_id), baked, untouched,
-             EntityId::parse(left), projected.points[0], plane);
+             EntityId::parse(left), projected.points[0], plane, link.arc_height);
     link_lifecycle(scene.snapshot(), root, EntityId::parse(actor_id), baked, untouched,
                    EntityId::parse(left), EntityId::parse(obstacle_id), projected.points[0],
                    dynamic);
@@ -163,11 +166,14 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         for (auto plane : {NavigationPlane::Spatial3D, NavigationPlane::PlanarXY})
             for (bool dynamic : {false, true})
-                run(root / (std::to_string(unsigned(plane)) + (dynamic ? "-dynamic" : "-static")),
-                    std::filesystem::absolute(argv[2]), plane, dynamic);
+                for (bool arc : {false, true})
+                    run(root / (std::to_string(unsigned(plane)) +
+                                (dynamic ? "-dynamic" : "-static") + (arc ? "-arc" : "-straight")),
+                        std::filesystem::absolute(argv[2]), plane, dynamic, arc);
         std::filesystem::remove_all(root);
-        std::cout << "Authored link capture, profile isolation, version-6 publication and native "
-                     "route PASS\n";
+        std::cout
+            << "Authored link capture, profile isolation, straight/arc publication and native "
+               "route PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

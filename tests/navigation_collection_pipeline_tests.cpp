@@ -82,7 +82,7 @@ void admission(const std::filesystem::path& root, const AssetRecord& record) {
 }
 void movement(const Json& snapshot, const std::filesystem::path& root, AssetId nav,
               const std::string& actor_id, const std::string& body_id, NavigationPlane plane,
-              Double3 start, Double3 end) {
+              Double3 start, Double3 end, float arc_height = 0) {
     EngineContext engine(WorldRole::Runtime, false, {navigation_module(root)});
     Scene scene(engine.world());
     scene.restore_snapshot(snapshot);
@@ -112,6 +112,17 @@ void movement(const Json& snapshot, const std::filesystem::path& root, AssetId n
                 "Collected-source Agent exceeded its fixed-tick distance budget");
         if (plane == NavigationPlane::PlanarXY)
             require(position.z == start[2], "Collected-source Agent changed XY visual depth");
+        if (arc_height != 0) {
+            const auto debug = navigation->debug(actor.id());
+            if (!debug.at("link").is_null()) {
+                const auto entry = debug.at("link").at("entry").get<Double3>();
+                const auto exit = debug.at("link").at("exit").get<Double3>();
+                const auto t = (position.x - entry[0]) / (exit[0] - entry[0]);
+                const auto y = entry[1] + (exit[1] - entry[1]) * t + 4 * arc_height * t * (1 - t);
+                require(std::abs(position.y - y) < 1e-6,
+                        "Collected-source traversal did not follow its admitted arc");
+            }
+        }
         if (step == 80) {
             set_layer(1);
             for (unsigned held = 0; held < 3; ++held) {
@@ -241,7 +252,7 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
             "Rejected candidate changed admitted immutable bytes");
 }
 void linked(const std::filesystem::path& root, const std::filesystem::path& worker,
-            NavigationPlane plane, bool dynamic) {
+            NavigationPlane plane, bool dynamic, bool arc = false) {
     SceneDocument::create_project(root, "Collected physical islands and an authored connection");
     EngineContext engine;
     Scene scene(engine.world());
@@ -286,6 +297,7 @@ void linked(const std::filesystem::path& root, const std::filesystem::path& work
     connection.end_x = 2;
     connection.end_y = xy ? 0 : 2;
     connection.bidirectional = false;
+    connection.arc_height = arc ? 1.f : 0.f;
     scene.entity(add("Authored one-way connection"))
         .set<LocalTranslation>({0, 0, 0})
         .set<NavigationLink>(connection);
@@ -299,6 +311,8 @@ void linked(const std::filesystem::path& root, const std::filesystem::path& work
     const auto other = publish(other_settings);
     const auto old_bytes = asset_detail::read_bytes(root / other.source, max_nav_bytes + 65556);
     const auto selected = publish(settings);
+    require(selected.schema_version == (arc ? 8u : 7u),
+            "Collected linked navigation selected an incompatible envelope");
     const auto catalog = AssetCatalog::open_project(root);
     require(catalog.records().at(other.id).metadata == other.metadata &&
                 asset_detail::read_bytes(root / other.source, max_nav_bytes + 65556) == old_bytes,
@@ -324,7 +338,7 @@ void linked(const std::filesystem::path& root, const std::filesystem::path& work
         .set<LocalTranslation>({at[0], at[1], at[2]})
         .set<NavigationAgent>({{selected.id}, true, true, 3, .05f, end[0], end[1], end[2]});
     movement(scene.snapshot(), root, selected.id, actor_id, body_id, plane, at,
-             route.path.points.back());
+             route.path.points.back(), connection.arc_height);
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -343,6 +357,9 @@ int main(int argc, char** argv) {
                 linked(root / (std::to_string(unsigned(plane)) +
                                (dynamic ? "-linked-dynamic" : "-linked-static")),
                        worker, plane, dynamic);
+                linked(root / (std::to_string(unsigned(plane)) +
+                               (dynamic ? "-arced-dynamic" : "-arced-static")),
+                       worker, plane, dynamic, true);
             }
         std::filesystem::remove_all(root);
         std::cout << "Collected physical sources: XY/3D static/dynamic publication and stale "

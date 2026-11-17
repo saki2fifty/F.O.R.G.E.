@@ -2,6 +2,7 @@
 #include "json_output_text.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_behavior_runtime.hpp"
+#include "navigation_link_curve.hpp"
 #include "navigation_obstacle.hpp"
 #include "navigation_schema.hpp"
 #include "navigation_sources.hpp"
@@ -52,15 +53,39 @@ const Query::RouteLink* crossing(const AgentState& state) {
     return state.crossing && *state.crossing < state.links.size() ? &state.links[*state.crossing]
                                                                   : nullptr;
 }
-bool begin_crossing(AgentState& state, Double3 position) {
+bool arc_entry(const AgentState& state, std::size_t waypoint) {
+    return std::ranges::any_of(state.links, [&](const auto& link) {
+        return link.arc_height != 0 && link.entry == waypoint;
+    });
+}
+double retained_pose_tolerance(const AgentState& state) {
+    const auto* link = crossing(state);
+    return link && link->arc_height != 0 ? 1e-8 : .001;
+}
+bool begin_crossing(AgentState& state, Double3& position, double& remaining) {
     if (state.crossing)
         return true;
     for (std::size_t i = 0; i < state.links.size(); ++i) {
         const auto& link = state.links[i];
-        if (link.exit == state.next && link.entry < state.path.size() &&
+        if ((link.exit == state.next || (link.arc_height != 0 && link.entry == state.next)) &&
+            link.entry < state.path.size() &&
             std::hypot(position[0] - state.path[link.entry][0],
                        position[1] - state.path[link.entry][1],
                        position[2] - state.path[link.entry][2]) < .001) {
+            if (link.arc_height != 0 && position != state.path[link.entry]) {
+                const auto& entry = state.path[link.entry];
+                const auto gap = std::hypot(position[0] - entry[0], position[1] - entry[1],
+                                            position[2] - entry[2]);
+                // Finish the tiny ground approach before deriving arc progress.
+                // Projecting a nearby ground pose onto a steep arc would jump.
+                if (gap >= 1e-6 || gap > remaining) {
+                    state.next = link.entry;
+                    return false;
+                }
+                position = entry;
+                remaining -= gap;
+            }
+            state.next = link.exit;
             state.crossing = i;
             return true;
         }
@@ -74,8 +99,27 @@ double route_distance(Double3 position, const AgentState& state) {
     if (state.next >= state.path.size())
         return distance(position, state.path.back());
     auto value = distance(position, state.path[state.next]);
-    for (auto i = state.next + 1; i < state.path.size(); ++i)
-        value += distance(state.path[i - 1], state.path[i]);
+    auto segment = state.next;
+    for (const auto& link : state.links)
+        if (link.arc_height != 0 && link.exit == state.next) {
+            const NavigationLinkCurve curve(state.path[link.entry], state.path[link.exit],
+                                            link.arc_height);
+            value = crossing(state) == &link
+                        ? curve.length(std::clamp(curve.parameter(position), 0., 1.))
+                        : distance(position, state.path[link.entry]) + curve.length();
+            break;
+        }
+    auto link = state.links.begin();
+    for (auto i = segment + 1; i < state.path.size(); ++i) {
+        while (link != state.links.end() && link->exit < i)
+            ++link;
+        if (link != state.links.end() && link->exit == i && link->arc_height != 0)
+            value += NavigationLinkCurve(state.path[link->entry], state.path[link->exit],
+                                         link->arc_height)
+                         .length();
+        else
+            value += distance(state.path[i - 1], state.path[i]);
+    }
     return value;
 }
 constexpr double arrival_tolerance = .001;
@@ -771,25 +815,26 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
             Double3 destination{a.destination_x, a.destination_y, a.destination_z};
             auto& state = s.agents[id];
             if (crossing(state) && state.config.navmesh == a.navmesh &&
-                distance(state.last, position) <= .001) {
+                distance(state.last, position) <= retained_pose_tolerance(state)) {
                 state.replan_after_link |= state.config.has_destination != a.has_destination ||
                                            state.config.destination_x != a.destination_x ||
                                            state.config.destination_y != a.destination_y ||
                                            state.config.destination_z != a.destination_z;
                 state.config = a;
-                if (state.query_generation != asset.query->generation()) {
+                const bool changed = state.query_generation != asset.query->generation();
+                if (changed || crossing(state)->arc_height != 0) {
                     const auto* link = crossing(state);
                     if (!asset.query->link_available(link->source, state.path.at(link->entry),
-                                                     state.path.at(link->exit)))
+                                                     state.path.at(link->exit), link->arc_height))
                         throw NavigationFailure(NavStatus::NoPath,
                                                 "Navigation link exit is blocked; traversal held");
                     state.query_generation = asset.query->generation();
-                    state.replan_after_link = true;
+                    state.replan_after_link |= changed;
                 }
             } else if (avoiding || state.config != a || state.path.empty() ||
                        state.replan_after_link ||
                        state.query_generation != asset.query->generation() ||
-                       distance(state.last, position) > .001) {
+                       distance(state.last, position) > retained_pose_tolerance(state)) {
                 auto route = asset.query->route(position, destination);
                 const auto previous = state.observation;
                 state = {};
@@ -810,15 +855,16 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
             const auto original = position;
             if (remaining > 0 &&
                 route_distance(position, state) > a.stopping_distance + arrival_tolerance)
-                begin_crossing(state, position);
+                begin_crossing(state, position, remaining);
             if (avoiding && !crossing(state) && remaining > 0 &&
                 route_distance(position, state) > a.stopping_distance + arrival_tolerance) {
                 auto avoidance_profile =
                     s.context.services().profile("navigation", "NavAvoidance", tick);
                 while (state.next < state.path.size() &&
-                       distance(position, state.path[state.next]) < .001)
+                       distance(position, state.path[state.next]) < .001 &&
+                       !arc_entry(state, state.next))
                     ++state.next;
-                if (state.next < state.path.size() && !begin_crossing(state, position)) {
+                if (state.next < state.path.size() && !begin_crossing(state, position, remaining)) {
                     const auto waypoint = state.path[state.next];
                     const auto length = distance(position, waypoint);
                     const auto speed =
@@ -876,7 +922,8 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                             "Avoidance start/surface height cannot fit the fixed-tick speed "
                             "budget; align the agent with navigation");
                     position = moved.points.front();
-                    if (distance(position, waypoint) < .001)
+                    if (distance(position, waypoint) < .001 &&
+                        (!arc_entry(state, state.next) || position == waypoint))
                         ++state.next;
                 }
             }
@@ -886,10 +933,35 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                 const auto distance_left = route_distance(position, state);
                 if (!crossing(state) && distance_left <= a.stopping_distance + arrival_tolerance)
                     break;
-                begin_crossing(state, position);
+                begin_crossing(state, position, remaining);
                 auto waypoint = state.path[state.next];
+                if (const auto* link = crossing(state); link && link->arc_height != 0) {
+                    const NavigationLinkCurve curve(state.path[link->entry], waypoint,
+                                                    link->arc_height);
+                    const auto projected = curve.parameter(position);
+                    if (projected < -1e-9 || projected > 1 + 1e-9)
+                        throw NavigationFailure(NavStatus::Invalid,
+                                                "Navigation arc pose is outside its span");
+                    const auto from = std::clamp(projected, 0., 1.);
+                    if (distance(position, curve.point(from)) > 1e-6)
+                        throw NavigationFailure(NavStatus::Invalid,
+                                                "Navigation arc pose is off its curve");
+                    const auto advance = std::min(remaining, curve.length(from));
+                    const auto to = curve.advance(from, advance);
+                    if (to == from && from != 1)
+                        break;
+                    position = curve.point(to);
+                    remaining -= advance;
+                    if (to == 1) {
+                        ++state.next;
+                        state.crossing.reset();
+                        if (state.replan_after_link || avoiding)
+                            break;
+                    }
+                    continue;
+                }
                 double d = distance(position, waypoint);
-                if (d < 1e-6) {
+                if (d < 1e-6 && !arc_entry(state, state.next)) {
                     ++state.next;
                     if (state.crossing) {
                         state.crossing.reset();
@@ -918,7 +990,8 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                     break;
                 position = next;
                 remaining -= advance;
-                if (distance(position, waypoint) < .001) {
+                if (distance(position, waypoint) < .001 &&
+                    (!arc_entry(state, state.next) || position == waypoint)) {
                     ++state.next;
                     if (state.crossing) {
                         state.crossing.reset();
@@ -962,7 +1035,8 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
             auto& state = s.agents[id];
             const bool held =
                 crossing(state) && state.config.navmesh == a.navmesh && e.has<WorldTransform>() &&
-                distance(state.last, e.get<WorldTransform>().affine.point({0, 0, 0})) <= .001;
+                distance(state.last, e.get<WorldTransform>().affine.point({0, 0, 0})) <=
+                    retained_pose_tolerance(state);
             if (!held)
                 state = {};
             else
@@ -1028,10 +1102,13 @@ Json NavigationRuntime::debug(flecs::entity_t entity) const {
         path = impl_->agents.at(entity).path;
     Json link = nullptr;
     if (const auto state = impl_->agents.find(entity); state != impl_->agents.end())
-        if (const auto* current = crossing(state->second))
+        if (const auto* current = crossing(state->second)) {
             link = {{"source", current->source},
                     {"entry", state->second.path.at(current->entry)},
                     {"exit", state->second.path.at(current->exit)}};
+            if (current->arc_height != 0)
+                link["arc_height"] = current->arc_height;
+        }
     Json diagnostic = "";
     if (out->phase == NavigationAgentPhase::Failed) {
         const auto error = impl_->errors.find(impl_->agent_limit ? 0 : entity);
@@ -1105,7 +1182,7 @@ Json NavigationRuntime::checkpoint() {
     if (behaviors.is_null())
         return Json();
     Json revisions = Json::array(), agents = Json::array();
-    bool has_crossing = false;
+    bool has_crossing = false, has_arc = false;
     if (impl_) {
         impl_->check();
         ApplicationStateActivation conditions(impl_->context);
@@ -1147,15 +1224,20 @@ Json NavigationRuntime::checkpoint() {
                     link && !translation.is_null() &&
                     state->second.config.navmesh == e.get<NavigationAgent>().navmesh &&
                     distance(state->second.last, e.get<WorldTransform>().affine.point({0, 0, 0})) <=
-                        .001) {
+                        retained_pose_tolerance(state->second)) {
                     agents.back()["link"] = {{"source", link->source},
                                              {"entry", state->second.path.at(link->entry)},
                                              {"exit", state->second.path.at(link->exit)}};
+                    if (link->arc_height != 0) {
+                        agents.back()["link"]["arc_height"] = link->arc_height;
+                        has_arc = true;
+                    }
                     has_crossing = true;
                 }
         });
     }
-    Json result = {{"version", has_crossing        ? 4
+    Json result = {{"version", has_arc             ? 5
+                               : has_crossing      ? 4
                                : behaviors.empty() ? 2
                                                    : 3},
                    {"assets", revisions},
@@ -1167,7 +1249,7 @@ Json NavigationRuntime::checkpoint() {
 void NavigationRuntime::restore(const Json& data) {
     if (!impl_ ||
         (data.at("version") != 1 && data.at("version") != 2 && data.at("version") != 3 &&
-         data.at("version") != 4) ||
+         data.at("version") != 4 && data.at("version") != 5) ||
         !data.at("assets").is_array() || data.at("assets").size() > 8 ||
         !data.at("agents").is_array() || data.at("agents").size() > 64)
         throw std::runtime_error("Invalid navigation recovery metadata");
@@ -1235,12 +1317,21 @@ void NavigationRuntime::restore(const Json& data) {
         }
         Json link = nullptr;
         if (entry.contains("link")) {
-            if (data.at("version") != 4 || !translation)
+            if ((data.at("version") != 4 && data.at("version") != 5) || !translation)
                 throw std::runtime_error(
-                    "Navigation traversal recovery requires version 4 and a valid pose");
+                    "Navigation traversal recovery requires version 4 or 5 and a valid pose");
             link = entry.at("link");
-            if (!link.is_object() || link.size() != 3 || !link.at("source").get<EntityId>())
+            const bool arc = link.contains("arc_height");
+            if (!link.is_object() || link.size() != (arc ? 4u : 3u) ||
+                !link.at("source").get<EntityId>() ||
+                (arc && (data.at("version") != 5 || !link.at("arc_height").is_number())))
                 throw std::runtime_error("Invalid navigation traversal recovery identity");
+            if (arc) {
+                const auto height = link.at("arc_height").get<float>();
+                NavigationLinkCurve::validate_height(height);
+                if (height == 0)
+                    throw std::runtime_error("Navigation arc recovery requires nonzero height");
+            }
             for (const auto* field : {"entry", "exit"}) {
                 const auto& endpoint = link.at(field);
                 if (!endpoint.is_array() || endpoint.size() != 3)
@@ -1277,7 +1368,7 @@ void NavigationRuntime::restore(const Json& data) {
     impl_->agents.clear();
     impl_->agent_limit = false;
     impl_->errors.clear();
-    bool has_crossing = false;
+    bool has_crossing = false, has_arc = false;
     impl_->context.evaluate_world_transforms();
     for (const auto& p : pending) {
         if (p.link.is_null())
@@ -1289,27 +1380,37 @@ void NavigationRuntime::restore(const Json& data) {
         const auto source = p.link.at("source").get<EntityId>();
         const auto entry = p.link.at("entry").get<Double3>(),
                    exit = p.link.at("exit").get<Double3>();
-        if (!asset.query->link_available(source, entry, exit))
+        const auto arc_height = p.link.value("arc_height", 0.f);
+        if (!asset.query->link_available(source, entry, exit, arc_height))
             throw std::runtime_error(
                 "Navigation traversal recovery differs from the admitted oriented link");
         const auto position = p.entity.get<WorldTransform>().affine.point({0, 0, 0});
-        double length_squared = 0, projection = 0;
-        for (unsigned i = 0; i < 3; ++i) {
-            length_squared += (exit[i] - entry[i]) * (exit[i] - entry[i]);
-            projection += (position[i] - entry[i]) * (exit[i] - entry[i]);
+        if (arc_height != 0) {
+            const NavigationLinkCurve curve(entry, exit, arc_height);
+            const auto t = curve.parameter(position);
+            if (t < -1e-9 || t > 1 + 1e-9 ||
+                distance(position, curve.point(std::clamp(t, 0., 1.))) > 1e-6)
+                throw std::runtime_error("Navigation traversal recovery pose is off its arc");
+            has_arc = true;
+        } else {
+            double length_squared = 0, projection = 0;
+            for (unsigned i = 0; i < 3; ++i) {
+                length_squared += (exit[i] - entry[i]) * (exit[i] - entry[i]);
+                projection += (position[i] - entry[i]) * (exit[i] - entry[i]);
+            }
+            if (length_squared < .000001 || projection < -.000001 ||
+                projection > length_squared + .000001)
+                throw std::runtime_error("Navigation traversal recovery pose is outside its span");
+            Double3 closest;
+            for (unsigned i = 0; i < 3; ++i)
+                closest[i] = entry[i] + (exit[i] - entry[i]) * projection / length_squared;
+            if (distance(position, closest) > .001)
+                throw std::runtime_error("Navigation traversal recovery pose is off its span");
         }
-        if (length_squared < .000001 || projection < -.000001 ||
-            projection > length_squared + .000001)
-            throw std::runtime_error("Navigation traversal recovery pose is outside its span");
-        Double3 closest;
-        for (unsigned i = 0; i < 3; ++i)
-            closest[i] = entry[i] + (exit[i] - entry[i]) * projection / length_squared;
-        if (distance(position, closest) > .001)
-            throw std::runtime_error("Navigation traversal recovery pose is off its span");
         AgentState state;
         state.config = p.agent;
         state.path = {entry, exit};
-        state.links = {{source, 0, 1}};
+        state.links = {{source, 0, 1, arc_height}};
         state.crossing = 0;
         state.last = position;
         state.query_generation = asset.query->generation();
@@ -1319,8 +1420,12 @@ void NavigationRuntime::restore(const Json& data) {
     }
     if (data.at("version") == 4 && !has_crossing)
         throw std::runtime_error("Navigation recovery version 4 requires an active traversal");
-    impl_->behaviors.restore(
-        data.at("version") == 3 || data.at("version") == 4 ? data.at("behaviors") : Json::array());
+    if (data.at("version") == 5 && !has_arc)
+        throw std::runtime_error("Navigation recovery version 5 requires an active arc");
+    impl_->behaviors.restore(data.at("version") == 3 || data.at("version") == 4 ||
+                                     data.at("version") == 5
+                                 ? data.at("behaviors")
+                                 : Json::array());
 }
 EngineModule navigation_module(std::filesystem::path project) {
     auto m = navigation_schema_module();
