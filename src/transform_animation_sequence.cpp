@@ -842,7 +842,8 @@ void TransformAnimationPlayback::project_camera_shots(Json& document, double alp
         for (const auto* field : {"vertical_fov", "orthographic_height", "orthographic_width",
                                   "near_plane", "far_plane"})
             row["components"]["forge.camera"][field] = values.at(field);
-        row["world_affine"] = at->second.world.m;
+        // A view blend must not move the entity's other render producers or children.
+        row["camera_world_affine"] = at->second.world.m;
     }
 }
 Json TransformAnimationPlayback::camera_shots_checkpoint(bool transitions, bool curves) const {

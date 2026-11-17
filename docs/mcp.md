@@ -1062,6 +1062,12 @@ schema. `input_submit` accepts up to64 validated events from `controls`, using t
 existing input queue and physical release policy; reset releases controls.
 `time_scale` uses the existing finite [0,4] clock policy.
 
+Camera Shot view blending exposes a transient `camera_world_affine` on the selected
+Camera's `forge_play_snapshot` entity. Its ordinary `world_affine` remains the node
+pose for attached meshes, lights and children. Read the camera-specific matrix for
+the blended view; an exact cut can omit it and use the ordinary node pose. This
+projection changes no authored components or history.
+
 Mesh Renderer `wind` is one tunable complete struct through `forge_play_tune`,
 using the current launch/session/generation and `play.execute` grant. It changes
 rendered geometry without moving authored transforms or physics. The status clock

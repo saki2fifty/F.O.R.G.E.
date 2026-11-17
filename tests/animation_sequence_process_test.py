@@ -257,7 +257,8 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                     linear = (expected - 2) / probe['blend']
                     weight = linear if curve == 1 else linear*linear
                     for index, name in ((3, 'x'), (7, 'y'), (11, 'z')):
-                        assert abs(target['world_affine'][index] - (a[name]+(b[name]-a[name])*weight)) < 2e-6
+                        assert abs(target['camera_world_affine'][index] - (a[name]+(b[name]-a[name])*weight)) < 2e-6
+                        assert abs(target['world_affine'][index] - b[name]) < 2e-6
                     assert target['components']['forge.local_translation'] == b
             if nested:
                 expected = nested_time(expected)

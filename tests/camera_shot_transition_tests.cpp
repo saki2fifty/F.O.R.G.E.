@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <forge/authoring.hpp>
+#include <forge/engine_assets.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
 #include <fstream>
@@ -33,7 +34,7 @@ template <class Function> void rejects(Function&& operation) {
 struct Fixture {
     EngineContext engine;
     Scene scene{engine.world()};
-    std::string controller, first, second, incoming, output, rig;
+    std::string controller, first, second, incoming, output, rig, child;
     EntityRef group;
     Fixture() {
         const auto create = [&](const char* recipe, const char* name) {
@@ -60,6 +61,16 @@ struct Fixture {
             scene.entity(id).set<LocalTranslation>({id == first ? 0. : 10., 0, 0});
             scene.reparent_entity(id, rig, ReparentMode::KeepLocal);
         }
+        MeshRenderer mesh;
+        mesh.mesh = engine_primitive(0);
+        scene.entity(second).set(mesh);
+        Light light;
+        light.kind = unsigned(LightKind::Point);
+        scene.entity(second).set(light);
+        child = create("empty", "Camera child mesh");
+        scene.entity(child).set(mesh);
+        scene.entity(child).set<LocalTranslation>({1, 0, 0});
+        scene.reparent_entity(child, second, ReparentMode::KeepLocal);
         create("render.camera", "Fallback");
         output = create("render.camera", "Independent output");
         auto producer = scene.entity(output).get<Camera>();
@@ -101,6 +112,14 @@ const Json& row(const Json& document, const std::string& id) {
     const auto& rows = document.at("entities");
     return *std::find_if(rows.begin(), rows.end(), [&](const auto& v) { return v.at("id") == id; });
 }
+double view_x(const Json& document, const std::string& id) {
+    const auto render = extract_render_scene(document);
+    const auto camera =
+        std::find_if(render.cameras.begin(), render.cameras.end(),
+                     [&](const auto& value) { return value.entity == EntityId::parse(id); });
+    check(camera != render.cameras.end(), "Projected Camera was omitted");
+    return camera->world.m[3];
+}
 void set(Json& document, const std::string& id, const char* component, const char* field,
          const Json& value) {
     for (auto& item : document.at("entities"))
@@ -132,6 +151,22 @@ int main(int argc, char** argv) {
                   "Incoming Camera lost its stable identity");
             near(main.cameras[0].view.position[0], x);
             near(main.cameras[0].settings.vertical_fov, fov);
+            const double node_x = world.scene.entity(authored.rig).get<LocalTranslation>().x + 10;
+            for (const auto& [id, expected] :
+                 {std::pair{authored.second, node_x}, std::pair{authored.child, node_x + 1}}) {
+                const auto mesh = std::find_if(
+                    render.meshes.begin(), render.meshes.end(),
+                    [&](const auto& value) { return value.entity == EntityId::parse(id); });
+                check(mesh != render.meshes.end(), "Camera-attached mesh was omitted");
+                near(mesh->world.m[3], expected);
+                near(row(copied, id).at("world_affine").at(3), expected);
+            }
+            const auto light =
+                std::find_if(render.lights.begin(), render.lights.end(), [&](const auto& value) {
+                    return value.entity == EntityId::parse(authored.second);
+                });
+            check(light != render.lights.end(), "Camera-attached light was omitted");
+            near(light->light.position[0], node_x);
             check(row(copied, authored.output).at("components").at("forge.camera").at("enabled") ==
                       true,
                   "Cinematic transition disabled its independent output producer");
@@ -161,9 +196,7 @@ int main(int argc, char** argv) {
                   "Camera curve changed a legacy profile or omitted its new recovery profile");
             World restored_curve(root, curved_source);
             restored_curve.animation->restore(checkpoint);
-            near(row(restored_curve.simulation.presentation(1), authored.second)
-                     .at("world_affine")
-                     .at(3),
+            near(view_x(restored_curve.simulation.presentation(1), authored.second),
                  100 + 10 * quarter);
             if (curve == 0)
                 continue;
@@ -210,13 +243,11 @@ int main(int argc, char** argv) {
         seek(live, 1.25);
         command(live, "pause");
         live.simulation.tick(.25f);
-        near(row(live.simulation.presentation(1), authored.second).at("world_affine").at(3),
-             101.5625);
+        near(view_x(live.simulation.presentation(1), authored.second), 101.5625);
         command(live, "play");
         live.simulation.tick(.25f);
-        near(row(live.simulation.presentation(.5), authored.second).at("world_affine").at(3),
-             103.1640625);
-        near(row(live.simulation.presentation(1), authored.second).at("world_affine").at(3), 105);
+        near(view_x(live.simulation.presentation(.5), authored.second), 103.1640625);
+        near(view_x(live.simulation.presentation(1), authored.second), 105);
         const EntityRef incoming_ref{authored.scene.asset_id(), EntityId::parse(authored.incoming)};
         const auto before_tuning = live.animation->checkpoint();
         rejects([&] {
@@ -251,15 +282,13 @@ int main(int argc, char** argv) {
               "Transition recovery omitted its versioned configuration");
         World restored(root, source);
         restored.animation->restore(checkpoint);
-        near(row(restored.simulation.presentation(1), authored.second).at("world_affine").at(3),
-             105);
+        near(view_x(restored.simulation.presentation(1), authored.second), 105);
         auto old = checkpoint;
         old["version"] = 7;
         for (auto& item : old["camera_shots"])
             item.erase("blend_in_seconds");
         rejects([&] { restored.animation->restore(old); });
-        near(row(restored.simulation.presentation(1), authored.second).at("world_affine").at(3),
-             105);
+        near(view_x(restored.simulation.presentation(1), authored.second), 105);
         auto legacy = source;
         for (auto& item : legacy["entities"])
             if (item["components"].contains("forge.camera_shot")) {
@@ -283,10 +312,7 @@ int main(int argc, char** argv) {
               "envelope");
         World restored_curved_cut(root, curved_cut_source);
         restored_curved_cut.animation->restore(curved_cut_checkpoint);
-        near(row(restored_curved_cut.simulation.presentation(1), authored.second)
-                 .at("world_affine")
-                 .at(3),
-             110);
+        near(view_x(restored_curved_cut.simulation.presentation(1), authored.second), 110);
         auto looping_source = source;
         set(looping_source, authored.controller, "forge.animation_sequence", "loop", true);
         World looping(root, looping_source);
@@ -321,7 +347,7 @@ int main(int argc, char** argv) {
         World nested(root, nested_source);
         AnimationPlaybackAccess::control(*nested.animation, outer_ref,
                                          {{"operation", "seek"}, {"position_seconds", 2.}});
-        near(row(nested.simulation.presentation(1), authored.second).at("world_affine").at(3), 105);
+        near(view_x(nested.simulation.presentation(1), authored.second), 105);
         const auto nested_checkpoint = nested.animation->checkpoint();
         check(nested_checkpoint.at("sequence_profile") == 7,
               "Nested camera transitions lost their existing recovery profile");
@@ -337,23 +363,14 @@ int main(int argc, char** argv) {
               "Curve recovery lost the nested controller/transition profile");
         World nested_curve_restored(root, nested_curve_source);
         nested_curve_restored.animation->restore(nested_curve_checkpoint);
-        near(row(nested_curve_restored.simulation.presentation(1), authored.second)
-                 .at("world_affine")
-                 .at(3),
-             102.5);
+        near(view_x(nested_curve_restored.simulation.presentation(1), authored.second), 102.5);
         World nested_restored(root, nested_source);
         nested_restored.animation->restore(nested_checkpoint);
-        near(row(nested_restored.simulation.presentation(1), authored.second)
-                 .at("world_affine")
-                 .at(3),
-             105);
+        near(view_x(nested_restored.simulation.presentation(1), authored.second), 105);
         auto wrong_profile = nested_checkpoint;
         wrong_profile["sequence_profile"] = 4u;
         rejects([&] { nested_restored.animation->restore(wrong_profile); });
-        near(row(nested_restored.simulation.presentation(1), authored.second)
-                 .at("world_affine")
-                 .at(3),
-             105);
+        near(view_x(nested_restored.simulation.presentation(1), authored.second), 105);
         auto incompatible_cut = legacy;
         set(incompatible_cut, authored.second, "forge.camera", "layers", 1);
         World cut_profile(root, incompatible_cut);

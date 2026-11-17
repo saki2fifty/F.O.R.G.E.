@@ -177,6 +177,12 @@ void camera_transition_frame_source(const std::filesystem::path& gallery,
     profile.enabled = false;
     profile.vertical_fov = 1.2;
     scene.entity(incoming).set(profile);
+    MeshRenderer attached_mesh;
+    attached_mesh.mesh = engine_primitive(0);
+    scene.entity(incoming).set(attached_mesh);
+    Light attached_light;
+    attached_light.kind = unsigned(LightKind::Point);
+    scene.entity(incoming).set(attached_light);
     auto shot = shots[1].second;
     shot.blend_in_seconds = 1;
     shot.blend_curve = curve;
@@ -210,10 +216,28 @@ void camera_transition_frame_source(const std::filesystem::path& gallery,
                                             linear * linear, linear * (2 - linear)};
         const double weight = weights.at(curve);
         for (unsigned i : {3u, 7u, 11u})
-            expect_close(row(source, incoming).at("world_affine").at(i),
+            expect_close(render.cameras[0].world.m[i],
                          std::lerp(row(resolved, outgoing).at("world_affine").at(i).get<double>(),
                                    row(resolved, incoming).at("world_affine").at(i).get<double>(),
                                    weight));
+        check(row(source, incoming).at("world_affine") ==
+                  row(resolved, incoming).at("world_affine"),
+              "Stopped camera blend changed the entity's resolved node pose");
+        const auto mesh =
+            std::find_if(render.meshes.begin(), render.meshes.end(), [&](const auto& value) {
+                return value.entity == EntityId::parse(incoming);
+            });
+        const auto light =
+            std::find_if(render.lights.begin(), render.lights.end(), [&](const auto& value) {
+                return value.entity == EntityId::parse(incoming);
+            });
+        check(mesh != render.meshes.end() && light != render.lights.end(),
+              "Stopped camera blend omitted an attached producer");
+        check(mesh->world.m ==
+                  row(resolved, incoming).at("world_affine").get<std::array<double, 12>>(),
+              "Stopped camera blend moved an attached mesh");
+        for (unsigned i = 0; i < 3; ++i)
+            expect_close(light->light.position[i], mesh->world.m[4 * i + 3]);
         expect_close(render.cameras[0].camera.vertical_fov,
                      std::lerp(scene.entity(outgoing).get<Camera>().vertical_fov, 1.2, weight));
         check(row(source, incoming).at("components").at("forge.local_translation") ==

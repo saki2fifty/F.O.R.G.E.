@@ -1,6 +1,7 @@
 #pragma once
 #include <forge/authoring.hpp>
 #include <forge/render_scene.hpp>
+#include <limits>
 inline void test_render_scene() {
     using namespace forge;
     auto require = [](bool ok, const char* why) {
@@ -160,6 +161,38 @@ inline void test_render_scene() {
                 partial.diagnostics[0].context.property == "forge.camera",
             "Invalid producer data did not create bounded contextual diagnostics");
     require(scene.document() == original, "Render admission changed authored scene or history");
+    auto projected = scene.effective_document();
+    projected["entities"][0]["camera_world_affine"] = projected["entities"][0].at("world_affine");
+    projected["entities"][0]["camera_world_affine"][3] = 25.;
+    auto isolated = extract_render_scene(projected);
+    const auto projected_camera =
+        std::find_if(isolated.cameras.begin(), isolated.cameras.end(),
+                     [&](const auto& camera) { return camera.entity == third; });
+    require(projected_camera != isolated.cameras.end() && projected_camera->world.m[3] == 25 &&
+                isolated.meshes[0].world.m[3] == 0 && isolated.lights[0].light.position[0] == 0 &&
+                isolated.diagnostics.empty(),
+            "Camera presentation projection escaped its component scope");
+    const Json camera_pose = projected["entities"][0].at("camera_world_affine");
+    auto nonnumeric_pose = camera_pose;
+    nonnumeric_pose[3] = "invalid";
+    auto nonfinite_pose = camera_pose;
+    nonfinite_pose[3] = std::numeric_limits<double>::infinity();
+    for (const auto& invalid :
+         {Json(nullptr), Json::array({1, 2, 3}), nonnumeric_pose, nonfinite_pose}) {
+        projected["entities"][0]["camera_world_affine"] = invalid;
+        isolated = extract_render_scene(projected);
+        require(isolated.cameras.size() == 2 && isolated.meshes.size() == 3 &&
+                    isolated.lights.size() == 3 && isolated.diagnostics.size() == 1 &&
+                    isolated.diagnostics[0].category == "render.camera.invalid" &&
+                    isolated.diagnostics[0].context.entity == third,
+                "Invalid Camera projection hid its diagnostic or changed another producer");
+    }
+    projected["entities"][0]["camera_world_affine"] = camera_pose;
+    projected["entities"][0]["spatial_resolved"] = false;
+    isolated = extract_render_scene(projected);
+    require(isolated.cameras.size() == 2 && isolated.lights.size() == 2 &&
+                isolated.meshes.size() == 2 && isolated.diagnostics.size() == 3,
+            "Camera projection repaired an unresolved node");
     broken = scene.effective_document();
     broken["entities"][0]["world_affine"][0] = 0;
     partial = extract_render_scene(broken);

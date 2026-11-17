@@ -540,6 +540,8 @@ shot, enter a positive duration no longer than that incoming shot. During this
 interval the view eases from the previous camera's current position, orientation
 and lens to the incoming camera. Animated and parented cameras keep moving during
 the transition. First shots, gaps and the start of each loop use a cut.
+Blending changes the camera view and lens. Meshes and lights on the camera entity,
+and its children, retain their own animated or authored transforms.
 
 **Shot blend curve** controls the incoming transition's timing. **Smooth** is the
 default and eases both ends. **Linear** advances at a constant rate. **EaseIn**

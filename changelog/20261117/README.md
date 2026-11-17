@@ -1,5 +1,12 @@
 # 2026-11-17
 
+## Camera Shot component isolation
+
+Camera Shot view blends preserve the resolved entity pose used by attached meshes,
+lights and children. Camera extraction consumes a separate transient view pose;
+runtime presentation and stopped Timeline frame sampling share this behavior.
+Malformed view poses report Camera diagnostics without affecting other producers.
+
 ## Validation contracts
 
 Scene command discovery checks every supported operation identity and rejects

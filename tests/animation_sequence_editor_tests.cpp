@@ -5,6 +5,7 @@
 #include "imgui_software_capture.hpp"
 #include "model_selection.hpp"
 #include "sequence_frame_plan.hpp"
+#include <forge/engine_assets.hpp>
 #include <forge/render_scene.hpp>
 #include <imgui_internal.h>
 #include <iostream>
@@ -542,6 +543,15 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 4 && std::string_view(argv[1]) == "--camera-frame-source") {
+            std::filesystem::create_directories(argv[3]);
+            frame_plans();
+            for (std::uint32_t curve = 0; curve < 4; ++curve)
+                camera_transition_frame_source(argv[2], argv[3], curve);
+            std::cout << "Stopped Camera transition frame source, all timing curves and attached "
+                         "producer isolation PASS\n";
+            return 0;
+        }
         if (argc == 4 && std::string_view(argv[1]) == "--camera-workflow") {
             for (float scale : {1.f, 1.5f, 2.f})
                 for (auto display : {ImVec2{1400, 1500}, ImVec2{960, 640}})

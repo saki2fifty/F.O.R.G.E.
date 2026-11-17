@@ -122,6 +122,10 @@ While running, alpha = accumulator / fixed_dt. Translation and scale use linear 
 
 Snapshot `effective_scene.world_affine` carries this derived render output. The other reflected fields describe the current completed simulation state; this is not an independently editable pose document. Interpolation never writes LocalTranslation/LocalRotation/LocalScale or simulation WorldTransform. Authoring gizmos remain immediate.
 
+Camera Shot blending adds a transient entity `camera_world_affine` for the Camera
+view only. The ordinary `world_affine` stays the node pose used by all other
+render components and children. Neither matrix is a saved authoring channel.
+
 Initial samples are identical. Newly sampled entities start previous=current. A changed resolved parent/availability resets that entity's local history. Explicit discontinuities (teleport/snap, scene replacement, recovery and resumed presentation) use `reset_presentation()` to collapse the current graph's history; `PresentationPoses::snap` can collapse an individual sampled local channel set. The exact SDK provides explicit physics teleport/kinematic commands; physics teleport and animation discontinuities snap supported presentation samples after the fixed tick. Large distance alone is not used to guess a teleport. Deleted samples are retired; recycled Flecs generations are fresh samples. While paused, alpha=1 and Step immediately presents its completed state. Resume collapses samples to prevent rewinding from the paused pose.
 
 Snapshots are sampled when requested. JSON transport remains temporary and can add visual latency; the editor does not extrapolate old snapshots. Sampling and JSON serialization still consume runtime CPU time. This is not a production high-density renderer or frame-sharing transport.

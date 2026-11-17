@@ -422,6 +422,10 @@ Incompatible enabled adjacent pairs invalidate that Scene's shot arrangement wit
 an actionable diagnostic. Pose admission remains with the render transform owner.
 
 Native Camera poses/lenses, source files and authored history remain unchanged.
+Copied entity `world_affine` retains the resolved node pose for meshes, lights
+and children. A transient `camera_world_affine` contains only the interpolated
+Camera view pose; RenderScene validates and consumes it for that Camera alone.
+Malformed view poses diagnose/omit that Camera without moving other producers.
 RuntimeSimulation applies the shared camera projection only after interpolation
 has resolved every copied world pose. Stopped Timeline preview and its frame-export
 consumer invoke that same projection after Scene resolves their copied animated

@@ -2582,6 +2582,11 @@ nested-graph checks. The depth fixture admits the complete 64/65-node snapshots
 through the runtime without repeatedly reconciling editor creation transactions.
 `animation_sequence_editor` drives Timeline timing,
 pickers, Undo, copied preview and frame samples at three scales and two sizes.
+`camera_transition_frame_source` invokes the same stopped Camera frame-sampling
+helper independently for all four timing curves. It checks extracted Camera views,
+preserved node poses and attached mesh/light isolation; the full Timeline case
+retains its normal controls and layout coverage. Camera transition runtime, SDK
+and MCP checks distinguish the transient view matrix from the shared node matrix.
 `animation_sequence_gallery` checks the original Gallery145 and source-hidden
 relocated cooked content, including the next clip's dependency closure.
 

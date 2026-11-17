@@ -117,10 +117,15 @@ def check_camera_shot_play(read, ok, control, mutate, until, discovery, replay_s
 
     def at_weight(rows, weight):
         row = rows[camera]
-        return row['components']['forge.camera']['enabled'] and all(
-            abs(row['world_affine'][index] - (a + (b-a)*weight)) < 1e-4
-            for index, a, b in zip((3, 7, 11), start, end))
+        if not row['components']['forge.camera']['enabled'] or 'camera_world_affine' not in row:
+            return False
+        view = row['camera_world_affine']
+        return (row['components']['forge.camera']['enabled']
+                and row['world_affine'] == baseline[camera]['world_affine']
+                and all(abs(view[index] - (a + (b-a)*weight)) < 1e-4
+                        for index, a, b in zip((3, 7, 11), start, end)))
 
+    assert not at_weight(baseline, .5), 'Unselected Camera was already blended'
     until(poses, lambda rows: at_weight(rows, .5))
     assert read('forge_play_status')['timing']['tick'] == tick
     control('forge_play_tune', entity=actor, component='forge.camera_shot', property='blend_in_seconds', value=.75)

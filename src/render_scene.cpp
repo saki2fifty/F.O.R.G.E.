@@ -31,10 +31,10 @@ template <class Result> void report(Result& result, Diagnostic d) {
     else
         ++result.omitted_diagnostics;
 }
-AffineTransform world_transform(const Json& row) {
+AffineTransform world_transform(const Json& row, const char* field = "world_affine") {
     require(row.value("spatial_resolved", false),
             "Render component requires a resolved world transform");
-    const auto& values = row.at("world_affine");
+    const auto& values = row.at(field);
     require(values.is_array() && values.size() == 12,
             "Render component requires a copied 3x4 world matrix");
     AffineTransform result;
@@ -178,7 +178,10 @@ RenderScene extract_render_scene(const Json& source) {
         admit("forge.camera", "render.camera.invalid", [&] {
             const auto c = component<Camera>(values, "forge.camera");
             if (c.enabled)
-                result.cameras.push_back({id, c, world_transform(row)});
+                result.cameras.push_back({id, c,
+                                          world_transform(row, row.contains("camera_world_affine")
+                                                                   ? "camera_world_affine"
+                                                                   : "world_affine")});
         });
         admit("forge.light", "render.light.invalid", [&] {
             const auto l = component<Light>(values, "forge.light");
