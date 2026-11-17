@@ -5,7 +5,8 @@ runtime,prepare,worker=map(lambda p:Path(p).resolve(),sys.argv[1:4])
 sdk=Path(sys.argv[4]).resolve() if len(sys.argv)>4 else None
 denied=len(sys.argv)>5 and sys.argv[5]=='--denied'
 planar='--planar' in sys.argv[5:]
-root=Path(subprocess.check_output([prepare,runtime.parent/'navigation-process-data',worker,'--prepare-planar' if planar else '--prepare'],text=True).strip())
+character='--character' in sys.argv[5:]
+root=Path(subprocess.check_output([prepare,runtime.parent/'navigation-process-data',worker,'--prepare-planar' if planar else '--prepare-character' if character else '--prepare'],text=True).strip())
 if sdk:
  shutil.copy2(sdk,root/sdk.name)
  fingerprint=json.loads(subprocess.check_output([runtime,'--sdk-info'],text=True))['fingerprint']
@@ -46,8 +47,8 @@ try:
   for text in ('navigation SDK queries passed','navigation agent boundary passed','navigation agent PostPhysics sample passed'):
    assert any(text in d['text'] for d in stepped['diagnostics']),text
  if denied:assert any('navigation agent permission denial passed' in d['text'] for d in stepped['diagnostics'])
- checkpoint=stepped['recovery'];assert checkpoint['navigation']['version']==2 and len(checkpoint['navigation']['assets'])==1
- assert set(checkpoint['navigation'])=={'version','assets','agents'}
+ checkpoint=stepped['recovery'];assert checkpoint['navigation']['version']==(7 if character else 2) and len(checkpoint['navigation']['assets'])==1
+ assert set(checkpoint['navigation'])==({'version','assets','agents','behaviors'} if character else {'version','assets','agents'})
  a.request('resume');time.sleep(.06);paused=a.request('pause');assert paused['timing']['tick']>7
  rebuilt=restore(a,checkpoint);assert position(rebuilt)==position(stepped)
  a.p.kill();a.p.wait();b=Worker();b.request('hello',simulation_hz=60);rebuilt=restore(b,checkpoint);assert position(rebuilt)==position(stepped) and rebuilt['timing']['paused'];next_frame=b.request('step');assert position(next_frame)!=position(rebuilt)
@@ -65,7 +66,7 @@ try:
    check_depth(step)
    assert not any('navigation agent PostPhysics sample failed' in d['text'] for d in step['diagnostics'])
    if any('navigation agent arrived; C++ changed destination' in d['text'] for d in step['diagnostics']):break
-  else:raise AssertionError('C++ did not respond to arrival')
+  else:raise AssertionError(('C++ did not respond to arrival', position(step), agent(step)))
   assert next(e for e in step['effective_scene']['entities'] if e['name']=='Agent')['components']['forge.navigation_agent']['destination_x']==-8
   assert agent(step)['phase']=='Moving' and agent(step)['projected_destination'][0]<0
  print('Navigation headless pause/step/resume and crash recovery passed')

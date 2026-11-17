@@ -367,8 +367,8 @@ enabled-only NavigationBehavior
 edits; tune_avoidance remains a compatibility wrapper. RuntimePropertyTune provides
 one shared type/property predicate for the runtime, live Inspector and frozen
 keep-values review. Agent fields are enabled, has_destination, speed,
-stopping_distance and destination_x/y/z. The NavMesh AssetRef, bake sources and
-geometry are excluded. Behavior graph/target/anchor are excluded too. Live tuning
+stopping_distance and destination_x/y/z. The NavMesh AssetRef, movement selector, bake sources and
+geometry are excluded. Movement selection is Edit-only. Behavior graph/target/anchor are excluded too. Live tuning
 does not change an asset or checkpoint format.
 
 Both ordinary and SDK Play hosts retain their generation/scene/entity/role/thread/
@@ -387,11 +387,49 @@ to reject recovery and restarts from authored content. Keeping values instead us
 the existing frozen review, scalar allowlist, Stop lock and ordinary property history/
 Prefab intent/Save owner. Transforms and the NavMesh reference are never reviewed.
 
+## Character movement selection
+
+ADR052 defines the opt-in `NavigationAgent.movement` profile: zero/absent is
+ordinary Navigation; one is CharacterController. The reflected uint32 selector has
+an explicit default and enum, is not animatable or live-tunable, and uses the same
+Scene/Prefab/history/automation/MCP property owner. Canonical source omits zero.
+The added public value changes exact SDK identity; rebuild modules against the
+matching SDK. No C callback table or pinned dependency changed.
+
+Movement1 requires an enabled upright world +Y 3D CharacterController, World
+spatial binding and no other enabled body/controller. Only Spatial3D ground
+routes without explicit links are admitted. The existing route/avoidance owner
+computes steering. A host-only PhysicsService::move_character_once request joins
+the existing bounded character command queue, applies for one positive physics
+step, and expires without changing actual velocity observations. Zero-time
+synchronization does not consume it. Persistent manual movement, jump or placement
+in that boundary wins regardless of queue order. Ordinary move_character remains
+persistent. Disabling/removing navigation or clearing its destination stops renewal;
+character gravity, step/slope and physical collision remain physics-owned.
+
+Navigation never sets the character's LocalTranslation. After the existing
+PhysicsAdoptionSystem, it reads CharacterState and reconciles actual corner
+progress, arrival, blockage and copied position/velocity. Ground projection is
+route geometry only; it never substitutes for an actual physical pose. Behavior
+frames capture their observation lane: ordinary agents finish before physics,
+character agents finish once after adoption. Pending feedback prevents another
+navigation tick or recovery capture. Unavailable or incompatible profiles fail
+without another pose writer.
+
+Private physics recovery11 carries only queued/armed one-step requests; otherwise
+recovery10 stays unchanged. Navigation recovery7 identifies character selection
+and explicitly records no navigation-owned character translation. Scene/physics
+restore owns the actual controller pose; navigation replans its ground route.
+Mixed recovery7 retains ordinary link/arc/collision records under their existing
+validation. Downgrades, empty extensions and fabricated character pose/link
+records reject. This is exact-runtime recovery, not a public save-game format.
+SDK Play continues to restart from authored content.
+
 ## Runtime ownership
 
 `forge.navigation` uses EngineModule lifecycle. Authoring/validation compositions receive schemas; runtime compositions provide a world-scoped Navigation service. No ImGui, renderer or audio device is required. Primitive-only compositions remain usable without a Resources provider. External Mesh geometry lazily requests builtin CPU Resources after bootstrap and holds world-scoped subscriptions; it never creates a competing runtime mesh pool. A selected Mesh load holds the agent Pending (no sample/tick0); missing providers or failed/stale selection prevents movement. Retaining last-good bytes does not authorize following a NavMesh built against a different selected revision. Provider shutdown revokes CPU leases. Synchronization reads retained data/revisions, without re-decoding cooked Mesh files on each tick. Owner-thread queries return owned FORGE waypoint arrays with explicit success, missing/stale, outside, no-path, partial, invalid, unavailable and limit statuses. Partial paths are diagnosed and not followed. Query scratch is private to the runtime world; immutable meshes are shared within its cache.
 
-The fixed pipeline runs gameplay → navigation → physics synchronization/step/adoption → final transforms. Nonphysics agents move incrementally over the admitted surface. They change LocalTranslation only; inherited rotation and scale remain inherited. PhysicsBody and PhysicsBody2D agents are rejected, as are enabled CharacterController/CharacterController2D agents and effective spatial chains through either domain's moving physics bodies or enabled controllers. Source geometry must also remain static in both domains. Structural parenting alone does not determine spatial ancestry; World binding ends traversal. 2D physics does not imply XY navigation. Navigation-driven Kinematic targets, Dynamic collision response and character-controller movement remain outside this profile. C++ controllers may use read-only path queries without assigning NavigationAgent as another pose writer.
+The fixed pipeline runs gameplay → navigation → physics synchronization/step/adoption → final transforms. Nonphysics agents move incrementally over the admitted surface. They change LocalTranslation only; inherited rotation and scale remain inherited. The default movement selector rejects PhysicsBody and PhysicsBody2D agents, enabled CharacterController/CharacterController2D agents and effective spatial chains through either domain's moving physics bodies or enabled controllers. Source geometry must also remain static in both domains. Structural parenting alone does not determine spatial ancestry; World binding ends traversal. 2D physics does not imply XY navigation. Navigation-driven Kinematic targets and Dynamic body driving remain outside the direct-movement profile. The explicit character profile below delegates movement to physics. C++ controllers may use read-only path queries without assigning NavigationAgent as another pose writer.
 
 Pause performs no movement; Step advances one fixed tick. Presentation reads do not advance the agent. Reconstructed worlds reload the selected asset revision and recompute paths from checkpointed scene transforms/destinations. The recovery section contains AssetId/digest pairs and bounded per-agent semantic configuration/local translation with ownership flags. This preserves gameplay changes hidden by an authored prefab property mask. Restoration occurs in an unpublished candidate world and preserves inherited rotation/scale. It contains no Detour pointers or corridors. A different selected revision rejects recovery.
 
@@ -426,7 +464,7 @@ No callback-table field or independent authoring path is added. `FORGE_SDK_NAVIG
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, cost editing, physics-driven jumping, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, cost editing, physics-driven jumping, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving is limited to the explicit upright 3D ground profile below. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 
@@ -562,8 +600,8 @@ cached query and retired with that query/world. NavAvoidance exposes the steerin
 CPU scope through existing profiling; it does not advance during presentation reads.
 
 This is predictive local avoidance, not physical collision response or a guarantee
-against overlap/jams in dense or blocked configurations. Physics character
-integration remains deferred. Named build profiles supply their
+against overlap/jams in dense or blocked configurations. Character movement uses
+the same desired steering; actual collision remains physics-owned. Named build profiles supply their
 own baked footprints through the existing Nav asset references.
 
 The Live gameplay Inspector tunes enabled/horizon through the existing private

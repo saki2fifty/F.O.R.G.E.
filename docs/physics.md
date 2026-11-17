@@ -495,6 +495,23 @@ support and no upward separation; it is not buffered until landing. Takeoff reta
 platform planar velocity. Input keys, cameras, sprint and game rules remain outside
 this service. There is no hidden platform parenting.
 
+The host navigation integration adds PhysicsService::move_character_once through
+the same bounded character command queue. It applies to one positive native step,
+then clears intent without changing that step's copied actual velocity/pose.
+Zero-time synchronization arms but does not consume it. Shape recreation preserves
+its lifetime. Manual persistent movement, jump or placement in that pending
+boundary wins regardless of queue order, including an already armed request;
+ordinary CharacterService movement remains persistent. There is no lease or
+second movement registry. This host method adds no SDK callback.
+
+Private physics recovery10 remains the default. Recovery11 is selected only for
+queued one-step commands or an armed CharacterRecord flag, and validates the
+extension before publication. Empty11, downgrade, malformed flags/commands and
+incompatible exact-runtime identity refuse. Scene/physics own the actual character
+pose; navigation recovery7 carries its selection and replans, without a second
+character pose database. See [navigation](navigation.md#character-movement-selection)
+and ADR052 for the supported upright3D ground scope.
+
 Characters use feet-origin translated native shapes. Capsule scale magnitudes must
 be uniform; cylinder X/Z magnitudes must match, with independent Y permitted.
 Radial signs preserve the symmetric solid; negative Y reverses the native feet-axis

@@ -1,5 +1,19 @@
 # README screenshots
 
+## Navigation character movement selection
+
+`manual/images/navigation-character-inspector.png` is an exact 780 by 720
+production ComponentInspector capture. Reproduce with
+`forge_navigation_agent_editor_tests --capture-character OUTPUT.png`. The fixture
+uses native mouse events to select CharacterController, then verifies a single
+Scene Undo/Redo. Its NavMesh remains unassigned: the image illustrates selecting
+the owner before assigning a route, not a running Gallery or physical acceptance.
+Source: `tests/navigation_agent_editor_tests.cpp`. PNG SHA256
+`02666bcff5d4d77ae7b29ad486beabb6f55989d9ae1473adad5f0768b04fe9bb`.
+The reviewed image uses packaged font/native ImGui draw data and SDL software
+composition on Linux, without retouching. Windows desktop, physical GPU, input
+and DPI acceptance remain separate.
+
 ## Navigation crossing collision controls
 
 `manual/images/navigation-link-collision-inspector.png` is an exact 780 by 460

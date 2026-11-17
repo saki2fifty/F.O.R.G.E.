@@ -9,6 +9,7 @@ class NavigationRuntime final : public NavigationService {
     void bind(Scene*);  // RuntimeSimulation owns this bounded borrow.
     void synchronize(); // Capture geometry at a writable fixed-tick boundary.
     void tick(float dt, std::uint64_t tick);
+    void physics_adopted(float dt, std::uint64_t tick);
     bool prepare_assets(); // Unpublished-world readiness; never advances behavior clocks.
     NavResult project_point(AssetRef<NavMeshAsset>, Double3) override;
     NavResult find_path(AssetRef<NavMeshAsset>, Double3, Double3) override;

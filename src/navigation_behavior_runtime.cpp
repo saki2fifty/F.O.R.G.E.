@@ -338,6 +338,7 @@ void NavigationBehaviorPlayback::begin_tick(double dt, std::uint64_t tick,
             const auto& graph = graphs_.at(player.config.graph.id).lease.get();
             detail::validate_reflected_value(e, player.config);
             Frame frame{};
+            frame.physics_observation = e.get<NavigationAgent>().movement == 1;
             frame.plane = plane_for(e.get<NavigationAgent>().navmesh);
             frame.actor = position(e);
             frame.cursor = e.get<NavigationBehaviorCursor>();
@@ -380,10 +381,16 @@ void NavigationBehaviorPlayback::begin_tick(double dt, std::uint64_t tick,
         }
     }
 }
-void NavigationBehaviorPlayback::finish_tick(double dt, const AgentLookup& observation) {
+bool NavigationBehaviorPlayback::needs_physics_observation() const {
+    return std::any_of(players_.begin(), players_.end(), [](const auto& item) {
+        return item.second.frame && item.second.frame->physics_observation;
+    });
+}
+void NavigationBehaviorPlayback::finish_tick(double dt, const AgentLookup& observation,
+                                             bool physics_observation) {
     check();
     for (auto& [id, player] : players_) {
-        if (!player.frame)
+        if (!player.frame || player.frame->physics_observation != physics_observation)
             continue;
         auto e = context_.world().entity(id);
         const auto frame = std::move(*player.frame);

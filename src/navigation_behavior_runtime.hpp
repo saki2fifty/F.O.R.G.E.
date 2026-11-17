@@ -15,7 +15,8 @@ class NavigationBehaviorPlayback {
     void bind(Scene*);
     bool prepare(bool fail_on_error = false, std::span<const AssetId> extra_graphs = {});
     void begin_tick(double dt, std::uint64_t tick, const PlaneLookup&);
-    void finish_tick(double dt, const AgentLookup&);
+    void finish_tick(double dt, const AgentLookup&, bool physics_observation = false);
+    bool needs_physics_observation() const;
     Json debug(flecs::entity_t) const;
     Json checkpoint();
     void restore(const Json&); // Unpublished candidate only; discard on failure.
@@ -35,6 +36,7 @@ class NavigationBehaviorPlayback {
         NavigationBehaviorCursor cursor;
         std::optional<NavigationBehaviorTreeSelection> tree;
         bool action_failed = false;
+        bool physics_observation = false;
     };
     struct Player {
         NavigationBehavior config;

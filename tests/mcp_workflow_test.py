@@ -42,6 +42,7 @@ FOG_VOLUMES_ONLY = sys.argv[7:] == ['--fog-volumes-only'] or FOG_VOLUMES_SDK
 WORKERS_SDK = len(sys.argv) == 9 and sys.argv[7] == '--ecs-workers-sdk-only'
 WORKERS_ONLY = WORKERS_SDK
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
+NAVIGATION_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-characters-only']
 NAVIGATION_LINKS_SDK = sys.argv[7:] == ['--navigation-links-sdk-only']
 NAVIGATION_LINKS_ONLY = sys.argv[7:] == ['--navigation-links-only'] or NAVIGATION_LINKS_SDK
 NAVIGATION_COLLECTION_ONLY = sys.argv[7:] == ['--navigation-collection-only']
@@ -646,6 +647,11 @@ for legacy in selected_protocols:
         if MESSAGES_ONLY:
             check_input_messages_play(read, ok, control, mutate, until)
             print(('legacy' if legacy else 'current') + ': typed-message authoring source/input scopes/real SDK Play/restart passed')
+            continue
+        if NAVIGATION_CHARACTERS_ONLY:
+            from mcp_navigation_character_workflow import check_navigation_character
+            check_navigation_character(read, ok, control, until, edit_settings)
+            print(('legacy' if legacy else 'current') + ': MCP-authored character, actual SDK Play step/block/arrival and clean restart passed')
             continue
         if NAVIGATION_COLLECTION_ONLY:
             build_schema = advertised['forge_navigation_build']['inputSchema']['properties']['settings']['properties']
@@ -2216,6 +2222,19 @@ for legacy in selected_protocols:
             agent = ok('forge_entity_create', arguments=dict(name='Live XY agent'))['results'][0]['selected']
             ok('forge_component_add', arguments=dict(entity=agent, component='forge.navigation_agent'))
             original_goal = read('forge_scene_read')
+            ok('forge_property_set', arguments=dict(entity=agent, component='forge.navigation_agent',
+                                                    field='movement', value=1))
+            character_goal = read('forge_scene_read')
+            assert next(row for row in character_goal['entities'] if row['id'] == agent)['components']['forge.navigation_agent']['movement'] == 1
+            ok('forge_history_undo')
+            assert read('forge_scene_read') == original_goal
+            ok('forge_history_redo')
+            assert read('forge_scene_read') == character_goal
+            for invalid in (-1, 2, .5, True, 'CharacterController'):
+                rejected = mutate('forge_property_set', arguments=dict(entity=agent,
+                    component='forge.navigation_agent', field='movement', value=invalid))
+                assert not rejected['ok'] and read('forge_scene_read') == character_goal, rejected
+            ok('forge_history_undo')
             goal = dict(destination_x=-7.5, destination_y=1.5, destination_z=123)
             ok('forge_property_set_many', arguments=dict(entity=agent, component='forge.navigation_agent', values=goal))
             edited_goal = read('forge_scene_read')

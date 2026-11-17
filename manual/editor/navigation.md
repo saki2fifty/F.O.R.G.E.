@@ -7,8 +7,43 @@ Navigation lets an object find a route across a floor and around static obstacle
 
 Agents follow baked static geometry. Add **Navigation Avoidance** for local steering
 around other participating agents. For moving solid footprints, enable the
-**Dynamic obstacles** when building and add **Navigation Obstacle** components. Navigation Agents cannot also have a Physics Body, Physics Body 2D
-or an enabled Character Controller in either domain.
+**Dynamic obstacles** when building and add **Navigation Obstacle** components.
+The default **Movement → Navigation** writes the object's position directly and
+cannot share it with a Physics Body or an enabled character controller.
+
+## Steer a physical character
+
+Open Gallery **224-navigation-characters** and press Play. The cyan character
+reaches its destination. The orange character stops at the red physical wall,
+which is deliberately absent from the baked route geometry. Physics determines
+their movement and floor support.
+
+1. In Edit, add **Character Controller** and **Navigation Agent** to the same object.
+2. Set its spatial binding to **World** and keep its local up axis aligned with world **+Y**. Use a 3D ground NavMesh. Do not add another enabled physics body or a 2D character controller to this object.
+3. In **Navigation Agent**, select **Movement → CharacterController**, assign the NavMesh, enable **Has destination**, and enter the destination and Speed.
+4. Provide physical floor and obstacle colliders. Baked navigation geometry describes available routes; a visible floor alone does not provide character collision or support.
+5. Press Play and inspect **Live gameplay → Navigation progress** and **Character movement** feedback. Position and velocity describe the character's actual physics result.
+
+![Navigation Agent Inspector with CharacterController selected in Movement](../images/navigation-character-inspector.png)
+
+Choose the movement mode in Edit, then assign the saved NavMesh and destination.
+
+To resume the orange Gallery character, Stop, disable the red wall's **Physics
+Body → Enabled**, then Play again. During Play you can pause and step the game,
+or change the character's live Speed, destination, Has destination and Enabled.
+Speed **0** pauses steering; clearing Has destination cancels it. Character
+gravity and floor support continue. Choose Movement in Edit.
+
+Disable the Navigation Agent before handing movement to project C++ code.
+Manual movement, jump and placement requests take precedence over navigation
+requests in the same fixed step. Navigation reports physical blockage and never
+teleports the controller through a collider.
+
+Character steering currently supports upright 3D ground routes without explicit
+navigation links. XY characters, simulated link jumps and moving-platform routing
+are unavailable. Incompatible configurations report a navigation diagnostic.
+Save the Scene and select it as startup before exporting; this Gallery requires
+no project C++ module. Review kept live values after Stop, then save explicitly.
 
 In **Window → Profiler → Play runtime**, **NavSourceCapture** shows the CPU time
 spent checking included sources during Play. Rebuild the NavMesh after changing
@@ -509,12 +544,12 @@ a new one. Prefab instances use ordinary property overrides, Undo and **Revert**
 Destination editing is unavailable during Play; use **Live gameplay** fields to tune
 a running agent.
 
-Keep the agent's spatial parents stationary and free of enabled character
-controllers. A controller on the object or its spatial parent stops navigation
-movement and reports a failed/invalid state. A disabled controller allows ordinary
-navigation. If C++ controls your character, query the Navigation service for a
-route and let that controller own movement; do not add a second active Navigation
-Agent driver.
+Keep the agent's effective spatial parents stationary and free of enabled
+character controllers. The default **Movement → Navigation** refuses an enabled
+controller on the object. Use **Movement → CharacterController** for the supported
+upright, World-bound 3D ground profile described above. If project C++ owns the
+character's movement, disable its Navigation Agent and use read-only Navigation
+queries to obtain routes.
 
 ## Tune an agent during Play
 
@@ -591,4 +626,4 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 - **Physics ownership error:** remove the agent's Physics Body and any moving physics spatial ancestor, or use an independent World spatial binding.
 - **Build/query limit:** reduce the included area or geometry, or increase cell size. A single build supports at most 512 × 512 cells.
 
-Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts; simulated jumps, moving-platform routes, automatic physics-character movement and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
+Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts for ordinary agents. Physical characters support upright 3D ground routes without links. Simulated jumps, moving-platform routes, XY character steering and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.

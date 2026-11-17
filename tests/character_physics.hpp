@@ -1,5 +1,6 @@
 #pragma once
 #include "../src/physics_debug.hpp"
+#include "physics_checkpoint_test.hpp"
 #include <chrono>
 #include <forge/character_components.hpp>
 #include <numbers>
@@ -47,6 +48,116 @@ void character_physics_tests() {
     check(!f.physics->raycast_filtered({0, 1, -5}, {0, 0, 10}, filter) &&
               f.physics->raycast_all({0, 1, -5}, {0, 0, 10}, filter).empty(),
           "Canonical exclusion retained the character inner body");
+    const auto once_start = f.physics->character(ref);
+    f.physics->move_character_once(ref, {1, 0, 0});
+    const auto queued_once = f.physics->checkpoint();
+    check(queued_once.at("version").get<unsigned>() == 11,
+          "Queued one-step movement did not select its recovery profile");
+    {
+        Fixture restored;
+        restored.scene.restore_snapshot(f.scene.snapshot());
+        restored.physics->restore(queued_once);
+        f.tick();
+        restored.tick();
+        const auto moved = f.physics->character(ref);
+        check(moved.position.x > once_start.position.x + .005 &&
+                  moved.position.x < once_start.position.x + .03 && moved.velocity[0] > .5,
+              "One-step movement did not publish actual character displacement/velocity");
+        f.tick(3);
+        restored.tick(3);
+        check(std::abs(f.physics->character(ref).position.x - moved.position.x) < 1e-5 &&
+                  std::abs(restored.physics->character(ref).position.x - moved.position.x) < 1e-5 &&
+                  f.physics->checkpoint().at("version").get<unsigned>() == 10,
+              "One-step movement survived consumption or diverged after recovery");
+    }
+    for (bool manual_first : {false, true}) {
+        const auto before = f.physics->character(ref).position.x;
+        if (manual_first)
+            f.physics->move_character(ref, {.5, 0, 0});
+        f.physics->move_character_once(ref, {8, 0, 0});
+        if (!manual_first)
+            f.physics->move_character(ref, {.5, 0, 0});
+        f.tick(2);
+        check(std::abs(f.physics->character(ref).position.x - before - 1. / 60) < 1e-5,
+              "One-step request overrode manual motion or cleared its persistent intent");
+        f.physics->move_character(ref, {});
+        f.tick();
+    }
+    for (bool placement : {false, true})
+        for (bool manual_first : {false, true}) {
+            f.physics->place_character(ref, once_start.position, once_start.rotation, true);
+            f.tick(2);
+            // An already armed request must not survive a later manual jump/placement.
+            f.physics->move_character_once(ref, {8, 0, 0});
+            f.physics->synchronize(0);
+            const auto manual = [&] {
+                if (placement) {
+                    auto target = once_start.position;
+                    target.x += .5;
+                    f.physics->place_character(ref, target, once_start.rotation, true);
+                } else
+                    f.physics->jump_character(ref, 4);
+            };
+            if (manual_first)
+                manual();
+            f.physics->move_character_once(ref, {8, 0, 0});
+            if (!manual_first)
+                manual();
+            f.tick();
+            const auto actual = f.physics->character(ref);
+            check(std::abs(actual.position.x - once_start.position.x - (placement ? .5 : 0)) <
+                          1e-5 &&
+                      (placement || (actual.jump_accepted && actual.position.y > .01)),
+                  "One-step steering overrode a manual jump/placement or retained armed intent");
+            const auto x = actual.position.x;
+            f.tick(2);
+            check(std::abs(f.physics->character(ref).position.x - x) < 1e-5,
+                  "Manual jump/placement allowed expired navigation motion on a later step");
+        }
+    f.physics->move_character_once(ref, {1, 0, 0});
+    f.physics->synchronize(0);
+    const auto armed_once = f.physics->checkpoint();
+    check(armed_once.at("version").get<unsigned>() == 11 &&
+              armed_once.at("characters").at(0).at("movement_once").get<bool>(),
+          "Zero-time synchronization lost one-step movement lifetime");
+    for (unsigned invalid = 0; invalid != 5; ++invalid) {
+        auto damaged = armed_once;
+        if (invalid == 0)
+            damaged["version"] = 10;
+        else if (invalid == 1)
+            damaged["characters"].at(0)["movement_once"] = false;
+        else if (invalid == 2)
+            damaged["characters"].at(0)["movement_once"] = "true";
+        else if (invalid == 3)
+            damaged["characters"].at(0).erase("movement_once");
+        else
+            damaged["version"] = std::uint64_t{4294967307ull};
+        forge::test::reseal_physics_checkpoint(damaged);
+        Fixture rejected;
+        rejected.scene.restore_snapshot(f.scene.snapshot());
+        reject([&] { rejected.physics->restore(damaged); });
+        // A refused extension must leave a fresh candidate eligible for valid restore.
+        rejected.physics->restore(armed_once);
+    }
+    {
+        Fixture restored;
+        restored.scene.restore_snapshot(f.scene.snapshot());
+        restored.physics->restore(armed_once);
+        const auto before = f.physics->character(ref).position.x;
+        f.tick();
+        restored.tick();
+        const auto moved = f.physics->character(ref).position.x;
+        check(moved > before + .005 &&
+                  std::abs(restored.physics->character(ref).position.x - moved) < 1e-5,
+              "Armed one-step movement did not survive zero-time synchronization/recovery");
+        f.tick(2);
+        restored.tick(2);
+        check(std::abs(f.physics->character(ref).position.x - moved) < 1e-5 &&
+                  std::abs(restored.physics->character(ref).position.x - moved) < 1e-5,
+              "Recovered armed movement did not expire after one positive step");
+    }
+    f.physics->place_character(ref, once_start.position, once_start.rotation, true);
+    f.tick();
     f.physics->move_character(ref, {1, 0, 0});
     f.tick(60);
     state = f.physics->character(ref);

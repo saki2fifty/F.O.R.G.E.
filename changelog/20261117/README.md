@@ -1,5 +1,27 @@
 # 2026-11-17
 
+## Physics-driven navigation characters
+
+Navigation Agent has an Edit-only movement selector for an existing upright,
+World-bound 3D Character Controller. The existing navigation route/avoidance owner
+supplies one-step steering; physics determines the actual pose, collision and
+support. Corner progress and behavior arrival use adopted physics feedback.
+Live speed, destination, cancellation and enabled controls retain their shared
+Inspector/Keep/automation/MCP owners. Manual movement, jump and placement take
+precedence in the same pending physics boundary.
+
+Character steering supports 3D ground routes without explicit links. XY steering,
+simulated link jumps and moving-platform routing remain unavailable. Private
+recovery preserves request lifetime and character pose ownership; old profiles
+remain unchanged when unused. The added public NavigationAgent value requires a
+matching exact-SDK rebuild. Gallery224 includes free and physically blocked
+characters, colliders, ready NavMesh, camera and source-hidden relocated export
+coverage. The manual includes a native Inspector selection capture.
+
+MCP source-workflow assertions retain wire evidence on failure. Animation-graph
+publication checks also report the actual metadata difference, and Windows CI
+retains that graph transcript with its failed acceptance evidence.
+
 ## Stopped sequence UI preview and frame output
 
 Stopped Scene sequences render saved UI Documents and animated UI Values in Game

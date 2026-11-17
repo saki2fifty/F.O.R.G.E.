@@ -160,5 +160,8 @@ class PhysicsService : public CharacterService {
     // use canonical ordering. Availability checks the current epoch on each read.
     virtual std::size_t contact_count_2d() const = 0;
     virtual std::optional<PhysicsContact2D> contact_event_2d(std::size_t) const = 0;
+    // Host steering for the next positive physics step. Manual movement, jump
+    // or placement in the same queue takes precedence. Not an SDK callback.
+    virtual void move_character_once(EntityRef, Double3 planar_velocity) = 0;
 };
 } // namespace forge

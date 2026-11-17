@@ -57,6 +57,10 @@ persisted progress authority. Missing physics cannot silently bypass checks.
 
 ## Acceptance boundary
 
+[ADR052](052-navigation-characters.md) defines a separate opt-in character ground
+movement profile under implementation. The ordinary profile above keeps its
+navigation pose writer; the character profile delegates pose adoption to physics.
+
 Independent curve-envelope checks and metadata are foundations. Completion also
 requires actual3D/XY native casts, straight/arcs, initial overlap, layers/sensors,
 clearance, block/resume, lifecycle/recovery and bounded-work refusal. Native

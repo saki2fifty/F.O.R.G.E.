@@ -12,6 +12,22 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+character_path = 'Scenes/224-navigation-characters.scene.json'
+character_scene = json.loads((project_root / character_path).read_text())
+assert character_scene['asset_id'] == by_source[character_path]['id'] == '96f838b6-4bb7-4ccc-8034-60042b648a61'
+characters = [e for e in character_scene['entities'] if 'forge.navigation_agent' in e['components']]
+assert len(characters) == 2
+navs = set()
+for actor in characters:
+    components = actor['components']
+    assert components['forge.navigation_agent']['movement'] == 1
+    assert components['forge.character_controller']['enabled']
+    assert actor['spatial']['mode'] == 'world'
+    assert 'forge.physics_body' not in components
+    navs.add(components['forge.navigation_agent']['navmesh'])
+assert len(navs) == 1 and None not in navs
+assert not any('forge.navigation_link' in e['components'] for e in character_scene['entities'])
+assert sum('forge.navigation_surface' in e['components'] for e in character_scene['entities']) == 1
 for suffix, identity, plane in [
         ('3d', '47d14aa4-eefb-4d8d-a188-12bd26627079', 0),
         ('xy', '28a34ff3-2c84-4462-a546-d0c87e0c6b03', 1)]:
@@ -1054,6 +1070,9 @@ try:
         # admitted typed values explicitly expose their documented defaults.
         expected = json.loads(json.dumps(source))
         for row in expected['entities']:
+            navigation = row['components'].get('forge.navigation_agent')
+            if navigation is not None:
+                navigation.setdefault('movement', 0)
             message = row['components'].get('forge.input_message')
             if message is not None:
                 message.setdefault('trigger', 0)

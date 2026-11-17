@@ -51,7 +51,7 @@ class ComponentInspector {
         if (!status.is_object())
             return;
         ui::heading("Navigation behavior", "Read-only behavior progress from the fixed simulation. "
-                                           "Navigation Agent owns movement.");
+                                           "Navigation Agent supplies destination steering.");
         ImGui::TextWrapped("Behavior: %s", status.value("phase", std::string("Pending")).c_str());
         FORGE_UI_PROBE("navigation_behavior:phase");
         const bool tree = status.value("profile", std::string{}) == "tree";
@@ -633,6 +633,12 @@ class ComponentInspector {
                 FORGE_UI_PROBE("rig-target-tool:" + key);
                 ImGui::EndDisabled();
             }
+            if (key == "forge.navigation_agent")
+                ImGui::TextWrapped(
+                    "Movement: Navigation writes the pose directly. Character Controller steers "
+                    "an enabled World-space 3D controller with world +Y up; physics writes its "
+                    "actual pose. Character movement supports ground routes without links. "
+                    "Choose the movement mode in Edit; speed and destination remain live-tunable.");
             if (key == "forge.navigation_agent" && edit_scene_target) {
                 ImGui::BeginDisabled(!scene_target_available ||
                                      !scene_target_available(entity, key));

@@ -19,7 +19,9 @@
 #include "ui_material_authoring_fixture.hpp"
 #include "ui_source_automation.hpp"
 #include "ui_test_renderer.hpp"
+#include <charconv>
 #include <chrono>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -411,7 +413,18 @@ int main(int argc, char** argv) {
         const auto begin = std::chrono::steady_clock::now();
         // The Map profile launches both solid and directional sensor combinations.
         // Instrumented native owner/source work needs its own finite whole-fixture budget.
-        const auto end = begin + std::chrono::seconds(mode == "map_profile" ? 600 : 240);
+        unsigned fixture_seconds = mode == "map_profile" ? 600 : 240;
+        if (const auto* requested = std::getenv("FORGE_MCP_FIXTURE_SECONDS")) {
+            const std::string_view text(requested);
+            unsigned seconds = 0;
+            const auto [last, error] =
+                std::from_chars(text.data(), text.data() + text.size(), seconds);
+            if (error != std::errc{} || last != text.data() + text.size() ||
+                seconds < fixture_seconds || seconds > 1800)
+                throw std::runtime_error("Invalid native MCP fixture lifetime");
+            fixture_seconds = seconds;
+        }
+        const auto end = begin + std::chrono::seconds(fixture_seconds);
         while (workspace.active() && std::chrono::steady_clock::now() < end &&
                !forge::test::marker_present(root / "stop")) {
             files.changed = false;

@@ -2,6 +2,7 @@
 #include "navigation_asset.hpp"
 #include "navigation_sources.hpp"
 #include <forge/authoring.hpp>
+#include <forge/character_components.hpp>
 #include <forge/navigation.hpp>
 #include <forge/physics.hpp>
 #include <forge/runtime.hpp>

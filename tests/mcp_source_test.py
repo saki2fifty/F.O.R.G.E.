@@ -1,5 +1,6 @@
 """Shared editor source/history/publication owners through both MCP envelopes."""
 from contextlib import contextmanager
+import atexit
 import hashlib
 import json
 from pathlib import Path
@@ -23,6 +24,8 @@ from mcp_planar_mesh_workflow import check_planar_mesh_workflow
 from mcp_mesh_foliage_workflow import check_mesh_foliage_workflow
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
+# Keep the wire evidence on assertion failure as well as successful completion.
+atexit.register(write_capture, sys.argv[4])
 SEQUENCE_PROPERTY_SOURCES_ONLY = '--sequence-property-sources-only' in sys.argv[5:]
 SEQUENCE_BINDING_SOURCES_ONLY = '--sequence-binding-sources-only' in sys.argv[5:]
 TERRAIN_FOLIAGE_ONLY = "--terrain-foliage-only" in sys.argv[5:]
@@ -962,6 +965,5 @@ for legacy in protocol_cases():
         assert edit('forge_asset_document_close', 'material', discard=True)['ok']
 
 
-write_capture(sys.argv[4])
 print('MCP UI graph discovery, source history and revision guards passed' if UI_GRAPH_ONLY
       else 'MCP shared source editors, history, validation and publication passed')

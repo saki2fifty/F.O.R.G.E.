@@ -343,9 +343,15 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& so
     check(navigation->find_path(selected, {4, -6, 0}, {-4, -6, 0}).status != NavStatus::Success,
           "One-way Gallery profile permits reverse travel");
 }
+#include "navigation_character_gallery.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 4 && std::string_view(argv[1]) == "--prepare-characters") {
+            prepare_character_gallery(std::filesystem::absolute(argv[2]),
+                                      std::filesystem::absolute(argv[3]));
+            return 0;
+        }
         if (argc == 4 && (std::string_view(argv[1]) == "--prepare-collision-3d" ||
                           std::string_view(argv[1]) == "--prepare-collision-xy")) {
             prepare_collision(std::filesystem::absolute(argv[2]),
@@ -359,19 +365,25 @@ int main(int argc, char** argv) {
                     std::string_view(argv[1]) == "--prepare-arcs");
             return 0;
         }
-        check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--collision"),
-              "Need Gallery, link scratch root and optional collision profile");
-        const bool collision = argc == 4;
+        check(argc == 3 || (argc == 4 && (std::string_view(argv[3]) == "--collision" ||
+                                          std::string_view(argv[3]) == "--characters")),
+              "Need Gallery, scratch root and optional collision or character profile");
+        const bool characters = argc == 4 && std::string_view(argv[3]) == "--characters";
+        const bool collision = argc == 4 && !characters;
+        const unsigned count = characters ? 1 : 2;
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "Gallery";
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         std::array<AssetId, 2> roots;
-        for (unsigned i = 0; i != 2; ++i) {
-            const auto source = collision ? collision_scene_paths[i]
-                                : i       ? arc_scene_path
-                                          : scene_path;
-            if (collision)
+        for (unsigned i = 0; i != count; ++i) {
+            const auto source = characters  ? character_scene_path
+                                : collision ? collision_scene_paths[i]
+                                : i         ? arc_scene_path
+                                            : scene_path;
+            if (characters)
+                exercise_character_gallery(root, source);
+            else if (collision)
                 exercise_collision(root, source, i != 0);
             else
                 exercise(root, source, i != 0);
@@ -382,16 +394,19 @@ int main(int argc, char** argv) {
             std::filesystem::rename(exported, scratch / ("Relocated" + std::to_string(i)));
         }
         std::filesystem::rename(root, scratch / "SourcesOffline");
-        for (unsigned i = 0; i != 2; ++i) {
+        for (unsigned i = 0; i != count; ++i) {
             const auto relocated = scratch / ("Relocated" + std::to_string(i));
             const auto catalog = open_runtime_content(relocated, {"windows", "d3d12"});
-            if (collision)
+            if (characters)
+                exercise_character_gallery(relocated, catalog.records().at(roots[i]).source);
+            else if (collision)
                 exercise_collision(relocated, catalog.records().at(roots[i]).source, i != 0);
             else
                 exercise(relocated, catalog.records().at(roots[i]).source, i != 0);
         }
-        std::cout << (collision ? "Gallery222/223 native collision blocking/live filtering"
-                                : "Gallery140/218 actual two-way patrol/one-way movement")
+        std::cout << (characters  ? "Gallery224 physics-driven navigation characters"
+                      : collision ? "Gallery222/223 native collision blocking/live filtering"
+                                  : "Gallery140/218 actual two-way patrol/one-way movement")
                   << " and source-hidden relocated export PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

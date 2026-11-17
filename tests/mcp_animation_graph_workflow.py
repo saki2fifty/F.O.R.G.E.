@@ -97,7 +97,8 @@ def check_animation_graph_workflow(read, mutate, edit, status, content, failed,
     assert edit('forge_asset_document_patch', owner,
                 patch=[dict(op='replace', path='/nodes/1/clip', value=foreign)])['ok']
     publish(False)
-    assert read('forge_asset_read', asset=graph)['metadata'] == metadata
+    retained = read('forge_asset_read', asset=graph)['metadata']
+    assert retained == metadata, dict(before=metadata, after=retained)
     assert edit('forge_asset_document_undo', owner)['ok']
     publish()
     # Graph mode and all four stable overrides use normal reflected Scene edits.

@@ -59,6 +59,14 @@ class Runtime:
             raise RuntimeError(response.get('error', 'Runtime rejected request'))
         return response
 
+    def quit(self, *, timeout=20):
+        """Finish the native process and its diagnostics before cleanup."""
+        self.request('quit')
+        code = self.process.wait(timeout=timeout)
+        self.close()
+        if code != 0:
+            raise RuntimeError(f'Runtime did not exit cleanly: {code}')
+
     def close(self):
         if self.process.poll() is None:
             self.process.kill()

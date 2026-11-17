@@ -2562,6 +2562,34 @@ from the existing unresolved unsuppressed sanitizer shutdown condition.
 
 ## Navigation collision collection regression gate
 
+The character-navigation slice also runs `navigation`,
+`navigation_behavior_runtime`, `navigation_live_character_process`,
+`navigation_character_gallery`, `navigation_character_editor`,
+`native_sdk_navigation_character` and `mcp_navigation_characters_stdio` alongside
+the relevant old direct/XY/link cohorts. The source-hidden relocated Gallery uses
+the existing package owner. Core character checks cover one-step expiry,
+queued/armed recovery and manual movement/jump/placement priority in both request
+orders. Mixed straight/arced collision recovery exercises navigation recovery7.
+Strict/SAN claims must identify selected CPU units and actual native exits;
+ordinary supervisor success is insufficient. Physical Windows acceptance remains
+separate from these deterministic checks.
+
+MCP source-workflow wire captures are written on ordinary Python process exit,
+including assertion failures. Hard process termination cannot guarantee a final
+capture. The Windows `FORGE-Viewport-Checks` artifact includes
+`mcp-animation-graph-capture.json.gz` with the existing CTest failure logs, and
+graph retention assertions print actual metadata differences. Publication
+generation is distinct from content identity; investigate the differing fields
+before classifying a retention failure.
+
+For selected sanitizer runs, the native MCP workflow fixture accepts
+`FORGE_MCP_FIXTURE_SECONDS` to increase its watchdog from the ordinary240seconds
+(Map profile600) up to1800seconds. It never reduces the ordinary budget. The outer
+test watchdog must still bound the whole case. SDK Play process checks use
+`Runtime.quit` to request native shutdown and require exit0 before cleanup;
+`Runtime.close` remains failure/crash cleanup and cannot establish clean sanitizer
+shutdown by itself.
+
 `navigation_collection_values` checks strict opt-in/layer values and preserved
 default settings. `navigation_collection_sources` checks both source paths, layer31,
 motion/sensor/disabled/marker filtering, unresolved prefab physical intent, physical

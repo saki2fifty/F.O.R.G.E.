@@ -7,6 +7,24 @@ void planar_runtime_tests(const std::filesystem::path& root, Scene& authored, As
     // invalidate the independently selected planar profile.
     authored.entity("floor").set<NavigationSurface>({true});
     const auto snapshot = authored.snapshot();
+    {
+        Fixture refused(root);
+        refused.scene.restore_snapshot(snapshot);
+        const auto actor = refused.scene.entity("agent");
+        actor.set<SpatialBinding>({SpatialMode::World, {}});
+        actor.set<CharacterController>({});
+        auto agent = actor.get<NavigationAgent>();
+        agent.movement = 1;
+        actor.set<NavigationAgent>(agent);
+        const auto before = actor.get<LocalTranslation>();
+        refused.tick();
+        const auto feedback = refused.navigation->debug(actor.id());
+        check(feedback.at("phase") == "Failed" &&
+                  feedback.at("diagnostic").get<std::string>().find("3D ground") !=
+                      std::string::npos &&
+                  actor.get<LocalTranslation>() == before,
+              "A character driver silently followed XY navigation");
+    }
     navigation_live_tests(root, snapshot);
     navigation_feedback_tests(root, snapshot);
     Fixture run(root);

@@ -134,16 +134,19 @@ template <class T> Json encode(const T& p) {
         return {{"enabled", p.enabled}, {"horizon", p.horizon}, {"shared_group", p.shared_group}};
     else if constexpr (std::is_same_v<T, NavigationLinkCollision>)
         return navigation_detail::link_collision_value(p);
-    else if constexpr (std::is_same_v<T, NavigationAgent>)
-        return {{"navmesh", p.navmesh.id ? Json(p.navmesh.id) : Json()},
-                {"enabled", p.enabled},
-                {"has_destination", p.has_destination},
-                {"speed", p.speed},
-                {"stopping_distance", p.stopping_distance},
-                {"destination_x", p.destination_x},
-                {"destination_y", p.destination_y},
-                {"destination_z", p.destination_z}};
-    else if constexpr (std::is_same_v<T, AnimationSequence>) {
+    else if constexpr (std::is_same_v<T, NavigationAgent>) {
+        Json value = {{"navmesh", p.navmesh.id ? Json(p.navmesh.id) : Json()},
+                      {"enabled", p.enabled},
+                      {"has_destination", p.has_destination},
+                      {"speed", p.speed},
+                      {"stopping_distance", p.stopping_distance},
+                      {"destination_x", p.destination_x},
+                      {"destination_y", p.destination_y},
+                      {"destination_z", p.destination_z}};
+        if (p.movement != 0)
+            value["movement"] = p.movement;
+        return value;
+    } else if constexpr (std::is_same_v<T, AnimationSequence>) {
         auto placements = Json::array();
         for (const auto& placement : p.sequence_extra_placements)
             placements.push_back({{"start_seconds", placement.start_seconds},
@@ -534,6 +537,10 @@ template <class T> Value decode(const Json& p) {
         a.destination_x = p.at("destination_x");
         a.destination_y = p.at("destination_y");
         a.destination_z = p.at("destination_z");
+        const auto movement = p.value("movement", Json(a.movement));
+        if (!movement.is_number_integer() || movement.get<std::uint64_t>() > 1)
+            throw std::runtime_error("Invalid navigation movement selection");
+        a.movement = movement.get<std::uint32_t>();
         return a;
     } else if constexpr (std::is_same_v<T, AnimationSequence>) {
         AnimationSequence v;
@@ -1545,7 +1552,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("stopping_distance")
             .template member<double>("destination_x")
             .template member<double>("destination_y")
-            .template member<double>("destination_z");
+            .template member<double>("destination_z")
+            .template member<std::uint32_t>("movement");
     } else if constexpr (std::is_same_v<T, AnimationSequence>) {
         (void)authoring_value_adapters(w);
         w.component<SequenceControllerPlacement>("forge.sequence_controller_placement")
@@ -1978,6 +1986,8 @@ Builtin descriptor(const char* name, const char* description, const char* unit,
     // omits a default-valued optional field for canonical compatibility.
     if constexpr (std::is_same_v<T, NavigationLink>)
         defaults["arc_height"] = NavigationLink{}.arc_height;
+    else if constexpr (std::is_same_v<T, NavigationAgent>)
+        defaults["movement"] = NavigationAgent{}.movement;
     return {name, description, unit,    low,      high,    std::move(defaults),
             reg,  decode<T>,   read<T>, owner<T>, apply<T>};
 }
@@ -2116,7 +2126,7 @@ const std::array<Builtin, builtin_count>& builtins() {
                 return register_type<NavigationRegion2D>(w, "forge.navigation_region_2d");
             }),
         descriptor<NavigationAgent>(
-            "forge.navigation_agent", "Fixed-tick path following for nonphysics entities",
+            "forge.navigation_agent", "Follow a path with navigation or an existing character controller",
             "unitless", {}, {},
             [](flecs::world&
                    w) { return register_type<NavigationAgent>(w, "forge.navigation_agent"); }),
@@ -3864,6 +3874,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
                 "Join local avoidance; idle and paused participants remain obstacles";
     }
     if (name == "forge.navigation_agent") {
+        if (field == "movement") {
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+            value["animatable"] = false;
+            value["description"] = "Navigation writes the pose directly; Character Controller "
+                                   "requests 3D ground steering through the existing physics owner";
+        }
         if (field == "navmesh") {
             value["asset_type"] = NavMeshAsset::type;
             value["nullable"] = true;
@@ -3889,7 +3906,7 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] = "Destination in world coordinates, +Y up";
         }
         if (field == "enabled")
-            value["description"] = "Enable nonphysics movement during Play; add Navigation "
+            value["description"] = "Enable selected movement during Play; add Navigation "
                                    "Avoidance for local steering";
         if (field == "has_destination")
             value["description"] =
@@ -4006,6 +4023,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.navigation_link" && field == "plane") {
         type = "forge.NavigationPlane";
         names = {"Spatial3D", "PlanarXY"};
+    } else if (component == "forge.navigation_agent" && field == "movement") {
+        type = "forge.NavigationMovement";
+        names = {"Navigation", "CharacterController"};
     } else if (component == "forge.camera_shot" && field == "blend_curve") {
         type = "forge.CameraShotBlendCurve";
         names = {"Smooth", "Linear", "EaseIn", "EaseOut"};
@@ -4238,6 +4258,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
                 .set<ReflectedMemberDefault>({NavigationLink{}.arc_height})
                 .add<ReflectedNoAnimation>();
         }
+        if (name == "forge.navigation_agent")
+            c.lookup("movement")
+                .set<ReflectedMemberDefault>({NavigationAgent{}.movement})
+                .add<ReflectedNoAnimation>();
         if (name == "forge.transform_animator" || name == "forge.animator") {
             c.lookup("sequence_extra_clips")
                 .set<ReflectedSequenceLimit>({sequence_clip_limit - 2})

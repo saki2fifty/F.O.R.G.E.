@@ -5,6 +5,7 @@
 #include <forge/application_state_components.hpp>
 #include <forge/application_states.hpp>
 #include <forge/authoring.hpp>
+#include <forge/character_components.hpp>
 #include <forge/navigation.hpp>
 #include <forge/navigation_build.hpp>
 #include <forge/prefab_authoring.hpp>
@@ -26,9 +27,13 @@ struct World {
     Scene scene;
     RuntimeSimulation simulation;
     std::shared_ptr<NavigationRuntime> navigation;
-    explicit World(const std::filesystem::path& root)
+    explicit World(const std::filesystem::path& root, bool with_physics = false)
         : engine(WorldRole::Runtime, false,
-                 {runtime_resources_module(root), navigation_module(root)}),
+                 with_physics
+                     ? std::vector<EngineModule>{runtime_resources_module(root),
+                                                 navigation_module(root), physics_module({}, root)}
+                     : std::vector<EngineModule>{runtime_resources_module(root),
+                                                 navigation_module(root)}),
           scene(engine.world()), simulation(engine.world(), scene),
           navigation(std::static_pointer_cast<NavigationRuntime>(engine.services().navigation())) {}
     void ready() {
@@ -275,6 +280,48 @@ void exercise(const std::filesystem::path& parent, const std::filesystem::path& 
     source.entity("agent").set<NavigationAgent>({{nav.id}, true, false, 4, .05f, 0, 0, 0});
     source.entity("agent").set<NavigationBehavior>({{patrol_id}, {}, {}, true});
     const auto snapshot = source.snapshot();
+    if (!xy) {
+        World character(root, true);
+        character.scene.restore_snapshot(snapshot);
+        const auto actor = character.scene.entity("agent");
+        actor.set<SpatialBinding>({SpatialMode::World, {}});
+        actor.set<CharacterController>({});
+        auto agent = actor.get<NavigationAgent>();
+        agent.movement = 1;
+        actor.set<NavigationAgent>(agent);
+        // The baked source must stay unchanged; use a separate physical floor.
+        const auto floor_id = authoring_command(character.scene, "entity.create",
+                                                {{"name", "Physical behavior floor"}})
+                                  .at("selected")
+                                  .get<std::string>();
+        const auto physical = character.scene.entity(floor_id);
+        physical.set<SpatialBinding>({SpatialMode::World, {}});
+        physical.set<LocalTranslation>({0, -.5, 0});
+        physical.set<PhysicsBody>({});
+        physical.set<BoxCollider>({20, 1, 20});
+        character.ready();
+        bool waited = false;
+        const auto ref = character.engine.world().reference(actor).value();
+        for (unsigned tick = 0; tick != 300; ++tick) {
+            character.tick();
+            const auto cursor = actor.get<NavigationBehaviorCursor>();
+            const auto observed = character.navigation->agent_state(ref).value();
+            if (cursor.state == 2 && cursor.elapsed == 0) {
+                // Entering Wait clears destination intent in the same finish callback.
+                check(observed.phase == NavigationAgentPhase::Idle &&
+                          !actor.get<NavigationAgent>().has_destination &&
+                          std::abs(character.position()[0] - 4) < .1,
+                      "Character behavior advanced before actual adopted arrival");
+                character.tick();
+                const auto elapsed = actor.get<NavigationBehaviorCursor>().elapsed;
+                check(std::abs(elapsed - 1. / 60) < .00001,
+                      "Character behavior consumed the same fixed tick twice");
+                waited = true;
+                break;
+            }
+        }
+        check(waited, "Physical character arrival never advanced its behavior graph");
+    }
     tree_exercise(root, lease, snapshot, xy);
     {
         const ApplicationStatesDefinition modes{

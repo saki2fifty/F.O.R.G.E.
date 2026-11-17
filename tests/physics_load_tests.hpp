@@ -1,4 +1,5 @@
 #pragma once
+#include "physics_checkpoint_test.hpp"
 #include <limits>
 
 Json free_body(double mass, bool sensor = false) {
@@ -324,13 +325,7 @@ void physics_load_tests() {
             }
             // Re-seal transport corruption detection to exercise command admission,
             // rather than letting the outer checksum mask a malformed command.
-            damaged.erase("integrity");
-            std::uint64_t checksum = 14695981039346656037ull;
-            for (unsigned char byte : damaged.dump()) {
-                checksum ^= byte;
-                checksum *= 1099511628211ull;
-            }
-            damaged["integrity"] = std::to_string(checksum);
+            forge::test::reseal_physics_checkpoint(damaged);
             Fixture target;
             auto config = PhysicsConfig{};
             config.gravity = {};

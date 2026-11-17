@@ -1,15 +1,10 @@
 #pragma once
+#include "physics_checkpoint_test.hpp"
 #include "physics_load_tests.hpp"
 #include <numbers>
 
 Json reseal_velocity_checkpoint(Json value) {
-    value.erase("integrity");
-    std::uint64_t checksum = 14695981039346656037ull;
-    for (unsigned char byte : value.dump()) {
-        checksum ^= byte;
-        checksum *= 1099511628211ull;
-    }
-    value["integrity"] = std::to_string(checksum);
+    forge::test::reseal_physics_checkpoint(value);
     return value;
 }
 void physics_velocity_tests() {

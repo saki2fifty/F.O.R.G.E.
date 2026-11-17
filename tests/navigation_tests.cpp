@@ -55,16 +55,25 @@ struct Fixture {
     Scene scene;
     RuntimeSimulation simulation;
     std::shared_ptr<NavigationRuntime> navigation;
-    Fixture(const std::filesystem::path& root)
-        : engine(WorldRole::Runtime, false, {navigation_module(root)}), scene(engine.world()),
-          simulation(engine.world(), scene), navigation(std::static_pointer_cast<NavigationRuntime>(
-                                                 engine.world().services().navigation())) {}
+    std::shared_ptr<PhysicsRuntime> physics;
+    Fixture(const std::filesystem::path& root, bool with_physics = false)
+        : engine(WorldRole::Runtime, false,
+                 with_physics
+                     ? std::vector<EngineModule>{navigation_module(root), physics_module({}, root)}
+                     : std::vector<EngineModule>{navigation_module(root)}),
+          scene(engine.world()), simulation(engine.world(), scene),
+          navigation(
+              std::static_pointer_cast<NavigationRuntime>(engine.world().services().navigation())),
+          physics(with_physics
+                      ? std::static_pointer_cast<PhysicsRuntime>(engine.services().physics())
+                      : nullptr) {}
     void tick() { simulation.tick(1.f / 60); }
     Double3 position() {
         engine.world().evaluate_world_transforms();
         return scene.entity("agent").get<WorldTransform>().affine.point({0, 0, 0});
     }
 };
+#include "navigation_character_tests.hpp"
 #include "navigation_feedback_tests.hpp"
 #include "navigation_live_tests.hpp"
 #include "navigation_obstacle_runtime_tests.hpp"
@@ -235,13 +244,38 @@ int main(int argc, char** argv) {
         scene.entity("agent").set<NavigationAgent>({{record.id}, true, true, 2, .1f, 8, .1, 0});
         auto snapshot = scene.snapshot();
         if (argc == 4) {
-            check(std::string(argv[3]) == "--prepare", "Unknown mode");
+            const bool character = std::string_view(argv[3]) == "--prepare-character";
+            check(character || std::string_view(argv[3]) == "--prepare", "Unknown mode");
+            if (character) {
+                auto actor = scene.entity("agent");
+                actor.set<SpatialBinding>({SpatialMode::World, {}});
+                actor.set<CharacterController>({});
+                auto agent = actor.get<NavigationAgent>();
+                agent.movement = 1;
+                actor.set<NavigationAgent>(agent);
+                for (bool obstacle : {false, true}) {
+                    const auto id = authoring_command(scene, "entity.create",
+                                                      {{"name", obstacle ? "Physical obstacle"
+                                                                         : "Physical ground"}})
+                                        .at("selected")
+                                        .get<std::string>();
+                    const auto physical = scene.entity(id);
+                    physical.set<SpatialBinding>({SpatialMode::World, {}});
+                    physical.set<LocalTranslation>(obstacle ? LocalTranslation{0, 2, 0}
+                                                            : LocalTranslation{0, -.5, 0});
+                    physical.set<PhysicsBody>({});
+                    physical.set<BoxCollider>(obstacle ? BoxCollider{2, 4, 4}
+                                                       : BoxCollider{20, 1, 20});
+                }
+                snapshot = scene.snapshot();
+            }
             std::ofstream(root / "scene.json") << snapshot.dump();
             std::cout << std::filesystem::absolute(root).string() << "\n";
             return 0;
         }
         navigation_live_tests(root, snapshot);
         navigation_feedback_tests(root, snapshot, true);
+        navigation_character_tests(root, snapshot);
         {
             const auto destination = root.parent_path() / (AssetId::generate().str() + "-game");
             const std::array roots{record.id};

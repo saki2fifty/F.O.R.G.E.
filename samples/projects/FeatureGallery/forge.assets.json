@@ -12412,6 +12412,64 @@
       "type": "animation_clip"
     },
     {
+      "dependencies": [
+        "96f838b6-4bb7-4ccc-8034-60042b648a61"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "a4b3fb561c2f3ab26649c8f946ac59ffe0d0e9d3acefc545c3c867f2e76e76cc",
+          "role": "navigation.scene",
+          "target": "96f838b6-4bb7-4ccc-8034-60042b648a61",
+          "type": "scene"
+        }
+      ],
+      "id": "87687b7f-4ee7-4af5-abdd-99a86ccc90fa",
+      "metadata": {
+        "asset_id": "87687b7f-4ee7-4af5-abdd-99a86ccc90fa",
+        "bounds": {
+          "cell_inverse": 5.0,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "maximum": [
+            10.0,
+            4.099999904632568,
+            6.0
+          ],
+          "minimum": [
+            -10.0,
+            -0.20000000298023224,
+            -6.0
+          ],
+          "radius": 0.4000000059604645
+        },
+        "geometry_sha256": "a4b3fb561c2f3ab26649c8f946ac59ffe0d0e9d3acefc545c3c867f2e76e76cc",
+        "geometry_version": 2,
+        "layout": "le-polyref32-detour7-static-single-v1",
+        "mesh_inputs": [],
+        "recast_revision": "6dc1667f580357e8a2154c28b7867bea7e8ad3a7",
+        "settings": {
+          "cell_height": 0.10000000149011612,
+          "cell_size": 0.20000000298023224,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "radius": 0.4000000059604645,
+          "slope": 45.0
+        },
+        "sha256": "63c2dcd6ba421461fe24ff2cbdf7e03d83b3d5186afaeecebbe4580a1e2f0d1e",
+        "source_scene": "96f838b6-4bb7-4ccc-8034-60042b648a61",
+        "sources": [
+          "a944b2d9-774f-420b-8c06-c3bc00c3e9cb"
+        ],
+        "tile_sha256": "2df80ea75ebb233ccd9a742ef0075df2f2ab43b208ec98a2960d54e1062b3146",
+        "version": 2
+      },
+      "schema_version": 2,
+      "source": "Assets/Navigation/Generated/87687b7f-4ee7-4af5-abdd-99a86ccc90fa/cab99dc7-817a-4c18-826a-54c9abff1f19.fnav",
+      "source_dependencies": [],
+      "type": "navmesh"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "87c6a461-f930-416f-a12d-83e9838dc9bb",
@@ -13416,6 +13474,16 @@
       "metadata": {},
       "schema_version": 3,
       "source": "Scenes/176-runtime-reflection-capture.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "96f838b6-4bb7-4ccc-8034-60042b648a61",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/224-navigation-characters.scene.json",
       "source_dependencies": [],
       "type": "scene"
     },

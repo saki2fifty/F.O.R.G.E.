@@ -6,6 +6,22 @@ systems query matching entities at the registered lifecycle phase. A system is
 not attached to one entity. `Native/` is project source shown under **Content → Code**. It is not an AssetId asset or a scene Hierarchy entry. The [user guide](../manual/editor/native-gameplay.md)
 shows the editor workflow.
 
+## Navigation character steering
+
+`NavigationAgent.movement` appends a uint32 selector:0 preserves direct navigation,
+1 steers the existing upright World-bound3D CharacterController on ground routes
+without links. This public value requires the matching SDK fingerprint and module
+rebuild. The C callback table is unchanged. Existing copied navigation observations
+report actual adopted character position/velocity after PhysicsAdoption and are
+available to PostPhysics systems. Navigation behavior uses the same actual arrival.
+
+The host renews one-step velocity through PhysicsService; this is not an SDK
+callback addition. Project C++ retains ordinary persistent `move_character`, jump
+and placement. A manual request wins over navigation in the same pending physics
+boundary regardless of order. Disable NavigationAgent to hand control to project
+code across later ticks. Never add a second transform writer to a simulated
+character. See [navigation](navigation.md) for route, live and recovery limits.
+
 ## Runtime Prefab instances
 
 Exact-SDK C++ can request an admitted Prefab with

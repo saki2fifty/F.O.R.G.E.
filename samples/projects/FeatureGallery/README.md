@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Physical navigation characters
+
+Open `Scenes/224-navigation-characters.scene.json` and press Play. The cyan
+character reaches its marker; the orange character stops at the red physical wall.
+Both use **Navigation Agent → Movement → CharacterController**, the same saved
+3D ground NavMesh, and the existing Character Controller. Navigation supplies
+steering while physics controls the actual pose and collision.
+
+Stop, disable **Red physical wall → Physics Body → Enabled**, then Play to let
+both characters reach their markers. Live Speed, destination and Enabled remain
+adjustable; choose Movement in Edit. Physical floor/colliders and an overview
+Camera are included. No project C++ module is required. Save and select this Scene
+as startup before export. See [physical character steering](../../../manual/editor/navigation.md#steer-a-physical-character).
+
 ## Navigation crossing collision
 
 Open `Scenes/222-navigation-link-collision-3d.scene.json` or

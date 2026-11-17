@@ -358,6 +358,7 @@ jobs:
             ${{ runner.temp }}/forge-work/AgentFiles/b/grid-test-images
             ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTest.log
             ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTestsFailed.log
+            ${{ runner.temp }}/forge-work/AgentFiles/b/mcp-animation-graph-capture.json.gz
           if-no-files-found: warn
       - name: Upload runtime UI render checks
         if: always()

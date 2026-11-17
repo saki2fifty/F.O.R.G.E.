@@ -110,7 +110,7 @@ try:
         assert 'Recovery is not supported' in str(error), error
     else:
         raise AssertionError('SDK Play accepted an unsupported recovery request')
-    first.close()
+    first.quit()
     first = None
     # SDK Play owns the project writer lease and restarts from authored content.
     # Semantic recovery is tested separately through the supporting runtime path.
@@ -129,7 +129,13 @@ try:
     assert (root / 'scene.json').read_bytes() == source
 finally:
     if first:
-        first.close()
+        if sys.exc_info()[0] is None:
+            first.quit()
+        else:
+            first.close()
     if second:
-        second.close()
+        if sys.exc_info()[0] is None:
+            second.quit()
+        else:
+            second.close()
 print('Production SDK Play: XY queries, live controls/authority, copied progress, return journey and clean authored restart passed')

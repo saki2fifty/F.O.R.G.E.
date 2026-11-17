@@ -73,6 +73,28 @@ void collision_movement(const Json& snapshot, const std::filesystem::path& root,
     }
     source.entity(actor_id.str()).set<NavigationLinkCollision>({});
     const auto configured = source.snapshot();
+    if (plane == NavigationPlane::Spatial3D) {
+        EngineContext refused(WorldRole::Runtime, false, {navigation_module(root)});
+        Scene candidate(refused.world());
+        candidate.restore_snapshot(configured);
+        RuntimeSimulation simulation(refused.world(), candidate);
+        const auto actor = candidate.entity(actor_id.str());
+        actor.set<SpatialBinding>({SpatialMode::World, {}});
+        actor.set<CharacterController>({});
+        auto agent = actor.get<NavigationAgent>();
+        agent.movement = 1;
+        actor.set<NavigationAgent>(agent);
+        const auto before = actor.get<LocalTranslation>();
+        simulation.tick(1.f / 60);
+        const auto navigation =
+            std::static_pointer_cast<NavigationRuntime>(refused.services().navigation());
+        const auto feedback = navigation->debug(actor.id());
+        check(feedback.at("phase") == "Failed" &&
+                  feedback.at("diagnostic").get<std::string>().find("explicit links") !=
+                      std::string::npos &&
+                  actor.get<LocalTranslation>() == before,
+              "Character navigation bypassed an unsupported explicit link");
+    }
     EngineContext engine(WorldRole::Runtime, false, {navigation_module(root), physics_module()});
     Scene scene(engine.world());
     scene.restore_snapshot(configured);
@@ -147,7 +169,7 @@ void collision_movement(const Json& snapshot, const std::filesystem::path& root,
     check(checkpoint.at("version").get<unsigned>() == 6u &&
               checkpoint.at("agents").at(0).contains("collision"),
           "Collision traversal did not use its semantic recovery profile");
-    {
+    const auto recover_blocked = [&](const Json& image) {
         EngineContext recovered(WorldRole::Runtime, false,
                                 {navigation_module(root), physics_module()});
         Scene restored(recovered.world());
@@ -158,13 +180,50 @@ void collision_movement(const Json& snapshot, const std::filesystem::path& root,
         restored_physics->synchronize(0);
         auto service =
             std::static_pointer_cast<NavigationRuntime>(recovered.world().services().navigation());
-        service->restore(checkpoint);
+        service->restore(image);
         resumed.tick(1.f / 60);
         check(restored.entity(actor_id.str()).get<LocalTranslation>() == held &&
                   service->agent_state(restored.reference(actor_id.str()))->phase ==
                       NavigationAgentPhase::Blocked,
               "Recovered blocked crossing changed its on-curve pose");
+    };
+    recover_blocked(checkpoint);
+    const auto extra_id =
+        authoring_command(scene, "entity.create", {{"name", "Inactive character"}})
+            .at("selected")
+            .get<std::string>();
+    NavigationAgent inactive;
+    inactive.enabled = false;
+    inactive.movement = 1;
+    scene.entity(extra_id).set<NavigationAgent>(inactive);
+    const auto mixed = navigation->checkpoint();
+    check(mixed.at("version").get<unsigned>() == 7 && mixed.at("agents").size() == 2,
+          "Character selection lost the mixed crossing recovery profile");
+    recover_blocked(mixed);
+    for (const bool downgrade : {false, true}) {
+        auto bad = mixed;
+        if (downgrade)
+            bad["version"] = 6;
+        else {
+            for (auto& entry : bad.at("agents"))
+                if (entry.at("config").value("movement", 0u) == 1)
+                    entry.erase("collision");
+        }
+        EngineContext refused(WorldRole::Runtime, false,
+                              {navigation_module(root), physics_module()});
+        Scene candidate(refused.world());
+        candidate.restore_snapshot(scene.snapshot());
+        RuntimeSimulation unused(refused.world(), candidate);
+        auto service = std::static_pointer_cast<NavigationRuntime>(refused.services().navigation());
+        bool rejected = false;
+        try {
+            service->restore(bad);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        check(rejected, "Incomplete or downgraded mixed character/collision recovery was admitted");
     }
+    scene.delete_subtree(extra_id);
     auto runtime_wall = scene.entity(wall_id);
     if (plane == NavigationPlane::PlanarXY) {
         auto body = runtime_wall.get<PhysicsBody2D>();

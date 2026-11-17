@@ -1,5 +1,14 @@
 # Explore the Feature Gallery
 
+**224-navigation-characters** includes two upright physical characters using
+**Navigation Agent → Movement → CharacterController**. Play: the cyan character
+reaches its marker while the orange character stops at the red physical wall.
+Stop, disable that wall's **Physics Body → Enabled**, then Play again to let both
+reach their destinations. Physical floor, colliders, saved 3D NavMesh, Camera and
+light are included. No project C++ module is required. Save and choose this Scene
+as startup before export. See [physical character navigation](../editor/navigation.md)
+for live controls, ownership and current limits.
+
 **222-navigation-link-collision-3d** and **223-navigation-link-collision-xy** show
 physical blockers on straight and arced links. Press Play, select a traveler and
 inspect its **Live gameplay → Navigation Link Collision** controls. Set

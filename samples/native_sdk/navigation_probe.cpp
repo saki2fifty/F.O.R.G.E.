@@ -8,7 +8,21 @@
 namespace {
 int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* h, char*, uint32_t) {
     flecs::world w(h->world);
-    w.component<forge::NavigationAgent>("forge.navigation_agent");
+    const auto agent = w.component<forge::NavigationAgent>("forge.navigation_agent");
+    const auto* agent_info = ecs_get_type_info(w.c_ptr(), agent.id());
+    if (!agent_info || agent_info->size != sizeof(forge::NavigationAgent) ||
+        agent_info->alignment != alignof(forge::NavigationAgent) || !agent.lookup("movement"))
+        return 0;
+    auto agent_probe = w.entity().add(flecs::Prefab).set<forge::NavigationAgent>({});
+    auto expected_agent = agent_probe.get<forge::NavigationAgent>();
+    if (expected_agent.movement != 0)
+        return 0;
+    expected_agent.movement = 1;
+    agent_probe.set<forge::NavigationAgent>(expected_agent);
+    const auto agent_matched = agent_probe.get<forge::NavigationAgent>() == expected_agent;
+    agent_probe.destruct();
+    if (!agent_matched)
+        return 0;
     const auto link = w.component<forge::NavigationLink>("forge.navigation_link");
     const auto* link_info = ecs_get_type_info(w.c_ptr(), link.id());
     if (!link_info || link_info->size != sizeof(forge::NavigationLink) ||

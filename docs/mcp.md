@@ -1159,6 +1159,18 @@ reflected validation, execution grant, observed launch/session/generation, queue
 ack and keep-values capture/Stop/review/history paths apply. No extra MCP schema,
 pose writer or independent navigation implementation is introduced.
 
+NavigationAgent `movement` is an authored integer selector (0 Navigation,
+1 CharacterController) exposed by ordinary reflected discovery and
+`forge_property_set`/`forge_property_set_many`. It retains revision guards,
+permission checks, history, Prefab intent and explicit Save. Missing/zero preserves
+legacy source. It is Edit-only and excluded from `forge_play_tune` and Keep review.
+Mode1 uses the existing enabled upright World +Y3D CharacterController, physical
+floor/colliders and a 3D ground route without explicit links. Add/configure those
+through the same component/property operations; no character-navigation tool or
+alternate movement implementation exists. Existing Play observations report actual
+adopted physics motion; speed/destination/enabled remain live-tunable. See
+`docs/navigation.md` for refusals and exact-SDK/recovery limits.
+
 `forge.navigation_link_collision` uses ordinary discovery, component operations
 and property transactions. All six fields share `forge_play_tune`: enabled,
 radius, straight_height, clearance, mask and include_sensors. Masks reject

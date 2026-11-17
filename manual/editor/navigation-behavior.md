@@ -4,6 +4,11 @@ A **Navigation Behavior** is a state graph or behavior tree that chooses where a
 **Navigation Agent** should go. Use it for patrols, pauses and following a target. The agent
 handles routes and movement. No project C++ module is required.
 
+For an existing upright 3D Character Controller, select the agent's
+[physical character movement](navigation.md) in Edit.
+The same behavior graph supplies destinations; arrival transitions wait for the
+character's actual physics result. This mode supports ground routes without links.
+
 ![Patrol graph with the Pause right transition and its elapsed-time controls selected](../images/navigation-behavior-graph.png)
 
 Select a connection to edit its condition, duration and destination below the canvas.

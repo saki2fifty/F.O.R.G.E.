@@ -304,12 +304,16 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene,
     physics_adopt_ = world.system("forge.runtime.PhysicsAdoptionSystem")
                          .kind(adoption_phase_)
                          .immediate()
-                         .run([this](flecs::iter&) {
-                             if (physics_)
+                         .run([this](flecs::iter& it) {
+                             if (physics_ || navigation_)
                                  stage([&] {
-                                     auto profile = context_.services().profile(
-                                         "runtime", "PhysicsAdoption", input_tick_);
-                                     physics_->adopt();
+                                     if (physics_) {
+                                         auto profile = context_.services().profile(
+                                             "runtime", "PhysicsAdoption", input_tick_);
+                                         physics_->adopt();
+                                     }
+                                     if (navigation_)
+                                         navigation_->physics_adopted(it.delta_time(), input_tick_);
                                  });
                          });
     pre_physics_.add<FixedSimulation>();

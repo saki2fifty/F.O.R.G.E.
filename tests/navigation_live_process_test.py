@@ -10,9 +10,11 @@ from runtime_client import Runtime
 
 runtime, prepare, worker = (Path(value).resolve() for value in sys.argv[1:4])
 planar = '--planar' in sys.argv[4:]
+character = '--character' in sys.argv[4:]
 root = Path(subprocess.check_output(
     [prepare, runtime.parent / 'navigation-live-process-data', worker,
-     '--prepare-planar' if planar else '--prepare'], text=True, timeout=30).strip())
+     '--prepare-planar' if planar else '--prepare-character' if character else '--prepare'],
+    text=True, timeout=30).strip())
 source = (root / 'scene.json').read_bytes()
 catalog = (root / 'forge.assets.json').read_bytes()
 scene = json.loads(source)
@@ -27,6 +29,11 @@ def actor(state):
 def position(state):
     affine = actor(state)['world_affine']
     return tuple(affine[i] for i in (3, 7, 11))
+
+
+def stationary(left, right):
+    # Pausing steering does not pause character gravity or floor support.
+    return all(abs(left[i] - right[i]) < .0001 for i in (0, 2)) if character else left == right
 
 
 try:
@@ -46,7 +53,7 @@ try:
     tune('speed', 0)
     state = first.request('step')
     tick = state['timing']['tick']
-    assert position(state) == before and actor(state)['navigation_debug']['phase'] == 'Paused'
+    assert stationary(position(state), before) and actor(state)['navigation_debug']['phase'] == 'Paused'
     tune('speed', 3)
     state = first.request('step')
     tick = state['timing']['tick']
@@ -55,7 +62,7 @@ try:
     before = position(state)
     state = first.request('step')
     tick = state['timing']['tick']
-    assert position(state) == before and actor(state)['navigation_debug']['phase'] == 'Idle'
+    assert stationary(position(state), before) and actor(state)['navigation_debug']['phase'] == 'Idle'
     tune('destination_x', -7)
     tune('destination_y' if planar else 'destination_z', 4)
     tune('stopping_distance', .25)
@@ -70,11 +77,11 @@ try:
     before = position(state)
     state = first.request('step')
     tick = state['timing']['tick']
-    assert position(state) == before and actor(state)['navigation_debug']['phase'] == 'Disabled'
+    assert stationary(position(state), before) and actor(state)['navigation_debug']['phase'] == 'Disabled'
     tune('enabled', True)
     baseline = first.request('snapshot')
     for field, value in [('speed', -1), ('speed', 'fast'), ('enabled', 1), ('destination_x', 4091),
-                         ('navmesh', None), ('horizon', 2)]:
+                         ('navmesh', None), ('horizon', 2), ('movement', 0)]:
         try:
             first.request('property_tune', **target, property=field, value=value)
         except RuntimeError:
@@ -93,7 +100,7 @@ try:
     assert actor(first.request('snapshot')) == actor(baseline)
     state = first.request('step')
     checkpoint = state['recovery']
-    assert checkpoint['navigation']['version'] == 2
+    assert checkpoint['navigation']['version'] == (7 if character else 2)
     expected = first.request('step')
     second = Runtime(runtime, ['--project', root])
     restored = second.request('replace', scene=checkpoint['scene'], recovery=checkpoint,

@@ -246,6 +246,8 @@ void exercise_agent_live(float scale, ImVec2 size) {
     frame();
     check(!test::ui_targets.contains("runtime-field:forge.navigation_agent:navmesh"),
           "Live agent Inspector permits changing its NavMesh asset");
+    check(!test::ui_targets.contains("runtime-field:forge.navigation_agent:movement"),
+          "Live agent Inspector permits changing its movement owner");
     for (const auto* name : {"enabled", "has_destination", "speed", "stopping_distance",
                              "destination_x", "destination_y", "destination_z"})
         check(
@@ -495,7 +497,7 @@ void exercise_avoidance(float scale, ImVec2 size) {
           "Live avoidance edit created an authored history entry");
     ImGui::DestroyContext();
 }
-void capture_collision(const std::filesystem::path& image) {
+void capture_collision(const std::filesystem::path& image, bool character = false) {
     const auto root = image.parent_path() / ("project-" + AssetId::generate().str());
     SceneDocument::create_project(root, "Navigation collision controls");
     EngineContext engine;
@@ -505,31 +507,66 @@ void capture_collision(const std::filesystem::path& image) {
     const auto actor = authoring_command(scene, "entity.create", {{"name", "Crossing agent"}})
                            .at("selected")
                            .get<std::string>();
-    for (const auto* type : {"forge.navigation_agent", "forge.navigation_link_collision"})
+    for (const auto* type :
+         {"forge.navigation_agent",
+          character ? "forge.character_controller" : "forge.navigation_link_collision"})
         authoring_command(scene, "component.add", {{"entity", actor}, {"component", type}});
-    test::ImGuiSoftwareCapture capture(780, 460);
+    const int height = character ? 720 : 460;
+    test::ImGuiSoftwareCapture capture(780, height);
     ui::style(1);
     ui::EditorUiContext context;
     context.scene = &scene;
     ui::ContextScope scope(context);
     ComponentInspector inspector;
-    inspector.fixture_focus_component = "forge.navigation_link_collision";
-    for (unsigned frame = 0; frame != 4; ++frame) {
+    inspector.fixture_focus_component =
+        character ? "forge.navigation_agent" : "forge.navigation_link_collision";
+    auto frame = [&] {
+        test::ui_targets.clear();
         capture.new_frame();
         ImGui::SetNextWindowPos({8, 8}, ImGuiCond_Always);
-        ImGui::SetNextWindowSize({764, 444}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize({764, float(height - 16)}, ImGuiCond_Always);
         ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
         inspector.draw(scene, project, actor);
         ImGui::End();
         capture.render();
+    };
+    for (unsigned i = 0; i != 4; ++i)
+        frame();
+    if (character) {
+        test::observe_ui = true;
+        frame();
+        const auto click = [&](const test::UiTarget& target) {
+            auto& io = ImGui::GetIO();
+            io.AddMousePosEvent((target.minimum.x + target.maximum.x) * .5f,
+                                (target.minimum.y + target.maximum.y) * .5f);
+            io.AddMouseButtonEvent(0, true);
+            frame();
+            io.AddMouseButtonEvent(0, false);
+            frame();
+        };
+        click(visible_live_item(frame, "component-field:forge.navigation_agent:movement"));
+        frame();
+        frame(); // Let the native popup settle before reading its item rectangle.
+        check(test::ui_targets.contains("property:choice:movement:1"),
+              "Character movement choice is absent from the native Inspector");
+        click(test::ui_targets.at("property:choice:movement:1"));
+        check(scene.entity(actor).get<NavigationAgent>().movement == 1,
+              "Native movement choice did not use the authoring property owner");
+        check(scene.undo() && scene.entity(actor).get<NavigationAgent>().movement == 0 &&
+                  scene.redo() && scene.entity(actor).get<NavigationAgent>().movement == 1,
+              "Character movement selection lost its single Undo/Redo operation");
+        frame();
+        test::observe_ui = false;
     }
     capture.save(image);
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 3 && std::string_view(argv[1]) == "--capture-collision") {
-            capture_collision(std::filesystem::absolute(argv[2]));
+        if (argc == 3 && (std::string_view(argv[1]) == "--capture-collision" ||
+                          std::string_view(argv[1]) == "--capture-character")) {
+            capture_collision(std::filesystem::absolute(argv[2]),
+                              std::string_view(argv[1]) == "--capture-character");
             return 0;
         }
         check(argc == 1, "Unexpected navigation controls fixture arguments");
