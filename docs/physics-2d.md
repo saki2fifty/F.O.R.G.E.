@@ -619,6 +619,16 @@ An original example jump requests6m/s upward for0.1m first-step rise, then subtr
 `9.81*dt` from the observed vertical velocity each subsequent step. Its observed
 default apex is about1.89m; this is example policy rather than an implicit engine jump.
 
+Host navigation can request `PhysicsService::move_character_2d_once`. It uses the
+same bounded CharacterCommand FIFO and Native2D Body, with intent consumed after
+the next positive physics step. Zero-time synchronization does not consume it;
+capsule replacement preserves its lifetime. Manual XY movement or placement takes
+precedence in either pending order, including an already armed request. Copied
+actual clipped velocity and support remain available after intent expiry. This
+host-only method adds no C SDK callback. Armed/queued requests use private physics
+recovery12; ordinary persistent profiles retain recovery10. See
+[navigation character ownership](decisions/052-navigation-characters.md).
+
 Movement composes checked public native casts, overlaps and collision planes.
 Exclude every shape of the same canonical controller, sensors, and objects that
 fail mutual physical layer masks. Process controllers in canonical-reference order.

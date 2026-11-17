@@ -538,7 +538,7 @@ template <class T> Value decode(const Json& p) {
         a.destination_y = p.at("destination_y");
         a.destination_z = p.at("destination_z");
         const auto movement = p.value("movement", Json(a.movement));
-        if (!movement.is_number_integer() || movement.get<std::uint64_t>() > 1)
+        if (!movement.is_number_integer() || movement.get<std::uint64_t>() > 2)
             throw std::runtime_error("Invalid navigation movement selection");
         a.movement = movement.get<std::uint32_t>();
         return a;
@@ -3876,10 +3876,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (name == "forge.navigation_agent") {
         if (field == "movement") {
             value["minimum"] = 0;
-            value["maximum"] = 1;
+            value["maximum"] = 2;
             value["animatable"] = false;
-            value["description"] = "Navigation writes the pose directly; Character Controller "
-                                   "requests 3D ground steering through the existing physics owner";
+            value["description"] =
+                "Navigation writes the pose directly; Character Controller requests 3D ground "
+                "steering, and Character Controller 2D requests Floating XY steering through "
+                "the existing physics owner";
         }
         if (field == "navmesh") {
             value["asset_type"] = NavMeshAsset::type;
@@ -4025,7 +4027,7 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
         names = {"Spatial3D", "PlanarXY"};
     } else if (component == "forge.navigation_agent" && field == "movement") {
         type = "forge.NavigationMovement";
-        names = {"Navigation", "CharacterController"};
+        names = {"Navigation", "CharacterController", "CharacterController2D"};
     } else if (component == "forge.camera_shot" && field == "blend_curve") {
         type = "forge.CameraShotBlendCurve";
         names = {"Smooth", "Linear", "EaseIn", "EaseOut"};

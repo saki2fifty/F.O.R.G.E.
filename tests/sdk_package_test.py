@@ -252,14 +252,15 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
                            env=env,cwd=moved,check=True,timeout=90)
             print('Installed public time client and relocated SDK Play passed')
             sys.exit(0)
-        subprocess.run([sys.executable,str(Path(__file__).with_name('navigation_process_test.py')),
-                        str(moved/'bin'/('forge_runtime'+exe)),str(build/('forge_navigation_tests'+exe)),
-                        str(build/('forge_nav_build'+exe)),str(module),'--planar'],
-                       env=env,cwd=moved,check=True,timeout=90)
-        subprocess.run([sys.executable,str(Path(__file__).with_name('navigation_sdk_play_test.py')),
-                        str(moved/'bin'/('forge_runtime'+exe)),str(build/('forge_navigation_tests'+exe)),
-                        str(build/('forge_nav_build'+exe)),str(module)],
-                       env=env,cwd=moved,check=True,timeout=90)
+        for profile in ([], ['--character']):
+            subprocess.run([sys.executable,str(Path(__file__).with_name('navigation_process_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)),str(build/('forge_navigation_tests'+exe)),
+                            str(build/('forge_nav_build'+exe)),str(module),'--planar',*profile],
+                           env=env,cwd=moved,check=True,timeout=90)
+            subprocess.run([sys.executable,str(Path(__file__).with_name('navigation_sdk_play_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)),str(build/('forge_navigation_tests'+exe)),
+                            str(build/('forge_nav_build'+exe)),str(module),*profile],
+                           env=env,cwd=moved,check=True,timeout=90)
     print('Installed-only XY navigation client, shared Flecs and relocated runtime/recovery passed')
     sys.exit(0)
 stage=build/'sdk-package-test'

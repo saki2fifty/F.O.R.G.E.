@@ -692,7 +692,7 @@ struct PhysicsRuntime::Impl {
     };
     std::vector<CharacterCommand> character_commands;
     static bool manual_character_motion(const CharacterCommand& command) {
-        return !command.planar && (command.kind == 0 || command.kind == 1 || command.kind == 3);
+        return command.kind == 0 || command.kind == 1 || command.kind == 3;
     }
     using CharacterDesired =
         std::map<std::uint64_t, std::pair<CharacterController, LocalTransform>>;
@@ -816,14 +816,20 @@ struct PhysicsRuntime::Impl {
                 character.owner->movement({});
                 character.movement_once = false;
             }
+        if (native_2d)
+            for (const auto id : manual_motion)
+                if (const auto* body = native_2d->admitted(id); body && body->config.mover_profile)
+                    native_2d->cancel_mover_once(id, body->ref);
         std::size_t placement_work = 0;
         for (const auto& command : character_commands) {
             const auto id = context.resolve(command.ref).entity;
             if (command.planar) {
-                if (command.kind == 0)
-                    native_2d->move_mover(id, command.ref,
-                                          {command.velocity[0], command.velocity[1]});
-                else if (command.kind == 2)
+                if (command.kind == 0 || command.kind == 4) {
+                    if (command.kind == 0 || !manual_motion.contains(id))
+                        native_2d->move_mover(id, command.ref,
+                                              {command.velocity[0], command.velocity[1]},
+                                              command.kind == 4);
+                } else if (command.kind == 2)
                     native_2d->crouch_mover(id, command.ref, command.flag, placement_work);
                 else if (command.kind == 3) {
                     if (native_2d->place_mover(id, command.ref,
@@ -889,7 +895,7 @@ struct PhysicsRuntime::Impl {
             const auto entity = context.world().entity(found.entity);
             if (!entity.has<CharacterController2D>() ||
                 !entity.get<CharacterController2D>().enabled ||
-                (command.kind != 0 && command.kind != 2 && command.kind != 3))
+                (command.kind != 0 && command.kind != 2 && command.kind != 3 && command.kind != 4))
                 throw std::runtime_error(
                     "Missing/disabled2D character command target or unsupported request");
             // Every target/domain is revalidated together before native writes.
@@ -947,6 +953,17 @@ struct PhysicsRuntime::Impl {
         command.ref = ref;
         command.velocity = velocity;
         command.kind = once ? 4 : 0;
+        queue_character(std::move(command));
+    }
+    void queue_character_movement_2d(EntityRef ref, Double2 velocity, bool once) {
+        if (!std::isfinite(velocity[0]) || !std::isfinite(velocity[1]) ||
+            std::hypot(velocity[0], velocity[1]) > 1000000)
+            throw std::runtime_error("2D character velocity must be finite and at most1000000m/s");
+        CharacterCommand command;
+        command.ref = ref;
+        command.planar = true;
+        command.kind = once ? 4 : 0;
+        command.velocity = {velocity[0], velocity[1], 0};
         queue_character(std::move(command));
     }
 
@@ -2814,14 +2831,10 @@ CharacterState2D PhysicsRuntime::character_2d(EntityRef ref) const {
     return result;
 }
 void PhysicsRuntime::move_character_2d(EntityRef ref, Double2 velocity) {
-    if (!std::isfinite(velocity[0]) || !std::isfinite(velocity[1]) ||
-        std::hypot(velocity[0], velocity[1]) > 1000000)
-        throw std::runtime_error("2D character velocity must be finite and at most1000000m/s");
-    Impl::CharacterCommand command;
-    command.ref = ref;
-    command.planar = true;
-    command.velocity = {velocity[0], velocity[1], 0};
-    impl_->queue_character(command);
+    impl_->queue_character_movement_2d(ref, velocity, false);
+}
+void PhysicsRuntime::move_character_2d_once(EntityRef ref, Double2 velocity) {
+    impl_->queue_character_movement_2d(ref, velocity, true);
 }
 void PhysicsRuntime::place_character_2d(EntityRef ref, Double2 feet, bool clear) {
     valid_position_2d(feet);
@@ -3028,6 +3041,10 @@ Json PhysicsRuntime::checkpoint() const {
         if (c.kind == 4)
             out["version"] = 11;
     }
+    if ((s.native_2d && s.native_2d->has_one_step_motion()) ||
+        std::ranges::any_of(s.character_commands,
+                            [](const auto& c) { return c.planar && c.kind == 4; }))
+        out["version"] = 12;
     out["commands"] = Json::array();
     for (const auto& c : s.commands)
         out["commands"].push_back({{"entity", c.ref},
@@ -3057,7 +3074,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     if (!checked.at("version").is_number_integer())
         throw std::runtime_error("Invalid physics checkpoint version");
     const auto version = checked.at("version").get<std::uint64_t>();
-    if (digest(checked.dump()) != checksum || (version != 10 && version != 11) ||
+    if (digest(checked.dump()) != checksum || version < 10 || version > 12 ||
         checked.at("build") != build_id || checked.at("source") != source_commit ||
         checked.at("runtime") != FORGE_NATIVE_SDK_FINGERPRINT ||
         checked.at("jolt") != "e77f175595e64cb44218cc9d9d56fc365ad0e36a-double-sse2-rtti" ||
@@ -3121,7 +3138,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     bool one_step_profile = false;
     for (const auto& item : character_data) {
         if (item.contains("movement_once")) {
-            if (version != 11 || !item.at("movement_once").is_boolean() ||
+            if (version < 11 || !item.at("movement_once").is_boolean() ||
                 !item.at("movement_once").get<bool>())
                 throw std::runtime_error("Invalid one-step character recovery state");
             one_step_profile = true;
@@ -3150,7 +3167,8 @@ void PhysicsRuntime::restore(const Json& payload) {
         throw std::runtime_error("Combined physics recovery solver byte limit exceeded");
     auto native_2d = std::make_unique<physics_detail::Native2D>(s.config);
     native_2d->restore(planar.at("metadata"), unhex(planar_hex), desired_2d,
-                       checked.at("tick").get<std::uint64_t>(), desired_joints_2d);
+                       checked.at("tick").get<std::uint64_t>(), desired_joints_2d, version == 12);
+    bool planar_one_step_profile = native_2d->has_one_step_motion();
     std::vector<Impl::CharacterCommand> character_commands;
     const auto& pending_characters = checked.at("character_commands");
     if (!pending_characters.is_array() || pending_characters.size() > 4096)
@@ -3167,9 +3185,10 @@ void PhysicsRuntime::restore(const Json& payload) {
         c.kind = item.at("kind").get<unsigned>();
         c.planar = item.at("planar").get<bool>();
         if (c.kind == 4) {
-            if (version != 11 || c.planar)
+            if (version < (c.planar ? 12u : 11u))
                 throw std::runtime_error("Invalid one-step character recovery command");
             one_step_profile = true;
+            planar_one_step_profile |= c.planar;
         }
         c.velocity = item.at("velocity").get<Double3>();
         c.speed = item.at("speed").get<float>();
@@ -3186,7 +3205,7 @@ void PhysicsRuntime::restore(const Json& payload) {
         if (resolved.state != WorldContext::ResolveState::Available ||
             (c.planar ? !desired_2d.contains(resolved.entity) ||
                             !desired_2d.at(resolved.entity).config.mover_profile ||
-                            (c.kind != 0 && c.kind != 2 && c.kind != 3)
+                            (c.kind != 0 && c.kind != 2 && c.kind != 3 && c.kind != 4)
                       : !desired_chars.contains(resolved.entity)) ||
             !std::isfinite(c.speed) || c.speed < 0 || c.speed > 1000000)
             throw std::runtime_error("Invalid character recovery command");
@@ -3204,7 +3223,7 @@ void PhysicsRuntime::restore(const Json& payload) {
                                                       {c.position.x, c.position.y});
         character_commands.push_back(c);
     }
-    if ((version == 11) != one_step_profile)
+    if (version != (planar_one_step_profile ? 12u : one_step_profile ? 11u : 10u))
         throw std::runtime_error("Physics recovery extension has no one-step character state");
     const auto& queued = checked.at("commands");
     if (!queued.is_array() || queued.size() > 4096)

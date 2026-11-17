@@ -73,16 +73,21 @@ void collision_movement(const Json& snapshot, const std::filesystem::path& root,
     }
     source.entity(actor_id.str()).set<NavigationLinkCollision>({});
     const auto configured = source.snapshot();
-    if (plane == NavigationPlane::Spatial3D) {
+    {
         EngineContext refused(WorldRole::Runtime, false, {navigation_module(root)});
         Scene candidate(refused.world());
         candidate.restore_snapshot(configured);
         RuntimeSimulation simulation(refused.world(), candidate);
         const auto actor = candidate.entity(actor_id.str());
         actor.set<SpatialBinding>({SpatialMode::World, {}});
-        actor.set<CharacterController>({});
+        if (plane == NavigationPlane::PlanarXY) {
+            CharacterController2D controller;
+            controller.mode = 1;
+            actor.set<CharacterController2D>(controller);
+        } else
+            actor.set<CharacterController>({});
         auto agent = actor.get<NavigationAgent>();
-        agent.movement = 1;
+        agent.movement = plane == NavigationPlane::PlanarXY ? 2 : 1;
         actor.set<NavigationAgent>(agent);
         const auto before = actor.get<LocalTranslation>();
         simulation.tick(1.f / 60);
@@ -194,10 +199,11 @@ void collision_movement(const Json& snapshot, const std::filesystem::path& root,
             .get<std::string>();
     NavigationAgent inactive;
     inactive.enabled = false;
-    inactive.movement = 1;
+    inactive.movement = plane == NavigationPlane::PlanarXY ? 2 : 1;
     scene.entity(extra_id).set<NavigationAgent>(inactive);
     const auto mixed = navigation->checkpoint();
-    check(mixed.at("version").get<unsigned>() == 7 && mixed.at("agents").size() == 2,
+    check(mixed.at("version").get<unsigned>() == (plane == NavigationPlane::PlanarXY ? 8u : 7u) &&
+              mixed.at("agents").size() == 2,
           "Character selection lost the mixed crossing recovery profile");
     recover_blocked(mixed);
     for (const bool downgrade : {false, true}) {
@@ -206,7 +212,7 @@ void collision_movement(const Json& snapshot, const std::filesystem::path& root,
             bad["version"] = 6;
         else {
             for (auto& entry : bad.at("agents"))
-                if (entry.at("config").value("movement", 0u) == 1)
+                if (entry.at("config").value("movement", 0u) != 0)
                     entry.erase("collision");
         }
         EngineContext refused(WorldRole::Runtime, false,

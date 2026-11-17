@@ -390,7 +390,8 @@ Prefab intent/Save owner. Transforms and the NavMesh reference are never reviewe
 ## Character movement selection
 
 ADR052 defines the opt-in `NavigationAgent.movement` profile: zero/absent is
-ordinary Navigation; one is CharacterController. The reflected uint32 selector has
+ordinary Navigation; one is CharacterController; two is CharacterController2D.
+The reflected uint32 selector has
 an explicit default and enum, is not animatable or live-tunable, and uses the same
 Scene/Prefab/history/automation/MCP property owner. Canonical source omits zero.
 The added public value changes exact SDK identity; rebuild modules against the
@@ -407,6 +408,17 @@ in that boundary wins regardless of queue order. Ordinary move_character remains
 persistent. Disabling/removing navigation or clearing its destination stops renewal;
 character gravity, step/slope and physical collision remain physics-owned.
 
+Movement2 requires a World-bound Floating CharacterController2D and a PlanarXY
+NavMesh without explicit links. PhysicsService::move_character_2d_once joins the
+same FIFO, with its lifetime stored in the existing Native2D Body. Manual XY
+movement or placement wins in either order, including a prior armed request.
+The next positive step consumes autonomous intent while retaining actual clipped
+XY velocity/support observations. Zero-time synchronization and capsule
+replacement preserve an armed request. Neither navigation nor this profile
+supplies platformer gravity, jumps or floor following. Visual Z remains independent.
+Blocked feedback excludes shallow-recovery-only corrections when the copied
+requested XY velocity is zero; the actual corrected position remains observable.
+
 Navigation never sets the character's LocalTranslation. After the existing
 PhysicsAdoptionSystem, it reads CharacterState and reconciles actual corner
 progress, arrival, blockage and copied position/velocity. Ground projection is
@@ -416,6 +428,12 @@ character agents finish once after adoption. Pending feedback prevents another
 navigation tick or recovery capture. Unavailable or incompatible profiles fail
 without another pose writer.
 
+At an eroded mesh edge, steering and route distance retain the physical centre's
+actual planar offset. A one-point projected route still requires an actual
+approach within Speed and Stopping distance. Spatial routes use projected ground
+Y with actual XZ; XY routes use actual XY and the current visual Z. Projection
+alone cannot establish corner progress or arrival.
+
 Private physics recovery11 carries only queued/armed one-step requests; otherwise
 recovery10 stays unchanged. Navigation recovery7 identifies character selection
 and explicitly records no navigation-owned character translation. Scene/physics
@@ -424,6 +442,13 @@ Mixed recovery7 retains ordinary link/arc/collision records under their existing
 validation. Downgrades, empty extensions and fabricated character pose/link
 records reject. This is exact-runtime recovery, not a public save-game format.
 SDK Play continues to restart from authored content.
+
+XY armed/queued intent requires private physics recovery12 and navigation
+movement2 requires recovery8. Mixed worlds retain their existing3D one-step and
+ordinary-agent link/collision records. Unused profiles retain recovery10/11 and
+navigation2–7. The optional Native2D flag is admitted only by the matching outer
+profile; false/malformed flags, downgrades and empty extensions reject before
+candidate publication. Actual XY pose remains Scene/physics-owned.
 
 ## Runtime ownership
 
@@ -464,7 +489,7 @@ No callback-table field or independent authoring path is added. `FORGE_SDK_NAVIG
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, cost editing, physics-driven jumping, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving is limited to the explicit upright 3D ground profile below. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, cost editing, physics-driven jumping, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving is limited to upright 3D ground routes or Floating XY routes without explicit links. Grounded platformer routing remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 

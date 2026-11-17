@@ -85,6 +85,7 @@ class PhysicsRuntime : public PhysicsService {
     CharacterState character(EntityRef) const override;
     void move_character(EntityRef, Double3) override;
     void move_character_once(EntityRef, Double3) override;
+    void move_character_2d_once(EntityRef, Double2) override;
     void jump_character(EntityRef, float) override;
     void crouch_character(EntityRef, bool) override;
     void place_character(EntityRef, LocalTranslation, LocalRotation, bool) override;

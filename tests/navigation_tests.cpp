@@ -77,6 +77,7 @@ struct Fixture {
 #include "navigation_feedback_tests.hpp"
 #include "navigation_live_tests.hpp"
 #include "navigation_obstacle_runtime_tests.hpp"
+#include "navigation_planar_character_tests.hpp"
 #include "navigation_planar_tests.hpp"
 int main(int argc, char** argv) {
     try {
@@ -103,7 +104,8 @@ int main(int argc, char** argv) {
         }
         auto root = std::filesystem::path(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
-        if (argc == 4 && std::string_view(argv[3]) == "--prepare-planar") {
+        if (argc == 4 && (std::string_view(argv[3]) == "--prepare-planar" ||
+                          std::string_view(argv[3]) == "--prepare-planar-character")) {
             EngineContext engine;
             Scene prepared(engine.world());
             prepared.restore_snapshot(input());
@@ -124,6 +126,18 @@ int main(int argc, char** argv) {
             prepared.entity("agent").set<LocalTranslation>({-8, .1, 37.125});
             prepared.entity("agent").set<NavigationAgent>(
                 {{record.id}, true, true, 2, .1f, 8, .1, -19});
+            if (std::string_view(argv[3]) == "--prepare-planar-character") {
+                const auto actor = prepared.entity("agent");
+                actor.set<SpatialBinding>({SpatialMode::World, {}});
+                CharacterController2D controller;
+                controller.mode = 1;
+                controller.radius = .1f;
+                controller.height = .05f;
+                actor.set<CharacterController2D>(controller);
+                auto agent = actor.get<NavigationAgent>();
+                agent.movement = 2;
+                actor.set<NavigationAgent>(agent);
+            }
             std::ofstream(root / "scene.json") << prepared.snapshot().dump(2) << '\n';
             std::cout << std::filesystem::absolute(root).string() << '\n';
             return 0;

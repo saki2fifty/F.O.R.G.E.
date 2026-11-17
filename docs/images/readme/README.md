@@ -1,5 +1,21 @@
 # README screenshots
 
+## Floating XY navigation selection
+
+`manual/images/navigation-planar-character-inspector.png` is an exact780 by720
+production ComponentInspector capture. Reproduce with
+`forge_navigation_agent_editor_tests --capture-planar-character OUTPUT.png`.
+Native mouse input selects CharacterController2D and checks single Scene
+Undo/Redo. The NavMesh is intentionally unassigned; the image illustrates
+configuration, not a running game. Source:
+`tests/navigation_agent_editor_tests.cpp`. PNG SHA256
+`0e02f80bd2a3eb0327c466ee01ded526a277a31578c8078c027cda038ecf1344`;
+executable SHA256
+`9b0e0f788fc698a76ccf47e6703adbec014e8e7f29d9218a9e5c8b4daceeee26`.
+The reviewed image uses packaged font/native ImGui draw data and SDL software
+composition on Linux, without retouching. Physical Windows/GPU/input/DPI review
+remains separate.
+
 ## Navigation character movement selection
 
 `manual/images/navigation-character-inspector.png` is an exact 780 by 720
@@ -9,7 +25,7 @@ uses native mouse events to select CharacterController, then verifies a single
 Scene Undo/Redo. Its NavMesh remains unassigned: the image illustrates selecting
 the owner before assigning a route, not a running Gallery or physical acceptance.
 Source: `tests/navigation_agent_editor_tests.cpp`. PNG SHA256
-`02666bcff5d4d77ae7b29ad486beabb6f55989d9ae1473adad5f0768b04fe9bb`.
+`7f88971bf29a0c2a498e2185d066e82c65a12991d8719f2417894ef33698a536`.
 The reviewed image uses packaged font/native ImGui draw data and SDL software
 composition on Linux, without retouching. Windows desktop, physical GPU, input
 and DPI acceptance remain separate.

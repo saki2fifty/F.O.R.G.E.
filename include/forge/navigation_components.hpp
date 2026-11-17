@@ -53,7 +53,7 @@ struct NavigationAgent {
     bool enabled = true, has_destination = false;
     float speed = 2, stopping_distance = .1f;
     double destination_x = 0, destination_y = 0, destination_z = 0;
-    std::uint32_t movement = 0; // Navigation, or the existing 3D CharacterController.
+    std::uint32_t movement = 0; // Navigation, CharacterController, CharacterController2D.
     bool operator==(const NavigationAgent&) const = default;
 };
 struct NavigationAvoidance {

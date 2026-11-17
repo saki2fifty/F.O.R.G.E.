@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Floating XY navigation characters
+
+Open `Scenes/225-navigation-characters-xy.scene.json` and press Play. The cyan
+character reaches its marker; the orange one stops at the red physical wall.
+Both use **Navigation Agent → Movement → CharacterController2D**, a saved XY
+NavMesh and a World-bound **Character Controller 2D → Mode → Floating**.
+Physics supplies collision and actual XY motion while visual depth stays unchanged.
+
+Stop, disable the red wall's **Physics Body 2D → Enabled**, then Play to release
+the blocked route. Live Speed and destination remain adjustable; choose Movement
+in Edit. The Scene includes an orthographic Camera and requires no project C++
+module. Save and select it as startup before exporting. See
+[Floating XY character steering](../../../manual/editor/navigation.md).
+
 ## Physical navigation characters
 
 Open `Scenes/224-navigation-characters.scene.json` and press Play. The cyan

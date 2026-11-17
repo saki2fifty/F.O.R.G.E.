@@ -465,6 +465,144 @@ void controller_queue_recovery() {
                 "Invalid2D controller recovery published native/source candidate state");
     }
 }
+void controller_one_step_recovery() {
+    Fixture original;
+    auto source = original.source();
+    auto& components = source["entities"][0]["components"];
+    components.erase("forge.physics_body_2d");
+    components.erase("forge.box_collider_2d");
+    components["forge.character_controller_2d"] = {{"mode", 1}};
+    auto spatial = source["entities"][0];
+    const auto spatial_id = EntityId::generate().str();
+    spatial["id"] = spatial_id;
+    spatial["components"].erase("forge.character_controller_2d");
+    spatial["components"]["forge.local_translation"] = {{"x", 0}, {"y", 2}, {"z", 0}};
+    spatial["components"]["forge.local_scale"] = {{"x", 1}, {"y", 1}, {"z", 1}};
+    source["entities"].push_back(spatial);
+    original.load(source);
+    original.scene.entity(spatial_id).set<CharacterController>({});
+    original.physics->synchronize(0);
+    source = original.scene.snapshot();
+    const auto ref = original.ref();
+    const auto start = original.physics->character_2d(ref).position;
+    original.physics->move_character_2d_once(ref, {-3, 2});
+    const auto spatial_ref = original.scene.reference(spatial_id);
+    original.physics->move_character_once(spatial_ref, {1, 0, 0});
+    const auto queued = original.physics->checkpoint();
+    original.physics->synchronize(0);
+    const auto armed = original.physics->checkpoint();
+    require(queued.at("version").get<unsigned>() == 12 &&
+                armed.at("version").get<unsigned>() == 12 &&
+                armed.at("planar")
+                    .at("metadata")
+                    .at("mapping")
+                    .at(0)
+                    .at("mover")
+                    .at("movement_once")
+                    .get<bool>() &&
+                original.physics->character_2d(ref).position == start,
+            "2D one-step intent did not remain armed through zero-time synchronization");
+    for (const auto& image : {queued, armed}) {
+        Fixture copy;
+        copy.actor = original.actor;
+        copy.scene.restore_snapshot(original.scene.snapshot());
+        copy.physics->restore(image);
+        // Recreating the capsule must preserve the one-step lifetime.
+        auto config = copy.scene.entity(copy.actor).get<CharacterController2D>();
+        config.radius = .25f;
+        copy.scene.entity(copy.actor).set<CharacterController2D>(config);
+        copy.tick();
+        const auto moved = copy.physics->character_2d(ref);
+        const auto moved_3d = copy.physics->character(spatial_ref).position;
+        require(std::abs(moved.position[0] - start[0] + 3. * float(1.f / 60)) < 1e-6 &&
+                    std::abs(moved.position[1] - start[1] - 2. * float(1.f / 60)) < 1e-6 &&
+                    moved.velocity == Double2{-3, 2} &&
+                    copy.scene.entity(copy.actor).get<LocalTranslation>().z == 7 &&
+                    copy.physics->checkpoint().at("version").get<unsigned>() == 10,
+                "Recovered/recreated2D one-step request lost actual motion or its lifetime");
+        require(std::abs(moved_3d.x - float(1.f / 60)) < 1e-6,
+                "Mixed recovery12 lost the existing3D one-step request");
+        copy.tick(3);
+        require(copy.physics->character_2d(ref).position == moved.position &&
+                    copy.physics->character_2d(ref).velocity == Double2{} &&
+                    std::abs(copy.physics->character(spatial_ref).position.x - moved_3d.x) < 1e-6,
+                "Consumed2D navigation intent remained persistent after recovery");
+    }
+    for (bool prearmed : {false, true})
+        for (bool reverse : {false, true})
+            for (bool placement : {false, true}) {
+                Fixture manual;
+                manual.actor = original.actor;
+                manual.load(source);
+                const auto request = [&] { manual.physics->move_character_2d_once(ref, {8, 0}); };
+                const auto override_motion = [&] {
+                    if (placement)
+                        manual.physics->place_character_2d(ref, {start[0] - 1, start[1]}, false);
+                    else
+                        manual.physics->move_character_2d(ref, {-2, 1});
+                };
+                if (prearmed) {
+                    request();
+                    manual.physics->synchronize(0);
+                }
+                if (reverse) {
+                    override_motion();
+                    request();
+                } else {
+                    request();
+                    override_motion();
+                }
+                manual.tick(3);
+                const auto state = manual.physics->character_2d(ref);
+                const Double2 expected = placement ? Double2{start[0] - 1, start[1]}
+                                                   : Double2{start[0] - 6. * float(1.f / 60),
+                                                             start[1] + 3. * float(1.f / 60)};
+                require(std::hypot(state.position[0] - expected[0],
+                                   state.position[1] - expected[1]) < 1e-6 &&
+                            state.velocity == (placement ? Double2{} : Double2{-2, 1}),
+                        "2D one-step steering overrode manual FIFO intent or armed placement");
+            }
+    for (unsigned corruption = 0; corruption != 7; ++corruption) {
+        auto invalid = armed;
+        auto& mover = invalid["planar"]["metadata"]["mapping"][0]["mover"];
+        switch (corruption) {
+        case 0:
+            invalid["version"] = 10;
+            break;
+        case 1:
+            invalid["version"] = 11;
+            break;
+        case 2:
+            mover.erase("movement_once");
+            break;
+        case 3:
+            mover["movement_once"] = false;
+            break;
+        case 4:
+            mover["movement_once"] = "true";
+            break;
+        case 5:
+            invalid = queued;
+            invalid["version"] = 11;
+            break;
+        case 6:
+            invalid = queued;
+            invalid["character_commands"][0]["planar"] = false;
+            break;
+        }
+        reseal(invalid);
+        Fixture candidate;
+        candidate.actor = original.actor;
+        candidate.scene.restore_snapshot(source);
+        const auto before = candidate.scene.snapshot();
+        rejects([&] { candidate.physics->restore(invalid); });
+        require(candidate.scene.snapshot() == before &&
+                    !candidate.physics->status().at("native_2d_realized").get<bool>(),
+                "Malformed2D one-step recovery published a candidate");
+    }
+    rejects([&] { original.physics->move_character_2d_once(ref, {800000, 800000}); });
+    rejects([&] { original.physics->move_character_once(ref, {1, 0, 0}); });
+}
 } // namespace
 int main() {
     try {
@@ -475,6 +613,7 @@ int main() {
         native_remaining_budget();
         parent_frame_recovery();
         controller_queue_recovery();
+        controller_one_step_recovery();
         std::cout << "2D character FIFO/version10/fresh-recovery/rejection PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

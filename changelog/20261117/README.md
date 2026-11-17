@@ -1,5 +1,24 @@
 # 2026-11-17
 
+## Floating XY character navigation
+
+Navigation Agent can steer an existing World-bound Floating Character Controller
+2D on an XY NavMesh. Physics retains pose/collision ownership, and navigation uses
+actual adopted XY motion for corners, blockage, remaining distance and arrival.
+The shared queue supports one-step intent with manual movement/placement priority,
+positive-step expiry, capsule replacement and exact-runtime recovery. Existing
+direct and3D movement selections retain their defaults and owners.
+
+Physical route feedback also retains an actual centre's offset from an eroded
+mesh edge, including a one-point route. Projection alone cannot establish arrival.
+Reflection, Inspector history, live controls, automation/MCP and matching SDK
+consumers share the same implementation. Gallery225 includes free and blocked XY
+characters, a ready NavMesh, colliders and orthographic Camera. The manual explains
+the workflow and includes a native Inspector capture. Grounded platformer routing,
+simulated jumps, moving-platform routes and character link traversal remain
+unsupported. The host-only extension requires matching SDK modules; no C callback
+table or dependency revision changes.
+
 ## Physics-driven navigation characters
 
 Navigation Agent has an Edit-only movement selector for an existing upright,
@@ -10,8 +29,9 @@ Live speed, destination, cancellation and enabled controls retain their shared
 Inspector/Keep/automation/MCP owners. Manual movement, jump and placement take
 precedence in the same pending physics boundary.
 
-Character steering supports 3D ground routes without explicit links. XY steering,
-simulated link jumps and moving-platform routing remain unavailable. Private
+The initial character selection supports 3D ground routes without explicit links.
+The Floating XY selection is described above; simulated link jumps and moving-platform
+routing remain unavailable. Private
 recovery preserves request lifetime and character pose ownership; old profiles
 remain unchanged when unused. The added public NavigationAgent value requires a
 matching exact-SDK rebuild. Gallery224 includes free and physically blocked

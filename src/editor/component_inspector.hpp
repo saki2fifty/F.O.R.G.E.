@@ -636,8 +636,9 @@ class ComponentInspector {
             if (key == "forge.navigation_agent")
                 ImGui::TextWrapped(
                     "Movement: Navigation writes the pose directly. Character Controller steers "
-                    "an enabled World-space 3D controller with world +Y up; physics writes its "
-                    "actual pose. Character movement supports ground routes without links. "
+                    "an enabled World-space 3D controller with world +Y up. Character Controller "
+                    "2D steers a World-space Floating controller on XY. Physics writes the actual "
+                    "pose. Character movement supports routes without links. "
                     "Choose the movement mode in Edit; speed and destination remain live-tunable.");
             if (key == "forge.navigation_agent" && edit_scene_target) {
                 ImGui::BeginDisabled(!scene_target_available ||

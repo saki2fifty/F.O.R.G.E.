@@ -173,6 +173,12 @@ clipped velocity and placement result. There is no hidden authored PhysicsBody2D
 second queue, solver owner or durable identity. Game C++ supplies gravity/jump.
 Use upright World binding and shared native/outline capsule conversion.
 
+[ADR052](052-navigation-characters.md#floating-xy-refinement) adds host-only
+one-step XY steering through this same FIFO and Native2D Body. Its optional armed
+flag is part of private physics recovery12; ordinary persistent requests and
+unused recovery10 remain unchanged. Manual movement/placement wins in either
+pending order, and positive-step expiry preserves copied actual velocity/support.
+
 Bounded plane response, independent penetration admission and read-only support
 observation compose existing exact-pin public APIs. Native callback work is bounded;
 a failed composed movement or placement batch must fault before adoption or

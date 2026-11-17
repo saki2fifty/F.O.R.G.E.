@@ -62,3 +62,31 @@ remain covered. Authoring, Inspector/live values, Scene/Prefab history, automati
 MCP, matching SDK, an editable exported Gallery and illustrated manual belong to
 the same batch. A one-step request alone does not complete character navigation.
 Physical Windows/device review remains separately attributable.
+
+## Floating XY refinement
+
+Movement2 selects the existing World-bound Floating CharacterController2D and a
+PlanarXY NavMesh. It uses the same route, behavior, avoidance and post-adoption
+feedback owners. The existing Native2D Body owns the one-step intent flag, carries
+it through capsule replacement and clears it after a completed positive mover
+step. Actual clipped velocity and support observations remain available. Manual
+XY movement or placement takes precedence in either queue order, including an
+already armed request. Grounded platformer gravity and jumps remain game policy;
+this selection does not supply them. Explicit links remain unsupported.
+
+Route projection admits a surface; actual planar coordinates establish steering,
+corner progress, remaining distance and arrival. A physical centre outside an
+eroded mesh edge must approach the admitted goal within the speed budget. Spatial
+movement uses projected surface Y with actual XZ; planar movement uses actual XY
+and preserves independent visual Z. No navigation path or observation owns a
+second physical pose.
+
+Private physics recovery12 is required only for armed or queued XY one-step
+intent. It can include existing3D one-step state; otherwise recovery11/10 retains
+its prior meaning. Native2D stores an optional true flag alongside its existing
+mover intent, under the outer version admission. Navigation recovery8 requires
+movement2 and retains recovery7's absence of character translations. Mixed direct
+agents and their link/collision profiles retain their own recovery data. Old
+Scene/Prefab/NavMesh formats and asset identities require no migration. The
+host-only PhysicsService extension requires matching SDK modules; the C callback
+table and pinned dependencies do not change.

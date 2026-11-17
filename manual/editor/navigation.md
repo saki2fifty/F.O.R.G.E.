@@ -39,15 +39,41 @@ Manual movement, jump and placement requests take precedence over navigation
 requests in the same fixed step. Navigation reports physical blockage and never
 teleports the controller through a collider.
 
-Character steering currently supports upright 3D ground routes without explicit
-navigation links. XY characters, simulated link jumps and moving-platform routing
-are unavailable. Incompatible configurations report a navigation diagnostic.
+Character steering supports upright 3D ground routes and Floating XY routes without
+explicit navigation links. Simulated link jumps and moving-platform routing are
+unavailable. Incompatible configurations report a navigation diagnostic.
 Save the Scene and select it as startup before exporting; this Gallery requires
 no project C++ module. Review kept live values after Stop, then save explicitly.
 
 In **Window → Profiler → Play runtime**, **NavSourceCapture** shows the CPU time
 spent checking included sources during Play. Rebuild the NavMesh after changing
 included geometry.
+
+## Steer a Floating XY character
+
+Open Gallery **225-navigation-characters-xy** and press Play. The cyan character
+reaches its marker; the orange character stops at the red physical wall. Both use
+the existing 2D controller, and their visual depth stays unchanged.
+
+1. In Edit, create a walkable **Navigation Region 2D** and build a **2D (XY)** NavMesh. Leave clearance for the character's entire upright capsule around obstacles and region edges.
+2. Give the moving object **Character Controller 2D** and **Navigation Agent**. Set the controller's **Mode → Floating** and the object's spatial binding to **World**. Keep the physical rotation upright with equal absolute X/Y scale. Do not add another enabled body or controller to the object.
+3. In Navigation Agent choose **Movement → CharacterController2D**, assign the XY NavMesh and enable **Has destination**. Set Destination X/Y and Speed. Destination Z does not change visual depth.
+4. Add physical **Physics Body 2D → Static** objects with Collider 2D shapes for solid obstructions. Baked regions describe routes; they do not create physical colliders. Use a child visual with its centre above the controller's feet.
+5. Play and inspect **Navigation progress** and **Character movement**. Copied position, velocity, remaining distance and arrival follow the actual collision result.
+
+![Navigation Agent Inspector with CharacterController2D selected in Movement](../images/navigation-planar-character-inspector.png)
+
+Choose CharacterController2D for an upright Floating controller and a saved XY NavMesh.
+
+To release the orange Gallery character, Stop, disable the red wall's **Physics
+Body 2D → Enabled**, then Play again. Speed **0**, Has destination and Enabled use
+the same live controls and Keep review as other agents. Select Movement in Edit.
+Manual XY movement or placement takes precedence in the same physics step.
+
+Floating movement has no floor following or implicit gravity. Grounded platformer
+routing, jumps, moving-platform routes and explicit links are unavailable. Choose
+the Gallery Scene as startup, save it and export normally; no project C++ module
+is required.
 
 ## Build a 3D floor and obstacles
 
@@ -547,7 +573,8 @@ a running agent.
 Keep the agent's effective spatial parents stationary and free of enabled
 character controllers. The default **Movement → Navigation** refuses an enabled
 controller on the object. Use **Movement → CharacterController** for the supported
-upright, World-bound 3D ground profile described above. If project C++ owns the
+upright, World-bound 3D ground profile, or **CharacterController2D** for a World-bound
+Floating XY controller. If project C++ owns the
 character's movement, disable its Navigation Agent and use read-only Navigation
 queries to obtain routes.
 
@@ -626,4 +653,4 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 - **Physics ownership error:** remove the agent's Physics Body and any moving physics spatial ancestor, or use an independent World spatial binding.
 - **Build/query limit:** reduce the included area or geometry, or increase cell size. A single build supports at most 512 × 512 cells.
 
-Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts for ordinary agents. Physical characters support upright 3D ground routes without links. Simulated jumps, moving-platform routes, XY character steering and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
+Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts for ordinary agents. Physical characters support upright 3D ground routes or Floating XY routes without links. Grounded platformer routes, simulated jumps, moving-platform routes and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.

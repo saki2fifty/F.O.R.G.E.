@@ -29,6 +29,48 @@ inline void navigation_character_tests(const std::filesystem::path& root, const 
     actor.set<NavigationAgent>(config);
     const auto reference = run.engine.world().reference(actor.id()).value();
     const auto configured = run.scene.snapshot();
+    for (bool avoiding : {false, true}) {
+        Fixture edge(root, true);
+        edge.scene.restore_snapshot(configured);
+        const auto character = edge.scene.entity("agent");
+        if (avoiding)
+            character.set<NavigationAvoidance>({});
+        auto agent = character.get<NavigationAgent>();
+        NavResult projection;
+        for (double x = 9.9; x > 8; x -= .05) {
+            projection = edge.navigation->project_point(agent.navmesh, {x, .1, 0});
+            if (projection.status == NavStatus::Success && projection.points.size() == 1 &&
+                x - projection.points.front()[0] > .1)
+                break;
+        }
+        check(projection.status == NavStatus::Success && projection.points.size() == 1,
+              "Missing eroded-edge projection fixture");
+        const auto goal = projection.points.front();
+        character.set<LocalTranslation>({goal[0] + .2, .1, goal[2]});
+        agent.destination_x = goal[0];
+        agent.destination_y = goal[1];
+        agent.destination_z = goal[2];
+        character.set<NavigationAgent>(agent);
+        edge.tick();
+        const auto ref = edge.engine.world().reference(character.id()).value();
+        const auto observed = edge.navigation->agent_state(ref).value();
+        const auto actual_gap =
+            std::hypot(observed.position[0] - goal[0], observed.position[2] - goal[2]);
+        if (observed.phase == NavigationAgentPhase::Arrived &&
+            actual_gap > agent.stopping_distance + .001)
+            throw std::runtime_error("Character arrived only at its mesh projection: " +
+                                     edge.navigation->debug(character.id()).dump());
+        check(observed.phase == NavigationAgentPhase::Moving &&
+                  observed.remaining_distance > agent.stopping_distance && observed.velocity[0] < 0,
+              "Character did not steer its actual centre toward the admitted edge goal");
+        for (unsigned i = 0; i != 30; ++i)
+            edge.tick();
+        const auto arrived = edge.navigation->agent_state(ref).value();
+        check(arrived.phase == NavigationAgentPhase::Arrived &&
+                  std::hypot(arrived.position[0] - goal[0], arrived.position[2] - goal[2]) <=
+                      agent.stopping_distance + .001,
+              "Physical edge approach did not finish within the actual stopping distance");
+    }
     for (unsigned invalid = 0; invalid != 6; ++invalid) {
         Fixture refused(root);
         refused.scene.restore_snapshot(configured);

@@ -1,6 +1,7 @@
 """Native project/source/Play/UI/navigation/export owners through actual MCP."""
 from contextlib import contextmanager
 from gallery_project_fixture import copy_gallery_project
+import atexit
 import json
 import os
 from pathlib import Path
@@ -29,6 +30,7 @@ from mcp_input_recording_play import check_input_recording_play
 from mcp_ui_source_authoring import check_ui_source_authoring
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
+atexit.register(write_capture, sys.argv[6])
 SEQUENCE_PROPERTIES_ONLY = sys.argv[7:] == ['--sequence-properties-only']
 SEQUENCE_BINDINGS_ONLY = sys.argv[7:] == ['--sequence-bindings-only']
 SKELETAL_SEQUENCE_ONLY = sys.argv[7:] == ['--skeletal-sequence-only']
@@ -43,6 +45,7 @@ WORKERS_SDK = len(sys.argv) == 9 and sys.argv[7] == '--ecs-workers-sdk-only'
 WORKERS_ONLY = WORKERS_SDK
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
 NAVIGATION_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-characters-only']
+NAVIGATION_PLANAR_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-planar-characters-only']
 NAVIGATION_LINKS_SDK = sys.argv[7:] == ['--navigation-links-sdk-only']
 NAVIGATION_LINKS_ONLY = sys.argv[7:] == ['--navigation-links-only'] or NAVIGATION_LINKS_SDK
 NAVIGATION_COLLECTION_ONLY = sys.argv[7:] == ['--navigation-collection-only']
@@ -648,10 +651,19 @@ for legacy in selected_protocols:
             check_input_messages_play(read, ok, control, mutate, until)
             print(('legacy' if legacy else 'current') + ': typed-message authoring source/input scopes/real SDK Play/restart passed')
             continue
-        if NAVIGATION_CHARACTERS_ONLY:
+        if NAVIGATION_CHARACTERS_ONLY or NAVIGATION_PLANAR_CHARACTERS_ONLY:
             from mcp_navigation_character_workflow import check_navigation_character
-            check_navigation_character(read, ok, control, until, edit_settings)
-            print(('legacy' if legacy else 'current') + ': MCP-authored character, actual SDK Play step/block/arrival and clean restart passed')
+            schema = next(c for c in discovery()['result']['schema']['components']
+                          if c['id'] == 'forge.navigation_agent')
+            movement = next(f for f in schema['fields'] if f['id'] == 'movement')
+            assert movement['default'] == 0 and not movement['animatable'] and \
+                movement['choices'] == [dict(label=label, value=i) for i, label in enumerate(
+                    ('Navigation', 'CharacterController', 'CharacterController2D'))], movement
+            check_navigation_character(read, ok, control, until, edit_settings,
+                                       planar=NAVIGATION_PLANAR_CHARACTERS_ONLY)
+            print(('legacy' if legacy else 'current') +
+                  (' XY' if NAVIGATION_PLANAR_CHARACTERS_ONLY else ' 3D') +
+                  ': MCP-authored character, actual SDK Play step/block/arrival and clean restart passed')
             continue
         if NAVIGATION_COLLECTION_ONLY:
             build_schema = advertised['forge_navigation_build']['inputSchema']['properties']['settings']['properties']
@@ -2230,7 +2242,7 @@ for legacy in selected_protocols:
             assert read('forge_scene_read') == original_goal
             ok('forge_history_redo')
             assert read('forge_scene_read') == character_goal
-            for invalid in (-1, 2, .5, True, 'CharacterController'):
+            for invalid in (-1, 3, .5, True, 'CharacterController'):
                 rejected = mutate('forge_property_set', arguments=dict(entity=agent,
                     component='forge.navigation_agent', field='movement', value=invalid))
                 assert not rejected['ok'] and read('forge_scene_read') == character_goal, rejected
@@ -2478,7 +2490,6 @@ for legacy in selected_protocols:
             assert 'forge_export_run' not in names
             assert ('forge_script_preview' in names) == (mode != 'read')
 
-write_capture(sys.argv[6])
 summary = ('Both MCP protocols: collision collection discovery/validation/history/revisions/permissions, named profiles and actual Play route/step/live tuning verified' if NAVIGATION_COLLECTION_ONLY else
       'Both MCP protocols: authored navigation link discovery/history/revisions/validation, named-profile bake and actual Play traversal verified' if NAVIGATION_LINKS_ONLY else
       'Both MCP protocols: Decal Projector live tuning, validation, scope, paused clock and authored isolation verified' if DECALS_ONLY else

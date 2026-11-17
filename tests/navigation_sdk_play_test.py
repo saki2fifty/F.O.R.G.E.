@@ -8,8 +8,10 @@ import sys
 from runtime_client import Runtime, activate
 
 runtime, prepare, worker, module = map(lambda p: Path(p).resolve(), sys.argv[1:5])
+character = '--character' in sys.argv[5:]
 root = Path(subprocess.check_output(
-    [prepare, runtime.parent / 'navigation-sdk-play-data', worker, '--prepare-planar'], text=True).strip())
+    [prepare, runtime.parent / 'navigation-sdk-play-data', worker,
+     '--prepare-planar-character' if character else '--prepare-planar'], text=True).strip())
 shutil.copy2(module, root / module.name)
 info = json.loads(subprocess.check_output([runtime, '--sdk-info'], text=True))
 (root / 'forge.project.json').write_text(json.dumps(dict(
@@ -36,6 +38,9 @@ def observation(state):
     assert out['sampled'] and out['has_path'] and out['status'] == 'success', out
     assert out['position'][2] == 37.125 and out['velocity'][2] == 0, out
     assert out['projected_destination'][2] == 37.125, out
+    if character:
+        assert all(abs(out['position'][axis] - row['world_affine'][offset]) < 1e-6
+                   for axis, offset in enumerate((3, 7, 11))), row
     return out
 
 first = Runtime(runtime, arguments)

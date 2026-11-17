@@ -2574,6 +2574,19 @@ Strict/SAN claims must identify selected CPU units and actual native exits;
 ordinary supervisor success is insufficient. Physical Windows acceptance remains
 separate from these deterministic checks.
 
+The Floating XY profile adds `physics_2d_recovery`,
+`navigation_planar_character_gallery`, `navigation_planar_character_editor`,
+`native_sdk_navigation_planar_character`,
+`native_sdk_navigation_planar_character_play` and
+`mcp_navigation_planar_characters_stdio`. Native tests distinguish wall sliding
+from a head-on blockage, then remove the blocker and retarget through route
+corners. Actual planar centres establish arrival, including near eroded mesh
+edges. Queued/armed one-step intent, capsule recreation, both-order manual
+movement/placement and malformed recovery12/8 retain their existing owners.
+The Gallery must run after source-hidden relocation through the normal package
+owner. SDK Play checks use explicit quit and native exit0. The crash-recovery
+process fixture deliberately terminates a worker and is not child leak evidence.
+
 MCP source-workflow wire captures are written on ordinary Python process exit,
 including assertion failures. Hard process termination cannot guarantee a final
 capture. The Windows `FORGE-Viewport-Checks` artifact includes

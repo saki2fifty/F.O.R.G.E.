@@ -497,7 +497,8 @@ void exercise_avoidance(float scale, ImVec2 size) {
           "Live avoidance edit created an authored history entry");
     ImGui::DestroyContext();
 }
-void capture_collision(const std::filesystem::path& image, bool character = false) {
+void capture_collision(const std::filesystem::path& image, unsigned movement = 0) {
+    const bool character = movement != 0;
     const auto root = image.parent_path() / ("project-" + AssetId::generate().str());
     SceneDocument::create_project(root, "Navigation collision controls");
     EngineContext engine;
@@ -508,9 +509,16 @@ void capture_collision(const std::filesystem::path& image, bool character = fals
                            .at("selected")
                            .get<std::string>();
     for (const auto* type :
-         {"forge.navigation_agent",
-          character ? "forge.character_controller" : "forge.navigation_link_collision"})
+         {"forge.navigation_agent", movement == 2 ? "forge.character_controller_2d"
+                                    : character   ? "forge.character_controller"
+                                                  : "forge.navigation_link_collision"})
         authoring_command(scene, "component.add", {{"entity", actor}, {"component", type}});
+    if (movement == 2)
+        authoring_command(scene, "property.set",
+                          {{"entity", actor},
+                           {"component", "forge.character_controller_2d"},
+                           {"field", "mode"},
+                           {"value", 1}});
     const int height = character ? 720 : 460;
     test::ImGuiSoftwareCapture capture(780, height);
     ui::style(1);
@@ -547,13 +555,14 @@ void capture_collision(const std::filesystem::path& image, bool character = fals
         click(visible_live_item(frame, "component-field:forge.navigation_agent:movement"));
         frame();
         frame(); // Let the native popup settle before reading its item rectangle.
-        check(test::ui_targets.contains("property:choice:movement:1"),
+        const auto choice = "property:choice:movement:" + std::to_string(movement);
+        check(test::ui_targets.contains(choice),
               "Character movement choice is absent from the native Inspector");
-        click(test::ui_targets.at("property:choice:movement:1"));
-        check(scene.entity(actor).get<NavigationAgent>().movement == 1,
+        click(test::ui_targets.at(choice));
+        check(scene.entity(actor).get<NavigationAgent>().movement == movement,
               "Native movement choice did not use the authoring property owner");
         check(scene.undo() && scene.entity(actor).get<NavigationAgent>().movement == 0 &&
-                  scene.redo() && scene.entity(actor).get<NavigationAgent>().movement == 1,
+                  scene.redo() && scene.entity(actor).get<NavigationAgent>().movement == movement,
               "Character movement selection lost its single Undo/Redo operation");
         frame();
         test::observe_ui = false;
@@ -564,9 +573,12 @@ void capture_collision(const std::filesystem::path& image, bool character = fals
 int main(int argc, char** argv) {
     try {
         if (argc == 3 && (std::string_view(argv[1]) == "--capture-collision" ||
-                          std::string_view(argv[1]) == "--capture-character")) {
+                          std::string_view(argv[1]) == "--capture-character" ||
+                          std::string_view(argv[1]) == "--capture-planar-character")) {
             capture_collision(std::filesystem::absolute(argv[2]),
-                              std::string_view(argv[1]) == "--capture-character");
+                              std::string_view(argv[1]) == "--capture-planar-character" ? 2
+                              : std::string_view(argv[1]) == "--capture-character"      ? 1
+                                                                                        : 0);
             return 0;
         }
         check(argc == 1, "Unexpected navigation controls fixture arguments");

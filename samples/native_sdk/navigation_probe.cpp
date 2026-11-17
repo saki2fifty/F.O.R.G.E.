@@ -17,7 +17,11 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* h, char*, uint32_t) {
     auto expected_agent = agent_probe.get<forge::NavigationAgent>();
     if (expected_agent.movement != 0)
         return 0;
+#ifdef FORGE_NAVIGATION_PLANAR
+    expected_agent.movement = 2;
+#else
     expected_agent.movement = 1;
+#endif
     agent_probe.set<forge::NavigationAgent>(expected_agent);
     const auto agent_matched = agent_probe.get<forge::NavigationAgent>() == expected_agent;
     agent_probe.destruct();

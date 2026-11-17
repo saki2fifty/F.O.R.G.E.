@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**225-navigation-characters-xy** includes two physical XY characters using
+**Navigation Agent → Movement → CharacterController2D** and Floating 2D controllers.
+The cyan character reaches its marker; the orange character stops at the red wall.
+Stop, disable the wall's **Physics Body 2D → Enabled**, then Play to release it.
+The saved XY NavMesh, colliders and orthographic Camera are included. No project
+C++ module is required. Save and choose this Scene as startup before export.
+See [Floating XY character navigation](../editor/navigation.md).
+
 **224-navigation-characters** includes two upright physical characters using
 **Navigation Agent → Movement → CharacterController**. Play: the cyan character
 reaches its marker while the orange character stops at the red physical wall.

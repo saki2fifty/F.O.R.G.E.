@@ -811,6 +811,7 @@ struct Native2D::Impl {
         Body2DDesired admitted;
         std::uint64_t epoch = 0;
         Double2 mover_intent{}, mover_velocity{};
+        bool mover_movement_once = false;
         std::optional<MoverSupport2D> mover_support;
         bool mover_support_valid = false;
         bool mover_placement_blocked = false;
@@ -2308,12 +2309,15 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
             mapping.back()["side_start"] = {
                 {"position", {body.last_start->position.x, body.last_start->position.y}},
                 {"rotation", {body.last_start->rotation.c, body.last_start->rotation.s}}};
-        if (body.admitted.config.mover_profile)
+        if (body.admitted.config.mover_profile) {
             mapping.back()["mover"] = {{"intent", body.mover_intent},
                                        {"velocity", body.mover_velocity},
                                        {"placement_blocked", body.mover_placement_blocked},
                                        {"crouched", body.mover_crouched},
                                        {"shape_change_blocked", body.mover_shape_blocked}};
+            if (body.mover_movement_once)
+                mapping.back()["mover"]["movement_once"] = true;
+        }
     }
     if (joints.size() != self.joints.size())
         throw std::runtime_error("2D joint checkpoint requires synchronized content");
@@ -2352,7 +2356,7 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
     return image;
 }
 void Native2D::restore(const Json& metadata, const std::string& bytes, const Desired2D& desired,
-                       std::uint64_t tick, const DesiredJoints2D& joints) {
+                       std::uint64_t tick, const DesiredJoints2D& joints, bool allow_one_step) {
     auto& self = *impl_;
     self.check();
     if (realized() || !self.bodies.empty() || !self.joints.empty())
@@ -2396,6 +2400,11 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
             !recovery_pose_matches(entry.at("target"), body.pose))
             throw std::runtime_error("2D recovery configuration/target/binding mismatch");
         if (body.config.mover_profile) {
+            const auto& mover = entry.at("mover");
+            if (mover.contains("movement_once") &&
+                (!allow_one_step || !mover.at("movement_once").is_boolean() ||
+                 !mover.at("movement_once").get<bool>()))
+                throw std::runtime_error("Invalid one-step2D character recovery state");
             const bool crouched = entry.at("mover").at("crouched").get<bool>();
             admission.at(id).config = effective_mover_configuration(body.config, crouched);
         }
@@ -2475,6 +2484,7 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
                 Impl::SideSample{{position[0], position[1]}, {rotation[0], rotation[1]}};
         }
         if (body.config.mover_profile) {
+            record.mover_movement_once = entry->at("mover").value("movement_once", false);
             record.mover_crouched = crouched;
             record.mover_shape_blocked = entry->at("mover").at("shape_change_blocked").get<bool>();
             record.mover_intent = entry->at("mover").at("intent").get<Double2>();
@@ -2728,7 +2738,7 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                 b2Vec2 linear{};
                 Double2 mover_intent{}, mover_velocity{};
                 float angular = 0;
-                bool preserve = false, awake = true, crouched = false;
+                bool preserve = false, awake = true, crouched = false, movement_once = false;
                 auto pose = commanded.contains(id) ? initial.at(id).pose : value.pose;
                 if (old != self.bodies.end()) {
                     preserve =
@@ -2741,6 +2751,7 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                         crouched = old->second.mover_crouched;
                         mover_intent = old->second.mover_intent;
                         mover_velocity = old->second.mover_velocity;
+                        movement_once = old->second.mover_movement_once;
                         linear = b2Body_GetLinearVelocity(old->second.id);
                         angular = b2Body_GetAngularVelocity(old->second.id);
                         awake = b2Body_IsAwake(old->second.id);
@@ -2757,6 +2768,7 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                 if (preserve) {
                     body.mover_intent = mover_intent;
                     body.mover_velocity = mover_velocity;
+                    body.mover_movement_once = movement_once;
                     b2Body_SetLinearVelocity(body.id, linear);
                     b2Body_SetAngularVelocity(body.id, angular);
                     if (!awake && value.config.body.allow_sleeping)
@@ -3158,7 +3170,7 @@ MoverMotion2D Native2D::mover_motion(const PhysicsSweep2D& request, PhysicsQuery
     std::size_t work = 0;
     return impl_->motion_mover(request, filter, work, query_category, minimum_floor_y);
 }
-void Native2D::move_mover(std::uint64_t entity, EntityRef ref, Double2 velocity) {
+void Native2D::move_mover(std::uint64_t entity, EntityRef ref, Double2 velocity, bool once) {
     auto& self = *impl_;
     self.check();
     if (!std::isfinite(velocity[0]) || !std::isfinite(velocity[1]) ||
@@ -3166,7 +3178,22 @@ void Native2D::move_mover(std::uint64_t entity, EntityRef ref, Double2 velocity)
         throw std::runtime_error("2D controller velocity must be finite and at most1000000m/s");
     auto& body = self.mover(entity, ref);
     body.mover_intent = velocity;
+    body.mover_movement_once = once;
     body.mover_support_valid = false;
+}
+void Native2D::cancel_mover_once(std::uint64_t entity, EntityRef ref) {
+    impl_->check();
+    auto& body = impl_->mover(entity, ref);
+    if (body.mover_movement_once) {
+        body.mover_intent = {};
+        body.mover_movement_once = false;
+        body.mover_support_valid = false;
+    }
+}
+bool Native2D::has_one_step_motion() const {
+    impl_->check();
+    return std::ranges::any_of(impl_->bodies,
+                               [](const auto& item) { return item.second.mover_movement_once; });
 }
 bool Native2D::crouch_mover(std::uint64_t entity, EntityRef ref, bool crouched, std::size_t& work) {
     auto& self = *impl_;
@@ -3240,8 +3267,10 @@ bool Native2D::place_mover(std::uint64_t entity, EntityRef ref, Double2 feet, bo
     body.admitted.pose.translation.y = feet[1];
     body.mover_support_valid = false;
     body.mover_placement_blocked = false;
-    if (clear_velocity)
+    if (clear_velocity) {
         body.mover_intent = body.mover_velocity = {};
+        body.mover_movement_once = false;
+    }
     return true;
 }
 std::optional<MoverState2D> Native2D::mover_state(std::uint64_t entity, EntityRef ref) const {
@@ -3412,6 +3441,13 @@ void Native2D::step(float dt, std::uint64_t tick) {
     } catch (...) {
         self.fault = true;
         throw;
+    }
+    for (const auto id : self.mover_order) {
+        auto& body = self.bodies.at(id);
+        if (body.mover_movement_once) {
+            body.mover_intent = {};
+            body.mover_movement_once = false;
+        }
     }
     self.last_step_tick = tick;
 }
