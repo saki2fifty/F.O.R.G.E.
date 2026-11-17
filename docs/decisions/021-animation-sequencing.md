@@ -515,8 +515,10 @@ UiRuntime projects the committed Scene values into its existing copied model;
 UiPresenter retains native expression/style/class ownership. Explicit C++ name
 collisions reject. CSS animations retain their independent presentation clock and
 transient progress. Sequence seeking means sampling the ECS values, never seeking
-a native CSS player. Copied Edit previews do not execute RML or add an overlay.
-Public installed value/header semantics require a matching exact SDK rebuild.
+a native CSS player. ADR051 extends copied stopped Scene-sequence Game preview and
+frame output to render saved RML through the existing UI presenter. Standalone clip
+Scene overlays remain outside that profile. Public installed value/header semantics
+require a matching exact SDK rebuild.
 
 ## Smooth camera-view extension — 2026-11-03
 

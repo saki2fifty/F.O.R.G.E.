@@ -55,18 +55,30 @@ int main(int argc, char** argv) {
         UiPresenter presenter(renderer, root, std::move(font), {}, &ime, false, true);
         presenter.reset("test", 1);
         auto entity = EntityId::generate();
-        check(presenter.accept({{"version", 1},
-                                {"session", "test"},
-                                {"generation", 1u},
-                                {"revision", 1u},
-                                {"documents", Json::array({{{"entity", entity},
-                                                            {"asset", asset.id},
-                                                            {"instance", entity.str() + ":1"},
-                                                            {"visible", true},
-                                                            {"layer", 0u},
-                                                            {"model", Json::object()},
-                                                            {"commands", Json::array()}}})}}),
+        check(presenter.accept(
+                  {{"version", 1},
+                   {"session", "test"},
+                   {"generation", 1u},
+                   {"revision", 1u},
+                   {"documents", Json::array({{{"entity", entity},
+                                               {"asset", asset.id},
+                                               {"instance", entity.str() + ":1"},
+                                               {"visible", true},
+                                               {"layer", 0u},
+                                               {"model", Json::object()},
+                                               {"commands", Json::array({"PreviewOnly"})}}})}}),
               presenter.diagnostic().c_str());
+        const auto preview_instance = entity.str() + ":1";
+        check(presenter.command(preview_instance, "PreviewOnly") && presenter.pending_command(),
+              "Preview command fixture did not enter the existing queue");
+        const auto discarded_id = presenter.pending_command()->at("id").get<std::uint64_t>();
+        presenter.discard_commands();
+        check(!presenter.pending_command() && presenter.diagnostic().empty(),
+              "Noninteractive discard retained a command or fabricated a rejection");
+        check(presenter.command(preview_instance, "PreviewOnly") &&
+                  presenter.pending_command()->at("id").get<std::uint64_t>() > discarded_id,
+              "Preview discard reused a native command identity");
+        presenter.discard_commands();
         presenter.update(1, 640, 480);
         PlaySession play;
         auto action = ActionId::generate();

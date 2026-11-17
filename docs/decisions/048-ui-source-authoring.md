@@ -66,7 +66,9 @@ There is no package-manifest bypass, extra authoritative resource map, implicit
 registration or publication of draft metadata.
 
 RuntimeUiHost exclusively lends its existing presenter/backend to source preview
-while Play is stopped. Source preview omits gameplay model attachment and OS text,
+while Play is stopped. ADR051 adds another exclusive stopped-sequence purpose to
+this same owner; it does not create a concurrent presenter or RML initializer.
+Source preview omits gameplay model attachment and OS text,
 clipboard and IME callbacks. Runtime/staged/project/close handover retires it through
 the same lifetime owner. UiDiligentRenderer owns bounded opaque image allocation;
 retained views keep last-good pixels alive through native/backend retirement and

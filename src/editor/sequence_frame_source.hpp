@@ -19,6 +19,9 @@ class SequenceFrameSource {
     virtual bool frame_export_ready() const = 0;
     virtual SequenceFrameSourceInfo frame_export_info() const = 0;
     virtual nlohmann::json frame_export_document() const = 0;
+    // Optional sampled presentation data from the existing isolated preview world.
+    // No gameplay tick or authored mutation is performed by this observation.
+    virtual nlohmann::json frame_export_ui_snapshot() const { return nullptr; }
     virtual std::uint64_t begin_frame_export() = 0;
     virtual bool frame_export_current(std::uint64_t token) const = 0;
     virtual void sample_frame_export(std::uint64_t token, double seconds) = 0;

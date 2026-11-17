@@ -88,7 +88,10 @@ the movie is not presented as a still-image preview or imported runtime Texture.
 ## Scope
 
 The sequence preview renders its existing camera image. It does not execute gameplay
-C++, physics, advancing particle simulation, runtime UI or sound. Movie output does
+C++, physics, advancing particle simulation or sound. Saved Scene UI Documents and
+sampled UI Values compose noninteractively through the existing UI renderer at
+density1, with native CSS presentation time0 (ADR051). Pending or failed UI
+withholds incomplete frames. Movie output does
 not add synchronized gameplay/audio recording, runtime movie playback, HDR video,
 16-bit video or automatic animated-Texture import. Use the separate
 [fresh offline game recorder](game-recording.md) for game execution and sound.

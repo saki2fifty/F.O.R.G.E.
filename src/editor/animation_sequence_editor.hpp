@@ -15,6 +15,7 @@
 #include <forge/authoring.hpp>
 #include <forge/runtime.hpp>
 #include <forge/runtime_resources.hpp>
+#include <forge/runtime_ui.hpp>
 #include <limits>
 #include <utility>
 namespace forge {
@@ -140,6 +141,14 @@ class AnimationSequenceEditor {
     void stop_preview() { preview_ = playing_ = frame_exporting_ = false; }
     bool preview_active() const { return preview_ && ready_ && context_; }
     std::uint64_t presentation_generation() const { return frame_export_serial_; }
+    Json preview_ui_snapshot() const {
+        if (!preview_active() || !frame_source_current())
+            return nullptr;
+        const auto ui = std::static_pointer_cast<UiRuntime>(context_->engine.services().ui());
+        return ui->snapshot(context_->scene,
+                            controller_.scene.str() + "/" + controller_.entity.str(),
+                            frame_export_serial_, 0, true);
+    }
     using FrameExportInfo = ui::SequenceFrameSourceInfo;
     bool frame_export_ready() const { return !frame_exporting_ && frame_source_current(); }
     FrameExportInfo frame_export_info() const {
@@ -824,6 +833,7 @@ class AnimationSequenceEditor {
                 Json authored_types)
             : engine(WorldRole::Runtime, false,
                      {runtime_resources_module(project), animation_module(project),
+                      ui_module(project),
                       detail::copied_authoring_module(std::move(authored_types),
                                                       role_mask(WorldRole::Runtime))}),
               scene(engine.world()), animation(animation_runtime(engine.world())) {

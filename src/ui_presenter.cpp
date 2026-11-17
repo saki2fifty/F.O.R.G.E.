@@ -2467,6 +2467,10 @@ void UiPresenter::acknowledge(const Json& ack) {
         s.source_error(ack.value("error", "UI command rejected"));
     s.pending.pop_front();
 }
+void UiPresenter::discard_commands() {
+    impl_->check();
+    impl_->pending.clear();
+}
 const std::string& UiPresenter::diagnostic() const { return impl_->error; }
 std::uint64_t UiPresenter::presentation_revision() const { return impl_->presentation_revision; }
 std::size_t UiPresenter::document_count() const {

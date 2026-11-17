@@ -246,7 +246,9 @@ duration, loop count and fixed profile). This output receipt is not an authored
 Scene/asset schema. Native controls and automation/MCP share these owners.
 
 This captures sequence preview, without gameplay C++, physics, advancing particle
-simulation, runtime UI or sound. [Silent AVI movies](sequence-movie-export.md) extend
+simulation or sound. Saved Scene UI Documents render noninteractively with sampled
+UI Values, density1 and fixed native CSS time0 under ADR051; pending/failed UI
+withholds partial frames. [Silent AVI movies](sequence-movie-export.md) extend
 this same capture task with opaque Motion JPEG frames and rational timing. Gameplay
 video/synchronized audio,16-bit/HDR animation and runtime animated-Texture import
 remain unsupported. No component, published asset format,

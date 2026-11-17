@@ -33,7 +33,10 @@ Preview changes a temporary Scene view. It runs no gameplay C++, physics or soun
 After Scene edits or publishing changed clips, choose **Refresh clips** again.
 Open **Game** while sequence preview is active to see the camera image without
 starting gameplay. The **SEQUENCE PREVIEW** label identifies this temporary view.
-Use Game Play to hear sound and run gameplay.
+Saved UI Documents appear in this Game preview, including expressions driven by
+[UI Values](sequence-ui.md). Preview input is inactive and native RCSS animation
+stays at its initial presentation time. Use Game Play to interact with UI, hear
+sound and run gameplay.
 
 ## Crossfade two clips on one object
 
@@ -474,9 +477,12 @@ sequence's moving panel and camera transition. This example has no audio cues.
 
 ![An exported Gallery movie frame with colored props and the moving gold panel](../images/sequence-movie-frame.png)
 
-These frames contain the silent sequence camera image. Gameplay C++, physics,
-runtime UI and sound do not run during this preview. For a single image while
-playing, use [Game → Save image](viewport.md).
+These frames contain the silent sequence camera image and saved UI Documents.
+UI Values follow each sample; native RCSS animation stays at its initial
+presentation time. Output uses UI density 1. Gameplay C++, physics, UI interaction
+and sound do not run during this preview. Pending or failed UI prevents an
+incomplete frame from being saved. For a single image while playing, use
+[Game → Save image](viewport.md).
 
 ## Camera shots
 

@@ -151,6 +151,9 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
           "Pending image task survived a Scene change");
     check(task.selected_path(View::Scene, output, project, scene, message),
           "Image task did not recover from stale selection");
+    task.capture(View::Scene, presentation, graphics, view, message, false);
+    check(task.busy() && !presentation.readback_pending() && !std::filesystem::exists(output),
+          "A pending view published a partially composed ordinary image");
     task.capture(View::Scene, presentation, graphics, view, message);
     check(task.busy() && presentation.readback_pending(), "Image task did not queue a GPU copy");
     finish(); // Already captured pixels finish independently of later Scene selection.

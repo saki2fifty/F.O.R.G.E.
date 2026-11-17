@@ -4029,3 +4029,17 @@ commands and capture provenance are retained in
 `real-native-request-01.json`; all three widths pass through the same controls.
 This records native software controls, without physical desktop, Windows/D3D12,
 GPU or physical DPI acceptance.
+
+
+### Stopped sequence UI frame
+
+`manual/images/sequence-ui-preview.png` is the exact, unretouched800×600 native
+FORGE Game image from `sequence_ui_vulkan`'s Scene151 sampled at root time2s.
+FrameRenderer, RuntimeUiHost/UiPresenter and UiDiligentRenderer compose saved RML
+with amount1/width360, tick0/paused=true, density1 and fixed native CSS time0.
+The same profile verifies independently sampled display against exported PNGs,
+source-hidden project relocation and native layout/pixel oracles. Capture uses
+Mesa lavapipe offscreen software Vulkan; it does not establish physical GPU,
+Windows/editor-chrome or input acceptance. Canonical image SHA256: `a7ad22dfbe9c4d2ebe6bfea6c366cdfa5a5ae254b7785e2096e9ff0a2ad36d88`.
+Local provenance/validation: `AgentFiles/build/phase395-stopped-sequence-ui-preview/screenshot.json`
+and `AgentFiles/build/phase356-ui-custom-shader-capability/phase395-render-native14.json` (outside the product repository).

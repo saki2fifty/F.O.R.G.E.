@@ -1,5 +1,17 @@
 # 2026-11-17
 
+## Stopped sequence UI preview and frame output
+
+Stopped Scene sequences render saved UI Documents and animated UI Values in Game
+and exported frames through the existing copied sequence world and native UI
+presenter. Input and gameplay remain inactive; native CSS presentation holds at
+its initial time. Preview/source/Play/project handoffs share the existing lifetime
+owner, including retained preview images. Incomplete UI cannot publish a partial
+frame. Existing automation/MCP capture operations use the same workflow and
+output grants. The user manual includes a native sampled frame and the current
+preview, saving and export limits. Standalone clip Scene UI overlays and native
+CSS seeking remain outside this profile.
+
 ## Navigation crossing collision
 
 Optional Navigation Link Collision checks physical obstructions on straight and

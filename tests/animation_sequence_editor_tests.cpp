@@ -5,6 +5,7 @@
 #include "imgui_software_capture.hpp"
 #include "model_selection.hpp"
 #include "sequence_frame_plan.hpp"
+#include "ui_test_renderer.hpp"
 #include <forge/engine_assets.hpp>
 #include <forge/render_scene.hpp>
 #include <imgui_internal.h>
@@ -23,6 +24,7 @@ void expect_close(double a, double b) {
 #include "camera_sequence_editor_workflow.hpp"
 #include "nested_sequence_editor_workflow.hpp"
 #include "sequence_frame_export_tests.hpp"
+#include "sequence_ui_preview_tests.hpp"
 void exercise(const std::filesystem::path& gallery, const std::filesystem::path& scratch,
               float scale, ImVec2 display, bool nested_only = false, bool camera_only = false) {
     const auto began = std::chrono::steady_clock::now();
@@ -543,6 +545,14 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 5 && std::string_view(argv[1]) == "--ui-native") {
+            sequence_ui_frame_source(argv[2], argv[3], argv[4]);
+            return 0;
+        }
+        if (argc == 4 && std::string_view(argv[1]) == "--ui-frame-source") {
+            sequence_ui_frame_source(argv[2], argv[3]);
+            return 0;
+        }
         if (argc == 4 && std::string_view(argv[1]) == "--camera-frame-source") {
             std::filesystem::create_directories(argv[3]);
             frame_plans();

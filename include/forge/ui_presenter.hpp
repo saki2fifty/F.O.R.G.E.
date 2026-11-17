@@ -123,6 +123,9 @@ class UiPresenter {
                  const std::optional<std::string>& value = {});
     std::optional<nlohmann::json> pending_command() const;
     void acknowledge(const nlohmann::json& ack);
+    // Noninteractive authoring presentation: drop queued events without delivery
+    // or a fabricated gameplay acknowledgement.
+    void discard_commands();
     const std::string& diagnostic() const;
     std::size_t document_count() const;
     std::uint64_t presentation_revision() const;

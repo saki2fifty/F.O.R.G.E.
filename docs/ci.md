@@ -2383,6 +2383,34 @@ Software Vulkan evidence proves that renderer path, not physical GPU performance
 or a full Windows editor/standalone acceptance. The normal package includes the
 gallery through the existing examples assembly path.
 
+## Stopped sequence UI checks
+
+`sequence_ui_frame_source` checks ten independent nested/repeat samples from the
+existing copied sequence Context/UiRuntime, tick0/paused=true and unchanged authored
+Scene/history. `sequence_ui_native` additionally loads saved Gallery151 RML through
+UiPresenter with the recording native render adapter: width, opacity and classes
+follow sampled values, native CSS stays at0 and preview command discard retains
+no gameplay work. Scoped ASan/UBSan covers these native CPU owners separately.
+
+`sequence_ui_vulkan` and Windows `sequence_ui_render` use FrameRenderer and the
+actual RuntimeUiHost/backend. They compare independent displayed images with the
+exporter's PNGs at three times and after hiding/relocating the original project.
+They also check empty UI without renderer allocation, repeated observations,
+noninteractive authority, borrowed source-image lifetime, background source
+refusal, explicit resource failure/recovery, render-texture output pixels and
+project handoff. With the runtime argument, they cover stopped preview to real
+Play, restored runtime commands and preview resumption after Stop. Ordinary
+production Play Stop is functional coverage, not native-child leak acceptance.
+
+`view_image_editor_vulkan` retains the existing six native layouts and checks that
+a pending resource frame cannot start ordinary image readback. `mcp_image_stdio`
+checks discovery, output grants, revisions, exact source generation, scheduling,
+receipts, cancellation and completed-image access through both protocol envelopes;
+its recorded pixel provider is separate from the real GPU proof above. Native MCP
+host shutdown requires the existing graceful marker, exit0 and clean diagnostics.
+Software Vulkan or D3D12 WARP captures do not establish physical GPU performance or
+manual desktop acceptance. Actual platform execution remains separately recorded.
+
 ## Component field animation example
 
 The combined package builds the canonical ComponentAnimation/Native project with

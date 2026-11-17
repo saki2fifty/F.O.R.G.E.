@@ -459,7 +459,10 @@ Creation uses the existing `entity.create` recipe command with initial component
 values, so a bound shot is one transaction. Pending edits retain their Scene revision
 and reject stale commits. The existing isolated preview projects the same copied
 selection; Game can render it while Play is stopped, with an explicit preview label
-and without running runtime UI, native gameplay, sound or physics. Stop/close/Scene
+without native gameplay, sound or physics. ADR051 adds saved Scene UI Documents to
+this stopped Game view and frame output; sampled bindings update noninteractively,
+with native CSS time0. Standalone clip Scene overlays remain outside that profile.
+Stop/close/Scene
 changes restore the authored view.
 
 Zero-blend arrangements retain their existing private recovery profiles. Positive

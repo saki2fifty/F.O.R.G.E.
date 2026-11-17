@@ -1853,7 +1853,12 @@ observations of the same native owners, not an additional authoring operation.
 Timeline frame export uses `capture_sequence_open/read/start`, the actual sequence
 controller and observed source revision/preview generation. Start chooses a new
 folder and native end-exclusive frame plan; fixed dimensions render real pixels.
-The existing task owns sampling, resource readiness, IO, cancellation, cursor
+Saved Scene UI Documents and sequence-sampled UI Values compose through the same
+Game/output UI renderer at density1, with native CSS presentation time0 and no
+interaction or gameplay code/model publications. Pending/failed UI cannot publish
+a partially composed frame. `capture_image` reads a selected completed PNG using
+the existing output grant and operation identity; no separate UI capture tool or
+agent-side renderer is needed. The existing task owns sampling, resource readiness, IO, cancellation, cursor
 restoration and `frames.json`. Completed/cancelled frames stay available. A single
 readback/file write already committing must finish rather than promise rollback.
 

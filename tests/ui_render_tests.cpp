@@ -1,3 +1,4 @@
+#include "sequence_ui_render_tests.hpp"
 #include "ui_backdrop_render_tests.hpp"
 #include "ui_box_shadow_render_tests.hpp"
 #include "ui_filter_render_tests.hpp"
@@ -12,7 +13,7 @@
 #ifndef FORGE_UI_VULKAN_TEST
 #include "ui_effect_render_tests.hpp"
 #endif
-// Independent RmlUi/Diligent host: deliberately no ImGui/editor linkage.
+// Native RmlUi/Diligent rendering host; stopped sequence cases use the editor adapter.
 #include "Common/interface/Float16.hpp"
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "fixtures/texture_jpeg.hpp"
@@ -74,10 +75,13 @@ int main(int argc, char** argv) {
             argc == 5 && std::string_view(argv[4]) == "--shadow-motion-only";
         const bool shaping_only = argc == 5 && std::string_view(argv[4]) == "--text-shaping-only";
         const bool preview_only = argc == 5 && std::string_view(argv[4]) == "--source-preview-only";
+        const bool sequence_ui_only =
+            (argc == 5 || argc == 6) && std::string_view(argv[4]) == "--sequence-ui-only";
         const bool forms_only = argc == 5 && std::string_view(argv[4]) == "--forms-only";
         const bool effect_only = argc == 6 && std::string_view(argv[4]) == "--material-effect-only";
         require(argc == 3 || argc == 4 || states_only || conditions_only || luminance_only ||
-                    shadow_motion_only || shaping_only || preview_only || forms_only || effect_only,
+                    shadow_motion_only || shaping_only || preview_only || forms_only ||
+                    effect_only || sequence_ui_only,
                 "Need image output, font, optional Gallery and application-state profile");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
@@ -147,6 +151,14 @@ int main(int argc, char** argv) {
 #else
         require(!effect_only, "Project UI effects require the Windows cooked-shader backend");
 #endif
+        if (sequence_ui_only) {
+            forge::test_sequence_ui_render::exercise(device, context, argv[3], images, argv[2],
+                                                     argc == 6 ? std::filesystem::path(argv[5])
+                                                               : std::filesystem::path{});
+            std::cout
+                << "Stopped sequence UI native layout, display, PNG and relocated pairs passed\n";
+            return 0;
+        }
         if (preview_only) {
             forge::test_ui_preview_pixels::exercise(device, context, images, argv[2], argv[3],
                                                     readback, save);

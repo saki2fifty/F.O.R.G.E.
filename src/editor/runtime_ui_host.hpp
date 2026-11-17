@@ -36,7 +36,14 @@ class RuntimeUiHost {
     RuntimeUiInput input_;
     std::string error_;
     bool creation_failed_ = false, suspended_ = true, frame_ready_ = false;
-    bool source_preview_ = false;
+    enum class Purpose { Runtime, Source, Sequence };
+    Purpose purpose_ = Purpose::Runtime;
+    bool sequence_preview_requested_ = false;
+    bool presentation_available(const PlaySession& play) const {
+        return purpose_ == Purpose::Runtime
+                   ? play.ready()
+                   : purpose_ == Purpose::Sequence && sequence_preview_requested_ && !play.active();
+    }
     std::string preview_error_;
     std::uint64_t preview_attempted_ = 0;
     Json preview_layout_;
@@ -67,6 +74,8 @@ class RuntimeUiHost {
     }
     std::optional<UiAssetSnapshot> observed_assets_;
     void capture_assets() {
+        if (purpose_ != Purpose::Runtime)
+            return;
         if (const auto* snapshot = presenter_ ? presenter_->asset_snapshot() : nullptr)
             observed_assets_ = *snapshot;
     }
@@ -78,16 +87,16 @@ class RuntimeUiHost {
             presenter_->release_input();
         presenter_.reset();
         renderer_.reset();
-        source_preview_ = false;
+        purpose_ = Purpose::Runtime;
         preview_attempted_ = 0;
         preview_error_.clear();
         preview_layout_ = nullptr;
         suspended_ = true;
         frame_ready_ = false;
     }
-    void ensure_presenter(bool source_preview = false) {
+    void ensure_presenter(Purpose purpose = Purpose::Runtime) {
         if (presenter_) {
-            if (source_preview != source_preview_)
+            if (purpose != purpose_)
                 throw std::runtime_error("Retire the current UI purpose before replacing it");
             return;
         }
@@ -111,19 +120,20 @@ class RuntimeUiHost {
             SDL_StartTextInput(window_);
         };
         platform.deactivate_text = [this] { SDL_StopTextInput(window_); };
-        if (source_preview)
-            platform = {}; // The source widget, not its preview, owns OS text/clipboard input.
+        const bool noninteractive = purpose != Purpose::Runtime;
+        if (noninteractive)
+            platform = {}; // The authoring workspace retains OS text/clipboard input.
         const auto settings = ProjectSettings(project_).document();
         presenter_ = std::make_unique<UiPresenter>(
             renderer_->render_interface(), project_,
             asset_detail::read_bytes(font_, 4 * 1024 * 1024), std::move(platform),
-            source_preview ? nullptr : &ime_,
+            noninteractive ? nullptr : &ime_,
             settings.contains("game") && ui_text_shaping_enabled(settings.at("game")),
             settings.contains("game") && ui_grapheme_editing_enabled(settings.at("game")));
-        source_preview_ = source_preview;
+        purpose_ = purpose;
         presenter_time_ = recording_origin_ = 0;
         recording_launch_.clear();
-        if (!source_preview && surface_callbacks_.pick)
+        if (!noninteractive && surface_callbacks_.pick)
             presenter_->surface_input(surface_callbacks_);
     }
 
@@ -138,10 +148,13 @@ class RuntimeUiHost {
             !std::isfinite(density) || density < .5f || density > 4)
             throw std::runtime_error("UI source preview needs1..2048 pixels and0.5..4 density");
         set_project(project, play);
-        if (presenter_ && !source_preview_)
+        if (sequence_preview_requested_)
+            throw std::runtime_error(
+                "Finish the sequence UI preview before editing a UI source preview");
+        if (presenter_ && purpose_ != Purpose::Source)
             clear(play);
         try {
-            ensure_presenter(true);
+            ensure_presenter(Purpose::Source);
             if (!presenter_->preview_document(asset, source, text, width, height, density, refresh))
                 throw std::runtime_error(presenter_->diagnostic());
             const auto revision = presenter_->presentation_revision();
@@ -162,20 +175,21 @@ class RuntimeUiHost {
             preview_error_ = e.what();
         }
         auto result = preview_layout_.is_null() ? Json::object() : preview_layout_;
-        result["stale"] = !source_preview_ || !preview_error_.empty() || !preview_image_;
+        result["stale"] = purpose_ != Purpose::Source || !preview_error_.empty() || !preview_image_;
         result["error"] = preview_error_;
         return result;
     }
     Diligent::ITextureView* preview_source_image() const {
-        return source_preview_ && !preview_layout_.is_null() ? preview_image_.get() : nullptr;
+        return purpose_ == Purpose::Source && !preview_layout_.is_null() ? preview_image_.get()
+                                                                         : nullptr;
     }
     std::string preview_source_hit(float x, float y) const {
-        return source_preview_ && presenter_ && preview_error_.empty()
+        return purpose_ == Purpose::Source && presenter_ && preview_error_.empty()
                    ? presenter_->preview_hit(x, y)
                    : std::string{};
     }
     void close_source_preview() {
-        if (source_preview_)
+        if (purpose_ == Purpose::Source)
             retire_presenter();
     }
     void detach_surface_input() {
@@ -201,7 +215,7 @@ class RuntimeUiHost {
         return !suspended_ && presenter_ && presenter_->command(instance, name, value);
     }
     const UiAssetSnapshot* asset_snapshot() const {
-        return observed_assets_ ? &*observed_assets_ : nullptr;
+        return purpose_ != Purpose::Sequence && observed_assets_ ? &*observed_assets_ : nullptr;
     }
     Json localization_state() const {
         return presenter_ && !suspended_ ? presenter_->localization_state() : Json{};
@@ -270,7 +284,7 @@ class RuntimeUiHost {
     // RuntimeUiHost::presenter_ is the lifecycle owner.
     bool presenter_alive() const { return presenter_ != nullptr; }
     std::string diagnostic() const {
-        if (source_preview_)
+        if (purpose_ == Purpose::Source)
             return {}; // Source preview diagnostics belong to the source document.
         return !error_.empty() ? error_ : presenter_ ? presenter_->diagnostic() : std::string{};
     }
@@ -286,6 +300,7 @@ class RuntimeUiHost {
     }
     void clear(PlaySession& play) {
         retire_presenter();
+        sequence_preview_requested_ = false;
         session_.clear();
         generation_ = submitted_ = 0;
         prepared_ticket_ = 0;
@@ -330,11 +345,13 @@ class RuntimeUiHost {
         project_ = project;
         creation_failed_ = false;
     }
-    void sync(PlaySession& play, const std::filesystem::path& project, bool visible) {
+    void sync(PlaySession& play, const std::filesystem::path& project, bool visible,
+              bool sequence_preview = false) {
         if (project_ != project)
             set_project(project, play);
-        if (play.active() && source_preview_)
+        if (play.active() && purpose_ != Purpose::Runtime)
             clear(play);
+        sequence_preview_requested_ = sequence_preview && !play.active();
         // Forward the latest transport loading state into the presenter
         // so configured loading UI/progress works in Editor Play. The
         // existing presenter->loading validates against a fixed state
@@ -343,7 +360,8 @@ class RuntimeUiHost {
         if (play.active())
             apply_loading(play.sdk_loading());
         if (!play.active()) {
-            if (!source_preview_)
+            if (purpose_ != Purpose::Source &&
+                !(sequence_preview_requested_ && purpose_ == Purpose::Sequence))
                 clear(play);
             return;
         }
@@ -426,7 +444,7 @@ class RuntimeUiHost {
         target_width_ = w;
         target_height_ = h;
         input_.bounds(origin, size, w, h);
-        if (!presenter_ || !play.ready())
+        if (!presenter_ || purpose_ != Purpose::Runtime || !play.ready())
             return;
         try {
             presenter_->update(frame_time(&play), int(w), int(h),
@@ -438,30 +456,99 @@ class RuntimeUiHost {
             error_ = e.what();
         }
     }
+    bool prepare_sequence_frame(PlaySession& play, const std::filesystem::path& project,
+                                const Json& snapshot, unsigned w, unsigned h, float density = 1) {
+        frame_ready_ = false;
+        try {
+            if (play.active() || prepared_ticket_)
+                throw std::runtime_error("Stop Play before presenting sequence UI");
+            ui_protocol::validate_snapshot(snapshot);
+            set_project(project, play);
+            if (snapshot.at("documents").empty() &&
+                (!snapshot.contains("errors") || snapshot.at("errors").empty())) {
+                stop_sequence_preview(play);
+                return true;
+            }
+            if (presenter_ && purpose_ != Purpose::Sequence)
+                clear(play);
+            sequence_preview_requested_ = true;
+            ensure_presenter(Purpose::Sequence);
+            const auto session = snapshot.at("session").get<std::string>();
+            const auto generation = snapshot.at("generation").get<std::uint64_t>();
+            if (session_ != session || generation_ != generation) {
+                presenter_->reset(session, generation);
+                session_ = session;
+                generation_ = generation;
+            }
+            error_.clear();
+            if (snapshot.contains("errors") && !snapshot.at("errors").empty())
+                throw std::runtime_error(
+                    snapshot.at("errors").at(0).value("error", "Sequence UI asset is unavailable"));
+            // Repeated observations retain the presenter's admitted revision, as in Play.
+            presenter_->accept(snapshot);
+            presenter_->discard_commands();
+            presenter_->update(0, int(w), int(h), density);
+            presenter_->discard_commands();
+            if (!presenter_->diagnostic().empty())
+                throw std::runtime_error(presenter_->diagnostic());
+            if (!renderer_->resources_ready())
+                throw std::runtime_error("Sequence UI resources are still loading");
+            target_width_ = w;
+            target_height_ = h;
+            suspended_ = true; // Runtime input/actions remain unavailable in authoring preview.
+            frame_ready_ = true;
+            return true;
+        } catch (const std::exception& error) {
+            error_ = error.what();
+            return false;
+        }
+    }
+    bool sequence_frame_ready() const {
+        return purpose_ == Purpose::Sequence && sequence_preview_requested_ && frame_ready_;
+    }
+    bool sequence_preview_active() const {
+        return purpose_ == Purpose::Sequence && sequence_preview_requested_;
+    }
+    void stop_sequence_preview(PlaySession& play) {
+        sequence_preview_requested_ = false;
+        if (purpose_ == Purpose::Sequence) {
+            clear(play);
+            error_.clear();
+        }
+    }
     void draw_output(PlaySession& play, Diligent::IDeviceContext* context, AssetId output,
                      Diligent::ITextureView* texture, unsigned w, unsigned h) {
-        if (!presenter_ || !play.ready() || !presenter_->has_output({output}))
+        if (!presenter_ || !presentation_available(play) || !presenter_->has_output({output}))
             return;
         try {
             if (!frame_ready_)
                 throw std::runtime_error("UI presentation frame is not ready");
             renderer_->draw_output(*presenter_, {output}, context, texture, w, h);
+            if (purpose_ == Purpose::Sequence)
+                presenter_->discard_commands();
         } catch (const std::exception& e) {
             error_ = e.what();
             throw; // The producer cannot publish an incomplete current image.
         }
     }
-    void draw(PlaySession& play, Diligent::IDeviceContext* context,
+    bool draw(PlaySession& play, Diligent::IDeviceContext* context,
               Diligent::ITextureView* texture) {
-        if (!presenter_ || !play.ready() || !frame_ready_)
-            return;
+        if (!presenter_)
+            return true;
+        if (!presentation_available(play) || !frame_ready_)
+            return false;
         try {
             renderer_->begin(context, texture, target_width_, target_height_);
             presenter_->render();
             renderer_->end();
+            if (purpose_ == Purpose::Sequence)
+                presenter_->discard_commands();
+            return true;
         } catch (const std::exception& e) {
             renderer_->end();
             error_ = e.what();
+            frame_ready_ = false;
+            return false;
         }
     }
 
@@ -521,7 +608,7 @@ class RuntimeUiHost {
         }
     }
     inline std::uint64_t prepare_staged(const Json& snapshot) {
-        if (source_preview_)
+        if (purpose_ != Purpose::Runtime)
             retire_presenter();
         // Lazily create a presenter for the staged candidate. The
         // initial candidate scene always has a UI snapshot and the

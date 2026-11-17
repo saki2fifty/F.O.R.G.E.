@@ -1787,6 +1787,14 @@ int main(int argc, char** argv) {
             if (asset_document_locked || play.active())
                 throw forge::AuthoringError("source_busy",
                                             "Stop Play and finish the owning task first");
+            if (runtime_ui.sequence_preview_active()) {
+                if (!refresh && editor.task.id() != "ui_source")
+                    throw forge::AuthoringError(
+                        "preview_busy",
+                        "Focus UI Source or refresh its preview to leave sequence preview");
+                animation_timeline.stop_preview();
+                runtime_ui.stop_sequence_preview(play);
+            }
             const auto catalog = content.catalog();
             if (!catalog)
                 throw forge::AuthoringError("preview_unavailable",
@@ -3300,7 +3308,11 @@ int main(int argc, char** argv) {
             }
             {
                 const auto _t0 = SDL_GetTicks();
-                runtime_ui.sync(play, files.document.project(), workspace.game);
+                runtime_ui.sync(play, files.document.project(), workspace.game,
+                                workspace.game && !sdk_build->busy() &&
+                                    animation_timeline.sequence_mode() &&
+                                    animation_timeline.preview_active() &&
+                                    runtime_ui.sequence_preview_active());
                 play.sdk_diag_slow("runtime_ui.sync", SDL_GetTicks() - _t0);
             }
             const bool sdk_build_was_busy = sdk_build->busy();
@@ -7023,14 +7035,35 @@ int main(int argc, char** argv) {
                             game_preview_generation = generation;
                         }
                         forge::RenderTextureOverlay ui_output;
-                        if (game_view && !sequence_camera_preview) {
-                            runtime_ui.prepare_frame(play, image_origin, size, render_width,
-                                                     render_height);
-                            ui_output = [&](Diligent::IDeviceContext* graphics,
-                                            forge::AssetId output, Diligent::ITextureView* image,
-                                            unsigned w, unsigned h) {
-                                runtime_ui.draw_output(play, graphics, output, image, w, h);
-                            };
+                        bool sequence_ui_ready = true;
+                        if (game_view) {
+                            if (sequence_camera_preview) {
+                                const auto snapshot = animation_timeline.frame_export_ui_snapshot();
+                                if (snapshot.is_null()) {
+                                    runtime_ui.stop_sequence_preview(play);
+                                    sequence_ui_ready = false;
+                                } else {
+                                    const float density =
+                                        temporal_sample
+                                            ? 1.f
+                                            : std::clamp(
+                                                  (window ? SDL_GetWindowDisplayScale(window.get())
+                                                          : 1.f) *
+                                                      float(render_width) / std::max(1.f, size.x),
+                                                  .5f, 4.f);
+                                    sequence_ui_ready = runtime_ui.prepare_sequence_frame(
+                                        play, files.document.project(), snapshot, render_width,
+                                        render_height, density);
+                                }
+                            } else
+                                runtime_ui.prepare_frame(play, image_origin, size, render_width,
+                                                         render_height);
+                            if (sequence_ui_ready)
+                                ui_output =
+                                    [&](Diligent::IDeviceContext* graphics, forge::AssetId output,
+                                        Diligent::ITextureView* image, unsigned w, unsigned h) {
+                                        runtime_ui.draw_output(play, graphics, output, image, w, h);
+                                    };
                         }
                         auto* texture =
                             game_view
@@ -7054,8 +7087,14 @@ int main(int argc, char** argv) {
                                 fixture.view_image_background.queue(device, context, texture);
                         }
 #endif
-                        if (game_view && !sequence_camera_preview)
-                            runtime_ui.draw(play, context, texture);
+                        if (game_view) {
+                            const bool composed =
+                                sequence_ui_ready && ((sequence_camera_preview &&
+                                                       !runtime_ui.sequence_preview_active()) ||
+                                                      runtime_ui.draw(play, context, texture));
+                            if (sequence_camera_preview)
+                                sequence_ui_ready = composed;
+                        }
                         if (texture && (!game_view || !game_viewport->cameras().empty())) {
                             (game_view ? game_image_available : scene_image_available) = true;
                             view_image.capture(
@@ -7063,7 +7102,8 @@ int main(int argc, char** argv) {
                                           : forge::ui::ViewImageTask::View::Scene,
                                 presentation, context, texture, message,
                                 !game_view ||
-                                    (!game_viewport->pending() && game_viewport->temporal_ready() &&
+                                    (sequence_ui_ready && !game_viewport->pending() &&
+                                     game_viewport->temporal_ready() &&
                                      std::none_of(game_viewport->diagnostics().begin(),
                                                   game_viewport->diagnostics().end(),
                                                   [](const auto& d) {
@@ -7071,9 +7111,15 @@ int main(int argc, char** argv) {
                                                              d.severity == forge::Severity::Fatal;
                                                   })));
                         }
-                        ImGui::GetWindowDrawList()->AddImage(
-                            ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, image_origin,
-                            {image_origin.x + size.x, image_origin.y + size.y});
+                        if (sequence_ui_ready)
+                            ImGui::GetWindowDrawList()->AddImage(
+                                ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, image_origin,
+                                {image_origin.x + size.x, image_origin.y + size.y});
+                        else
+                            ImGui::TextWrapped("Sequence UI: %s",
+                                               runtime_ui.diagnostic().empty()
+                                                   ? "Waiting for the current sequence sample"
+                                                   : runtime_ui.diagnostic().c_str());
                         if (!game_view)
                             paint_texture.surface_overlay(image_origin, size, over_image);
                         if (!game_view && !paint_texture.surface_enabled())

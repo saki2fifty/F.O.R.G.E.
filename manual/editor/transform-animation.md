@@ -88,7 +88,9 @@ Remove an obsolete binding and add the current field after inspecting a changed
 component schema. Keep at least one transform channel, property or component-field binding.
 
 Scene and sequence previews sample the fields without running project C++ code.
-The Timeline's field values follow the playhead; test a C++ behavior's visible
+The Timeline's field values follow the playhead. Stopped Scene sequences also show
+saved UI driven by [UI Values](sequence-ui.md) in Game; standalone clip previews do
+not draw UI. Test a C++ behavior's visible
 effect in **Play → Game**. Gameplay runs before animation in the fixed update, so
 a regular C++ fixed system reads the last committed animated value. A seek applies
 the requested value before the next gameplay tick. Inspector changes to an animated

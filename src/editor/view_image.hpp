@@ -643,6 +643,8 @@ class ViewImageTask {
                 if (frames_->ready_frames < 3)
                     return;
             }
+            if (!resources_ready)
+                return; // Never save a partially composed view while its resources are pending.
             presentation.readback(context, texture);
             pending_ = false;
             copied_ = true;

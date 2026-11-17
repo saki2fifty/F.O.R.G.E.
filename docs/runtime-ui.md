@@ -650,12 +650,22 @@ Avoid simultaneous native animation/transition and binding writers on one style.
 Inspector and the generic property/history/Prefab owners author values. Live
 tuning uses RuntimePropertyTune and the normal tuning-review operation; animation
 may replace a tuned field at its next sample. Automation/MCP discover the same
-component schema, property/source methods and Play controls. Edit Timeline previews
-copy sampled values but do not execute/render RML, and sequence frame output omits
-Runtime UI. Use real Game Play for visual UI evaluation. No arbitrary DOM path,
-new asset, independent clock, CSS player or transient DOM checkpoint is added.
-Gallery151 demonstrates a placed child sequence driving width/opacity/class while
-an independent CSS pulse continues during Pause.
+component schema, property/source methods and Play controls. Stopped Scene-sequence
+Game preview and frame export render saved RML from the existing copied sequence
+Context through UiRuntime/RuntimeUiHost; see ADR051. Its model uses tick0/paused=true
+and native presentation time stays0 through seeks. Only bound values seek; no
+transient CSS state is restored. Standalone clip Scene previews remain value-only.
+The Game render and RenderTexture overlay callbacks share UiPresenter/backend
+ownership with Play and source preview. Offline frame output uses density1 and
+requires complete UI resources/composition before readback; no partially composed
+current frame is published. Runtime input/commands, OS text/clipboard/IME, native
+live-field actions and runtime asset publication are unavailable for this authoring
+purpose. Explicit source-preview focus/refresh leaves sequence preview; background
+source refresh cannot steal its presenter. Existing image leases survive retirement.
+No arbitrary DOM path, new asset, independent clock, CSS player or transient DOM
+checkpoint is added. Gallery151 demonstrates a placed child driving width/opacity/
+class; its independent CSS pulse continues during real Gameplay Pause and remains
+at initial presentation time during stopped sequence preview.
 
 
 ## Native filter profile

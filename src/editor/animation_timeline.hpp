@@ -39,6 +39,9 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         return sequence_.frame_export_info();
     }
     Json frame_export_document() const override { return sequence_.frame_export_document(); }
+    Json frame_export_ui_snapshot() const override {
+        return sequence_mode() ? sequence_.preview_ui_snapshot() : Json();
+    }
     std::uint64_t begin_frame_export() override { return sequence_.begin_frame_export(); }
     bool frame_export_current(std::uint64_t token) const override {
         return sequence_mode() && sequence_.frame_export_current(token);

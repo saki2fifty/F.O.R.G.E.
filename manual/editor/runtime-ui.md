@@ -2,6 +2,10 @@
 
 Runtime UI is the interface shown **inside your running game**: HUDs, menus, buttons and text fields. FORGE uses RmlUi for it. The editor's own panels still use Dear ImGui.
 
+For a noninteractive view of saved UI while scrubbing a stopped Scene sequence,
+use [sequence UI preview](sequence-ui.md). Native CSS animation remains at its
+initial presentation time there; Play provides input and normal presentation.
+
 ## Create your first HUD
 
 1. Open a writable project. In **Content → Create / Register → Runtime UI**, click **Create HUD example**.
