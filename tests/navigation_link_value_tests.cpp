@@ -1,3 +1,4 @@
+#include "navigation_link_collision.hpp"
 #include "navigation_link_curve.hpp"
 #include "navigation_links.hpp"
 #include <DetourNavMesh.h>
@@ -37,6 +38,25 @@ void curve_geometry() {
                            Case{{0, 0, 0}, {0, 3, 0}, 0}};
     for (const auto& c : cases) {
         const NavigationLinkCurve curve(c.start, c.end, c.height);
+        for (const auto span : {std::array{0., 1.}, std::array{.25, .75}, std::array{.125, .126},
+                                std::array{.5, .5}}) {
+            const auto bound = curve.chord_deviation(span[0], span[1]);
+            const auto first = curve.point(span[0]), last = curve.point(span[1]);
+            for (unsigned sample = 0; sample <= 64; ++sample) {
+                const auto u = double(sample) / 64;
+                const auto point = curve.point(std::lerp(span[0], span[1], u));
+                for (unsigned axis = 0; axis != 3; ++axis) {
+                    const auto chord = std::lerp(first[axis], last[axis], u);
+                    check(std::abs(point[axis] - chord) <= (axis == 1 ? bound : 0) + 1e-9,
+                          "Curve escaped its analytic sweep chord bound");
+                }
+            }
+        }
+        for (const auto tolerance : {.0005, .01, .5}) {
+            const auto end = curve.sweep_end(.123, .876, tolerance);
+            check(end > .123 && end <= .876 && curve.chord_deviation(.123, end) <= tolerance,
+                  "Curve sweep interval lost progress, endpoint or padding bounds");
+        }
         check(curve.point(0) == c.start && curve.point(1) == c.end &&
                   curve.advance(0, curve.length()) == 1 && curve.advance(.5, 0) == .5,
               "Navigation curve lost exact endpoints or zero-distance hold");
@@ -90,6 +110,10 @@ void curve_geometry() {
         rejects([&] { (void)curve.advance(invalid, 1); });
     }
     rejects([&] { (void)curve.length(.8, .2); });
+    rejects([&] { (void)curve.chord_deviation(.8, .2); });
+    for (const auto tolerance : {0., -1., std::numeric_limits<double>::infinity(),
+                                 std::numeric_limits<double>::quiet_NaN()})
+        rejects([&] { (void)curve.sweep_end(0, 1, tolerance); });
     rejects([&] { (void)curve.advance(0, -.1); });
     rejects([&] { (void)curve.advance(0, std::numeric_limits<double>::infinity()); });
     rejects([] { (void)NavigationLinkCurve({0, 0, 0}, {0, 3, 0}, 1); });
@@ -98,10 +122,40 @@ void curve_geometry() {
     rejects([] { (void)NavigationLinkCurve({0, 0, 0}, {4, 0, 0}, 101); });
     rejects([] { (void)NavigationLinkCurve({0, 4090, 0}, {4, 4090, 0}, 10); });
 }
+void collision_values() {
+    const NavigationLinkCollision defaults;
+    const auto source = link_collision_value(defaults);
+    check(link_collision_from_value(source) == defaults,
+          "Navigation link collision defaults did not round trip");
+    for (const auto& mask :
+         {nlohmann::json(-1), nlohmann::json(.5), nlohmann::json(std::uint64_t{1} << 32),
+          nlohmann::json(UINT64_MAX), nlohmann::json(true), nlohmann::json("7")}) {
+        auto invalid = source;
+        invalid["mask"] = mask;
+        rejects([&] { (void)link_collision_from_value(invalid); });
+    }
+    for (const auto mask : {0u, 1u, UINT32_MAX}) {
+        auto value = source;
+        value["mask"] = mask;
+        check(link_collision_from_value(value).mask == mask,
+              "Navigation link collision narrowed a valid mask");
+    }
+    for (const auto* field : {"radius", "straight_height", "clearance"})
+        for (const auto invalid_length : {0., -.1, 101., std::numeric_limits<double>::infinity(),
+                                          std::numeric_limits<double>::quiet_NaN()}) {
+            auto invalid = source;
+            invalid[field] = invalid_length;
+            rejects([&] { (void)link_collision_from_value(invalid); });
+        }
+    auto invalid = defaults;
+    invalid.clearance = 2;
+    rejects([&] { (void)link_collision_value(invalid); });
+}
 } // namespace
 int main() {
     try {
         curve_geometry();
+        collision_values();
         NavigationLinkData a{EntityId::parse("11111111-1111-4111-8111-111111111111"),
                              {1, 2, 3},
                              {-2, 6, 7},

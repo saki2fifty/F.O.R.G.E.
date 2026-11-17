@@ -3,6 +3,7 @@
 #include "authored_schema.hpp"
 #include "material_parameter_overrides.hpp"
 #include "material_slot.hpp"
+#include "navigation_link_collision.hpp"
 #include "navigation_link_value.hpp"
 #include "navigation_region_value.hpp"
 #include "physics_joint_2d_value.hpp"
@@ -131,6 +132,8 @@ template <class T> Json encode(const T& p) {
                 {"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, NavigationAvoidance>)
         return {{"enabled", p.enabled}, {"horizon", p.horizon}, {"shared_group", p.shared_group}};
+    else if constexpr (std::is_same_v<T, NavigationLinkCollision>)
+        return navigation_detail::link_collision_value(p);
     else if constexpr (std::is_same_v<T, NavigationAgent>)
         return {{"navmesh", p.navmesh.id ? Json(p.navmesh.id) : Json()},
                 {"enabled", p.enabled},
@@ -518,6 +521,8 @@ template <class T> Value decode(const Json& p) {
         return value;
     } else if constexpr (std::is_same_v<T, NavigationAvoidance>)
         return T{p.at("enabled"), p.at("horizon"), p.value("shared_group", 0u)};
+    else if constexpr (std::is_same_v<T, NavigationLinkCollision>)
+        return navigation_detail::link_collision_from_value(p);
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
         NavigationAgent a;
         if (!p.at("navmesh").is_null())
@@ -1512,7 +1517,26 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         c.template member<bool>("enabled")
             .template member<float>("horizon")
             .template member<std::uint32_t>("shared_group");
-    else if constexpr (std::is_same_v<T, NavigationAgent>) {
+    else if constexpr (std::is_same_v<T, NavigationLinkCollision>) {
+        c.template member<bool>("enabled")
+            .template member<float>("radius")
+            .template member<float>("straight_height")
+            .template member<float>("clearance")
+            .template member<std::uint32_t>("mask")
+            .template member<bool>("include_sensors");
+        for (const auto& [name, offset] :
+             {std::pair{"enabled", offsetof(NavigationLinkCollision, enabled)},
+              std::pair{"radius", offsetof(NavigationLinkCollision, radius)},
+              std::pair{"straight_height", offsetof(NavigationLinkCollision, straight_height)},
+              std::pair{"clearance", offsetof(NavigationLinkCollision, clearance)},
+              std::pair{"mask", offsetof(NavigationLinkCollision, mask)},
+              std::pair{"include_sensors", offsetof(NavigationLinkCollision, include_sensors)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), name);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error(
+                    "Navigation link collision Meta disagrees with typed layout");
+        }
+    } else if constexpr (std::is_same_v<T, NavigationAgent>) {
         register_asset_ref<NavMeshAsset>(w, "forge.navmesh_ref");
         c.template member<AssetRef<NavMeshAsset>>("navmesh")
             .template member<bool>("enabled")
@@ -2112,6 +2136,11 @@ const std::array<Builtin, builtin_count>& builtins() {
             "Predictive local steering between opted-in navigation agents", "unitless", {}, {},
             [](flecs::world& w) {
                 return register_type<NavigationAvoidance>(w, "forge.navigation_avoidance");
+            }),
+        descriptor<NavigationLinkCollision>(
+            "forge.navigation_link_collision", "Collision checks during navigation link crossings",
+            "unitless", {}, {}, [](flecs::world& w) {
+                return register_type<NavigationLinkCollision>(w, "forge.navigation_link_collision");
             }),
         descriptor<UiDocument>(
             "forge.ui_document", "Runtime UI document displayed during Play", "unitless", {}, {},
@@ -3785,6 +3814,36 @@ Json registration_options(const Builtin& type, const std::string& field) {
         else if (field == "visible")
             value["description"] = "Show particle meshes without stopping emission time";
     }
+    if (name == "forge.navigation_link_collision") {
+        if (field == "radius" || field == "straight_height" || field == "clearance") {
+            value["minimum"] = navigation_detail::link_collision_min_length;
+            value["maximum"] =
+                field == "clearance" ? 1 : navigation_detail::link_collision_max_length;
+            value["unit"] = "meters";
+        }
+        if (field == "radius")
+            value["description"] =
+                "World radius of the 3D capsule or XY circle; node scale does not change it";
+        else if (field == "straight_height") {
+            value["display_name"] = "Straight height";
+            value["description"] =
+                "Straight part of the 3D capsule, excluding its rounded ends; unused for XY";
+        } else if (field == "clearance")
+            value["description"] = "3D gap above the navigation foot point; also bounds "
+                                   "conservative arc padding in both planes";
+        else if (field == "mask") {
+            value["display_name"] = "Collision mask";
+            value["minimum"] = 0;
+            value["maximum"] = UINT32_MAX;
+            value["description"] = "Physics layers tested during link crossings; zero keeps "
+                                   "ordinary unchecked traversal";
+        } else if (field == "include_sensors") {
+            value["display_name"] = "Include sensors";
+            value["description"] = "Treat matching physics sensors as crossing blockers";
+        } else
+            value["description"] = "Check explicit navigation links against the realized physics "
+                                   "world; surface movement keeps its existing owner";
+    }
     if (name == "forge.navigation_avoidance") {
         if (field == "shared_group") {
             value["display_name"] = "Shared group";
@@ -4160,6 +4219,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
             continue;
         const auto c = type.register_type(world);
         annotate_type(world, c, type);
+        if (name == "forge.navigation_link_collision")
+            for (const auto& [member, value] : type.defaults.items())
+                c.lookup(member.c_str()).add<ReflectedNoAnimation>();
         if (name == "forge.sound_cue") {
             c.lookup("nodes").set<ReflectedSequenceLimit>({sound_cue_node_limit});
             world.component<ReflectedMemberDefault>(reflected_member_default_type);

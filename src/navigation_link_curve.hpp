@@ -88,6 +88,32 @@ class NavigationLinkCurve {
                horizontal_ * horizontal_ * dt / sum * hyperbolic;
     }
 
+    // Exact maximum distance from the parameter-matched chord: the difference
+    // is entirely world Y, with its maximum at the interval midpoint.
+    double chord_deviation(double from, double to) const {
+        parameter_bounds(from);
+        parameter_bounds(to);
+        if (to < from)
+            throw std::invalid_argument("Navigation curve interval is reversed");
+        const auto width = to - from;
+        return height_ * width * width;
+    }
+
+    double sweep_end(double from, double to, double maximum_deviation) const {
+        if (!std::isfinite(maximum_deviation) || maximum_deviation <= 0)
+            throw std::invalid_argument(
+                "Navigation curve sweep tolerance must be finite and positive");
+        for (unsigned split = 0; split != 48; ++split) {
+            if (chord_deviation(from, to) <= maximum_deviation)
+                return to;
+            const auto next = std::midpoint(from, to);
+            if (next == from)
+                break;
+            to = next;
+        }
+        throw std::invalid_argument("Navigation curve sweep interval exceeds subdivision bounds");
+    }
+
     double advance(double from, double metres) const {
         parameter_bounds(from);
         if (!std::isfinite(metres) || metres < 0)

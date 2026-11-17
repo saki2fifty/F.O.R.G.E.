@@ -28,6 +28,30 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* h, char*, uint32_t) {
     link_probe.destruct();
     if (!link_matched)
         return 0;
+    const auto collision =
+        w.component<forge::NavigationLinkCollision>("forge.navigation_link_collision");
+    const auto* collision_info = ecs_get_type_info(w.c_ptr(), collision.id());
+    if (!collision_info || collision_info->size != sizeof(forge::NavigationLinkCollision) ||
+        collision_info->alignment != alignof(forge::NavigationLinkCollision))
+        return 0;
+    for (const auto* field :
+         {"enabled", "radius", "straight_height", "clearance", "mask", "include_sensors"})
+        if (!collision.lookup(field))
+            return 0;
+    const forge::NavigationLinkCollision expected_collision{false, .75f, 2, .125f, 7, true};
+    auto collision_probe =
+        w.entity().add(flecs::Prefab).set<forge::NavigationLinkCollision>(expected_collision);
+    auto collision_copy = w.entity()
+                              .add(flecs::Prefab)
+                              .set<forge::NavigationLinkCollision>(
+                                  collision_probe.get<forge::NavigationLinkCollision>());
+    collision_probe.remove<forge::NavigationLinkCollision>();
+    const bool collision_matched =
+        collision_copy.get<forge::NavigationLinkCollision>() == expected_collision;
+    collision_copy.destruct();
+    collision_probe.destruct();
+    if (!collision_matched)
+        return 0;
     const auto obstacle = w.component<forge::NavigationObstacle>("forge.navigation_obstacle");
     const auto* obstacle_info = ecs_get_type_info(w.c_ptr(), obstacle.id());
     if (!obstacle_info || obstacle_info->size != sizeof(forge::NavigationObstacle) ||

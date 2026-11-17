@@ -1,5 +1,16 @@
 # 2026-11-17
 
+## Navigation crossing collision
+
+Optional Navigation Link Collision checks physical obstructions on straight and
+arced crossings through the existing navigation and physics owners. Capsule3D
+and circleXY queries share bounded work, initial-overlap/layer/sensor filtering,
+held/resumed traversal and atomic failure continuation. Scene/Prefab history,
+Inspector, live tuning, selective kept values, automation/MCP and semantic recovery
+share the existing subsystem paths. Two editable Gallery Scenes include ready
+navigation and normal source-free export. The new public POD requires matching
+C++ modules; existing Agent/Link and service-table layouts remain unchanged.
+
 ## Camera control animation
 
 Timeline component tracks support Camera Aim and Camera Follow offsets, weights

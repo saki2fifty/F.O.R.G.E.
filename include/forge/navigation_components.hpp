@@ -62,4 +62,13 @@ struct NavigationAvoidance {
     std::uint32_t shared_group = 0;
     bool operator==(const NavigationAvoidance&) const = default;
 };
+// Optional world-sized query volume during explicit navigation link crossings.
+// Spatial3D uses a capsule; PlanarXY uses its radius as a circle.
+struct NavigationLinkCollision {
+    bool enabled = true;
+    float radius = .3f, straight_height = 1.2f, clearance = .02f;
+    std::uint32_t mask = UINT32_MAX;
+    bool include_sensors = false;
+    bool operator==(const NavigationLinkCollision&) const = default;
+};
 } // namespace forge

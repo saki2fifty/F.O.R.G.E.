@@ -1,8 +1,10 @@
+#include "navigation_asset.hpp"
 #include "runtime_package.hpp"
 #include <forge/authoring.hpp>
 #include <forge/game_session.hpp>
 #include <forge/navigation.hpp>
 #include <forge/navigation_build.hpp>
+#include <forge/physics_components.hpp>
 #include <forge/render_components.hpp>
 #include <fstream>
 #include <iostream>
@@ -11,6 +13,8 @@ using namespace forge;
 namespace {
 constexpr const char* scene_path = "Scenes/140-navigation-links.scene.json";
 constexpr const char* arc_scene_path = "Scenes/218-navigation-link-arcs.scene.json";
+constexpr std::array collision_scene_paths{"Scenes/222-navigation-link-collision-3d.scene.json",
+                                           "Scenes/223-navigation-link-collision-xy.scene.json"};
 constexpr const char* loop_name = "Cyan patrol - two-way link";
 constexpr const char* one_way_name = "Orange traveler - one-way link";
 void check(bool value, const std::string& why) {
@@ -126,9 +130,7 @@ void prepare(const std::filesystem::path& root, const std::filesystem::path& wor
     std::cout << (arcs ? "Gallery218 arcs" : "Gallery140 links")
               << " prepared through ordinary Scene/navigation/resource owners\n";
 }
-void exercise(const std::filesystem::path& root, const std::filesystem::path& source,
-              bool arcs = false) {
-    const auto saved = read(root / source);
+GameSessionConfig session_config(const std::filesystem::path& root) {
     GameSessionConfig config;
     config.content_root = root;
     struct Preparation final : GameScenePreparation {
@@ -138,7 +140,149 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& so
         void activate() noexcept override {}
     };
     config.preparation = [](std::uint64_t) { return std::make_unique<Preparation>(); };
-    GameSession session(config);
+    return config;
+}
+void prepare_collision(const std::filesystem::path& root, const std::filesystem::path& worker,
+                       bool xy) {
+    const auto source = collision_scene_paths[xy ? 1 : 0];
+    const auto lease = std::make_shared<ProjectLease>(root);
+    EngineContext engine;
+    Scene scene(engine.world());
+    if (std::filesystem::exists(root / source)) {
+        scene.load(root / source);
+    } else {
+        for (bool arc : {false, true}) {
+            const double lane = arc ? -6 : 0;
+            for (double x : {-3., 3.}) {
+                const auto floor = create(scene, "Walkable island",
+                                          xy ? Double3{x, lane, 0} : Double3{x, 0, lane});
+                if (xy) {
+                    floor.set<NavigationRegion2D>({true, false, 4, 4});
+                    create(scene, "Island visual", {x, lane, 2}, 0)
+                        .set<LocalScale>({4, 4, .15f})
+                        .set<Tint>({.045f, .13f, .18f});
+                } else
+                    floor.set<Primitive>({3})
+                        .set<LocalScale>({4, 1, 4})
+                        .set<NavigationSurface>({})
+                        .set<Tint>({.045f, .13f, .18f});
+            }
+            NavigationLink link;
+            link.plane = unsigned(xy ? NavigationPlane::PlanarXY : NavigationPlane::Spatial3D);
+            link.profile = arc ? "Arc" : "Straight";
+            link.bidirectional = false;
+            link.start_x = -2;
+            link.end_x = 2;
+            link.arc_height = arc ? 1.5f : 0;
+            create(scene, arc ? "Arced crossing" : "Straight crossing",
+                   xy ? Double3{0, lane, 0} : Double3{0, 0, lane})
+                .set(link);
+            const auto actor = create(scene, arc ? "Arc traveler" : "Straight traveler",
+                                      xy ? Double3{-3, lane, -1} : Double3{-3, 0, lane});
+            actor.set<NavigationAgent>({{}, true, true, 2, .05f, 3, xy ? lane : 0, xy ? 0 : lane})
+                .set<NavigationLinkCollision>({});
+            const auto body =
+                create(scene, "Traveler visual", xy ? Double3{} : Double3{0, .5, 0}, 0);
+            body.set<LocalScale>({.6f, xy ? .6f : 1.f, .6f})
+                .set<Tint>(arc ? Tint{1.f, .48f, .08f} : Tint{.06f, .82f, 1.f});
+            scene.reparent_entity(body.get<PersistentEntityId>().value.str(),
+                                  actor.get<PersistentEntityId>().value.str(),
+                                  ReparentMode::KeepLocal);
+            const auto wall = create(scene, "Red physical blocker",
+                                     xy ? Double3{0, lane, 0} : Double3{0, 4, lane}, 0);
+            wall.set<Tint>({.8f, .08f, .06f});
+            if (xy)
+                wall.set<LocalScale>({.4f, 4, .2f})
+                    .set<PhysicsBody2D>({})
+                    .set<BoxCollider2D>({1, 1});
+            else
+                wall.set<LocalScale>({.4f, 8, 2}).set<PhysicsBody>({}).set<BoxCollider>({1, 1, 1});
+        }
+        Camera camera;
+        camera.projection = unsigned(CameraProjection::Orthographic);
+        camera.orthographic_height = 16;
+        camera.aspect = 16.0 / 9;
+        const auto view =
+            create(scene, "Overview Camera", xy ? Double3{0, -3, -25} : Double3{0, 12, -23});
+        view.set(camera);
+        if (!xy)
+            view.set<LocalRotation>({.258819f, 0, 0, .9659258f});
+        create(scene, "Sunlight").set<Light>({});
+    }
+    for (const auto* profile : {"Straight", "Arc"}) {
+        NavigationSettings settings;
+        settings.plane = xy ? NavigationPlane::PlanarXY : NavigationPlane::Spatial3D;
+        settings.profile = profile;
+        settings.cell_size = .2f;
+        const auto effective = scene.effective_document();
+        const auto nav = prepare_navigation(root, effective, settings, worker).publish(effective);
+        navigation_detail::Query query(navigation_detail::load(root, nav).mesh);
+        const auto document = scene.document();
+        for (const auto& row : document.at("entities")) {
+            if (row.at("name") !=
+                (std::string_view(profile) == "Arc" ? "Arc traveler" : "Straight traveler"))
+                continue;
+            const auto actor = scene.entity(row.at("id"));
+            const auto start = actor.get<LocalTranslation>();
+            const auto projected = query.project({start.x, start.y, start.z});
+            check(projected.status == NavStatus::Success,
+                  "Collision Gallery start is off its floor");
+            actor.set<LocalTranslation>(
+                {projected.points[0][0], projected.points[0][1], projected.points[0][2]});
+            auto agent = actor.get<NavigationAgent>();
+            agent.navmesh = {nav.id};
+            actor.set(agent);
+        }
+    }
+    scene.save(root / source);
+    const std::array roots{scene.asset_id()};
+    prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
+    std::cout << "Collision Gallery prepared through normal navigation/physics/content owners\n";
+}
+void exercise_collision(const std::filesystem::path& root, const std::filesystem::path& source,
+                        bool xy) {
+    GameSession session(session_config(root));
+    const auto saved = read(root / source);
+    const auto candidate = session.prepare(saved);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+    while (!session.poll_preparation(candidate).ready) {
+        check(std::chrono::steady_clock::now() < deadline, "Collision Gallery readiness timed out");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    session.activate(candidate, {}, false);
+    auto& world = session.active();
+    auto navigation =
+        std::static_pointer_cast<NavigationRuntime>(world.engine.services().navigation());
+    std::vector<flecs::entity> actors;
+    for (const auto& row : saved.at("entities"))
+        if (row.at("components").contains("forge.navigation_link_collision"))
+            actors.push_back(world.scene.entity(row.at("id")));
+    check(actors.size() == 2, "Collision Gallery travelers are missing");
+    for (unsigned tick = 0; tick != 240; ++tick)
+        session.step();
+    for (const auto actor : actors) {
+        const auto reference = world.scene.reference(actor.get<PersistentEntityId>().value.str());
+        const auto state = navigation->agent_state(reference);
+        check(state && state->phase == NavigationAgentPhase::Blocked && state->sampled &&
+                  actor.get<LocalTranslation>().x < 0,
+              "Collision Gallery did not block: " + navigation->debug(actor.id()).dump());
+        if (xy)
+            check(actor.get<LocalTranslation>().z == -1, "Collision Gallery lost XY visual depth");
+        navigation->tune(reference, "forge.navigation_link_collision", "mask", 0u);
+    }
+    for (unsigned tick = 0; tick != 240; ++tick)
+        session.step();
+    for (const auto actor : actors)
+        check(navigation
+                      ->agent_state(
+                          world.scene.reference(actor.get<PersistentEntityId>().value.str()))
+                      ->phase == NavigationAgentPhase::Arrived,
+              "Collision Gallery could not resume through its live filter");
+}
+void exercise(const std::filesystem::path& root, const std::filesystem::path& source,
+              bool arcs = false) {
+    const auto saved = read(root / source);
+    GameSession session(session_config(root));
     const auto candidate = session.prepare(saved);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
     while (!session.poll_preparation(candidate).ready) {
@@ -202,21 +346,35 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& so
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 4 && (std::string_view(argv[1]) == "--prepare-collision-3d" ||
+                          std::string_view(argv[1]) == "--prepare-collision-xy")) {
+            prepare_collision(std::filesystem::absolute(argv[2]),
+                              std::filesystem::absolute(argv[3]),
+                              std::string_view(argv[1]) == "--prepare-collision-xy");
+            return 0;
+        }
         if (argc == 4 && (std::string_view(argv[1]) == "--prepare" ||
                           std::string_view(argv[1]) == "--prepare-arcs")) {
             prepare(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
                     std::string_view(argv[1]) == "--prepare-arcs");
             return 0;
         }
-        check(argc == 3, "Need Gallery and link scratch root");
+        check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--collision"),
+              "Need Gallery, link scratch root and optional collision profile");
+        const bool collision = argc == 4;
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "Gallery";
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         std::array<AssetId, 2> roots;
         for (unsigned i = 0; i != 2; ++i) {
-            const auto source = i ? arc_scene_path : scene_path;
-            exercise(root, source, i != 0);
+            const auto source = collision ? collision_scene_paths[i]
+                                : i       ? arc_scene_path
+                                          : scene_path;
+            if (collision)
+                exercise_collision(root, source, i != 0);
+            else
+                exercise(root, source, i != 0);
             roots[i] = read(root / source).at("asset_id").get<AssetId>();
             const std::array selected{roots[i]};
             const auto exported = scratch / ("Export" + std::to_string(i));
@@ -227,10 +385,14 @@ int main(int argc, char** argv) {
         for (unsigned i = 0; i != 2; ++i) {
             const auto relocated = scratch / ("Relocated" + std::to_string(i));
             const auto catalog = open_runtime_content(relocated, {"windows", "d3d12"});
-            exercise(relocated, catalog.records().at(roots[i]).source, i != 0);
+            if (collision)
+                exercise_collision(relocated, catalog.records().at(roots[i]).source, i != 0);
+            else
+                exercise(relocated, catalog.records().at(roots[i]).source, i != 0);
         }
-        std::cout << "Gallery140/218 actual two-way patrol/one-way movement and source-hidden "
-                     "relocated export PASS\n";
+        std::cout << (collision ? "Gallery222/223 native collision blocking/live filtering"
+                                : "Gallery140/218 actual two-way patrol/one-way movement")
+                  << " and source-hidden relocated export PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

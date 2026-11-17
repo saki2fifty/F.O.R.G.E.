@@ -12,6 +12,31 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+for suffix, identity, plane in [
+        ('3d', '47d14aa4-eefb-4d8d-a188-12bd26627079', 0),
+        ('xy', '28a34ff3-2c84-4462-a546-d0c87e0c6b03', 1)]:
+    source = f'Scenes/{222 + plane}-navigation-link-collision-{suffix}.scene.json'
+    collision_scene = json.loads((project_root / source).read_text())
+    assert collision_scene['asset_id'] == by_source[source]['id'] == identity
+    travelers = [r for r in collision_scene['entities'] if 'forge.navigation_link_collision' in r['components']]
+    assert len(travelers) == 2
+    nav_ids = set()
+    for traveler in travelers:
+        components = traveler['components']
+        volume = components['forge.navigation_link_collision']
+        assert volume['enabled'] and not volume['include_sensors'] and volume['mask'] == 4294967295
+        assert abs(volume['radius'] - .3) < 1e-6 and abs(volume['straight_height'] - 1.2) < 1e-6
+        assert abs(volume['clearance'] - .02) < 1e-6
+        assert not {'forge.physics_body', 'forge.physics_body_2d'} & components.keys()
+        nav_ids.add(components['forge.navigation_agent']['navmesh'])
+    selected = [a for a in assets if a['id'] in nav_ids]
+    assert len(selected) == 2 and {a['metadata']['settings']['profile'] for a in selected} == {'Straight', 'Arc'}
+    assert all(a['metadata']['settings'].get('plane', 0) == plane for a in selected)
+    links = [r['components']['forge.navigation_link'] for r in collision_scene['entities']
+             if 'forge.navigation_link' in r['components']]
+    assert sorted(v.get('arc_height', 0) for v in links) == [0, 1.5]
+    assert sum(('forge.physics_body_2d' if plane else 'forge.physics_body') in r['components']
+               for r in collision_scene['entities']) == 2
 recording_path = 'Scenes/209-input-recording.scene.json'
 recording_scene = json.loads((project_root / recording_path).read_text())
 assert recording_scene['asset_id'] == by_source[recording_path]['id'] == 'af5e2d74-0d4c-42e5-821a-aa493c00cc29'

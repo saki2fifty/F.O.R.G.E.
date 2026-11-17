@@ -65,6 +65,10 @@ recovery must validate any captured traversal against the exact admitted asset
 and source identity. No arbitrary native state or stable ABI promise is added.
 Any expanded public SDK value contract requires matching modules.
 
+[ADR050](050-navigation-link-collision.md) extends this contract with optional
+PhysicsService obstruction queries during crossings. Unconfigured agents retain
+the baseline traversal; navigation keeps its single pose and continuation owner.
+
 Inspector, source guides, normal history/prefabs, existing build/status operations,
 automation/MCP, behavior intent, source-free export and an original playable
 Gallery example belong to the same implementation batch. Both planes and supported

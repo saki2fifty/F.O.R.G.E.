@@ -153,7 +153,7 @@ and runs without a project C++ module.
 1. Stop Play. For a 3D floor or obstacle, add **Physics Body** and exactly one **Box Collider**, **Sphere Collider**, **Capsule Collider**, **Cylinder Collider** or **Asset Collider**. Set **Motion → Static**, enable the body and turn **Sensor** off. For an Asset Collider, assign a published Collision asset through the normal Content workflow.
 2. For XY, author at least one walkable **Navigation Region 2D**. Add **Physics Body 2D** and exactly one supported Collider 2D to each physical obstacle. Keep its body enabled, Static and nonsensor. Box, Circle, Capsule and a selected Tile Map collision layer are supported.
 3. Save the Scene. Open **Content → Create / Register → Navigation**, choose **Build profile** and **Plane**, then enable **Collect static colliders**.
-4. Open **Collision layers** and select the bodies' physics layers. The mask selects each body's **Layer**; its contact **Mask** does not select build inputs. The layer picker becomes available when collection is enabled.
+4. Open **Collision layers** and select the bodies' physics layers. The mask selects each body's **Layer**; its contact **Collision mask** does not select build inputs. The layer picker becomes available when collection is enabled.
 5. Adjust clearance/build settings and click **Build NavMesh**. The profile combines marked geometry with eligible physical sources. In XY, automatically collected shapes are obstacles; they add no walkable floor. In 3D, actual physical triangles supply floors and obstacles according to their shape and slope.
 6. Assign that NavMesh to your Navigation Agent. Save, test Play and inspect **Live gameplay → Navigation progress**. Stop and save authored changes, select the Scene as startup, then export normally. Export includes the selected Collision/Map inputs and built navigation; it needs no navigation build worker at runtime.
 
@@ -310,8 +310,9 @@ separation after transformation and ground attachment. In XY this requires
 different world X coordinates. Curves must stay within the navigation world
 bounds. Existing endpoint attachment and dynamic tile-span limits still apply.
 
-Arcs prescribe movement without gravity or collision sweeps. Keep the route clear
-and keep its sources static. Holds, retargeting, stale-source blocking and endpoint
+Arcs prescribe movement without gravity. Add **Navigation Link Collision** to an
+agent to check physical obstructions during crossings, as described below. Keep
+link sources static. Holds, retargeting, stale-source blocking and endpoint
 revalidation follow the same rules as straight links. Setting an instance's height
 to zero gives that instance straight traversal; property **Revert** resumes its
 Prefab source value.
@@ -328,6 +329,41 @@ poll `forge_navigation_status` for completion and `link_count`. Scene edits requ
 an editable connection, baking requires asset-write access, and Play requires the
 execution grant. These operations preserve the usual revision, sequence and Undo
 checks; direct source-file edits are unnecessary.
+
+### Check physical obstructions during crossings
+
+Open **Scenes/222-navigation-link-collision-3d.scene.json** or
+**Scenes/223-navigation-link-collision-xy.scene.json** in Feature Gallery. Press
+Play: the travelers stop before red physical blockers on straight and arced links.
+No project C++ module is required.
+
+1. Stop Play and select a traveler. Expand **Inspector → Navigation Link Collision**. On your own Navigation Agent, add it from **+ Add Component → Navigation** first.
+2. Set **Radius** for the traveler's world-space width. In 3D, **Straight height** excludes the capsule's rounded ends; its bottom sits **Clearance** above the navigation foot. XY uses a circle and preserves visual Z.
+3. Give obstructions an enabled **Physics Body** and supported Collider in 3D, or **Physics Body 2D** and Collider 2D for XY. A visual mesh alone cannot block a crossing. Keep the traveler free of a Physics Body or enabled Character Controller.
+4. **Collision mask** selects body layers. The default **4294967295** includes every layer; **0** skips checks. Turn **Include sensors** on to block on sensors too.
+5. Save and Play. Inspect **Live gameplay → Navigation progress**. **Blocked** holds the last checked point; removing the obstruction lets the traveler continue.
+6. In **Live gameplay → Navigation Link Collision**, change volume/filter fields while paused, then Step or Resume. In the Gallery, **Collision mask = 0** permits passage. To retain settings, choose **Keep values after Stop...**, stop, review and save. Runtime positions are not kept.
+7. Save and select this Scene as startup before exporting. Its built navigation and physical components travel with the exported game.
+
+![Navigation Link Collision Inspector with radius, straight height, clearance, layer mask and sensor controls](../images/navigation-link-collision-inspector.png)
+
+Radius and Straight Height accept **0.001–100 m**; Clearance accepts
+**0.001–1 m**. Node scale does not resize the volume. Clearance also bounds the
+conservative extra margin for curved spans. High speed, a tall arc or very small
+clearance can exceed **64 queries per agent per fixed tick**. That tick fails
+without partially moving the traveler. Reduce Speed, increase Clearance or use a
+shorter fixed timestep, then retry.
+
+Queries use the currently realized physics world; body edits appear after physics
+synchronization. Initial overlaps block. Checks apply to explicit crossings;
+normal surface movement retains its routing and avoidance. Sliding,
+depenetration, gravity, physical response and moving-platform attachment are
+unavailable. Missing physics reports failure. An absent/disabled component or
+zero mask retains unchecked traversal.
+
+MCP uses the same `forge.navigation_link_collision` component through discovery,
+component/property authoring, `forge_play_tune` and runtime tuning review. Changing
+this volume needs no navigation rebuild.
 
 ## Use different agent sizes
 

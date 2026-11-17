@@ -705,9 +705,41 @@ The expanded public component requires matching exact-SDK modules.
 
 Inspector, Scene intent curves, existing source/build MCP operations and Gallery218
 share these owners. The Gallery has ready two-way and one-way profiles and uses
-the existing Patrol behavior. These arcs prescribe navigation movement; gravity,
-collision sweeps, physics-character driving and moving-platform attachment are
-outside the profile.
+the existing Patrol behavior. These arcs prescribe navigation movement. Optional
+crossing queries are described below; gravity, physics-character driving and
+moving-platform attachment remain outside the profile.
+
+### Optional link collision queries
+
+[ADR050](decisions/050-navigation-link-collision.md) defines
+`NavigationLinkCollision`, an optional reflected Agent component. Its enabled
+flag, world radius, capsule straight height, clearance, exact uint32 layer mask
+and sensor flag use the existing builtin/Meta/Scene/Prefab owner. Absent, disabled
+and zero-mask profiles retain the old movement path. Agent, Link, observation and
+C-table layouts remain unchanged; the new POD requires matching exact-SDK modules.
+
+Explicit crossings query the existing PhysicsService. Spatial3D sweeps an upright
+capsule whose bottom is clearance above the navigation foot. PlanarXY sweeps a
+circle and preserves visual depth. Queries see the currently realized physics
+world at the navigation-before-physics boundary; they never publish pending body
+edits. No extra body, synchronization phase, movement writer or route owner exists.
+Initial overlaps block. No sliding, physical response or gravity is simulated.
+
+For [a,b], NavigationLinkCurve bounds maximum chord deviation by h*(b-a)^2.
+Bounded bisection keeps that within half the configured clearance. The query
+radius includes the margin and rounds outward at float precision. At most64
+casts per Agent/fixed tick are admitted. Hits commit the last checked on-curve
+point and report ordinary Blocked observations/diagnostics. Unavailable physics
+or exhausted work fails without partially publishing movement. An existing active
+crossing retains its original continuation even if a later link fails. The next
+tick queries blockers again.
+
+All six fields share live tuning, Inspector, automation/MCP and selective runtime
+review. Semantic recovery6 carries collision values/ownership, including temporary
+Prefab overrides, alongside link/arc data. Invalid values, changed ownership and
+downgrades reject. Worlds without this component retain recovery1–5 contracts.
+Gallery222/223 demonstrate both planes and straight/arced blocking; normal
+content catalog/export owners carry the selected closure.
 
 ## Profile-scoped static collision collection
 

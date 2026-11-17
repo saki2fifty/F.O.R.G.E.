@@ -1,9 +1,11 @@
 #include "component_inspector.hpp"
+#include "imgui_software_capture.hpp"
 #include "runtime_tuning_review.hpp"
 #include <forge/navigation.hpp>
 #include <forge/runtime.hpp>
 #include <imgui_internal.h>
 #include <iostream>
+#include <string_view>
 using namespace forge;
 namespace {
 void check(bool value, const char* why) {
@@ -229,7 +231,8 @@ void exercise_agent_live(float scale, ImVec2 size) {
         inspector.draw_runtime(
             scene.effective_document(), schema, {}, actor,
             [&](const auto& type, const auto& property, const auto& value) {
-                check(type == "forge.navigation_agent" || type == "forge.navigation_behavior",
+                check(type == "forge.navigation_agent" || type == "forge.navigation_behavior" ||
+                          type == "forge.navigation_link_collision",
                       "Unexpected live navigation type");
                 navigation->tune(reference, type, property, value);
                 ++submissions;
@@ -275,12 +278,41 @@ void exercise_agent_live(float scale, ImVec2 size) {
     check(scene.undo() && !scene.entity(actor).has<NavigationBehavior>() &&
               scene.entity(actor).has<NavigationAgent>(),
           "Live behavior tuning created authored history");
+    authoring_command(scene, "component.add",
+                      {{"entity", actor}, {"component", "forge.navigation_link_collision"}});
+    frame();
+    frame();
+    for (const auto* name :
+         {"enabled", "radius", "straight_height", "clearance", "mask", "include_sensors"})
+        check(test::ui_targets.contains(
+                  std::string("runtime-field:forge.navigation_link_collision:") + name),
+              "Live navigation collision field is unavailable");
+    edit_live_number(frame, "runtime-field:forge.navigation_link_collision:radius", "0.45");
+    edit_live_number(frame, "runtime-field:forge.navigation_link_collision:straight_height", "1.4");
+    edit_live_number(frame, "runtime-field:forge.navigation_link_collision:clearance", "0.03");
+    edit_live_number(frame, "runtime-field:forge.navigation_link_collision:mask", "0");
+    const auto sensor =
+        visible_live_item(frame, "runtime-field:forge.navigation_link_collision:include_sensors");
+    io.AddMousePosEvent(sensor.minimum.x + 8, (sensor.minimum.y + sensor.maximum.y) * .5f);
+    frame();
+    io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
+    frame();
+    io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+    frame();
+    const auto collision = scene.entity(actor).get<NavigationLinkCollision>();
+    check(submissions == 8 && collision.radius == .45f && collision.straight_height == 1.4f &&
+              collision.clearance == .03f && collision.mask == 0 && collision.include_sensors &&
+              navigation->agent_state(reference)->tick == 0,
+          "Actual live collision controls did not use the existing navigation owner");
+    check(scene.undo() && !scene.entity(actor).has<NavigationLinkCollision>() &&
+              scene.entity(actor).has<NavigationAgent>(),
+          "Live collision tuning created authored history");
     check(scene.undo() && !scene.entity(actor).has<NavigationAgent>(),
           "Live agent tuning created an authored history entry");
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
-void exercise_agent_keep_values() {
+void exercise_agent_keep_values(bool prefab) {
     const auto root =
         std::filesystem::current_path() / ("navigation-review-" + AssetId::generate().str());
     struct Cleanup {
@@ -295,11 +327,19 @@ void exercise_agent_keep_values() {
     Scene scene(author.world());
     SceneDocument document(scene);
     document.open_project(root);
-    const auto actor = authoring_command(scene, "entity.create", {{"name", "Kept agent"}})
-                           .at("selected")
-                           .get<std::string>();
+    auto actor = authoring_command(scene, "entity.create", {{"name", "Kept agent"}})
+                     .at("selected")
+                     .get<std::string>();
     authoring_command(scene, "component.add",
                       {{"entity", actor}, {"component", "forge.navigation_agent"}});
+    authoring_command(scene, "component.add",
+                      {{"entity", actor}, {"component", "forge.navigation_link_collision"}});
+    if (prefab) {
+        const auto definition = create_prefab_source(scene, actor);
+        const auto asset =
+            document.prefabs().create(scene, definition, "Assets/Traveler.prefab.json");
+        actor = instantiate_prefab(scene, asset);
+    }
     document.save();
     const auto before = scene.document();
     EngineContext runtime(WorldRole::Runtime, false, {navigation_module(root)});
@@ -310,6 +350,42 @@ void exercise_agent_keep_values() {
     const auto reference = runtime.world().reference(live.entity(actor).id()).value();
     navigation->tune(reference, "forge.navigation_agent", "speed", 5);
     navigation->tune(reference, "forge.navigation_agent", "destination_x", 8);
+    navigation->tune(reference, "forge.navigation_link_collision", "radius", .75);
+    navigation->tune(reference, "forge.navigation_link_collision", "mask", 7u);
+    navigation->tune(reference, "forge.navigation_link_collision", "include_sensors", true);
+    const auto checkpoint = navigation->checkpoint();
+    check(checkpoint.at("version").get<unsigned>() == 6u,
+          "Live collision values did not select semantic recovery version 6");
+    {
+        EngineContext recovered(WorldRole::Runtime, false, {navigation_module(root)});
+        Scene restored(recovered.world());
+        restored.restore_snapshot(live.snapshot());
+        RuntimeSimulation resumed(recovered.world(), restored);
+        auto service =
+            std::static_pointer_cast<NavigationRuntime>(recovered.services().navigation());
+        service->restore(checkpoint);
+        check(restored.entity(actor).get<NavigationLinkCollision>() ==
+                  live.entity(actor).get<NavigationLinkCollision>(),
+              "Recovery lost native collision settings behind Prefab intent");
+        const auto before_rejection = restored.effective_document();
+        for (const bool downgrade : {false, true}) {
+            auto invalid = checkpoint;
+            if (downgrade)
+                invalid["version"] = 5;
+            else
+                for (auto& row : invalid["agents"])
+                    if (!row.at("collision").is_null())
+                        row["collision"]["config"]["mask"] = .5;
+            bool refused = false;
+            try {
+                service->restore(invalid);
+            } catch (const std::exception&) {
+                refused = true;
+            }
+            check(refused && restored.effective_document() == before_rejection,
+                  "Invalid/downgraded collision recovery changed native values");
+        }
+    }
     auto snapshot = live.effective_document();
     // A detached hostile/unsupported asset and moved pose must never enter the field review.
     for (auto& row : snapshot["entities"])
@@ -319,7 +395,7 @@ void exercise_agent_keep_values() {
         }
     RuntimeTuningReview review;
     check(review.capture(scene, document, snapshot, live.schema(), actor, 0) &&
-              review.fields().size() == 2 && scene.document() == before,
+              review.fields().size() == 5 && scene.document() == before,
           "Navigation keep-values review lost fields or copied an asset/pose");
     for (std::size_t i = 0; i < review.fields().size(); ++i)
         if (review.fields()[i].property == "destination_x")
@@ -330,7 +406,9 @@ void exercise_agent_keep_values() {
     check(review.apply(scene, document, false) &&
               scene.entity(actor).get<NavigationAgent>().speed == 5 &&
               scene.entity(actor).get<NavigationAgent>().destination_x == 0 &&
-              !scene.entity(actor).get<NavigationAgent>().navmesh.id,
+              !scene.entity(actor).get<NavigationAgent>().navmesh.id &&
+              scene.entity(actor).get<NavigationLinkCollision>() ==
+                  NavigationLinkCollision{true, .75f, 1.2f, .02f, 7, true},
           "Navigation review did not apply only the selected frozen scalar value");
     const auto after = scene.document();
     check(scene.undo() && scene.document() == before && scene.redo() && scene.document() == after,
@@ -417,16 +495,52 @@ void exercise_avoidance(float scale, ImVec2 size) {
           "Live avoidance edit created an authored history entry");
     ImGui::DestroyContext();
 }
+void capture_collision(const std::filesystem::path& image) {
+    const auto root = image.parent_path() / ("project-" + AssetId::generate().str());
+    SceneDocument::create_project(root, "Navigation collision controls");
+    EngineContext engine;
+    Scene scene(engine.world());
+    SceneDocument project(scene);
+    project.open_project(root, true);
+    const auto actor = authoring_command(scene, "entity.create", {{"name", "Crossing agent"}})
+                           .at("selected")
+                           .get<std::string>();
+    for (const auto* type : {"forge.navigation_agent", "forge.navigation_link_collision"})
+        authoring_command(scene, "component.add", {{"entity", actor}, {"component", type}});
+    test::ImGuiSoftwareCapture capture(780, 460);
+    ui::style(1);
+    ui::EditorUiContext context;
+    context.scene = &scene;
+    ui::ContextScope scope(context);
+    ComponentInspector inspector;
+    inspector.fixture_focus_component = "forge.navigation_link_collision";
+    for (unsigned frame = 0; frame != 4; ++frame) {
+        capture.new_frame();
+        ImGui::SetNextWindowPos({8, 8}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize({764, 444}, ImGuiCond_Always);
+        ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+        inspector.draw(scene, project, actor);
+        ImGui::End();
+        capture.render();
+    }
+    capture.save(image);
+}
 } // namespace
-int main() {
+int main(int argc, char** argv) {
     try {
+        if (argc == 3 && std::string_view(argv[1]) == "--capture-collision") {
+            capture_collision(std::filesystem::absolute(argv[2]));
+            return 0;
+        }
+        check(argc == 1, "Unexpected navigation controls fixture arguments");
         for (float scale : {1.f, 1.5f, 2.f})
             for (ImVec2 size : {ImVec2{420, 640}, ImVec2{1200, 900}}) {
                 exercise(scale, size);
                 exercise_avoidance(scale, size);
                 exercise_agent_live(scale, size);
             }
-        exercise_agent_keep_values();
+        exercise_agent_keep_values(false);
+        exercise_agent_keep_values(true);
         std::cout << "Navigation Live progress, failure/metric gating, scales and readonly "
                      "isolation passed\n";
     } catch (const std::exception& e) {

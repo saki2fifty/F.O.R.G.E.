@@ -1,0 +1,750 @@
+{
+  "asset_id": "28a34ff3-2c84-4462-a546-d0c87e0c6b03",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.navigation_region_2d": {
+          "enabled": true,
+          "height": 4.0,
+          "obstacle": false,
+          "points": [],
+          "source": 0,
+          "width": 4.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "7a98c121-a84f-4a29-91f2-b47f6d31ed34",
+      "name": "Walkable island",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 4.0,
+          "y": 4.0,
+          "z": 0.15000000596046448
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.0,
+          "z": 2.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.18000000715255737,
+          "g": 0.12999999523162842,
+          "r": 0.04500000178813934
+        }
+      },
+      "id": "2f5287ae-b910-4aad-8b40-f7f539e3790a",
+      "name": "Island visual",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.navigation_region_2d": {
+          "enabled": true,
+          "height": 4.0,
+          "obstacle": false,
+          "points": [],
+          "source": 0,
+          "width": 4.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "823cd42c-d924-4e59-8e6a-0e468c90a2fd",
+      "name": "Walkable island",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 4.0,
+          "y": 4.0,
+          "z": 0.15000000596046448
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.0,
+          "z": 2.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.18000000715255737,
+          "g": 0.12999999523162842,
+          "r": 0.04500000178813934
+        }
+      },
+      "id": "83992dbc-5261-4429-95d7-39347207065a",
+      "name": "Island visual",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.navigation_link": {
+          "arc_height": 0.0,
+          "bidirectional": false,
+          "enabled": true,
+          "end_x": 2.0,
+          "end_y": 0.0,
+          "end_z": 0.0,
+          "plane": 1,
+          "profile": "Straight",
+          "radius": 0.5,
+          "start_x": -2.0,
+          "start_y": 0.0,
+          "start_z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ca50137d-b73e-4fbe-860e-6c01bc40ba37",
+      "name": "Straight crossing",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.0,
+          "z": -1.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 3.0,
+          "destination_y": 0.0,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": true,
+          "navmesh": "a799cc22-402a-4dee-82b6-efc71ab33a9c",
+          "speed": 2.0,
+          "stopping_distance": 0.05000000074505806
+        },
+        "forge.navigation_link_collision": {
+          "clearance": 0.019999999552965164,
+          "enabled": true,
+          "include_sensors": false,
+          "mask": 4294967295,
+          "radius": 0.30000001192092896,
+          "straight_height": 1.2000000476837158
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "47fe9763-af26-498f-8dc1-fceb5d2bce2e",
+      "name": "Straight traveler",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6000000238418579,
+          "y": 0.6000000238418579,
+          "z": 0.6000000238418579
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.8199999928474426,
+          "r": 0.05999999865889549
+        }
+      },
+      "id": "8234c186-0ba8-4154-b408-feada1a9a01a",
+      "name": "Traveler visual",
+      "parent": "47fe9763-af26-498f-8dc1-fceb5d2bce2e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 1.0,
+          "y": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 4.0,
+          "z": 0.20000000298023224
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.0,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6000000238418579,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "one_way": false,
+          "one_way_margin": 0.019999999552965164,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.05999999865889549,
+          "g": 0.07999999821186066,
+          "r": 0.800000011920929
+        }
+      },
+      "id": "0543d713-9eac-4471-936a-efbe8f695a88",
+      "name": "Red physical blocker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -6.0,
+          "z": 0.0
+        },
+        "forge.navigation_region_2d": {
+          "enabled": true,
+          "height": 4.0,
+          "obstacle": false,
+          "points": [],
+          "source": 0,
+          "width": 4.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "0370f5e2-347a-4685-abb9-f077e9049d97",
+      "name": "Walkable island",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 4.0,
+          "y": 4.0,
+          "z": 0.15000000596046448
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -6.0,
+          "z": 2.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.18000000715255737,
+          "g": 0.12999999523162842,
+          "r": 0.04500000178813934
+        }
+      },
+      "id": "d3c9719d-7924-48c9-bda3-19c3e4a6fc58",
+      "name": "Island visual",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": -6.0,
+          "z": 0.0
+        },
+        "forge.navigation_region_2d": {
+          "enabled": true,
+          "height": 4.0,
+          "obstacle": false,
+          "points": [],
+          "source": 0,
+          "width": 4.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ad895c02-aefe-47b2-922b-65832b338ecc",
+      "name": "Walkable island",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 4.0,
+          "y": 4.0,
+          "z": 0.15000000596046448
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": -6.0,
+          "z": 2.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.18000000715255737,
+          "g": 0.12999999523162842,
+          "r": 0.04500000178813934
+        }
+      },
+      "id": "46a30200-3292-46c9-b946-8ccb989a37a1",
+      "name": "Island visual",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -6.0,
+          "z": 0.0
+        },
+        "forge.navigation_link": {
+          "arc_height": 1.5,
+          "bidirectional": false,
+          "enabled": true,
+          "end_x": 2.0,
+          "end_y": 0.0,
+          "end_z": 0.0,
+          "plane": 1,
+          "profile": "Arc",
+          "radius": 0.5,
+          "start_x": -2.0,
+          "start_y": 0.0,
+          "start_z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a3fba04d-1f28-4f0e-85f1-1f309391ec77",
+      "name": "Arced crossing",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -6.0,
+          "z": -1.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 3.0,
+          "destination_y": -6.0,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": true,
+          "navmesh": "982f3d5c-8eb1-4b83-aa76-c2905e963a45",
+          "speed": 2.0,
+          "stopping_distance": 0.05000000074505806
+        },
+        "forge.navigation_link_collision": {
+          "clearance": 0.019999999552965164,
+          "enabled": true,
+          "include_sensors": false,
+          "mask": 4294967295,
+          "radius": 0.30000001192092896,
+          "straight_height": 1.2000000476837158
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f08b0fd0-22c6-4443-8c4a-f2648e2469ba",
+      "name": "Arc traveler",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6000000238418579,
+          "y": 0.6000000238418579,
+          "z": 0.6000000238418579
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.47999998927116394,
+          "r": 1.0
+        }
+      },
+      "id": "8300dc50-c8fe-477a-9b92-7bdd67e724b5",
+      "name": "Traveler visual",
+      "parent": "f08b0fd0-22c6-4443-8c4a-f2648e2469ba",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 1.0,
+          "y": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 4.0,
+          "z": 0.20000000298023224
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -6.0,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.0,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6000000238418579,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "one_way": false,
+          "one_way_margin": 0.019999999552965164,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.05999999865889549,
+          "g": 0.07999999821186066,
+          "r": 0.800000011920929
+        }
+      },
+      "id": "e8156393-68c0-484e-a265-42ce837b468f",
+      "name": "Red physical blocker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 16.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -3.0,
+          "z": -25.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "54cfc729-b529-4ee3-b4cd-4f3cf372e80f",
+      "name": "Overview Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "242550c6-dddb-4fcf-a510-e20be5953975",
+      "name": "Sunlight",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

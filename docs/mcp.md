@@ -1143,6 +1143,13 @@ reflected validation, execution grant, observed launch/session/generation, queue
 ack and keep-values capture/Stop/review/history paths apply. No extra MCP schema,
 pose writer or independent navigation implementation is introduced.
 
+`forge.navigation_link_collision` uses ordinary discovery, component operations
+and property transactions. All six fields share `forge_play_tune`: enabled,
+radius, straight_height, clearance, mask and include_sensors. Masks reject
+fractions, negatives and values above UINT32_MAX before narrowing. Kept values use
+the existing review/Stop/Scene history path, including Prefab overrides; runtime
+positions and baked resources are excluded. No separate MCP collision owner exists.
+
 Compiler text pages and Play/exported-game log text share UTF-8-safe response
 conversion. Invalid or incomplete native output bytes appear as replacement
 characters in the returned text, so they cannot break the JSON log response.

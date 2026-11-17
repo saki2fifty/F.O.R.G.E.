@@ -572,6 +572,9 @@ For Navigation Agent, supported live fields include Enabled,
 Has Destination, Speed, Stopping Distance and world destination coordinates; its
 NavMesh asset is selected while authoring. Pause before changing several goal
 coordinates and inspect Navigation progress after Step or Resume.
+For an existing **Navigation Link Collision**, all six volume/filter fields are
+live tunable. Its Mask must be an exact unsigned 32-bit integer. These settings
+guard explicit crossings through the same native physics queries as the editor.
 Runtime reads also include the current failed agent's concrete details. A corrected
 live target clears the previous reason while Pending; inspect its next tick for
 the route result. Position/goal metrics require a valid sampled path.

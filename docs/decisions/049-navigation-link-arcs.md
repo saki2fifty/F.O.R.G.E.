@@ -49,6 +49,10 @@ oriented endpoints and admitted height. Validate exact asset revision, span and
 on-curve pose before candidate publication; reject downgrade and malformed data.
 Old straight recovery profiles and authored SDK restart behavior remain unchanged.
 
+[ADR050](050-navigation-link-collision.md) adds optional conservative chord sweeps
+using this curve owner, plus semantic recovery for the collision configuration.
+Absent collision configuration retains the movement and recovery contract above.
+
 ## Acceptance boundary
 
 Math/source/cooked/query checks alone do not complete this feature. Both planes,

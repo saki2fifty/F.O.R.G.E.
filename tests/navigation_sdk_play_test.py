@@ -26,6 +26,8 @@ info = json.loads(subprocess.check_output([runtime, '--sdk-info'], text=True))
 source = (root / 'scene.json').read_bytes()
 scene = json.loads(source)
 next(row for row in scene['entities'] if row['name'] == 'Agent')['components']['forge.navigation_agent']['speed'] = 20
+next(row for row in scene['entities'] if row['name'] == 'Agent')['components']['forge.navigation_link_collision'] = dict(
+    enabled=True, radius=.3, straight_height=1.2, clearance=.02, mask=4294967295, include_sensors=False)
 arguments = ['--sdk-project', root, '--sdk-play', 'on', '--user-data', root / 'test-users']
 
 def observation(state):
@@ -87,6 +89,19 @@ try:
         else:
             raise AssertionError(('SDK Play accepted invalid live field', field, value))
     tune('speed', 3)
+    collision_target = dict(target, type='forge.navigation_link_collision')
+    for field, value in [('radius', .75), ('straight_height', 2), ('clearance', .125),
+                         ('mask', 7), ('include_sensors', True), ('enabled', False)]:
+        result = first.request('property_tune', **collision_target, property=field, value=value)
+        assert result['property_tune']['value'] == value and result['timing']['tick'] == tick, result
+    for field, value in [('radius', 0), ('straight_height', 0), ('clearance', 2), ('mask', .5),
+                         ('mask', -1), ('mask', 4294967296), ('include_sensors', 1)]:
+        try:
+            first.request('property_tune', **collision_target, property=field, value=value)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError(('SDK Play accepted invalid collision field', field, value))
     resumed = first.request('step')
     assert observation(resumed)['position'] != original_pose
     try:

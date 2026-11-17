@@ -3,6 +3,7 @@
 #include "navigation_sources.hpp"
 #include <forge/authoring.hpp>
 #include <forge/navigation.hpp>
+#include <forge/physics.hpp>
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
@@ -24,9 +25,10 @@ Json record(const AssetCatalog& catalog, AssetId id) {
             return row;
     throw std::runtime_error("Published navigation record missing");
 }
+#include "navigation_link_collision_tests.hpp"
 #include "navigation_link_runtime_tests.hpp"
 void run(const std::filesystem::path& root, const std::filesystem::path& worker,
-         NavigationPlane plane, bool dynamic, bool arc) {
+         NavigationPlane plane, bool dynamic, bool arc, bool collision = false) {
     using namespace navigation_detail;
     SceneDocument::create_project(root, "Authored navigation connections");
     EngineContext engine;
@@ -133,11 +135,15 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
     scene.entity(obstacle_id)
         .set<LocalTranslation>({2, plane == NavigationPlane::Spatial3D ? 2. : 0., 0})
         .set<NavigationObstacle>({false, 1, 2});
-    movement(scene.snapshot(), root, EntityId::parse(actor_id), baked, untouched,
-             EntityId::parse(left), projected.points[0], plane, link.arc_height);
-    link_lifecycle(scene.snapshot(), root, EntityId::parse(actor_id), baked, untouched,
-                   EntityId::parse(left), EntityId::parse(obstacle_id), projected.points[0],
-                   dynamic);
+    if (collision)
+        collision_movement(scene.snapshot(), root, EntityId::parse(actor_id), plane);
+    else {
+        movement(scene.snapshot(), root, EntityId::parse(actor_id), baked, untouched,
+                 EntityId::parse(left), projected.points[0], plane, link.arc_height);
+        link_lifecycle(scene.snapshot(), root, EntityId::parse(actor_id), baked, untouched,
+                       EntityId::parse(left), EntityId::parse(obstacle_id), projected.points[0],
+                       dynamic);
+    }
     const auto digest = navigation_geometry_digest(root, effective, baked.metadata);
     link.end_x += .1f;
     scene.entity(left).set<NavigationLink>(link);
@@ -158,6 +164,39 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
     check(source_digest(capture(scene.effective_document(), plane, settings.profile),
                         Json::array()) == before_digest,
           "Unselected-plane link changed source provenance");
+    if (collision && arc) {
+        // Continue through a second, taller arc in one tick. Its bounded sweeps
+        // must not discard a continuation on the first arc if that tick fails.
+        link.plane = unsigned(plane);
+        scene.entity(left).set(link);
+        const auto third =
+            authoring_command(scene, "entity.create", {{"name", "Third island"}, {"kind", 4}})
+                .at("selected")
+                .get<std::string>();
+        auto island = scene.entity(third);
+        island.set<LocalTranslation>({9, plane == NavigationPlane::Spatial3D ? 2. : 0., 0});
+        if (plane == NavigationPlane::PlanarXY)
+            island.set<NavigationRegion2D>({true, false, 4, 6});
+        else
+            island.set<Primitive>({3}).set<LocalScale>({4, 1, 6}).set<NavigationSurface>({});
+        NavigationLink second;
+        second.plane = unsigned(plane);
+        second.profile = settings.profile;
+        second.arc_height = 10;
+        second.start_x = 4;
+        second.end_x = 10;
+        second.start_y = second.end_y = plane == NavigationPlane::Spatial3D ? 2.f : 0.f;
+        const auto owner = authoring_command(scene, "entity.create", {{"name", "Second arc"}})
+                               .at("selected")
+                               .get<std::string>();
+        scene.entity(owner).set<LocalTranslation>({0, 0, 0}).set(second);
+        const auto extended = publish(settings);
+        auto agent = scene.entity(actor_id).get<NavigationAgent>();
+        agent.navmesh = {extended.id};
+        agent.destination_x = 9;
+        scene.entity(actor_id).set(agent);
+        collision_budget_continuation(scene.snapshot(), root, EntityId::parse(actor_id));
+    }
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -165,20 +204,23 @@ int main(int argc, char** argv) {
         check(argc == 3 || argc == 4,
               "Need scratch root, matching navigation worker and optional profile");
         const std::string_view profile = argc == 4 ? argv[3] : "all";
-        check(profile == "all" || profile == "straight" || profile == "arc",
+        const bool collision = profile == "collision-straight" || profile == "collision-arc";
+        check(profile == "all" || profile == "straight" || profile == "arc" || collision,
               "Unknown navigation pipeline profile");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         for (auto plane : {NavigationPlane::Spatial3D, NavigationPlane::PlanarXY})
             for (bool dynamic : {false, true})
                 for (bool arc : {false, true}) {
-                    if ((profile == "straight" && arc) || (profile == "arc" && !arc))
+                    if (((profile == "straight" || profile == "collision-straight") && arc) ||
+                        ((profile == "arc" || profile == "collision-arc") && !arc))
                         continue;
                     const auto label = std::to_string(unsigned(plane)) +
                                        (dynamic ? "-dynamic" : "-static") +
                                        (arc ? "-arc" : "-straight");
                     std::cout << "Navigation pipeline " << label << " begin" << std::endl;
-                    run(root / label, std::filesystem::absolute(argv[2]), plane, dynamic, arc);
+                    run(root / label, std::filesystem::absolute(argv[2]), plane, dynamic, arc,
+                        collision);
                     std::cout << "Navigation pipeline " << label << " PASS" << std::endl;
                 }
         std::filesystem::remove_all(root);

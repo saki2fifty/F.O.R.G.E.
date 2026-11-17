@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Navigation crossing collision
+
+Open `Scenes/222-navigation-link-collision-3d.scene.json` or
+`Scenes/223-navigation-link-collision-xy.scene.json`. Play: cyan and orange
+travelers stop before red physical blockers on straight and arced links. Select a
+traveler and change **Live gameplay → Navigation Link Collision → Collision mask** to **0**
+to let it continue. The 3D profile uses a capsule; XY uses a circle and keeps
+visual depth. These checks do not simulate gravity or physical response.
+
+Stop to edit body/collider or saved volume settings. Keep selected live values
+through the normal runtime tuning review, save and choose this Scene as startup
+before export. Both Scenes include ready navigation assets and need no project
+C++ module. See [navigation collision checks](../../../manual/editor/navigation.md#check-physical-obstructions-during-crossings).
+
 ## Camera control animation
 
 Open `Scenes/221-camera-control-animation.scene.json` and press Play. The yellow
@@ -49,7 +63,8 @@ Stop Play, select a connection and change **Arc height** in **Navigation Link**.
 Rebuild its matching **Build profile** with **Plane → 2D (XY)**, then save and Play.
 Zero keeps straight traversal. Speed measures distance along the arc, so a taller
 arc takes longer at the same speed. These are prescribed routes without gravity
-or collision sweeps. Select the saved Scene as startup before export.
+or collision checks unless a traveler has Navigation Link Collision. Select the
+saved Scene as startup before export.
 
 ## Directional sensor events
 

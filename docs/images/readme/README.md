@@ -1,5 +1,17 @@
 # README screenshots
 
+## Navigation crossing collision controls
+
+`manual/images/navigation-link-collision-inspector.png` is an exact 780 by 460
+production ComponentInspector capture showing all six Navigation Link Collision
+fields. Reproduce with `forge_navigation_agent_editor_tests --capture-collision OUTPUT.png`
+after creating the output directory. Source: `tests/navigation_agent_editor_tests.cpp`.
+Executable SHA256 `0670a52281b55bac3379ae3be2b9f6f3b5c551234701237a3baf0d32c077eae9` and PNG SHA256
+`6569bff641ce6e69226a40ddee2ba51841ae81f928f00c2a0fee8effff8d02aa` identify this capture. The reviewed image uses the
+packaged font, native ImGui draw data and SDL software composition on Linux.
+It is unretouched. Full Windows desktop and physical GPU, input and DPI acceptance
+remain separate.
+
 ## Camera control Timeline
 
 `manual/images/camera-control-timeline.png` is an exact 1080 by 1300 capture

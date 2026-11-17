@@ -2,6 +2,7 @@
 #include "json_output_text.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_behavior_runtime.hpp"
+#include "navigation_link_collision.hpp"
 #include "navigation_link_curve.hpp"
 #include "navigation_obstacle.hpp"
 #include "navigation_schema.hpp"
@@ -16,6 +17,7 @@
 #include <forge/navigation.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/scene.hpp>
+#include <limits>
 #include <set>
 #include <thread>
 namespace forge {
@@ -803,6 +805,11 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
             s.errors.erase(id);
             continue;
         }
+        std::optional<EntityId> retained_link;
+        std::optional<std::pair<std::size_t, std::size_t>> retained_progress;
+        if (const auto previous = s.agents.find(id); previous != s.agents.end())
+            if (const auto* link = crossing(previous->second))
+                retained_link = link->source;
         try {
             s.context.evaluate_world_transforms();
             s.valid_agent(e, a, nodes, conditions);
@@ -816,6 +823,7 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
             auto& state = s.agents[id];
             if (crossing(state) && state.config.navmesh == a.navmesh &&
                 distance(state.last, position) <= retained_pose_tolerance(state)) {
+                retained_progress = {*state.crossing, state.next};
                 state.replan_after_link |= state.config.has_destination != a.has_destination ||
                                            state.config.destination_x != a.destination_x ||
                                            state.config.destination_y != a.destination_y ||
@@ -835,6 +843,7 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                        state.replan_after_link ||
                        state.query_generation != asset.query->generation() ||
                        distance(state.last, position) > retained_pose_tolerance(state)) {
+                retained_link.reset();
                 auto route = asset.query->route(position, destination);
                 const auto previous = state.observation;
                 state = {};
@@ -853,6 +862,58 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                 continue;
             double remaining = double(a.speed) * dt;
             const auto original = position;
+            std::optional<NavigationLinkCollision> collision;
+            if (e.has<NavigationLinkCollision>()) {
+                const auto value = e.get<NavigationLinkCollision>();
+                validate_link_collision(value);
+                if (value.enabled && value.mask != 0)
+                    collision = value;
+            }
+            unsigned collision_queries = 0;
+            std::shared_ptr<PhysicsService> collision_world;
+            std::optional<EntityRef> blocker;
+            const auto clear_segment = [&](Double3 from, Double3 to, double padding) {
+                if (!collision)
+                    return true;
+                if (collision_queries == link_collision_cast_limit)
+                    throw NavigationFailure(NavStatus::Invalid,
+                                            "Navigation link collision query budget exceeded; "
+                                            "reduce speed or fixed delta");
+                ++collision_queries;
+                if (!collision_world && s.context.services().available(Capability::Physics))
+                    collision_world = s.context.services().physics();
+                if (!collision_world)
+                    throw NavigationFailure(
+                        NavStatus::Unavailable,
+                        "Navigation link collision requires the runtime physics service");
+                const auto radius = std::nextafter(float(double(collision->radius) + padding),
+                                                   std::numeric_limits<float>::infinity());
+                const PhysicsQueryFilter filter{collision->mask, collision->include_sensors};
+                if (asset.data.mesh->space() == NavigationPlane::PlanarXY) {
+                    PhysicsSweep2D query;
+                    query.origin = {from[0], from[1]};
+                    query.displacement = {to[0] - from[0], to[1] - from[1]};
+                    query.dimensions = {radius, 0};
+                    const auto hit = collision_world->shape_cast_2d(query, filter);
+                    if (hit)
+                        blocker = hit->entity;
+                } else {
+                    PhysicsSweep query;
+                    query.shape = PhysicsSweep::Shape::Capsule;
+                    query.origin = {from[0],
+                                    from[1] + double(collision->radius) +
+                                        double(collision->straight_height) * .5 +
+                                        collision->clearance,
+                                    from[2]};
+                    query.dimensions = {radius, collision->straight_height, 0};
+                    for (unsigned axis = 0; axis != 3; ++axis)
+                        query.displacement[axis] = to[axis] - from[axis];
+                    const auto hit = collision_world->shape_cast(query, filter);
+                    if (hit)
+                        blocker = hit->entity;
+                }
+                return !blocker;
+            };
             if (remaining > 0 &&
                 route_distance(position, state) > a.stopping_distance + arrival_tolerance)
                 begin_crossing(state, position, remaining);
@@ -950,8 +1011,26 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                     const auto to = curve.advance(from, advance);
                     if (to == from && from != 1)
                         break;
-                    position = curve.point(to);
-                    remaining -= advance;
+                    if (collision) {
+                        auto progress = from;
+                        while (progress < to) {
+                            const auto end =
+                                curve.sweep_end(progress, to, double(collision->clearance) * .5);
+                            if (!clear_segment(curve.point(progress), curve.point(end),
+                                               curve.chord_deviation(progress, end)))
+                                break;
+                            progress = end;
+                        }
+                        position = curve.point(progress);
+                        remaining -= curve.length(from, progress);
+                        if (blocker) {
+                            remaining = 0;
+                            break;
+                        }
+                    } else {
+                        position = curve.point(to);
+                        remaining -= advance;
+                    }
                     if (to == 1) {
                         ++state.next;
                         state.crossing.reset();
@@ -985,6 +1064,10 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                     if (moved.status != NavStatus::Success)
                         throw NavigationFailure(moved.status, moved.diagnostic);
                     next = moved.points.front();
+                }
+                if (crossing(state) && !clear_segment(position, next, 0)) {
+                    remaining = 0;
+                    break;
                 }
                 if (distance(next, position) < 1e-8)
                     break;
@@ -1024,17 +1107,31 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
             out.remaining_distance = route_distance(position, state);
             for (unsigned j = 0; j < 3; ++j)
                 out.velocity[j] = (position[j] - original[j]) / dt;
-            out.phase = !crossing(state) && !state.replan_after_link &&
+            out.phase = blocker ? NavigationAgentPhase::Blocked
+                        : !crossing(state) && !state.replan_after_link &&
                                 out.remaining_distance <= a.stopping_distance + arrival_tolerance
                             ? NavigationAgentPhase::Arrived
                         : a.speed == 0                        ? NavigationAgentPhase::Paused
                         : distance(position, original) > 1e-8 ? NavigationAgentPhase::Moving
                                                               : NavigationAgentPhase::Blocked;
-            s.errors.erase(id);
+            if (blocker)
+                s.diagnostic(id, a.navmesh.id,
+                             "Navigation link crossing blocked by collision with " +
+                                 blocker->scene.str() + "/" + blocker->entity.str());
+            else
+                s.errors.erase(id);
         } catch (const std::exception& error) {
             auto& state = s.agents[id];
+            // Movement publishes once per tick. If a later segment fails, keep
+            // the original link continuation alongside the unchanged native pose.
+            if (retained_progress) {
+                state.crossing = retained_progress->first;
+                state.next = retained_progress->second;
+            }
             const bool held =
-                crossing(state) && state.config.navmesh == a.navmesh && e.has<WorldTransform>() &&
+                retained_link && crossing(state) && crossing(state)->source == *retained_link &&
+                state.config.navmesh == a.navmesh && e.has<WorldTransform>() &&
+                e.get<WorldTransform>().resolved &&
                 distance(state.last, e.get<WorldTransform>().affine.point({0, 0, 0})) <=
                     retained_pose_tolerance(state);
             if (!held)
@@ -1148,6 +1245,7 @@ Json NavigationRuntime::tune(EntityRef ref, const std::string& type, const std::
         throw std::runtime_error("Live navigation target belongs to another Scene instance");
     if (e.has(flecs::Prefab) || !e.has<NavigationAgent>() ||
         (type == "forge.navigation_avoidance" && !e.has<NavigationAvoidance>()) ||
+        (type == "forge.navigation_link_collision" && !e.has<NavigationLinkCollision>()) ||
         (type == "forge.navigation_behavior" && !e.has<NavigationBehavior>()))
         throw std::runtime_error(
             "Live navigation tuning requires an existing navigation participant");
@@ -1166,6 +1264,10 @@ Json NavigationRuntime::tune(EntityRef ref, const std::string& type, const std::
         const auto& typed = std::get<NavigationBehavior>(decoded);
         detail::validate_reflected_value(e, typed);
         e.set<NavigationBehavior>(typed);
+    } else if (type == "forge.navigation_link_collision") {
+        const auto& typed = std::get<NavigationLinkCollision>(decoded);
+        detail::validate_reflected_value(e, typed);
+        e.set<NavigationLinkCollision>(typed);
     } else {
         const auto& typed = std::get<NavigationAvoidance>(decoded);
         detail::validate_reflected_value(e, typed);
@@ -1182,7 +1284,7 @@ Json NavigationRuntime::checkpoint() {
     if (behaviors.is_null())
         return Json();
     Json revisions = Json::array(), agents = Json::array();
-    bool has_crossing = false, has_arc = false;
+    bool has_crossing = false, has_arc = false, has_collision = false;
     if (impl_) {
         impl_->check();
         ApplicationStateActivation conditions(impl_->context);
@@ -1219,6 +1321,12 @@ Json NavigationRuntime::checkpoint() {
                  {"avoidance", avoidance},
                  {"translation", translation},
                  {"translation_owned", !translation.is_null() && e.owns<LocalTranslation>()}});
+            if (e.has<NavigationLinkCollision>()) {
+                const auto value = link_collision_value(e.get<NavigationLinkCollision>());
+                agents.back()["collision"] = {{"config", value},
+                                              {"owned", e.owns<NavigationLinkCollision>()}};
+                has_collision = true;
+            }
             if (const auto state = impl_->agents.find(e.id()); state != impl_->agents.end())
                 if (const auto* link = crossing(state->second);
                     link && !translation.is_null() &&
@@ -1236,20 +1344,25 @@ Json NavigationRuntime::checkpoint() {
                 }
         });
     }
-    Json result = {{"version", has_arc             ? 5
+    if (has_collision)
+        for (auto& entry : agents)
+            if (!entry.contains("collision"))
+                entry["collision"] = nullptr;
+    Json result = {{"version", has_collision       ? 6
+                               : has_arc           ? 5
                                : has_crossing      ? 4
                                : behaviors.empty() ? 2
                                                    : 3},
                    {"assets", revisions},
                    {"agents", agents}};
-    if (has_crossing || !behaviors.empty())
+    if (has_collision || has_crossing || !behaviors.empty())
         result["behaviors"] = behaviors;
     return result;
 }
 void NavigationRuntime::restore(const Json& data) {
     if (!impl_ ||
         (data.at("version") != 1 && data.at("version") != 2 && data.at("version") != 3 &&
-         data.at("version") != 4 && data.at("version") != 5) ||
+         data.at("version") != 4 && data.at("version") != 5 && data.at("version") != 6) ||
         !data.at("assets").is_array() || data.at("assets").size() > 8 ||
         !data.at("agents").is_array() || data.at("agents").size() > 64)
         throw std::runtime_error("Invalid navigation recovery metadata");
@@ -1259,8 +1372,9 @@ void NavigationRuntime::restore(const Json& data) {
         flecs::entity entity;
         NavigationAgent agent;
         std::optional<NavigationAvoidance> avoidance;
+        std::optional<NavigationLinkCollision> collision;
         std::optional<LocalTranslation> translation;
-        bool owned, translation_owned, avoidance_owned;
+        bool owned, translation_owned, avoidance_owned, collision_owned;
         Json link;
     };
     std::vector<Pending> pending;
@@ -1295,6 +1409,25 @@ void NavigationRuntime::restore(const Json& data) {
                     "Navigation recovery avoidance ownership/inheritance differs");
         } else if (e.has<NavigationAvoidance>())
             throw std::runtime_error("Navigation recovery avoidance component set differs");
+        std::optional<NavigationLinkCollision> collision;
+        bool collision_owned = false;
+        if (data.at("version") == 6) {
+            const auto& value = entry.at("collision");
+            if (!value.is_null()) {
+                detail::validate_components(
+                    {{"forge.navigation_link_collision", value.at("config")}});
+                collision = link_collision_from_value(value.at("config"));
+                collision_owned = value.at("owned").get<bool>();
+                if (!e.has<NavigationLinkCollision>() ||
+                    collision_owned != e.owns<NavigationLinkCollision>() ||
+                    (!collision_owned && *collision != e.get<NavigationLinkCollision>()))
+                    throw std::runtime_error(
+                        "Navigation recovery collision ownership/inheritance differs");
+            } else if (e.has<NavigationLinkCollision>())
+                throw std::runtime_error("Navigation recovery collision component set differs");
+        } else if (e.has<NavigationLinkCollision>() || entry.contains("collision"))
+            throw std::runtime_error(
+                "Legacy navigation recovery cannot restore link collision values");
         bool owned = entry.at("owned").get<bool>(),
              translation_owned = entry.at("translation_owned").get<bool>();
         std::optional<LocalTranslation> translation;
@@ -1317,14 +1450,16 @@ void NavigationRuntime::restore(const Json& data) {
         }
         Json link = nullptr;
         if (entry.contains("link")) {
-            if ((data.at("version") != 4 && data.at("version") != 5) || !translation)
+            if ((data.at("version") != 4 && data.at("version") != 5 && data.at("version") != 6) ||
+                !translation)
                 throw std::runtime_error(
-                    "Navigation traversal recovery requires version 4 or 5 and a valid pose");
+                    "Navigation traversal recovery requires version 4-6 and a valid pose");
             link = entry.at("link");
             const bool arc = link.contains("arc_height");
             if (!link.is_object() || link.size() != (arc ? 4u : 3u) ||
                 !link.at("source").get<EntityId>() ||
-                (arc && (data.at("version") != 5 || !link.at("arc_height").is_number())))
+                (arc && ((data.at("version") != 5 && data.at("version") != 6) ||
+                         !link.at("arc_height").is_number())))
                 throw std::runtime_error("Invalid navigation traversal recovery identity");
             if (arc) {
                 const auto height = link.at("arc_height").get<float>();
@@ -1342,8 +1477,8 @@ void NavigationRuntime::restore(const Json& data) {
                         throw std::runtime_error("Invalid navigation traversal recovery endpoint");
             }
         }
-        pending.push_back({e, config, avoidance, translation, owned, translation_owned,
-                           avoidance_owned, std::move(link)});
+        pending.push_back({e, config, avoidance, collision, translation, owned, translation_owned,
+                           avoidance_owned, collision_owned, std::move(link)});
     }
     if (expected != seen_entities)
         throw std::runtime_error("Navigation recovery agent set differs");
@@ -1354,6 +1489,8 @@ void NavigationRuntime::restore(const Json& data) {
             p.entity.set<NavigationAgent>(p.agent);
         if (p.avoidance_owned)
             p.entity.set<NavigationAvoidance>(*p.avoidance);
+        if (p.collision_owned)
+            p.entity.set<NavigationLinkCollision>(*p.collision);
         if (p.translation_owned)
             p.entity.set<LocalTranslation>(*p.translation);
     }
@@ -1422,8 +1559,11 @@ void NavigationRuntime::restore(const Json& data) {
         throw std::runtime_error("Navigation recovery version 4 requires an active traversal");
     if (data.at("version") == 5 && !has_arc)
         throw std::runtime_error("Navigation recovery version 5 requires an active arc");
+    if (data.at("version") == 6 &&
+        std::ranges::none_of(pending, [](const auto& p) { return p.collision.has_value(); }))
+        throw std::runtime_error("Navigation recovery version 6 requires link collision values");
     impl_->behaviors.restore(data.at("version") == 3 || data.at("version") == 4 ||
-                                     data.at("version") == 5
+                                     data.at("version") == 5 || data.at("version") == 6
                                  ? data.at("behaviors")
                                  : Json::array());
 }
@@ -1431,7 +1571,8 @@ EngineModule navigation_module(std::filesystem::path project) {
     auto m = navigation_schema_module();
     m.runtime_roles = role_mask(WorldRole::Runtime);
     m.allowed_services = capability(Capability::Diagnostics) | capability(Capability::Profiling) |
-                         capability(Capability::Navigation) | capability(Capability::Resources);
+                         capability(Capability::Navigation) | capability(Capability::Resources) |
+                         capability(Capability::Physics);
     m.provided_services = capability(Capability::Navigation);
     m.start = [project = std::move(project)](ModuleContext& c) {
         auto runtime = std::make_shared<NavigationRuntime>(*c.owner, project);

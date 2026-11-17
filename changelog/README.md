@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-11-17](20261117/README.md) — Camera Follow/Aim and their Timeline field tracks, composed camera inspection, camera-only shot blends, C++ rename across open sources and authored navigation arcs.
+- [2026-11-17](20261117/README.md) — Optional collision checks on navigation crossings, Camera Follow/Aim and their Timeline field tracks, composed camera inspection, camera-only shot blends, C++ rename across open sources and authored navigation arcs.
 
 - [2026-11-16](20261116/README.md) — Read-only C++ call signatures, overloads, active parameters, versioned diagnostics and next/previous navigation, symbol information, file outlines, formatting, reference/type and definition/implementation navigation, syntax selection, reviewed single-file rename and diagnostic quick fixes in C++ Sources and MCP.
 

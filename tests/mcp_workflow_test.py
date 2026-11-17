@@ -737,6 +737,15 @@ for legacy in selected_protocols:
                 assert 'error' in denied or denied.get('result', {}).get('isError'), denied
             continue
         if NAVIGATION_LINKS_ONLY:
+            collision_schema = next(c for c in discovery()['result']['schema']['components']
+                                    if c['id'] == 'forge.navigation_link_collision')
+            collision_fields = {f['id']: f for f in collision_schema['fields']}
+            assert set(collision_fields) == {'enabled', 'radius', 'straight_height', 'clearance',
+                                             'mask', 'include_sensors'}, collision_fields
+            assert not any(f['animatable'] for f in collision_fields.values())
+            assert collision_fields['mask']['default'] == 4294967295
+            assert collision_fields['radius']['minimum'] == .001
+            assert collision_fields['clearance']['maximum'] == 1
             link_schema = next(c for c in discovery()['result']['schema']['components']
                                if c['id'] == 'forge.navigation_link')
             fields = {f['id']: f for f in link_schema['fields']}
@@ -783,6 +792,29 @@ for legacy in selected_protocols:
             ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.navigation_agent',
                 values=dict(navmesh=linked['asset'], has_destination=True, speed=.2, stopping_distance=.05,
                             destination_x=3, destination_y=0, destination_z=0)))
+            ok('forge_component_add', arguments=dict(entity=actor, component='forge.navigation_link_collision'))
+            before_collision = read('forge_scene_read')
+            stale_collision = arguments(arguments=dict(entity=actor, component='forge.navigation_link_collision',
+                                                       field='radius', value=.7))
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.navigation_link_collision',
+                values=dict(radius=.35, straight_height=1.4, clearance=.03, mask=4294967295,
+                            include_sensors=False)))
+            collision_authored = read('forge_scene_read')
+            assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_collision
+            assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == collision_authored
+            assert not client.tool('forge_property_set', **stale_collision)['ok']
+            for field, value in [('radius', 0), ('straight_height', 0), ('clearance', 2),
+                                 ('mask', -.5), ('mask', 4294967296), ('include_sensors', 1)]:
+                refused = mutate('forge_property_set', arguments=dict(entity=actor,
+                    component='forge.navigation_link_collision', field=field, value=value))
+                assert not refused['ok'] and read('forge_scene_read') == collision_authored, refused
+            wall = ok('forge_entity_create', arguments=dict(name='Physics link blocker'))['results'][0]['selected']
+            ok('forge_property_set_many', arguments=dict(entity=wall, component='forge.local_translation',
+                                                        values=dict(x=.5, y=2, z=0)))
+            for component in ('forge.physics_body_2d', 'forge.box_collider_2d'):
+                ok('forge_component_add', arguments=dict(entity=wall, component=component))
+            ok('forge_property_set_many', arguments=dict(entity=wall, component='forge.box_collider_2d',
+                                                        values=dict(x=.4, y=10)))
             edit_settings('forge_project_settings_game_defaults')
             edit_settings('forge_project_settings_save')
             ok('forge_document_save')
@@ -809,10 +841,33 @@ for legacy in selected_protocols:
             control('forge_play_tune', entity=actor, component='forge.navigation_agent', property='speed', value=4)
             until(lambda: read('forge_play_status'), lambda r: not r['tune_pending'] and r['tune_ack'] is not None)
             control('forge_play_resume')
+            blocked = until(traveler, lambda row: row.get('navigation_debug', {}).get('phase') == 'Blocked')
+            assert blocked['world_affine'][3] < .5 and blocked['world_affine'][11] == 7, blocked
+            control('forge_play_pause')
+            paused = until(lambda: read('forge_play_status'), lambda r: r['paused'] and r['control_ready'])
+            held_pose = traveler()['world_affine']
+            control('forge_play_tune', entity=actor, component='forge.navigation_link_collision', property='mask', value=.5)
+            refused = until(lambda: read('forge_play_status'), lambda r: not r['tune_pending'] and r['tune_ack'] is not None)
+            assert not refused['tune_ack']['ok'] and traveler()['world_affine'] == held_pose, refused
+            control('forge_play_tune', entity=actor, component='forge.navigation_link_collision', property='mask', value=2)
+            tuned = until(lambda: read('forge_play_status'), lambda r: not r['tune_pending'] and r['tune_ack'] is not None)
+            assert 'error' not in tuned['tune_ack'] and tuned['timing']['tick'] == paused['timing']['tick'], tuned
+            assert traveler()['components']['forge.navigation_link_collision']['mask'] == 2
+            control('forge_play_resume')
             arrived = until(traveler, lambda row: row.get('navigation_debug', {}).get('phase') == 'Arrived')
             assert arrived['navigation_debug']['link'] is None and arrived['world_affine'][3] > 2.8, arrived
+            control('forge_play_tuning_capture', entity=actor)
             control('forge_play_stop')
             assert read('forge_scene_read') == saved
+            review = read('forge_play_tuning_read')
+            assert {(f['component'], f['property']) for f in review['fields']} == {
+                ('forge.navigation_agent', 'speed'), ('forge.navigation_link_collision', 'mask')}, review
+            ok('forge_play_tuning_apply', state=review['state'])
+            kept = read('forge_scene_read')
+            assert next(r for r in kept['entities'] if r['id'] == actor)['components']['forge.navigation_link_collision']['mask'] == 2
+            assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == saved
+            assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == kept
+            print(('legacy' if legacy else 'current') + ': link collision discovery, history, native blocking, live filtering and kept values passed')
             continue
         if CONDITIONS_ONLY:
             assert 'State Condition' in advertised['forge_play_tune']['description']

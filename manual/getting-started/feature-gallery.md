@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**222-navigation-link-collision-3d** and **223-navigation-link-collision-xy** show
+physical blockers on straight and arced links. Press Play, select a traveler and
+inspect its **Live gameplay → Navigation Link Collision** controls. Set
+**Collision mask = 0** to pass the red blocker. Use runtime tuning review to keep
+selected settings after Stop, then save. Both Scenes include their navigation,
+camera, light and physics configuration and need no project C++ module. Select the
+saved Scene as startup before export. See [crossing collision checks](../editor/navigation.md).
+
 **221-camera-control-animation** animates the Camera Follow weight and horizontal
 offset together with Camera Aim weight around a stationary yellow target. Open
 the Camera's clip in Timeline to edit and scrub these built-in field tracks. No

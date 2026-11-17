@@ -49,13 +49,16 @@ struct RuntimePropertyTune {
     static bool ui_localization_property(std::string_view property) { return property == "locale"; }
     static bool navigation_type(std::string_view type) {
         return type == "forge.navigation_avoidance" || type == "forge.navigation_agent" ||
-               type == "forge.navigation_behavior";
+               type == "forge.navigation_behavior" || type == "forge.navigation_link_collision";
     }
     static bool navigation_property(std::string_view type, std::string_view property) {
         if (type == "forge.navigation_behavior")
             return property == "enabled";
         if (type == "forge.navigation_avoidance")
             return property == "enabled" || property == "horizon";
+        if (type == "forge.navigation_link_collision")
+            return property == "enabled" || property == "radius" || property == "straight_height" ||
+                   property == "clearance" || property == "mask" || property == "include_sensors";
         if (type == "forge.navigation_agent")
             return property == "enabled" || property == "has_destination" || property == "speed" ||
                    property == "stopping_distance" || property == "destination_x" ||

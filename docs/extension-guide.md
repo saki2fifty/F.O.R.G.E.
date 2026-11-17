@@ -670,7 +670,26 @@ checks its native member, size/alignment and independent nonzero/zero copies.
 Existing copied agent pose/velocity APIs observe movement along the arc without a
 callback-table change. Editor/MCP progress also identifies the active link and
 admitted height. Speed is distance along the curve. These routes do not apply
-gravity or collision sweeps, and cannot drive a physics body or character.
+gravity and cannot drive a physics body or character. Optional collision queries
+use the configuration below.
+
+### Collision checks on explicit links
+
+`forge::NavigationLinkCollision` in `forge/navigation_components.hpp` is an
+optional typed component beside NavigationAgent. Its six fields are enabled,
+radius, straight_height, clearance, mask and include_sensors. Ordinary Flecs
+typed access reads/copies these values; it creates no extra body or movement
+writer. Use world metres: radius/straight height0.001–100, clearance0.001–1.
+The3D query volume is an upright capsule; XY uses a circle and preserves Z.
+Mask is uint32: zero skips checks, UINT32_MAX includes all layers. Sensors are
+excluded by default. An absent or disabled component retains unchecked traversal.
+
+Queries observe the currently realized physics world and only guard explicit
+crossings. Blocked agents retain a checked pose and retry next tick. Work above
+64casts per agent/tick fails atomically; reduce speed or fixed delta, or increase
+clearance. The existing copied agent observation reports Blocked or Failed without
+a new C-table entry. The native probe verifies all six members, size/alignment and
+independent copies. Rebuild modules with the matching SDK for this additional POD.
 
 ## Overlapping audio effects
 
