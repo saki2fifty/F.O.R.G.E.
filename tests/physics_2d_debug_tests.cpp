@@ -256,9 +256,13 @@ void tile_map_outlines() {
     }
     invalid["forge.physics_body_2d"]["motion"] = 2;
     rejects([&] { preview(invalid, {1, 1, 0}, &cells); });
-    invalid["forge.physics_body_2d"]["motion"] = 1;
     invalid["forge.physics_body_2d"]["sensor"] = true;
-    rejects([&] { preview(invalid, {1, 1, 0}, &cells); });
+    for (unsigned motion : {0u, 1u}) {
+        invalid["forge.physics_body_2d"]["motion"] = motion;
+        const auto sensor = preview(invalid, {1, 1, 0}, &cells);
+        require(sensor.lines == one_way.lines && sensor.triangles.empty() && !sensor.truncated,
+                "Directional Map sensor lost its collision outline or front-face arrows");
+    }
     invalid = components;
     invalid["forge.box_collider_2d"] = {{"x", 1}, {"y", 1}};
     rejects([&] { preview(invalid, {1, 1, 0}, &cells); });

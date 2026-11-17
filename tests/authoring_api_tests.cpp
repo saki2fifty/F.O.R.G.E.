@@ -14,6 +14,7 @@
 #include <forge/geometry.hpp>
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <stdexcept>
 #include <thread>
 using forge::Json;
@@ -72,12 +73,32 @@ int main(int argc, char** argv) {
         const auto discovery = invoke("discover");
         check(discovery.at("ok"), "Discovery failed");
         const auto& commands = discovery.at("result").at("commands");
-        check(commands.size() == 32 && std::any_of(commands.begin(), commands.end(),
-                                                   [](const Json& command) {
-                                                       return command.at("id") ==
-                                                              "audio.playlist_create";
-                                                   }),
-              "Command catalog omitted playlist creation or another supported operation");
+        const std::set<std::string> expected_commands{
+            "appearance.color",       "appearance.shape",
+            "audio.playlist_create",  "camera_shot.duplicate",
+            "camera_shot.split",      "component.add",
+            "component.override",     "component.revert",
+            "entity.create",          "entity.delete",
+            "entity.duplicate",       "entity.rename",
+            "entity.reorder",         "entity.reparent",
+            "mesh.scatter",           "mesh.stroke",
+            "model.material_variant", "prefab.instantiate",
+            "prefab.revert_name",     "property.revert",
+            "property.set",           "property.set_many",
+            "scene.rendering.set",    "transform.binding",
+            "transform.copy_from",    "transform.ground",
+            "transform.local",        "transform.position",
+            "transform.reset",        "transform.rotation",
+            "transform.scale",        "transform.snap",
+            "transform.world_rotate", "transform.world_translation"};
+        std::set<std::string> observed_commands;
+        for (const auto& command : commands)
+            check(observed_commands.insert(command.at("id").get<std::string>()).second,
+                  "Command catalog repeats an operation identity");
+        if (observed_commands != expected_commands)
+            throw std::runtime_error("Command catalog identities differ: expected " +
+                                     Json(expected_commands).dump() + "; observed " +
+                                     Json(observed_commands).dump());
         const auto schema = discovery["result"]["schema"];
         check(schema["components"][0]["fields"][0]["property_id"] == "forge.local_translation.x",
               "Stable property identity missing");

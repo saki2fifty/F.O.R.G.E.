@@ -1,5 +1,11 @@
 # 2026-11-17
 
+## Validation contracts
+
+Scene command discovery checks every supported operation identity and rejects
+duplicates. Planar preview checks cover Static/Kinematic directional Map sensors
+and retain the Dynamic one-way Map boundary.
+
 ## C++ rename in open files
 
 Code assistance can preview and apply a symbol rename across currently open

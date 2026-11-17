@@ -1828,9 +1828,10 @@ preserved cells/epochs/depth, rotated ray/overlap/sweep geometry, sensor inclusi
 canonical exclusions, Begin/End/nonresponse, empty/refill retirement and fresh
 Map-before-physics recovery with continued steps. Unsupported geometry, global
 shape budgets and source replacement still run through the existing Map preflight.
-`physics_2d_debug` covers matching positive previews. Static nonsensor one-way
-Maps use per-rectangle solid-face arrows; Dynamic and moving/sensor one-way Maps
-remain rejected. `physics_2d_compound` includes inline/painted response, long-fall
+`physics_2d_debug` covers matching positive previews. Static/Kinematic one-way
+Maps, including directional sensors, retain their collision outlines and
+per-rectangle front-face arrows. Dynamic one-way Maps remain rejected.
+`physics_2d_compound` includes inline/painted response, long-fall
 contact continuity and exact recovery; `native_sdk_one_way_tile_maps` and its
 installed variant cover Gallery86/public cell edits through both Play hosts.
 `box2d_snapshot` exercises native empty/static/sensor/dynamic reconstruction;
@@ -2462,6 +2463,10 @@ Native sanitizer shutdown remains an independent unresolved/unsuppressed conditi
 functional completion is separate from a clean process exit.
 
 ## Light image regression gate
+
+`authoring_api` checks the complete Scene command identity set, including Camera
+Shot split/duplicate and playlist creation, and explicitly rejects duplicate IDs.
+Discovery failures report the expected and observed identities.
 
 `authoring_api` covers typed Light values, defaults, source/history validation and
 image-only frame rejection while ordinary Point lighting survives. `material_asset`
