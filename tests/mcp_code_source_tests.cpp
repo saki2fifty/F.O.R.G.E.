@@ -918,6 +918,136 @@ int main(int argc, char** argv) {
             check(editor.active_text() == draft, "Rename checks lost the preceding source history");
         }
         {
+            const auto first = draft + "\nfloat shared_rate = 1; // café\n";
+            const std::string second = "#pragma once\nextern float shared_rate;\n";
+            const std::string second_path = "Native/OpenRename.hpp";
+            forge::atomic_write(root / second_path, second);
+            editor.open(files.document, second_path);
+            const auto second_draft = editor.active_text();
+            editor.open(files.document, "Native/First.cpp");
+            editor.replace_text(first);
+            const auto query = [&] {
+                const auto observed = invoke("code.read", {{"path", "Native/First.cpp"}});
+                return invoke("code.analysis.start", {{"path", "Native/First.cpp"},
+                                                      {"session", observed.at("session")},
+                                                      {"state", observed.at("state")},
+                                                      {"kind", "renameOpen"},
+                                                      {"offset", first.find("shared_rate")},
+                                                      {"new_name", "angular_speed"}});
+            };
+            SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", "rename-open",
+                                       true);
+            const auto before_first = invoke("code.read", {{"path", "Native/First.cpp"}});
+            const auto before_second = invoke("code.read", {{"path", second_path}});
+            query();
+            analysis = settle_analysis();
+            check(analysis.at("complete").get<bool>() && analysis.at("total") == 1 &&
+                      analysis.at("scope") == "open_sources_current_context" &&
+                      !analysis.at("exhaustive").get<bool>() &&
+                      analysis.at("items").at(0).at("file_count") == 2 &&
+                      analysis.at("items").at(0).at("edit_count") == 2 &&
+                      invoke("code.read", {{"path", "Native/First.cpp"}}) == before_first &&
+                      invoke("code.read", {{"path", second_path}}) == before_second,
+                  "Rename in open files lost its complete preview or changed a draft");
+            const auto first_caret =
+                forge::ui::cpp_source_coordinate(first, first.find("shared_rate") + 2);
+            const auto second_caret = forge::ui::cpp_source_coordinate(
+                second_draft, second_draft.find("shared_rate") + 3);
+            editor.open(files.document, second_path, second_caret.first + 1,
+                        second_caret.second + 1);
+            editor.open(files.document, "Native/First.cpp", first_caret.first + 1,
+                        first_caret.second + 1);
+            use_analysis(analysis);
+            auto first_after = first, second_after = second_draft;
+            first_after.replace(first_after.find("shared_rate"), 11, "angular_speed");
+            second_after.replace(second_after.find("shared_rate"), 11, "angular_speed");
+            check(editor.active_text() == first_after &&
+                      invoke("code.read", {{"path", second_path}}).at("text") == second_after,
+                  "Rename in open files did not apply every reviewed draft: active=" +
+                      editor.active_source() + "; first=" + editor.active_text() +
+                      "; expected first=" + first_after +
+                      "; second=" + invoke("code.read", {{"path", second_path}}).at("text").dump() +
+                      "; expected second=" + second_after);
+            for (const auto& [path, text] :
+                 {std::pair{std::string("Native/First.cpp"), first_after},
+                  std::pair{second_path, second_after}}) {
+                const auto point =
+                    forge::ui::cpp_source_coordinate(text, text.find("angular_speed") + 13);
+                check(invoke("code.read", {{"path", path}}).at("cursor") ==
+                          forge::Json{{"line", point.first + 1}, {"column", point.second + 1}},
+                      "Rename did not map each file's own current caret");
+            }
+            editor.undo(false);
+            check(editor.active_text() == first, "First source rename was not one Undo");
+            editor.undo(true);
+            check(editor.active_text() == first_after, "First source rename Redo failed");
+            editor.undo(false);
+            editor.open(files.document, second_path);
+            editor.undo(false);
+            check(editor.active_text() == second_draft, "Second source rename was not one Undo");
+            editor.undo(true);
+            check(editor.active_text() == second_after, "Second source rename Redo failed");
+            editor.undo(false);
+            editor.open(files.document, "Native/First.cpp");
+            query();
+            analysis = settle_analysis();
+            editor.open(files.document, second_path);
+            editor.replace_text(second_draft + "// changed after preview\n");
+            bool stale = false;
+            try {
+                use_analysis(analysis);
+            } catch (const std::exception&) {
+                stale = true;
+            }
+            check(stale &&
+                      invoke("code.read", {{"path", "Native/First.cpp"}}).at("text") == first &&
+                      editor.active_text() == second_draft + "// changed after preview\n",
+                  "A changed second draft allowed a partial rename");
+            editor.undo(false);
+            editor.open(files.document, "Native/First.cpp");
+            for (const auto* mode :
+                 {"rename-open-unopened", "rename-open-alias", "rename-open-range",
+                  "rename-open-overlap", "rename-open-annotations", "rename-foreign",
+                  "rename-document-changes", "rename-resource"}) {
+                SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", mode, true);
+                const auto unchanged_first = invoke("code.read", {{"path", "Native/First.cpp"}});
+                const auto unchanged_second = invoke("code.read", {{"path", second_path}});
+                query();
+                analysis = settle_analysis();
+                check(!analysis.at("complete").get<bool>() &&
+                          !analysis.at("error").get<std::string>().empty() &&
+                          invoke("code.read", {{"path", "Native/First.cpp"}}) == unchanged_first &&
+                          invoke("code.read", {{"path", second_path}}) == unchanged_second,
+                      std::string("Unsafe multi-source rename was admitted: ") + mode);
+            }
+            forge::atomic_write(root / "Native/BudgetRename.hpp", "extern float shared_rate;\n");
+            editor.open(files.document, "Native/BudgetRename.hpp");
+            const auto budget_before = invoke("code.read", {{"path", "Native/BudgetRename.hpp"}});
+            editor.open(files.document, "Native/First.cpp");
+            const auto first_budget_before = invoke("code.read", {{"path", "Native/First.cpp"}});
+            const auto second_budget_before = invoke("code.read", {{"path", second_path}});
+            SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE",
+                                       "rename-open-budget", true);
+            query();
+            analysis = settle_analysis();
+            check(!analysis.at("complete").get<bool>() &&
+                      analysis.at("error").get<std::string>().size() &&
+                      invoke("code.analysis.log", forge::Json::object())
+                              .at("text")
+                              .get<std::string>()
+                              .find("4 MiB") != std::string::npos &&
+                      invoke("code.read", {{"path", "Native/First.cpp"}}) == first_budget_before &&
+                      invoke("code.read", {{"path", second_path}}) == second_budget_before &&
+                      invoke("code.read", {{"path", "Native/BudgetRename.hpp"}}) == budget_before,
+                  "Oversized rename preview was accepted or changed a source");
+            SDL_UnsetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE");
+            check(forge::ui::read_cpp_source(root / second_path) == second &&
+                      forge::ui::read_cpp_source(root / "Native/First.cpp") == disk_before_analysis,
+                  "Multi-source rename saved a draft implicitly");
+            editor.undo(false);
+            check(editor.active_text() == draft, "Multi-source rename lost earlier source history");
+        }
+        {
             const auto source =
                 draft + "\n// café\nint fixes_probe() { int value = 1 return value; }\n";
             auto fixed = source;

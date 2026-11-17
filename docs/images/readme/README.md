@@ -3985,3 +3985,22 @@ physical DPI acceptance. Unchanged figures retain their original attribution.
 [navigation-link-arc-inspector.png](../../../manual/images/navigation-link-arc-inspector.png) is an unretouched 860 × 720 capture of the actual `ComponentInspector.draw` controls for `218-navigation-link-arcs.scene.json`. The native SDL software fixture checks visible control bounds and unchanged saved Scene state. Image SHA-256: `2640fe315ecb31797f0460226cd27ca37ec730e0f8a100615c6c79853fa779d1`. Scene SHA-256: `4fc5ce2eecc09a9fc49a019efdcbc984325e2e09e8eecc7c55bfa779c66a0795`.
 
 Capture actor SHA-256: `0bdbbd798dc38ee8dc20a662444ecb1b8ccc154ace9a67946f12fccb1db98c85`; producer `tests/navigation_link_editor_tests.cpp --capture` / `--capture-arcs`, based on `cbedf37` with the recorded navigation integration. Both figures were visually reviewed and copied byte-for-byte. These figures show actual native controls; they do not establish full editor, Windows desktop, physical GPU or physical DPI acceptance.
+
+## Rename across open C++ sources
+
+[cpp-rename-open-files.png](../../../manual/images/cpp-rename-open-files.png) is an
+unretouched 1180 × 850 capture of the actual C++ Sources controls. It shows a two-file
+rename preview and the unchanged active source. The preview child scrolls to the
+remaining file. The native fixture uses the genuine separately installed
+clangd 23.1.0 provider and the project's matching managed SDK compiler context,
+with SDL software rendering. Captures at 1180 and 700 pixels were visually reviewed.
+
+Image SHA-256: `5ddef96a4d8e85367805e3edeb34a1b6ac14770422729a01689c97c3ffcdfff2`.
+Actor SHA-256: `21f7ba8a56f91b1217a311d07be70a7683ba0c3d58712ba258d2fda400c4b34c`.
+Provider SHA-256: `5a535973dd1274270c8a0d34677fe4758d8c9aaa164aa3701602c957c42dc9e2`.
+Source is based on `f35c779` with the recorded refactoring changes. Exact context,
+commands and capture provenance are retained in
+`AgentFiles/build/phase387-open-source-rename/capture-proof.json` and its
+`real-native-request-01.json`; all three widths pass through the same controls.
+This records native software controls, without physical desktop, Windows/D3D12,
+GPU or physical DPI acceptance.

@@ -3077,6 +3077,14 @@ receipt replay, source history and stale-result refusal. `cpp_semantic_editor`
 clicks actual source controls at1180/700/400 widths with source locks and unchanged
 saved files/Scene. Its deterministic peer is not a semantic compiler.
 
+The explicit `renameOpen` profile covers a complete proposal across captured open
+sources, each file's current caret and independent Undo/Redo, stale second-draft
+refusal, unopened/aliased/foreign/annotated edits and the 4 MiB preview bound. Both
+protocol adapters use the same query/use owners. The headless C++ test host allows
+600 seconds for the full deterministic analysis profile, including instrumented
+helper/provider execution; its other profiles retain 240 seconds. Shipping connection
+policy and individual request/query deadlines are unchanged.
+
 `tests/mcp_code_semantic_provider_test.py` is a separate opt-in integration using
 an explicitly supplied supported provider and installed exact SDK, without downloads.
 Pass tools, native code host, SDK, CMake, Ninja, clangd, fresh scratch directory and
@@ -3096,6 +3104,10 @@ Real rename checks include a Unicode new name, three local references, a cursor
 move after the query, one source Undo/Redo, invalid identifier failure and refusal
 of a header-plus-source proposal through both MCP formats. Native checks type the
 actual name-entry popup and review/apply through the same source owner.
+The open-files integration renames a member across one unsaved header and two
+consumers, applies the complete preview and checks each file's Undo/Redo without
+changing saved bytes. Native controls also exercise a header/consumer rename at
+all three widths with the actual supported provider and managed SDK context.
 Quick-fix checks cover current-version diagnostic context, whole-source preview,
 multiple alternatives and their distinct caret mappings, unavailable commands/
 deferred/cross-file/annotated edits, malformed metadata/ranges and aggregate result

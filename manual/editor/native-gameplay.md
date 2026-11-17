@@ -66,8 +66,8 @@ notice; a conflicting Save keeps your draft, and **Reload from disk** asks befor
 discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
 be open. Optional code assistance provides completion, declaration/type lookup,
 current-context references, reviewed source formatting, call signatures, source diagnostics, symbol information
-and file outlines. Debugging,
-project-wide refactoring and arbitrary in-place C++ reload are unavailable.
+and file outlines. Reviewed rename can cover the currently open files. Debugging,
+refactoring unopened files and arbitrary in-place C++ reload are unavailable.
 
 Use **Back** and **Forward** above the source tabs to return between files and
 locations after opening declarations, outline entries, search matches or tabs.
@@ -264,10 +264,12 @@ ranges. Selection stops at the end of visible source text. A range query or
 selection does not save files or add source Undo.
 Rename requires a C++ name within 256 UTF-8 bytes, without spaces or control
 characters. The provider checks the C++ spelling and whether the symbol can be
-renamed. Only the current Native file can change; a proposal involving another
-file is refused in full. These results cover the current compiler context.
-Project-wide refactoring is not available. Strings and authored identifiers are
-separate source edits. If the preview reports an error, correct the name or choose
+renamed. **Rename in file...** changes only the current Native file; a proposal
+involving another file is refused in full. **Rename in open files...** is described
+below. These results cover the current compiler context and do not establish a
+complete project index. Strings and authored identifiers are
+separate source edits. Changing registered component names or saved field names
+requires the **Migrate a changed component schema** workflow later in this guide. If the preview reports an error, correct the name or choose
 another source symbol, then run **Preview rename** again.
 Quick fixes use the current draft's diagnostic publication and cursor position.
 Not every diagnostic has a suggested fix. The list retains at most 64 actions;
@@ -286,9 +288,37 @@ debugger or a project-wide refactoring service.
 **Check source** is an explicit snapshot of the active file, including issues from
 unsaved headers that the provider reports at that file. It does not continuously
 check edits, apply fixes or collect every project file. A provider message can
-mention a fix; edit the source yourself because automatic fixes are unavailable. Rerun after source/context
+mention a fix; use **Quick fixes** at the affected cursor to review available edits. Rerun after source/context
 changes. Use **Build Project Code** to verify the actual compiler result; its
 **Compiler output** and the Problems panel retain their existing workflows.
+
+## Rename a symbol in open files
+
+Set up code assistance and build the project's compiler context as described above.
+
+1. Open the declaration and the C++ source files that use the symbol in **C++ Sources**. Unsaved drafts are included.
+2. Place the cursor inside the symbol and choose **Code assistance → Rename in open files...**.
+3. Enter **New name**, then choose **Preview rename**. Review each path and its complete **Proposed source**. The query changes no files.
+4. Choose **Rename to NAME in N open files** to apply the complete proposal. Every affected tab becomes a source draft; the current caret in each file follows its edits.
+5. Use each file's source **Undo/Redo** to review or restore that file's change. Save each affected source when ready, then choose **Build Project Code** to check the result.
+
+![C++ Sources showing a two-file rename preview, proposed header text and unchanged active source](../images/cpp-rename-open-files.png)
+
+Review each path in **Proposed source**. Scroll inside the preview to reach the
+remaining files before applying the complete proposal.
+
+The proposal is tied to the observed open drafts and compiler context. Editing or
+closing a tab, changing a disk input or rebuilding the context requires a new
+preview. Invalid edits or a changed draft prevent applying the proposal. Save and
+Build remain separate actions.
+
+This query uses the current context, without an exhaustive project index. It may
+not find uses in unopened files. An edit proposed for an unopened or external file
+is refused; open the relevant project source and preview again. Review and build
+the result before relying on the rename. File creation, deletion, movement and
+provider commands are unavailable in this workflow. A complete preview must fit
+within 4 MiB; close unrelated tabs if the proposal is too large. Per-file source
+Undo remains independent; there is no separate cross-file Undo command.
 
 ## Run an ECS system on worker stages
 

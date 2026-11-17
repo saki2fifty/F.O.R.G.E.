@@ -300,6 +300,26 @@ current_context/exhaustive:false scope accompany the result. Provider callbacks
 never apply workspace writes. Save/build and all source/context/receipt/lifetime
 owners remain separate; this is not exhaustive project refactoring.
 
+`kind:renameOpen` uses the same provider rename request after explicit AST readiness
+for every captured open draft. Only plain changes to supported Native sources in
+that exact draft set are admitted. Unopened/foreign/redirected files, duplicate
+normalized locators, resource operations and annotated edits reject the complete
+proposal. Each file uses the existing range/UTF-8/overlap and candidate normalizer;
+the complete serialized preview is bounded to4MiB. The result has one item with
+`files`, `file_count` and `edit_count`; its envelope retains `new_name` and scope
+`open_sources_current_context`/`exhaustive:false`. Private `source_edits` parallels
+the item and each file. Null/empty/no-op replies return no item.
+
+C++ Sources shares one proposal preflight/apply path for formatting, fixes and
+either rename scope. It checks every captured file and computes every current
+caret mapping before changing a widget. Applying the complete list changes drafts
+together and records one existing widget Undo per changed file; source histories
+remain independent. Existing task guards reject changed open/disk inputs,
+project/compiler generation, cancelled/retired operations and replay conflicts.
+Automation/MCP use the same query/status/use operations and grants. No automatic
+Save, provider write callback, background project index or cross-file Undo owner
+is added. The existing single-file rename/refusal contract is retained.
+
 Diagnostic-guided quick fixes use the same finite task with `kind:fixes`, literal
 `textDocument/codeAction` support and `context.only:[quickfix]`. The transport
 receives the target's version1 diagnostic publication, validates its retained

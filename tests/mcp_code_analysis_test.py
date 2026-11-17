@@ -125,7 +125,7 @@ for legacy in protocol_cases():
                         assert read('forge_code_analysis_status')['operation'] is None
                         continue
                     assert tools['forge_code_analysis_start']['annotations']['openWorldHint']
-                    assert {'signature', 'diagnostics', 'hover', 'symbols', 'formatSelection'}.issubset(tools['forge_code_analysis_start']['inputSchema']['properties']['kind']['enum'])
+                    assert {'signature', 'diagnostics', 'hover', 'symbols', 'formatSelection', 'renameOpen'}.issubset(tools['forge_code_analysis_start']['inputSchema']['properties']['kind']['enum'])
                     assert not tools['forge_code_analysis_use']['annotations']['openWorldHint']
                     assert mutate('forge_code_open', path='Native/Spinner.cpp')['ok']
                     assert mutate('forge_code_replace', **observed_args(), text=draft)['ok']
@@ -290,6 +290,51 @@ for legacy in protocol_cases():
                     assert mutate('forge_code_undo', **observed_args())['ok']
                     assert mutate('forge_code_undo', **observed_args())['ok']
                     assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
+                    second_path = 'Native/OpenRename.hpp'
+                    second_saved = '#pragma once\nextern float shared_rate;\n'
+                    (native / 'OpenRename.hpp').write_text(second_saved)
+                    assert mutate('forge_code_open', path=second_path)['ok']
+                    assert mutate('forge_code_open', path='Native/Spinner.cpp')['ok']
+                    open_draft = draft + '\n// Multi-source rename fixture\nfloat shared_rate = 1;\n'
+                    assert mutate('forge_code_replace', **(observed_args() | dict(text=open_draft)))['ok']
+                    first_before = read('forge_code_read', path='Native/Spinner.cpp')
+                    second_before = read('forge_code_read', path=second_path)
+                    open_offset = len(open_draft[:open_draft.index('shared_rate')].encode())
+                    assert mutate('forge_code_analysis_start', **(observed_args() | dict(
+                        kind='renameOpen', offset=open_offset, new_name='angular_speed')))['ok']
+                    open_rename = settle()
+                    assert open_rename['complete'] and open_rename['total'] == 1, open_rename
+                    assert open_rename['scope'] == 'open_sources_current_context' and not open_rename['exhaustive']
+                    open_proposal = open_rename['items'][0]
+                    assert open_proposal['file_count'] == open_proposal['edit_count'] == 2, open_proposal
+                    assert {row['path']: row['text'] for row in open_proposal['files']} == {
+                        'Native/Spinner.cpp': open_draft.replace('shared_rate', 'angular_speed'),
+                        second_path: second_before['text'].replace('shared_rate', 'angular_speed')}
+                    assert read('forge_code_read', path='Native/Spinner.cpp') == first_before
+                    assert read('forge_code_read', path=second_path) == second_before
+                    route = discovery()
+                    apply_open = dict(target=route['result']['target'], expected_revision=route['revision'],
+                                      sequence=route['next_sequence'], operation=open_rename['operation'], index=0)
+                    applied_open = client.tool('forge_code_analysis_use', **apply_open)
+                    assert applied_open['ok'] and client.tool('forge_code_analysis_use', **apply_open) == applied_open
+                    for path, before in [('Native/Spinner.cpp', open_draft), (second_path, second_before['text'])]:
+                        assert read('forge_code_read', path=path)['text'] == before.replace('shared_rate', 'angular_speed')
+                        assert mutate('forge_code_open', path=path)['ok']
+                        state = read('forge_code_read', path=path)
+                        observed = {key: state[key] for key in ('path', 'session', 'state')}
+                        assert mutate('forge_code_undo', **observed)['ok']
+                        assert read('forge_code_read', path=path)['text'] == before
+                        state = read('forge_code_read', path=path)
+                        observed = {key: state[key] for key in ('path', 'session', 'state')}
+                        assert mutate('forge_code_redo', **observed)['ok']
+                        assert read('forge_code_read', path=path)['text'] == before.replace('shared_rate', 'angular_speed')
+                        state = read('forge_code_read', path=path)
+                        observed = {key: state[key] for key in ('path', 'session', 'state')}
+                        assert mutate('forge_code_undo', **observed)['ok']
+                    assert mutate('forge_code_open', path='Native/Spinner.cpp')['ok']
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
+                    assert (native / 'OpenRename.hpp').read_text() == second_saved
                     fix_source = draft + '\n// café\nint fixes_probe() { int value = 1 return value; }\n'
                     assert mutate('forge_code_replace', **(observed_args() | dict(text=fix_source)))['ok']
                     fix_before = read('forge_code_read', path='Native/Spinner.cpp')

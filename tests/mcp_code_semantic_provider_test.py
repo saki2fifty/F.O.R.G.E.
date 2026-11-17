@@ -385,6 +385,49 @@ for legacy in protocol_cases():
             assert (root / 'Native/gameplay.cpp').read_bytes() == saved_original
             assert (root / 'Native/Spinner.hpp').read_bytes() == header_saved
             (root / 'source-navigation-result.json').write_text(json.dumps(cleared, indent=2))
+            # Actual current-context rename across an open header and two consumers.
+            mutate('forge_code_create', kind='header', name='AcrossRename.hpp')
+            mutate('forge_code_create', kind='source', name='AcrossRenameUse.cpp')
+            header_path = 'Native/AcrossRename.hpp'
+            user_path = 'Native/AcrossRenameUse.cpp'
+            open_header = '#pragma once\nstruct AcrossRename { float shared_rate; };\n'
+            open_user = '#include "AcrossRename.hpp"\nfloat read_rate(AcrossRename& s) { return s.shared_rate; }\n'
+            open_main = draft + '\n#include "AcrossRename.hpp"\nfloat main_rate(AcrossRename& s) { return s.shared_rate; }\n'
+            sources = {header_path: open_header, user_path: open_user, 'Native/gameplay.cpp': open_main}
+            saved_open = {path: (root / path).read_bytes() for path in sources}
+            for path, text in sources.items():
+                mutate('forge_code_open', path=path)
+                state = read('forge_code_read', path=path)
+                mutate('forge_code_replace', **{key: state[key] for key in ('path', 'session', 'state')}, text=text)
+            offset = len(open_main[:open_main.index('shared_rate')].encode())
+            mutate('forge_code_analysis_start', **observed(), kind='renameOpen', offset=offset,
+                   new_name='angular_speed', tool=PROVIDER)
+            proposed = settle('forge_code_analysis_status')
+            (root / 'analysis-open-rename-result.json').write_text(json.dumps(proposed, indent=2))
+            assert proposed['complete'] and proposed['total'] == 1, proposed
+            assert proposed['scope'] == 'open_sources_current_context' and not proposed['exhaustive']
+            proposal = proposed['items'][0]
+            assert proposal['file_count'] == proposal['edit_count'] == 3, proposal
+            assert {row['path']: row['text'] for row in proposal['files']} == {
+                path: text.replace('shared_rate', 'angular_speed') for path,text in sources.items()}
+            for path,text in sources.items():
+                assert read('forge_code_read', path=path)['text'] == text
+                assert (root / path).read_bytes() == saved_open[path]
+            mutate('forge_code_analysis_use', operation=proposed['operation'], index=0)
+            for path,text in sources.items():
+                assert read('forge_code_read', path=path)['text'] == text.replace('shared_rate', 'angular_speed')
+                mutate('forge_code_open', path=path)
+                state = read('forge_code_read', path=path)
+                mutate('forge_code_undo', **{key: state[key] for key in ('path', 'session', 'state')})
+                assert read('forge_code_read', path=path)['text'] == text
+                state = read('forge_code_read', path=path)
+                mutate('forge_code_redo', **{key: state[key] for key in ('path', 'session', 'state')})
+                assert read('forge_code_read', path=path)['text'] == text.replace('shared_rate', 'angular_speed')
+                state = read('forge_code_read', path=path)
+                mutate('forge_code_undo', **{key: state[key] for key in ('path', 'session', 'state')})
+                assert (root / path).read_bytes() == saved_open[path]
+            mutate('forge_code_undo', **observed())
+            assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
         finish_host(process, root)
     finally:
         write_capture(CAPTURE)

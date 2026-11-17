@@ -55,7 +55,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 
 | [047](047-audio-impulse-responses.md) | Imported bus responses share project, AudioClip, runtime and export ownership |
 | [048](048-ui-source-authoring.md) | Native UI source and element edits share one draft, history and file owner |
-| [049](049-navigation-link-arcs.md) | Optional arcs retain the navigation source, Query, Agent and distance owners; implementation in progress |
+| [049](049-navigation-link-arcs.md) | Optional arcs retain the navigation source, Query, Agent and distance owners |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

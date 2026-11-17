@@ -8,6 +8,7 @@
 #include <charconv>
 #include <iostream>
 #include <map>
+#include <set>
 #include <span>
 #include <vector>
 
@@ -208,6 +209,58 @@ Json normalized_workspace_edits(const Json& response, const std::string& source,
                     edit.contains("newText"),
                 "Source proposal requires plain unannotated text edits without extra payloads");
     return normalized_source_edits(entry.value(), source, action);
+}
+Json normalized_open_rename(const Json& response, const ui::CppSearchDrafts& documents,
+                            const ProjectPaths& paths, const std::string& name) {
+    Json files = Json::array(), mappings = Json::array();
+    std::set<std::filesystem::path> seen;
+    std::size_t edit_count = 0;
+    if (!response.is_null()) {
+        require(response.is_object() && response.size() == 1 && response.contains("changes") &&
+                    response.at("changes").is_object() &&
+                    response.at("changes").size() <= documents.size(),
+                "Rename in open files requires plain edits to captured open files; resource and "
+                "annotated edits are refused");
+        for (const auto& [uri, edits] : response.at("changes").items()) {
+            const auto locator = paths.relative(local_file_url_path(uri));
+            (void)ui::cpp_source_path(paths.root(), locator);
+            const auto source =
+                std::find_if(documents.begin(), documents.end(), [&](const auto& row) {
+                    return paths.same_locator(row.first, locator);
+                });
+            require(source != documents.end(), "Rename in open files cannot edit an unopened file");
+            require(seen.insert(source->first).second,
+                    "Rename in open files repeats a source through another locator");
+            auto proposal =
+                normalized_workspace_edits({{"changes", {{uri, edits}}}}, source->second, paths,
+                                           source->first, "Rename to " + name);
+            if (proposal.at("items").empty())
+                continue;
+            auto file = std::move(proposal.at("items").at(0));
+            file["path"] = path_utf8(source->first);
+            file["state"] = ui::cpp_source_state(source->second);
+            edit_count += file.at("edit_count").get<std::size_t>();
+            files.push_back(std::move(file));
+            mappings.push_back(std::move(proposal.at("source_edits").at(0)));
+        }
+    }
+    Json items = Json::array(), source_edits = Json::array();
+    if (!files.empty()) {
+        const auto count = files.size();
+        items.push_back({{"available", true},
+                         {"reason", ""},
+                         {"label", "Rename to " + name + " in " + std::to_string(count) +
+                                       (count == 1 ? " open file" : " open files")},
+                         {"file_count", count},
+                         {"edit_count", edit_count},
+                         {"files", std::move(files)}});
+        source_edits.push_back(std::move(mappings));
+    }
+    Json result{
+        {"items", std::move(items)}, {"limited", false}, {"source_edits", std::move(source_edits)}};
+    require(result.dump().size() <= frame_limit / 2,
+            "Rename in open files preview exceeds 4 MiB; open fewer files");
+    return result;
 }
 Json normalized_fixes(const Json& response, const std::string& source, const ProjectPaths& paths,
                       const std::filesystem::path& target) {
@@ -745,10 +798,10 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     }
     validate_cpp_format_range(kind, text, request.at("offset").get<std::size_t>(), end_offset);
     const auto new_name = request.value("new_name", std::string{});
-    if (kind == "rename")
+    if (cpp_rename_kind(kind))
         validate_cpp_rename_name(new_name);
     else
-        require(new_name.empty(), "A new name applies only to Rename in file");
+        require(new_name.empty(), "A new name applies only to a Rename query");
     SemanticTransport transport(request.at("tool").get<std::string>(), paths, context,
                                 kind == "diagnostics" || kind == "fixes" ? target
                                                                          : std::filesystem::path{});
@@ -788,7 +841,7 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         kind == "implementation")
         require(initialized.at("capabilities").at(kind + "Provider").get<bool>(),
                 "Semantic tools require the requested symbol-navigation support");
-    if (kind == "rename")
+    if (cpp_rename_kind(kind))
         require(initialized.at("capabilities").at("renameProvider").get<bool>(),
                 "Semantic tools require symbol rename support");
     if (kind == "fixes") {
@@ -834,9 +887,17 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     auto symbols =
         transport.call("textDocument/documentSymbol",
                        {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}}});
+    if (kind == "renameOpen")
+        for (const auto& [path, draft] : documents) {
+            (void)draft;
+            if (!paths.same_locator(path, target))
+                (void)transport.call(
+                    "textDocument/documentSymbol",
+                    {{"textDocument", {{"uri", local_file_url(paths.resolve(path))}}}});
+        }
     Json parameters{{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}},
                     {"position", position}};
-    if (kind == "rename")
+    if (cpp_rename_kind(kind))
         parameters["newName"] = new_name;
     if (kind == "references")
         parameters["context"] = {{"includeDeclaration", false}};
@@ -879,6 +940,7 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
                                   : kind == "selection"       ? std::string("selectionRange")
                                   : kind == "format"          ? std::string("formatting")
                                   : kind == "formatSelection" ? std::string("rangeFormatting")
+                                  : kind == "renameOpen"      ? std::string("rename")
                                   : kind == "fixes"           ? std::string("codeAction")
                                                               : kind),
                              parameters);
@@ -887,26 +949,30 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         asset_storage::read(context / "compile_commands.json", 16 * 1024 * 1024);
     require(current_database && ui::cpp_source_state(*current_database) == context_state,
             "C++ compiler context changed during analysis; query again");
-    auto result = kind == "completion"    ? normalized_completions(response, text)
-                  : kind == "signature"   ? normalized_signatures(response)
-                  : kind == "diagnostics" ? normalized_diagnostics(response, target, text)
-                  : kind == "hover"       ? normalized_hover(response, text)
-                  : kind == "symbols"     ? normalized_symbols(response, target, text)
-                  : kind == "selection"
-                      ? normalized_selection(response, text, path_utf8(target),
-                                             request.at("offset").get<std::size_t>())
-                  : kind == "rename" ? normalized_workspace_edits(response, text, paths, target,
-                                                                  "Apply rename to " + new_name)
-                  : kind == "fixes"  ? normalized_fixes(response, text, paths, target)
-                  : kind == "format" || kind == "formatSelection"
-                      ? normalized_source_edits(response, text)
-                      : normalized_locations(response, paths, documents, kind == "references");
+    auto result =
+        kind == "completion"    ? normalized_completions(response, text)
+        : kind == "signature"   ? normalized_signatures(response)
+        : kind == "diagnostics" ? normalized_diagnostics(response, target, text)
+        : kind == "hover"       ? normalized_hover(response, text)
+        : kind == "symbols"     ? normalized_symbols(response, target, text)
+        : kind == "selection"   ? normalized_selection(response, text, path_utf8(target),
+                                                       request.at("offset").get<std::size_t>())
+        : kind == "renameOpen"  ? normalized_open_rename(response, documents, paths, new_name)
+        : kind == "rename"      ? normalized_workspace_edits(response, text, paths, target,
+                                                             "Apply rename to " + new_name)
+        : kind == "fixes"       ? normalized_fixes(response, text, paths, target)
+        : kind == "format" || kind == "formatSelection"
+            ? normalized_source_edits(response, text)
+            : normalized_locations(response, paths, documents, kind == "references");
     if (kind == "formatSelection")
         result["range"] = {{"begin", request.at("offset")}, {"end", *end_offset}};
-    if (kind == "rename")
+    if (cpp_rename_kind(kind))
         result["new_name"] = new_name;
-    if (kind == "references" || kind == "implementation" || kind == "rename" || kind == "fixes")
-        result.update({{"scope", "current_context"}, {"exhaustive", false}});
+    if (kind == "references" || kind == "implementation" || cpp_rename_kind(kind) ||
+        kind == "fixes")
+        result.update(
+            {{"scope", kind == "renameOpen" ? "open_sources_current_context" : "current_context"},
+             {"exhaustive", false}});
     result.update({{"version", 1},
                    {"id", request.at("id")},
                    {"kind", kind},

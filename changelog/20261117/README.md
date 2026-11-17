@@ -1,5 +1,14 @@
 # 2026-11-17
 
+## C++ rename in open files
+
+Code assistance can preview and apply a symbol rename across currently open
+project C++ sources. One complete proposal identifies every changed file; source
+and compiler-context guards apply before editing. Each file keeps its existing
+Undo/Redo, with explicit Save and Build. Native controls, automation and MCP
+use the same source task and application path. Unopened files, resource operations
+and oversized previews are refused; this remains a current-context workflow.
+
 ## Authored navigation arcs
 
 Navigation Link adds an optional world-space arc height. Straight defaults retain

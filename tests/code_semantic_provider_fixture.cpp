@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <map>
+#include <set>
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
@@ -22,6 +23,25 @@ std::pair<std::size_t, std::size_t> fixture_identifier(const std::string& text,
         ++end;
     return {begin, end};
 }
+nlohmann::json fixture_rename_edits(const std::string& text, const std::string& word,
+                                    const nlohmann::json& name) {
+    auto edits = nlohmann::json::array();
+    for (std::size_t from = 0;;) {
+        const auto begin = text.find(word, from);
+        if (begin == text.npos)
+            break;
+        const auto end = begin + word.size();
+        from = end;
+        if ((begin && identifier_byte(text[begin - 1])) ||
+            (end < text.size() && identifier_byte(text[end])))
+            continue;
+        edits.push_back({{"range",
+                          {{"start", forge::cpp_semantic_position(text, begin)},
+                           {"end", forge::cpp_semantic_position(text, end)}}},
+                         {"newText", name}});
+    }
+    return edits;
+}
 } // namespace
 
 // Deterministic protocol peer, not a semantic compiler. Real-provider evidence
@@ -36,6 +56,7 @@ int main() {
         const auto* selected = std::getenv("FORGE_SEMANTIC_FIXTURE_CASE");
         const std::string mode = selected ? selected : "normal";
         std::map<std::string, std::string> drafts;
+        std::set<std::string> ready_sources;
         std::string ready;
         const auto send = [](const Json& value) {
             const auto reply = value.dump();
@@ -111,6 +132,7 @@ int main() {
                     result["capabilities"].erase("signatureHelpProvider");
             } else if (method == "textDocument/documentSymbol") {
                 ready = request.at("params").at("textDocument").at("uri").get<std::string>();
+                ready_sources.insert(ready);
                 result = Json::array();
                 const auto& text = drafts.at(ready);
                 const std::string field = text.find("outline_member") != text.npos
@@ -293,25 +315,38 @@ int main() {
                 const auto word = text.substr(first, last - first);
                 if (word.empty())
                     throw std::runtime_error("Choose a fixture source name");
-                Json edits = Json::array();
-                for (std::size_t from = 0;;) {
-                    const auto begin = text.find(word, from);
-                    if (begin == text.npos)
-                        break;
-                    const auto end = begin + word.size();
-                    from = end;
-                    if ((begin && identifier_byte(text[begin - 1])) ||
-                        (end < text.size() && identifier_byte(text[end])))
-                        continue;
-                    edits.push_back({{"range",
-                                      {{"start", forge::cpp_semantic_position(text, begin)},
-                                       {"end", forge::cpp_semantic_position(text, end)}}},
-                                     {"newText", parameters.at("newName")}});
-                }
+                auto edits = fixture_rename_edits(text, word, parameters.at("newName"));
                 result = {{"changes", {{uri, edits}}}};
                 const auto other =
                     forge::local_file_url(std::filesystem::current_path() / "Native/Other.hpp");
-                if (mode == "rename-null")
+                if (mode.starts_with("rename-open") ||
+                    text.find("// Multi-source rename fixture") != text.npos) {
+                    result["changes"] = Json::object();
+                    for (const auto& [file, draft] : drafts) {
+                        if (!ready_sources.contains(file))
+                            throw std::runtime_error("Rename in open files skipped AST readiness");
+                        auto changes = fixture_rename_edits(draft, word, parameters.at("newName"));
+                        if (!changes.empty())
+                            result["changes"][file] = std::move(changes);
+                    }
+                    if (mode == "rename-open-unopened")
+                        result["changes"][other] = edits;
+                    if (mode == "rename-open-alias") {
+                        auto alias = uri;
+                        alias.replace(alias.find("First.cpp"), 1, "%46");
+                        result["changes"][alias] = edits;
+                    }
+                    if (mode == "rename-open-range")
+                        result["changes"].back().back()["range"]["end"]["character"] = 999999;
+                    if (mode == "rename-open-overlap")
+                        result["changes"].back().push_back(result["changes"].back().at(0));
+                    if (mode == "rename-open-annotations")
+                        result["changeAnnotations"] = {{"confirmation", {{"label", "Unreviewed"}}}};
+                    if (mode == "rename-open-budget")
+                        for (auto& changes : result["changes"])
+                            for (auto& edit : changes)
+                                edit["newText"] = std::string(800000, 'x');
+                } else if (mode == "rename-null")
                     result = nullptr;
                 else if (mode == "rename-empty")
                     result = {{"changes", Json::object()}};

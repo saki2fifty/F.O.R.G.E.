@@ -448,6 +448,53 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     editor.undo(false);
     check(ui::read_cpp_source(rename_path) == rename_saved && scene.document() == authored,
           "Native rename changed saved source or Scene data");
+    const auto open_header = root / "Native/OpenRename.hpp";
+    const auto open_user = root / "Native/OpenRenameUse.cpp";
+    const std::string header_text = "#pragma once\nstruct OpenRename { float shared_rate; };\n";
+    const std::string user_text =
+        "// Multi-source rename fixture\n#include \"OpenRename.hpp\"\n"
+        "float read_rate(OpenRename& value) { return value.shared_rate; }\n";
+    for (const auto& [path, text] :
+         {std::pair{open_header, header_text}, std::pair{open_user, user_text}}) {
+        if (!std::filesystem::exists(path))
+            atomic_write(path, text);
+        check(ui::read_cpp_source(path) == text,
+              "Rename in open files fixture would overwrite unrelated source");
+    }
+    editor.open(document, "Native/OpenRename.hpp");
+    const auto header_before = editor.active_text();
+    const auto open_position =
+        ui::cpp_source_coordinate(user_text, user_text.find("shared_rate") + 2);
+    editor.open(document, "Native/OpenRenameUse.cpp", open_position.first + 1,
+                open_position.second + 1);
+    const auto user_before = editor.active_text();
+    frame();
+    input.click("cpp:analysis:renameOpen");
+    input.type("cpp:rename:name", "angular_speed", false);
+    input.click("cpp:rename:preview");
+    wait_result();
+    check(editor.active_text() == user_before && ui::read_cpp_source(open_header) == header_text,
+          "Rename in open files preview changed a draft or saved source");
+    if (!captures.empty())
+        capture.save(captures / ("cpp-open-source-rename-" + std::to_string(width) + ".png"));
+    input.select("cpp:analysis:use:0");
+    frame();
+    auto user_after = user_before, header_after = header_before;
+    user_after.replace(user_after.find("shared_rate"), 11, "angular_speed");
+    header_after.replace(header_after.find("shared_rate"), 11, "angular_speed");
+    check(editor.active_text() == user_after, "Native rename missed its active source");
+    editor.undo(false);
+    check(editor.active_text() == user_before, "Native rename in open files lost active-file Undo");
+    editor.open(document, "Native/OpenRename.hpp");
+    check(editor.active_text() == header_after, "Native rename missed its open header");
+    editor.undo(false);
+    check(editor.active_text() == header_before, "Native rename in open files lost header Undo");
+    editor.undo(true);
+    check(editor.active_text() == header_after, "Native rename in open files lost header Redo");
+    editor.undo(false);
+    check(ui::read_cpp_source(open_header) == header_text &&
+              ui::read_cpp_source(open_user) == user_text && scene.document() == authored,
+          "Native multi-source rename saved source or changed Scene data");
     const auto fix_path = root / "Native/QuickFixProbe.hpp";
     const std::string fix_saved =
         "#pragma once\n// café\nint fixes_probe() { int value = 1 return value; }\n";

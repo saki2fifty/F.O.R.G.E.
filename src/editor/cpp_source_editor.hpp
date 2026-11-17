@@ -13,6 +13,7 @@
 #include <deque>
 #include <imgui_internal.h>
 #include <memory>
+#include <set>
 #include <utility>
 
 namespace forge {
@@ -49,7 +50,7 @@ class CppSourceEditor {
     };
     std::optional<Location> rename_target_;
     std::string rename_session_, rename_state_;
-    bool rename_stale_ = false;
+    bool rename_stale_ = false, rename_open_ = false;
     std::deque<Location> back_locations_, forward_locations_;
     std::uint64_t navigation_revision_ = 0;
     bool replaying_navigation_ = false;
@@ -197,6 +198,56 @@ class CppSourceEditor {
                 return tab.get();
         return nullptr;
     }
+    void apply_source_proposals(const nlohmann::json& files, const nlohmann::json& mappings,
+                                Tab* focus) {
+        if (!files.is_array() || files.empty() || files.size() > 64 || !mappings.is_array() ||
+            mappings.size() != files.size())
+            throw std::runtime_error("C++ proposal has an invalid file list");
+        struct Prepared {
+            Tab* tab;
+            std::string text;
+            TextEditor::Coordinates caret;
+        };
+        std::vector<Prepared> prepared;
+        std::set<Tab*> seen;
+        for (std::size_t i = 0; i < files.size(); ++i) {
+            const auto& file = files.at(i);
+            auto* tab = find(file.at("path").get<std::string>());
+            if (!tab || tab->editor.IsReadOnly() || !seen.insert(tab).second)
+                throw std::runtime_error("Open every proposed C++ source as an editable tab");
+            const auto before = tab->editor.GetText();
+            if (cpp_source_state(before) != file.at("state").get<std::string>())
+                throw std::runtime_error("A proposed C++ source changed; run analysis again");
+            const auto begin = file.at("begin").get<std::size_t>();
+            const auto end = file.at("end").get<std::size_t>();
+            if (begin > end || end > before.size())
+                throw std::runtime_error("C++ source edit has an invalid source range");
+            auto after = before;
+            after.replace(begin, end - begin, file.at("text").get<std::string>());
+            validate_cpp_text(after);
+            if (after.size() >= max_cpp_source_bytes)
+                throw std::runtime_error(
+                    "Leave room for the source editor's final newline within 1 MiB");
+            const auto cursor = tab->editor.GetCursorPosition();
+            const auto point = cpp_source_clamped_coordinate(before, cursor.mLine, cursor.mColumn);
+            const auto offset = cpp_source_byte_offset(before, point.first, point.second);
+            const auto mapped = mapped_source_offset(offset, mappings.at(i));
+            const auto next = cpp_source_coordinate(after, std::min(mapped, after.size()));
+            if (after != before)
+                prepared.push_back({tab, std::move(after), {next.first, next.second}});
+        }
+        // Validate every draft and caret before any widget/history mutation.
+        for (const auto& change : prepared) {
+            replace_source_widget_text(change.tab->editor, change.text);
+            position_source(*change.tab, change.caret);
+            source_changed(*change.tab);
+        }
+        if (!prepared.empty() && focus) {
+            select_tab_next_frame(*focus);
+            activate_source(*focus);
+            open_ = focus_ = true;
+        }
+    }
     void erase(std::string locator) {
         semantic_task_.invalidate();
         const auto previous_location = location();
@@ -315,7 +366,11 @@ class CppSourceEditor {
         if (index >= items.size() || !items.at(index).at("available").get<bool>())
             throw std::runtime_error("Choose an available C++ analysis result");
         // Own the row before any source operation can invalidate the derived result.
-        const auto item = items.at(index);
+        auto item = items.at(index);
+        if (result.at("kind") == "renameOpen") {
+            apply_source_proposals(item.at("files"), result.at("source_edits").at(index), active_);
+            return;
+        }
         const bool proposal = result.at("kind").get<std::string>() == "format" ||
                               result.at("kind").get<std::string>() == "formatSelection" ||
                               result.at("kind").get<std::string>() == "rename" ||
@@ -337,6 +392,14 @@ class CppSourceEditor {
         auto* tab = find(result.at("path").get<std::string>());
         if (!tab || tab->editor.IsReadOnly())
             throw std::runtime_error("Open an editable C++ source first");
+        if (proposal) {
+            item["path"] = result.at("path");
+            item["state"] = result.at("state");
+            apply_source_proposals(nlohmann::json::array({item}),
+                                   nlohmann::json::array({result.at("source_edits").at(index)}),
+                                   tab);
+            return;
+        }
         const auto before = tab->editor.GetText();
         const auto begin = item.at("begin").get<std::size_t>();
         const auto end = item.at("end").get<std::size_t>();
@@ -351,22 +414,11 @@ class CppSourceEditor {
                 "Leave room for the source editor's final newline within 1 MiB");
         if (after == before)
             return;
-        if (proposal) {
-            const auto cursor = tab->editor.GetCursorPosition();
-            const auto point = cpp_source_clamped_coordinate(before, cursor.mLine, cursor.mColumn);
-            const auto offset = cpp_source_byte_offset(before, point.first, point.second);
-            const auto mapped = mapped_source_offset(offset, result.at("source_edits").at(index));
-            replace_source_widget_text(tab->editor, after);
-            const auto next = cpp_source_coordinate(after, std::min(mapped, after.size()));
-            position_source(*tab, TextEditor::Coordinates(next.first, next.second));
-        } else {
-            const auto start = cpp_source_coordinate(before, begin);
-            const auto finish = cpp_source_coordinate(before, end);
-            replace_source_widget_text(
-                tab->editor, replacement,
-                std::pair{TextEditor::Coordinates(start.first, start.second),
-                          TextEditor::Coordinates(finish.first, finish.second)});
-        }
+        const auto start = cpp_source_coordinate(before, begin);
+        const auto finish = cpp_source_coordinate(before, end);
+        replace_source_widget_text(tab->editor, replacement,
+                                   std::pair{TextEditor::Coordinates(start.first, start.second),
+                                             TextEditor::Coordinates(finish.first, finish.second)});
         source_changed(*tab);
         select_tab_next_frame(*tab);
         activate_source(*tab);
@@ -968,10 +1020,11 @@ class CppSourceEditor {
     }
     void draw_rename_popup(SceneDocument& project, bool locked) {
         // A source cursor update can refocus the text widget; retain this owned form's intent.
-        if (rename_target_ && !ImGui::IsPopupOpen("Rename in file"))
-            ImGui::OpenPopup("Rename in file");
-        if (ImGui::BeginPopupModal("Rename in file", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-            constexpr auto stale_hint = "Source changed. Close and reopen Rename in file.";
+        const auto* title = rename_open_ ? "Rename in open files" : "Rename in file";
+        if (rename_target_ && !ImGui::IsPopupOpen(title))
+            ImGui::OpenPopup(title);
+        if (ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            constexpr auto stale_hint = "Source changed. Close and reopen this Rename dialog.";
             const bool source_current = rename_target_ && active_ &&
                                         active_->locator == rename_target_->path &&
                                         active_->session == rename_session_;
@@ -979,7 +1032,10 @@ class CppSourceEditor {
                 ImGui::TextWrapped("Rename at %s:%d:%d", rename_target_->path.c_str(),
                                    rename_target_->line, rename_target_->column);
             ImGui::TextWrapped(
-                "Preview a rename in this source. Edits to other files are refused.");
+                rename_open_
+                    ? "Preview edits across open C++ drafts in this context. "
+                      "Unopened files are refused; review every proposed file."
+                    : "Preview a rename in this source. Edits to other files are refused.");
             if (!source_current || rename_stale_) {
                 ImGui::TextWrapped("%s", stale_hint);
                 FORGE_UI_PROBE("cpp:rename:stale");
@@ -996,7 +1052,8 @@ class CppSourceEditor {
                         rename_stale_ = true;
                         throw std::runtime_error(stale_hint);
                     }
-                    query_semantics_at(project, "rename", *rename_target_, rename_name_);
+                    query_semantics_at(project, rename_open_ ? "renameOpen" : "rename",
+                                       *rename_target_, rename_name_);
                     rename_target_.reset();
                     ImGui::CloseCurrentPopup();
                 });
@@ -1030,7 +1087,7 @@ class CppSourceEditor {
             {"format", "Format source"},       {"formatSelection", "Format selection"},
             {"definition", "Find definition"}, {"implementation", "Find implementations"},
             {"selection", "Select syntax"},    {"fixes", "Quick fixes"},
-            {"rename", "Rename in file..."}};
+            {"rename", "Rename in file..."},   {"renameOpen", "Rename in open files..."}};
         for (const auto& [kind, label] : actions) {
             if (!first_button)
                 next_text_button(label);
@@ -1040,13 +1097,14 @@ class CppSourceEditor {
             if (button(
                     label,
                     "Analyze the current source or position without saving or changing source.")) {
-                if (std::string_view(kind) == "rename") {
+                if (cpp_rename_kind(kind)) {
+                    rename_open_ = std::string_view(kind) == "renameOpen";
                     rename_target_ = location();
                     rename_session_ = active_->session;
                     rename_state_ = cpp_source_state(active_->editor.GetText());
                     rename_stale_ = false;
                     rename_name_[0] = '\0';
-                    ImGui::OpenPopup("Rename in file");
+                    ImGui::OpenPopup(rename_open_ ? "Rename in open files" : "Rename in file");
                 } else
                     attempt([&] { query_semantics_at(project, kind, *location()); });
             }
@@ -1079,7 +1137,8 @@ class CppSourceEditor {
             const bool type_definition = result.at("kind").get<std::string>() == "typeDefinition";
             const bool format = result.at("kind").get<std::string>() == "format" ||
                                 result.at("kind").get<std::string>() == "formatSelection";
-            const bool rename = result.at("kind").get<std::string>() == "rename";
+            const bool rename = cpp_rename_kind(result.at("kind").get<std::string>());
+            const bool open_rename = result.at("kind") == "renameOpen";
             const bool fixes = result.at("kind").get<std::string>() == "fixes";
             const bool proposal = format || rename || fixes;
             const bool selection = result.at("kind").get<std::string>() == "selection";
@@ -1124,8 +1183,13 @@ class CppSourceEditor {
             if (format)
                 ImGui::TextWrapped("Formatting proposal. Source changes when you apply it.");
             if (rename)
-                ImGui::TextWrapped("Rename proposal for this file and current context. Review "
-                                   "references before applying; Save and Build remain separate.");
+                ImGui::TextWrapped(
+                    open_rename
+                        ? "Review every changed open file. Applying changes drafts together; each "
+                          "file retains its own Undo. Save and Build remain separate. This is not "
+                          "an exhaustive project index."
+                        : "Rename proposal for this file and current context. Review references "
+                          "before applying; Save and Build remain separate.");
             if (fixes)
                 ImGui::TextWrapped("Quick fixes at this cursor. Review a proposal before applying; "
                                    "Save and Build remain separate.");
@@ -1211,8 +1275,21 @@ class CppSourceEditor {
                 ImGui::EndDisabled();
                 if (proposal && item.at("available").get<bool>()) {
                     ImGui::TextUnformatted("Proposed source");
-                    const auto& preview = item.at("text").get_ref<const std::string&>();
-                    ImGui::TextUnformatted(preview.data(), preview.data() + preview.size());
+                    const auto show_source = [](const auto& row) {
+                        const auto& preview = row.at("text").template get_ref<const std::string&>();
+                        ImGui::TextUnformatted(preview.data(), preview.data() + preview.size());
+                    };
+                    if (open_rename) {
+                        for (const auto& file : item.at("files")) {
+                            ImGui::Separator();
+                            ImGui::TextUnformatted(
+                                file.at("path").get_ref<const std::string&>().c_str());
+                            FORGE_UI_PROBE("cpp:analysis:rename_file:" +
+                                           file.at("path").get<std::string>());
+                            show_source(file);
+                        }
+                    } else
+                        show_source(item);
                     FORGE_UI_PROBE("cpp:analysis:format:" + std::to_string(i));
                 }
                 if (!item.at("available").get<bool>())

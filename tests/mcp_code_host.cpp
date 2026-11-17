@@ -77,7 +77,10 @@ int main(int argc, char** argv) {
         permissions.execute = mode == "execute" || mode == "inspect" || mode == "analysis";
         workspace.start(scene, files, mode != "read", mode != "read", permissions);
         std::cout << workspace.connection().connection().dump() << std::endl;
-        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(240);
+        // The complete deterministic analysis suite also runs with instrumented
+        // helpers/providers. Keep its fixture lifetime above that diagnostic run.
+        const auto lifetime = mode == "analysis" ? 600 : 240;
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(lifetime);
         while (workspace.active() && std::chrono::steady_clock::now() < end) {
             if (forge::test::consume_marker(root / "stop"))
                 break;

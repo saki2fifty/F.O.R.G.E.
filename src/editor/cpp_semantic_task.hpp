@@ -91,10 +91,10 @@ class CppSemanticTask {
             throw std::runtime_error("Wait for C++ analysis or cancel the current query first");
         if (!cpp_semantic_kind(kind))
             throw std::runtime_error("Choose a supported C++ analysis kind");
-        if (kind == "rename")
+        if (cpp_rename_kind(kind))
             validate_cpp_rename_name(new_name);
         else if (!new_name.empty())
-            throw std::runtime_error("A new name applies only to Rename in file");
+            throw std::runtime_error("A new name applies only to a Rename query");
         const auto source = drafts.find(std::filesystem::u8path(path));
         if (source == drafts.end() || offset > source->second.size() || drafts.size() > 64)
             throw std::runtime_error("Choose an open source position, with at most 64 open tabs");
