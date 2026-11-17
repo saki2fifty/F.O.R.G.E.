@@ -3,9 +3,14 @@
 constexpr const char* character_scene_path = "Scenes/224-navigation-characters.scene.json";
 constexpr const char* planar_character_scene_path =
     "Scenes/225-navigation-characters-xy.scene.json";
+constexpr const char* jump_character_scene_path =
+    "Scenes/226-navigation-character-jumps.scene.json";
 void prepare_character_gallery(const std::filesystem::path& root,
-                               const std::filesystem::path& worker, bool planar = false) {
-    const auto* path = planar ? planar_character_scene_path : character_scene_path;
+                               const std::filesystem::path& worker, bool planar = false,
+                               bool jump = false) {
+    const auto* path = jump     ? jump_character_scene_path
+                       : planar ? planar_character_scene_path
+                                : character_scene_path;
     const auto lease = std::make_shared<ProjectLease>(root);
     EngineContext engine;
     Scene scene(engine.world());
@@ -25,7 +30,8 @@ void prepare_character_gallery(const std::filesystem::path& root,
     prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
 }
 void exercise_character_gallery(const std::filesystem::path& root,
-                                const std::filesystem::path& source, bool planar = false) {
+                                const std::filesystem::path& source, bool planar = false,
+                                bool jump = false) {
     const auto saved = read(root / source);
     GameSession session(session_config(root));
     const auto candidate = session.prepare(saved);
@@ -46,7 +52,7 @@ void exercise_character_gallery(const std::filesystem::path& root,
             free = world.scene.entity(row.at("id"));
         else if (name == "Blocked route character")
             blocked = world.scene.entity(row.at("id"));
-        else if (name.starts_with("Red physical wall"))
+        else if (name.starts_with("Red physical wall") || name.starts_with("Red flight wall"))
             wall = world.scene.entity(row.at("id"));
     }
     check(free && blocked && wall && physics, "Character Gallery participants are missing");
@@ -62,12 +68,18 @@ void exercise_character_gallery(const std::filesystem::path& root,
         const auto value = physics->character(ref(e));
         return {{value.position.x, value.position.y, value.position.z}, value.velocity};
     };
-    bool saw_blocked = false;
+    bool saw_blocked = false, free_takeoff = false, blocked_takeoff = false;
     for (unsigned tick = 0; tick != 420; ++tick) {
         session.step();
         for (const auto actor : {free, blocked}) {
             const auto state = navigation->agent_state(ref(actor));
             const auto [position, velocity] = actual(actor);
+            if (jump) {
+                const auto character = physics->character(ref(actor));
+                (actor == free ? free_takeoff : blocked_takeoff) |= character.jump_accepted;
+                if (actor == blocked && state && state->phase == NavigationAgentPhase::Failed)
+                    continue;
+            }
             check(state && state->sampled && std::abs(state->position[0] - position[0]) < 1e-6 &&
                       std::abs(state->position[1] - position[1]) < 1e-6 &&
                       state->position[2] == position[2] && state->velocity == velocity,
@@ -75,12 +87,16 @@ void exercise_character_gallery(const std::filesystem::path& root,
                       navigation->debug(actor.id()).dump());
         }
         const auto state = navigation->agent_state(ref(blocked));
-        saw_blocked |= state->phase == NavigationAgentPhase::Blocked;
+        saw_blocked |= state->phase == NavigationAgentPhase::Blocked ||
+                       (jump && state->phase == NavigationAgentPhase::Failed);
         check(actual(blocked).first[0] < (planar ? -.44 : -.45),
               "Gallery character bypassed its physical wall");
     }
     check(saw_blocked && navigation->agent_state(ref(free))->phase == NavigationAgentPhase::Arrived,
           "Gallery did not demonstrate both physical blockage and free arrival");
+    if (jump)
+        check(free_takeoff && blocked_takeoff && std::abs(actual(free).first[1] - 2) < .1,
+              "Jump Gallery did not demonstrate native takeoff and the raised landing");
     if (planar) {
         auto body = wall.get<PhysicsBody2D>();
         body.enabled = false;
@@ -89,6 +105,10 @@ void exercise_character_gallery(const std::filesystem::path& root,
         auto body = wall.get<PhysicsBody>();
         body.enabled = false;
         wall.set<PhysicsBody>(body);
+    }
+    if (jump) {
+        physics->place_character(ref(blocked), {-3, .1, 3}, {}, true);
+        session.step();
     }
     for (unsigned tick = 0; tick != 240; ++tick) {
         session.step();

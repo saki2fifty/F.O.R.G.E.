@@ -1165,9 +1165,14 @@ NavigationAgent `movement` is an authored integer selector (0 Navigation,
 permission checks, history, Prefab intent and explicit Save. Missing/zero preserves
 legacy source. It is Edit-only and excluded from `forge_play_tune` and Keep review.
 Mode1 uses the existing enabled upright World +Y3D CharacterController, physical
-floor/colliders and a 3D ground route without explicit links. Mode2 uses a World-bound
+floor/colliders and a 3D ground route, including positive-lift physical jump links
+between static supports. Configure NavigationLink arc_height and endpoints through
+the ordinary component/property tools, build with forge_navigation_build and set
+enough Agent speed for the range. Actual native takeoff, obstruction, landing and
+failure appear in Play observations; physical link debug includes physical_jump.
+Gallery226 demonstrates a raised landing and a solid flight obstruction. Mode2 uses a World-bound
 Floating CharacterController2D, XY NavMesh and physical Collider2D obstructions,
-preserving visual Z. Grounded platformer routing and explicit links are unsupported.
+preserving visual Z. Grounded XY platformer routing and XY explicit links are unsupported.
 Add/configure those
 through the same component/property operations; no character-navigation tool or
 alternate movement implementation exists. Existing Play observations report actual

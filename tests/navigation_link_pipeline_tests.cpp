@@ -26,10 +26,12 @@ Json record(const AssetCatalog& catalog, AssetId id) {
             return row;
     throw std::runtime_error("Published navigation record missing");
 }
+#include "navigation_character_jump_tests.hpp"
 #include "navigation_link_collision_tests.hpp"
 #include "navigation_link_runtime_tests.hpp"
 void run(const std::filesystem::path& root, const std::filesystem::path& worker,
-         NavigationPlane plane, bool dynamic, bool arc, bool collision = false) {
+         NavigationPlane plane, bool dynamic, bool arc, bool collision = false,
+         bool character = false) {
     using namespace navigation_detail;
     SceneDocument::create_project(root, "Authored navigation connections");
     EngineContext engine;
@@ -136,7 +138,9 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
     scene.entity(obstacle_id)
         .set<LocalTranslation>({2, plane == NavigationPlane::Spatial3D ? 2. : 0., 0})
         .set<NavigationObstacle>({false, 1, 2});
-    if (collision)
+    if (character)
+        character_jumps(scene.snapshot(), root, EntityId::parse(actor_id));
+    else if (collision)
         collision_movement(scene.snapshot(), root, EntityId::parse(actor_id), plane);
     else {
         movement(scene.snapshot(), root, EntityId::parse(actor_id), baked, untouched,
@@ -206,13 +210,17 @@ int main(int argc, char** argv) {
               "Need scratch root, matching navigation worker and optional profile");
         const std::string_view profile = argc == 4 ? argv[3] : "all";
         const bool collision = profile == "collision-straight" || profile == "collision-arc";
-        check(profile == "all" || profile == "straight" || profile == "arc" || collision,
+        const bool character = profile == "character-jump";
+        check(profile == "all" || profile == "straight" || profile == "arc" || collision ||
+                  character,
               "Unknown navigation pipeline profile");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         for (auto plane : {NavigationPlane::Spatial3D, NavigationPlane::PlanarXY})
             for (bool dynamic : {false, true})
                 for (bool arc : {false, true}) {
+                    if (character && (plane != NavigationPlane::Spatial3D || dynamic || !arc))
+                        continue;
                     if (((profile == "straight" || profile == "collision-straight") && arc) ||
                         ((profile == "arc" || profile == "collision-arc") && !arc))
                         continue;
@@ -221,7 +229,7 @@ int main(int argc, char** argv) {
                                        (arc ? "-arc" : "-straight");
                     std::cout << "Navigation pipeline " << label << " begin" << std::endl;
                     run(root / label, std::filesystem::absolute(argv[2]), plane, dynamic, arc,
-                        collision);
+                        collision, character);
                     std::cout << "Navigation pipeline " << label << " PASS" << std::endl;
                 }
         std::filesystem::remove_all(root);

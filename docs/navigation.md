@@ -398,8 +398,8 @@ The added public value changes exact SDK identity; rebuild modules against the
 matching SDK. No C callback table or pinned dependency changed.
 
 Movement1 requires an enabled upright world +Y 3D CharacterController, World
-spatial binding and no other enabled body/controller. Only Spatial3D ground
-routes without explicit links are admitted. The existing route/avoidance owner
+spatial binding and no other enabled body/controller. Spatial3D ground routes and
+the positive-lift physical link profile below are admitted. The existing route/avoidance owner
 computes steering. A host-only PhysicsService::move_character_once request joins
 the existing bounded character command queue, applies for one positive physics
 step, and expires without changing actual velocity observations. Zero-time
@@ -450,6 +450,44 @@ navigation2–7. The optional Native2D flag is admitted only by the matching out
 profile; false/malformed flags, downgrades and empty extensions reject before
 candidate publication. Actual XY pose remains Scene/physics-owned.
 
+### Physical jump links
+
+[ADR053](decisions/053-navigation-character-jumps.md) extends movement1 to
+positive-lift 3D links between static physical supports. No new authored field,
+pose owner, command queue or SDK callback is introduced. Floating XY and
+zero-height character links remain unsupported. Direct movement retains its
+prescribed arc and optional link-query collision behavior.
+
+Navigation reads configured gravity from PhysicsService, including the current
+CharacterController gravity factor. Only downward world-Y gravity is admitted.
+Incompatible gravity rejects when the linked route is selected, before approach
+or avoidance can keep the character cycling near takeoff.
+For lift h and effective downward acceleration g, duration T=sqrt(8h/g) and
+takeoff speed=(exitY-actualY+4h)/T+g*dt/2 compensate the native velocity-first
+step. A takeoff must rise and descend before the exit, have at least four fixed
+samples and fit horizontal span/T within Agent Speed. Static takeoff support and
+a static landing ray at the admitted exit are required. The character's own
+collision masks remain authoritative; optional direct-link query settings never
+disable physical collision. Actual flight need not lie on the geometric arc.
+
+PhysicsService::jump_character_once copies combined planar movement and jump
+into the existing FIFO. CharacterRecord retains its automatic origin across
+zero-time synchronization and capsule recreation. A manual movement, jump or
+placement cancels armed automatic movement/jump and wins in either queue order.
+The next positive step consumes the request once. Physics recovery13 is canonical
+only with queued kind5 or an armed jump_once flag; unused profiles remain10–12.
+
+The existing Agent crossing retains the admitted source/endpoints/lift and marks
+physical_jump. Native jump acceptance, copied position/velocity and actual
+descending static support determine progress. Landing outside the admitted exit
+tolerance or falling below the landing region fails; it never reports arrival
+from projection alone. Speed0 stops steering, not gravity. Cancelling releases
+steering; destination changes replan after landing. Navigation recovery9 retains
+the link marker without a character translation or on-curve pose constraint and
+requires matching restored native physics. Older profiles remain unchanged.
+SDK Play uses authored restart. Gallery226 exercises physical blockage, a raised
+landing and source-hidden relocated export through the same owners.
+
 ## Runtime ownership
 
 `forge.navigation` uses EngineModule lifecycle. Authoring/validation compositions receive schemas; runtime compositions provide a world-scoped Navigation service. No ImGui, renderer or audio device is required. Primitive-only compositions remain usable without a Resources provider. External Mesh geometry lazily requests builtin CPU Resources after bootstrap and holds world-scoped subscriptions; it never creates a competing runtime mesh pool. A selected Mesh load holds the agent Pending (no sample/tick0); missing providers or failed/stale selection prevents movement. Retaining last-good bytes does not authorize following a NavMesh built against a different selected revision. Provider shutdown revokes CPU leases. Synchronization reads retained data/revisions, without re-decoding cooked Mesh files on each tick. Owner-thread queries return owned FORGE waypoint arrays with explicit success, missing/stale, outside, no-path, partial, invalid, unavailable and limit statuses. Partial paths are diagnosed and not followed. Query scratch is private to the runtime world; immutable meshes are shared within its cache.
@@ -489,7 +527,7 @@ No callback-table field or independent authoring path is added. `FORGE_SDK_NAVIG
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, cost editing, physics-driven jumping, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving is limited to upright 3D ground routes or Floating XY routes without explicit links. Grounded platformer routing remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, cost editing, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving supports upright 3D ground routes and bounded positive-lift jumps between static supports, or Floating XY routes without explicit links. Grounded XY platformer routing remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 

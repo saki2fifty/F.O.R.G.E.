@@ -767,6 +767,8 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
   set_tests_properties(mcp_navigation_characters_stdio PROPERTIES TIMEOUT 240)
   add_test(NAME mcp_navigation_planar_characters_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_workflow_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_workflow_host> $<TARGET_FILE:forge_runtime> "-" $<TARGET_FILE:forge_nav_build> "${CMAKE_CURRENT_BINARY_DIR}/mcp-navigation-planar-characters-capture.json.gz" --navigation-planar-characters-only)
   set_tests_properties(mcp_navigation_planar_characters_stdio PROPERTIES TIMEOUT 240)
+  add_test(NAME mcp_navigation_jump_characters_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_workflow_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_workflow_host> $<TARGET_FILE:forge_runtime> "-" $<TARGET_FILE:forge_nav_build> "${CMAKE_CURRENT_BINARY_DIR}/mcp-navigation-jump-characters-capture.json.gz" --navigation-jump-characters-only)
+  set_tests_properties(mcp_navigation_jump_characters_stdio PROPERTIES TIMEOUT 240)
   add_test(NAME mcp_map_profile_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_workflow_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_workflow_host> $<TARGET_FILE:forge_runtime> "-" $<TARGET_FILE:forge_nav_build> "${CMAKE_CURRENT_BINARY_DIR}/mcp-map-profile-capture.json.gz" --map-profile-only)
   # Solid/directional sensor Map launches retain import/readiness, history and Stop.
   set_tests_properties(mcp_map_profile_stdio PROPERTIES TIMEOUT 360)

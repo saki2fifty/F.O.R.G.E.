@@ -678,11 +678,12 @@ struct PhysicsRuntime::Impl {
         std::unique_ptr<physics_detail::Character> owner;
         bool shape_blocked = false;
         bool movement_once = false;
+        bool jump_once = false;
     };
     std::map<std::uint64_t, CharacterRecord> characters;
     struct CharacterCommand {
         EntityRef ref;
-        unsigned kind = 0; // Movement, Jump, Crouch, Placement, One-step movement.
+        unsigned kind = 0; // Movement, Jump, Crouch, Placement, One-step movement/jump.
         Double3 velocity{};
         float speed = 0;
         bool flag = false;
@@ -781,8 +782,11 @@ struct PhysicsRuntime::Impl {
                 const auto intent = prior->second.movement_once && manual_motion.contains(id)
                                         ? Double3{}
                                         : old.intent();
-                next->restore_motion(intent, old.takeoff_velocity(), old.pending_jump(),
-                                     old.crouched(), old.last_jump_accepted());
+                const auto jump = prior->second.jump_once && manual_motion.contains(id)
+                                      ? 0.f
+                                      : old.pending_jump();
+                next->restore_motion(intent, old.takeoff_velocity(), jump, old.crouched(),
+                                     old.last_jump_accepted());
                 next->native().SetLinearVelocity(old.native().GetLinearVelocity());
             }
             if (!next->place(pose.translation, pose.rotation, false, ignored))
@@ -790,7 +794,8 @@ struct PhysicsRuntime::Impl {
                     "Character candidate overlaps solid geometry; previous character retained");
             prepared.emplace(
                 id, CharacterRecord{*context.reference(id), c, pose, std::move(next), false,
-                                    prior != characters.end() && prior->second.movement_once});
+                                    prior != characters.end() && prior->second.movement_once,
+                                    prior != characters.end() && prior->second.jump_once});
         }
         for (const auto& command : character_commands) {
             const auto found = context.resolve(command.ref);
@@ -815,6 +820,10 @@ struct PhysicsRuntime::Impl {
             if (character.movement_once && manual_motion.contains(id)) {
                 character.owner->movement({});
                 character.movement_once = false;
+                if (character.jump_once) {
+                    character.owner->jump(0);
+                    character.jump_once = false;
+                }
             }
         if (native_2d)
             for (const auto id : manual_motion)
@@ -854,9 +863,14 @@ struct PhysicsRuntime::Impl {
                 c.movement_once = false;
                 break;
             case 4:
+            case 5:
                 if (!manual_motion.contains(id)) {
                     owner.movement(command.velocity);
                     c.movement_once = true;
+                    if (command.kind == 5) {
+                        owner.jump(command.speed);
+                        c.jump_once = true;
+                    }
                 }
                 break;
             case 1:
@@ -923,9 +937,9 @@ struct PhysicsRuntime::Impl {
                 intent = prior->second.owner->intent();
         }
         auto preflight = [&](const CharacterCommand& c) {
-            if (c.kind == 4 && manual_motion)
+            if ((c.kind == 4 || c.kind == 5) && manual_motion)
                 return;
-            if (c.kind == 0 || c.kind == 4)
+            if (c.kind == 0 || c.kind == 4 || c.kind == 5)
                 intent = c.velocity;
             if (c.kind == 3)
                 q = c.rotation;
@@ -2150,6 +2164,7 @@ void PhysicsRuntime::step(float dt) {
         throw std::runtime_error("Jolt capacity exceeded during fixed tick");
     for (auto& [id, character] : s.characters) {
         character.owner->step(dt, s.config.gravity);
+        character.jump_once = false;
         if (character.movement_once) {
             character.owner->movement({});
             character.movement_once = false;
@@ -2775,6 +2790,23 @@ void PhysicsRuntime::move_character(EntityRef ref, Double3 v) {
 void PhysicsRuntime::move_character_once(EntityRef ref, Double3 v) {
     impl_->queue_character_movement(ref, v, true);
 }
+Double3 PhysicsRuntime::gravity() const {
+    impl_->check();
+    return impl_->config.gravity;
+}
+void PhysicsRuntime::jump_character_once(EntityRef ref, Double3 v, float speed) {
+    if (!std::isfinite(speed) || speed <= 0 || speed > 1000000)
+        throw std::runtime_error("Invalid automatic character jump speed");
+    for (const auto value : v)
+        if (!std::isfinite(value) || std::abs(value) > 1000000)
+            throw std::runtime_error("Invalid automatic character jump velocity");
+    Impl::CharacterCommand command;
+    command.ref = ref;
+    command.kind = 5;
+    command.velocity = v;
+    command.speed = speed;
+    impl_->queue_character(std::move(command));
+}
 void PhysicsRuntime::jump_character(EntityRef ref, float speed) {
     if (!std::isfinite(speed) || speed < 0 || speed > 1000000)
         throw std::runtime_error("Invalid character jump speed");
@@ -3018,6 +3050,8 @@ Json PhysicsRuntime::checkpoint() const {
             out["characters"].back()["movement_once"] = true;
             out["version"] = 11;
         }
+        if (c.jump_once)
+            out["characters"].back()["jump_once"] = true;
     }
     physics_detail::Native2DImage planar;
     if (s.native_2d)
@@ -3045,6 +3079,9 @@ Json PhysicsRuntime::checkpoint() const {
         std::ranges::any_of(s.character_commands,
                             [](const auto& c) { return c.planar && c.kind == 4; }))
         out["version"] = 12;
+    if (std::ranges::any_of(s.characters, [](const auto& c) { return c.second.jump_once; }) ||
+        std::ranges::any_of(s.character_commands, [](const auto& c) { return c.kind == 5; }))
+        out["version"] = 13;
     out["commands"] = Json::array();
     for (const auto& c : s.commands)
         out["commands"].push_back({{"entity", c.ref},
@@ -3074,7 +3111,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     if (!checked.at("version").is_number_integer())
         throw std::runtime_error("Invalid physics checkpoint version");
     const auto version = checked.at("version").get<std::uint64_t>();
-    if (digest(checked.dump()) != checksum || version < 10 || version > 12 ||
+    if (digest(checked.dump()) != checksum || version < 10 || version > 13 ||
         checked.at("build") != build_id || checked.at("source") != source_commit ||
         checked.at("runtime") != FORGE_NATIVE_SDK_FINGERPRINT ||
         checked.at("jolt") != "e77f175595e64cb44218cc9d9d56fc365ad0e36a-double-sse2-rtti" ||
@@ -3136,12 +3173,21 @@ void PhysicsRuntime::restore(const Json& payload) {
         throw std::runtime_error("Character checkpoint count mismatch");
     std::size_t native_bytes = bytes.size();
     bool one_step_profile = false;
+    bool jump_once_profile = false;
     for (const auto& item : character_data) {
         if (item.contains("movement_once")) {
             if (version < 11 || !item.at("movement_once").is_boolean() ||
                 !item.at("movement_once").get<bool>())
                 throw std::runtime_error("Invalid one-step character recovery state");
             one_step_profile = true;
+        }
+        if (item.contains("jump_once")) {
+            if (version < 13 || !item.at("jump_once").is_boolean() ||
+                !item.at("jump_once").get<bool>() || !item.value("movement_once", false) ||
+                !item.at("jump").is_number() || !std::isfinite(item.at("jump").get<float>()) ||
+                item.at("jump").get<float>() <= 0 || item.at("jump").get<float>() > 1000000)
+                throw std::runtime_error("Invalid automatic character jump recovery state");
+            jump_once_profile = true;
         }
         const auto ref = item.at("entity").get<EntityRef>();
         const auto found = s.context.resolve(ref);
@@ -3167,7 +3213,7 @@ void PhysicsRuntime::restore(const Json& payload) {
         throw std::runtime_error("Combined physics recovery solver byte limit exceeded");
     auto native_2d = std::make_unique<physics_detail::Native2D>(s.config);
     native_2d->restore(planar.at("metadata"), unhex(planar_hex), desired_2d,
-                       checked.at("tick").get<std::uint64_t>(), desired_joints_2d, version == 12);
+                       checked.at("tick").get<std::uint64_t>(), desired_joints_2d, version >= 12);
     bool planar_one_step_profile = native_2d->has_one_step_motion();
     std::vector<Impl::CharacterCommand> character_commands;
     const auto& pending_characters = checked.at("character_commands");
@@ -3176,7 +3222,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     for (const auto& item : pending_characters) {
         Impl::CharacterCommand c;
         c.ref = item.at("entity").get<EntityRef>();
-        if (!item.at("kind").is_number_unsigned() || item.at("kind").get<std::uint64_t>() > 4)
+        if (!item.at("kind").is_number_unsigned() || item.at("kind").get<std::uint64_t>() > 5)
             throw std::runtime_error("Invalid character recovery command kind");
         for (const auto& [field, size] :
              {std::pair{"velocity", 3u}, std::pair{"position", 3u}, std::pair{"rotation", 4u}})
@@ -3190,6 +3236,11 @@ void PhysicsRuntime::restore(const Json& payload) {
             one_step_profile = true;
             planar_one_step_profile |= c.planar;
         }
+        if (c.kind == 5) {
+            if (version < 13 || c.planar)
+                throw std::runtime_error("Invalid automatic character jump recovery command");
+            jump_once_profile = true;
+        }
         c.velocity = item.at("velocity").get<Double3>();
         c.speed = item.at("speed").get<float>();
         c.flag = item.at("flag").get<bool>();
@@ -3201,6 +3252,9 @@ void PhysicsRuntime::restore(const Json& payload) {
         if (c.kind == 4 &&
             (c.speed != 0 || c.flag || p != Double3{} || !equivalent(c.rotation, LocalRotation{})))
             throw std::runtime_error("Invalid one-step character recovery payload");
+        if (c.kind == 5 &&
+            (c.speed <= 0 || c.flag || p != Double3{} || !equivalent(c.rotation, LocalRotation{})))
+            throw std::runtime_error("Invalid automatic character jump recovery payload");
         const auto resolved = s.context.resolve(c.ref);
         if (resolved.state != WorldContext::ResolveState::Available ||
             (c.planar ? !desired_2d.contains(resolved.entity) ||
@@ -3223,7 +3277,10 @@ void PhysicsRuntime::restore(const Json& payload) {
                                                       {c.position.x, c.position.y});
         character_commands.push_back(c);
     }
-    if (version != (planar_one_step_profile ? 12u : one_step_profile ? 11u : 10u))
+    if (version != (jump_once_profile         ? 13u
+                    : planar_one_step_profile ? 12u
+                    : one_step_profile        ? 11u
+                                              : 10u))
         throw std::runtime_error("Physics recovery extension has no one-step character state");
     const auto& queued = checked.at("commands");
     if (!queued.is_array() || queued.size() > 4096)
@@ -3303,7 +3360,8 @@ void PhysicsRuntime::restore(const Json& payload) {
                               item.at("jump_accepted").get<bool>());
         s.characters.emplace(id, Impl::CharacterRecord{ref, config, pose, std::move(owner),
                                                        item.at("shape_blocked").get<bool>(),
-                                                       item.value("movement_once", false)});
+                                                       item.value("movement_once", false),
+                                                       item.value("jump_once", false)});
     }
     if (!pending.empty() || !character_data.empty())
         s.system.OptimizeBroadPhase();

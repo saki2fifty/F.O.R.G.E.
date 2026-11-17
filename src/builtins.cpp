@@ -3880,8 +3880,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["animatable"] = false;
             value["description"] =
                 "Navigation writes the pose directly; Character Controller requests 3D ground "
-                "steering, and Character Controller 2D requests Floating XY steering through "
-                "the existing physics owner";
+                "steering and positive-lift jumps between static supports; Character Controller "
+                "2D requests Floating XY steering through the existing physics owner";
         }
         if (field == "navmesh") {
             value["asset_type"] = NavMeshAsset::type;
@@ -3893,7 +3893,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["minimum"] = 0;
             value["maximum"] = 20;
             value["unit"] = "meters/second";
-            value["description"] = "Fixed-tick movement speed; zero holds position";
+            value["description"] =
+                "Navigation steering speed; zero stops steering while physical gravity continues";
         }
         if (field == "stopping_distance") {
             value["minimum"] = .01;

@@ -164,5 +164,9 @@ class PhysicsService : public CharacterService {
     // or placement in the same queue takes precedence. Not an SDK callback.
     virtual void move_character_once(EntityRef, Double3 planar_velocity) = 0;
     virtual void move_character_2d_once(EntityRef, Double2 velocity) = 0;
+    // Combined one-step host request, with the same manual-command priority.
+    // Jump acceptance remains the native character's grounded decision.
+    virtual void jump_character_once(EntityRef, Double3 planar_velocity, float speed) = 0;
+    virtual Double3 gravity() const = 0;
 };
 } // namespace forge

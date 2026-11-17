@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Physical character jumps
+
+Open `Scenes/226-navigation-character-jumps.scene.json` and press Play. The cyan
+character jumps to a raised platform. The orange character hits the red physical
+wall and falls; a missed landing is not arrival. Both use **Navigation Agent →
+Movement → CharacterController**, positive-lift links, static physical supports
+and Speed **6** with default gravity. Physics controls their actual flight.
+
+Stop, disable **Red flight wall → Physics Body → Enabled**, and Play again to
+release the orange crossing. Speed **0** stops steering while gravity continues;
+use game Pause to freeze a flight. Save and choose this Scene as startup before
+export. Its built navigation, Camera and Light are included; no project C++ module
+is required. See [physical jumps](../../../manual/editor/navigation.md#jump-between-static-platforms).
+
 ## Floating XY navigation characters
 
 Open `Scenes/225-navigation-characters-xy.scene.json` and press Play. The cyan

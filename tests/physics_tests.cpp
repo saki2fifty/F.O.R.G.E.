@@ -228,9 +228,16 @@ int main(int argc, char** argv) {
             character_workload_measurement();
             return 0;
         }
+        if (argc == 2 && std::string_view(argv[1]) == "--jump-flight") {
+            character_jump_once_tests();
+            character_jump_flight_tests();
+            return 0;
+        }
         check(argc == 1, "Unknown physics test argument");
         character_physics_tests();
         character_mechanics_tests();
+        character_jump_flight_tests();
+        character_jump_once_tests();
         character_contract_tests();
         physics_hierarchy_tests();
         collision_filters();

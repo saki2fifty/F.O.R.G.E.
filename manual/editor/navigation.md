@@ -39,15 +39,45 @@ Manual movement, jump and placement requests take precedence over navigation
 requests in the same fixed step. Navigation reports physical blockage and never
 teleports the controller through a collider.
 
-Character steering supports upright 3D ground routes and Floating XY routes without
-explicit navigation links. Simulated link jumps and moving-platform routing are
-unavailable. Incompatible configurations report a navigation diagnostic.
+Character steering supports upright 3D ground routes and the physical jumps
+described below. Floating XY routes require no explicit links. Moving-platform
+routing is unavailable. Incompatible configurations report a navigation diagnostic.
 Save the Scene and select it as startup before exporting; this Gallery requires
 no project C++ module. Review kept live values after Stop, then save explicitly.
 
 In **Window → Profiler → Play runtime**, **NavSourceCapture** shows the CPU time
 spent checking included sources during Play. Rebuild the NavMesh after changing
 included geometry.
+
+## Jump between static platforms
+
+Open **226-navigation-character-jumps** and press Play. The cyan character jumps
+onto the raised platform and reaches its marker. The orange character hits the
+red physical wall and falls. A blocked jump does not suspend the character in
+midair or count as arrival.
+
+![Cyan character crossing the lower gap toward a raised landing, while the orange character meets the upper red wall](../images/navigation-character-jumps-game.png)
+
+The lower cyan route reaches a raised platform; the upper orange route has a physical obstruction.
+
+1. Provide two static walkable platforms with physical floor colliders. Add Navigation Surfaces and an enabled **Navigation Link** whose Start and End attach to those platforms. Use a 3D profile and a positive **Arc height**.
+2. Build the NavMesh. Give the character an enabled upright, World-bound **Character Controller** and **Navigation Agent → Movement → CharacterController**. Assign the NavMesh and a destination beyond the link.
+3. Set enough **Speed** for the crossing. The Gallery uses a four-metre span, one-metre Arc height and Speed **6** with the default gravity. A slower speed can be refused before takeoff. The configured gravity must point downward along world Y, and the controller's Gravity factor must be positive.
+4. Play and inspect **Navigation progress** and **Character movement**. Physics determines takeoff, collisions, flight and landing. Arc height selects the intended lift; the character's actual path may differ from the displayed intent curve.
+5. Stop, disable **Red flight wall → Physics Body → Enabled**, and Play again to let the orange character cross. Save the Scene and choose it as startup before exporting. Its built NavMesh, Camera and Light are included; no project C++ module is required.
+
+Takeoff and landing must have static physical support. Zero-height links,
+sideways/upward gravity, moving-platform links and Floating XY jumps are
+unsupported. A route can exist while a particular character lacks enough speed
+or suitable support to jump it; inspect the navigation diagnostic.
+
+During flight, Speed **0** stops navigation steering while gravity continues.
+Stopping distance applies before takeoff: if the remaining route is already
+within that distance, the character stays in place and reports arrival.
+Clearing **Has destination** or disabling the Agent releases steering. A changed
+destination takes effect after landing. Pause the game to freeze simulation;
+setting Speed to zero cannot freeze a jump. Stop and Play to restart a missed
+landing from the saved Scene. Choose movement and edit the link in Edit mode.
 
 ## Steer a Floating XY character
 
@@ -347,7 +377,8 @@ both locally and after transformation. With **Dynamic obstacles**, the endpoints
 must lie in the same or adjacent tile coordinates. Tiles are 32 cells wide; at the
 default 0.2 m Cell size this is 6.4 m. If the build reports a tile-span limit,
 shorten/reposition the link or choose a coarser Cell size and rebuild. Moving
-platform attachments and physics-driven jumps are unavailable.
+platform attachments are unavailable. For an upright physical character crossing
+a positive-height link, follow **Jump between static platforms** in this guide.
 
 ### Follow an authored arc
 
@@ -653,4 +684,4 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 - **Physics ownership error:** remove the agent's Physics Body and any moving physics spatial ancestor, or use an independent World spatial binding.
 - **Build/query limit:** reduce the included area or geometry, or increase cell size. A single build supports at most 512 × 512 cells.
 
-Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts for ordinary agents. Physical characters support upright 3D ground routes or Floating XY routes without links. Grounded platformer routes, simulated jumps, moving-platform routes and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
+Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts for ordinary agents. Physical characters support upright 3D ground routes and positive-lift jumps between static supports, or Floating XY routes without links. Grounded XY platformer routes, moving-platform routes and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.

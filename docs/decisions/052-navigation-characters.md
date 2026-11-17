@@ -2,6 +2,10 @@
 
 Status: accepted.
 
+The positive-lift 3D link extension is defined by
+[ADR053](053-navigation-character-jumps.md). The ground and Floating XY ownership
+and default profiles below remain in force.
+
 ## Ownership and explicit selection
 
 Extend NavigationAgent with an explicit movement selector. Its absent or zero

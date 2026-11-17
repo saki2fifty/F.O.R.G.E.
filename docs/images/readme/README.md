@@ -1,5 +1,24 @@
 # README screenshots
 
+## Physical character jump Game view
+
+`manual/images/navigation-character-jumps-game.png` is actual Gallery226 Game
+output after30 fixed ticks. The cyan character crosses toward the raised landing;
+the orange character meets a physical wall. The steeper overview keeps all four
+platforms separate in projection. Source Scene:
+`samples/projects/FeatureGallery/Scenes/226-navigation-character-jumps.scene.json`.
+Reproduce with `forge_navigation_polygon_gallery_vulkan_probe GALLERY SCRATCH
+Scenes/226-navigation-character-jumps.scene.json` on the configured software
+Vulkan/lvp fixture. The normal gate compares four exact moving authored and
+source-hidden relocated-export display pairs, including portrait output.
+
+The canonical640 by360 PNG encodes the original `authored/30-640.ppm` RGB bytes
+without cropping, resizing or inserted controls. PNG SHA256:
+`2982a24f7752128449b209240eff5d66e1f0c79d878daa5a1fab35ae1b674809`.
+The image was visually reviewed. Source, executable, Scene and original-pixel
+hashes are retained with the capture evidence. It establishes neither Windows
+desktop/graphical EXE nor physical GPU/input/DPI acceptance.
+
 ## Floating XY navigation selection
 
 `manual/images/navigation-planar-character-inspector.png` is an exact780 by720
@@ -9,9 +28,9 @@ Native mouse input selects CharacterController2D and checks single Scene
 Undo/Redo. The NavMesh is intentionally unassigned; the image illustrates
 configuration, not a running game. Source:
 `tests/navigation_agent_editor_tests.cpp`. PNG SHA256
-`0e02f80bd2a3eb0327c466ee01ded526a277a31578c8078c027cda038ecf1344`;
+`6d086a119de86a2b2093112c0c87d17b9fd361c12b34e66b509f2d49b3b13d1e`;
 executable SHA256
-`9b0e0f788fc698a76ccf47e6703adbec014e8e7f29d9218a9e5c8b4daceeee26`.
+`75fb48bb1ff2e4cd82148c5170d3c3062eaec884e91405281a6cdd5f780cca8c`.
 The reviewed image uses packaged font/native ImGui draw data and SDL software
 composition on Linux, without retouching. Physical Windows/GPU/input/DPI review
 remains separate.
@@ -25,7 +44,8 @@ uses native mouse events to select CharacterController, then verifies a single
 Scene Undo/Redo. Its NavMesh remains unassigned: the image illustrates selecting
 the owner before assigning a route, not a running Gallery or physical acceptance.
 Source: `tests/navigation_agent_editor_tests.cpp`. PNG SHA256
-`7f88971bf29a0c2a498e2185d066e82c65a12991d8719f2417894ef33698a536`.
+`492f3375d9be365c44c763208df3da58c154af2a24e0a8b4c04ee3598252c2b8`.
+Executable SHA256 `75fb48bb1ff2e4cd82148c5170d3c3062eaec884e91405281a6cdd5f780cca8c`.
 The reviewed image uses packaged font/native ImGui draw data and SDL software
 composition on Linux, without retouching. Windows desktop, physical GPU, input
 and DPI acceptance remain separate.

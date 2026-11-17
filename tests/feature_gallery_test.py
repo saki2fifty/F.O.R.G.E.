@@ -28,6 +28,20 @@ for actor in characters:
 assert len(navs) == 1 and None not in navs
 assert not any('forge.navigation_link' in e['components'] for e in character_scene['entities'])
 assert sum('forge.navigation_surface' in e['components'] for e in character_scene['entities']) == 1
+jump_path = 'Scenes/226-navigation-character-jumps.scene.json'
+jump_scene = json.loads((project_root / jump_path).read_text())
+assert jump_scene['asset_id'] == by_source[jump_path]['id'] == '155c0aba-3984-46eb-9625-1a353b9237a4'
+jump_actors = [e for e in jump_scene['entities'] if 'forge.navigation_agent' in e['components']]
+assert len(jump_actors) == 2
+assert all(e['spatial']['mode'] == 'world' and e['components']['forge.navigation_agent']['movement'] == 1
+           and e['components']['forge.navigation_agent']['speed'] == 6
+           and e['components']['forge.character_controller']['enabled'] for e in jump_actors)
+jump_navs = {e['components']['forge.navigation_agent']['navmesh'] for e in jump_actors}
+assert len(jump_navs) == 1 and None not in jump_navs
+jump_links = [e['components']['forge.navigation_link'] for e in jump_scene['entities']
+              if 'forge.navigation_link' in e['components']]
+assert len(jump_links) == 2 and all(e['arc_height'] == 1 and not e['bidirectional'] for e in jump_links)
+assert any(e['components']['forge.navigation_agent']['destination_y'] == 2 for e in jump_actors)
 for suffix, identity, plane in [
         ('3d', '47d14aa4-eefb-4d8d-a188-12bd26627079', 0),
         ('xy', '28a34ff3-2c84-4462-a546-d0c87e0c6b03', 1)]:

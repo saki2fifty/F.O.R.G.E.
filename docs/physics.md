@@ -512,6 +512,18 @@ pose; navigation recovery7 carries its selection and replans, without a second
 character pose database. See [navigation](navigation.md#character-movement-selection)
 and ADR052 for the supported upright3D ground scope.
 
+ADR053 adds host-only jump_character_once: one combined automatic movement/jump
+request through that same FIFO. CharacterRecord.jump_once distinguishes an armed
+automatic jump from a manual request, including zero-time synchronization and
+shape recreation. Manual movement, jump or placement cancels the automatic pending
+jump in either queue order. A positive native step consumes it once; actual native
+grounding still decides acceptance. Recovery13 is emitted only for an armed or
+queued automatic jump. Recovery12 continues to carry XY one-step movement; unused
+profiles keep10/11. PhysicsService::gravity returns the owner's current configured
+gravity for host navigation admission. No C SDK callback or second gravity owner
+is added. See [physical jump links](navigation.md#physical-jump-links) for the bounded
+upright3D/static-support profile and actual landing feedback.
+
 Characters use feet-origin translated native shapes. Capsule scale magnitudes must
 be uniform; cylinder X/Z magnitudes must match, with independent Y permitted.
 Radial signs preserve the symmetric solid; negative Y reverses the native feet-axis

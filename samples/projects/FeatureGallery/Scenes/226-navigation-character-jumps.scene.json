@@ -1,0 +1,875 @@
+{
+  "asset_id": "155c0aba-3984-46eb-9625-1a353b9237a4",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 4.0,
+          "y": 1.0,
+          "z": 4.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.0,
+          "z": -3.0
+        },
+        "forge.navigation_surface": {
+          "enabled": true
+        },
+        "forge.primitive": {
+          "kind": 3
+        },
+        "forge.tint": {
+          "b": 0.23000000417232513,
+          "g": 0.18000000715255737,
+          "r": 0.11999999731779099
+        }
+      },
+      "id": "2146317e-73d8-4e74-bc15-94fce224e761",
+      "name": "Free route character Takeoff navigation",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 4.0,
+          "y": 1.0,
+          "z": 4.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -0.5,
+          "z": -3.0
+        },
+        "forge.physics_body": {
+          "allow_sleeping": true,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "829c9ab4-171c-41a2-b55b-6140d3c637d0",
+      "name": "Free route character Takeoff support",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 4.0,
+          "y": 1.0,
+          "z": 4.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 2.0,
+          "z": -3.0
+        },
+        "forge.navigation_surface": {
+          "enabled": true
+        },
+        "forge.primitive": {
+          "kind": 3
+        },
+        "forge.tint": {
+          "b": 0.23000000417232513,
+          "g": 0.18000000715255737,
+          "r": 0.11999999731779099
+        }
+      },
+      "id": "9f536862-6541-4aa5-9cad-5d829cb7f37b",
+      "name": "Free route character Landing navigation",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 4.0,
+          "y": 1.0,
+          "z": 4.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 1.5,
+          "z": -3.0
+        },
+        "forge.physics_body": {
+          "allow_sleeping": true,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ae5076f0-4311-40c2-955f-e5d856f4c976",
+      "name": "Free route character Landing support",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -3.0
+        },
+        "forge.navigation_link": {
+          "arc_height": 1.0,
+          "bidirectional": false,
+          "enabled": true,
+          "end_x": 2.0,
+          "end_y": 2.0,
+          "end_z": 0.0,
+          "plane": 0,
+          "profile": "default",
+          "radius": 0.5,
+          "start_x": -2.0,
+          "start_y": 0.0,
+          "start_z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "71fd2eee-f21c-43e5-ba20-5c98cb542e0a",
+      "name": "Free route character jump link",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.character_controller": {
+          "crouch_height": 0.44999998807907104,
+          "enabled": true,
+          "floor_probe": 0.5,
+          "gravity_factor": 1.0,
+          "height": 1.100000023841858,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 70.0,
+          "max_slope": 50.0,
+          "max_strength": 100.0,
+          "radius": 0.3499999940395355,
+          "shape": 0,
+          "step_forward": 0.15000000596046448,
+          "step_height": 0.4000000059604645
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.1,
+          "z": -3.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 3.0,
+          "destination_y": 2.0,
+          "destination_z": -3.0,
+          "enabled": true,
+          "has_destination": true,
+          "movement": 1,
+          "navmesh": "99868f8e-fd22-4ca9-9805-fa3a6e4df208",
+          "speed": 6.0,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "db66d670-330f-4751-84ce-1cf1c6b5ee71",
+      "name": "Free route character",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 1.7999999523162842,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.9,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.8199999928474426,
+          "r": 0.05999999865889549
+        }
+      },
+      "id": "256a9b8b-c452-40ab-9432-10f9bccdcc66",
+      "name": "Free route character visual",
+      "parent": "db66d670-330f-4751-84ce-1cf1c6b5ee71",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.800000011920929,
+          "y": 0.07999999821186066,
+          "z": 0.800000011920929
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 2.04,
+          "z": -3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.8199999928474426,
+          "r": 0.05999999865889549
+        }
+      },
+      "id": "76d15da3-3164-4561-926c-6fa2ea927a16",
+      "name": "Free route character destination",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 4.0,
+          "y": 1.0,
+          "z": 4.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "forge.navigation_surface": {
+          "enabled": true
+        },
+        "forge.primitive": {
+          "kind": 3
+        },
+        "forge.tint": {
+          "b": 0.23000000417232513,
+          "g": 0.18000000715255737,
+          "r": 0.11999999731779099
+        }
+      },
+      "id": "88dae8aa-1d71-4dfc-b0b2-01f8774275b6",
+      "name": "Blocked route character Takeoff navigation",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 4.0,
+          "y": 1.0,
+          "z": 4.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -0.5,
+          "z": 3.0
+        },
+        "forge.physics_body": {
+          "allow_sleeping": true,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "6c9e1468-34e1-49ff-851f-651b4b1d8807",
+      "name": "Blocked route character Takeoff support",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 4.0,
+          "y": 1.0,
+          "z": 4.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "forge.navigation_surface": {
+          "enabled": true
+        },
+        "forge.primitive": {
+          "kind": 3
+        },
+        "forge.tint": {
+          "b": 0.23000000417232513,
+          "g": 0.18000000715255737,
+          "r": 0.11999999731779099
+        }
+      },
+      "id": "7ec89bf7-118c-4c60-bba0-7e0d62ac80be",
+      "name": "Blocked route character Landing navigation",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 4.0,
+          "y": 1.0,
+          "z": 4.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": -0.5,
+          "z": 3.0
+        },
+        "forge.physics_body": {
+          "allow_sleeping": true,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c23610c4-60e2-40a4-a6d4-d9a31a9197bf",
+      "name": "Blocked route character Landing support",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "forge.navigation_link": {
+          "arc_height": 1.0,
+          "bidirectional": false,
+          "enabled": true,
+          "end_x": 2.0,
+          "end_y": 0.0,
+          "end_z": 0.0,
+          "plane": 0,
+          "profile": "default",
+          "radius": 0.5,
+          "start_x": -2.0,
+          "start_y": 0.0,
+          "start_z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b3e30171-17e9-42b1-b457-c2faf71f40c7",
+      "name": "Blocked route character jump link",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.character_controller": {
+          "crouch_height": 0.44999998807907104,
+          "enabled": true,
+          "floor_probe": 0.5,
+          "gravity_factor": 1.0,
+          "height": 1.100000023841858,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 70.0,
+          "max_slope": 50.0,
+          "max_strength": 100.0,
+          "radius": 0.3499999940395355,
+          "shape": 0,
+          "step_forward": 0.15000000596046448,
+          "step_height": 0.4000000059604645
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.1,
+          "z": 3.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 3.0,
+          "destination_y": 0.0,
+          "destination_z": 3.0,
+          "enabled": true,
+          "has_destination": true,
+          "movement": 1,
+          "navmesh": "99868f8e-fd22-4ca9-9805-fa3a6e4df208",
+          "speed": 6.0,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "48bd44f0-64ec-42d5-9d10-6cc70c91e823",
+      "name": "Blocked route character",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 1.7999999523162842,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.9,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.47999998927116394,
+          "r": 1.0
+        }
+      },
+      "id": "076149a0-b7c2-4668-ab1f-4f30619b9a2c",
+      "name": "Blocked route character visual",
+      "parent": "48bd44f0-64ec-42d5-9d10-6cc70c91e823",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.800000011920929,
+          "y": 0.07999999821186066,
+          "z": 0.800000011920929
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.04,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.47999998927116394,
+          "r": 1.0
+        }
+      },
+      "id": "7d2cf1b7-608b-4886-80e0-23db8ce934e1",
+      "name": "Blocked route character destination",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 0.30000001192092896,
+          "y": 20.0,
+          "z": 3.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 3.0,
+          "z": 3.0
+        },
+        "forge.physics_body": {
+          "allow_sleeping": true,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "50fd2b1f-82d4-4b22-988a-ceb91d4a33bc",
+      "name": "Red flight wall - Stop, disable Physics Body, then Play",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.30000001192092896,
+          "y": 3.0,
+          "z": 3.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -1.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.05999999865889549,
+          "g": 0.07000000029802322,
+          "r": 0.800000011920929
+        }
+      },
+      "id": "9c8cce32-d70e-4fcf-b2e2-427e9f3a97cf",
+      "name": "Flight wall visual",
+      "parent": "50fd2b1f-82d4-4b22-988a-ceb91d4a33bc",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 16.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.8660253882408142,
+          "x": 0.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 18.0,
+          "z": -10.392304845413264
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "beb4965c-5f14-4664-86b9-14c5912f7f11",
+      "name": "Overview Camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1da415c5-b947-4462-9aa9-c9d340d8256a",
+      "name": "Sunlight",
+      "spatial": {
+        "mode": "world"
+      }
+    }
+  ],
+  "version": 3
+}

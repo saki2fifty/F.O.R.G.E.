@@ -1,5 +1,24 @@
 # 2026-11-17
 
+## Physical character jump links
+
+The 3D CharacterController navigation profile can traverse positive-lift links
+between static supports. Existing character physics determines grounded takeoff,
+gravity, collision, flight and landing; navigation never writes a flight pose or
+reports arrival from projection alone. Linked routes reject incompatible gravity
+before approach, and takeoff checks static support, available range and step
+resolution. Missing or obstructed landings fail instead of suspending the actor.
+
+Automatic movement/jump requests share the existing FIFO, manual priority and
+one-step lifetime, including armed requests and capsule recreation. Private
+physics13/navigation9 retain their state without a second pose owner; older
+profiles remain when unused. Editor, automation/MCP and matching C++ SDK consumers
+share the same implementation. Gallery226 includes a raised landing, a solid flight
+obstruction and ready exportable navigation. The manual explains pause,
+cancellation, destinations and limits, with authentic native controls and actual
+Game output. Physical Windows/GPU review remains separate. Grounded XY platformer
+and moving-platform navigation remain unsupported.
+
 ## Floating XY character navigation
 
 Navigation Agent can steer an existing World-bound Floating Character Controller
@@ -14,9 +33,9 @@ mesh edge, including a one-point route. Projection alone cannot establish arriva
 Reflection, Inspector history, live controls, automation/MCP and matching SDK
 consumers share the same implementation. Gallery225 includes free and blocked XY
 characters, a ready NavMesh, colliders and orthographic Camera. The manual explains
-the workflow and includes a native Inspector capture. Grounded platformer routing,
-simulated jumps, moving-platform routes and character link traversal remain
-unsupported. The host-only extension requires matching SDK modules; no C callback
+the workflow and includes a native Inspector capture. Grounded XY platformer routing,
+XY link traversal and moving-platform routes remain unsupported. The 3D jump
+extension is described above. The host-only extension requires matching SDK modules; no C callback
 table or dependency revision changes.
 
 ## Physics-driven navigation characters
@@ -30,8 +49,8 @@ Inspector/Keep/automation/MCP owners. Manual movement, jump and placement take
 precedence in the same pending physics boundary.
 
 The initial character selection supports 3D ground routes without explicit links.
-The Floating XY selection is described above; simulated link jumps and moving-platform
-routing remain unavailable. Private
+The Floating XY selection and positive-lift 3D jump extension are described above;
+moving-platform routing remains unavailable. Private
 recovery preserves request lifetime and character pose ownership; old profiles
 remain unchanged when unused. The added public NavigationAgent value requires a
 matching exact-SDK rebuild. Gallery224 includes free and physically blocked

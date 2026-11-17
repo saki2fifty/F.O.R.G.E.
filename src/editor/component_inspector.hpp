@@ -638,7 +638,9 @@ class ComponentInspector {
                     "Movement: Navigation writes the pose directly. Character Controller steers "
                     "an enabled World-space 3D controller with world +Y up. Character Controller "
                     "2D steers a World-space Floating controller on XY. Physics writes the actual "
-                    "pose. Character movement supports routes without links. "
+                    "pose. The 3D controller also jumps positive-lift links between static "
+                    "supports; "
+                    "Speed must cover the jump range. XY controllers support routes without links. "
                     "Choose the movement mode in Edit; speed and destination remain live-tunable.");
             if (key == "forge.navigation_agent" && edit_scene_target) {
                 ImGui::BeginDisabled(!scene_target_available ||

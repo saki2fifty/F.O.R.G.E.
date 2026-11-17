@@ -1,7 +1,8 @@
 """Author a physical character and observe its actual Play route through MCP."""
 
 
-def check_navigation_character(read, ok, control, until, edit_settings, planar=False):
+def check_navigation_character(read, ok, control, until, edit_settings, planar=False, jump=False):
+    assert not (planar and jump)
     def create(name, kind=4):
         return ok('forge_entity_create', arguments=dict(name=name, kind=kind))['results'][0]['selected']
 
@@ -16,26 +17,42 @@ def check_navigation_character(read, ok, control, until, edit_settings, planar=F
         add(floor, 'forge.navigation_region_2d')
         values(floor, 'forge.navigation_region_2d', width=20, height=12)
     else:
-        values(floor, 'forge.local_scale', x=20, y=1, z=12)
+        values(floor, 'forge.local_scale', x=4 if jump else 20, y=1, z=6 if jump else 12)
+        if jump:
+            values(floor, 'forge.local_translation', x=-3)
         add(floor, 'forge.navigation_surface')
         ground = create('Physical floor')
-        values(ground, 'forge.local_translation', y=-.1)
+        values(ground, 'forge.local_translation', x=-3 if jump else 0, y=-.1)
         add(ground, 'forge.physics_body')
         add(ground, 'forge.box_collider')
-        values(ground, 'forge.box_collider', x=20, y=.2, z=12)
+        values(ground, 'forge.box_collider', x=4 if jump else 20, y=.2, z=6 if jump else 12)
+        if jump:
+            landing = create('Baked raised landing', 3)
+            values(landing, 'forge.local_translation', x=3, y=2)
+            values(landing, 'forge.local_scale', x=4, y=1, z=6)
+            add(landing, 'forge.navigation_surface')
+            add(floor, 'forge.navigation_link')
+            values(floor, 'forge.navigation_link', start_x=.25, end_x=1.25,
+                   end_y=2, arc_height=1, bidirectional=False)
+            support = create('Physical raised landing')
+            values(support, 'forge.local_translation', x=3, y=1.9)
+            add(support, 'forge.physics_body')
+            add(support, 'forge.box_collider')
+            values(support, 'forge.box_collider', x=4, y=.2, z=6)
     body_type = 'forge.physics_body_2d' if planar else 'forge.physics_body'
     collider_type = 'forge.box_collider_2d' if planar else 'forge.box_collider'
     wall = create('Physical wall outside baked source')
-    values(wall, 'forge.local_translation', x=0, y=1.5, z=0)
+    values(wall, 'forge.local_translation', x=0, y=3 if jump else 1.5, z=0)
     add(wall, body_type)
     add(wall, collider_type)
-    values(wall, collider_type, **(dict(x=.3, y=8) if planar else dict(x=.3, y=3, z=8)))
+    values(wall, collider_type, **(dict(x=.3, y=8) if planar else dict(x=.3, y=20 if jump else 3, z=8)))
     ok('forge_navigation_build', settings=dict(radius=.4, height=2, climb=.4, slope=45,
         cell_size=.2, cell_height=.1, plane=int(planar), profile='default', dynamic_obstacles=False))
     baked = until(lambda: read('forge_navigation_status'), lambda row: not row['busy'])
     assert baked['asset'] and not baked['error'], baked
     actor = create('MCP physical character')
-    values(actor, 'forge.local_translation', x=-4, y=.1, z=37.125 if planar else 0)
+    start_x = -3 if jump else -4
+    values(actor, 'forge.local_translation', x=start_x, y=.1, z=37.125 if planar else 0)
     ok('forge_transform_binding', arguments=dict(entity=actor, spatial=dict(mode='world')))
     controller = 'forge.character_controller_2d' if planar else 'forge.character_controller'
     add(actor, controller)
@@ -44,7 +61,8 @@ def check_navigation_character(read, ok, control, until, edit_settings, planar=F
     add(actor, 'forge.navigation_agent')
     before_navigation = read('forge_scene_read')
     values(actor, 'forge.navigation_agent', navmesh=baked['asset'], movement=2 if planar else 1,
-           has_destination=True, destination_x=4, destination_y=0, destination_z=0, speed=0)
+           has_destination=True, destination_x=3 if jump else 4,
+           destination_y=2 if jump else 0, destination_z=0, speed=0)
     authored_navigation = read('forge_scene_read')
     ok('forge_history_undo')
     assert read('forge_scene_read') == before_navigation
@@ -62,7 +80,7 @@ def check_navigation_character(read, ok, control, until, edit_settings, planar=F
         until(lambda: read('forge_play_status'), lambda row: row['ready'] and row['control_ready'])
         control('forge_play_pause')
         until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
-        control('forge_play_tune', entity=actor, component='forge.navigation_agent', property='speed', value=4)
+        control('forge_play_tune', entity=actor, component='forge.navigation_agent', property='speed', value=6 if jump else 4)
         ack = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
         assert 'error' not in ack['tune_ack'], ack
         return ack['timing']['tick']
@@ -73,23 +91,41 @@ def check_navigation_character(read, ok, control, until, edit_settings, planar=F
     until(lambda: read('forge_play_status'), lambda row: row['control_ready'] and row['timing']['tick'] == tick + 1)
     first = follower()
     state = first['navigation_debug']
-    assert state['sampled'] and state['phase'] == 'Moving' and -4 < state['position'][0] < -3.9, first
+    assert state['sampled'] and state['phase'] == 'Moving' and start_x < state['position'][0] < start_x + (.15 if jump else .1), first
     assert all(abs(state['position'][axis] - first['world_affine'][offset]) < 1e-6
                for axis, offset in enumerate((3, 7, 11))), first
     if planar:
         assert state['position'][2] == 37.125 and state['velocity'][2] == 0, first
     control('forge_play_resume')
-    blocked = until(follower, lambda row: row.get('navigation_debug', {}).get('phase') == 'Blocked')
+    blocked = until(follower, lambda row: row.get('navigation_debug', {}).get('phase') == ('Failed' if jump else 'Blocked'))
     assert blocked['world_affine'][3] < (-.44 if planar else -.45), blocked
     control('forge_play_stop')
     assert read('forge_scene_read') == saved
     values(wall, body_type, enabled=False)
+    if jump:
+        values(actor, 'forge.local_translation', x=-2)
+        values(actor, 'forge.navigation_agent', stopping_distance=5, destination_x=2)
+        ok('forge_document_save')
+        parked_source = read('forge_scene_read')
+        tick = start()
+        control('forge_play_step')
+        until(lambda: read('forge_play_status'),
+              lambda row: row['control_ready'] and row['timing']['tick'] == tick + 1)
+        parked = follower()
+        assert parked['navigation_debug']['phase'] == 'Arrived' and \
+            abs(parked['world_affine'][3] + 2) < 1e-6, parked
+        control('forge_play_stop')
+        assert read('forge_scene_read') == parked_source
+        values(actor, 'forge.local_translation', x=-3)
+        values(actor, 'forge.navigation_agent', stopping_distance=.1, destination_x=3)
     ok('forge_document_save')
     saved = read('forge_scene_read')
     start()
     control('forge_play_resume')
     arrived = until(follower, lambda row: row.get('navigation_debug', {}).get('phase') == 'Arrived')
-    assert arrived['world_affine'][3] > 3.8, arrived
+    assert arrived['world_affine'][3] > (2.8 if jump else 3.8), arrived
+    if jump:
+        assert abs(arrived['world_affine'][7] - 2) < .1, arrived
     if planar:
         assert arrived['world_affine'][11] == 37.125, arrived
     control('forge_play_stop')

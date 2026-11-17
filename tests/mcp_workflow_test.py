@@ -46,6 +46,7 @@ WORKERS_ONLY = WORKERS_SDK
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
 NAVIGATION_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-characters-only']
 NAVIGATION_PLANAR_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-planar-characters-only']
+NAVIGATION_JUMP_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-jump-characters-only']
 NAVIGATION_LINKS_SDK = sys.argv[7:] == ['--navigation-links-sdk-only']
 NAVIGATION_LINKS_ONLY = sys.argv[7:] == ['--navigation-links-only'] or NAVIGATION_LINKS_SDK
 NAVIGATION_COLLECTION_ONLY = sys.argv[7:] == ['--navigation-collection-only']
@@ -651,7 +652,7 @@ for legacy in selected_protocols:
             check_input_messages_play(read, ok, control, mutate, until)
             print(('legacy' if legacy else 'current') + ': typed-message authoring source/input scopes/real SDK Play/restart passed')
             continue
-        if NAVIGATION_CHARACTERS_ONLY or NAVIGATION_PLANAR_CHARACTERS_ONLY:
+        if NAVIGATION_CHARACTERS_ONLY or NAVIGATION_PLANAR_CHARACTERS_ONLY or NAVIGATION_JUMP_CHARACTERS_ONLY:
             from mcp_navigation_character_workflow import check_navigation_character
             schema = next(c for c in discovery()['result']['schema']['components']
                           if c['id'] == 'forge.navigation_agent')
@@ -660,7 +661,8 @@ for legacy in selected_protocols:
                 movement['choices'] == [dict(label=label, value=i) for i, label in enumerate(
                     ('Navigation', 'CharacterController', 'CharacterController2D'))], movement
             check_navigation_character(read, ok, control, until, edit_settings,
-                                       planar=NAVIGATION_PLANAR_CHARACTERS_ONLY)
+                                       planar=NAVIGATION_PLANAR_CHARACTERS_ONLY,
+                                       jump=NAVIGATION_JUMP_CHARACTERS_ONLY)
             print(('legacy' if legacy else 'current') +
                   (' XY' if NAVIGATION_PLANAR_CHARACTERS_ONLY else ' 3D') +
                   ': MCP-authored character, actual SDK Play step/block/arrival and clean restart passed')

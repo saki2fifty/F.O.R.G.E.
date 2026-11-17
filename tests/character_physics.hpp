@@ -2,6 +2,7 @@
 #include "../src/physics_debug.hpp"
 #include "physics_checkpoint_test.hpp"
 #include <chrono>
+#include <cmath>
 #include <forge/character_components.hpp>
 #include <numbers>
 void character_physics_tests() {
@@ -275,6 +276,256 @@ struct CharacterFixture : Fixture {
     CharacterState state() const { return physics->character(ref); }
     EntityRef reference(const char* id) { return *engine.world().reference(scene.entity(id).id()); }
 };
+void character_jump_once_tests() {
+    for (bool armed : {false, true}) {
+        CharacterFixture f;
+        f.load_character(source());
+        f.tick(10);
+        const auto start = f.state().position;
+        check(f.physics->gravity() == Double3{0, -9.81, 0},
+              "Host gravity observation differs from the physics owner");
+        f.physics->jump_character_once(f.ref, {2, 0, 0}, 4);
+        if (armed) {
+            f.physics->synchronize(0);
+            f.physics->synchronize(0);
+        }
+        const auto saved = f.physics->checkpoint();
+        const auto scene_image = f.scene.snapshot();
+        check(saved.at("version").get<unsigned>() == 13 &&
+                  (!armed || saved.at("characters").at(0).at("jump_once").get<bool>()),
+              "Automatic jump did not retain its queued/armed recovery profile");
+        {
+            Fixture restored;
+            restored.scene.restore_snapshot(scene_image);
+            restored.physics->restore(saved);
+            f.tick();
+            restored.tick();
+            const auto actual = f.state();
+            check(actual.jump_accepted && actual.position.x > start.x + .02 &&
+                      actual.position.y > start.y + .04 &&
+                      std::abs(restored.physics->character(f.ref).position.y - actual.position.y) <
+                          1e-6,
+                  "Automatic jump did not take off physically or diverged after recovery");
+            f.tick(2);
+            restored.tick(2);
+            check(!f.state().jump_accepted &&
+                      std::abs(f.state().position.x - actual.position.x) < 1e-6 &&
+                      std::abs(restored.physics->character(f.ref).position.y -
+                               f.state().position.y) < 1e-6 &&
+                      f.physics->checkpoint().at("version").get<unsigned>() == 10,
+                  "Automatic jump repeated, retained steering or failed to retire its profile");
+        }
+        for (unsigned invalid = 0; invalid != 8; ++invalid) {
+            auto damaged = saved;
+            if (invalid == 0)
+                damaged["version"] = 12;
+            else if (invalid == 1)
+                damaged["version"] = std::uint64_t{4294967309ull};
+            else if (armed) {
+                auto& c = damaged["characters"].at(0);
+                if (invalid == 2)
+                    c["jump_once"] = false;
+                if (invalid == 3)
+                    c["jump_once"] = "true";
+                if (invalid == 4)
+                    c.erase("jump_once");
+                if (invalid == 5)
+                    c.erase("movement_once");
+                if (invalid == 6)
+                    c["jump"] = 0;
+                if (invalid == 7)
+                    c["jump"] = -1;
+            } else {
+                auto& c = damaged["character_commands"].at(0);
+                if (invalid == 2)
+                    c["planar"] = true;
+                if (invalid == 3)
+                    c["speed"] = 0;
+                if (invalid == 4)
+                    c["kind"] = 4u;
+                if (invalid == 5)
+                    c["position"][0] = 1;
+                if (invalid == 6)
+                    c["flag"] = true;
+                if (invalid == 7)
+                    c["speed"] = -1;
+            }
+            forge::test::reseal_physics_checkpoint(damaged);
+            Fixture restored;
+            restored.scene.restore_snapshot(scene_image);
+            reject([&] { restored.physics->restore(damaged); });
+            restored.physics->restore(saved);
+        }
+    }
+    for (unsigned manual = 0; manual != 3; ++manual)
+        for (bool first : {false, true})
+            for (bool recreate : {false, true}) {
+                CharacterFixture f;
+                f.load_character(source());
+                f.tick(10);
+                const auto start = f.state().position;
+                f.physics->jump_character_once(f.ref, {8, 0, 0}, 8);
+                f.physics->synchronize(0);
+                const auto request = [&] {
+                    if (manual == 0)
+                        f.physics->move_character(f.ref, {.5, 0, 0});
+                    if (manual == 1)
+                        f.physics->jump_character(f.ref, 3);
+                    if (manual == 2)
+                        f.physics->place_character(f.ref, start, {}, false);
+                };
+                if (first)
+                    request();
+                f.physics->jump_character_once(f.ref, {8, 0, 0}, 8);
+                if (!first)
+                    request();
+                if (recreate) {
+                    auto entity = f.scene.entity("cube");
+                    auto config = entity.get<CharacterController>();
+                    config.max_slope = 40;
+                    entity.set<CharacterController>(config);
+                }
+                f.tick();
+                const auto actual = f.state();
+                check(std::abs(actual.position.x - start.x - (manual == 0 ? .5 / 60 : 0)) < 1e-5 &&
+                          (manual == 1 ? actual.jump_accepted && actual.velocity[1] < 3 &&
+                                             actual.velocity[1] > 2
+                                       : !actual.jump_accepted && actual.position.y < .01),
+                      "Automatic jump overrode manual intent, including armed recreation");
+                f.tick();
+                check(!f.state().jump_accepted &&
+                          f.physics->checkpoint().at("version").get<unsigned>() == 10,
+                      "Suppressed automatic jump survived its command boundary");
+            }
+    {
+        CharacterFixture f;
+        f.load_character(source());
+        f.tick(10);
+        for (const auto speed : {0.f, -1.f, std::numeric_limits<float>::infinity()})
+            reject([&] { f.physics->jump_character_once(f.ref, {}, speed); });
+        reject([&] { f.physics->jump_character_once(f.ref, {0, 1, 0}, 4); });
+        check(f.physics->checkpoint().at("version").get<unsigned>() == 10,
+              "Rejected automatic request entered the command queue");
+    }
+    for (bool armed : {false, true}) {
+        CharacterFixture f;
+        auto input = source();
+        auto planar = body("planar", 0, 0);
+        planar["components"].erase("forge.physics_body");
+        planar["components"].erase("forge.box_collider");
+        input["entities"].push_back(planar);
+        f.load_character(input);
+        auto actor = f.scene.entity("planar");
+        auto config = CharacterController2D{};
+        config.mode = 1;
+        actor.set<CharacterController2D>(config)
+            .set<LocalTranslation>({3, 0, 37.125})
+            .set<SpatialBinding>({SpatialMode::World, {}});
+        f.tick(10);
+        const auto ref = f.reference("planar");
+        const auto before = f.physics->character_2d(ref).position;
+        f.physics->jump_character_once(f.ref, {1, 0, 0}, 4);
+        f.physics->move_character_2d_once(ref, {2, 0});
+        if (armed)
+            f.physics->synchronize(0);
+        const auto saved = f.physics->checkpoint();
+        const auto scene_image = f.scene.snapshot();
+        check(saved.at("version").get<unsigned>() == 13,
+              "Mixed queued/armed XY movement and3D jump selected the wrong recovery profile");
+        Fixture restored;
+        restored.scene.restore_snapshot(scene_image);
+        restored.physics->restore(saved);
+        f.tick();
+        restored.tick();
+        const auto moved = f.physics->character_2d(ref);
+        check(f.state().jump_accepted && restored.physics->character(f.ref).jump_accepted &&
+                  std::abs(moved.position[0] - before[0] - 2. / 60) < 1e-5 &&
+                  restored.physics->character_2d(ref).position == moved.position &&
+                  actor.get<LocalTranslation>().z == 37.125,
+              "Mixed recovery lost native jump/XY movement or changed visual depth");
+        f.tick();
+        restored.tick();
+        check(std::abs(f.physics->character_2d(ref).position[0] - moved.position[0]) < 1e-6 &&
+                  restored.physics->character_2d(ref).position ==
+                      f.physics->character_2d(ref).position &&
+                  !f.state().jump_accepted &&
+                  f.physics->checkpoint().at("version").get<unsigned>() == 10,
+              "Mixed recovery retained an automatic request after its positive step");
+    }
+}
+void character_jump_flight_tests() {
+    for (bool raised : {false, true})
+        for (bool blocked : {false, true}) {
+            CharacterFixture f;
+            constexpr double gravity = 9.81, lift = 1, span = 4;
+            const double rise = raised ? 2 : 0;
+            auto settings = PhysicsConfig{};
+            settings.gravity = {0, -gravity, 0};
+            f.physics->configure(settings);
+            auto input = source();
+            auto& launch = input["entities"][0]["components"];
+            launch["forge.position"]["x"] = -3;
+            launch["forge.box_collider"] = {{"x", 4}, {"y", 1}, {"z", 6}};
+            auto landing = body("landing", rise - .5, 0);
+            landing["components"]["forge.position"]["x"] = 3;
+            landing["components"]["forge.box_collider"] = {{"x", 4}, {"y", 1}, {"z", 6}};
+            input["entities"].push_back(landing);
+            if (blocked) {
+                auto wall = body("flight wall", 3, 0);
+                wall["components"]["forge.box_collider"] = {{"x", .3}, {"y", 20}, {"z", 6}};
+                input["entities"].push_back(wall);
+            }
+            f.load_character(input, {-2, .02, 0});
+            f.tick(10);
+            check(f.state().ground == CharacterGround::OnGround &&
+                      f.state().supporting_entity == f.reference("floor"),
+                  "Jump flight fixture did not start on its static launch platform");
+            // Constant gravity gives this flight time for a one-metre lift over
+            // the entry/exit chord. Account for velocity-first fixed integration.
+            const double duration = std::sqrt(8 * lift / gravity);
+            const auto takeoff = float((rise + 4 * lift) / duration + gravity * (1.f / 60) * .5);
+            f.physics->move_character(f.ref, {span / duration, 0, 0});
+            f.physics->jump_character(f.ref, takeoff);
+            f.tick();
+            check(f.state().jump_accepted && f.state().position.y > .02,
+                  "Existing controller did not accept a supported physical takeoff");
+            bool airborne = false, landed = false, clipped = false;
+            double apex = f.state().position.y, maximum_x = f.state().position.x;
+            unsigned ticks = 1;
+            for (; ticks != 90;) {
+                f.tick();
+                ++ticks;
+                const auto state = f.state();
+                check(!state.jump_accepted, "A consumed takeoff request repeated during flight");
+                apex = std::max(apex, state.position.y);
+                maximum_x = std::max(maximum_x, state.position.x);
+                airborne |= state.ground != CharacterGround::OnGround;
+                clipped |= state.position.x < 0 && std::abs(state.velocity[0]) < .01;
+                landed = state.ground == CharacterGround::OnGround &&
+                         state.supporting_entity == f.reference("landing");
+                if (landed)
+                    break;
+            }
+            const auto state = f.state();
+            const Json observed{
+                {"raised", raised},
+                {"blocked", blocked},
+                {"ticks", ticks},
+                {"apex", apex},
+                {"maximum_x", maximum_x},
+                {"position", {state.position.x, state.position.y, state.position.z}},
+                {"velocity", state.velocity},
+                {"clipped", clipped},
+                {"landed", landed}};
+            if (!airborne || (blocked ? landed || !clipped || maximum_x >= -.44
+                                      : !landed || state.position.x < 1 ||
+                                            std::abs(state.position.y - rise) > .02 ||
+                                            apex < rise + .05 || apex > rise + 1.2))
+                throw std::runtime_error(
+                    "Physical jump flight/landing disagreed with its fixture: " + observed.dump());
+            std::cout << "Physical jump flight " << observed.dump() << '\n';
+        }
+}
 void character_workload_measurement() {
     using Clock = std::chrono::steady_clock;
     CharacterFixture f;

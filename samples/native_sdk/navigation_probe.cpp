@@ -213,6 +213,13 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char*, uint32_t) {
             }
             const auto id = a.navmesh.id.str();
             double start[3]{-8, .1, 0}, end[3]{8, .1, 0}, points[192]{};
+#ifdef FORGE_NAVIGATION_JUMP
+            start[0] = -3;
+            start[2] = -3;
+            end[0] = 3;
+            end[1] = 2;
+            end[2] = -3;
+#endif
 #ifdef FORGE_NAVIGATION_PLANAR
             start[2] = 37.125;
             end[2] = -19;

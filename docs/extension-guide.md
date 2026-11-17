@@ -635,6 +635,34 @@ next boundary. Observation does not queue movement or introduce an AI controller
 The callback changes the exact private SDK fingerprint: rebuild modules with the
 matching SDK. Existing authored NavigationAgent layout and no-link NavMesh formats are unchanged.
 
+### Physical character navigation
+
+NavigationAgent `movement` selects Navigation0, CharacterController1 or
+CharacterController2D2 through ordinary typed values and reflected authoring.
+Absent/zero retains direct navigation. Movement1 requires an existing enabled
+upright world-Y 3D CharacterController with World spatial binding and physical
+floor colliders. Movement2 requires a World-bound Floating CharacterController2D
+and XY NavMesh without links. Read actual adopted pose/velocity through the same
+copied agent API; navigation never writes a character's flight or collision pose.
+
+Movement1 also supports positive-lift 3D links between static supports. Author
+NavigationLink endpoints/arc_height, build its NavMesh and give the Agent enough
+speed for the span. Downward vertical gravity, positive controller gravity factor,
+walkable static takeoff/landing and bounded step resolution are required. Native
+physics determines actual jump acceptance, flight, obstruction and landing. Failed
+or missed landings never count as arrival. Speed0 stops steering while gravity
+continues. Stopping distance is evaluated before takeoff using the existing
+ground-route metric; satisfying it never starts an unnecessary jump. Active flight
+continues through actual landing. Use game Pause to freeze simulation. Clearing the destination releases
+steering, and destination changes during flight replan after landing.
+
+Automatic steering/jumps are engine-owned one-step requests, with no additional
+SDK callback. Manual character movement/jump/placement wins in the same pending
+physics boundary; disable navigation before project C++ takes over motion.
+Private exact-runtime recovery is separate from SDK Play's authored restart.
+See [character ownership](decisions/052-navigation-characters.md) and
+[physical jump links](decisions/053-navigation-character-jumps.md).
+
 ### XY navigation assets
 
 The same `navigation_query` and copied agent APIs operate in world XY when the

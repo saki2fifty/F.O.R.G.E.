@@ -348,10 +348,12 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& so
 int main(int argc, char** argv) {
     try {
         if (argc == 4 && (std::string_view(argv[1]) == "--prepare-characters" ||
+                          std::string_view(argv[1]) == "--prepare-jump-characters" ||
                           std::string_view(argv[1]) == "--prepare-planar-characters")) {
             prepare_character_gallery(std::filesystem::absolute(argv[2]),
                                       std::filesystem::absolute(argv[3]),
-                                      std::string_view(argv[1]) == "--prepare-planar-characters");
+                                      std::string_view(argv[1]) == "--prepare-planar-characters",
+                                      std::string_view(argv[1]) == "--prepare-jump-characters");
             return 0;
         }
         if (argc == 4 && (std::string_view(argv[1]) == "--prepare-collision-3d" ||
@@ -369,12 +371,14 @@ int main(int argc, char** argv) {
         }
         check(argc == 3 || (argc == 4 && (std::string_view(argv[3]) == "--collision" ||
                                           std::string_view(argv[3]) == "--characters" ||
+                                          std::string_view(argv[3]) == "--jump-characters" ||
                                           std::string_view(argv[3]) == "--planar-characters")),
               "Need Gallery, scratch root and optional collision or character profile");
         const bool planar_characters =
             argc == 4 && std::string_view(argv[3]) == "--planar-characters";
-        const bool characters =
-            planar_characters || (argc == 4 && std::string_view(argv[3]) == "--characters");
+        const bool jump_characters = argc == 4 && std::string_view(argv[3]) == "--jump-characters";
+        const bool characters = jump_characters || planar_characters ||
+                                (argc == 4 && std::string_view(argv[3]) == "--characters");
         const bool collision = argc == 4 && !characters;
         const unsigned count = characters ? 1 : 2;
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
@@ -383,13 +387,14 @@ int main(int argc, char** argv) {
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         std::array<AssetId, 2> roots;
         for (unsigned i = 0; i != count; ++i) {
-            const auto source = planar_characters ? planar_character_scene_path
-                                : characters      ? character_scene_path
-                                : collision       ? collision_scene_paths[i]
-                                : i               ? arc_scene_path
-                                                  : scene_path;
+            const auto source = jump_characters     ? jump_character_scene_path
+                                : planar_characters ? planar_character_scene_path
+                                : characters        ? character_scene_path
+                                : collision         ? collision_scene_paths[i]
+                                : i                 ? arc_scene_path
+                                                    : scene_path;
             if (characters)
-                exercise_character_gallery(root, source, planar_characters);
+                exercise_character_gallery(root, source, planar_characters, jump_characters);
             else if (collision)
                 exercise_collision(root, source, i != 0);
             else
@@ -406,16 +411,17 @@ int main(int argc, char** argv) {
             const auto catalog = open_runtime_content(relocated, {"windows", "d3d12"});
             if (characters)
                 exercise_character_gallery(relocated, catalog.records().at(roots[i]).source,
-                                           planar_characters);
+                                           planar_characters, jump_characters);
             else if (collision)
                 exercise_collision(relocated, catalog.records().at(roots[i]).source, i != 0);
             else
                 exercise(relocated, catalog.records().at(roots[i]).source, i != 0);
         }
-        std::cout << (planar_characters ? "Gallery225 Floating XY navigation characters"
-                      : characters      ? "Gallery224 physics-driven navigation characters"
-                      : collision       ? "Gallery222/223 native collision blocking/live filtering"
-                                        : "Gallery140/218 actual two-way patrol/one-way movement")
+        std::cout << (jump_characters     ? "Gallery226 physical navigation jumps"
+                      : planar_characters ? "Gallery225 Floating XY navigation characters"
+                      : characters        ? "Gallery224 physics-driven navigation characters"
+                      : collision ? "Gallery222/223 native collision blocking/live filtering"
+                                  : "Gallery140/218 actual two-way patrol/one-way movement")
                   << " and source-hidden relocated export PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
