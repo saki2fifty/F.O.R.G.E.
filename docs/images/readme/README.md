@@ -1,5 +1,18 @@
 # README screenshots
 
+## Camera control Timeline
+
+`manual/images/camera-control-timeline.png` is an exact 1080 by 1300 capture
+of the production AnimationTimelineEditor after real first-key selection. It shows
+Camera Aim and Camera Follow offset/weight Field value and Cubic field curve
+controls. Reproduce with `forge_animation_property_editor_tests OUTPUT --camera-capture`.
+The source fixture is `tests/animation_property_editor_tests.cpp`; executable
+SHA256 `92725972d5e398f258bb088b53a19b294001d49a03665781df4ddd121ed4d4e9` and canonical PNG SHA256
+`069588163f0da549a04f9805b4ad301e0ccf54d2837a4809d818aa31c9a6d5e7` identify this capture. The reviewed pixels use the packaged
+font, native ImGui draw data and SDL software composition on Linux. The image is
+unretouched; full Windows desktop, physical input/display density and GPU
+acceptance remain separate.
+
 ## Native UI source authoring
 
 The four `ui-source-bindings-text.png`, `ui-source-bindings-command.png`,

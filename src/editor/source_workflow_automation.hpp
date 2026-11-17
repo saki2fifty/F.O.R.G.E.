@@ -855,11 +855,15 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        "starting with {index:N} for positional unkeyed collections or "
                        "{key:string-or-string-tuple} for declared collection keys, followed by "
                        "member IDs/selectors. Repeat the complete identity on each key value; "
-                       "missing elements reject without resizing or adding rows. UI Values opts "
+                       "missing elements reject without resizing or adding rows. UI Values, "
+                       "Camera Aim and Camera Follow opt "
                        "into "
                        "the same keyed field tracks with forge.builtin-component admission; user "
                        "C++ components retain forge.authored-component admission. Copy the exact "
-                       "current schema stamp. UI expressions consume the sampled numbers in Game; "
+                       "current schema stamp. Camera offsets/weights interpolate; Enabled and "
+                       "Follow offset_space hold exact Boolean/enum values. Camera Target "
+                       "references are not animation fields. UI expressions consume the sampled "
+                       "numbers in Game; "
                        "native CSS animation keeps presentation time."
                      : ""),
             "asset.write", automation_object(std::move(properties), std::move(needed)), true,

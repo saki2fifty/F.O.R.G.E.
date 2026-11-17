@@ -603,6 +603,11 @@ Undo/Redo and publication tools. Read the current inspected custom component
 admission with `forge_code_schemas`. Use its `reference_schema.components` fields
 or the ordinary Scene schema tools for current edit/animation capabilities; the
 raw declaration `structure` remains versioned admission data.
+Camera Aim and Camera Follow expose `forge.builtin-component` admission through
+current schema discovery, like UI Values. Copy the exact stamp for component
+tracks; offsets/weights are continuous, Enabled and Follow offset_space are held,
+and Target references are not animation fields.
+
 Promote the source to6 and add `component_bindings` descriptors containing stable
 `component`, `field` and the exact `admission` stamp. Each key needs a matching
 `component_values` row containing `component`, `field`, numeric `value` and optional

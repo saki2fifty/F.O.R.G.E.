@@ -71,6 +71,9 @@ move the target to change the followed eye. The Scene camera icon and view volum
 show the derived eye; transform handles stay with the authored node. Attached
 meshes, lights and children keep their ordinary node poses.
 
+Audio Listener also uses its node Transform. Animate its Transform or a common
+rig node when spatial sound should move with the viewpoint.
+
 During Play, **Live gameplay** exposes Enabled, Weight, the offsets and Offset
 Space. Assign Target in Edit. Stop and review **Keep runtime values** to retain
 selected changes, then save. A reusable Prefab can contain both the camera and
@@ -87,3 +90,27 @@ reason in Problems. Clear Target, disable Follow or choose a valid object to
 restore a valid view. Keep the eye away from its aim point when using both
 components: coincident points cannot define a viewing direction. Invalid Camera
 frames retain the restrictions described above.
+
+## Animate the camera controls
+
+1. Select the Camera and configure its Camera Aim and Camera Follow Targets in Inspector.
+2. Create or open a [transform animation clip](transform-animation.md) in Timeline. Choose the Camera as **Preview object**.
+3. Expand **Component fields**. Choose **Add** beside Camera Follow **weight** and **offset_x**, or Camera Aim **weight**. Disable unused Transform channels if the clip should change only these controls.
+4. Select the first key, enter its **Field value** and choose **Add / Update key at playhead**. Select or add a later key and give it a different value. Weight must remain between 0 and 1, including between keys when using cubic curves.
+5. Choose **Save & Publish**, attach the clip to the Camera with **Transform Animator**, save the Scene, and press Play. Source-free export includes the published clip; no project C++ module is required for these built-in controls.
+
+![Timeline with Camera Aim and Camera Follow offset and weight tracks](../images/camera-control-timeline.png)
+
+Each camera component field uses the same key editing and history controls as other component tracks.
+
+The Timeline preview shows the derived eye and direction while the Camera's
+Transform stays its base pose. Enabled and Offset Space can also be keyed; they
+hold until the next key. Target references cannot be keyed. Runtime Inspector
+changes to an animated field can be replaced by the next animation update.
+
+Open **221-camera-control-animation** in the Feature Gallery. The yellow target
+stays still while Follow Weight rises from 0 to 1, Follow Offset X moves from
+-3 to 3, and Aim Weight rises from 0 to 1 over a two-second loop. Select the
+following Camera, open its clip in Timeline and scrub to compare the three fields.
+The Camera, light and published clip are included. Select this Scene as startup
+before exporting.

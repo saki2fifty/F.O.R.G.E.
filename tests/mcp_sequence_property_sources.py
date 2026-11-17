@@ -47,6 +47,11 @@ def check_sequence_property_sources(read, mutate, edit, status, content, root, t
                        patch=[dict(op='replace', path=invalid_path, value='invalid')])
         assert not invalid['ok'] and content(owner) == source
         assert status(owner)['revision'] == before['revision']
+        stale = mutate('forge_asset_document_patch', editor=owner,
+                       document_session=before['session'], document_revision=before['revision'] - 1,
+                       patch=[dict(op='replace', path='', value=baseline)])
+        assert not stale['ok'] and content(owner) == source
+        assert status(owner)['revision'] == before['revision']
         saved = edit('forge_asset_document_save', owner)
         assert saved['ok'], saved
         deadline = time.monotonic() + 35
@@ -60,7 +65,7 @@ def check_sequence_property_sources(read, mutate, edit, status, content, root, t
         assert json.loads((root/'Game'/path).read_text()) == source
         assets.append(settled['asset'])
         assert edit('forge_asset_document_close', owner)['ok']
-    assert len(set(assets)) == 4
+    assert len(set(assets)) == len(declarations)
     records = {row['id']: row for row in json.loads((root/'Game/forge.assets.json').read_text())['assets']}
     for asset in assets:
         record = records[asset]

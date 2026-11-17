@@ -63,6 +63,10 @@ affects clip edits; scene Undo affects attachment and ordinary scene edits.
 
 ## Animate a component field
 
+Built-in **Camera Aim**, **Camera Follow** and **UI Values** use this workflow
+without project C++. Add the component and configure its Target or named values
+in Inspector before adding tracks.
+
 For a project C++ field, first build and inspect the project's components, then add the desired
 component to an object. See [C++ project code](native-gameplay.md). The component
 must opt into authoring and expose an editable float, double, Boolean, integer or
@@ -101,6 +105,11 @@ Expand your C++ component's struct in the Inspector to inspect its members.
 Timeline lists each available leaf with its full path, such as **settings / speed**.
 Choose **Add** for that leaf. Neighboring values remain unchanged. **Capture authored
 pose** captures the bound leaves as well as the transform.
+
+Camera offsets and Weight interpolate as numbers. **Enabled** and Follow
+**Offset Space** hold their selected value until the next key. **Target** is
+assigned in Edit and is not an animation field. Keep Weight curves within 0 to 1
+throughout the segment, including between keys. See [camera control animation](camera-aim.md).
 
 Up to 64 scalar component leaves can be bound per clip, including editable members
 inside nested structs, fixed arrays and admitted native tables. [UI Values](sequence-ui.md) also exposes its named numeric leaves through this workflow without project C++. Arbitrary DOM properties are unavailable here. Array/table elements must already exist: add or edit their data

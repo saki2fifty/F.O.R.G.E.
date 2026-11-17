@@ -26,6 +26,17 @@ Nonuniform positive scale is removed from camera orientation and does not alter
 FOV or clipping distances. Explicit orthogonality and normalized determinant checks
 use a1e-5 tolerance, consistent with float-authored rotation and double evaluation.
 
+## Camera control animation
+
+Camera Aim and Camera Follow explicitly opt into the existing builtin component
+tracks using their reflected forge.core admission stamp. Offsets/weight are
+continuous; Enabled and Follow offset_space retain exact held domains. Target
+references remain outside track admission. The shared component candidate validates
+whole-clip extrema, ranges, choices and stamp identity before native writes or
+copied projections. Timeline/Sequence preview, runtime, source publication/export
+and generic source automation/MCP use those owners without camera-specific clocks
+or track formats. See [component animation](transform-animation.md).
+
 ## Camera Follow
 
 `forge.camera_follow` is optional native `CameraFollow` in the installed
@@ -42,6 +53,8 @@ mixes each native eye coordinate toward the desired eye by Weight. Camera Shot
 endpoints consume this completed view before their existing interpolation. There
 is no motion integrator, damping, obstruction solver, transform writer, new clock
 or dependency recursion. Source TRS and other producers keep their native poses.
+AudioListener synchronization likewise retains its final WorldTransform position,
+direction, velocity and existing ownership; view modifiers do not move a listener.
 
 Inactive/unbound/zero-weight following bypasses target lookup. Active invalid
 targets/nonfinite desired eyes produce `render.camera_follow.invalid` with

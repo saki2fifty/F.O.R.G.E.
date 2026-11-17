@@ -1,5 +1,13 @@
 # 2026-11-17
 
+## Camera control animation
+
+Timeline component tracks support Camera Aim and Camera Follow offsets, weights
+and discrete controls through the existing reflected admission and sampling owners.
+Target references remain Edit-only. Preview, playback, source automation/MCP and
+export share this path. An editable Gallery Scene animates following and aiming
+weights around a stationary target.
+
 ## Camera Follow
 
 Camera Follow derives an eye position from a same-Scene target with weighted

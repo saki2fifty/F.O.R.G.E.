@@ -243,6 +243,14 @@ for legacy in protocol_cases():
             fixture = Path(__file__).resolve().parents[1] / 'samples/projects/FeatureGallery/Assets/Sequences'
             templates = [(name, json.loads((fixture/(name + '.animation.json')).read_text()))
                          for name in ('SurfaceFirst', 'SurfaceNext', 'FieldsFirst', 'FieldsNext')]
+            camera = json.loads((fixture/'CameraControls.animation.json').read_text())
+            schema = {row['id']: row for row in discovery()['result']['schema']['components']}
+            for binding in camera['component_bindings']:
+                declaration = schema[binding['component']]
+                assert binding['admission'] == declaration['admission']
+                assert declaration['admission']['module'] == 'forge.core'
+                assert binding['field'] != 'target'
+            templates.append(('CameraControls', camera))
             check_sequence_property_sources(read, mutate, edit, status, content, root, templates)
             continue
         if ANIMATION_GRAPH_ONLY:

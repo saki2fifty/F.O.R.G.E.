@@ -550,6 +550,7 @@ int main(int argc, char** argv) {
                 camera_transition_frame_source(argv[2], argv[3], curve);
             camera_aim_frame_source(argv[2], argv[3]);
             camera_aim_frame_source(argv[2], argv[3], true);
+            camera_aim_frame_source(argv[2], argv[3], true, true);
             std::cout << "Stopped Camera transition frame source, all timing curves and attached "
                          "producer isolation, and animated Camera Aim frame source PASS\n";
             return 0;

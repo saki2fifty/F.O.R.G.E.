@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Camera control animation
+
+Open `Scenes/221-camera-control-animation.scene.json` and press Play. The yellow
+cube stays still while the Camera's Follow weight, horizontal offset and Aim weight
+animate over a two-second loop. Select the following Camera and open
+`Assets/Sequences/CameraControls.animation.json` in Timeline. Its three component
+field tracks use the standard key, history, preview and Save & Publish controls.
+No project C++ module is required. The Camera's Transform remains its base pose.
+Save and select this Scene as startup before export. See
+[camera control animation](../../../manual/editor/camera-aim.md).
+
 ## Camera Follow
 
 Open `Scenes/220-camera-follow.scene.json` and press Play. The Camera follows

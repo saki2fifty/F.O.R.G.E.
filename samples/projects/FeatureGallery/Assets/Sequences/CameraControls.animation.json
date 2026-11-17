@@ -1,0 +1,121 @@
+{
+  "asset_id": "52dbe165-0bbc-4842-bf4a-064820419bf9",
+  "channels": [],
+  "component_bindings": [
+    {
+      "admission": {
+        "digest": "0edd525ef14abdcc34a3699861f9ab657e07b8ba6d5fc9e46dadfb03d8c3d0a2",
+        "format": "forge.builtin-component",
+        "module": "forge.core",
+        "schema_version": 1,
+        "version": 1
+      },
+      "component": "forge.camera_aim",
+      "field": "weight"
+    },
+    {
+      "admission": {
+        "digest": "5c69927e32e7b803898afa79c1a5494ad75289ba4093e7966aca837af0e8ac86",
+        "format": "forge.builtin-component",
+        "module": "forge.core",
+        "schema_version": 1,
+        "version": 1
+      },
+      "component": "forge.camera_follow",
+      "field": "weight"
+    },
+    {
+      "admission": {
+        "digest": "5c69927e32e7b803898afa79c1a5494ad75289ba4093e7966aca837af0e8ac86",
+        "format": "forge.builtin-component",
+        "module": "forge.core",
+        "schema_version": 1,
+        "version": 1
+      },
+      "component": "forge.camera_follow",
+      "field": "offset_x"
+    }
+  ],
+  "duration_us": 2000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "component_values": [
+        {
+          "component": "forge.camera_aim",
+          "field": "weight",
+          "value": 0.0
+        },
+        {
+          "component": "forge.camera_follow",
+          "field": "weight",
+          "value": 0.0
+        },
+        {
+          "component": "forge.camera_follow",
+          "field": "offset_x",
+          "value": -3.0
+        }
+      ],
+      "id": "2ba17d2c-23d2-4f9e-8c74-815ecafe0557",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 0,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "component_values": [
+        {
+          "component": "forge.camera_aim",
+          "field": "weight",
+          "value": 1.0
+        },
+        {
+          "component": "forge.camera_follow",
+          "field": "weight",
+          "value": 1.0
+        },
+        {
+          "component": "forge.camera_follow",
+          "field": "offset_x",
+          "value": 3.0
+        }
+      ],
+      "id": "4cf66959-24df-402e-a77d-a4f359a5e217",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 2000000,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "timebase": 1000000,
+  "version": 6
+}

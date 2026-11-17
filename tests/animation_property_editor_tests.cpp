@@ -105,8 +105,9 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     const auto actor =
         authoring_command(scene, "entity.create", {{"name", "Lens and light"}})["selected"]
             .get<std::string>();
-    for (const char* component : {"forge.camera", "forge.light", "forge.audio_source",
-                                  "forge.particle_emitter", "forge.sprite_renderer"})
+    for (const char* component :
+         {"forge.camera", "forge.camera_aim", "forge.camera_follow", "forge.light",
+          "forge.audio_source", "forge.particle_emitter", "forge.sprite_renderer"})
         authoring_command(scene, "component.add", {{"entity", actor}, {"component", component}});
     authoring_command(scene, "component.add",
                       {{"entity", actor}, {"component", "project.ui_motion"}});
@@ -569,6 +570,40 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     frame();
     check(scene.entity(actor).get<UiMotion>().speed == 90,
           "Timeline key editing changed the authored component");
+    for (const char* control :
+         {"forge.camera_aim:weight", "forge.camera_follow:weight", "forge.camera_follow:offset_x",
+          "forge.camera_aim:enabled", "forge.camera_follow:offset_space"})
+        click(std::string("animation:component_add:") + control);
+    check(!test::ui_targets.contains("animation:component_add:forge.camera_aim:target") &&
+              !test::ui_targets.contains("animation:component_add:forge.camera_follow:target"),
+          "Timeline offered camera Target references as keyed fields");
+    const auto before_camera_key = editor.document()->source().document;
+    type("animation:component_value:forge.camera_aim:weight", "0.4");
+    type("animation:component_value:forge.camera_follow:weight", "0.3");
+    type("animation:component_value:forge.camera_follow:offset_x", "-3");
+    click("animation:component_value:forge.camera_aim:enabled");
+    click("animation:component_value:forge.camera_follow:offset_space");
+    click("property:choice:offset_space:1");
+    click("button:Add / Update key at playhead");
+    const auto camera_clip = editor.document()->source().clip();
+    check(camera_clip.component_bindings.size() == 19 &&
+              camera_clip.keys.front().component_values[14].value == .4 &&
+              camera_clip.keys.front().component_values[15].value == .3 &&
+              camera_clip.keys.front().component_values[16].value == -3 &&
+              camera_clip.keys.front().component_values[17].value == false &&
+              camera_clip.keys.front().component_values[18].value == 1,
+          "Timeline camera scalar, Boolean or coordinate-space input did not commit");
+    editor.undo();
+    check(editor.document()->source().document == before_camera_key,
+          "Camera control key Undo lost source values");
+    editor.redo();
+    locked = true;
+    frame();
+    check(!test::ui_targets.at("animation:component_value:forge.camera_aim:weight").enabled &&
+              !test::ui_targets.at("animation:component_value:forge.camera_follow:offset_space")
+                   .enabled,
+          "Camera source key editing remained enabled during Play");
+    locked = false;
     editor.request_save();
     catalog.reset();
     const auto field_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
@@ -617,11 +652,18 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
               "Sequence preview lost its copied component field projection");
         for (std::size_t i = 1; i < expected.size(); ++i) {
             const auto& binding = sequence_clip.component_bindings[i];
-            const auto native_value = binding.value_type == AnimationComponentValueType::Scalar
-                                          ? Json(double(float(expected[i].get<double>())))
-                                          : expected[i];
-            const auto& current = row->at("components").at("project.ui_motion");
-            const auto current_schema = engine.world().authored_codecs().front().editor_schema();
+            const auto& current = row->at("components").at(binding.component);
+            const auto schema = scene.schema();
+            const auto& types = schema.at("components");
+            const auto declaration =
+                std::find_if(types.begin(), types.end(),
+                             [&](const auto& type) { return type.at("id") == binding.component; });
+            check(declaration != types.end(), "Sequence component declaration missing");
+            const auto& current_schema = *declaration;
+            const auto native_value =
+                animation_component_field(current_schema, binding).at("type") == "float32"
+                    ? Json(double(float(expected[i].get<double>())))
+                    : expected[i];
             check(current.at(animation_component_pointer(current_schema, current, binding)) ==
                       native_value,
                   "Sequence preview changed field " + animation_component_label(binding));
@@ -634,7 +676,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
-void capture(const std::filesystem::path& root) {
+void capture(const std::filesystem::path& root, bool camera = false) {
     std::filesystem::create_directories(root / "project/Assets");
     test::ImGuiSoftwareCapture capture(1080, 1300);
     ui::style(1);
@@ -649,10 +691,28 @@ void capture(const std::filesystem::path& root) {
                            .get<std::string>();
     authoring_command(scene, "component.add",
                       {{"entity", actor}, {"component", "project.ui_motion"}});
+    if (camera)
+        for (const auto* component : {"forge.camera", "forge.camera_aim", "forge.camera_follow"})
+            authoring_command(scene, "component.add",
+                              {{"entity", actor}, {"component", component}});
     auto document =
         TransformAnimationDocument::create(project.writer_guard(), "Assets/Speed.animation.json");
     document->edit(document->revision(), "Component field capture", [&](auto& json) {
         TransformAnimationSource source{json};
+        if (camera) {
+            const auto schema = scene.schema();
+            for (const auto& type : schema.at("components"))
+                if (type.at("id") == "forge.camera_aim" || type.at("id") == "forge.camera_follow")
+                    for (const auto& binding : animation_component_fields(type))
+                        if (binding.field == "weight" || binding.field == "offset_x")
+                            source.add_component_field(binding,
+                                                       binding.field == "weight" ? .25 : -3.);
+            const auto last = source.set_key(2 * animation_timebase, {});
+            for (const auto& binding : source.clip().component_bindings)
+                source.set_component_value(last, binding, binding.field == "weight" ? 1. : 3.);
+            json = source.document;
+            return;
+        }
         const auto& codec = engine.world().authored_codecs().front();
         const AnimationComponentBinding binding{codec.key(),   "settings",
                                                 codec.stamp(), AnimationComponentValueType::Scalar,
@@ -735,10 +795,15 @@ void capture(const std::filesystem::path& root) {
     io.AddMouseButtonEvent(0, false);
     frame();
     frame();
-    reveal("animation:component_out:project.ui_motion:settings / weights [1]");
-    capture.save(root / "animation-component-fields.png");
-    reveal("animation:component_value:project.ui_motion:settings / masks [1]");
-    capture.save(root / "animation-discrete-fields.png");
+    if (camera) {
+        reveal("animation:component_value:forge.camera_follow:weight");
+        capture.save(root / "camera-control-timeline.png");
+    } else {
+        reveal("animation:component_out:project.ui_motion:settings / weights [1]");
+        capture.save(root / "animation-component-fields.png");
+        reveal("animation:component_value:project.ui_motion:settings / masks [1]");
+        capture.save(root / "animation-discrete-fields.png");
+    }
     test::observe_ui = false;
 }
 } // namespace
@@ -746,6 +811,10 @@ int main(int argc, char** argv) {
     try {
         if (argc == 3 && std::string_view(argv[2]) == "--capture") {
             capture(std::filesystem::absolute(argv[1]));
+            return 0;
+        }
+        if (argc == 3 && std::string_view(argv[2]) == "--camera-capture") {
+            capture(std::filesystem::absolute(argv[1]), true);
             return 0;
         }
         check(argc == 2, "Need property UI scratch root");

@@ -152,15 +152,17 @@ void frame_source(const std::filesystem::path& gallery, const std::filesystem::p
 // The stopped Timeline and its frame-export lease project the shared view after
 // Scene has resolved the copied animated hierarchy, exactly as the editor does.
 void camera_aim_frame_source(const std::filesystem::path& gallery,
-                             const std::filesystem::path& scratch, bool following = false) {
+                             const std::filesystem::path& scratch, bool following = false,
+                             bool controls = false) {
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
     EngineContext engine;
     Scene scene(engine.world());
     SceneDocument project(scene);
     project.open_project(root);
-    project.open_scene(following ? "Scenes/220-camera-follow.scene.json"
-                                 : "Scenes/219-camera-aim.scene.json");
+    project.open_scene(controls    ? "Scenes/221-camera-control-animation.scene.json"
+                       : following ? "Scenes/220-camera-follow.scene.json"
+                                   : "Scenes/219-camera-aim.scene.json");
     const auto authored = scene.document();
     const auto revision = scene.revision();
     EntityRef sequence;
@@ -192,6 +194,20 @@ void camera_aim_frame_source(const std::filesystem::path& gallery,
                   views.cameras[0].entity == EntityId::parse(camera),
               "Stopped Camera Aim frame lost its view");
         const auto u = time / 2;
+        if (controls) {
+            const auto& view = views.cameras[0].view;
+            const double x = (-3 + 6 * u) * u, y = 3 + .5 * u, z = -8 + 2 * u;
+            expect_close(view.position[0], x);
+            expect_close(view.position[1], y);
+            expect_close(view.position[2], z);
+            const double dx = -x, dy = 2 - y, dz = -z;
+            const auto radial = std::hypot(dx, dy);
+            const auto angle = std::atan2(radial, dz) * u;
+            expect_close(view.forward[0], dx / radial * std::sin(angle));
+            expect_close(view.forward[1], dy / radial * std::sin(angle));
+            expect_close(view.forward[2], std::cos(angle));
+            continue;
+        }
         const auto x = -2 + 4 * u * u * (3 - 2 * u);
         const auto distance = following ? std::sqrt(38.25) : std::sqrt(x * x + 65);
         const auto& view = views.cameras[0].view;

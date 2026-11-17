@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**221-camera-control-animation** animates the Camera Follow weight and horizontal
+offset together with Camera Aim weight around a stationary yellow target. Open
+the Camera's clip in Timeline to edit and scrub these built-in field tracks. No
+project C++ module is required. Save and select this Scene as startup before
+export. See [camera control animation](../editor/camera-aim.md).
+
 **220-camera-follow** follows a moving yellow cube and aims above its center.
 Blue cubes and the floor show the camera's motion. Inspect **Camera Follow** and
 **Camera Aim** on the following Camera to adjust its eye and viewing direction.

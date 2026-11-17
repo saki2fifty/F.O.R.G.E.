@@ -4374,16 +4374,18 @@ Json register_builtins(flecs::world& world, unsigned family) {
                   name == "forge.reflection_probe" || name == "forge.decal" ||
                   name == "forge.fog_volume" || name == "forge.node_visibility" ||
                   name == "forge.node_selectability"}});
-        if (name == "forge.ui_values") {
+        if (name == "forge.ui_values" || name == "forge.camera_aim" ||
+            name == "forge.camera_follow") {
             // A builtin opts into the existing component-track admission explicitly.
             // Its stamp describes the reflected value shape, never a Scene instance.
             const auto digest = authored_structure_digest(
                 {{"id", name}, {"fields", components.back().at("fields")}});
-            components.back()["admission"] = {{"format", "forge.builtin-component"},
-                                              {"version", 1u},
-                                              {"module", "forge.ui"},
-                                              {"schema_version", 1u},
-                                              {"digest", digest}};
+            components.back()["admission"] = {
+                {"format", "forge.builtin-component"},
+                {"version", 1u},
+                {"module", name == "forge.ui_values" ? "forge.ui" : "forge.core"},
+                {"schema_version", 1u},
+                {"digest", digest}};
         }
         std::lock_guard lock(catalog_mutex);
         auto validation = components.back();

@@ -42,7 +42,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Materials](editor/materials.md)
 - [Paint textures on a canvas or Mesh, copy images and publish for Materials](editor/texture-painting.md)
 - [Show a live camera image on a Mesh](editor/render-textures.md)
-- [Follow a moving object and aim a camera](editor/camera-aim.md)
+- [Follow, aim and animate camera controls](editor/camera-aim.md)
 - [Blend overlapping transparent Meshes](editor/transparency.md)
 - [Project color, normals and roughness onto a Mesh](editor/decals.md)
 - [Material Graph for Meshes and Sprites](editor/material-graphs.md)
@@ -60,7 +60,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 
 ## Animation
 
-- [Transform animation timeline and nested and collection C++ component fields](editor/transform-animation.md)
+- [Transform animation timeline, camera controls and C++ component fields](editor/transform-animation.md)
 - [Arrange up to eight skeletal or object clips per track, layer overlaps, crossfade properties/Material/component fields, move, trim, split or duplicate camera shots and choose timing curves, repeat nested controller placements with rates and loops, and export PNG/WebP/AVI previews](editor/animation-sequences.md)
 - [Transfer animation between imported skeletons](editor/animation-retargeting.md)
 - [Compose clips, blends and additive layers with named graph inputs](editor/animation-graphs.md)

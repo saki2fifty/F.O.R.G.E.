@@ -559,12 +559,20 @@ requiring a matching module rebuild without a scene/clip stamp migration.
 The current target profile admits editable root and nested struct-leaf float32/float64, Boolean
 and signed/unsigned integer fields, including their declared enum/bitmask domains,
 of an existing opt-in authored C++ component or an explicitly admitted builtin
-(initially UI Values). It verifies the exact admission stamp,
+(UI Values, Camera Aim and Camera Follow). It verifies the exact admission stamp,
 field presence, read-only policy and reflected member domain, including all cubic
 extrema for continuous fields and every keyed value for discrete fields. The shared
 reflection validator admits native widths/ranges/choices; discrete values never
 pass through double. Editable fixed-array and admitted native Meta vector leaves are supported. UI/DOM
 property paths and arbitrary project opaque C++ containers remain unsupported.
+Camera Aim and Camera Follow use the existing forge.core reflected admission stamp.
+Offsets and weights use continuous field tracks; Enabled and Follow offset_space
+use exact held Boolean/enum values. EntityRef Target is not a supported animation
+leaf. Whole-clip validation rejects weight overshoot and unknown coordinate spaces
+before any candidate applies. Copied preview, Sequence frame sampling and native
+playback share the component candidate and camera view owners; no native camera
+TRS is rewritten by the modifiers.
+
 UI Values supplies numeric model inputs through existing keyed tracks, not DOM
 property paths. AuthoredCodec remains the native owner for project C++ values: read current complete state,
 replace the selected leaf values, clone the current native value through its

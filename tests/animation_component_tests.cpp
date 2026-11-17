@@ -922,6 +922,7 @@ void discrete_playback(const std::filesystem::path& root) {
 }
 #include "sequence_component_blend_tests.hpp"
 } // namespace
+#include "camera_control_animation_tests.hpp"
 int main(int argc, char** argv) {
     try {
         check(argc == 2, "Need component animation scratch root");
@@ -933,6 +934,7 @@ int main(int argc, char** argv) {
         playback(root);
         discrete_playback(root / "discrete");
         sequence_component_blends(root / "sequence-pairs");
+        camera_control_playback(root / "camera-controls");
         std::filesystem::remove_all(root);
         std::cout << "Component clip source, native behavior, copied preview, admission and "
                      "recovery passed\n";
