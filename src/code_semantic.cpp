@@ -210,8 +210,9 @@ Json normalized_workspace_edits(const Json& response, const std::string& source,
                 "Source proposal requires plain unannotated text edits without extra payloads");
     return normalized_source_edits(entry.value(), source, action);
 }
-Json normalized_open_rename(const Json& response, const ui::CppSearchDrafts& documents,
-                            const ProjectPaths& paths, const std::string& name) {
+Json normalized_multi_rename(const Json& response, const ui::CppSearchDrafts& documents,
+                             const ProjectPaths& paths, const std::string& name,
+                             bool project_sources = false) {
     Json files = Json::array(), mappings = Json::array();
     std::set<std::filesystem::path> seen;
     std::size_t edit_count = 0;
@@ -219,7 +220,7 @@ Json normalized_open_rename(const Json& response, const ui::CppSearchDrafts& doc
         require(response.is_object() && response.size() == 1 && response.contains("changes") &&
                     response.at("changes").is_object() &&
                     response.at("changes").size() <= documents.size(),
-                "Rename in open files requires plain edits to captured open files; resource and "
+                "Multi-file rename requires plain edits within its captured sources; resource and "
                 "annotated edits are refused");
         for (const auto& [uri, edits] : response.at("changes").items()) {
             const auto locator = paths.relative(local_file_url_path(uri));
@@ -228,9 +229,11 @@ Json normalized_open_rename(const Json& response, const ui::CppSearchDrafts& doc
                 std::find_if(documents.begin(), documents.end(), [&](const auto& row) {
                     return paths.same_locator(row.first, locator);
                 });
-            require(source != documents.end(), "Rename in open files cannot edit an unopened file");
+            require(source != documents.end(),
+                    project_sources ? "Project rename cannot edit a source outside its captured set"
+                                    : "Rename in open files cannot edit an unopened file");
             require(seen.insert(source->first).second,
-                    "Rename in open files repeats a source through another locator");
+                    "Multi-file rename repeats a source through another locator");
             auto proposal =
                 normalized_workspace_edits({{"changes", {{uri, edits}}}}, source->second, paths,
                                            source->first, "Rename to " + name);
@@ -247,19 +250,22 @@ Json normalized_open_rename(const Json& response, const ui::CppSearchDrafts& doc
     Json items = Json::array(), source_edits = Json::array();
     if (!files.empty()) {
         const auto count = files.size();
-        items.push_back({{"available", true},
-                         {"reason", ""},
-                         {"label", "Rename to " + name + " in " + std::to_string(count) +
-                                       (count == 1 ? " open file" : " open files")},
-                         {"file_count", count},
-                         {"edit_count", edit_count},
-                         {"files", std::move(files)}});
+        items.push_back(
+            {{"available", true},
+             {"reason", ""},
+             {"label", "Rename to " + name + " in " + std::to_string(count) +
+                           (project_sources ? (count == 1 ? " project file" : " project files")
+                                            : (count == 1 ? " open file" : " open files"))},
+             {"file_count", count},
+             {"edit_count", edit_count},
+             {"files", std::move(files)}});
         source_edits.push_back(std::move(mappings));
     }
     Json result{
         {"items", std::move(items)}, {"limited", false}, {"source_edits", std::move(source_edits)}};
     require(result.dump().size() <= frame_limit / 2,
-            "Rename in open files preview exceeds 4 MiB; open fewer files");
+            project_sources ? "Project rename preview exceeds 4 MiB; reduce the proposed change"
+                            : "Rename in open files preview exceeds 4 MiB; open fewer files");
     return result;
 }
 Json normalized_fixes(const Json& response, const std::string& source, const ProjectPaths& paths,
@@ -766,7 +772,7 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     ui::CppSearchDrafts documents;
     std::size_t bytes = 0;
     require(request.at("documents").is_array() && request.at("documents").size() <= 64,
-            "C++ semantic queries support at most 64 open documents");
+            "C++ semantic queries support at most 64 captured documents");
     for (const auto& row : request.at("documents")) {
         const auto locator =
             ProjectPaths::normalize(std::filesystem::u8path(row.at("path").get<std::string>()));
@@ -778,6 +784,16 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         bytes += text.size();
         require(documents.emplace(locator, std::move(text)).second,
                 "Duplicate C++ semantic source locator");
+    }
+    if (kind == "renameProject") {
+        const auto sources = ui::cpp_project_sources(paths.root());
+        require(sources.size() <= 64 && sources.size() == documents.size(),
+                "Project rename requires the complete project source set within 64 files");
+        for (const auto& path : sources)
+            require(
+                std::any_of(documents.begin(), documents.end(),
+                            [&](const auto& row) { return paths.same_locator(row.first, path); }),
+                "Project rename omitted a discovered project source");
     }
     const auto target =
         ProjectPaths::normalize(std::filesystem::u8path(request.at("path").get<std::string>()));
@@ -887,7 +903,7 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
     auto symbols =
         transport.call("textDocument/documentSymbol",
                        {{"textDocument", {{"uri", local_file_url(paths.resolve(target))}}}});
-    if (kind == "renameOpen")
+    if (cpp_multi_rename_kind(kind))
         for (const auto& [path, draft] : documents) {
             (void)draft;
             if (!paths.same_locator(path, target))
@@ -936,13 +952,13 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         : kind == "diagnostics"
             ? transport.diagnostics()
             : transport.call("textDocument/" +
-                                 (kind == "signature"         ? std::string("signatureHelp")
-                                  : kind == "selection"       ? std::string("selectionRange")
-                                  : kind == "format"          ? std::string("formatting")
-                                  : kind == "formatSelection" ? std::string("rangeFormatting")
-                                  : kind == "renameOpen"      ? std::string("rename")
-                                  : kind == "fixes"           ? std::string("codeAction")
-                                                              : kind),
+                                 (kind == "signature"           ? std::string("signatureHelp")
+                                  : kind == "selection"         ? std::string("selectionRange")
+                                  : kind == "format"            ? std::string("formatting")
+                                  : kind == "formatSelection"   ? std::string("rangeFormatting")
+                                  : cpp_multi_rename_kind(kind) ? std::string("rename")
+                                  : kind == "fixes"             ? std::string("codeAction")
+                                                                : kind),
                              parameters);
     transport.finish();
     const auto current_database =
@@ -957,10 +973,11 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         : kind == "symbols"     ? normalized_symbols(response, target, text)
         : kind == "selection"   ? normalized_selection(response, text, path_utf8(target),
                                                        request.at("offset").get<std::size_t>())
-        : kind == "renameOpen"  ? normalized_open_rename(response, documents, paths, new_name)
-        : kind == "rename"      ? normalized_workspace_edits(response, text, paths, target,
-                                                             "Apply rename to " + new_name)
-        : kind == "fixes"       ? normalized_fixes(response, text, paths, target)
+        : cpp_multi_rename_kind(kind)
+            ? normalized_multi_rename(response, documents, paths, new_name, kind == "renameProject")
+        : kind == "rename" ? normalized_workspace_edits(response, text, paths, target,
+                                                        "Apply rename to " + new_name)
+        : kind == "fixes"  ? normalized_fixes(response, text, paths, target)
         : kind == "format" || kind == "formatSelection"
             ? normalized_source_edits(response, text)
             : normalized_locations(response, paths, documents, kind == "references");
@@ -970,9 +987,10 @@ nlohmann::json query_cpp_semantics(const nlohmann::json& request) {
         result["new_name"] = new_name;
     if (kind == "references" || kind == "implementation" || cpp_rename_kind(kind) ||
         kind == "fixes")
-        result.update(
-            {{"scope", kind == "renameOpen" ? "open_sources_current_context" : "current_context"},
-             {"exhaustive", false}});
+        result.update({{"scope", kind == "renameProject" ? "project_sources_current_context"
+                                 : kind == "renameOpen"  ? "open_sources_current_context"
+                                                         : "current_context"},
+                       {"exhaustive", false}});
     result.update({{"version", 1},
                    {"id", request.at("id")},
                    {"kind", kind},

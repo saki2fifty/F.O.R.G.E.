@@ -30,8 +30,14 @@ def write_capture(path):
     options = dict(compresslevel=1) if path.suffix == '.gz' else {}
     opener = gzip.open if path.suffix == '.gz' else open
     with opener(path, 'wt', encoding='utf-8', **options) as output:
-        json.dump(CAPTURE, output, separators=(',', ':'))
-        output.write('\n')
+        output.write('[')
+        for index, message in enumerate(CAPTURE):
+            if index:
+                output.write(',')
+            # Encode one retained message in C; avoid per-field gzip writes and
+            # a second uncompressed copy of the complete transcript.
+            output.write(json.dumps(message, separators=(',', ':')))
+        output.write(']\n')
 
 
 def finish_host(process, graceful_root=None):

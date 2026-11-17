@@ -17,6 +17,13 @@ class CppSemanticTask {
     TimedTextLog log_;
     bool cancelled_ = false, stale_ = false;
 
+    CppSearchDrafts::const_iterator captured_source(const std::filesystem::path& path) const {
+        if (kind_ != "renameProject")
+            return drafts_.find(path);
+        const ProjectPaths paths(project_);
+        return std::find_if(drafts_.begin(), drafts_.end(),
+                            [&](const auto& row) { return paths.same_locator(row.first, path); });
+    }
     void cleanup() noexcept {
         if (!directory_.empty() && command_.retired()) {
             try {
@@ -36,6 +43,7 @@ class CppSemanticTask {
     ~CppSemanticTask() { close(); }
     bool busy() const { return command_.running(); }
     bool stale() const { return stale_; }
+    const std::string& kind() const { return kind_; }
     const std::string& operation() const { return operation_; }
     const std::string& error() const { return error_; }
     const nlohmann::json& result() const { return result_; }
@@ -68,7 +76,7 @@ class CppSemanticTask {
     void observe(std::string_view path, const std::string& text) {
         if (operation_.empty())
             return;
-        const auto found = drafts_.find(std::filesystem::u8path(path));
+        const auto found = captured_source(std::filesystem::u8path(path));
         if (found == drafts_.end() || found->second != text)
             stale_ = true;
     }
@@ -86,7 +94,8 @@ class CppSemanticTask {
     }
     void start(const CppSemanticContext& context, const std::string& tool, const std::string& path,
                const std::string& kind, std::size_t offset, CppSearchDrafts drafts,
-               const std::string& new_name = {}, std::optional<std::size_t> end_offset = {}) {
+               const std::string& new_name = {}, std::optional<std::size_t> end_offset = {},
+               const std::string& captured_disk_state = {}) {
         if (busy())
             throw std::runtime_error("Wait for C++ analysis or cancel the current query first");
         if (!cpp_semantic_kind(kind))
@@ -104,11 +113,17 @@ class CppSemanticTask {
             (static_cast<unsigned char>(source->second[offset]) & 0xc0) == 0x80)
             throw std::runtime_error("C++ analysis cursor splits a UTF-8 character");
         validate_cpp_format_range(kind, source->second, offset, end_offset);
+        if (kind == "renameProject" &&
+            (captured_disk_state.empty() ||
+             gameplay_source_digest(context.project) != captured_disk_state))
+            throw std::runtime_error("Project sources changed while capturing the rename inputs");
         close();
         try {
             project_ = context.project;
             context_generation_ = context.generation;
             disk_state_ = gameplay_source_digest(project_);
+            if (kind == "renameProject" && disk_state_ != captured_disk_state)
+                throw std::runtime_error("Project sources changed before starting rename analysis");
             const auto database =
                 asset_storage::read(context.directory / "compile_commands.json", 16 * 1024 * 1024);
             if (!database)
@@ -208,9 +223,17 @@ class CppSemanticTask {
         }
     }
     bool current(const CppSemanticContext& context, const CppSearchDrafts& drafts) const {
+        const bool matching_drafts =
+            kind_ == "renameProject"
+                ? std::all_of(drafts.begin(), drafts.end(),
+                              [&](const auto& row) {
+                                  const auto found = captured_source(row.first);
+                                  return found != drafts_.end() && found->second == row.second;
+                              })
+                : drafts == drafts_;
         if (stale_ || busy() || cancelled_ || !error_.empty() || result_.is_null() ||
             context.project != project_ || context.generation != context_generation_ ||
-            drafts != drafts_ || gameplay_source_digest(project_) != disk_state_)
+            !matching_drafts || gameplay_source_digest(project_) != disk_state_)
             return false;
         const auto database =
             asset_storage::read(context.directory / "compile_commands.json", 16 * 1024 * 1024);

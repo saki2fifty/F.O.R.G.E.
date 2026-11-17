@@ -4043,3 +4043,26 @@ Mesa lavapipe offscreen software Vulkan; it does not establish physical GPU,
 Windows/editor-chrome or input acceptance. Canonical image SHA256: `a7ad22dfbe9c4d2ebe6bfea6c366cdfa5a5ae254b7785e2096e9ff0a2ad36d88`.
 Local provenance/validation: `AgentFiles/build/phase395-stopped-sequence-ui-preview/screenshot.json`
 and `AgentFiles/build/phase356-ui-custom-shader-capability/phase395-render-native14.json` (outside the product repository).
+
+
+## Rename across project C++ sources
+
+[cpp-rename-project-files.png](../../../manual/images/cpp-rename-project-files.png)
+is an unretouched 1180 × 850 capture of the actual C++ Sources review controls.
+The separately installed supported clangd 23.1.0 provider analyzes the matching
+managed SDK compiler context. The proposal includes an initially unopened CRLF
+header without a final newline and its active consumer. The preview child scrolls
+to the second file body. Captures at 1180 and 700 pixels were visually reviewed;
+the same native controls pass at 1180/700/400 widths.
+
+Image SHA-256: `495d76183c2348c95f29c0c92c397d925edfd7b2d153955d9ed527dde310e8f1`.
+Actor SHA-256: `f88d04aa599a75aa318dae7571be4e2d9b98e897f1d762f5b0d171017b837832`.
+Provider SHA-256: `5a535973dd1274270c8a0d34677fe4758d8c9aaa164aa3701602c957c42dc9e2`.
+Source is based on `a28d3ae` with the recorded project-rename changes. Exact
+context, actor, command and capture provenance are retained in
+`AgentFiles/build/phase396-project-source-rename/screenshot.json` and
+`real-native-request-01.json` outside the product repository. SDL software
+rendering establishes native controls, without physical desktop, Windows/D3D12,
+GPU or physical DPI acceptance. The Linux SDK consumer configures, compiles and
+links; its deployment-kit install correctly refuses the Windows-only target.
+This screenshot establishes semantic review, not Linux game deployment.

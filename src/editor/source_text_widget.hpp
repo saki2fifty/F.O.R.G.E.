@@ -7,6 +7,11 @@
 #include <string>
 
 namespace forge::ui {
+// The widget serializes a final LF itself. Loading a saved LF must not add another
+// blank line; SetText also establishes the baseline without creating Undo records.
+inline void load_source_widget_text(TextEditor& editor, const std::string& text) {
+    editor.SetText(!text.empty() && text.back() == '\n' ? text.substr(0, text.size() - 1) : text);
+}
 inline bool source_widget_owns_keyboard(const char* window_id) {
     if (!ImGui::GetCurrentContext())
         return false;

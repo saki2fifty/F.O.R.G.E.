@@ -3131,10 +3131,22 @@ protocol adapters use the same query/use owners. The headless C++ test host allo
 helper/provider execution; its other profiles retain 240 seconds. Shipping connection
 policy and individual request/query deadlines are unchanged.
 
+The `renameProject` profile adds complete bounded Native membership, current open
+draft overlay, unopened CRLF/no-final-newline files, capture-time disk witnesses,
+new/deleted/stale files, 64-source and 32-tab refusal before mutation, opening an
+unchanged captured file, complete Apply, independent Undo/Redo, explicit Save and
+clean reopening. Source loading uses one baseline adapter around the pinned
+widget; empty text, CRLF and multiple final newlines have repeated round-trip and
+cleared-history coverage. Both MCP envelopes exercise the same query/use owners.
+The capture collector retains every compact-array wire message and gzip level1;
+`mcp_capture_writer` compares original platform-stream bytes across six fixtures.
+
 `tests/mcp_code_semantic_provider_test.py` is a separate opt-in integration using
 an explicitly supplied supported provider and installed exact SDK, without downloads.
 Pass tools, native code host, SDK, CMake, Ninja, clangd, fresh scratch directory and
-capture path. It builds a genuine managed CMake context, analyzes an unsaved header
+capture path. Append `project-rename` to run only the bounded project-rename
+profile; omit it for the complete integration. Both modes use the same project
+rename checks and graceful shutdown. It builds a genuine managed CMake context, analyzes an unsaved header
 from another source, applies/undoes the member completion and navigates back to the
 header and inspects a read-only call with Unicode/astral parameter names through
 both MCP envelopes. Signature queries preserve source bytes, cursor and Undo.
@@ -3163,8 +3175,11 @@ Diagnostic-navigation checks exercise source-order selection, wrap, equal-positi
 stops, out-of-order publications, cross-tab first/last navigation, Back history,
 source Undo, empty/stale/non-diagnostic operations, active source witnesses,
 permissions and mutation replay. Native controls exercise next/previous with the
-actual provider and refuse locked/stale use. The unchanged fourteen-kind provider
-producer matrix can be reused; a new owner/UI method needs its own consumer proof.
+actual provider and refuse locked/stale use. Unchanged provider normalization checks can be reused; each added owner/UI scope
+needs its own consumer proof. The project-scope real-provider profile includes a
+saved CRLF header and a saved consumer without a final newline, both initially
+unopened, plus a dirty initiating source. It verifies all three semantic edits,
+independent Undo/Redo, explicit Save and two clean reopen cycles per changed file.
 Actual build/deployment outcomes are retained;
 Linux's Windows-only deployment refusal is distinct from successful configuration
 and analysis. The native control executable also accepts an existing project and

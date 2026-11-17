@@ -310,8 +310,30 @@ the complete serialized preview is bounded to4MiB. The result has one item with
 `open_sources_current_context`/`exhaustive:false`. Private `source_edits` parallels
 the item and each file. Null/empty/no-op replies return no item.
 
+`kind:renameProject` captures the complete supported ordinary Native source set
+through existing source discovery, with open drafts overlaid and limits of
+64 documents / 32 MiB. Closed text is canonicalized through the existing detached Tab/widget
+constructor while raw disk bytes remain separate. The shared baseline loader
+accounts for the widget's implicit final LF, preserving saved canonical text over
+repeated reopen/reload and clearing discarded draft history. The existing semantic
+task owns the disk/membership digest before reads and checks it before/after launch and use;
+no second watcher, source database or normalization implementation is added.
+The worker also requires complete discovered membership. It uses the same explicit
+AST barrier and multi-file normalization, with scope
+`project_sources_current_context`/`exhaustive:false`, the existing 4 MiB full proposal
+and unchanged refusals for foreign, aliased, resource and annotated edits.
+
+Apply preflights every file/state/candidate/caret and prepares missing Tabs, raw
+baselines, stamps and tab-container capacity before admitting them or changing
+history. Disk/membership freshness is checked again after staging and before
+admission. The existing 32-tab limit remains: capture may include 64 sources, but
+all affected tabs plus existing tabs must fit within 32; refusal cannot partially open or edit files.
+Opening an unchanged captured source preserves this scope's freshness; closing
+retains existing invalidation. Source widget Undo remains per file. Saved bytes,
+including CRLF/no-final-LF input, remain unchanged until explicit ordinary Save.
+
 C++ Sources shares one proposal preflight/apply path for formatting, fixes and
-either rename scope. It checks every captured file and computes every current
+all three rename scopes. It checks every captured file and computes every current
 caret mapping before changing a widget. Applying the complete list changes drafts
 together and records one existing widget Undo per changed file; source histories
 remain independent. Existing task guards reject changed open/disk inputs,

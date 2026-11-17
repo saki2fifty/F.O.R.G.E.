@@ -125,7 +125,7 @@ for legacy in protocol_cases():
                         assert read('forge_code_analysis_status')['operation'] is None
                         continue
                     assert tools['forge_code_analysis_start']['annotations']['openWorldHint']
-                    assert {'signature', 'diagnostics', 'hover', 'symbols', 'formatSelection', 'renameOpen'}.issubset(tools['forge_code_analysis_start']['inputSchema']['properties']['kind']['enum'])
+                    assert {'signature', 'diagnostics', 'hover', 'symbols', 'formatSelection', 'renameOpen', 'renameProject'}.issubset(tools['forge_code_analysis_start']['inputSchema']['properties']['kind']['enum'])
                     assert not tools['forge_code_analysis_use']['annotations']['openWorldHint']
                     assert mutate('forge_code_open', path='Native/Spinner.cpp')['ok']
                     assert mutate('forge_code_replace', **observed_args(), text=draft)['ok']
@@ -335,6 +335,79 @@ for legacy in protocol_cases():
                     assert mutate('forge_code_undo', **observed_args())['ok']
                     assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
                     assert (native / 'OpenRename.hpp').read_text() == second_saved
+                    project_header = native / 'ProjectRename.hpp'
+                    project_use = native / 'ProjectRenameUse.cpp'
+                    header_raw = '#pragma once\r\nstruct ProjectRename { float project_rate; };'
+                    use_raw = '#include "ProjectRename.hpp"\nfloat project_use(ProjectRename& x) { return x.project_rate; }'
+                    project_header.write_bytes(header_raw.encode('utf-8'))
+                    project_use.write_bytes(use_raw.encode('utf-8'))
+                    spinner_disk = (native / 'Spinner.cpp').read_bytes()
+                    project_first = draft + '\n// Multi-source rename fixture\nfloat project_rate = 1;\n'
+                    assert mutate('forge_code_replace', **(observed_args() | dict(text=project_first)))['ok']
+                    project_offset = len(project_first[:project_first.index('project_rate')].encode('utf-8'))
+                    tabs_before_project = len(read('forge_code_status')['tabs'])
+                    def query_project():
+                        assert mutate('forge_code_open', path='Native/Spinner.cpp')['ok']
+                        assert mutate('forge_code_analysis_start', **(observed_args() | dict(
+                            kind='renameProject', offset=project_offset, new_name='angular_speed')))['ok']
+                        result = settle()
+                        assert result['complete'] and result['total'] == 1, result
+                        assert result['scope'] == 'project_sources_current_context' and not result['exhaustive']
+                        assert result['items'][0]['file_count'] == result['items'][0]['edit_count'] == 3
+                        return result
+                    project_rename = query_project()
+                    assert len(read('forge_code_status')['tabs']) == tabs_before_project
+                    project_use.write_bytes((use_raw + '\n// changed after preview\n').encode('utf-8'))
+                    assert not mutate('forge_code_analysis_use', operation=project_rename['operation'], index=0)['ok']
+                    assert len(read('forge_code_status')['tabs']) == tabs_before_project
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == project_first
+                    project_use.write_bytes(use_raw.encode('utf-8'))
+                    project_rename = query_project()
+                    assert mutate('forge_code_open', path='Native/ProjectRename.hpp')['ok']
+                    route = discovery()
+                    apply_project = dict(target=route['result']['target'], expected_revision=route['revision'],
+                        sequence=route['next_sequence'], operation=project_rename['operation'], index=0)
+                    applied_project = client.tool('forge_code_analysis_use', **apply_project)
+                    assert applied_project['ok'] and client.tool('forge_code_analysis_use', **apply_project) == applied_project
+                    project_before = {'Native/Spinner.cpp': project_first,
+                        'Native/ProjectRename.hpp': header_raw.replace('\r\n', '\n') + '\n',
+                        'Native/ProjectRenameUse.cpp': use_raw + '\n'}
+                    for path, before in project_before.items():
+                        assert read('forge_code_read', path=path)['text'] == before.replace('project_rate', 'angular_speed')
+                        assert mutate('forge_code_open', path=path)['ok']
+                        current = read('forge_code_read', path=path)
+                        assert mutate('forge_code_undo', **{key: current[key] for key in ('path', 'session', 'state')})['ok']
+                        assert read('forge_code_read', path=path)['text'] == before
+                    assert project_header.read_bytes() == header_raw.encode('utf-8')
+                    assert project_use.read_bytes() == use_raw.encode('utf-8')
+                    assert (native / 'Spinner.cpp').read_bytes() == spinner_disk
+                    assert mutate('forge_code_open', path='Native/Spinner.cpp')['ok']
+                    assert mutate('forge_code_undo', **observed_args())['ok']
+                    assert read('forge_code_read', path='Native/Spinner.cpp')['text'] == draft
+                    # Explicit Save and reopen use the same admitted tab/disk owner.
+                    assert mutate('forge_code_replace', **(observed_args() | dict(text=project_first)))['ok']
+                    project_rename = query_project()
+                    assert mutate('forge_code_analysis_use', operation=project_rename['operation'], index=0)['ok']
+                    saved_sessions = {}
+                    for path, before in project_before.items():
+                        current = read('forge_code_read', path=path)
+                        saved_sessions[path] = current['session']
+                        witness = {key: current[key] for key in ('path', 'session', 'state')}
+                        assert mutate('forge_code_save', **witness)['ok']
+                        saved = read('forge_code_read', path=path)
+                        assert not saved['dirty']
+                        assert (root / path).read_bytes() == before.replace('project_rate', 'angular_speed').encode('utf-8')
+                        assert mutate('forge_code_close', **{key: saved[key] for key in ('path', 'session', 'state')})['ok']
+                    for path, before in project_before.items():
+                        assert mutate('forge_code_open', path=path)['ok']
+                        current = read('forge_code_read', path=path)
+                        assert current['session'] != saved_sessions[path] and not current['dirty']
+                        assert current['text'] == before.replace('project_rate', 'angular_speed'), (path, repr(current['text']), repr(before))
+                    assert mutate('forge_code_open', path='Native/Spinner.cpp')['ok']
+                    assert mutate('forge_code_replace', **(observed_args() | dict(text=spinner_disk.decode('utf-8'))))['ok']
+                    assert mutate('forge_code_save', **observed_args())['ok']
+                    assert (native / 'Spinner.cpp').read_bytes() == spinner_disk
+                    assert mutate('forge_code_replace', **(observed_args() | dict(text=draft)))['ok']
                     fix_source = draft + '\n// café\nint fixes_probe() { int value = 1 return value; }\n'
                     assert mutate('forge_code_replace', **(observed_args() | dict(text=fix_source)))['ok']
                     fix_before = read('forge_code_read', path='Native/Spinner.cpp')

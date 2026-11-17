@@ -12,7 +12,9 @@ import sys
 import time
 from mcp_test_client import Client, finish_host, protocol_cases, write_capture
 
-TOOLS, HOST, SDK, CMAKE, NINJA, PROVIDER, SCRATCH, CAPTURE = sys.argv[1:]
+TOOLS, HOST, SDK, CMAKE, NINJA, PROVIDER, SCRATCH, CAPTURE = sys.argv[1:9]
+PROFILE = sys.argv[9] if len(sys.argv) == 10 else 'all'
+assert len(sys.argv) in (9, 10) and PROFILE in ('all', 'project-rename')
 scratch = Path(SCRATCH).resolve()
 scratch.mkdir(parents=True, exist_ok=True)
 def source_cursor(text, index):
@@ -20,6 +22,56 @@ def source_cursor(text, index):
     return dict(line=text.count('\n', 0, index) + 1,
                 column=len(text[start:index].expandtabs(4)) + 1)
 
+
+def check_project_rename(root, original, read, mutate, observed, settle):
+    # The project scope must include saved sources never opened in the editor.
+    project_header = 'Native/UnopenedRename.hpp'
+    project_user = 'Native/UnopenedRenameUse.cpp'
+    header_raw = '#pragma once\r\nstruct UnopenedRename { float project_rate; };'
+    user_raw = '// café\n#include "UnopenedRename.hpp"\nfloat project_rate_of(UnopenedRename& p) { return p.project_rate; }'
+    (root / project_header).write_bytes(header_raw.encode('utf-8'))
+    (root / project_user).write_bytes(user_raw.encode('utf-8'))
+    project_main = original + '\n#include "UnopenedRename.hpp"\nfloat main_project_rate(UnopenedRename& p) { return p.project_rate; }\n'
+    mutate('forge_code_replace', **observed(), text=project_main)
+    tabs_before = len(read('forge_code_status')['tabs'])
+    mutate('forge_code_analysis_start', **observed(), kind='renameProject',
+           offset=len(project_main[:project_main.rindex('project_rate')].encode('utf-8')),
+           new_name='angular_speed', tool=PROVIDER)
+    proposed = settle('forge_code_analysis_status')
+    (root / 'analysis-project-rename-result.json').write_text(json.dumps(proposed, indent=2))
+    assert proposed['complete'] and proposed['total'] == 1, proposed
+    assert proposed['scope'] == 'project_sources_current_context' and not proposed['exhaustive']
+    assert len(read('forge_code_status')['tabs']) == tabs_before
+    project_sources = {'Native/gameplay.cpp': project_main,
+        project_header: header_raw.replace('\r\n', '\n') + '\n', project_user: user_raw + '\n'}
+    project_after = {path: text.replace('p.project_rate', 'p.angular_speed').replace('float project_rate;', 'float angular_speed;')
+                     for path, text in project_sources.items()}
+    assert proposed['items'][0]['file_count'] == proposed['items'][0]['edit_count'] == 3
+    assert {row['path']: row['text'] for row in proposed['items'][0]['files']} == project_after
+    assert (root / project_header).read_bytes() == header_raw.encode('utf-8')
+    assert (root / project_user).read_bytes() == user_raw.encode('utf-8')
+    mutate('forge_code_analysis_use', operation=proposed['operation'], index=0)
+    assert len(read('forge_code_status')['tabs']) == tabs_before + 2
+    for path, text in project_sources.items():
+        assert read('forge_code_read', path=path)['text'] == project_after[path]
+        mutate('forge_code_open', path=path)
+        state = read('forge_code_read', path=path)
+        mutate('forge_code_undo', **{key: state[key] for key in ('path', 'session', 'state')})
+        assert read('forge_code_read', path=path)['text'] == text
+        state = read('forge_code_read', path=path)
+        mutate('forge_code_redo', **{key: state[key] for key in ('path', 'session', 'state')})
+        state = read('forge_code_read', path=path)
+        assert state['text'] == project_after[path]
+        mutate('forge_code_save', **{key: state[key] for key in ('path', 'session', 'state')})
+        assert (root / path).read_bytes() == project_after[path].encode('utf-8')
+        for repeat in range(2):
+            state = read('forge_code_read', path=path)
+            old_session = state['session']
+            mutate('forge_code_close', **{key: state[key] for key in ('path', 'session', 'state')})
+            mutate('forge_code_open', path=path)
+            state = read('forge_code_read', path=path)
+            assert state['session'] != old_session and not state['dirty'] and not state['can_undo']
+            assert state['text'] == project_after[path]
 
 for legacy in protocol_cases():
     root = scratch / ('legacy' if legacy else 'current')
@@ -66,6 +118,12 @@ for legacy in protocol_cases():
             # Retain actual compiler output and report its real outcome.
             (root / 'analysis-build-result.json').write_text(json.dumps(build, indent=2))
             (root / 'analysis-build-log.txt').write_text(read('forge_code_build_log')['text'])
+            if PROFILE == 'project-rename':
+                mutate('forge_code_open', path='Native/gameplay.cpp')
+                original = read('forge_code_read', path='Native/gameplay.cpp')['text']
+                check_project_rename(root, original, read, mutate, observed, settle)
+                finish_host(process, root)
+                continue
             mutate('forge_code_create', kind='header', name='Spinner.hpp')
             header_saved = (root / 'Native/Spinner.hpp').read_bytes()
             header = read('forge_code_read', path='Native/Spinner.hpp')
@@ -428,10 +486,11 @@ for legacy in protocol_cases():
                 assert (root / path).read_bytes() == saved_open[path]
             mutate('forge_code_undo', **observed())
             assert read('forge_code_read', path='Native/gameplay.cpp')['text'] == draft
+            check_project_rename(root, original, read, mutate, observed, settle)
         finish_host(process, root)
     finally:
         write_capture(CAPTURE)
         if process.poll() is None:
             finish_host(process, root)
 write_capture(CAPTURE)
-print('Real separately installed provider, genuine managed SDK CMake context, unsaved completion/Undo/declaration, Unicode call signatures, versioned diagnostics, plain symbol information, nested file outline/empty results, Back/Forward/closed-source navigation and clean native shutdown passed')
+print(f'Real separately installed provider, matching managed SDK, {PROFILE} semantic profile including unopened project rename/Undo/Redo/Save/reopen and graceful native shutdown passed')

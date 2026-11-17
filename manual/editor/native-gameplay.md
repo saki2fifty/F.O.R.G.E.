@@ -66,8 +66,14 @@ notice; a conflicting Save keeps your draft, and **Reload from disk** asks befor
 discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
 be open. Optional code assistance provides completion, declaration/type lookup,
 current-context references, reviewed source formatting, call signatures, source diagnostics, symbol information
-and file outlines. Reviewed rename can cover the currently open files. Debugging,
-refactoring unopened files and arbitrary in-place C++ reload are unavailable.
+and file outlines. Reviewed rename can cover the active file, open files, or the
+bounded project Native sources, including unopened files. Debugging, exhaustive
+project indexing and arbitrary in-place C++ reload are unavailable.
+
+Source drafts use LF line endings and a final newline. Opening or reviewing a
+source keeps its saved bytes intact. **Save source** writes the current draft;
+closing and reopening a saved file preserves its text and starts a fresh source
+Undo history.
 
 Use **Back** and **Forward** above the source tabs to return between files and
 locations after opening declarations, outline entries, search matches or tabs.
@@ -234,7 +240,8 @@ Choose **Quick fixes** at a diagnostic's source location, then review the comple
 proposed source. Applying the shown edit changes the current draft in one Undo
 step. **Save source** and **Build Project Code** remain separate.
 
-Queries include current open source and header drafts. They do not save files,
+Queries include current open source and header drafts. Project rename also reads
+saved supported sources under Native. Queries do not save files,
 compile the game, apply changes automatically or run commands suggested by the
 provider. **Results for** identifies the queried file, even after you switch tabs.
 Results refer to the queried drafts and compiler context. Rerun after
@@ -265,7 +272,7 @@ selection does not save files or add source Undo.
 Rename requires a C++ name within 256 UTF-8 bytes, without spaces or control
 characters. The provider checks the C++ spelling and whether the symbol can be
 renamed. **Rename in file...** changes only the current Native file; a proposal
-involving another file is refused in full. **Rename in open files...** is described
+involving another file is refused in full. **Rename in open files...** and **Rename in project files...** are described
 below. These results cover the current compiler context and do not establish a
 complete project index. Strings and authored identifiers are
 separate source edits. Changing registered component names or saved field names
@@ -282,8 +289,8 @@ Formatting accepts at most 32,768 non-overlapping edits and a complete result
 within the source editor's 1 MiB budget. Larger, ambiguous or invalid proposals
 are refused in full. Formatting does not establish that the game compiles.
 Analysis has a bounded timeout; it is separate
-from game compilation and is not a
-debugger or a project-wide refactoring service.
+from game compilation. Review source proposals under the limits of your current
+build configuration, then use Build Project Code to verify the compiler result.
 
 **Check source** is an explicit snapshot of the active file, including issues from
 unsaved headers that the provider reports at that file. It does not continuously
@@ -319,6 +326,42 @@ the result before relying on the rename. File creation, deletion, movement and
 provider commands are unavailable in this workflow. A complete preview must fit
 within 4 MiB; close unrelated tabs if the proposal is too large. Per-file source
 Undo remains independent; there is no separate cross-file Undo command.
+
+## Rename a symbol across project files
+
+Use **Rename in project files...** when the change includes supported C++ files in
+the project's **Native** folder that are not already open. Set up code assistance
+and build the current compiler context first.
+
+1. Close unrelated C++ tabs, then open the source containing the symbol.
+2. Place the cursor inside its name and choose **Code assistance → Rename in project files...**.
+3. Enter **New name**, then choose **Preview rename**. Review every path and its complete **Proposed source**. Existing tabs use their drafts; other files use their saved contents. Preview does not open tabs or save files.
+4. Choose **Rename to NAME in N project files** to apply the complete proposal. Changed files that were closed open as drafts. The active source and current caret are retained.
+5. Use each affected file's **Undo/Redo** to review its change. Choose **Save source** for the files you want to keep, then **Build Project Code** to check the result.
+
+![C++ Sources reviewing a two-file project rename with an unopened header](../images/cpp-rename-project-files.png)
+
+Review every listed path before applying. Scroll **Proposed source** to inspect
+remaining file contents; the active source below keeps its original text until
+Apply.
+
+The captured set supports at most 64 files and 32 MiB in total, with 1 MiB per
+source and a complete 4 MiB preview. Apply must fit every changed file within the
+editor's 32-tab limit, including other open tabs. The whole proposal is refused
+if it cannot fit. Close unrelated tabs and preview again; a rename affecting more
+than 32 files cannot be applied through this scope.
+
+Editing a captured draft, changing saved sources or project membership, closing
+a tab, or rebuilding the compiler context requires another preview. Opening an
+unchanged captured file for inspection keeps the proposal available. A failed
+preflight leaves earlier drafts and unopened tabs unchanged. Save remains an
+explicit step; after Save, reopening a file reads the saved renamed source.
+
+Analysis uses the current build configuration and may omit uses in other
+configurations or inactive preprocessor branches. SDK/external files, generated
+build outputs, file movement and annotated edits are unavailable. Renaming a C++
+symbol does not migrate persisted component names or field-name strings; use the
+schema migration workflow when those authored names change.
 
 ## Run an ECS system on worker stages
 

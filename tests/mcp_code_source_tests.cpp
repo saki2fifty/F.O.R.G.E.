@@ -918,6 +918,169 @@ int main(int argc, char** argv) {
             check(editor.active_text() == draft, "Rename checks lost the preceding source history");
         }
         {
+            // Closed sources retain raw CRLF/no-final-newline bytes until explicit Save.
+            const std::string header_path = "Native/ProjectClosed.hpp";
+            const std::string use_path = "Native/ProjectClosedUse.cpp";
+            const std::string header_raw =
+                "#pragma once\r\nstruct ProjectClosed { float project_rate; };";
+            const std::string use_raw =
+                "// café\n#include \"ProjectClosed.hpp\"\n"
+                "float read_project(ProjectClosed& x) { return x.project_rate; }";
+            forge::atomic_write(root / header_path, header_raw);
+            forge::atomic_write(root / use_path, use_raw);
+            editor.open(files.document, "Native/First.cpp");
+            const auto original_first = editor.active_text();
+            const auto first_raw = forge::ui::read_cpp_source(root / "Native/First.cpp");
+            const auto first =
+                original_first + "\n// Multi-source rename fixture\nfloat project_rate = 1;\n";
+            editor.replace_text(first);
+            const auto tabs_before = invoke("code.status", forge::Json::object()).at("tabs").size();
+            SDL_SetEnvironmentVariable(environment, "FORGE_SEMANTIC_FIXTURE_CASE", "rename-open",
+                                       true);
+            const auto query = [&] {
+                editor.open(files.document, "Native/First.cpp");
+                const auto observed = invoke("code.read", {{"path", "Native/First.cpp"}});
+                return invoke("code.analysis.start", {{"path", "Native/First.cpp"},
+                                                      {"session", observed.at("session")},
+                                                      {"state", observed.at("state")},
+                                                      {"kind", "renameProject"},
+                                                      {"offset", first.find("project_rate")},
+                                                      {"new_name", "angular_speed"}});
+            };
+            {
+                forge::ui::CppSemanticTask captured;
+                const auto disk_state = forge::gameplay_source_digest(root);
+                forge::atomic_write(root / use_path, use_raw + "\n// changed during capture\n");
+                bool stale_capture = false;
+                try {
+                    captured.start(editor.semantic_context(), argv[2], "Native/First.cpp",
+                                   "renameProject", first.find("project_rate"),
+                                   {{std::filesystem::path("Native/First.cpp"), first}},
+                                   "angular_speed", {}, disk_state);
+                } catch (const std::exception&) {
+                    stale_capture = true;
+                }
+                check(stale_capture && !captured.busy() && captured.operation().empty() &&
+                          editor.active_text() == first,
+                      "Changed project capture launched analysis or changed an existing draft");
+                forge::atomic_write(root / use_path, use_raw);
+            }
+            query();
+            auto project_result = settle_analysis();
+            check(project_result.at("complete").get<bool>() &&
+                      project_result.at("scope").get<std::string>() ==
+                          "project_sources_current_context" &&
+                      !project_result.at("exhaustive").get<bool>() &&
+                      project_result.at("items").at(0).at("file_count").get<std::size_t>() == 3 &&
+                      invoke("code.status", forge::Json::object()).at("tabs").size() == tabs_before,
+                  "Project rename did not capture unopened sources without changing tabs");
+            std::vector<std::filesystem::path> input_limit_files;
+            for (unsigned i = 0; i < 65; ++i) {
+                const auto path = root / "Native" / ("ProjectLimit" + std::to_string(i) + ".hpp");
+                forge::atomic_write(path, "// bounded project input\n");
+                input_limit_files.push_back(path);
+            }
+            bool input_limit = false;
+            try {
+                query();
+            } catch (const std::exception&) {
+                input_limit = true;
+            }
+            check(input_limit && editor.active_text() == first &&
+                      invoke("code.status", forge::Json::object()).at("tabs").size() == tabs_before,
+                  "Project source limit truncated input or changed visible drafts");
+            for (const auto& path : input_limit_files)
+                std::filesystem::remove(path);
+            // A stale later file refuses the whole proposal before any missing tab is admitted.
+            forge::atomic_write(root / use_path, use_raw + "\n// changed after preview\n");
+            bool refused = false;
+            try {
+                use_analysis(project_result);
+            } catch (const std::exception&) {
+                refused = true;
+            }
+            check(refused && editor.active_text() == first &&
+                      invoke("code.status", forge::Json::object()).at("tabs").size() == tabs_before,
+                  "Stale closed source changed an earlier draft or admitted partial tabs");
+            forge::atomic_write(root / use_path, use_raw);
+            // Membership changes retire a complete proposal, even without edited file bytes.
+            for (bool added : {true, false}) {
+                query();
+                project_result = settle_analysis();
+                const auto extra_path = root / "Native/ProjectAdded.hpp";
+                if (added)
+                    forge::atomic_write(extra_path, "// discovered after preview\n");
+                else
+                    std::filesystem::remove(root / use_path);
+                bool membership_changed = false;
+                try {
+                    use_analysis(project_result);
+                } catch (const std::exception&) {
+                    membership_changed = true;
+                }
+                check(membership_changed && editor.active_text() == first &&
+                          invoke("code.status", forge::Json::object()).at("tabs").size() ==
+                              tabs_before,
+                      "Changed source membership allowed partial rename or admitted tabs");
+                if (added)
+                    std::filesystem::remove(extra_path);
+                else
+                    forge::atomic_write(root / use_path, use_raw);
+            }
+            std::vector<std::string> extra_tabs;
+            while (invoke("code.status", forge::Json::object()).at("tabs").size() < 32) {
+                const auto path = "Native/ProjectTab" + std::to_string(extra_tabs.size()) + ".hpp";
+                forge::atomic_write(root / path, "// unrelated clean source\n");
+                editor.open(files.document, path);
+                extra_tabs.push_back(path);
+            }
+            query();
+            project_result = settle_analysis();
+            bool tab_limit = false;
+            try {
+                use_analysis(project_result);
+            } catch (const std::exception&) {
+                tab_limit = true;
+            }
+            check(tab_limit && editor.active_text() == first &&
+                      invoke("code.status", forge::Json::object()).at("tabs").size() == 32,
+                  "Project tab limit changed an earlier draft or admitted partial tabs");
+            for (const auto& path : extra_tabs) {
+                const auto observed = invoke("code.read", {{"path", path}});
+                invoke("code.close", {{"path", path},
+                                      {"session", observed.at("session")},
+                                      {"state", observed.at("state")}});
+                std::filesystem::remove(root / path);
+            }
+            query();
+            project_result = settle_analysis();
+            // Opening the unchanged captured header keeps the project-scope query current.
+            editor.open(files.document, header_path);
+            use_analysis(project_result);
+            for (const auto& proposed : project_result.at("items").at(0).at("files")) {
+                const auto path = proposed.at("path").get<std::string>();
+                const auto expected = proposed.at("text").get<std::string>();
+                const auto state = proposed.at("state").get<std::string>();
+                editor.open(files.document, path);
+                check(editor.active_text() == expected,
+                      "Project rename lost a complete file proposal");
+                editor.undo(false);
+                check(forge::ui::cpp_source_state(editor.active_text()) == state,
+                      "Project rename did not preserve each file's canonical Undo baseline");
+                editor.undo(true);
+                check(editor.active_text() == expected, "Project rename Redo lost a file proposal");
+                editor.undo(false);
+            }
+            check(forge::ui::read_cpp_source(root / header_path) == header_raw &&
+                      forge::ui::read_cpp_source(root / use_path) == use_raw &&
+                      forge::ui::read_cpp_source(root / "Native/First.cpp") == first_raw,
+                  "Query, Apply or Undo saved a project rename implicitly");
+            editor.open(files.document, "Native/First.cpp");
+            editor.undo(false);
+            check(editor.active_text() == original_first,
+                  "Project rename lost preceding source history");
+        }
+        {
             const auto first = draft + "\nfloat shared_rate = 1; // café\n";
             const std::string second = "#pragma once\nextern float shared_rate;\n";
             const std::string second_path = "Native/OpenRename.hpp";

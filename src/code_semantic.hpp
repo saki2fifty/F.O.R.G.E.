@@ -11,12 +11,15 @@
 struct SDL_Environment;
 
 namespace forge {
-inline constexpr std::array<std::string_view, 16> cpp_semantic_kinds{
+inline constexpr std::array<std::string_view, 17> cpp_semantic_kinds{
     "completion", "declaration",    "signature",       "diagnostics", "hover",          "symbols",
     "references", "typeDefinition", "format",          "definition",  "implementation", "selection",
-    "rename",     "fixes",          "formatSelection", "renameOpen"};
+    "rename",     "fixes",          "formatSelection", "renameOpen",  "renameProject"};
+inline bool cpp_multi_rename_kind(std::string_view kind) {
+    return kind == "renameOpen" || kind == "renameProject";
+}
 inline bool cpp_rename_kind(std::string_view kind) {
-    return kind == "rename" || kind == "renameOpen";
+    return kind == "rename" || cpp_multi_rename_kind(kind);
 }
 inline bool cpp_semantic_kind(std::string_view kind) {
     return std::find(cpp_semantic_kinds.begin(), cpp_semantic_kinds.end(), kind) !=

@@ -986,6 +986,22 @@ and `limited` is true. Apply an available exact operation/index through
 Private per-proposal mapping edits remain withheld. Scope is the current compiler
 context, without exhaustive indexing; Save and Build remain separate.
 
+The same start/status/use methods support `kind:renameOpen` and
+`kind:renameProject`. Open scope admits only captured open sources and reports
+`open_sources_current_context`. Project scope captures every supported ordinary
+Native source within 64 files / 32 MiB, overlays open drafts and reports
+`project_sources_current_context`. Both retain `exhaustive:false`, one complete
+proposal with `files/file_count/edit_count`, a 4 MiB total preview and existing
+range, UTF-8, alias, resource and annotation refusal. Project Apply stages changed unopened
+files through the existing Tab/history owner; all affected plus existing tabs must
+fit within 32 tabs. Source/disk/membership/compiler changes refuse the complete application,
+with no partial tab admission or earlier edit. Opening an unchanged captured file
+is allowed; closing still invalidates. `code.execute` launches analysis and
+`code.write` applies it. Grants, operation/index, target/revision/sequence, replay,
+per-file Undo, explicit Save/Build and ordinary saved-file reopening remain the
+existing owners. No provider write callback, exhaustive index or cross-file Undo
+service is added.
+
 `forge_code_analysis_diagnostic_move` requires `code.write`, the observed active
 source `path/session/state`, the completed diagnostic `operation` and `direction`
 (`next` or `previous`). It chooses the nearest strictly following/preceding

@@ -160,6 +160,24 @@ int main(int argc, char** argv) {
         io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
         TextEditor editor;
         editor.SetTabSize(4);
+        for (const auto& [raw, canonical] :
+             std::vector<std::pair<std::string, std::string>>{{"", "\n"},
+                                                              {"one line", "one line\n"},
+                                                              {"one line\n", "one line\n"},
+                                                              {"two\n\n", "two\n\n"},
+                                                              {"a\r\nb\r\n", "a\nb\n"},
+                                                              {"a\r\nb", "a\nb\n"}}) {
+            load_source_widget_text(editor, raw);
+            require(editor.GetText() == canonical && !editor.CanUndo() && !editor.CanRedo(),
+                    "Source loading changed canonical contents or created initial Undo history");
+            for (unsigned repeat = 0; repeat != 3; ++repeat) {
+                replace_source_widget_text(editor, "// temporary draft\n");
+                require(editor.CanUndo(), "Source draft did not create widget history");
+                load_source_widget_text(editor, canonical);
+                require(editor.GetText() == canonical && !editor.CanUndo() && !editor.CanRedo(),
+                        "Reload added a blank line or retained discarded draft history");
+            }
+        }
         editor.SetText("\té go go\n");
         editor.SetSelection({0, 11}, {0, 9});
         editor.SetCursorPosition({0, 9});

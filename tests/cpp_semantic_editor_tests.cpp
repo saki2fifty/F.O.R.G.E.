@@ -495,6 +495,53 @@ void exercise(const std::filesystem::path& base, const std::string& provider,
     check(ui::read_cpp_source(open_header) == header_text &&
               ui::read_cpp_source(open_user) == user_text && scene.document() == authored,
           "Native multi-source rename saved source or changed Scene data");
+    const auto project_header = root / "Native/ProjectRename.hpp";
+    const auto project_user = root / "Native/ProjectRenameUse.cpp";
+    const std::string project_header_raw =
+        "#pragma once\r\nstruct ProjectRename { float project_rate; };";
+    const std::string project_user_raw =
+        "// Multi-source rename fixture\n#include \"ProjectRename.hpp\"\n"
+        "float read_project_rate(ProjectRename& item) { return item.project_rate; }";
+    for (const auto& [path, text] : {std::pair{project_header, project_header_raw},
+                                     std::pair{project_user, project_user_raw}}) {
+        if (!std::filesystem::exists(path))
+            atomic_write(path, text);
+        check(ui::read_cpp_source(path) == text,
+              "Project rename fixture would overwrite unrelated source");
+    }
+    const auto project_position =
+        ui::cpp_source_coordinate(project_user_raw, project_user_raw.find("item.project_rate") + 7);
+    editor.open(document, "Native/ProjectRenameUse.cpp", project_position.first + 1,
+                project_position.second + 1);
+    const auto project_before = editor.active_text();
+    frame();
+    input.click("cpp:analysis:renameProject");
+    if (!captures.empty())
+        capture.save(captures / ("cpp-project-rename-dialog-" + std::to_string(width) + ".png"));
+    input.type("cpp:rename:name", "angular_speed", false);
+    input.click("cpp:rename:preview");
+    wait_result();
+    check(editor.active_text() == project_before &&
+              ui::read_cpp_source(project_header) == project_header_raw,
+          "Native project rename preview changed source before Apply");
+    if (!captures.empty())
+        capture.save(captures / ("cpp-project-rename-" + std::to_string(width) + ".png"));
+    input.select("cpp:analysis:use:0");
+    frame();
+    auto project_after = project_before;
+    const auto field = project_after.find("item.project_rate") + 5;
+    project_after.replace(field, std::string_view("project_rate").size(), "angular_speed");
+    check(editor.active_text() == project_after, "Native project rename lost its active source");
+    editor.undo(false);
+    check(editor.active_text() == project_before, "Native project rename was not one active Undo");
+    editor.open(document, "Native/ProjectRename.hpp");
+    check(editor.active_text() == "#pragma once\nstruct ProjectRename { float angular_speed; };\n",
+          "Native project rename did not admit the unopened header as a canonical draft");
+    editor.undo(false);
+    check(editor.active_text() == "#pragma once\nstruct ProjectRename { float project_rate; };\n" &&
+              ui::read_cpp_source(project_header) == project_header_raw &&
+              ui::read_cpp_source(project_user) == project_user_raw && scene.document() == authored,
+          "Native project rename lost header Undo or saved source/Scene state implicitly");
     const auto fix_path = root / "Native/QuickFixProbe.hpp";
     const std::string fix_saved =
         "#pragma once\n// café\nint fixes_probe() { int value = 1 return value; }\n";

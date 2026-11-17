@@ -22,6 +22,7 @@ struct CodeAutomation;
 namespace forge::ui {
 class CppSourceEditor {
     friend struct ::forge::CodeAutomation;
+    static constexpr std::size_t max_source_tabs = 32;
     struct Tab {
         std::string locator, disk, saved;
         std::string session = AssetId::generate().str(); // Transient open-tab routing only.
@@ -36,7 +37,7 @@ class CppSourceEditor {
             editor.SetLanguageDefinition(language);
             editor.SetShowWhitespaces(false);
             editor.SetTabSize(4);
-            editor.SetText(text);
+            load_source_widget_text(editor, text);
             saved = editor.GetText();
         }
     };
@@ -50,7 +51,13 @@ class CppSourceEditor {
     };
     std::optional<Location> rename_target_;
     std::string rename_session_, rename_state_;
-    bool rename_stale_ = false, rename_open_ = false;
+    bool rename_stale_ = false;
+    std::string rename_kind_ = "rename";
+    const char* rename_title() const {
+        return rename_kind_ == "renameProject" ? "Rename in project files"
+               : rename_kind_ == "renameOpen"  ? "Rename in open files"
+                                               : "Rename in file";
+    }
     std::deque<Location> back_locations_, forward_locations_;
     std::uint64_t navigation_revision_ = 0;
     bool replaying_navigation_ = false;
@@ -172,7 +179,9 @@ class CppSourceEditor {
             rename_stale_ = true;
         semantic_task_.observe(tab.locator, text);
     }
-    CppSearchDrafts source_drafts() const {
+    CppSearchDrafts source_drafts(bool project_sources = false,
+                                  std::string* captured_disk_state = nullptr) const {
+        const auto disk_state = project_sources ? gameplay_source_digest(root_) : std::string{};
         CppSearchDrafts drafts;
         std::size_t bytes = 0;
         for (const auto& tab : tabs_) {
@@ -181,6 +190,39 @@ class CppSourceEditor {
                 throw std::runtime_error("Open source drafts exceed the 32 MiB budget.");
             bytes += text.size();
             drafts.emplace(std::filesystem::u8path(tab->locator), std::move(text));
+        }
+        if (project_sources) {
+            const ProjectPaths paths(root_);
+            const auto sources = cpp_project_sources(root_);
+            if (sources.size() > 64)
+                throw std::runtime_error("Project rename supports at most 64 project source files");
+            for (const auto& [path, text] : drafts) {
+                (void)text;
+                if (std::none_of(sources.begin(), sources.end(), [&](const auto& source) {
+                        return paths.same_locator(path, source);
+                    }))
+                    throw std::runtime_error(
+                        "Save or resolve every open source before project rename");
+            }
+            for (const auto& locator : sources) {
+                if (std::any_of(drafts.begin(), drafts.end(), [&](const auto& row) {
+                        return paths.same_locator(row.first, locator);
+                    }))
+                    continue;
+                const auto raw = read_cpp_source(cpp_source_path(root_, locator));
+                // Reuse the tab's canonical widget text while retaining raw disk bytes.
+                // This detached value creates no visible tab or source history operation.
+                Tab captured(locator, raw);
+                auto text = captured.editor.GetText();
+                validate_cpp_text(text);
+                if (text.size() > cpp_search_byte_limit - bytes)
+                    throw std::runtime_error(
+                        "Project rename inputs exceed the 32 MiB source budget");
+                bytes += text.size();
+                drafts.emplace(std::filesystem::u8path(locator), std::move(text));
+            }
+            if (captured_disk_state)
+                *captured_disk_state = disk_state;
         }
         return drafts;
     }
@@ -199,7 +241,7 @@ class CppSourceEditor {
         return nullptr;
     }
     void apply_source_proposals(const nlohmann::json& files, const nlohmann::json& mappings,
-                                Tab* focus) {
+                                Tab* focus, bool project_sources = false) {
         if (!files.is_array() || files.empty() || files.size() > 64 || !mappings.is_array() ||
             mappings.size() != files.size())
             throw std::runtime_error("C++ proposal has an invalid file list");
@@ -209,10 +251,30 @@ class CppSourceEditor {
             TextEditor::Coordinates caret;
         };
         std::vector<Prepared> prepared;
+        std::vector<std::unique_ptr<Tab>> unopened;
         std::set<Tab*> seen;
         for (std::size_t i = 0; i < files.size(); ++i) {
             const auto& file = files.at(i);
-            auto* tab = find(file.at("path").get<std::string>());
+            const auto locator = path_utf8(ProjectPaths::normalize(
+                std::filesystem::u8path(file.at("path").get<std::string>())));
+            auto* tab = find(locator);
+            if (!tab && project_sources) {
+                const ProjectPaths paths(root_);
+                for (const auto& staged : unopened)
+                    if (paths.same_locator(staged->locator, locator))
+                        tab = staged.get();
+                if (!tab) {
+                    if (tabs_.size() + unopened.size() >= max_source_tabs)
+                        throw std::runtime_error(
+                            "Project rename needs editable tabs for every changed file; "
+                            "close other tabs or keep the change within 32 files");
+                    const auto path = cpp_source_path(root_, locator);
+                    auto staged = std::make_unique<Tab>(locator, read_cpp_source(path));
+                    staged->stamp = std::filesystem::last_write_time(path);
+                    tab = staged.get();
+                    unopened.push_back(std::move(staged));
+                }
+            }
             if (!tab || tab->editor.IsReadOnly() || !seen.insert(tab).second)
                 throw std::runtime_error("Open every proposed C++ source as an editable tab");
             const auto before = tab->editor.GetText();
@@ -236,7 +298,13 @@ class CppSourceEditor {
             if (after != before)
                 prepared.push_back({tab, std::move(after), {next.first, next.second}});
         }
-        // Validate every draft and caret before any widget/history mutation.
+        // Validate all source/caret values and stage missing tabs before mutation.
+        if (project_sources &&
+            (!semantic_context || !semantic_task_.current(semantic_context(), source_drafts())))
+            throw std::runtime_error("Project sources changed while preparing rename; query again");
+        tabs_.reserve(tabs_.size() + unopened.size());
+        for (auto& tab : unopened)
+            tabs_.push_back(std::move(tab));
         for (const auto& change : prepared) {
             replace_source_widget_text(change.tab->editor, change.text);
             position_source(*change.tab, change.caret);
@@ -301,8 +369,10 @@ class CppSourceEditor {
         if (provider.empty())
             throw std::runtime_error(
                 "Choose the optional clangd provider in Build > Compiler setup");
-        semantic_task_.start(semantic_context(), provider, path, kind, offset, source_drafts(),
-                             new_name, end_offset);
+        std::string captured_disk;
+        auto drafts = source_drafts(kind == "renameProject", &captured_disk);
+        semantic_task_.start(semantic_context(), provider, path, kind, offset, std::move(drafts),
+                             new_name, end_offset, captured_disk);
     }
     bool can_move_diagnostic() const {
         const auto& result = semantic_task_.result();
@@ -367,8 +437,10 @@ class CppSourceEditor {
             throw std::runtime_error("Choose an available C++ analysis result");
         // Own the row before any source operation can invalidate the derived result.
         auto item = items.at(index);
-        if (result.at("kind") == "renameOpen") {
-            apply_source_proposals(item.at("files"), result.at("source_edits").at(index), active_);
+        const auto result_kind = result.at("kind").get<std::string>();
+        if (cpp_multi_rename_kind(result_kind)) {
+            apply_source_proposals(item.at("files"), result.at("source_edits").at(index), active_,
+                                   result_kind == "renameProject");
             return;
         }
         const bool proposal = result.at("kind").get<std::string>() == "format" ||
@@ -635,13 +707,17 @@ class CppSourceEditor {
         auto* tab = find(normalized);
         if (!tab) {
             auto path = cpp_source_path(root_, normalized);
-            if (tabs_.size() >= 32)
+            if (tabs_.size() >= max_source_tabs)
                 throw std::runtime_error("Close a source tab before opening more than 32 files.");
             const auto text = read_cpp_source(path);
             if (!expected_state.empty() && cpp_source_state(text) != expected_state)
                 throw CppSourceChanged();
-            semantic_task_.invalidate();
-            tabs_.push_back(std::make_unique<Tab>(normalized, text));
+            auto opened = std::make_unique<Tab>(normalized, text);
+            if (semantic_task_.kind() == "renameProject")
+                semantic_task_.observe(normalized, opened->editor.GetText());
+            else
+                semantic_task_.invalidate();
+            tabs_.push_back(std::move(opened));
             tab = tabs_.back().get();
             tab->stamp = std::filesystem::last_write_time(path);
         } else if (tab->dirty) {
@@ -656,7 +732,7 @@ class CppSourceEditor {
                 throw CppSourceChanged();
             if (disk != tab->disk) {
                 tab->disk = disk;
-                tab->editor.SetText(disk);
+                load_source_widget_text(tab->editor, disk);
                 semantic_task_.observe(tab->locator, tab->editor.GetText());
                 tab->saved = tab->editor.GetText();
                 tab->stamp = std::filesystem::last_write_time(path);
@@ -985,7 +1061,7 @@ class CppSourceEditor {
                     if (!tab)
                         throw std::runtime_error("Source tab closed.");
                     tab->disk = read_cpp_source(cpp_source_path(root_, tab->locator));
-                    tab->editor.SetText(tab->disk);
+                    load_source_widget_text(tab->editor, tab->disk);
                     semantic_task_.observe(tab->locator, tab->editor.GetText());
                     tab->saved = tab->editor.GetText();
                     tab->dirty = false;
@@ -1020,7 +1096,7 @@ class CppSourceEditor {
     }
     void draw_rename_popup(SceneDocument& project, bool locked) {
         // A source cursor update can refocus the text widget; retain this owned form's intent.
-        const auto* title = rename_open_ ? "Rename in open files" : "Rename in file";
+        const auto* title = rename_title();
         if (rename_target_ && !ImGui::IsPopupOpen(title))
             ImGui::OpenPopup(title);
         if (ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -1032,7 +1108,12 @@ class CppSourceEditor {
                 ImGui::TextWrapped("Rename at %s:%d:%d", rename_target_->path.c_str(),
                                    rename_target_->line, rename_target_->column);
             ImGui::TextWrapped(
-                rename_open_
+                rename_kind_ == "renameProject"
+                    ? "Review changes across up to 64 C++ files in the project's Native folder. "
+                      "Existing tabs use their current drafts. Apply opens changed files within "
+                      "the 32-tab limit, with Undo per file. Save is separate. Analysis uses "
+                      "your current build configuration."
+                : rename_kind_ == "renameOpen"
                     ? "Preview edits across open C++ drafts in this context. "
                       "Unopened files are refused; review every proposed file."
                     : "Preview a rename in this source. Edits to other files are refused.");
@@ -1052,8 +1133,8 @@ class CppSourceEditor {
                         rename_stale_ = true;
                         throw std::runtime_error(stale_hint);
                     }
-                    query_semantics_at(project, rename_open_ ? "renameOpen" : "rename",
-                                       *rename_target_, rename_name_);
+                    query_semantics_at(project, rename_kind_.c_str(), *rename_target_,
+                                       rename_name_);
                     rename_target_.reset();
                     ImGui::CloseCurrentPopup();
                 });
@@ -1076,18 +1157,28 @@ class CppSourceEditor {
             return;
         ImGui::TextWrapped(
             "Optional clangd 23.1.0. Build Project Code once this session to prepare "
-            "the compiler context. Queries use current open drafts.");
+            "the compiler context. Queries use current drafts; project rename also reads "
+            "saved Native sources.");
         ImGui::BeginDisabled(locked || !active_ || semantic_task_.busy());
         bool first_button = true;
         constexpr std::pair<const char*, const char*> actions[]{
-            {"completion", "Complete"},        {"declaration", "Find declaration"},
-            {"signature", "Signature help"},   {"diagnostics", "Check source"},
-            {"hover", "Symbol info"},          {"symbols", "Symbols in file"},
-            {"references", "Find references"}, {"typeDefinition", "Go to type"},
-            {"format", "Format source"},       {"formatSelection", "Format selection"},
-            {"definition", "Find definition"}, {"implementation", "Find implementations"},
-            {"selection", "Select syntax"},    {"fixes", "Quick fixes"},
-            {"rename", "Rename in file..."},   {"renameOpen", "Rename in open files..."}};
+            {"completion", "Complete"},
+            {"declaration", "Find declaration"},
+            {"signature", "Signature help"},
+            {"diagnostics", "Check source"},
+            {"hover", "Symbol info"},
+            {"symbols", "Symbols in file"},
+            {"references", "Find references"},
+            {"typeDefinition", "Go to type"},
+            {"format", "Format source"},
+            {"formatSelection", "Format selection"},
+            {"definition", "Find definition"},
+            {"implementation", "Find implementations"},
+            {"selection", "Select syntax"},
+            {"fixes", "Quick fixes"},
+            {"rename", "Rename in file..."},
+            {"renameOpen", "Rename in open files..."},
+            {"renameProject", "Rename in project files..."}};
         for (const auto& [kind, label] : actions) {
             if (!first_button)
                 next_text_button(label);
@@ -1098,13 +1189,13 @@ class CppSourceEditor {
                     label,
                     "Analyze the current source or position without saving or changing source.")) {
                 if (cpp_rename_kind(kind)) {
-                    rename_open_ = std::string_view(kind) == "renameOpen";
+                    rename_kind_ = kind;
                     rename_target_ = location();
                     rename_session_ = active_->session;
                     rename_state_ = cpp_source_state(active_->editor.GetText());
                     rename_stale_ = false;
                     rename_name_[0] = '\0';
-                    ImGui::OpenPopup(rename_open_ ? "Rename in open files" : "Rename in file");
+                    ImGui::OpenPopup(rename_title());
                 } else
                     attempt([&] { query_semantics_at(project, kind, *location()); });
             }
@@ -1138,7 +1229,7 @@ class CppSourceEditor {
             const bool format = result.at("kind").get<std::string>() == "format" ||
                                 result.at("kind").get<std::string>() == "formatSelection";
             const bool rename = cpp_rename_kind(result.at("kind").get<std::string>());
-            const bool open_rename = result.at("kind") == "renameOpen";
+            const bool multi_rename = cpp_multi_rename_kind(result.at("kind").get<std::string>());
             const bool fixes = result.at("kind").get<std::string>() == "fixes";
             const bool proposal = format || rename || fixes;
             const bool selection = result.at("kind").get<std::string>() == "selection";
@@ -1184,7 +1275,11 @@ class CppSourceEditor {
                 ImGui::TextWrapped("Formatting proposal. Source changes when you apply it.");
             if (rename)
                 ImGui::TextWrapped(
-                    open_rename
+                    result.at("kind").get<std::string>() == "renameProject"
+                        ? "Review every changed project file. Apply opens affected files within "
+                          "the 32-tab limit, with Undo per file. Save and Build remain separate. "
+                          "Analysis uses the current build configuration, not an exhaustive index."
+                    : multi_rename
                         ? "Review every changed open file. Applying changes drafts together; each "
                           "file retains its own Undo. Save and Build remain separate. This is not "
                           "an exhaustive project index."
@@ -1279,7 +1374,7 @@ class CppSourceEditor {
                         const auto& preview = row.at("text").template get_ref<const std::string&>();
                         ImGui::TextUnformatted(preview.data(), preview.data() + preview.size());
                     };
-                    if (open_rename) {
+                    if (multi_rename) {
                         for (const auto& file : item.at("files")) {
                             ImGui::Separator();
                             ImGui::TextUnformatted(

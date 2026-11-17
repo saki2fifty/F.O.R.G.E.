@@ -1,5 +1,6 @@
 # GPU-independent fixtures use actual editor owners; never link ImGui into games.
 if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
+ add_test(NAME mcp_capture_writer COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_capture_writer_test.py $<TARGET_FILE:forge_tools>)
  add_test(NAME gallery_project_fixture COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/gallery_project_fixture_test.py)
  add_test(NAME root_motion_inspector COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/root_motion_inspector_test.py $<TARGET_FILE:forge_rig_target_editor_tests> ${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery)
  if(NOT FORGE_BUILD_ASSET_TOOLS OR NOT FORGE_BUILD_GAME_PLATFORM)
