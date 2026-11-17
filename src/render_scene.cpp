@@ -1,4 +1,6 @@
 #include "builtins.hpp"
+#include "camera_aim.hpp"
+#include "render_camera_snapshot.hpp"
 #include "ui_surface_limits.hpp"
 #include <algorithm>
 #include <cmath>
@@ -54,6 +56,48 @@ template <class T> T component(const Json& values, const char* name) {
     throw std::runtime_error("Render component is not registered");
 }
 } // namespace
+RenderCamera detail::snapshot_camera_view(AssetId scene, EntityId camera, Camera settings,
+                                          const JsonRowIndex& rows, bool use_projected) {
+    const auto at = rows.find(camera.str());
+    require(at != rows.end(), "Camera view is missing from copied presentation");
+    const auto& row = *at->second;
+    if (use_projected && row.contains("camera_aim_error")) {
+        const auto& error = row.at("camera_aim_error");
+        const auto origin = error.at("entity").get<EntityId>();
+        const auto& message = error.at("message").get_ref<const std::string&>();
+        require(rows.contains(origin.str()) && !message.empty() && message.size() <= 4096,
+                "Malformed Camera Aim error projection");
+        throw CameraAimFailure(origin, message);
+    }
+    CameraAim aim;
+    const auto& values = row.at("components");
+    const bool has_aim = values.contains("forge.camera_aim");
+    if (has_aim)
+        try {
+            aim = component<CameraAim>(values, "forge.camera_aim");
+        } catch (const std::exception& error) {
+            throw CameraAimFailure(camera, error.what());
+        }
+    if (use_projected && row.contains("camera_world_affine"))
+        return {camera, settings, world_transform(row, "camera_world_affine")};
+    const auto world = world_transform(row);
+    if (!has_aim || !aim.enabled || !aim.target.entity || aim.weight == 0)
+        return {camera, settings, world};
+    // Reject invalid source cameras before considering a modifier or target.
+    const auto rigid = camera_rigid_transform(world);
+    try {
+        require(aim.target.scene == scene, "Camera Aim target belongs to a different Scene");
+        const auto target = rows.find(aim.target.entity.str());
+        require(target != rows.end(), "Camera Aim target is unavailable in this Scene");
+        require(!target->second->value("prefab", false),
+                "Camera Aim target is a Prefab declaration rather than an instance");
+        const auto target_world = world_transform(*target->second);
+        const auto point = target_world.point({aim.offset_x, aim.offset_y, aim.offset_z});
+        return {camera, settings, aim_camera_transform(settings, rigid, point, aim.weight)};
+    } catch (const std::exception& error) {
+        throw CameraAimFailure(camera, error.what());
+    }
+}
 NodePolicies extract_node_policies(const Json& source) {
     NodePolicies result;
     const auto scene = source.at("asset_id").get<AssetId>();
@@ -148,13 +192,12 @@ RenderScene extract_render_scene(const Json& source) {
         report(result, error);
     result.omitted_diagnostics += policy.omitted_diagnostics;
     std::set<EntityId> identities;
-    std::map<EntityId, const Json*> rows;
+    const auto rows = detail::index_json_rows(entities);
     std::map<EntityId, ModelSource> models;
     for (const auto& row : entities) {
         require(row.is_object(), "Presentation entity must be an object");
         const auto id = row.at("id").get<EntityId>();
         require(identities.insert(id).second, "Presentation contains duplicate entity identities");
-        rows.emplace(id, &row);
         if (row.value("prefab", false) || !row.value("state_active", true))
             continue;
         const auto state = policy.entities.at(id);
@@ -178,10 +221,14 @@ RenderScene extract_render_scene(const Json& source) {
         admit("forge.camera", "render.camera.invalid", [&] {
             const auto c = component<Camera>(values, "forge.camera");
             if (c.enabled)
-                result.cameras.push_back({id, c,
-                                          world_transform(row, row.contains("camera_world_affine")
-                                                                   ? "camera_world_affine"
-                                                                   : "world_affine")});
+                try {
+                    result.cameras.push_back(
+                        detail::snapshot_camera_view(result.scene, id, c, rows));
+                } catch (const detail::CameraAimFailure& error) {
+                    report(result,
+                           diagnostic(result.scene, error.camera, "render.camera_aim.invalid",
+                                      error.what(), "forge.camera_aim"));
+                }
         });
         admit("forge.light", "render.light.invalid", [&] {
             const auto l = component<Light>(values, "forge.light");
@@ -329,7 +376,7 @@ RenderScene extract_render_scene(const Json& source) {
             EntityId cursor = node.entity;
             std::set<EntityId> visited;
             while (cursor && visited.insert(cursor).second) {
-                const auto row = rows.find(cursor);
+                const auto row = rows.find(cursor.str());
                 require(row != rows.end() && !row->second->value("prefab", false),
                         "Model instance structural ancestry is missing");
                 if (row->second->at("components").contains("forge.model_source")) {
@@ -348,7 +395,7 @@ RenderScene extract_render_scene(const Json& source) {
             }
             require(bool(node.root),
                     "Model node is outside its instance root or ancestry is cyclic");
-            const auto& row = *rows.at(node.entity);
+            const auto& row = *rows.at(node.entity.str());
             if (!row.contains("model_animation_ready"))
                 continue; // Authoring snapshot or model without an Animator.
             require(node.entity == node.root,

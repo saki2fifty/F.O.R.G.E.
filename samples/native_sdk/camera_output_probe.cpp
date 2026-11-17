@@ -9,6 +9,8 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char*, uint32_t) {
     flecs::world world(host->world);
     const auto type = world.component<forge::Camera>("forge.camera");
     const auto* info = ecs_get_type_info(world, type);
+    const auto aim = world.component<forge::CameraAim>("forge.camera_aim");
+    const auto* aim_info = ecs_get_type_info(world, aim);
     const auto ui = world.component<forge::UiDocument>("forge.ui_document");
     const auto* ui_info = ecs_get_type_info(world, ui);
     const auto surface = world.component<forge::UiSurfaceInput>("forge.ui_surface_input");
@@ -18,10 +20,19 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char*, uint32_t) {
            ui_info->size == sizeof(forge::UiDocument) &&
            ui_info->alignment == alignof(forge::UiDocument) && surface_info &&
            surface_info->size == sizeof(forge::UiSurfaceInput) &&
-           surface_info->alignment == alignof(forge::UiSurfaceInput);
+           surface_info->alignment == alignof(forge::UiSurfaceInput) && aim_info &&
+           aim_info->size == sizeof(forge::CameraAim) &&
+           aim_info->alignment == alignof(forge::CameraAim);
 }
 int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
     flecs::world world(host->world);
+    world.system<forge::CameraAim>("project.AdjustCameraAim")
+        .kind(host->fixed_phase)
+        .each([](forge::CameraAim& aim) {
+            aim.weight = .5;
+            aim.offset_y = .75;
+        })
+        .add(host->fixed_tag);
     world.system<forge::Camera>("project.ReturnCameraToMain")
         .kind(host->fixed_phase)
         .each([](forge::Camera& camera) {

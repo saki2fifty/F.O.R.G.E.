@@ -2,6 +2,7 @@
 #include "../asset_bytes.hpp"
 #include "../cpu_profile_trace.hpp"
 #include "../input_recording_files.hpp"
+#include "../render_values.hpp"
 #include "../ui_control_access.hpp"
 #include "../ui_field_keys.hpp"
 #include "../ui_range_numeric.hpp"
@@ -13,6 +14,7 @@
 #include "files.hpp"
 #include "play.hpp"
 #include "runtime_tuning_review.hpp"
+#include <forge/render_scene.hpp>
 #include <forge/ui_protocol.hpp>
 
 namespace forge {
@@ -154,6 +156,69 @@ struct PlayAutomation {
                 result["total"] = entities.size();
                 for (auto i = offset; i < entities.size() && i - offset < limit; ++i)
                     result["entities"].push_back(entities[i]);
+                return result;
+            }));
+        methods.push_back(automation_method(
+            "play.cameras",
+            "Inspect Game camera composition from the current effective Play snapshot at the "
+            "requested pixel extent. Uses the same view extraction/projection as rendering, "
+            "including Camera Aim, Camera Shots and render-texture output selection. Returns "
+            "bounded camera settings, positions, axes, matrices, viewports and diagnostics. "
+            "Pause for stable inspection. This does not capture a framebuffer, advance time, "
+            "change output dimensions or alter authored data.",
+            "play.read",
+            automation_object({{"width", automation_integer(1, 16384)},
+                               {"height", automation_integer(1, 16384)},
+                               {"output", automation_uuid()},
+                               {"offset", automation_integer()},
+                               {"limit", automation_integer(1, 128)}},
+                              Json::array({"width", "height"})),
+            false, [&files, &play](const Json& request) {
+                files.document.check_ownership();
+                if (!play.ready())
+                    throw AuthoringError("not_ready", "Wait for a live Play world");
+                const auto width = request.at("width").get<std::uint32_t>(),
+                           height = request.at("height").get<std::uint32_t>();
+                AssetRef<RenderTextureAsset> output;
+                if (request.contains("output"))
+                    output.id = request.at("output").get<AssetId>();
+                const auto render = extract_render_scene(play.effective_snapshot());
+                const auto composition = prepare_game_cameras(render, width, height, output);
+                auto result = state(play);
+                result["asset_id"] = render.scene;
+                result["width"] = width;
+                result["height"] = height;
+                result["output"] = output.id ? Json(output.id) : Json();
+                result["total"] = composition.cameras.size();
+                result["cameras"] = Json::array();
+                const auto offset = request.value("offset", std::size_t{}),
+                           limit = request.value("limit", std::size_t(128));
+                for (auto i = offset; i < composition.cameras.size() && i - offset < limit; ++i) {
+                    const auto& camera = composition.cameras[i];
+                    const auto& view = camera.view;
+                    result["cameras"].push_back(
+                        {{"entity", camera.entity},
+                         {"settings", detail::render_value(camera.settings)},
+                         {"position", view.position},
+                         {"right", view.right},
+                         {"up", view.up},
+                         {"forward", view.forward},
+                         {"view", view.view.m},
+                         {"projection", view.projection},
+                         {"viewport",
+                          {{"x", view.viewport.x},
+                           {"y", view.viewport.y},
+                           {"width", view.viewport.width},
+                           {"height", view.viewport.height}}},
+                         {"orientation_reversed", view.orientation_reversed}});
+                }
+                result["diagnostics"] = Json::array();
+                for (const auto& diagnostic : render.diagnostics)
+                    result["diagnostics"].push_back(diagnostic_json(diagnostic));
+                for (const auto& diagnostic : composition.diagnostics)
+                    result["diagnostics"].push_back(diagnostic_json(diagnostic));
+                result["omitted_diagnostics"] =
+                    render.omitted_diagnostics + composition.omitted_diagnostics;
                 return result;
             }));
         methods.push_back(automation_method(
@@ -575,7 +640,8 @@ struct PlayAutomation {
             "owner, including an existing Mesh Renderer's complete wind value (static Mesh "
             "geometry only; authored transforms and collision remain unchanged), "
             "an admitted Camera Shot's blend_in_seconds or blend_curve (its camera, "
-            "sequence and interval remain Edit-only), Reflection Probe scalar controls and diffuse "
+            "sequence and interval remain Edit-only), Camera Aim enabled, weight and offsets "
+            "(target assignment stays Edit-only), Reflection Probe scalar controls and diffuse "
             "intensity (map "
             "assignment is Edit-only), Fog Volume enabled, shape, linear RGB color, density, "
             "local half extents, layers and priority, "

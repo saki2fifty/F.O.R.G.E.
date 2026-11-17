@@ -15,6 +15,7 @@ from mcp_ui_sequence_play import check_ui_sequence_play
 from mcp_ui_fields_play import check_ui_fields_play
 from mcp_ui_font_collections import check_ui_font_collections
 from mcp_camera_shot_play import check_camera_shot_play
+from mcp_camera_aim_play import check_camera_aim_play
 from mcp_mesh_wind_play import check_mesh_wind_play
 from mcp_fog_volume_play import check_fog_volume_play
 from mcp_runtime_workers_play import check_runtime_workers_play
@@ -87,6 +88,8 @@ MESSAGES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--input-messages-only'
 UI_SEQUENCE_ONLY = sys.argv[7:] == ['--ui-sequence-only']
 CAMERA_TRANSITION_SDK = sys.argv[7:] == ['--camera-transition-sdk-only']
 CAMERA_TRANSITION_ONLY = sys.argv[7:] == ['--camera-transition-only'] or CAMERA_TRANSITION_SDK
+CAMERA_AIM_SDK = sys.argv[7:] == ['--camera-aim-sdk-only']
+CAMERA_AIM_ONLY = sys.argv[7:] == ['--camera-aim-only'] or CAMERA_AIM_SDK
 UI_ANIMATION_ONLY = sys.argv[7:] == ['--ui-animation-only']
 UI_LOCALIZATION_ONLY = sys.argv[7:] == ['--ui-localization-only']
 LIFETIMES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--state-lifetimes-only'
@@ -213,7 +216,7 @@ def editor(mode='full'):
             command.append(str(template))
         elif WORKERS_ONLY:
             command.append(str(workers_project_template(root)))
-        elif CAMERA_TRANSITION_ONLY:
+        elif CAMERA_TRANSITION_ONLY or CAMERA_AIM_ONLY:
             command.append(str(selected_project_template(root, ('Scenes/68-sequence-camera-shots.scene.json', 'Assets/Sequences/SlidingDoor.animation.json'), 'Camera transition template')))
         elif SKELETAL_SEQUENCE_ONLY:
             scene_name = 'Scenes/36-animation-root-motion.scene.json'
@@ -266,7 +269,7 @@ def editor(mode='full'):
             command.append(str(audio_profile_project_template(root)))
         elif SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if (AUDIO_PAUSE_ONLY and os.environ.get('FORGE_MCP_TEST_SDK') == '1') or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK or UI_FONT_COLLECTIONS_SDK or CAMERA_TRANSITION_SDK or MAP_PROFILE_SDK or NAVIGATION_LINKS_SDK:
+        if (AUDIO_PAUSE_ONLY and os.environ.get('FORGE_MCP_TEST_SDK') == '1') or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK or UI_FONT_COLLECTIONS_SDK or CAMERA_TRANSITION_SDK or CAMERA_AIM_SDK or MAP_PROFILE_SDK or NAVIGATION_LINKS_SDK:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -296,7 +299,7 @@ for legacy in selected_protocols:
         # observed target for reads; every mutation still discovers fresh revision
         # and sequence guards. Other workflows retain their boundary discovery.
         stable_read_target = {}
-        reuse_read_target = UI_FIELDS_ONLY or UI_SOURCE_ONLY or CAMERA_TRANSITION_ONLY
+        reuse_read_target = UI_FIELDS_ONLY or UI_SOURCE_ONLY or CAMERA_TRANSITION_ONLY or CAMERA_AIM_ONLY
 
         def discovery():
             value = client.tool('forge_discover')
@@ -323,7 +326,7 @@ for legacy in selected_protocols:
 
         def mutate(tool, **extra):
             value = client.tool(tool, **arguments(**extra))
-            if CAMERA_TRANSITION_ONLY and tool == 'forge_document_open' and value['ok']:
+            if (CAMERA_TRANSITION_ONLY or CAMERA_AIM_ONLY) and tool == 'forge_document_open' and value['ok']:
                 # This explicit Scene boundary retires the previous read target.
                 stable_read_target.clear()
             return value
@@ -601,6 +604,15 @@ for legacy in selected_protocols:
         if MESH_WIND_ONLY:
             check_mesh_wind_play(read, ok, control, mutate, until, discovery, advertised, MESH_WIND_SDK)
             print(('legacy' if legacy else 'current') + ': Wind schema/authoring/scatter/history, scoped native Play/tuning/Step/review passed')
+            continue
+        if CAMERA_AIM_ONLY:
+            check_camera_aim_play(read, ok, control, mutate, until, discovery, client, arguments)
+            with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
+                readable = {item['name'] for item in readonly.request('tools/list')['result']['tools']}
+                assert 'forge_component_add' not in readable and 'forge_property_set' not in readable
+                denied = readonly.request('tools/call', dict(name='forge_property_set', arguments={}))
+                assert denied.get('error') or denied.get('result', {}).get('isError'), denied
+            print(('legacy' if legacy else 'current') + (': SDK' if CAMERA_AIM_SDK else ': static') + ' Camera Aim authoring/history, target-local views, scoped live tuning/review and permission/stale-generation refusals passed')
             continue
         if CAMERA_TRANSITION_ONLY:
             shot_tools = {item['name']: item for item in client.request('tools/list')['result']['tools']}

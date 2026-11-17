@@ -1,5 +1,15 @@
 # 2026-11-17
 
+## Camera Aim
+
+Camera Aim follows a same-Scene target through a camera-only view correction,
+with target-local offsets and an angular weight. Native transforms, attached
+objects and children retain their poses. Camera Shots aim their endpoints before
+blending. Inspector, Prefab reference remapping, Scene history, live tuning and
+automation/MCP share the existing owners. Read-only `play.cameras` exposes composed
+views for a requested extent and output. The matching SDK includes the native
+value, and an editable Gallery Scene demonstrates an animated target.
+
 ## Camera Shot component isolation
 
 Camera Shot view blends preserve the resolved entity pose used by attached meshes,

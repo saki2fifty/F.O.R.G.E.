@@ -1,5 +1,6 @@
 #pragma once
 #include <forge/asset_ref.hpp>
+#include <forge/identity.hpp>
 #include <forge/material_parameter.hpp>
 #include <forge/mesh_wind.hpp>
 #include <forge/model_asset.hpp>
@@ -126,6 +127,15 @@ struct Camera {
     float background_r = .02f, background_g = .025f, background_b = .03f, background_a = 1;
     AssetRef<RenderTextureAsset> render_texture; // Empty selects the main presentation.
     bool operator==(const Camera&) const = default;
+};
+// Camera-only view correction. Resolved node TRS and other render producers stay independent.
+struct CameraAim {
+    bool enabled = true;
+    EntityRef target;
+    double offset_x = 0, offset_y = 0,
+           offset_z = 0; // Target-local units before its world transform.
+    double weight = 1;
+    bool operator==(const CameraAim&) const = default;
 };
 enum class LightKind : std::uint32_t { Directional, Point, Spot, Rectangle, Sphere };
 struct Light {

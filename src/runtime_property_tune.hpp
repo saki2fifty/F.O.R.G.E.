@@ -23,6 +23,11 @@ struct RuntimePropertyTune {
         return animation_graph_slot(property) != 0;
     }
     static bool camera_shot_type(std::string_view type) { return type == "forge.camera_shot"; }
+    static bool camera_aim_type(std::string_view type) { return type == "forge.camera_aim"; }
+    static bool camera_aim_property(std::string_view property) {
+        return property == "enabled" || property == "weight" || property == "offset_x" ||
+               property == "offset_y" || property == "offset_z";
+    }
     static bool camera_shot_property(std::string_view property) {
         return property == "blend_in_seconds" || property == "blend_curve";
     }

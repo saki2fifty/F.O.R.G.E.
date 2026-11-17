@@ -214,6 +214,8 @@ Disabled Camera/Light components retain a muted icon so you can find and re-enab
 
 Selecting a camera shows its view volume. Perspective rays follow field of view;
 orthographic edges stay parallel. Imported cameras keep their own view direction.
+With [Camera Aim](camera-aim.md), the guide follows the aimed camera view while
+the entity's ordinary transform handles stay with its node pose.
 Selecting a light shows its direction, point range, spot inner/outer cone,
 Rectangle outline and emitting direction, or Sphere radius rings. Rectangle guides
 follow the light's rotation, including roll. Area emitter dimensions are world

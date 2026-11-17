@@ -5,7 +5,41 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+inline void test_camera_aim_spatial_helpers() {
+    using namespace forge;
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto camera = authoring_command(scene, "entity.create", {{"recipe", "render.camera"}})
+                            .at("selected")
+                            .get<std::string>();
+    const auto target = authoring_command(scene, "entity.create", {{"recipe", "empty"}})
+                            .at("selected")
+                            .get<std::string>();
+    Camera lens;
+    lens.far_plane = 4;
+    scene.entity(camera).set(lens).set<LocalTranslation>({0, 0, 0}).set<LocalRotation>({});
+    scene.entity(target).set<LocalTranslation>({10, 0, 0});
+    CameraAim aim;
+    aim.target = {scene.asset_id(), EntityId::parse(target)};
+    scene.entity(camera).set(aim);
+    const auto source = scene.document();
+    const auto markers = ui::spatial_markers(scene.effective_document(), 800, 600, 10);
+    require(markers.size() == 1 && markers[0].camera && markers[0].lines.size() == 12,
+            "Camera Aim frustum guide is unavailable");
+    require(std::abs(markers[0].lines.front().second[0] - 4) < 1e-6,
+            "Scene frustum did not use the same aimed view as Game");
+    require(scene.document() == source &&
+                scene.entity(camera).get<LocalRotation>() == LocalRotation{},
+            "Camera Aim guide changed the authored pose or source");
+    aim.target.entity = EntityId::generate();
+    scene.entity(camera).set(aim);
+    const auto unavailable = ui::spatial_markers(scene.effective_document(), 800, 600, 10);
+    require(unavailable.size() == 1 && unavailable[0].lines.empty() &&
+                unavailable[0].note.find("Camera Aim target") != std::string::npos,
+            "Camera Aim guide hid an unavailable target or invented a stale frustum");
+}
 inline void test_spatial_helpers() {
+    test_camera_aim_spatial_helpers();
     using namespace forge;
     EngineContext engine;
     Scene scene(engine.world());

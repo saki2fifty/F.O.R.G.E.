@@ -42,6 +42,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Materials](editor/materials.md)
 - [Paint textures on a canvas or Mesh, copy images and publish for Materials](editor/texture-painting.md)
 - [Show a live camera image on a Mesh](editor/render-textures.md)
+- [Aim a camera at a moving object](editor/camera-aim.md)
 - [Blend overlapping transparent Meshes](editor/transparency.md)
 - [Project color, normals and roughness onto a Mesh](editor/decals.md)
 - [Material Graph for Meshes and Sprites](editor/material-graphs.md)

@@ -1,3 +1,4 @@
+#include "camera_aim.hpp"
 #include "camera_shot_blend.hpp"
 #include <algorithm>
 #include <cmath>
@@ -181,6 +182,53 @@ AffineTransform camera_rigid_transform(const AffineTransform& a) {
     const auto position = a.point({0, 0, 0});
     return {{right[0], up[0], forward[0], position[0], right[1], up[1], forward[1], position[1],
              right[2], up[2], forward[2], position[2]}};
+}
+AffineTransform detail::aim_camera_transform(const Camera& camera, const AffineTransform& source,
+                                             Double3 target, double weight) {
+    validate_camera(camera);
+    auto result = camera_rigid_transform(source);
+    require(finite(weight) && weight >= 0 && weight <= 1,
+            "Camera Aim weight must be finite and between zero and one");
+    for (const auto value : target)
+        require(finite(value), "Camera Aim target must be finite");
+    if (weight == 0)
+        return result;
+    const auto position = result.point({0, 0, 0});
+    Double3 direction;
+    for (unsigned i = 0; i < 3; ++i)
+        direction[i] = target[i] - position[i];
+    const auto distance = std::hypot(direction[0], direction[1], direction[2]);
+    require(finite(distance) && distance > 0,
+            "Camera Aim target coincides with the camera or exceeds finite direction range");
+    direction = unit(direction);
+    auto forward = result.vector({0, 0, 1});
+    if (camera.basis == std::uint32_t(ViewBasis::GltfNegativeZ))
+        for (auto& value : forward)
+            value = -value;
+    const auto cosine = std::clamp(dot(forward, direction), -1., 1.);
+    auto axis = cross(forward, direction);
+    const auto sine = std::hypot(axis[0], axis[1], axis[2]);
+    if (sine <= 1e-12) {
+        if (cosine >= 0)
+            return result;
+        // At an opposite direction the authored up axis selects a stable half-turn.
+        axis = result.vector({0, 1, 0});
+        const auto projection = dot(axis, forward);
+        for (unsigned i = 0; i < 3; ++i)
+            axis[i] -= projection * forward[i];
+    }
+    axis = unit(axis);
+    const auto angle = std::atan2(sine, cosine) * weight;
+    const auto c = std::cos(angle), s = std::sin(angle);
+    for (unsigned column = 0; column < 3; ++column) {
+        const Double3 value{result.m[column], result.m[4 + column], result.m[8 + column]};
+        const auto perpendicular = cross(axis, value);
+        const auto projection = dot(axis, value) * (1 - c);
+        for (unsigned row = 0; row < 3; ++row)
+            result.m[4 * row + column] =
+                value[row] * c + perpendicular[row] * s + axis[row] * projection;
+    }
+    return camera_rigid_transform(result);
 }
 CameraView camera_view(const Camera& c, const AffineTransform& a, std::uint32_t width,
                        std::uint32_t height) {

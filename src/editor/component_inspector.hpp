@@ -205,6 +205,7 @@ class ComponentInspector {
                (RuntimePropertyTune::animation_graph_type(key) &&
                 !components.at(key).value("graph", Json()).is_null()) ||
                RuntimePropertyTune::camera_shot_type(key) ||
+               RuntimePropertyTune::camera_aim_type(key) ||
                RuntimePropertyTune::state_condition_type(key) ||
                RuntimePropertyTune::ui_values_type(key) ||
                RuntimePropertyTune::ui_localization_type(key) ||
@@ -242,6 +243,8 @@ class ComponentInspector {
                 RuntimePropertyTune::animation_graph_property(name)) &&
                (!RuntimePropertyTune::camera_shot_type(key) ||
                 RuntimePropertyTune::camera_shot_property(name)) &&
+               (!RuntimePropertyTune::camera_aim_type(key) ||
+                RuntimePropertyTune::camera_aim_property(name)) &&
                (!RuntimePropertyTune::state_condition_type(key) ||
                 RuntimePropertyTune::state_condition_property(name)) &&
                (!RuntimePropertyTune::ui_values_type(key) ||

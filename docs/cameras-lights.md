@@ -26,6 +26,41 @@ Nonuniform positive scale is removed from camera orientation and does not alter
 FOV or clipping distances. Explicit orthogonality and normalized determinant checks
 use a1e-5 tolerance, consistent with float-authored rotation and double evaluation.
 
+## Camera Aim
+
+`forge.camera_aim` is the optional native `CameraAim` value in the installed
+`render_components.hpp`: enabled, stable `EntityRef target`, target-local
+`offset_x/y/z` and finite `weight` in [0,1]. The target defaults to null, offsets
+to zero, enabled to true and weight to one. It uses existing reflected defaults,
+typed reference remapping, Prefab intent, Scene history and opaque-field retention.
+No Camera layout, C ABI table, node transform ownership or identity format changes.
+Public-header admission requires modules rebuilt with the matching SDK fingerprint.
+
+The shared detached snapshot resolver borrows one bounded row index. It reads the
+camera's resolved node frame and the target's resolved node frame, transforms the
+local offset by the target frame, then rotates the camera frame through the
+smallest angular turn toward that point. Weight multiplies that angle. Authored
+up selects the antiparallel axis; there is no horizon lock, damping, independent
+clock, transform writer or recursive target-view graph. The camera's position and
+other producers retain their node poses. Existing positive-scale removal and
+camera frame validation apply before aiming; reflected, collapsed or sheared
+frames are not repaired. Both forward bases and projections share this owner.
+
+Disabled, unbound and zero-weight aims bypass target lookup. A bound active target
+must be a same-Scene actual instance with a resolved finite node pose. Coincident
+points and invalid bindings produce `render.camera_aim.invalid` with the original
+camera identity and `forge.camera_aim` property, scoped to that view. Shot endpoint
+resolution applies aim before interpolation and carries bounded transient
+`camera_aim_error` metadata if an endpoint fails. Extraction consumes a successful
+`camera_world_affine` once; it never aims an already blended view a second time.
+Other cameras, Meshes, Lights and children retain their existing owners.
+
+Native Inspector, generic source automation/MCP and live tuning share these typed
+values. Target is Edit-only; Enabled, offsets and Weight support the existing
+runtime tune/review flow. Scene frustum helpers use the same view resolver. The
+read-only `play.cameras` operation exposes prepared CPU views for an explicitly
+requested extent/output; see [MCP](mcp.md). It does not render a framebuffer.
+
 ## Projection and composition
 
 Perspective uses a full vertical FOV in radians, strictly between zero and pi,
@@ -59,6 +94,29 @@ positive and D3D clip depth is[0,1]. Double world/view evaluation is distinct fr
 explicit float GPU conversion. Nonfinite, overflowed or underflowed projection
 coefficients reject before upload. `orientation_reversed` includes the imported
 view-basis and image-flip parity for the render owner; it is not authored truth.
+
+## Camera Aim validation and capture
+
+`camera_aim_math` uses independent angular/coordinate oracles for both forward
+bases, weights, roll, opposite/vertical targets, extreme finite directions and
+invalid camera frames. `camera_aim_scene` covers scoped diagnostics, forward row
+references, opaque fields, duplication, Prefab instances, history and save/reopen.
+`camera_shot_transition` adds aimed endpoint/curve/recovery checks;
+`camera_aim_gallery` checks the animated target and source-hidden relocated export.
+`camera_transition_frame_source` samples the same Gallery through stopped Timeline
+frame export and checks its direction without changing Scene history.
+
+`camera_aim_editor` drives the actual target picker and numeric Weight widget,
+including Undo/Redo at interface scales 1, 1.5 and 2. Its `--capture image.png`
+option writes the canonical manual image `manual/images/camera-aim-controls.png`.
+The 780 by 360 capture uses the actual ComponentInspector and Scene context,
+native ImGui draw data, the packaged font and SDL's software renderer on Linux.
+It is unretouched and shows a restored authored target, Offset Y 0.5 and Weight 1.
+This is native widget evidence, rather than a full Windows desktop or physical
+GPU acceptance claim. `camera_output_process` and
+`native_sdk_camera_output_installed` exercise matching public layout/field access;
+the latter builds from the installed SDK and runs after relocation. The two
+`mcp_camera_aim_*` routes exercise ordinary/SDK Play over both framing formats.
 
 ## Punctual lights
 

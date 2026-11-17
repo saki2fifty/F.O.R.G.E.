@@ -3,6 +3,7 @@
 #include "builtins.hpp"
 #include "camera_shot_blend.hpp"
 #include "json_row_index.hpp"
+#include "render_camera_snapshot.hpp"
 #include "render_values.hpp"
 #include "transform_animation_runtime.hpp"
 #include <algorithm>
@@ -811,7 +812,9 @@ void TransformAnimationPlayback::project_camera_shots(Json& document, double alp
     if (!has_camera_blends())
         return;
     const auto rows = detail::index_json_rows(document.at("entities"));
+    const auto scene = document.at("asset_id").get<AssetId>();
     std::map<std::string, RenderCamera> candidate;
+    std::map<std::string, Json> aim_errors;
     const auto read = [&](flecs::entity_t id) {
         const auto ref = context_.reference(id);
         if (!ref || !rows.contains(ref->entity.str()))
@@ -819,25 +822,40 @@ void TransformAnimationPlayback::project_camera_shots(Json& document, double alp
         const auto& row = *rows.at(ref->entity.str());
         if (!row.value("spatial_resolved", false))
             throw std::runtime_error("Camera Shot view has an unresolved world pose");
-        RenderCamera value{
-            ref->entity, detail::camera_value(row.at("components").at("forge.camera")), {}};
-        value.world.m = row.at("world_affine").get<std::array<double, 12>>();
-        return value;
+        return detail::snapshot_camera_view(
+            scene, ref->entity, detail::camera_value(row.at("components").at("forge.camera")), rows,
+            false);
     };
     for (const auto& [membership, shots] : shot_scenes_) {
         (void)shots;
         const auto sample = sample_camera_shot(membership, alpha);
         if (!sample.previous || sample.previous->camera == sample.current->camera)
             continue;
-        auto value = blend_camera_shot(read(sample.previous->camera), read(sample.current->camera),
-                                       sample.weight);
-        candidate.emplace(value.entity.str(), std::move(value));
+        try {
+            auto value = blend_camera_shot(read(sample.previous->camera),
+                                           read(sample.current->camera), sample.weight);
+            candidate.emplace(value.entity.str(), std::move(value));
+        } catch (const detail::CameraAimFailure& error) {
+            const auto incoming = context_.reference(sample.current->camera);
+            if (!incoming)
+                throw;
+            aim_errors.emplace(incoming->entity.str(),
+                               Json{{"entity", error.camera},
+                                    {"message", std::string(error.what()).substr(0, 4096)}});
+        }
     }
     // Build every view before publishing any override into this copied document.
     for (auto& row : document.at("entities")) {
-        const auto at = candidate.find(row.at("id").get_ref<const std::string&>());
+        const auto& id = row.at("id").get_ref<const std::string&>();
+        if (const auto error = aim_errors.find(id); error != aim_errors.end()) {
+            row.erase("camera_world_affine");
+            row["camera_aim_error"] = error->second;
+            continue;
+        }
+        const auto at = candidate.find(id);
         if (at == candidate.end())
             continue;
+        row.erase("camera_aim_error");
         const auto values = detail::render_value(at->second.camera);
         for (const auto* field : {"vertical_fov", "orthographic_height", "orthographic_width",
                                   "near_plane", "far_plane"})

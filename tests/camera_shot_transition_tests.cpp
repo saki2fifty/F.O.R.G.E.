@@ -126,6 +126,84 @@ void set(Json& document, const std::string& id, const char* component, const cha
         if (item.at("id") == id)
             item["components"][component][field] = value;
 }
+void aimed_transitions(const std::filesystem::path& root) {
+    Fixture authored;
+    authored.scene.entity(authored.controller).set<LocalTranslation>({});
+    const auto target = authoring_command(authored.scene, "entity.create", {{"name", "Focus"}})
+                            .at("selected")
+                            .get<std::string>();
+    authored.scene.entity(target).set<LocalTranslation>({100, 0, 0});
+    for (const auto& id : {authored.first, authored.second}) {
+        authored.scene.entity(id)
+            .set<LocalTranslation>({id == authored.first ? -10. : 10., 0, -10})
+            .set<LocalRotation>({})
+            .set<CameraAim>({true, {authored.scene.asset_id(), EntityId::parse(target)}});
+    }
+    const auto original = authored.scene.document();
+    const std::array<std::array<double, 5>, 4> weights{{{0, .15625, .5, .84375, 1},
+                                                        {0, .25, .5, .75, 1},
+                                                        {0, .0625, .25, .5625, 1},
+                                                        {0, .4375, .75, .9375, 1}}};
+    for (unsigned curve = 0; curve < weights.size(); ++curve) {
+        auto source = original;
+        set(source, authored.incoming, "forge.camera_shot", "blend_curve", curve);
+        World live(root, source);
+        for (unsigned step = 0; step < 5; ++step) {
+            const char* stage = "live";
+            const auto near = [&](double actual, double expected) {
+                if (std::abs(actual - expected) > 1e-5)
+                    throw std::runtime_error("Aimed curve " + std::to_string(curve) + " sample " +
+                                             std::to_string(step) + " " + stage + ": " +
+                                             std::to_string(actual) + " vs " +
+                                             std::to_string(expected));
+            };
+            AnimationPlaybackAccess::control(
+                *live.animation, authored.group,
+                {{"operation", "seek"}, {"position_seconds", 1 + step * .25}});
+            const auto copied = live.simulation.presentation(1);
+            const auto views = prepare_game_cameras(extract_render_scene(copied), 800, 600);
+            check(views.cameras.size() == 1, "Aimed transition omitted its main view");
+            const auto& view = views.cameras[0].view;
+            const auto weight = weights[curve][step];
+            const auto angle = (1 - 2 * weight) * std::numbers::pi / 4;
+            near(view.position[0], 90 + 20 * weight);
+            near(view.position[2], -10);
+            near(view.forward[0], std::sin(angle));
+            near(view.forward[1], 0);
+            near(view.forward[2], std::cos(angle));
+            near(row(copied, authored.second).at("world_affine").at(3), 110);
+            near(live.scene.entity(authored.second).get<LocalTranslation>().x, 10);
+            const auto checkpoint = live.animation->checkpoint();
+            World recovered(root, source);
+            recovered.animation->restore(checkpoint);
+            stage = "recovered";
+            const auto replay = prepare_game_cameras(
+                extract_render_scene(recovered.simulation.presentation(1)), 800, 600);
+            near(replay.cameras.at(0).view.forward[0], std::sin(angle));
+            near(replay.cameras.at(0).view.position[0], 90 + 20 * weight);
+        }
+    }
+    auto missing = original;
+    set(missing, authored.first, "forge.camera_aim", "target",
+        {{"scene", authored.scene.asset_id()}, {"entity", EntityId::generate()}});
+    World invalid(root, missing);
+    AnimationPlaybackAccess::control(*invalid.animation, authored.group,
+                                     {{"operation", "seek"}, {"position_seconds", 1.5}});
+    const auto render = extract_render_scene(invalid.simulation.presentation(1));
+    check(std::any_of(render.diagnostics.begin(), render.diagnostics.end(),
+                      [&](const auto& d) {
+                          return d.category == "render.camera_aim.invalid" &&
+                                 d.context.entity == EntityId::parse(authored.first) &&
+                                 d.context.property == "forge.camera_aim";
+                      }),
+          "Invalid outgoing aim lost its original Camera diagnostic during a blend");
+    check(std::any_of(render.cameras.begin(), render.cameras.end(),
+                      [&](const auto& camera) {
+                          return camera.entity == EntityId::parse(authored.output);
+                      }),
+          "Invalid aimed transition removed an independent output");
+    check(authored.scene.document() == original, "Aimed transitions changed authored source");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -134,6 +212,7 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         std::ofstream(root / "forge.assets.json")
             << Json{{"version", 1}, {"assets", Json::array()}};
+        aimed_transitions(root);
         Fixture authored;
         const auto source = authored.scene.document();
         World live(root, source);

@@ -1064,9 +1064,27 @@ existing input queue and physical release policy; reset releases controls.
 
 Camera Shot view blending exposes a transient `camera_world_affine` on the selected
 Camera's `forge_play_snapshot` entity. Its ordinary `world_affine` remains the node
-pose for attached meshes, lights and children. Read the camera-specific matrix for
-the blended view; an exact cut can omit it and use the ordinary node pose. This
-projection changes no authored components or history.
+pose for attached meshes, lights and children. An exact cut can omit that transient
+matrix; `Camera Aim` can still derive a view from its node and target at that cut.
+This projection changes no authored components or history.
+
+`forge_play_cameras` (`play.cameras` in automation) requires `play.read` and ready
+Play. Supply integer `width` and `height` in 1..16384. Optional `output` selects a
+canonical Render Texture UUID; omission selects main output. Optional `offset`
+defaults to zero and `limit` to 128 (1..128). The result includes current Play
+scope/snapshot facts, `asset_id`, requested extent/output, `total`, paged `cameras`,
+bounded `diagnostics` and `omitted_diagnostics`. Each camera includes `entity`,
+copied `settings`, world `position/right/up/forward`, row-major 3x4 `view`, row-major
+4x4 `projection`, pixel `viewport` and `orientation_reversed`. These come from the
+same extraction/composition owners as Game, including Camera Aim and Camera Shots.
+Pause for stable paged reads. The operation changes no clock, output configuration,
+source, history or GPU state and supplies no pixels. The requested extent controls
+projection inspection; it does not resize the actual Game panel.
+
+Add `forge.camera_aim` through ordinary component/property operations. Its Target
+is a nullable same-Scene entity reference. Enabled, offsets and Weight are tunable
+through `forge_play_tune`; Target assignment is Edit-only. Existing stale scope,
+source revision, permissions, Undo and runtime value review apply.
 
 Mesh Renderer `wind` is one tunable complete struct through `forge_play_tune`,
 using the current launch/session/generation and `play.execute` grant. It changes

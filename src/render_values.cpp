@@ -406,6 +406,33 @@ ParticleEmitter particle_emitter_value(const Json& p) {
     value.tint_b = p.value("tint_b", 1.f);
     return value;
 }
+Json render_value(const CameraAim& value) {
+    return {{"enabled", value.enabled},
+            {"target", value.target.scene || value.target.entity ? Json(value.target) : Json()},
+            {"offset_x", value.offset_x},
+            {"offset_y", value.offset_y},
+            {"offset_z", value.offset_z},
+            {"weight", value.weight}};
+}
+CameraAim camera_aim_value(const Json& source) {
+    CameraAim value;
+    value.enabled = source.value("enabled", true);
+    if (const auto at = source.find("target"); at != source.end() && !at->is_null())
+        value.target = at->get<EntityRef>();
+    value.offset_x = source.value("offset_x", 0.);
+    value.offset_y = source.value("offset_y", 0.);
+    value.offset_z = source.value("offset_z", 0.);
+    value.weight = source.value("weight", 1.);
+    if (bool(value.target.scene) != bool(value.target.entity))
+        throw std::invalid_argument(
+            "Camera Aim target must contain both Scene and entity identities");
+    for (const auto offset : {value.offset_x, value.offset_y, value.offset_z})
+        if (!std::isfinite(offset))
+            throw std::invalid_argument("Camera Aim target-local offsets must be finite");
+    if (!std::isfinite(value.weight) || value.weight < 0 || value.weight > 1)
+        throw std::invalid_argument("Camera Aim weight must be finite and between zero and one");
+    return value;
+}
 Json render_value(const Camera& p) {
     return {{"enabled", p.enabled},
             {"projection", p.projection},

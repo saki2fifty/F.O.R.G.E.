@@ -151,6 +151,60 @@ void frame_source(const std::filesystem::path& gallery, const std::filesystem::p
 
 // The stopped Timeline and its frame-export lease project the shared view after
 // Scene has resolved the copied animated hierarchy, exactly as the editor does.
+void camera_aim_frame_source(const std::filesystem::path& gallery,
+                             const std::filesystem::path& scratch) {
+    const auto root = scratch / AssetId::generate().str();
+    std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
+    EngineContext engine;
+    Scene scene(engine.world());
+    SceneDocument project(scene);
+    project.open_project(root);
+    project.open_scene("Scenes/219-camera-aim.scene.json");
+    const auto authored = scene.document();
+    const auto revision = scene.revision();
+    EntityRef sequence;
+    std::string camera;
+    for (const auto& row : authored.at("entities")) {
+        const auto id = row.at("id").get<std::string>();
+        if (scene.entity(id).has<AnimationSequence>())
+            sequence = {scene.asset_id(), EntityId::parse(id)};
+        if (scene.entity(id).has<CameraAim>())
+            camera = id;
+    }
+    check(bool(sequence.entity) && !camera.empty(), "Stopped Camera Aim actors are missing");
+    AnimationSequenceEditor timeline;
+    timeline.open(project, scene, sequence);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+    while (!timeline.frame_export_ready()) {
+        timeline.poll(false, 0);
+        check(std::chrono::steady_clock::now() < deadline, "Camera Aim Timeline did not prepare");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    const auto lease = timeline.begin_frame_export();
+    for (double time : {0., .25, .5, .75, 1., 1.5, 1.875}) {
+        timeline.sample_frame_export(lease, time);
+        auto source = scene.preview_document(timeline.preview(scene.document()));
+        timeline.project_camera_shots(source);
+        const auto render = extract_render_scene(source);
+        const auto views = prepare_game_cameras(render, 960, 540);
+        check(render.diagnostics.empty() && views.cameras.size() == 1 &&
+                  views.cameras[0].entity == EntityId::parse(camera),
+              "Stopped Camera Aim frame lost its view");
+        const auto u = time / 2;
+        const auto x = -2 + 4 * u * u * (3 - 2 * u);
+        const auto distance = std::sqrt(x * x + 65);
+        const auto& view = views.cameras[0].view;
+        expect_close(view.position[0], 0);
+        expect_close(view.position[1], 3);
+        expect_close(view.position[2], -8);
+        expect_close(view.forward[0], x / distance);
+        expect_close(view.forward[1], -1 / distance);
+        expect_close(view.forward[2], 8 / distance);
+    }
+    timeline.end_frame_export(lease);
+    check(scene.document() == authored && scene.revision() == revision,
+          "Stopped Camera Aim frame sampling changed Scene source/history");
+}
 void camera_transition_frame_source(const std::filesystem::path& gallery,
                                     const std::filesystem::path& scratch, std::uint32_t curve) {
     const auto root = scratch / AssetId::generate().str();

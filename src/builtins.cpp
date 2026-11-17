@@ -50,7 +50,7 @@ template <class T> Json encode(const T& p) {
         return {{"visible", p.visible}};
     else if constexpr (std::is_same_v<T, NodeSelectability>)
         return {{"selectable", p.selectable}};
-    else if constexpr (std::is_same_v<T, Camera>)
+    else if constexpr (std::is_same_v<T, Camera> || std::is_same_v<T, CameraAim>)
         return render_value(p);
     else if constexpr (std::is_same_v<T, Light>)
         return render_value(p);
@@ -376,6 +376,8 @@ template <class T> Value decode(const Json& p) {
         return T{p.at("selectable").get<bool>()};
     else if constexpr (std::is_same_v<T, Camera>)
         return camera_value(p);
+    else if constexpr (std::is_same_v<T, CameraAim>)
+        return camera_aim_value(p);
     else if constexpr (std::is_same_v<T, Light>)
         return light_value(p);
     else if constexpr (std::is_same_v<T, DecalProjector>)
@@ -906,7 +908,15 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         c.template member<bool>("visible");
     else if constexpr (std::is_same_v<T, NodeSelectability>)
         c.template member<bool>("selectable");
-    else if constexpr (std::is_same_v<T, Camera>) {
+    else if constexpr (std::is_same_v<T, CameraAim>) {
+        (void)authoring_value_adapters(w);
+        c.template member<bool>("enabled")
+            .template member<EntityRef>("target")
+            .template member<double>("offset_x")
+            .template member<double>("offset_y")
+            .template member<double>("offset_z")
+            .template member<double>("weight");
+    } else if constexpr (std::is_same_v<T, Camera>) {
         register_asset_ref<RenderTextureAsset>(w, "forge.render_texture_ref");
         c.template member<bool>("enabled")
             .template member<std::uint32_t>("projection")
@@ -2150,6 +2160,11 @@ const std::array<Builtin, builtin_count>& builtins() {
             "forge.camera", "Authored game camera; world pose is derived from independent TRS",
             "unitless", {}, {},
             [](flecs::world& w) { return register_type<Camera>(w, "forge.camera"); }),
+        descriptor<CameraAim>(
+            "forge.camera_aim",
+            "Aim the camera view at a Scene target without changing node transforms", "unitless",
+            {}, {},
+            [](flecs::world& w) { return register_type<CameraAim>(w, "forge.camera_aim"); }),
         descriptor<Light>("forge.light", "Directional, point or spot light with physical intensity",
                           "unitless", {}, {},
                           [](flecs::world& w) { return register_type<Light>(w, "forge.light"); }),
@@ -2470,6 +2485,24 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] =
                 "Source camera layer mask. Exclude surfaces reading camera outputs "
                 "to prevent capture feedback. Local probes and display effects are excluded.";
+        }
+    }
+    if (name == "forge.camera_aim") {
+        if (field == "enabled")
+            value["description"] =
+                "Apply camera-only aim when a target is bound and Weight is positive";
+        else if (field == "target")
+            value["description"] = "Scene entity whose resolved node pose supplies the aim point; "
+                                   "an unbound target is inactive";
+        else if (field == "weight") {
+            value["description"] = "Fraction of the smallest turn from the authored camera "
+                                   "direction; zero leaves the view unchanged";
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+        } else if (field.starts_with("offset_")) {
+            value["description"] =
+                "Aim-point offset in the target's local axes before its resolved world transform";
+            value["unit"] = "meters";
         }
     }
     if (name == "forge.camera") {
@@ -4150,6 +4183,14 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("blend_curve")
                 .set<ReflectedMemberDefault>({std::uint32_t(CameraShotBlendCurve::Smooth)});
         }
+        if (name == "forge.camera_aim") {
+            world.component<ReflectedMemberDefault>(reflected_member_default_type);
+            c.lookup("enabled").set<ReflectedMemberDefault>({true});
+            c.lookup("target").set<ReflectedMemberDefault>({nullptr});
+            c.lookup("weight").set<ReflectedMemberDefault>({1.});
+            for (const auto* field : {"offset_x", "offset_y", "offset_z"})
+                c.lookup(field).set<ReflectedMemberDefault>({0.});
+        }
         if (name == "forge.mesh_renderer") {
             // Reuse the native annotation owner for this nested value type;
             // it is not a separately addable authoring component.
@@ -4195,7 +4236,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.animator" || name == "forge.physics_joint" ||
             name == "forge.physics_joint_2d" || name == "forge.transform_animator" ||
             name == "forge.animation_sequence" || name == "forge.camera_shot" ||
-            name == "forge.audio_cue" || name == "forge.sound_cue" ||
+            name == "forge.camera_aim" || name == "forge.audio_cue" || name == "forge.sound_cue" ||
             name == "forge.navigation_behavior")
             references = authoring_value_adapters(world);
         // Native typed identity remains authoritative even when an earlier SDK
@@ -4286,7 +4327,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
                   name == "forge.input_message" || name == "forge.application_state_gate" ||
                   name == "forge.mesh_renderer" || name == "forge.particle_emitter" ||
                   name == "forge.sprite_renderer" || name == "forge.tile_map_renderer" ||
-                  name == "forge.camera" || name == "forge.light" ||
+                  name == "forge.camera" || name == "forge.camera_aim" || name == "forge.light" ||
                   name == "forge.reflection_probe" || name == "forge.decal" ||
                   name == "forge.fog_volume" || name == "forge.node_visibility" ||
                   name == "forge.node_selectability"}});

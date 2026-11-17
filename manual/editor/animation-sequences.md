@@ -492,6 +492,11 @@ To author shots in your own sequence:
 4. Choose **Refresh clips**, then **Preview sequence** and open **Game**. Scrub a shot's strip or the playhead slider to inspect the cuts. Stopping preview restores the authored camera settings.
 5. Choose **Save scene**. Play and export use this saved arrangement; no C++ module is required.
 
+Add [Camera Aim](camera-aim.md) to an endpoint camera to follow a target. Each
+endpoint aims before its view is blended, and the same composition is used by
+stopped sequence preview and frame export. Camera node transforms remain available
+to attached objects and children.
+
 ### Move or trim a shot
 
 Turn on **Edit shot timing** under **Camera shots**. Drag the filled body of a

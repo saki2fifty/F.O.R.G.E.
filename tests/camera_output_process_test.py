@@ -41,12 +41,19 @@ with tempfile.TemporaryDirectory(prefix='camera-output-', dir=scratch) as tempor
             surface.update(render_texture=output, extension=dict(retain='surface'))
             mesh = defaults('forge.mesh_renderer')
             mesh['mesh'] = '05420c39-1aa8-46ae-b73e-f61680bea5db'
-            source = dict(version=3, asset_id=str(uuid.uuid4()), entities=[dict(
+            scene_id, target = str(uuid.uuid4()), str(uuid.uuid4())
+            aim = defaults('forge.camera_aim')
+            aim.update(target=dict(scene=scene_id, entity=target), extension=dict(retain='aim'))
+            source = dict(version=3, asset_id=scene_id, entities=[dict(
                 id=actor, name='Public output camera', components={
                     'forge.local_translation': defaults('forge.local_translation'),
                     'forge.local_rotation': defaults('forge.local_rotation'),
                     'forge.local_scale': defaults('forge.local_scale'), 'forge.camera': camera,
-                    'forge.ui_document': ui, 'forge.mesh_renderer': mesh, 'forge.ui_surface_input': surface})])
+                    'forge.ui_document': ui, 'forge.mesh_renderer': mesh, 'forge.ui_surface_input': surface,
+                    'forge.camera_aim': aim}), dict(id=target, name='Aim target', components={
+                        'forge.local_translation': dict(x=3, y=1, z=5),
+                        'forge.local_rotation': defaults('forge.local_rotation'),
+                        'forge.local_scale': defaults('forge.local_scale')})])
             original = copy.deepcopy(source)
             def values(state):
                 assert not any(row['severity'].lower() in ('error', 'fatal') for row in state['diagnostics']), state['diagnostics']
@@ -55,6 +62,8 @@ with tempfile.TemporaryDirectory(prefix='camera-output-', dir=scratch) as tempor
                 assert components['forge.ui_document'] == expected_ui, components
                 expected_surface = surface if components['forge.camera']['render_texture'] else surface | dict(geometry=1)
                 assert components['forge.ui_surface_input'] == expected_surface, components
+                expected_aim = aim if components['forge.camera']['render_texture'] else aim | dict(weight=.5, offset_y=.75)
+                assert components['forge.camera_aim'] == expected_aim, components
                 return components['forge.camera']
             active = activate(host, source, sdk)
             assert values(active) == camera
@@ -75,4 +84,4 @@ with tempfile.TemporaryDirectory(prefix='camera-output-', dir=scratch) as tempor
             assert host.request('quit')['ok'] and host.process.wait(timeout=20) == 0
         finally:
             host.close()
-print('Public Camera/UI/mesh-surface reference/layout, fixed writes, restart, ordinary recovery and both runtime hosts passed')
+print('Public Camera/Aim/UI/mesh-surface reference/layout, fixed writes, restart, ordinary recovery and both runtime hosts passed')

@@ -1,6 +1,7 @@
 #pragma once
 #include "../builtins.hpp"
 #include "../navigation_geometry.hpp"
+#include "../render_camera_snapshot.hpp"
 #include "authoring.hpp"
 #include "decal_guide.hpp"
 #include "fog_volume_guide.hpp"
@@ -45,6 +46,7 @@ spatial_markers(const Json& source, unsigned width, unsigned height, double exte
                 const std::map<AssetId, RenderTextureData>& outputs = {}) {
     std::vector<SpatialMarker> result;
     const auto policies = extract_node_policies(source);
+    const auto camera_rows = detail::index_json_rows(source.at("entities"));
     for (const auto& row : source.at("entities")) {
         const auto& c = row.at("components");
         for (unsigned kind = 0; kind < 7; ++kind) {
@@ -197,7 +199,12 @@ spatial_markers(const Json& source, unsigned width, unsigned height, double exte
                         output_width = output->second.width;
                         output_height = output->second.height;
                     }
-                    const auto view = camera_view(settings, world, output_width, output_height);
+                    const auto projected = detail::snapshot_camera_view(
+                        source.at("asset_id").get<AssetId>(), EntityId::parse(marker.entity),
+                        settings, camera_rows);
+                    const auto view =
+                        camera_view(projected.camera, projected.world, output_width, output_height);
+                    marker.position = view.position;
                     const bool ortho =
                         settings.projection == unsigned(CameraProjection::Orthographic);
                     const double end =

@@ -548,8 +548,9 @@ int main(int argc, char** argv) {
             frame_plans();
             for (std::uint32_t curve = 0; curve < 4; ++curve)
                 camera_transition_frame_source(argv[2], argv[3], curve);
+            camera_aim_frame_source(argv[2], argv[3]);
             std::cout << "Stopped Camera transition frame source, all timing curves and attached "
-                         "producer isolation PASS\n";
+                         "producer isolation, and animated Camera Aim frame source PASS\n";
             return 0;
         }
         if (argc == 4 && std::string_view(argv[1]) == "--camera-workflow") {

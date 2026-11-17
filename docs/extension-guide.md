@@ -89,6 +89,21 @@ or later; larger lists require capability 11. Older receiving Shader cooks keep 
 original capacities and complete-set fallback. Source normal scale and per-channel
 UV transforms are retained; clearcoat and optics remain with the receiving material.
 
+## Camera Aim values
+
+Include `forge/render_components.hpp` and use `forge::CameraAim` on an entity
+with `forge::Camera`. `target` is a stable `EntityRef` containing the current Scene
+asset UUID and a target entity UUID; a null reference leaves the view unchanged.
+`offset_x/y/z` are target-local units, transformed by its complete resolved pose.
+Keep `weight` finite in [0,1]. It selects a fraction of the smallest angular turn;
+`enabled=false` or zero weight bypasses the target. Node transforms remain owned
+by the existing transform system. Aim changes only the derived Camera view.
+
+Build `camera_output_gameplay` from the installed sample to check public Camera,
+Camera Aim and UI layouts. Its fixed system sets Aim Weight to 0.5 and Offset Y
+to 0.75 while preserving the target reference. Use a module rebuilt with the exact
+SDK/runtime fingerprint. The C ABI table and existing Camera layout are unchanged.
+
 ## Soft-shadow source dimensions
 
 Include `forge/render_components.hpp` and use `forge::Light::shadow_source_radius`

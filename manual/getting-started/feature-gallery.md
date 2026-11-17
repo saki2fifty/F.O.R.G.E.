@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**219-camera-aim** follows a moving yellow cube from a stationary Camera. Blue
+cubes and a floor show the change in viewing direction. Select the Camera and
+inspect **Camera Aim** to change its target, local offsets and turn weight. The
+Scene includes its Camera, light and animation; no project C++ module is needed.
+Save and select it as startup before exporting. See [Camera Aim](../editor/camera-aim.md).
+
 **217-directional-sensor-events** compares ordinary and directional sensors with
 front and back passages. Both kinds let bodies through. Inspect **Physics Body
 2D > Sensor** and **One-way collision** on the green regions. Copied C++ events

@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## Camera Aim
+
+Open `Scenes/219-camera-aim.scene.json` and press Play. The stationary Camera
+tracks a yellow cube moving left to right; blue cubes and a floor provide a
+fixed reference. The target reuses the Gallery's two-second transform animation.
+No project C++ module is needed.
+
+Stop Play, select **Tracking Camera - view correction only** and inspect **Camera
+Aim**. Choose another Target, adjust its local offsets or reduce Weight to apply
+part of the turn. During Play, Enabled, offsets and Weight are live values;
+Target assignment stays in Edit. Save and choose this Scene as startup before
+export. See [Camera Aim](../../../manual/editor/camera-aim.md).
+
 ## Navigation link arcs
 
 Open `Scenes/218-navigation-link-arcs.scene.json` and press Play. The cyan agent

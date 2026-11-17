@@ -4470,6 +4470,16 @@
       "type": "scene"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "2af8f08e-8f36-47c8-bd62-59af27d894c7",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/219-camera-aim.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "310028ab-26c1-4045-a7f2-5631bb09c0e7"
       ],
