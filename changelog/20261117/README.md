@@ -12,6 +12,8 @@ Malformed view poses report Camera diagnostics without affecting other producers
 Scene command discovery checks every supported operation identity and rejects
 duplicates. Planar preview checks cover Static/Kinematic directional Map sensors
 and retain the Dynamic one-way Map boundary.
+Navigation connection pipeline coverage runs straight and arc profiles in separate
+timed cases, retaining every assertion and reporting the active profile.
 
 ## C++ rename in open files
 

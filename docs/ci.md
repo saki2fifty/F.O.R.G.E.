@@ -2549,6 +2549,14 @@ normal publication/physics refresh and checks that stale-route movement holds.
 The four `navigation_tile_*` scopes cover marked and collected Map sources,
 runtime cell invalidation/reset, recovery and source-hidden content relocation.
 
+`navigation_link_pipeline` covers straight connections and
+`navigation_link_arc_pipeline` covers curved connections. Each retains four
+plane/static-dynamic profiles and its own90second CTest limit. Both use the same
+native fixture and assertions, with profile begin/completion markers. Direct
+invocation without a profile still exercises all eight combinations; unknown
+profile arguments reject before scratch or worker work. Production worker limits
+are unchanged.
+
 `navigation_link_editor` also checks collection/layer controls at100/150/200percent
 through actual input, without changing Scene history. Its `--capture-collection`
 mode records the saved Gallery141 profile's real controls. `mcp_navigation_collection_stdio`

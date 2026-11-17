@@ -6,6 +6,7 @@
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <string_view>
 using namespace forge;
 namespace {
 void check(bool value, const std::string& why) {
@@ -161,19 +162,30 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3, "Need scratch root and matching navigation worker");
+        check(argc == 3 || argc == 4,
+              "Need scratch root, matching navigation worker and optional profile");
+        const std::string_view profile = argc == 4 ? argv[3] : "all";
+        check(profile == "all" || profile == "straight" || profile == "arc",
+              "Unknown navigation pipeline profile");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         for (auto plane : {NavigationPlane::Spatial3D, NavigationPlane::PlanarXY})
             for (bool dynamic : {false, true})
-                for (bool arc : {false, true})
-                    run(root / (std::to_string(unsigned(plane)) +
-                                (dynamic ? "-dynamic" : "-static") + (arc ? "-arc" : "-straight")),
-                        std::filesystem::absolute(argv[2]), plane, dynamic, arc);
+                for (bool arc : {false, true}) {
+                    if ((profile == "straight" && arc) || (profile == "arc" && !arc))
+                        continue;
+                    const auto label = std::to_string(unsigned(plane)) +
+                                       (dynamic ? "-dynamic" : "-static") +
+                                       (arc ? "-arc" : "-straight");
+                    std::cout << "Navigation pipeline " << label << " begin" << std::endl;
+                    run(root / label, std::filesystem::absolute(argv[2]), plane, dynamic, arc);
+                    std::cout << "Navigation pipeline " << label << " PASS" << std::endl;
+                }
         std::filesystem::remove_all(root);
         std::cout
             << "Authored link capture, profile isolation, straight/arc publication and native "
-               "route PASS\n";
+               "route ("
+            << profile << ") PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;
