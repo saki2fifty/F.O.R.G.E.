@@ -13,7 +13,7 @@ int main() {
             return parse_game_launch({arguments.begin(), arguments.size()});
         };
         const auto normal = parse({});
-        check(!normal.project && !normal.verify_startup && !normal.show_fps,
+        check(!normal.project && !normal.verify_startup && !normal.show_fps && !normal.gpu_profile,
               "Default launch changed distribution or diagnostic policy");
         const auto fps = parse({"--show-fps"});
         check(!fps.project && !fps.verify_startup && fps.show_fps,
@@ -21,6 +21,13 @@ int main() {
         const auto verified = parse({"--show-fps", "--verify-startup"});
         check(verified.show_fps && verified.verify_startup && !verified.project,
               "Diagnostic options did not compose");
+        const auto gpu = parse({"--gpu-profile", "--verify-startup", "--show-fps"});
+        check(gpu.gpu_profile && gpu.verify_startup && gpu.show_fps && !gpu.project,
+              "GPU diagnostic intent did not compose with existing finite verification");
+        const auto physical = parse({"--project", "Folder/game", "--gpu-profile"});
+        check(physical.gpu_profile && physical.project == "Folder/game" &&
+                  !physical.verify_startup && !physical.show_fps,
+              "GPU collection intent changed development location or software-device policy");
         for (const auto& arguments :
              {std::vector<std::string_view>{"--show-fps", "--project", "Folder/\xc3\xa9/game"},
               std::vector<std::string_view>{"--project", "Folder/\xc3\xa9/game", "--show-fps"}}) {

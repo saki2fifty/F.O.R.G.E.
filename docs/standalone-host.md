@@ -16,6 +16,15 @@ deliverables and are not claimed to be the same binary.
 
 ## Startup and ownership
 
+Optional `--gpu-profile` enables native GPU duration acquisition without changing
+the selected device, simulation or audio policy. It composes with packaged and
+`--project` launches and the finite `--verify-startup` diagnostic. A successful
+shutdown emits a bounded report after native owners retire. Reports identify the
+actual device/adapter and distinguish software rendering. The Export Game task
+uses the same flag for ordinary profiling and finite verification, with current
+runtime-kit profile1 admission. See [profiling](cpu-profiling.md) and
+[user controls](../manual/editor/performance.md).
+
 Reachable Input Message Released/Changed declarations require runtime-kit
 `engine.runtime_input_message_triggers:1`. Saved Scene/Prefab/variant components
 and property overrides supply the requirement through the existing document

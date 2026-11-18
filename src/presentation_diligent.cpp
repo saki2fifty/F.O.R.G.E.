@@ -110,7 +110,15 @@ nlohmann::json DiligentPresentation::gpu_profile_status() const {
     const bool owner = gpu_services_.available(Capability::Profiling);
     const bool supported =
         device_->GetDeviceInfo().Features.DurationQueries == DEVICE_FEATURE_STATE_ENABLED;
+    const auto backend = device_->GetDeviceInfo().Type;
+    const auto& adapter = device_->GetAdapterInfo();
     return {{"compiled", compiled},
+            {"device",
+             {{"backend", backend == RENDER_DEVICE_TYPE_D3D12    ? "d3d12"
+                          : backend == RENDER_DEVICE_TYPE_VULKAN ? "vulkan"
+                                                                 : "other"},
+              {"adapter", adapter.Description},
+              {"software", adapter.Type == ADAPTER_TYPE_SOFTWARE}}},
             {"available", compiled && supported && owner && !gpu_failed_},
             {"enabled", gpu_enabled_ && owner && !gpu_failed_},
             {"pending", gpu_count_},

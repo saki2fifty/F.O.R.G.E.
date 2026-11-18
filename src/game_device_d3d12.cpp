@@ -15,6 +15,7 @@ GameDevice::GameDevice(SDL_Window* window, bool software) {
         throw std::runtime_error("D3D12 backend unavailable");
     EngineD3D12CreateInfo info;
     info.Features.ComputeShaders = DEVICE_FEATURE_STATE_OPTIONAL;
+    info.Features.DurationQueries = DEVICE_FEATURE_STATE_OPTIONAL;
     if (software) {
         // WARP acceptance adapter only. No raw native handles escape this file.
         using Microsoft::WRL::ComPtr;

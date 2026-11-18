@@ -48,6 +48,14 @@ Real Windows editor captures using small validation scenes. Click an image to op
 
 [Capture sources](docs/images/readme/README.md) · [Implementation and delivery status](docs/status.md)
 
+Exported-game GPU reports identify the adapter and show retained native pass
+durations. The same report is available through scoped MCP reads.
+
+[![Export Game GPU report controls and native duration rows on a software adapter](manual/images/standalone-gpu-report.png)](manual/editor/performance.md)
+
+The illustrated report uses software Vulkan; physical hardware timing remains a
+separate review.
+
 [Record and replay gameplay input](manual/editor/input-recording.md) in one Scene
 or across game-requested Scene visits. SDK Play retains one bounded take, validates
 the next Scene before activation and waits at replay boundaries while loading

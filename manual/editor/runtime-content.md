@@ -46,6 +46,11 @@ status. Use **Stop game test** and wait for shutdown to finish before rebuilding
 that output. If FORGE reports that shutdown could not be confirmed, choose another
 export destination; the previous game folder is retained.
 
+The completed export also offers **Profile game** for native GPU pass timings and
+**Verify GPU timings** for a finite software-rendered check. Close a normally
+profiled game window to accept its report, then inspect or copy the measurements
+in Export Game. See [Profile an exported game](performance.md).
+
 Rebuilding replaces only an existing validated FORGE export. An unrelated folder
 is refused. Source project files and scene Undo are unchanged; newly discovered UI
 resource registrations are a separate saved catalog update. Export packages saved

@@ -32,6 +32,7 @@ from mcp_ui_source_authoring import check_ui_source_authoring
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 atexit.register(write_capture, sys.argv[6])
 SEQUENCE_PROPERTIES_ONLY = sys.argv[7:] == ['--sequence-properties-only']
+GPU_PROFILE_ONLY = sys.argv[7:] == ['--gpu-profile-only']
 SEQUENCE_BINDINGS_ONLY = sys.argv[7:] == ['--sequence-bindings-only']
 SKELETAL_SEQUENCE_ONLY = sys.argv[7:] == ['--skeletal-sequence-only']
 ANIMATION_GRAPH_MODULE = len(sys.argv) == 9 and sys.argv[7] == '--animation-graph-module-only'
@@ -227,7 +228,7 @@ def editor(mode='full'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-workflows-') as temporary:
         root = Path(temporary)
         # State-only checks need the real packaged font, but no Windows export kit.
-        host_resources = str(Path(__file__).resolve().parents[1]) if APPLICATION_STATES_ONLY or UI_FIELDS_ONLY or UI_FONT_COLLECTIONS_ONLY or UI_SOURCE_ONLY else KIT
+        host_resources = str(Path(__file__).resolve().parents[1]) if APPLICATION_STATES_ONLY or UI_FIELDS_ONLY or UI_FONT_COLLECTIONS_ONLY or UI_SOURCE_ONLY or GPU_PROFILE_ONLY else KIT
         command = [HOST, str(root), RUNTIME, host_resources, NAV, mode]
         if ANIMATION_GRAPH_ONLY:
             # Scene references are resolved by the runtime package owner, not
@@ -333,7 +334,7 @@ for legacy in selected_protocols:
         # observed target for reads; every mutation still discovers fresh revision
         # and sequence guards. Other workflows retain their boundary discovery.
         stable_read_target = {}
-        reuse_read_target = UI_FIELDS_ONLY or UI_SOURCE_ONLY or CAMERA_TRANSITION_ONLY or CAMERA_AIM_ONLY
+        reuse_read_target = UI_FIELDS_ONLY or UI_SOURCE_ONLY or CAMERA_TRANSITION_ONLY or CAMERA_AIM_ONLY or GPU_PROFILE_ONLY
 
         def discovery():
             value = client.tool('forge_discover')
@@ -381,6 +382,35 @@ for legacy in selected_protocols:
         def control(tool, **extra):
             state = until(lambda: read('forge_play_status'), lambda r: r['control_ready'])
             return ok(tool, launch=state['launch'], session=state['session'], generation=state['generation'], **extra)
+
+        if GPU_PROFILE_ONLY:
+            names = {tool['name']: tool for tool in client.request('tools/list')['result']['tools']}
+            tool = names['forge_export_gpu_profile']
+            assert tool['annotations']['readOnlyHint']
+            assert tool['inputSchema']['properties']['limit']['maximum'] == 128
+            assert names['forge_export_run']['inputSchema']['properties']['collect_gpu_profile'] == dict(type='boolean')
+            state = discovery()
+            missing = '00000000-0000-4000-8000-000000000099'
+            profile_request = dict(target=state['result']['target'], operation=missing)
+            failed(client.tool('forge_export_gpu_profile', **profile_request), 'wrong_job')
+            for invalid in (dict(offset=-1), dict(offset=513), dict(limit=0), dict(limit=129),
+                            dict(limit=True), dict(path='../Outside')):
+                failed(client.tool('forge_export_gpu_profile', **profile_request, **invalid),
+                       'invalid_arguments')
+            failed(mutate('forge_export_run', operation=missing, collect_gpu_profile='yes'),
+                   'invalid_arguments')
+            assert not read('forge_export_status')['started']
+            for mode in ('read', 'output', 'execute'):
+                with editor(mode) as (_, limited), Client(limited, legacy) as reader:
+                    restricted = {item['name'] for item in reader.request('tools/list')['result']['tools']}
+                    assert 'forge_export_gpu_profile' in restricted
+                    assert 'forge_export_run' not in restricted
+                    observed = reader.tool('forge_discover')
+                    failed(reader.tool('forge_export_gpu_profile',
+                        target=observed['result']['target'], operation=missing), 'wrong_job')
+            print('GPU report MCP discovery, grants, pagination schemas, scope and input guards passed; '
+                  'graphical Windows execution remains a separate gate')
+            continue
 
         def edit_settings(tool, **extra):
             return ok(tool, state=read('forge_project_settings_read')['state'], **extra)
@@ -2517,6 +2547,38 @@ for legacy in selected_protocols:
         selected_kit=json.loads((Path(KIT)/'forge.runtime-kit.json').read_text())
         assert manifest['engine'] == selected_kit['engine']  # Keep the authentic selected kit identity.
         assert (output / 'forge_game.exe').is_file()
+        assert completed['gpu_profiling_supported'] == (
+            selected_kit['engine'].get('runtime_gpu_profiling') == 1)
+        assert not completed['gpu_profile_requested'] and not completed['gpu_profile_ready']
+        failed(client.tool('forge_export_gpu_profile', target=discovery()['result']['target'],
+                           operation=export['operation']), 'not_requested')
+        if os.name == 'nt' and completed['gpu_profiling_supported']:
+            measured = ok('forge_export_run', operation=export['operation'], verify_startup=True,
+                          collect_gpu_profile=True)
+            complete = until(lambda: read('forge_export_status'), lambda r: not r['busy'],
+                             timeout=120)
+            assert complete['exit_code'] == 0 and complete['gpu_profile_ready'], complete
+            assert not complete['gpu_profile_error'] and complete['gpu_profile_requested']
+            first = read('forge_export_gpu_profile', operation=measured['operation'], limit=1)
+            report = first['report']
+            assert report['format'] == 'forge.standalone-gpu-profile'
+            assert report['version'] == 1 and report['session'] and report['captured_utc_us'] > 0
+            assert len(report['gpu']['samples']) <= 1
+            if report['gpu']['available']:
+                assert first['sample_count'] > 0, first
+            else:
+                assert report['gpu']['reason'], first
+            offset, samples = first['next_offset'], list(report['gpu']['samples'])
+            while offset is not None:
+                page = read('forge_export_gpu_profile', operation=measured['operation'],
+                            offset=offset, limit=128)
+                samples.extend(page['report']['gpu']['samples'])
+                offset = page['next_offset']
+            assert len(samples) == first['sample_count']
+            assert all(row['clock'] == 'gpu' and row['frame'] > 0 and row['seconds'] >= 0
+                       and 'tick' not in row for row in samples)
+            failed(client.tool('forge_export_gpu_profile', target=discovery()['result']['target'],
+                               operation=export['operation']), 'wrong_job')
         if os.name != 'nt':
             unsupported = mutate('forge_export_run', operation=export['operation'],
                                  verify_startup=True)

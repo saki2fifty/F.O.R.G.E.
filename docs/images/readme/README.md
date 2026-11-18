@@ -1,5 +1,28 @@
 # README screenshots
 
+## Exported-game GPU report controls
+
+`manual/images/standalone-gpu-report.png` is the unretouched840 by610 production
+GPU subsection of Export Game, rendered through the existing ImGui/SDL software
+capture backend. It displays132 genuine native GamePresentation duration samples
+from lavapipe Vulkan, including geometry, UI composition and Render Texture work.
+The native device name/backend/software flag, history and pending counts come
+from the same bounded report. The renderer checks exact Game pixels with collection
+off/on, separate GPU/profile clocks, typed report transport and actual control/
+copy/disabled-kit routing in four100/150/200percent/narrow layouts.
+
+This is an isolated production subsection capture, not full Windows Main or
+physical GPU/input/DPI acceptance. Fixture callbacks check UI intent; graphical
+Windows executable/report acceptance is separately pending. No controls, values,
+dimensions or pixels were fabricated, cropped or retouched. The canonical image
+is shared with the manual and README.
+
+Local provenance: `AgentFiles/build/phase413-standalone-gpu-profiling/controls-capture.json`
+and `AgentFiles/build/phase356-ui-custom-shader-capability/phase413-render15.json`.
+These records identify original pixels, native report, development binary/input
+digest and software backend; local configured metadata is unassigned/d70e63a,
+not a numbered delivery or the accepted source commit.
+
 ## Physical character drop Game views
 
 `manual/images/navigation-character-drops-game.png` is the original640 by360 RGB

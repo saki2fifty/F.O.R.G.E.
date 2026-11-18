@@ -1,5 +1,22 @@
 # ADR 011 — Standalone visual runtime
 
+## Optional graphical GPU observations
+
+The graphical host can opt into the existing DiligentPresentation duration-query
+collector with a host-lifetime EngineServices profiling owner. FrameRenderer and
+GamePresentation supply actual flat rendering/UI scopes. Acquisition remains off
+by default; optional device support never introduces a CPU timing fallback or
+additional GPU wait. Native device/adapter metadata and presentation-frame identity
+travel with bounded observations, independently of simulation timing.
+
+An optional completed report uses the existing supervised stdout channel, emitted
+only after the host/runtime owners retire successfully. ExportTask retains its
+existing process, destination lease and result authority. It validates one bounded
+typed observation after successful supervisor retirement and exposes immutable
+pages through automation/MCP. This adds no network listener, mandatory shipping
+IPC, parallel profile database or installed SDK ABI. Current details and limits
+are in [profiling](../cpu-profiling.md).
+
 ## Simulation-rate checkpoint — 2026-10-14
 
 The existing runtime/session clock owns a transient finite 0..4 simulation factor.

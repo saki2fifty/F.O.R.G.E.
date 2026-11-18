@@ -1,5 +1,6 @@
 #pragma once
 #include "presentation_diligent.hpp"
+#include "standalone_gpu_profile.hpp"
 #include <cmath>
 #include <stdexcept>
 
@@ -108,6 +109,17 @@ void check_gpu_profiles(forge::DiligentPresentation& presentation,
           "Native GPU result lacks separate clock/frame provenance");
     check(presentation.gpu_profile_status().at("latency_frames") >= 1,
           "GPU sample did not disclose asynchronous frame latency");
+    const auto report = forge::standalone_gpu_profile_observation(
+        presentation.gpu_profile_status(), services.access().profile_status(),
+        "native-query-fixture", "test-build", "test-source");
+    const auto record = forge::standalone_gpu_profile_record(report);
+    forge::StandaloneGpuProfileReceiver receiver;
+    for (std::size_t offset = 0; offset < record.size(); offset += 31)
+        receiver.append(std::string_view(record).substr(offset, 31));
+    check(receiver.report().is_null(), "Native GPU data escaped before receiver retirement");
+    receiver.finish(true);
+    check(receiver.error().empty() && receiver.report().at("gpu").at("samples") == samples,
+          "Native asynchronous GPU measurements changed across report transport");
     try {
         auto scope = presentation.gpu_scope(context, "Test", "Unwind");
         clear();

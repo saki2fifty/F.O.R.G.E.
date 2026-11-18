@@ -294,3 +294,39 @@ CPU and GPU collection are independent. Clearing editor samples clears both view
 closing the panel keeps collection running. Switching projects stops GPU
 collection and keeps completed records until you clear them. A device without
 supported GPU timing shows an explanation and continues rendering normally.
+
+## Profile an exported game
+
+This workflow runs the exported Windows/D3D12 game. Save and [export your
+project](runtime-content.md) using the runtime kit supplied with the current
+editor, then keep **Export Game** open or reopen it from **Run**.
+
+1. After export completes, choose **Profile game**. The game runs on its normal graphics and audio devices.
+2. Exercise the part of the game you want to inspect. Close the game window normally when finished.
+3. In **Export Game**, inspect the adapter, backend, retained samples, pending queries and skipped scopes. Scroll the table to see **View**, **Pass**, **GPU ms** and **Frame**.
+4. Choose **Copy GPU report** to copy the accepted report, capture time and device details as JSON. Save the copied text if you want to compare runs.
+
+![Export Game GPU report controls, software adapter identification and native pass durations](../images/standalone-gpu-report.png)
+
+The GPU report section shows completed native samples. This example uses software
+rendering; your adapter and timings will differ.
+
+**Verify GPU timings** runs the finite startup check with software D3D12 rendering
+and offline audio. It exits automatically and reports the same kind of observations.
+Use this to check the workflow; measure your game's hardware with **Profile game**.
+
+**GPU ms** is elapsed GPU queue time for an individual renderer pass. **Frame**
+identifies a presentation submission, independently of simulation ticks. These
+rows do not measure total device utilization or complete frame time. Collection
+adds overhead. The host retains at most 512 shared profile records; the report
+contains the retained GPU samples. Earlier records may be absent, and pending
+queries are not converted into completed durations during shutdown.
+
+The report is accepted after successful process shutdown. **Stop game test**,
+a crash or an incomplete/malformed report leaves it unavailable; inspect the
+report message and timestamped run log. Closing the Export Game panel keeps the test running.
+Opening another project or starting a new export clears the displayed report.
+
+If the runtime kit is unsupported, rebuild the export using the matching kit.
+Finish any other editor operation reported by Export Game before starting a test. A device or build without supported GPU queries shows its reason and keeps
+rendering; FORGE does not substitute CPU timings.

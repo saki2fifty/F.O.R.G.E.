@@ -2,13 +2,17 @@
 #include "animation_playback_access.hpp"
 #include "asset_bytes.hpp"
 #include "gallery_game_capture.hpp"
+#include "game_gpu_profile_ui_tests.hpp"
 #include "game_presentation.hpp"
 #include "runtime_package.hpp"
+#include "standalone_gpu_profile.hpp"
 #include "view_image.hpp"
 #include <RmlUi/Core.h>
 #include <cmath>
 #include <forge/animation.hpp>
+#include <forge/build.hpp>
 #include <forge/ui_protocol.hpp>
+#include <fstream>
 #include <iostream>
 
 using namespace forge;
@@ -29,7 +33,8 @@ Rml::Element* control(const char* tag, unsigned index) {
 std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* context,
                            const std::filesystem::path& project, AssetId scene,
                            const std::vector<std::byte>& font, const std::filesystem::path& images,
-                           bool mesh_surface = false, bool binding_pair = false) {
+                           bool mesh_surface = false, bool binding_pair = false,
+                           Json* gpu_observation = nullptr, ServiceAccess profile_services = {}) {
     std::filesystem::create_directories(images);
     GamePresentation visual(presentation, context, project, font);
     visual.dimensions(640, 360, 1);
@@ -191,6 +196,10 @@ std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* c
     check(game.status().at("clock").at("tick") == initial_tick + 1,
           "Surface text or rendering advanced fixed gameplay");
     visual.ui().release_input();
+    if (gpu_observation)
+        *gpu_observation = standalone_gpu_profile_observation(
+            presentation.gpu_profile_status(), profile_services.profile_status(), visual.session(),
+            build_id, source_commit);
     return result;
 }
 } // namespace
@@ -198,11 +207,12 @@ int main(int argc, char** argv) {
     try {
         check(argc >= 4 && argc <= 6, "Need Gallery, font, scratch and optional mesh Scene path");
         const bool binding_pair = argc == 5 && std::string_view(argv[4]) == "--sequence-bindings";
+        const bool gpu_profile = argc == 5 && std::string_view(argv[4]) == "--gpu-profile";
         const std::filesystem::path scene_path =
-            binding_pair ? "Scenes/184-sequence-binding-crossfades.scene.json"
-            : argc >= 5  ? argv[4]
-                         : "Scenes/174-interactive-ui-surfaces.scene.json";
-        const bool mesh_surface = argc >= 5 && !binding_pair;
+            binding_pair                ? "Scenes/184-sequence-binding-crossfades.scene.json"
+            : argc >= 5 && !gpu_profile ? argv[4]
+                                        : "Scenes/174-interactive-ui-surfaces.scene.json";
+        const bool mesh_surface = argc >= 5 && !binding_pair && !gpu_profile;
         const bool missing_geometry = argc == 6;
         check(!missing_geometry || std::string_view(argv[5]) == "--without-geometry-shaders",
               "Unknown geometry feature fixture option");
@@ -218,6 +228,7 @@ int main(int argc, char** argv) {
         check(bool(scene), "Interactive surface Gallery is not registered");
         const auto font = asset_detail::read_bytes(argv[2], 4 * 1024 * 1024);
         EngineVkCreateInfo create;
+        create.Features.DurationQueries = DEVICE_FEATURE_STATE_OPTIONAL;
         create.Features.GeometryShaders =
             missing_geometry ? DEVICE_FEATURE_STATE_DISABLED : DEVICE_FEATURE_STATE_ENABLED;
         RefCntAutoPtr<IRenderDevice> device;
@@ -243,6 +254,44 @@ int main(int argc, char** argv) {
         }
         const auto original = render(presentation, context, root, scene, font, scratch / "authored",
                                      mesh_surface, binding_pair);
+        if (gpu_profile) {
+            unsigned cpu_clock_reads = 0;
+            EngineServices services(false, [&] {
+                ++cpu_clock_reads;
+                return 0.;
+            });
+            presentation.gpu_services(services.access());
+            services.access().profiling(true);
+            check(presentation.gpu_profile_status().at("available").get<bool>(),
+                  "Software fixture requires native duration queries");
+            presentation.gpu_profiling(true);
+            Json report;
+            const auto measured =
+                render(presentation, context, root, scene, font, scratch / "profiled", false, false,
+                       &report, services.access());
+            check(measured == original && !cpu_clock_reads,
+                  "Native GPU collection changed Game pixels or read the CPU profile clock");
+            bool ui_seen = false, geometry_seen = false;
+            for (const auto& row : report.at("gpu").at("samples")) {
+                ui_seen |= row.at("name") == "UI composition";
+                geometry_seen |= row.at("name") == "Camera geometry";
+            }
+            check(ui_seen && geometry_seen, "Graphical host report missed its real native stages");
+            StandaloneGpuProfileReceiver receiver;
+            const auto bytes = standalone_gpu_profile_record(report);
+            for (std::size_t offset = 0; offset < bytes.size(); offset += 31)
+                receiver.append(std::string_view(bytes).substr(offset, 31));
+            receiver.finish(true);
+            check(receiver.report() == report, "Graphical native report changed in transport");
+            std::ofstream(scratch / "gpu-profile.json") << report.dump(2);
+            test::game_gpu_profile_controls(report, scratch / "controls");
+            presentation.gpu_profiling(false);
+            presentation.gpu_services({});
+            context->WaitForIdle();
+            std::cout << "Actual standalone presentation GPU stages, bounded report, separate "
+                         "clock and identical collection-off/on Game pixels passed\n";
+            return 0;
+        }
         const auto package = scratch / "Content";
         const std::array roots{scene};
         EngineContext definitions;

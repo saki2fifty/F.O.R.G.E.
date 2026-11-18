@@ -563,3 +563,58 @@ native touching-contact or event count. The workload covers uniform isolated
 supports with locked rotation, not piles, frictional motion, complex shapes,
 sensors, joints, characters or representative whole-game collision performance.
 Physical hardware and native Windows execution remain separate acceptance.
+
+
+## Standalone graphical GPU reports
+
+The graphical game host accepts opt-in `--gpu-profile`. Diligent device creation
+requests optional DurationQueries; the existing DiligentPresentation owner lazily
+acquires at most64 query objects when enabled. A host-lifetime EngineServices
+collector owns its usual bounded history. FrameRenderer's flat scopes and
+GamePresentation's UI composition produce actual native GPU durations. Ordinary
+launches retain default-off collection. Unsupported/disabled/failed timing keeps
+rendering available and reports its reason, without a CPU-clock fallback.
+
+The completed observation has format `forge.standalone-gpu-profile`, version1,
+build/source metadata, an ephemeral host session and UTC capture microseconds.
+Its `gpu` value preserves native device/backend/software identity, availability,
+query capacity/created/pending, skips/stale/latency/submission counters and GPU-only
+samples. Each sample retains category, pass, seconds, frame and service sequence.
+`history` copies the existing service's capacity512, sequence and epoch. The ring
+is shared with that owner's CPU records; earlier records can be absent. No second
+history, sample counter, clock or Scene attribution is inferred. Measurements
+cover host presentation work, including preparation. They do not imply total GPU
+utilization or complete-frame time. Pending queries remain pending in the captured
+observation; shutdown adds no profiling drain/wait. Existing general host teardown
+still follows its normal synchronization policy.
+
+After the host/runtime owners and their workers retire, successful exit emits one
+`FORGE GPU PROFILE ` line followed by the JSON observation on supervised stdout.
+The ExportTask receiver frames arbitrary chunks, ignores ordinary log lines,
+limits payload to1MiB/events32768/depth16, rejects duplicate keys/observations,
+invalid counts/types/clock/frame/duration metadata and incomplete records. It
+publishes only after successful supervisor retirement, not from an early record
+or a forced/failed/cancelled process. The existing destination lease, writer guard,
+process supervisor, timestamps and cleanup remain authoritative. No diagnostic
+file writer or network service is added.
+
+The runtime kit advertises `engine.runtime_gpu_profiling:1`, extracted from the
+same private source version used by the host. Missing/wrong/noninteger support
+rejects a requested profiled launch before execution; ordinary launches retain
+older-kit compatibility. Native Profile game and Verify GPU timings share the
+same run owner. The latter composes finite verification, D3D12 WARP and offline
+audio; it is software evidence. Native report controls render the same immutable
+observations, with bounded scrolling and explicit copy, without taking process
+or collection authority. Automation/MCP uses `export.run` with optional
+`collect_gpu_profile`, status fields and up-to128-row `export.gpu_profile` pages
+scoped to the current project/operation. Reads require no execution/output grant;
+launch retains the existing separate grants and fixed executable/arguments.
+
+Portable report/launch/lifecycle/MCP checks, actual software-Vulkan native query
+transport, unchanged Game collection-off/on pixels and production controls at
+100/150/200 percent plus narrow layout are local evidence. A platform-gated
+full MCP workflow implements the successful exported Windows process/report/page
+check; execution with a matching current Windows kit is pending. Native Windows execution,
+physical hardware performance, external-client review and whole-program native
+GPU leak acceptance remain separately pending. The optional report is a completed
+run observation, not live remote GPU attachment or a continuous profiling stream.

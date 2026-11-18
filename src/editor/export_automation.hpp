@@ -3,6 +3,7 @@
 #include "automation_schema.hpp"
 #include "files.hpp"
 #include "game_export.hpp"
+#include <algorithm>
 
 namespace forge {
 struct ExportAutomationProviders {
@@ -33,6 +34,12 @@ struct ExportAutomation {
                 {"cancel_requested", task.stop_.stop_requested()},
                 {"running", task.running_},
                 {"startup_verification", task.startup_verification_},
+                {"gpu_profiling_supported",
+                 !task.result_.is_null() &&
+                     standalone_gpu_profile_supported(task.result_.at("manifest").at("engine"))},
+                {"gpu_profile_requested", task.gpu_profile_.has_value()},
+                {"gpu_profile_ready", task.gpu_profile_ && !task.gpu_profile_->report().is_null()},
+                {"gpu_profile_error", task.gpu_profile_ ? task.gpu_profile_->error() : ""},
                 {"exit_code", task.exit_code_ ? Json(*task.exit_code_) : Json()}};
     }
     static std::vector<LiveAuthoringMethod> methods(EditorFiles& files, ui::GameExportTask& task,
@@ -53,6 +60,39 @@ struct ExportAutomation {
                 value["text"] = automation_text_value(
                     task.project_ == files.document.project() ? task.run_log_.text() : "");
                 return value;
+            }));
+        result.push_back(automation_method(
+            "export.gpu_profile",
+            "Read up to128 native GPU duration observations from this operation's successfully "
+            "retired graphical game. GPU frames are presentation submissions; pending queries "
+            "and skipped samples remain explicit. Software verification is not physical hardware "
+            "timing. Read export.status first; no file or process is opened by this read.",
+            "export.read",
+            automation_object({{"operation", automation_uuid()},
+                               {"offset", automation_integer(0, 512)},
+                               {"limit", automation_integer(1, 128)}},
+                              {"operation"}),
+            false, [&files, &task](const Json& request) {
+                files.document.check_ownership();
+                if (task.project_ != files.document.project() ||
+                    request.at("operation") != task.operation_)
+                    throw AuthoringError("wrong_job", "Read this project's current export first");
+                if (!task.gpu_profile_)
+                    throw AuthoringError("not_requested", "Run the game with collect_gpu_profile");
+                const auto& report = task.gpu_profile_->report();
+                if (report.is_null()) {
+                    if (!task.gpu_profile_->error().empty())
+                        throw AuthoringError("gpu_profile_unavailable", task.gpu_profile_->error());
+                    throw AuthoringError("not_ready", "Wait for successful graphical game exit");
+                }
+                const auto& samples = report.at("gpu").at("samples");
+                const auto offset = request.value("offset", std::size_t{});
+                const auto limit = request.value("limit", std::size_t(64));
+                if (offset > samples.size())
+                    throw AuthoringError("invalid_cursor", "GPU sample offset exceeds this report");
+                auto page = task.gpu_profile_->page(offset, limit);
+                page["operation"] = task.operation_;
+                return page;
             }));
         if (!permissions.export_game || permissions.export_root.empty())
             return result;
@@ -119,11 +159,16 @@ struct ExportAutomation {
                 "access. No arbitrary path, arguments or shell command is accepted. "
                 "Set verify_startup:true for the existing finite D3D12 WARP/offline-audio "
                 "diagnostic, which exits after verifying startup and frame statistics. "
-                "Poll status/log or stop with export.cancel.",
+                "Optional collect_gpu_profile requests a bounded GPU duration report on the "
+                "same owned output channel; requires gpu_profiling_supported in export.status. "
+                "Read pages after successful exit with export.gpu_profile. Cancelled/failed "
+                "processes do not establish an accepted report. Poll status/log or stop with "
+                "export.cancel.",
                 "export.execute",
-                automation_object(
-                    {{"operation", automation_uuid()}, {"verify_startup", {{"type", "boolean"}}}},
-                    {"operation"}),
+                automation_object({{"operation", automation_uuid()},
+                                   {"verify_startup", {{"type", "boolean"}}},
+                                   {"collect_gpu_profile", {{"type", "boolean"}}}},
+                                  {"operation"}),
                 true, [&files, &task, providers, root](const Json& request) {
                     files.document.check_ownership();
                     if (providers.unavailable) {
@@ -139,7 +184,8 @@ struct ExportAutomation {
                     if (output.root() != root || task.output_.empty())
                         throw AuthoringError("invalid_path", "The granted output is unavailable");
                     (void)output.relative(std::filesystem::u8path(task.output_));
-                    task.run(files.document, request.value("verify_startup", false));
+                    task.run(files.document, request.value("verify_startup", false),
+                             request.value("collect_gpu_profile", false));
                     return state(task, files);
                 }));
         for (auto& method : result)

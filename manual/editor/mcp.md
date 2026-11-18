@@ -916,11 +916,20 @@ With execution allowed, the agent can run this task's verified completed Windows
 game and inspect its process/log or stop it. Managed deployment kits and exported
 graphical games currently target Windows. FORGE does not substitute a portable kit.
 
-For a headless Windows check, the agent can request `verify_startup:true` when
+For an automated Windows check, the agent can request `verify_startup:true` when
 running the export. This uses the real game's finite startup diagnostic with
 software D3D12 rendering and offline audio, then reports its exit code and log.
 Normal launch uses your graphics and audio devices. A diagnostic pass does not
 replace testing the game on your computer.
+
+An agent can request `collect_gpu_profile:true` in `forge_export_run` when export
+status reports `gpu_profiling_supported:true`. Normal launch measures the game's
+graphics device; combining it with `verify_startup:true` uses the finite software
+check. After successful exit, `gpu_profile_ready` identifies an accepted report.
+Read `forge_export_gpu_profile` with that run's `operation`; optional `offset` and
+`limit` page through up to 128 samples per request. Reports identify the adapter,
+backend, capture time, native frame numbers and retained-history limits. Cancelled
+or failed processes do not supply accepted reports. See [GPU game reports](performance.md).
 
 A useful request is: **Use FORGE's discovered schemas to create a cube game, add
 project code with Inspector-adjustable speed, save/build/inspect it, test it in

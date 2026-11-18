@@ -1,5 +1,21 @@
 # 2026-11-18
 
+## Exported-game GPU reports
+
+Profile game and Verify GPU timings use the existing export run owner to collect
+optional native GPU durations from a graphical game. Reports identify the actual
+adapter/backend/software status, completed pass/frame observations and bounded
+history/query limits. Successful teardown emits one typed observation; malformed,
+duplicate, incomplete, failed or cancelled results never become accepted reports.
+Native controls provide scrolling and JSON copy, and matching MCP operations
+retain project/operation, capability, pagination and execution-grant checks.
+
+Collection stays off by default. Optional device support keeps rendering usable;
+CPU time is not substituted for GPU data. Runtime-kit profile1 gates the new
+request while ordinary older-kit launches keep their existing behavior. The
+report reuses presentation/profiling services and the current supervisor/lease
+without a new network service, file writer or installed SDK ABI.
+
 ## Single-clip UI preview
 
 The Animation Timeline can present a standalone clip's sampled camera image and

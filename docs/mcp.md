@@ -2030,6 +2030,27 @@ headless Windows worker, without establishing physical GPU/audio acceptance.
 Omitting the option keeps normal game launch. No caller-supplied CLI arguments
 are accepted.
 
+Optional `collect_gpu_profile:true` on `export.run` requests the graphical host's
+bounded GPU observation on the same supervised output channel. The task checks
+the completed manifest's exact `engine.runtime_gpu_profiling:1` support before
+launch. `export.status` exposes support, requested/ready state and report errors.
+`export.gpu_profile` requires the current operation and project; it reads cached
+accepted data without file/process access. Offset0..512 and limit1..128 (default64)
+return immutable pages, total sample count and next offset. Reads remain exposed
+without output or execution grants; launching still requires the existing output
+and native-execution grants. Mutation revisions/replay and destination supervision
+remain unchanged.
+
+Only successful, uncancelled process retirement admits the complete typed report.
+Malformed, duplicate, oversized or incomplete records fail separately from rendering;
+no partial report or CPU fallback is published. Report metadata includes source
+build, ephemeral host session, UTC microseconds, actual backend/adapter/software
+status and native service-history capacity/sequence/epoch. Rows are completed GPU
+duration observations indexed by presentation submission, not simulation tick or
+whole-frame/device utilization. The latest512 shared service records bound retained
+history; pending/skipped queries remain explicit. Software verification is not
+physical hardware acceptance. See [profiling](cpu-profiling.md).
+
 ## Coverage and maintaining parity
 
 These workflows are implemented in **development source**, not the current

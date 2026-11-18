@@ -11,6 +11,7 @@
 #include "document_workspace.hpp"
 #include <forge/editable_mesh.hpp>
 #include <forge/material_graph.hpp>
+#include <forge/transform_animation.hpp>
 #include <type_traits>
 
 namespace forge {

@@ -132,6 +132,7 @@ Diligent::ITextureView* GamePresentation::draw(GameSession& game, double time) {
         active_->game(context_, std::move(scene), width_, height_, time, nullptr, &overlay);
     resources_->submit();
     auto* target = image->GetTexture()->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+    auto timing = presentation_.gpu_scope(context_, "Game", "UI composition");
     ui_renderer_.begin(context_, target, width_, height_);
     try {
         ui_.render();

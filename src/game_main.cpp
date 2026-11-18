@@ -9,6 +9,7 @@
 #include "sdl_gamepads.hpp"
 #include "sdl_input.hpp"
 #include "sdl_touches.hpp"
+#include "standalone_gpu_profile.hpp"
 #include "standalone_manifest.hpp"
 #include <algorithm>
 #include <cstdio>
@@ -23,6 +24,7 @@
 #include <forge/project.hpp>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <vector>
 #ifdef FORGE_GAME_FIXTURE
 #include "game_host_fixture.hpp"
@@ -77,10 +79,11 @@ int main(int argc, char** argv) {
         std::cout << "FORGE game | Build: " << build_id << '\n';
         return 0;
     }
-    bool software = false, verify_startup = false, show_fps = false;
+    bool software = false, verify_startup = false, show_fps = false, gpu_profile = false;
     unsigned verification_frames = 0;
     bool verification_statistics_seen = false;
     std::ofstream log;
+    std::string gpu_report;
     std::streambuf* previous_log = nullptr;
     int result = 0;
     try {
@@ -109,6 +112,7 @@ int main(int argc, char** argv) {
         const auto launch = parse_game_launch(arguments);
         verify_startup = launch.verify_startup;
         show_fps = launch.show_fps;
+        gpu_profile = launch.gpu_profile;
         const bool packaged_start = !launch.project;
         software = verify_startup; // Explicit diagnostic mode uses WARP/offline audio.
         if (launch.project)
@@ -205,6 +209,16 @@ int main(int argc, char** argv) {
         if (show_fps)
             presentation.ui().frame_statistics(pending_rate);
         EngineServices bootstrap;
+        if (gpu_profile) {
+            device.gpu_services(bootstrap.access());
+            bootstrap.access().profiling(true);
+            const auto status = device.gpu_profile_status();
+            if (status.at("available").get<bool>())
+                device.gpu_profiling(true);
+            else
+                std::clog << "GPU timings unavailable: " << status.at("reason").get<std::string>()
+                          << '\n';
+        }
         GameSessionConfig config;
         auto game_requests = std::make_shared<GameControlQueue>();
         config.controls = game_requests;
@@ -601,6 +615,13 @@ int main(int argc, char** argv) {
             log.flush();
         }
         ui.release_input();
+        if (gpu_profile) {
+            const auto report = standalone_gpu_profile_observation(
+                device.gpu_profile_status(), bootstrap.access().profile_status(),
+                presentation.session(), build_id, source_commit);
+            gpu_report = standalone_gpu_profile_record(report);
+            device.gpu_profiling(false);
+        }
         game.unload(RuntimeClock::Clock::now());
         graphics.context->WaitForIdle();
         std::clog << "Shutdown complete\n";
@@ -611,5 +632,9 @@ int main(int argc, char** argv) {
     }
     if (previous_log)
         std::clog.rdbuf(previous_log);
+    // All host/runtime owners and their workers have retired before this final
+    // record enters the shared output channel. Never publish a failed shutdown.
+    if (!result && !gpu_report.empty())
+        std::cout << '\n' << gpu_report << std::flush;
     return result;
 }

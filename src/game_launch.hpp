@@ -7,18 +7,20 @@
 namespace forge {
 struct GameLaunch {
     std::optional<std::string> project;
-    bool verify_startup = false, show_fps = false;
+    bool verify_startup = false, show_fps = false, gpu_profile = false;
 };
 inline GameLaunch parse_game_launch(std::span<const std::string_view> arguments) {
     GameLaunch result;
     const auto usage = [] {
         throw std::runtime_error("Usage: forge_game [--project <development directory> | "
-                                 "--verify-startup] [--show-fps]");
+                                 "--verify-startup] [--show-fps] [--gpu-profile]");
     };
     for (std::size_t i = 0; i < arguments.size(); ++i) {
         const auto argument = arguments[i];
         if (argument == "--show-fps")
             result.show_fps = true;
+        else if (argument == "--gpu-profile")
+            result.gpu_profile = true;
         else if (argument == "--verify-startup")
             result.verify_startup = true;
         else if (argument == "--project") {
