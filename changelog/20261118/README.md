@@ -1,5 +1,12 @@
 # 2026-11-18
 
+## SDK module header dependencies
+
+The built-in prefab, Character2D, physics-ray/work and Tile Map modules declare
+the pinned JSON target required by typed SDK value headers. Clean module builds
+receive their includes independently of unrelated engine targets. The SDK value
+boundary, dependency revision and user project format are unchanged.
+
 ## SDK snapshot metadata delivery
 
 SDK Play can reference schema metadata that the editor already holds, using a

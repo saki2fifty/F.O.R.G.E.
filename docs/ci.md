@@ -1372,6 +1372,15 @@ The existing staged fixture continues to cover broader visual states and scales.
 
 ## SDK schema delivery checks
 
+Built-in SDK modules that include typed Client/value headers must declare
+`nlohmann_json::nlohmann_json` as a target dependency. Those headers include the
+identity JSON codec, even when the module itself uses only native Client calls.
+The prefab, Character2D, physics-ray/work and Tile Map probe targets receive the
+pinned include path through that target, independently of unrelated engine
+libraries or global compiler flags. Full Linux native-SDK and Windows shared
+standalone builds compile these consumers; installed SDK Client usage retains
+its packaged header boundary.
+
 `sdk_play_runtime` checks optional content-addressed schema references, complete
 legacy/explicit reads, repeated resolution, mismatching world/content/size hints,
 malformed hints rejected before Resume, stale/malformed response rejection,

@@ -56,9 +56,17 @@ inline void test_sdk_game(const std::filesystem::path& library) {
         return Json{{"ok", true}};
     });
     check(migrated == 1, "Native migration did not execute");
-    check(host->game_release(host->context, token) &&
-              !host->game_inspect(host->context, token, nullptr, 0),
+    game.control_frame();
+    const auto next_token = world.lookup("sdk.game_token").get<uint64_t>();
+    check(next_token != token && !host->game_inspect(host->context, token, nullptr, 0) &&
+              host->game_inspect(host->context, next_token, nullptr, 0),
+          "Control probe did not retire its completed receipt before requesting another");
+    check(host->game_release(host->context, next_token) &&
+              !host->game_inspect(host->context, next_token, nullptr, 0),
           "Released SDK token remained callable");
+    // This assertion took ownership of the probe's new pending receipt. Hand
+    // back an empty slot before exercising the module-retirement path.
+    world.lookup("sdk.game_token").set<uint64_t>(0);
     game.control_frame();
     game.active().engine.world().modules().stop();
     controls->drain([&](const Json&, const GameSaveSchema*, const std::string&) {
