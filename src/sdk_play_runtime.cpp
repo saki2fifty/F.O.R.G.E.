@@ -9,6 +9,7 @@
 #include "input_recording_protocol.hpp"
 #include "json_document.hpp"
 #include "play_scene_admission.hpp"
+#include "play_schema_reference.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
 #include "runtime_scene_content.hpp"
@@ -80,6 +81,7 @@ Json contract() {
                 {"source_commit", forge::source_commit},
                 {"sdk_project", true},
                 {"sdk_play", true},
+                {"schema_reference", play_schema_reference_protocol},
                 {"tile_projection", tile_map_play_protocol}};
 }
 } // namespace
@@ -602,7 +604,7 @@ struct SdkPlayRuntime::State {
     // the exact same helpers the wire response will use.
     WorldBody build_world_body(RuntimeWorld& world, std::uint64_t generation,
                                const std::string& snapshot_session, const Json& status_value,
-                               bool projected = false) const {
+                               bool projected = false, const Json& known_schema = Json()) const {
         WorldBody out;
         try {
             out.body["scene"] = world.scene.snapshot();
@@ -618,7 +620,8 @@ struct SdkPlayRuntime::State {
             } else
                 out.body["tile_maps"] =
                     active_tiles.capture(generation, world.scene.asset_id(), views);
-            out.body["schema"] = world.scene.schema();
+            out.body["schema"] =
+                play_schema_wire(world.engine.world().schema(), generation, known_schema);
             out.body["input"] = world.simulation.input_status();
             out.body["application_states"] =
                 application_states_status(world.engine.world().world(), true);
@@ -737,7 +740,7 @@ struct SdkPlayRuntime::State {
         prepared_tile_manifest = prepared_tiles.capture(ticket, world.scene.asset_id(),
                                                         tile_map_play_views(world.engine.world()));
     }
-    Json snapshot_response(std::uint64_t id) const {
+    Json snapshot_response(std::uint64_t id, const Json& known_schema = Json()) const {
         Json response{
             {"protocol", 2}, {"session", session}, {"id", id}, {"runtime_contract", contract()}};
         // Always publish the quit intent so editors can compare snapshots
@@ -810,8 +813,8 @@ struct SdkPlayRuntime::State {
             response["tile_maps"] = nullptr;
             active_tiles.clear();
         } else {
-            auto world_body =
-                build_world_body(game->active(), active_generation, session, status_value);
+            auto world_body = build_world_body(game->active(), active_generation, session,
+                                               status_value, false, known_schema);
             for (auto it = world_body.body.begin(); it != world_body.body.end(); ++it)
                 response[it.key()] = it.value();
             if (world_body.failed) {
@@ -853,8 +856,7 @@ struct SdkPlayRuntime::State {
     // fault instead of a half-sent oversized payload. Truncation would
     // hide the diagnostic and lie about a healthy scene.
     Json enforce_response_size(Json response) const {
-        const auto bytes = response.dump().size() + 1; // trailing newline
-        if (bytes <= RuntimeIo::limit)
+        if (play_schema_response_fits(response, RuntimeIo::limit))
             return response;
         const auto id = response.value("id", std::uint64_t{});
         return build_error(id, "Active world response exceeds 16 MiB; restore a smaller scene or "
@@ -1146,16 +1148,20 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
     const auto command = request.at("command").get<std::string>();
     try {
         (void)cpu_profile_watch(request);
+        if (request.contains("known_schema"))
+            validate_play_schema_hint(request.at("known_schema"), RuntimeIo::limit);
     } catch (const std::exception& error) {
         return s.build_error(id, error.what());
     }
 
+    const auto known_schema = request.value("known_schema", Json());
+    const auto snapshot = [&] { return s.snapshot_response(id, known_schema); };
     if (command == "hello") {
         if (s.initialized)
             return s.build_error(id, "Session already initialized");
         s.last_id = id;
         s.initialized = true;
-        return s.snapshot_response(id);
+        return snapshot();
     }
     if (!s.initialized)
         return s.build_error(id, "Stale or missing runtime session");
@@ -1174,7 +1180,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
     if (s.quit_latched || s.quit) {
         if (command == "hello")
             return s.build_error(id, "Session already initialized");
-        return s.snapshot_response(id);
+        return snapshot();
     }
     if (request.contains("seconds"))
         return s.build_error(id, "Caller delta is unsupported; Step advances one fixed tick");
@@ -1254,7 +1260,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             // flushes the pipe and exits orderly.
             s.quit_latched = true;
             s.quit = true;
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "input_recording") {
             if (!s.active_generation || !s.game)
@@ -1276,7 +1282,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                         {"id", id},
                         {"ok", true},
                         {"input_recording_document", document}};
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "record_begin" || command == "record_frame") {
             if (!s.config.recording || !s.active_generation || !request.contains("generation") ||
@@ -1299,7 +1305,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                                        request.at("frames").get<unsigned>());
                 s.game->resume(now);
                 s.recording = std::move(prepared);
-                return s.snapshot_response(id);
+                return snapshot();
             }
             if (!s.recording || s.recording->completed() == s.recording->planned() ||
                 !request.contains("frame") || !is_unsigned_int(request.at("frame")) ||
@@ -1342,7 +1348,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                         pump(target);
                         healthy();
                     });
-                auto response = s.snapshot_response(id);
+                auto response = snapshot();
                 response["recording_frame"] =
                     recorded_audio_document(frame, s.recording->rate(), pcm);
                 return response;
@@ -1390,7 +1396,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                         return s.build_error(id, "candidate_ack was rejected by the channel");
                 }
             }
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "audio_mix") {
             if (!s.active_generation || !s.game || !request.contains("generation") ||
@@ -1404,7 +1410,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                 s.game->mix_volumes(mix.master, mix.channels, *mix.buses);
             else
                 s.game->mix_volumes(mix.master, mix.channels);
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "audio_source") {
             if (!s.active_generation || !s.game || !request.contains("generation") ||
@@ -1417,7 +1423,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             AudioSourceAccess::control(
                 *std::static_pointer_cast<AudioRuntime>(s.game->active().engine.services().audio()),
                 request.at("source").get<EntityRef>(), operation);
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "animation_playback") {
             if (!s.active_generation || !s.game || !request.contains("generation") ||
@@ -1430,14 +1436,14 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                                                  s.game->active().engine.services().animation()),
                                              request.at("source").get<EntityRef>(), request);
             s.game->active().simulation.sync_animation_pose();
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "application_state") {
             if (!s.game)
                 return s.build_error(id, "Application states require an active world");
             (void)ApplicationStateAccess::control(s.game->active().engine.world(), request,
                                                   s.active_generation);
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "property_tune") {
             if (!s.game)
@@ -1450,7 +1456,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             const auto canonical_entity = target.target.entity.str();
             const auto applied =
                 s.game->active().tune_property(target.target, type, property, request.at("value"));
-            auto response = s.snapshot_response(id);
+            auto response = snapshot();
             response["property_tune"] = {{"generation", s.active_generation},
                                          {"entity", canonical_entity},
                                          {"type", type},
@@ -1530,7 +1536,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                     return s.build_error(id, "replace scene with Runtime Prefabs exceeds 8 MiB");
                 const auto ticket = s.game->prepare(scene);
                 s.initial_ticket = ticket;
-                return s.snapshot_response(id);
+                return snapshot();
             } catch (const std::exception& e) {
                 return s.build_error(id, std::string("replace failed: ") + e.what());
             }
@@ -1539,7 +1545,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             s.profiling_enabled = control_cpu_profile(request, s.game->active().engine.services(),
                                                       s.active_generation);
             s.profiling_systems = s.game->active().engine.services().profiling_systems_enabled();
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "time_scale") {
             if (!s.active_generation || !request.contains("generation") ||
@@ -1549,12 +1555,12 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             if (!request.contains("scale") || !request.at("scale").is_number())
                 return s.build_error(id, "Simulation time scale requires a number");
             s.game->set_time_scale(request.at("scale").get<double>());
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "play" || command == "resume") {
             if (s.game->status().value("state", "") == "paused")
                 s.game->resume(now);
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "pause") {
             // Require an actual acknowledged release at the current epoch
@@ -1570,7 +1576,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                 }
                 s.game->pause(now);
             }
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "step") {
             // Step also suspends the cursor via the host's authoritative
@@ -1582,7 +1588,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                 return s.build_error(id, e.what());
             }
             s.game->step();
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "ui") {
             if (!s.config.ui)
@@ -1629,7 +1635,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                     });
             });
             (void)mutated;
-            Json response = s.snapshot_response(id);
+            Json response = snapshot();
             response["ui_ack"] = std::move(ack);
             return response;
         }
@@ -1648,7 +1654,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             }
             if (world.engine.services().available(Capability::Resources))
                 world.engine.services().resources()->refresh();
-            return s.snapshot_response(id);
+            return snapshot();
         }
         if (command == "cancel") {
             // SDK-only exact-ticket cancel. The candidate currently
@@ -1682,7 +1688,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                 s.initial_ticket = 0;
                 s.last_initial_diagnostic.clear();
             }
-            return s.snapshot_response(id);
+            return snapshot();
         }
         return s.build_error(id, "Unknown command");
     } catch (const std::exception& e) {
@@ -1750,6 +1756,29 @@ void SdkPlayRuntime::process() {
     };
     diag_log("[sdk_diag runtime t=%lld stage=process_begin]", diag_ms());
     std::uint64_t diag_iter = 0;
+    std::uint64_t reply_id = 0;
+    std::size_t reply_bytes = 0;
+    RuntimeClock::Time reply_started{};
+    const auto queued = [&](std::string bytes, std::uint64_t id) {
+        reply_bytes = bytes.size();
+        reply_id = id;
+        reply_started = RuntimeClock::Clock::now();
+        io.send(std::move(bytes));
+        diag_log("[sdk_diag runtime t=%lld stage=reply_queued id=%llu bytes=%zu]", diag_ms(),
+                 static_cast<unsigned long long>(reply_id), reply_bytes);
+    };
+    const auto flushed = [&] {
+        if (reply_bytes && !io.pending()) {
+            const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                RuntimeClock::Clock::now() - reply_started)
+                                .count();
+            diag_log(
+                "[sdk_diag runtime t=%lld stage=reply_flushed id=%llu bytes=%zu flush_ms=%lld]",
+                diag_ms(), static_cast<unsigned long long>(reply_id), reply_bytes,
+                static_cast<long long>(ms));
+            reply_bytes = 0;
+        }
+    };
     constexpr long long kSlowPumpMs = 50;
     while (!io.closed()) {
         // Finish the frozen correlated reply before host preparation or a new
@@ -1757,6 +1786,7 @@ void SdkPlayRuntime::process() {
         // request nor more world work; the runtime clock catches up normally
         // after the peer drains the existing bounded response.
         io.flush_for(std::chrono::milliseconds(10));
+        flushed();
         if (s.quit && !io.pending())
             break;
         if (io.pending()) {
@@ -1776,6 +1806,7 @@ void SdkPlayRuntime::process() {
             if (!transport_error) {
                 try {
                     io.flush_for(std::chrono::milliseconds(10));
+                    flushed();
                 } catch (...) {
                     transport_error = std::current_exception();
                 }
@@ -1829,7 +1860,7 @@ void SdkPlayRuntime::process() {
                              {"quit_requested", s.quit || s.quit_latched}};
                 const auto serialized = bounded.dump() + "\n";
                 if (serialized.size() <= RuntimeIo::limit)
-                    io.send(serialized);
+                    queued(serialized, 0);
             }
             continue;
         }
@@ -1869,13 +1900,13 @@ void SdkPlayRuntime::process() {
                              {"quit_requested", s.quit || s.quit_latched}};
                 const auto cut = bounded.dump() + "\n";
                 if (cut.size() <= RuntimeIo::limit)
-                    io.send(cut);
+                    queued(cut, req_id);
             } else {
                 diag_log("[sdk_diag runtime t=%lld stage=handle_end cmd=%s id=%llu handle_ms=%lld "
                          "response_bytes=%zu]",
                          diag_ms(), req_cmd.c_str(), static_cast<unsigned long long>(req_id),
                          static_cast<long long>(handle_elapsed_ms), serialized.size());
-                io.send(serialized);
+                queued(serialized, req_id);
             }
         } catch (const std::exception& e) {
             const auto handle_elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1894,6 +1925,7 @@ void SdkPlayRuntime::process() {
             s.quit = true;
         }
         io.flush_for(std::chrono::milliseconds(10));
+        flushed();
         // If a gameplay Quit was observed during the pump above, the
         // response we just sent already carries quit_requested=true.
         // Now is the moment to set s.quit and exit orderly on the next

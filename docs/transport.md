@@ -245,6 +245,44 @@ reenter the session. The process adapter captures pipe exceptions and propagates
 them after the simulation pump, preserving completed tick bookkeeping. Fixed dt,
 catch-up limits, pause behavior and the five-second transport deadline are unchanged.
 
+## SDK schema references
+
+SDK runtime replies advertise `runtime_contract.schema_reference = 1`. A client
+that received a complete schema may include `known_schema` on a later request:
+`{"sha256":"<64 lowercase hex digits>","bytes":208405,"world":1}`. The digest
+and byte count describe the UTF-8 bytes of the schema value serialized with the
+matching SDK's compact JSON serializer. The world is the reply's
+`activation.generation`. Hints require exactly those three fields, positive integral
+counts and a schema size within the existing 16 MiB bound. Invalid hints produce
+a correlated error before command side effects.
+
+The runtime reads the existing WorldContext schema; it does not keep a second
+reflection database. Only an exact content, size and active-world match replaces
+the response's schema value with `{"ref":"<sha256>","bytes":208405}`. A missing
+or mismatching hint returns the complete current schema. The explicit `schema`
+command always returns the complete value. Clients without hints retain complete
+replies. Other snapshot fields and their ownership are unchanged.
+
+PlaySession resolves references into its existing Inspector schema. It retains
+only a derived digest/byte-count/world identity alongside that schema. Resolution
+requires negotiated support, a matching hint on the outstanding request and the
+same response world; malformed or stale references fail the protocol. Empty
+worlds and process/session shutdown clear the schema and identity. New worlds
+receive complete metadata even when their schemas have identical bytes. Play
+automation and MCP continue to see resolved metadata through the same owner.
+
+References reduce repeated wire bytes without expanding admission: candidate
+projection still constructs the full response, and every response size check
+accounts for the reference's full inline schema size. The 16 MiB limits,
+five-second newline-receipt deadline, request correlation and byte IO owners are
+unchanged.
+
+When `FORGE_SDK_DIAGNOSTIC_DIR` is set, the existing bounded runtime diagnostic
+also records `reply_queued` and `reply_flushed`, with request ID, byte count and
+flush duration. `handle_end` measures response construction; only `reply_flushed`
+establishes that the runtime finished its pipe writes. Neither record alone
+establishes an on-time editor receipt.
+
 ## Cursor release confirmation
 
 A shipped editor observation is distinct from a confirmed observation. PlaySession

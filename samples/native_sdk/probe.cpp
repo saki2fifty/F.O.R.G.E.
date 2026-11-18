@@ -11,6 +11,7 @@
 #include <forge/transform_components.hpp>
 #include <memory>
 #include <stdexcept>
+#include <vector>
 namespace forge_sdk_example {
 void trace(const char* text) {
     const char* path = std::getenv("FORGE_SDK_TRACE");
@@ -242,10 +243,27 @@ int32_t FORGE_SDK_CALL controls(const ForgeSdkWorldV1* host, char* error, uint32
         if (!client.callable(forge::sdk::Capability::ControlInput) ||
             client.callable(forge::sdk::Capability::Input))
             throw std::runtime_error("SDK control callback has wrong input domain");
+        auto token_entity = flecs::world(host->world).entity("sdk.game_token");
+        if (const auto* previous = token_entity.try_get<uint64_t>(); previous && *previous) {
+            const auto needed = host->game_inspect(host->context, *previous, nullptr, 0);
+            if (!needed || needed > 16384)
+                throw std::runtime_error("SDK control receipt unavailable");
+            std::vector<char> bytes(needed);
+            if (host->game_inspect(host->context, *previous, bytes.data(), needed) != needed)
+                throw std::runtime_error("SDK control receipt changed");
+            const auto result = nlohmann::json::parse(bytes.data());
+            const auto state = result.at("state").get<std::string>();
+            if (state == "queued")
+                return 1;
+            if (state != "succeeded" && state != "failed")
+                throw std::runtime_error("SDK control receipt has invalid state");
+            if (!host->game_release(host->context, *previous))
+                throw std::runtime_error("SDK control receipt release failed");
+        }
         const auto token = host->game_request(host->context, R"({"operation":"pause"})");
         if (!token)
             throw std::runtime_error("SDK control request rejected");
-        flecs::world(host->world).entity("sdk.game_token").set<uint64_t>(token);
+        token_entity.set<uint64_t>(token);
         return 1;
     } catch (const std::exception& e) {
         std::snprintf(error, size, "%s", e.what());

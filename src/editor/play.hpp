@@ -3,6 +3,7 @@
 #include "../audio_mix.hpp"
 #include "../game_recording_protocol.hpp"
 #include "../json_document.hpp"
+#include "../play_schema_reference.hpp"
 #include "../runtime_property_tune.hpp"
 #include "../tile_map_play_receiver.hpp"
 #include "../tile_map_play_transport.hpp"
@@ -916,6 +917,8 @@ class PlaySession {
         property_tune_ack_ = nullptr;
         runtime_schema_ = nullptr;
         runtime_world_generation_ = 0;
+        schema_references_ = false;
+        schema_identity_ = sent_schema_hint_ = nullptr;
         sdk_pending_platform_acks_ = false;
         sdk_platform_acks_ = nullptr;
         sdk_pending_editor_epoch_ = false;
@@ -1216,7 +1219,17 @@ class PlaySession {
                             active_tiles_.observe(maps);
                         }
                     }
-                    runtime_schema_ = response.value("schema", Json());
+                    if (stage_ == Stage::Hello)
+                        schema_references_ =
+                            sdk_game_ && response.value("runtime_contract", Json::object())
+                                                 .value("schema_reference", 0u) ==
+                                             play_schema_reference_protocol;
+                    const auto generation =
+                        sdk_game_ ? response.at("activation").value("generation", std::uint64_t{})
+                                  : response.value("world_generation", std::uint64_t{});
+                    observe_play_schema(response.value("schema", Json()), generation,
+                                        sent_schema_hint_, schema_references_, runtime_schema_,
+                                        schema_identity_);
                     runtime_world_generation_ = response.value("world_generation", std::uint64_t{});
                     timing_ = response.at("timing");
                     if (offline_recording_) {
@@ -1649,6 +1662,8 @@ class PlaySession {
         property_tune_command_ = property_tune_ack_ = runtime_schema_ = time_scale_command_ =
             nullptr;
         runtime_world_generation_ = 0;
+        schema_references_ = false;
+        schema_identity_ = sent_schema_hint_ = nullptr;
         active_tiles_.clear();
         prepared_tiles_.clear();
         tile_reply_ = nullptr;
@@ -1801,6 +1816,11 @@ class PlaySession {
     }
     void send(Json request) {
         sent_command_ = request.at("command").get<std::string>();
+        sent_schema_hint_ = nullptr;
+        if (schema_references_ && !schema_identity_.is_null()) {
+            sent_schema_hint_ = schema_identity_;
+            request["known_schema"] = sent_schema_hint_;
+        }
         if ((cpu_profile_watch_ || cpu_profile_once_) && sent_command_ == "snapshot") {
             request["profile_watch"] = true;
             cpu_profile_once_ = false;
@@ -1925,6 +1945,8 @@ class PlaySession {
     TileMapPlayReceiver active_tiles_, prepared_tiles_;
     TileMapPlayReceiver* tile_reply_ = nullptr;
     Json property_tune_command_, property_tune_ack_, runtime_schema_;
+    bool schema_references_ = false;
+    Json schema_identity_, sent_schema_hint_;
     Json time_scale_command_;
     Json recording_status_, recording_command_;
     std::optional<RecordedAudioFrame> recording_frame_;

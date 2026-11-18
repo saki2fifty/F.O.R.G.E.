@@ -1,5 +1,17 @@
 # 2026-11-18
 
+## SDK snapshot metadata delivery
+
+SDK Play can reference schema metadata that the editor already holds, using a
+content digest, encoded size and active-world identity. Legacy and explicit
+schema reads retain complete metadata. Inspector, automation and MCP consume the
+same resolved schema; scene replacement and shutdown retire its derived identity.
+Candidate admission and response validation retain the full inline size budget,
+and pipe limits and request deadlines are unchanged. Opt-in runtime diagnostics
+distinguish response construction from completed pipe writes. The internal SDK
+control probe now retains one pending request and releases completed receipts,
+preventing its paused control loop from filling the bounded request queue.
+
 ## Input Message source inspection
 
 Console Gameplay input expands each named message source to show its action,

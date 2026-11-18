@@ -1370,6 +1370,33 @@ coverage of every editor control, OS dialog, drag/drop gesture, GPU, or display.
 The existing staged fixture continues to cover broader visual states and scales.
 
 
+## SDK schema delivery checks
+
+`sdk_play_runtime` checks optional content-addressed schema references, complete
+legacy/explicit reads, repeated resolution, mismatching world/content/size hints,
+malformed hints rejected before Resume, stale/malformed response rejection,
+world replacement and empty-world retirement. Its exact-boundary check preserves
+the full inline response budget even when the schema travels by reference; the
+existing near-limit candidate cases remain required.
+
+`native_sdk_editor_transport` runs the actual PlaySession and matching SDK host
+through repeated snapshots, verifies resolved Inspector metadata and checks
+shutdown/restart retirement. Repeated reads use its callback-free SDK project;
+the ABI probe retains its control-domain/Step assertions and a two-second paused
+lifetime regression. It retains one pending control request and releases each
+completed receipt before issuing another request. `sdk_play_process`
+retains actual large-reply pipe
+backpressure and graceful native exit coverage, and `play_transport_worker`
+retains the byte caps, partial delivery, deadline and receipt ownership checks.
+`mcp_input_messages_play_stdio` also reads the resolved schema before and after
+actual runtime input dispatch through both supported MCP formats. These checks
+do not replace the final Windows packaged-editor SDK workflow or physical review.
+
+The optional `FORGE_SDK_DIAGNOSTIC_DIR` runtime logs distinguish `handle_end`,
+`reply_queued` and `reply_flushed`. Completed pipe writes and editor newline
+receipt are separate observations; response construction alone cannot establish
+successful delivery.
+
 ## Editor SDK final-package acceptance
 
 The `FORGE-Windows-x64` package job runs the editor SDK acceptance gate

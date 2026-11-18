@@ -17,6 +17,7 @@
 // hooks inside the shipped runtime.
 
 #include "base64.hpp"
+#include "play_schema_reference.hpp"
 #include "sdk_play_runtime.hpp"
 #include <atomic>
 #include <cmath>
@@ -969,6 +970,122 @@ void protocol_discriminator_rejects_float_and_string() {
     Json with_three{{"protocol", 3}, {"id", 1u}, {"command", "hello"}};
     auto rejected3 = host->handle(with_three, RuntimeClock::Time{});
     check(!rejected3.value("ok", false), "Protocol version 3 was accepted");
+}
+
+void schema_reference_contract() {
+    constexpr std::size_t limit = 16 * 1024 * 1024;
+    Fixture f;
+    std::string session;
+    auto host = build_activated(f, session);
+    std::uint64_t id = 4;
+    const auto call = [&](const std::string& command, const Json& extras = Json::object()) {
+        auto request = extras;
+        request["session"] = session;
+        return send(*host, id++, command, request);
+    };
+    const auto full = call("snapshot");
+    check(full.at("runtime_contract").at("schema_reference").get<unsigned>() == 1,
+          "SDK did not advertise schema references");
+    const auto generation = full.at("activation").at("generation").get<std::uint64_t>();
+    const auto schema = full.at("schema");
+    const auto hint = play_schema_identity(schema, generation);
+    validate_play_schema_hint(hint, limit);
+    Json resolved, identity;
+    observe_play_schema(schema, generation, nullptr, true, resolved, identity);
+    check(resolved == schema && identity == hint, "Full schema did not seed the existing owner");
+    for (int i = 0; i < 4; ++i) {
+        const auto response = call("snapshot", {{"known_schema", hint}});
+        check(response.at("ok").get<bool>() && response.at("schema").contains("ref"),
+              "Matching schema hint did not produce a reference");
+        observe_play_schema(response.at("schema"), generation, hint, true, resolved, identity);
+        check(resolved == schema, "Reference changed Inspector metadata");
+        check(response.dump().size() < full.dump().size(), "Reference did not reduce wire bytes");
+    }
+    check(call("schema", {{"known_schema", hint}}).at("schema") == schema,
+          "Explicit schema query returned a reference");
+    check(call("snapshot").at("schema") == schema, "Legacy fallback lost its full schema");
+    for (const auto& key : {"world", "bytes", "sha256"}) {
+        auto stale = hint;
+        if (std::string(key) == "sha256")
+            stale[key] = std::string(64, '0');
+        else
+            stale[key] = stale.at(key).get<std::uint64_t>() + 1;
+        check(call("snapshot", {{"known_schema", stale}}).at("schema") == schema,
+              "Schema hint mismatch did not return authoritative metadata");
+    }
+    auto invalid = Json::array({nullptr, true, Json::array(), Json::object()});
+    for (const auto& key : {"world", "bytes", "sha256"}) {
+        auto bad = hint;
+        bad[key] = -1;
+        invalid.push_back(bad);
+        bad[key] = 1.0;
+        invalid.push_back(bad);
+    }
+    auto oversized = hint;
+    oversized["bytes"] = limit + 1;
+    invalid.push_back(oversized);
+    auto extra = hint;
+    extra["extra"] = true;
+    invalid.push_back(extra);
+    for (const auto& bad : invalid) {
+        const auto response = call("resume", {{"known_schema", bad}});
+        check(!response.at("ok").get<bool>() &&
+                  host->status().at("state").get<std::string>() == "paused",
+              "Malformed schema hint mutated the world");
+    }
+    const auto ref = play_schema_wire(schema, generation, hint);
+    auto bad_refs = Json::array(
+        {Json{{"ref", std::string(64, '0')}, {"bytes", hint.at("bytes")}},
+         Json{{"ref", hint.at("sha256")}, {"bytes", 1}},
+         Json{{"ref", hint.at("sha256")}, {"bytes", 1.0}}, Json{{"ref", hint.at("sha256")}},
+         Json{{"ref", hint.at("sha256")}, {"bytes", hint.at("bytes")}, {"extra", true}}});
+    const auto rejects = [&](const Json& value, std::uint64_t world, const Json& sent,
+                             bool negotiated) {
+        bool rejected = false;
+        try {
+            observe_play_schema(value, world, sent, negotiated, resolved, identity);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        check(rejected && resolved == schema && identity == hint,
+              "Invalid schema reference changed accepted metadata");
+    };
+    for (const auto& value : bad_refs)
+        rejects(value, generation, hint, true);
+    rejects(ref, generation + 1, hint, true);
+    rejects(ref, generation, nullptr, true);
+    rejects(ref, generation, hint, false);
+    Json whole{{"schema", schema}, {"rest", "same"}};
+    auto compact = whole;
+    compact["schema"] = ref;
+    const auto exact = whole.dump().size() + 1;
+    check(play_schema_response_fits(compact, exact) &&
+              !play_schema_response_fits(compact, exact - 1),
+          "Reference weakened the full-inline response budget");
+    check(play_schema_wire(Json{{"version", 2}}, generation, hint).contains("version"),
+          "Changed authoritative metadata reused an old reference");
+    // A real world replacement must return full metadata, even if its bytes match.
+    check(call("replace", {{"scene", full.at("scene")}}).at("ok").get<bool>(),
+          "Schema fixture replacement failed");
+    host->pump(RuntimeClock::Clock::now());
+    const auto candidate = host->pending_candidate();
+    check(candidate.has_value(), "Schema fixture replacement candidate missing");
+    check(call("snapshot", {{"known_schema", hint},
+                            {"candidate_ack",
+                             {{"session", session},
+                              {"ticket", candidate->at("ticket")},
+                              {"accepted", true},
+                              {"diagnostic", ""}}}})
+              .at("ok")
+              .get<bool>(),
+          "Schema fixture replacement acknowledgement failed");
+    host->pump(RuntimeClock::Clock::now());
+    const auto replaced = call("snapshot", {{"known_schema", hint}});
+    check(replaced.at("activation").at("generation").get<std::uint64_t>() != generation &&
+              replaced.at("schema").contains("version"),
+          "New world inherited a schema reference");
+    observe_play_schema(nullptr, 0, nullptr, true, resolved, identity);
+    check(resolved.is_null() && identity.is_null(), "Empty world retained schema metadata");
 }
 
 void schema_command_does_not_overwrite_real_schema() {
@@ -2507,6 +2624,7 @@ void property_tune_rejects_wrong_world_or_unadmitted_type() {
 
 int run() {
     try {
+        schema_reference_contract();
         game_recording_sdk_tests();
         input_recording_sdk_tests();
         {

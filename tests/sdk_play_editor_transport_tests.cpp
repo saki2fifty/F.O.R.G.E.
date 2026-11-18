@@ -44,16 +44,8 @@ void install_probe_sdk(const std::filesystem::path& root, const std::filesystem:
     std::filesystem::copy_file(library, root / library.filename(),
                                std::filesystem::copy_options::overwrite_existing);
 }
-// Cancellation subcases run a separate project with modules=[] so the
-// native SDK probe never loads. The probe's controls() callback fires
-// every control frame and queues pause requests without draining; the
-// 400ms cancellation lifecycle overflows the bounded runtime queue and
-// the runtime rejects every Pause with "SDK control request rejected",
-// masking the cancel verdict we actually want to assert. Keeping the
-// main SDK module/epoch/Step tests against the probe preserves the
-// regression coverage; the cancellation subcases use only default
-// game settings and an empty modules array so the runtime reaches
-// the cancel verdict without a worker pumping commands.
+// Cancellation subcases use modules=[] so only the loading/cancel verdict is
+// under test, independently of the ABI probe's control-domain assertions.
 void install_empty_project(const std::filesystem::path& root) {
     auto settings = forge::ProjectSettings::defaults("SDK editor cancel test");
     settings["game"] = forge::default_game_settings("org.forge.sdk-editor-cancel-" +
@@ -274,6 +266,15 @@ int main(int argc, char** argv) {
             require(play.sdk_activation_generation() == ticket,
                     "Generation differs from the prepared ticket");
             require(play.paused(), "Probe did not remain paused");
+            // Completed control receipts must retire even when no simulation
+            // ticks advance and the editor remains busy with copied metadata.
+            const auto control_until = SDL_GetTicks() + 2000;
+            while (play.active() && SDL_GetTicks() < control_until) {
+                play.pump();
+                SDL_Delay(1);
+            }
+            require(play.active(), "SDK control receipt lifetime failed: " + play.status());
+
             play.step();
             wait([&] {
                 return !play.active() || play.timing().value("tick", std::uint64_t{}) == 1;
@@ -281,6 +282,7 @@ int main(int argc, char** argv) {
             require(play.active(), "Step closed the process");
             require(play.snapshot().at("entities").size() == 1, "Authored scene lost during Play");
             play.stop();
+            require(play.runtime_schema().is_null(), "Stopped session retained schema metadata");
             // Restart: epoch counters MUST reset.
             play.start(argv[1], make_scene(), true);
             wait([&] { return !play.active() || !play.sdk_candidate_envelope().is_null(); });
@@ -307,6 +309,28 @@ int main(int argc, char** argv) {
             require(!play.submit_editor_observation(false, "KeyboardMouse"),
                     "Epoch overflow was silently wrapped");
             play.stop();
+            // Keep repeated schema reads independent of the ABI probe's
+            // control-domain behavior through the existing empty SDK project.
+            play.configure(60, forge::InputMap{}, {0, -9.81, 0}, cancel_root, true, true);
+            play.start(argv[1], make_scene(), true);
+            wait([&] { return !play.active() || !play.sdk_candidate_envelope().is_null(); });
+            require(play.active(), "Schema fixture failed: " + play.status());
+            require(
+                play.submit_sdk_candidate_ack(true, play.session(), play.sdk_candidate_ticket()),
+                "Schema fixture candidate ack rejected");
+            wait([&] { return !play.active() || play.ready(); });
+            require(play.ready(), "Schema fixture did not become ready: " + play.status());
+            const auto schema = play.runtime_schema();
+            require(schema.is_object() && schema.contains("version"),
+                    "SDK transport omitted full Inspector metadata");
+            const auto version = play.snapshot_version();
+            wait([&] { return !play.active() || play.snapshot_version() >= version + 4; });
+            require(play.active() && play.runtime_schema() == schema,
+                    "Repeated SDK schema references lost Inspector metadata: " + play.status() +
+                        " " + play.log());
+
+            play.stop();
+            require(play.runtime_schema().is_null(), "Schema fixture retained stopped metadata");
         }
         // Phase 2: cancellation lifecycle. Two valid outcomes:
         //   a) Unsent cancel: cancel submitted before any ack
@@ -319,9 +343,8 @@ int main(int argc, char** argv) {
         //      retains the already-observed publication. No process
         //      tear-down.
         // These subcases use cancel_root (modules=[]), not root
-        // (probe SDK), so the probe's controls() callback never
-        // queues an unbounded stream of pause requests and the
-        // runtime's cancel verdict is the only verdict under test.
+        // (probe SDK), keeping cancellation independent of the probe's
+        // control-domain assertions.
         {
             bool active_after = false, published_after = false;
             std::string status;

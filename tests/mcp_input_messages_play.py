@@ -19,6 +19,8 @@ def check_input_messages_play(read, ok, control, mutate, until):
 
     ok('forge_play_start')
     control('forge_play_pause')
+    schema = read('forge_play_schema')['value']
+    assert isinstance(schema, dict) and 'version' in schema and 'ref' not in schema
     assert messages()['emitted_total'] == 0
     control('forge_play_input_submit', events=[dict(control='key.space', value=1)])
     control('forge_play_step')
@@ -38,6 +40,7 @@ def check_input_messages_play(read, ok, control, mutate, until):
     until(positions, lambda rows: rows == {key: value + .5 for key, value in baseline.items()})
     until(messages, lambda row: row.get('tick', 0) >= first['tick'] + 4)
     assert messages()['emitted_total'] == 2
+    assert read('forge_play_schema')['value'] == schema, 'Repeated snapshots changed resolved metadata'
     for row in messages()['sources']:
         assert row['emitted_total'] == 1
         assert row['last_sent'] == first_sources[row['entity']['entity']]['last_sent']
