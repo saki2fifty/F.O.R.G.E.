@@ -12,6 +12,50 @@ struct RecordedAudioFrame {
     std::uint64_t start_audio_frame = 0;
     std::vector<std::byte> pcm;
 };
+struct LiveAudioChunk {
+    std::uint64_t start_audio_frame = 0;
+    std::vector<std::byte> pcm;
+};
+inline LiveAudioChunk read_live_audio(const nlohmann::json& value, std::uint64_t cursor,
+                                      unsigned maximum_frames) {
+    if (!maximum_frames || maximum_frames > 4096 || !value.is_object() || value.size() != 4 ||
+        value.value("format", "") != "s16le-stereo-48000-v1" ||
+        !value.at("start_audio_frame").is_number_unsigned() ||
+        value.at("start_audio_frame") != cursor || !value.at("audio_frames").is_number_unsigned() ||
+        value.at("audio_frames").get<std::uint64_t>() > maximum_frames ||
+        !value.at("data").is_string())
+        throw std::runtime_error("Live recording returned an invalid PCM interval");
+    const auto bytes = std::size_t(value.at("audio_frames").get<unsigned>()) * 4;
+    auto pcm = decode_base64(value.at("data").get_ref<const std::string&>(), bytes);
+    if (pcm.size() != bytes)
+        throw std::runtime_error("Live recording PCM length does not match its interval");
+    return {cursor, std::move(pcm)};
+}
+inline void validate_live_audio_status(const nlohmann::json& value, std::uint64_t world,
+                                       AssetId scene, std::uint64_t capture = 0) {
+    if (!world || !scene || !value.is_object() || !value.at("generation").is_number_unsigned() ||
+        value.at("generation") == 0 || (capture && value.at("generation") != capture) ||
+        !value.at("world_generation").is_number_unsigned() ||
+        value.at("world_generation") != world || value.at("scene").get<AssetId>() != scene ||
+        !value.at("active_generation").is_number_unsigned() ||
+        !value.at("captured_frames").is_number_unsigned() ||
+        !value.at("read_frames").is_number_unsigned() ||
+        !value.at("queued_frames").is_number_unsigned() || value.at("queued_frames") > 96000u ||
+        !value.at("sample_rate").is_number_unsigned() || value.at("sample_rate") != 48000u ||
+        !value.at("channels").is_number_unsigned() || value.at("channels") != 2u ||
+        !value.at("maximum_queued_frames").is_number_unsigned() ||
+        value.at("maximum_queued_frames") != 96000u || !value.at("error").is_string() ||
+        value.at("error").get_ref<const std::string&>().size() > 1024)
+        throw std::runtime_error("Live recording returned an invalid capture identity or progress");
+    const auto observed = value.at("captured_frames").get<std::uint64_t>();
+    const auto read = value.at("read_frames").get<std::uint64_t>();
+    const auto queued = value.at("queued_frames").get<std::uint64_t>();
+    const auto state = value.value("state", "");
+    if (read > observed || observed - read != queued ||
+        (state != "recording" && state != "stopped" && state != "failed") ||
+        ((state == "failed") != !value.at("error").get_ref<const std::string&>().empty()))
+        throw std::runtime_error("Live recording progress does not match its committed PCM");
+}
 inline void validate_recording_visits(const nlohmann::json& value, const nlohmann::json& previous,
                                       std::uint64_t generation, AssetId scene) {
     if (value.value("capture_scope", "") != "session" ||

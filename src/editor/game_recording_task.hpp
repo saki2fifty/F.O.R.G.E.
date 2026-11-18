@@ -37,7 +37,22 @@ class GameRecordingTask final : public ViewImageWork {
         Retire,
         Done
     };
-    enum class FileJob { None, Prepare, Pcm, Receipt };
+    enum class FileJob { None, Prepare, Pcm, Receipt, Normalize };
+    struct LiveState {
+        bool render_ready = false, begin_submitted = false, end_requested = false,
+             end_submitted = false, normalized = false, image_requested = false,
+             audio_discard = false;
+        std::uint64_t capture = 0, raw_audio_frames = 0;
+        std::optional<std::uint64_t> origin;
+        std::size_t last_png_bytes = 0;
+        std::size_t movie_png_bytes = 0;
+        unsigned requested_frame = 0;
+        Json images = Json::array();
+        Json last_image;
+    };
+    std::optional<LiveState> live_;
+    static constexpr std::size_t live_audio_byte_limit =
+        asset_detail::avi_game_audio_byte_limit + 16 * asset_detail::movie_audio_sample_rate;
     Scene& scene_;
     SceneDocument& document_;
     PlaySession& play_;
@@ -75,6 +90,7 @@ class GameRecordingTask final : public ViewImageWork {
     std::array<char, 128> name_{};
 
   public:
+    static std::string unavailable(const PlaySession&, const std::string& mode);
     GameRecordingTask(Scene& scene, SceneDocument& document, PlaySession& play,
                       std::filesystem::path worker, GameRecordingRequest request,
                       GameRecordingHost host, bool configure = false)
@@ -84,7 +100,8 @@ class GameRecordingTask final : public ViewImageWork {
           scene_id_(scene.asset_id()), revision_(scene.revision()),
           generation_(document.generation()) {
         document_.check_ownership();
-        if (!host_.start || !host_.stop || worker_.empty() || play_.active() ||
+        if (!host_.start || !host_.stop || worker_.empty() ||
+            (!configure && request_.recording_mode == "offline" && play_.active()) ||
             (!host_.pixels && (!host_.poll_images || !host_.capture_image)))
             throw std::runtime_error(
                 "Game recording requires an idle Play host and the packaged worker");
@@ -109,7 +126,7 @@ class GameRecordingTask final : public ViewImageWork {
                    : std::nullopt;
     }
     std::optional<TemporalFrameSample> temporal_sample() const override {
-        if (phase_ != Phase::Image || retiring_)
+        if (live_ || phase_ != Phase::Image || retiring_)
             return {};
         return TemporalFrameSample{
             sample_id_, request_.capture_scope == "session"
@@ -132,13 +149,14 @@ class GameRecordingTask final : public ViewImageWork {
                    {"scene_revision", revision_},
                    {"document_generation", generation_},
                    {"planned_frames", request_.frames},
-                   {"completed_frames", completed_},
+                   {"completed_frames", completed_media_frames()},
                    {"captured_png_frames", captured_},
                    {"audio_frames", audio_frames_},
                    {"width", request_.output.width},
                    {"height", request_.output.height},
                    {"fps", request_.fps},
                    {"capture_scope", request_.capture_scope},
+                   {"recording_mode", request_.recording_mode},
                    {"jpeg_quality", request_.output.jpeg_quality},
                    {"cancel_requested", retiring_ && terminal_ == "cancelled"}};
         if (movie_)
@@ -153,7 +171,16 @@ class GameRecordingTask final : public ViewImageWork {
     }
     void game_frame(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
                     Diligent::ITextureView* texture, bool ready) override {
+        if (live_ && phase_ == Phase::Launch) {
+            live_->render_ready =
+                texture && ready &&
+                texture->GetTexture()->GetDesc().Width == unsigned(request_.output.width) &&
+                texture->GetTexture()->GetDesc().Height == unsigned(request_.output.height);
+            return;
+        }
         if (phase_ != Phase::Image || retiring_ || host_.pixels || !texture)
+            return;
+        if (live_ && (!live_->image_requested || frame_image_done_))
             return;
         const auto& desc = texture->GetTexture()->GetDesc();
         if (!ready || desc.Width != unsigned(request_.output.width) ||
@@ -161,9 +188,26 @@ class GameRecordingTask final : public ViewImageWork {
             stable_ = 0;
             return;
         }
-        if (stable_ < 3)
+        const auto required = live_ ? 1u : 3u;
+        if (stable_ < required)
             ++stable_;
-        if (stable_ == 3) {
+        if (stable_ == required) {
+            if (live_) {
+                try {
+                    if (live_->end_requested && !live_->last_image.is_null()) {
+                        (void)images_.cancel(image_message_);
+                        live_->images.erase(live_->images.size() - 1);
+                        live_->image_requested = false;
+                        frame_image_done_ = true;
+                        return;
+                    }
+                    sample_live_frame();
+                    live_->image_requested = false;
+                } catch (const std::exception& error) {
+                    abort(error.what(), true);
+                    return;
+                }
+            }
             readback_used_ = true;
             host_.capture_image(images_, presentation, context, texture, image_message_);
         }
@@ -204,6 +248,10 @@ class GameRecordingTask final : public ViewImageWork {
             if (phase_ == Phase::Configure || phase_ == Phase::Encode)
                 return;
             require_source();
+            if (live_) {
+                poll_live();
+                return;
+            }
             if (phase_ == Phase::Launch) {
                 require_launch();
                 if (play_.control_ready()) {
@@ -289,6 +337,23 @@ class GameRecordingTask final : public ViewImageWork {
     void complete_file();
     void begin_frame();
     void write_pcm(RecordedAudioFrame);
+    void append_pcm(std::vector<std::byte>, std::uint64_t, std::size_t);
+    void poll_live();
+    bool service_live_audio();
+    void sample_live_frame();
+    void fill_live_frames(unsigned);
+    void complete_live_image(std::size_t);
+    void normalize_live_audio();
+    unsigned completed_media_frames() const {
+        if (!live_)
+            return completed_;
+        const auto samples = live_->normalized ? audio_frames_
+                             : live_->origin && audio_frames_ >= *live_->origin
+                                 ? audio_frames_ - *live_->origin
+                                 : 0;
+        return std::min(completed_, asset_detail::avi_game_frames_at_audio(
+                                        rate_, unsigned(request_.frames), samples));
+    }
     void encode();
     void retire();
     void write_receipt();

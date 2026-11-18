@@ -4,6 +4,7 @@
 #include "input_recording_files.hpp"
 #include "input_recording_protocol.hpp"
 #include "mcp_test_marker.hpp"
+#include "play_automation.hpp"
 #include "published_texture_fixture.hpp"
 #include "texture_image_input.hpp"
 #include <chrono>
@@ -156,6 +157,9 @@ int main(int argc, char** argv) {
             return sequence && play.active() ? std::string("Stop the current Play session")
                                              : std::string{};
         };
+        providers.recording_unavailable = [&](const std::string& mode) {
+            return forge::ui::GameRecordingTask::unavailable(play, mode);
+        };
         if (argc == 6)
             providers.record_game = [&](const forge::ui::GameRecordingRequest& request) {
                 forge::ui::GameRecordingHost host;
@@ -191,10 +195,42 @@ int main(int argc, char** argv) {
                     scene, files.document, play, std::filesystem::u8path(argv[4]), request,
                     std::move(host));
             };
+        forge::RuntimeTuningReview tuning;
+        forge::PlayAutomationProviders playback;
+        playback.start = [&] {
+            play.configure(60, files.document.settings().input(), {0, -9.81, 0},
+                           files.document.project(), true, true);
+            play.set_headless_audio(true, true);
+            play.set_user_data_override(root / "LiveUserData");
+            play.start(argv[5], scene.snapshot());
+        };
+        playback.control = [&](const std::string& operation) {
+            if (operation == "stop") {
+                play.stop();
+                play.set_user_data_override({});
+            } else if (operation == "pause")
+                play.pause();
+            else if (operation == "resume")
+                play.resume();
+            else if (operation == "step")
+                play.step();
+            else
+                throw std::runtime_error("Unsupported test playback control");
+        };
         forge::ui::AutomationWorkspace workspace;
         workspace.workflow_methods = [&](const auto& permissions) {
-            return forge::CaptureAutomation::methods(images, scene, files, providers, message,
-                                                     permissions);
+            auto result = forge::CaptureAutomation::methods(images, scene, files, providers,
+                                                            message, permissions);
+            if (argc == 6) {
+                auto controls = forge::PlayAutomation::methods(scene, files, play, tuning, playback,
+                                                               permissions);
+                for (auto& method : controls)
+                    if (method.name == "play.status" || method.name == "play.start" ||
+                        method.name == "play.pause" || method.name == "play.resume" ||
+                        method.name == "play.stop")
+                        result.push_back(std::move(method));
+            }
+            return result;
         };
         forge::ui::AutomationPermissions permissions;
         permissions.export_game = output;

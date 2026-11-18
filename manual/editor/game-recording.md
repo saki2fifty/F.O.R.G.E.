@@ -1,105 +1,134 @@
 # Record a game movie
 
-Use **Run → Record game…** to record a fresh game run with sound. The recording
-runs scene behavior, physics and Project Code at the project's fixed simulation
-rate. Its output is an AVI movie with Motion JPEG video and stereo sound.
+Use **Run → Record game…** to save Game output and sound as an AVI movie with
+Motion JPEG video and stereo audio. Choose an existing Play session or a fresh
+offline run. Both preserve the authored scene and its Undo history.
 
 ## Before recording
 
-- Stop Play and finish any pending project operations.
-- Save and build changed Project Code. Select the matching **Native SDK folder** in Build and enable the project's game runtime settings.
+- Finish pending project operations and save and build changed Project Code.
+- Select the matching **Native SDK folder** in Build and enable the project's game runtime settings.
 - Give the scene an enabled game camera and any lighting it needs.
 - Check the camera image in Game and the sound in ordinary Play first.
 
-The recording starts a new run using the current scene. It uses a fresh
-**UserData** folder inside its output folder. Settings or saves from an earlier
-game run are not loaded. Changes made by that run stay in its runtime world;
-the authored scene and its Undo history are preserved.
-After recording, ordinary Play uses its previous user-data selection.
+## Record the current Play session
 
-## Choose the recording
+1. Start ordinary Play and wait for Game and its resources to become ready.
+2. Open **Run → Record game…**. **Record current Play** is selected when Play is active.
+3. Choose an existing **Parent folder** and enter a **New recording folder** name. Use a new folder for every clip.
+4. Set **Frames per second**, **Frame count**, **Width (pixels)** and **Height (pixels)**. For a six-second movie at 30 FPS, use 180 frames.
+5. Set **JPEG quality**, then choose **Start recording**. Higher quality usually retains more image detail and produces a larger movie.
+6. Keep Game visible and its resources ready until recording finishes.
 
-![Record game window with output settings, optional saved input and the Across scenes checkbox](../images/game-recording-options.png)
+![Record game window with Record current Play selected, output settings and disabled offline input and Scene options](../images/game-recording-live-options.png)
 
-Choose the output and image settings before starting the fresh run.
+The live options attach to the current Play session. Saved-input selection and
+**Across scenes** apply to fresh offline runs and are disabled here.
 
-1. Open **Run → Record game…**.
-2. Choose an existing **Parent folder** and enter a **New recording folder** name. Use a new folder for every recording.
-3. Set **Frames per second**, **Frame count**, **Width (pixels)** and **Height (pixels)**. For a six-second movie at 30 FPS, use 180 frames.
-4. Set **JPEG quality**. Higher values usually retain more image detail and produce a larger movie. The default is 90. Enable **Across scenes** if game code loads other Scenes. To use a [saved gameplay input take](input-recording.md), set **Input recording (optional)** to `Recordings/<name>.json`. Use an Across Scenes take when this option is enabled, or a single-Scene take when it is off. Leave the path empty for a run without recorded input.
-5. Choose **Start recording**. Keep the Game view available while FORGE renders the frames. Recording can take longer or less time than the movie's duration.
-6. Wait for **Game movie, PNG frames and PCM saved**, then open **game.avi** in a player that supports Motion JPEG and PCM audio.
+Play continues with its existing world and user data. Capture gameplay input as
+usual to interact with the game; Pause and Resume remain available. Recording
+ends automatically after the chosen movie duration. Completion or **Cancel**
+releases the recording observer and leaves Play running.
 
-FORGE captures the initial game image, then advances the game and mixes sound for
-each frame interval. Runtime HUD animation follows recorded presentation time.
-The fixed simulation rate remains the one selected in Project Settings; changing
-the movie's FPS changes the captured intervals.
+Live capture includes the current game's stereo mix. It does not capture the
+microphone or other applications. Paused game behavior and sound follow the
+project's normal pause policy; the recording duration continues to follow audio
+device progress. Selecting a new saved input take during live recording is
+unavailable. A replay already running in Play continues normally.
+
+The clip covers the current runtime Scene. A Scene change stops the clip and
+retains partial output; it does not publish a complete AVI. The game's Scene
+change continues. To include Scene changes in a movie, use a fresh offline run
+with **Across scenes**.
+
+## Record a fresh offline run
+
+Stop Play before starting this mode. Open **Run → Record game…** and leave
+**Record current Play** off. Choose the destination, frame rate, frame count,
+image size and quality as described above.
+
+![Record game window with Record current Play off, output settings, saved input and Across scenes](../images/game-recording-options.png)
+
+The offline options start a new run using the current authored scene. The run
+uses a fresh **UserData** folder inside its output folder. Earlier saves or
+settings are not loaded; subsequent ordinary Play keeps its usual user data.
+
+1. Optionally enter **Input recording (optional)** as a saved project path such as **Recordings/MyTake.json**. Leave it empty for behavior that starts without input. See [record and replay gameplay input](input-recording.md).
+2. Enable **Across scenes** if game code changes Scenes during the movie. A selected take must have been recorded with **Across Scenes**. Leave the option off for a single-Scene movie.
+3. Choose **Start recording** and keep Game visible until the run finishes.
+
+The run starts at tick zero. It captures each image, mixes the matching audio
+interval, then advances game behavior, physics and Project Code through the
+project's fixed simulation rate. Interactive input and ordinary Pause are
+unavailable in this mode. Completion or cancellation stops this recording's run.
+
+**Across scenes** admits up to 64 game-requested Scene visits. Recording waits
+for each Scene's resources and presentation. Loading time adds no movie frames
+or sound. Each PNG retains its actual Scene, world generation and local tick.
+A saved take supplies input; game code must still request its Scene sequence.
 
 ## Output and cancellation
 
 The new folder contains:
 
-- **game.avi** — the completed movie with sound.
-- **frame-000000.png**, **frame-000001.png**, and subsequent PNGs — full-size captured frames.
-- **audio.s16le** — the retained 48 kHz stereo, signed 16-bit audio samples.
-- **recording.json** — frame times, simulation ticks, source identity, dates, completion state and any error.
-- **UserData/** — data written by this fresh game run.
+- **frame-000000.png**, subsequent completed PNG captures and **audio.s16le**.
+- **recording.json**, with local start/end timestamps, source and timing details, progress, errors and any complete movie metadata.
+- **game.avi** when all planned movie frames and sound have been encoded successfully.
+- **UserData** and, when selected, **input-recording.json** for a fresh offline run.
 
-When you select an input recording, the folder also contains
-**input-recording.json**. The receipt records its source identity, tick count and
-digest. A selected take must match the fresh runtime's Scene/settings/build,
-input map and simulation rate. After its last tick, gameplay input becomes neutral.
-The take and movie must use matching scopes. A mismatched scope is rejected
-before the runtime starts or an output folder is created.
+Live recording saves actual PNG captures. If rendering or file work misses a
+movie interval, the movie repeats the last eligible saved image. It does not
+advance the game to manufacture a missing image. The receipt lists actual
+images separately from movie frames, including repeated image references and
+observed audio positions. A completed live movie trims its audio to the chosen
+movie duration.
 
-With **Across scenes** enabled, game code can load up to 64 Scene visits,
-including repeated visits to the same Scene. The recording waits for each new
-Scene's resources and presentation before continuing. Loading time does not add
-movie frames or sound. Each PNG retains the Scene, world generation and local
-simulation tick at capture time. The receipt also lists Scene visits and their
-positions in the recorded audio. A saved take supplies input; game code still
-has to request the recorded Scene sequence.
+Choose **Cancel** to keep completed output without publishing an incomplete AVI.
+A file already being written must settle. A complete movie already published
+remains available. For an incomplete live clip, retained audio can include the
+warm-up prefix or final copied tail; use the receipt's audio source start and
+normalization fields when interpreting it. In an offline clip, an already saved
+PNG can have no subsequent completed audio interval.
 
-Choose **Cancel** to retire the recording. Completed PNGs, audio and the receipt
-remain available. A file already being written must finish. A complete movie
-already published remains available; an incomplete movie is not published.
-Audio from a partially mixed frame is not saved. The receipt distinguishes
-completed audio from observed progress, so a retained PNG can have no matching
-completed audio interval.
-Closing the editor stops the recording's Play process and attempts to save its
-partial receipt after outstanding file work settles.
+Closing the editor settles detached file work and attempts to save a partial
+receipt. Closing a live recording task releases its observer through the Play
+owner. The editor's normal shutdown also ends Play. Disk errors can prevent a
+receipt from being saved.
 
 ## Limits and troubleshooting
 
 Use 1–240 FPS, 1–4,096 frames, dimensions from 1–4,096 pixels per axis and JPEG
-quality from 1–100. Audio is limited to 128 MiB; retained PNG/audio snapshots and
-the final movie each have a 256 MiB limit. Long recordings or large frames can
-reach these limits before the frame-count limit.
+quality from 1–100. Movie audio is limited to 128 MiB; combined PNG/audio
+snapshots and the final movie each have a 256 MiB limit. Repeated live image
+references also count toward the encoder's snapshot budget. Large frames or
+long clips can reach a byte limit before the frame-count limit.
 
-This is an offline recording of a fresh run. Interactive input and Pause are
-unavailable. Leave **Across scenes** off for the default single-Scene recording;
-a Scene change then stops the run. With it enabled, a failed or cancelled Scene
-load stops the recording. Runtime faults, game-requested Pause or Quit, and
-authored scene edits also stop capture. Native audio events are sampled in
-bounded mixing intervals; they do not have sample-accurate scheduling.
-A saved input take can drive gameplay during capture, but does not guarantee
-identical game state when native code, random values or external state differ.
+Live recording uses observed mixer progress and the available Game image. Editor
+transport, rendering and audio-device latency can affect their alignment. It
+provides no sample-accurate synchronization guarantee. Its two-second mixer
+queue fails capture if the editor cannot drain it quickly enough; completed
+output remains available. Offline native audio events are sampled in bounded
+mixing intervals and also lack sample-accurate event scheduling.
 
-If frames do not arrive, check the enabled camera, rendered Game view and asset
+Source edits, runtime faults and process loss stop capture. For offline session
+movies, failed or cancelled Scene loading and game-requested Pause or Quit also
+stop the run. A saved input take does not guarantee identical game state when
+native code, random values or external state differ.
+
+If frames do not arrive, check the enabled camera, visible Game view and asset
 diagnostics. Save and rebuild changed Project Code before retrying. If encoding
-fails, inspect **recording.json** and the retained PNGs/audio, then choose a new
-output folder for the next attempt. Motion JPEG is lossy and needs opaque sRGB
-display output; HDR, transparent video and runtime movie playback are unavailable.
+fails, inspect **recording.json** and retained PNGs/audio, then choose a new folder.
+Motion JPEG is lossy and needs opaque sRGB display output. HDR, transparent video
+and runtime movie playback are unavailable.
 
 Open **FeatureGallery / Scenes / 182-game-recording.scene.json** to try scene
-motion, a falling red cube, three timed tones and a moving HUD pulse. A six-second
-recording at 30 FPS includes the full sequence. For a silent Timeline preview
-instead, use [sequence frame and movie export](animation-sequences.md).
-For a Project Code example that loads another Scene, follow the Room A/Room B
-setup in [gameplay input recording](input-recording.md), save an Across Scenes
-take, and select **Across scenes** in the movie options.
+motion, a falling red cube, three timed tones and a moving HUD pulse. A fresh
+six-second recording at 30 FPS includes its full sequence. For a silent Timeline
+preview, use [sequence frame and movie export](animation-sequences.md). For an
+example that loads another Scene, follow the Room A/Room B setup in
+[gameplay input recording](input-recording.md).
 
 ![Captured Game frame with the red cube on the floor, moving gold panel and timed HUD pulse](../images/game-recording-frame.png)
 
 The included scene after one recorded second. The red cube has fallen and the
-HUD pulse has advanced with the movie's presentation time.
+HUD pulse has advanced with the movie.

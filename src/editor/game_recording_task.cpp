@@ -10,6 +10,9 @@ GameRecordingTask::~GameRecordingTask() {
         return;
     try {
         abort("Editor closed", false);
+        if (live_ && live_->begin_submitted && play_.active() && play_.launch_id() == launch_ &&
+            play_.session() == session_)
+            play_.retire_live_audio();
         if (readback_used_ && images_.busy() && host_.abandon_readback)
             host_.abandon_readback();
         // Only detached file/worker jobs can block here. The presentation owner
@@ -35,7 +38,7 @@ GameRecordingTask::~GameRecordingTask() {
         }
     } catch (...) {
         // Shutdown cannot promise successful disk IO; futures still retain only
-        // detached bytes/paths and the owned runtime has already been stopped.
+        // detached bytes/paths. Live observer retirement stays with PlaySession.
     }
 }
 const char* GameRecordingTask::phase_name() const {
@@ -53,7 +56,8 @@ void GameRecordingTask::require_source() const {
             throw std::runtime_error(reason);
 }
 void GameRecordingTask::require_launch() {
-    if (!play_.active() || play_.launch_id() != launch_ || !play_.recording_launch())
+    if (!play_.active() || play_.launch_id() != launch_ ||
+        (live_ ? play_.recording_launch() : !play_.recording_launch()))
         throw std::runtime_error("The recording Play process stopped or was replaced: " +
                                  play_.status());
     if (!session_.empty() &&
@@ -73,6 +77,10 @@ void GameRecordingTask::require_launch() {
     }
 }
 void GameRecordingTask::stop_play() noexcept {
+    if (live_) {
+        live_->end_requested = true;
+        return;
+    }
     if (!launch_.empty() && play_.launch_id() == launch_ && play_.active()) {
         try {
             host_.stop();
@@ -94,12 +102,21 @@ void GameRecordingTask::stop_play() noexcept {
 }
 void GameRecordingTask::start() {
     document_.check_ownership();
-    if (document_.project() != project_ || scene_.asset_id() != scene_id_ || play_.active())
-        throw std::runtime_error("Choose the current Scene with Play stopped before recording");
+    if (document_.project() != project_ || scene_.asset_id() != scene_id_)
+        throw std::runtime_error("Choose the current project and authored Scene before recording");
+    if (const auto reason = unavailable(play_, request_.recording_mode); !reason.empty())
+        throw std::runtime_error(reason);
     revision_ = scene_.revision();
     generation_ = document_.generation();
     require_source();
     rate_ = request_.rate();
+    if (request_.recording_mode == "live") {
+        live_.emplace();
+        launch_ = play_.launch_id();
+        session_ = play_.session();
+        world_generation_ = play_.world_generation();
+        frame_scene_id_ = play_.snapshot().at("asset_id").get<AssetId>();
+    }
     if (!request_.input_recording.empty()) {
         replay_input_ =
             read_input_recording(project_, std::filesystem::u8path(request_.input_recording));
@@ -127,7 +144,7 @@ void GameRecordingTask::start() {
     });
     file_job_ = FileJob::Prepare;
     phase_ = Phase::Prepare;
-    status_ = "Preparing fresh game recording";
+    status_ = live_ ? "Preparing live game recording" : "Preparing fresh game recording";
 }
 void GameRecordingTask::abort(std::string reason, bool failed) {
     if (finished_)
@@ -146,10 +163,11 @@ void GameRecordingTask::abort(std::string reason, bool failed) {
     (void)images_.cancel(image_message_);
 }
 void GameRecordingTask::observe_image() {
+    const auto index = live_ ? captured_ : completed_;
     if (images_.busy() || frame_image_done_ || folder_.empty() ||
-        completed_ >= unsigned(request_.frames))
+        index >= unsigned(request_.frames))
         return;
-    const auto expected = folder_ / request_.plan().filename(completed_);
+    const auto expected = folder_ / request_.plan().filename(index);
     if (images_.completed_image() == expected && images_.error().empty()) {
         frame_image_done_ = true;
         ++captured_;
@@ -159,6 +177,10 @@ void GameRecordingTask::observe_image() {
             audio_frames_ * 4 > asset_detail::sequence_snapshot_byte_limit - png_bytes_ - size)
             throw std::runtime_error("Recording PNG and PCM snapshots exceed 256 MiB");
         png_bytes_ += std::size_t(size);
+        if (live_) {
+            live_->image_requested = false;
+            complete_live_image(std::size_t(size));
+        }
     } else if (!images_.error().empty()) {
         frame_image_done_ = true;
         if (!retiring_)
@@ -173,6 +195,13 @@ void GameRecordingTask::complete_file() {
         owns_folder_ = true;
         if (!retiring_) {
             require_source();
+            if (live_) {
+                require_launch();
+                phase_ = Phase::Launch;
+                status_ = "Preparing live Game output";
+                deadline_ = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+                return;
+            }
             try {
                 user_data_scoped_ = true;
                 host_.start(folder_ / "UserData");
@@ -189,6 +218,8 @@ void GameRecordingTask::complete_file() {
         }
     } else if (job == FileJob::Pcm) {
         audio_frames_ += bytes / 4;
+        if (live_)
+            return;
         ++completed_;
         if (!retiring_) {
             if (completed_ == unsigned(request_.frames))
@@ -196,6 +227,11 @@ void GameRecordingTask::complete_file() {
             else
                 begin_frame();
         }
+    } else if (job == FileJob::Normalize) {
+        live_->normalized = true;
+        audio_frames_ = bytes / 4;
+        if (!retiring_)
+            encode();
     } else if (job == FileJob::Receipt) {
         finished_ = true;
         phase_ = Phase::Done;
@@ -212,31 +248,38 @@ void GameRecordingTask::begin_frame() {
     frame_generation_ = play_.world_generation();
     frame_image_done_ = false;
     stable_ = 0;
-    const auto filename = request_.plan().filename(completed_);
+    const auto filename = request_.plan().filename(live_ ? captured_ : completed_);
     const auto path = folder_ / filename;
     asset_storage::ordinary(path);
     if (std::filesystem::exists(path))
         throw std::runtime_error("A recording frame destination was created by another writer");
-    frame_rows_.push_back(
-        {{"file", filename},
-         {"time_seconds", double(audio_frames_) / asset_detail::movie_audio_sample_rate},
-         {"audio_start_frame", audio_frames_},
-         {"presentation_seconds", play_.timing().at("presentation_seconds")},
-         {"simulation_tick", play_.timing().at("tick")},
-         {"alpha", play_.timing().at("alpha")}});
+    auto& rows = live_ ? live_->images : frame_rows_;
+    rows.push_back({{"file", filename},
+                    {"time_seconds", double(audio_frames_) / asset_detail::movie_audio_sample_rate},
+                    {"audio_start_frame", audio_frames_},
+                    {"presentation_seconds", play_.timing().at("presentation_seconds")},
+                    {"simulation_tick", play_.timing().at("tick")},
+                    {"alpha", play_.timing().at("alpha")}});
     if (request_.capture_scope == "session") {
-        frame_rows_.back()["scene"] = frame_scene_id_;
-        frame_rows_.back()["world_generation"] = frame_generation_;
-        frame_rows_.back()["source"] = visits_.back().at("source");
+        rows.back()["scene"] = frame_scene_id_;
+        rows.back()["world_generation"] = frame_generation_;
+        rows.back()["source"] = visits_.back().at("source");
+    }
+    if (live_) {
+        live_->image_requested = true;
+        if (host_.pixels)
+            sample_live_frame();
     }
     const auto accepted =
-        host_.pixels
-            ? images_.selected_path(ViewImageTask::View::Texture, path, project_, {},
-                                    image_message_, ViewImageFormat::Png, host_.pixels(completed_))
-            : images_.selected_path(ViewImageTask::View::Game, path, project_, frame_scene_id_,
-                                    image_message_, ViewImageFormat::Png);
+        host_.pixels ? images_.selected_path(ViewImageTask::View::Texture, path, project_, {},
+                                             image_message_, ViewImageFormat::Png,
+                                             host_.pixels(live_ ? captured_ : completed_))
+                     : images_.selected_path(ViewImageTask::View::Game, path, project_,
+                                             frame_scene_id_, image_message_, ViewImageFormat::Png);
     if (!accepted)
         throw std::runtime_error("Recording PNG request failed: " + images_.status());
+    if (live_ && host_.pixels)
+        live_->image_requested = false;
     phase_ = Phase::Image;
     status_ = "Recording game frame " + std::to_string(completed_ + 1) + " / " +
               std::to_string(request_.frames);
@@ -249,13 +292,19 @@ void GameRecordingTask::write_pcm(RecordedAudioFrame audio) {
         end * 4 > asset_detail::sequence_snapshot_byte_limit - png_bytes_)
         throw std::runtime_error(
             "Game audio receipt differs from its captured frame or byte budget");
+    append_pcm(std::move(audio.pcm), audio_frames_, asset_detail::avi_game_audio_byte_limit);
+    phase_ = Phase::Pcm;
+    status_ = "Saving completed game audio interval";
+}
+void GameRecordingTask::append_pcm(std::vector<std::byte> pcm, std::uint64_t cursor,
+                                   std::size_t limit) {
     const auto destination = folder_ / "audio.s16le";
-    const auto expected = audio_frames_ * 4;
-    file_ = std::async(std::launch::async, [destination, expected, pcm = std::move(audio.pcm)] {
+    const auto expected = cursor * 4;
+    file_ = std::async(std::launch::async, [destination, expected, limit, pcm = std::move(pcm)] {
         asset_storage::ordinary(destination);
         const auto path = asset_detail::native_io_path(destination);
         const auto size = std::filesystem::exists(path) ? std::filesystem::file_size(path) : 0;
-        if (size != expected || pcm.size() > asset_detail::avi_game_audio_byte_limit - size)
+        if (size != expected || size > limit || pcm.size() > limit - size)
             throw std::runtime_error("Recording PCM file changed before append");
         std::ofstream out;
         out.exceptions(std::ios::badbit | std::ios::failbit);
@@ -265,14 +314,13 @@ void GameRecordingTask::write_pcm(RecordedAudioFrame audio) {
         return pcm.size();
     });
     file_job_ = FileJob::Pcm;
-    phase_ = Phase::Pcm;
-    status_ = "Saving completed game audio interval";
 }
 void GameRecordingTask::encode() {
     stop_play();
     std::vector<std::string> names;
     for (unsigned frame = 0; frame < completed_; ++frame)
-        names.push_back(request_.plan().filename(frame));
+        names.push_back(live_ ? frame_rows_.at(frame).at("file").get<std::string>()
+                              : request_.plan().filename(frame));
     const auto request = request_;
     const auto project = project_, folder = folder_, worker = worker_;
     const auto stop = encoder_stop_.get_token();
@@ -306,11 +354,13 @@ Json GameRecordingTask::movie_document() const {
 }
 Json GameRecordingTask::receipt() const {
     auto frames = Json::array();
-    for (unsigned i = 0; i < captured_; ++i)
+    for (unsigned i = 0; i < (live_ ? completed_media_frames() : captured_); ++i)
         frames.push_back(frame_rows_.at(i));
     Json value{{"format", "forge.game-recording"},
-               {"version", request_.capture_scope == "session" ? 2 : 1},
-               {"mode", "offline_game"},
+               {"version", live_                                 ? 3
+                           : request_.capture_scope == "session" ? 2
+                                                                 : 1},
+               {"mode", live_ ? "live_game" : "offline_game"},
                {"state", terminal_},
                {"error", error_},
                {"reason", reason_},
@@ -325,7 +375,7 @@ Json GameRecordingTask::receipt() const {
                {"session", session_},
                {"world_generation", world_generation_},
                {"planned_frames", request_.frames},
-               {"completed_frames", completed_},
+               {"completed_frames", completed_media_frames()},
                {"captured_png_frames", captured_},
                {"width", request_.output.width},
                {"height", request_.output.height},
@@ -343,6 +393,19 @@ Json GameRecordingTask::receipt() const {
         value["profile"] = "offline-session-game-v2";
         value["visits"] = visits_;
         value["observed_audio_frames"] = observed_audio_frames_;
+    }
+    if (live_) {
+        value["recording_mode"] = "live";
+        value["capture_scope"] = "scene";
+        value["profile"] = "live-scene-game-v3";
+        value["capture_scene"] = frame_scene_id_;
+        value["observed_audio_frames"] = observed_audio_frames_;
+        value["audio_source_start_frame"] = live_->origin ? Json(*live_->origin) : Json();
+        value["audio_normalized"] = live_->normalized;
+        value["raw_audio_frames"] = live_->normalized ? live_->raw_audio_frames : audio_frames_;
+        value["images"] = Json::array();
+        for (unsigned i = 0; i < captured_; ++i)
+            value["images"].push_back(live_->images.at(i));
     }
     if (!replay_input_.is_null()) {
         const auto text = replay_input_.dump();
@@ -367,6 +430,8 @@ Json GameRecordingTask::receipt() const {
 }
 void GameRecordingTask::retire() {
     stop_play();
+    if (live_ && !service_live_audio())
+        return;
     if (images_.busy() || encoder_.valid() || file_.valid())
         return;
     if (!owns_folder_) {
@@ -378,6 +443,9 @@ void GameRecordingTask::retire() {
     write_receipt();
 }
 void GameRecordingTask::write_receipt() {
+    if (live_ && !live_->normalized && live_->origin && audio_frames_ >= *live_->origin)
+        fill_live_frames(asset_detail::avi_game_frames_at_audio(rate_, unsigned(request_.frames),
+                                                                audio_frames_ - *live_->origin));
     const auto destination = folder_ / "recording.json";
     auto text = receipt().dump(2);
     auto input = replay_input_.is_null() ? std::string{} : replay_input_.dump();
@@ -405,9 +473,21 @@ void GameRecordingTask::draw() {
             (void)cancel();
         return;
     }
-    ImGui::TextWrapped("Fresh offline game run with synchronized audio. Game logic and physics run "
-                       "at the project's fixed rate.");
+    ImGui::TextWrapped(request_.recording_mode == "live"
+                           ? "Record the current Play session with live input and sound. The "
+                             "current Scene defines this recording's scope."
+                           : "Fresh offline game run with synchronized audio. Game logic and "
+                             "physics run at the project's fixed rate.");
     if (phase_ == Phase::Configure && !retiring_) {
+        bool live = request_.recording_mode == "live";
+        if (ImGui::Checkbox("Record current Play", &live)) {
+            request_.recording_mode = live ? "live" : "offline";
+            if (live) {
+                request_.capture_scope = "scene";
+                request_.input_recording.clear();
+            }
+        }
+        FORGE_UI_PROBE("game-recording:mode");
         if (auto result = dialog_.take()) {
             if (!result->error.empty())
                 validation_ = result->error;
@@ -447,6 +527,7 @@ void GameRecordingTask::draw() {
         ImGui::SliderInt("##game-recording-quality", &request_.output.jpeg_quality,
                          FORGE_JPEG_QUALITY_MIN, FORGE_JPEG_QUALITY_MAX);
         FORGE_UI_PROBE("game-recording:quality");
+        ImGui::BeginDisabled(live);
         ImGui::TextUnformatted("Input recording (optional)");
         ImGui::SetNextItemWidth(-1);
         ImGui::InputText("##game-recording-input", &request_.input_recording);
@@ -457,9 +538,15 @@ void GameRecordingTask::draw() {
         if (ImGui::Checkbox("Across scenes", &across))
             request_.capture_scope = across ? "session" : "scene";
         FORGE_UI_PROBE("game-recording:scope");
+        ImGui::EndDisabled();
         bool valid = false;
         try {
             (void)request_.rate();
+            if (host_.unavailable)
+                if (const auto reason = host_.unavailable(); !reason.empty())
+                    throw std::runtime_error(reason);
+            if (const auto reason = unavailable(play_, request_.recording_mode); !reason.empty())
+                throw std::runtime_error(reason);
             const auto name = std::filesystem::u8path(name_.data());
             if (name.empty() || name.has_parent_path() || name == "." || name == ".." ||
                 !parent_[0])
@@ -476,9 +563,14 @@ void GameRecordingTask::draw() {
         if (!validation_.empty())
             ImGui::TextWrapped("%s", validation_.c_str());
         ImGui::TextWrapped(
-            "Includes PNG frames, stereo 48 kHz PCM16, a movie and a recording receipt. This run "
-            "uses fresh user data. Interactive input is unavailable. Across scenes admits up to "
-            "64 game-requested Scene visits; optional input must be an Across Scenes take.");
+            live
+                ? "Includes actual PNG captures, stereo 48 kHz PCM16, a movie and timing metadata. "
+                  "Missed video intervals repeat the last saved image. Scene changes stop the "
+                  "clip; "
+                  "Play and its user data stay in use."
+                : "Includes PNG frames, stereo 48 kHz PCM16, a movie and a recording receipt. "
+                  "This run uses fresh user data. Across scenes admits up to 64 game-requested "
+                  "Scene visits; optional input must be an Across Scenes take.");
         ImGui::BeginDisabled(!valid);
         if (ImGui::Button("Start recording"))
             try {

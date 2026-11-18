@@ -177,6 +177,52 @@ for legacy in protocol_cases():
             cancelled=settled()['game_recording']
             assert cancelled['state']=='cancelled' and not (root/'Output/CancelledGame/game.avi').exists(),cancelled
             assert read('forge_scene_read')==game_authored
+            assert schema['properties']['recording_mode']['enum']==['offline','live']
+            modes=read('forge_capture_game_read')
+            assert modes['recording_modes']==['offline','live'] and modes['live_capture_scopes']==['scene']
+            failed(mutate('forge_capture_game_start',**game_arguments('NoLivePlay',recording_mode='live')),
+                   'capture_busy')
+            assert not (root/'Output/NoLivePlay').exists()
+            ok('forge_play_start')
+            live=until(lambda:read('forge_play_status'),
+                       lambda p:p['ready'] and p['control_ready'] and not p['paused'])
+            launch=live['launch']
+            def play_control(tool):
+                current=until(lambda:read('forge_play_status'),lambda p:p['control_ready'])
+                return ok(tool,**{key:current[key] for key in ('launch','session','generation')})
+            modes=until(lambda:read('forge_capture_game_read'),lambda p:p['mode_readiness']['live']['ready'])
+            assert not modes['ready'] and modes['mode_readiness']['live']['ready']
+            for name,overrides in [('LiveSession',dict(capture_scope='session')),
+                                   ('LiveTake',dict(input_recording='Recordings/session.json'))]:
+                failed(mutate('forge_capture_game_start',**game_arguments(name,recording_mode='live',**overrides)),
+                       'invalid_arguments')
+                assert not (root/'Output'/name).exists()
+            accepted=ok('forge_capture_game_start',**game_arguments('LiveMovie',recording_mode='live',
+                                                                    frames_per_second=10,frame_count=30))
+            play_control('forge_play_pause')
+            until(lambda:read('forge_play_status'),lambda p:p['paused'])
+            play_control('forge_play_resume')
+            until(lambda:read('forge_play_status'),lambda p:not p['paused'])
+            live_game=settled()['game_recording']
+            live_receipt=json.loads((root/'Output/LiveMovie/recording.json').read_text())
+            assert live_game['state']=='complete' and live_game['recording_mode']=='live',live_game
+            assert live_receipt['version']==3 and live_receipt['audio_frames']==144000
+            assert len(live_receipt['frames'])==30 and live_receipt['audio_normalized']
+            live=read('forge_play_status')
+            assert live['active'] and live['launch']==launch and not live['paused']
+            assert not (root/'Output/LiveMovie/UserData').exists()
+            assert read('forge_scene_read')==game_authored
+            accepted=ok('forge_capture_game_start',**game_arguments('LiveCancelled',recording_mode='live',
+                                                                    frames_per_second=10,frame_count=600))
+            until(lambda:read('forge_capture_status'),
+                  lambda p:p['game_recording']['captured_png_frames']>0)
+            ok('forge_capture_cancel',operation=accepted['operation'])
+            assert settled()['game_recording']['state']=='cancelled'
+            live=read('forge_play_status')
+            assert live['active'] and live['launch']==launch
+            assert not (root/'Output/LiveCancelled/game.avi').exists()
+            play_control('forge_play_stop')
+            assert not read('forge_play_status')['active']
 
         if GAME_ONLY:
             print(('legacy' if legacy else 'current')+': focused game recording lifecycle, scope, replay, retained frames and preview PASS',flush=True)

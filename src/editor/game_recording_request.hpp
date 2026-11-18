@@ -8,11 +8,17 @@ namespace forge::ui {
 struct GameRecordingRequest {
     std::string input_recording;
     std::string capture_scope = "scene";
+    std::string recording_mode = "offline";
     std::filesystem::path destination;
     double fps = 30;
     int frames = 180;
     SequenceFrameOutput output{true, 1280, 720, false, true, FORGE_JPEG_DEFAULT_QUALITY};
     asset_detail::MovieFrameRate rate() const {
+        if (recording_mode != "offline" && recording_mode != "live")
+            throw std::runtime_error("Recording mode must be offline or live");
+        if (recording_mode == "live" && (capture_scope != "scene" || !input_recording.empty()))
+            throw std::runtime_error(
+                "Live recording uses the current Scene and its existing input");
         output.validate();
         if (capture_scope != "scene" && capture_scope != "session")
             throw std::runtime_error("Recording capture scope must be scene or session");

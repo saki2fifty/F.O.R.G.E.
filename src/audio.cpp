@@ -1,3 +1,5 @@
+#include "audio_capture_access.hpp"
+#include "audio_capture_buffer.hpp"
 #include "audio_convolution.hpp"
 #include "audio_preview_access.hpp"
 #include "audio_resource.hpp"
@@ -116,6 +118,7 @@ struct AudioRuntime::Impl {
     std::uint64_t tick = 0;
     std::atomic<unsigned> device_events{0};
     std::atomic<std::uint64_t> mixed_frames{0};
+    asset_detail::AudioCaptureBuffer capture;
     static_assert(std::atomic<std::uint64_t>::is_always_lock_free);
     std::thread::id owner = std::this_thread::get_id();
     ResourcePool<AudioClipAsset> clips{{2, max_voices, 4096, max_cache}};
@@ -635,8 +638,10 @@ struct AudioRuntime::Impl {
         ec.sampleRate = 48000;
         ec.listenerCount = 1;
         ec.pProcessUserData = this;
-        ec.onProcess = [](void* p, float*, ma_uint64 frames) {
-            static_cast<Impl*>(p)->mixed_frames.fetch_add(frames, std::memory_order_relaxed);
+        ec.onProcess = [](void* p, float* output, ma_uint64 frames) {
+            auto& self = *static_cast<Impl*>(p);
+            self.mixed_frames.fetch_add(frames, std::memory_order_relaxed);
+            self.capture.observe(output, frames);
         };
         ec.notificationCallback = [](const ma_device_notification* n) {
             auto* e = static_cast<ma_engine*>(n->pDevice->pUserData);
@@ -714,6 +719,7 @@ struct AudioRuntime::Impl {
         cue_query.reset();
         if (engine_ready && config.output != AudioOutput::Offline)
             (void)ma_engine_stop(&engine);
+        capture.disable();
         voices.clear();
         commands.clear();
         pending_sources.clear();
@@ -2428,6 +2434,54 @@ void AudioRuntime::read_offline(std::span<float> out) {
         offset += count;
     }
     impl_->reap_finished();
+}
+void AudioCaptureAccess::check_owner(const AudioRuntime& runtime) {
+    if (runtime.impl_->owner != std::this_thread::get_id())
+        throw std::runtime_error("Live audio capture requires its owner thread");
+}
+void AudioCaptureAccess::begin(AudioRuntime& runtime) {
+    runtime.impl_->check();
+    if (!runtime.impl_->engine_ready || runtime.impl_->config.output == AudioOutput::Offline)
+        throw std::runtime_error("Live audio capture requires an existing device mixer");
+    runtime.impl_->capture.start();
+}
+void AudioCaptureAccess::end(AudioRuntime& runtime) {
+    check_owner(runtime);
+    runtime.impl_->capture.stop();
+}
+std::vector<float> AudioCaptureAccess::read(AudioRuntime& runtime, unsigned maximum_frames) {
+    check_owner(runtime);
+    return runtime.impl_->capture.read(maximum_frames);
+}
+Json AudioCaptureAccess::status(const AudioRuntime& runtime) {
+    check_owner(runtime);
+    const auto progress = runtime.impl_->capture.progress();
+    std::string error;
+    switch (progress.failure) {
+    case asset_detail::AudioCaptureBuffer::Failure::None:
+        break;
+    case asset_detail::AudioCaptureBuffer::Failure::Overflow:
+        error = "Live audio capture queue overflow; completed prefix retained";
+        break;
+    case asset_detail::AudioCaptureBuffer::Failure::Nonfinite:
+        error = "Live audio mixer produced invalid PCM; completed prefix retained";
+        break;
+    case asset_detail::AudioCaptureBuffer::Failure::Queue:
+        error = "Live audio capture queue failed; completed prefix retained";
+        break;
+    }
+    return {{"state", !error.empty()        ? "failed"
+                      : progress.active     ? "recording"
+                      : progress.generation ? "stopped"
+                                            : "idle"},
+            {"generation", progress.generation},
+            {"captured_frames", progress.captured_frames},
+            {"read_frames", progress.read_frames},
+            {"queued_frames", progress.queued_frames},
+            {"sample_rate", asset_detail::AudioCaptureBuffer::sample_rate},
+            {"channels", asset_detail::AudioCaptureBuffer::channels},
+            {"maximum_queued_frames", asset_detail::AudioCaptureBuffer::maximum_queued_frames},
+            {"error", std::move(error)}};
 }
 asset_detail::AudioClipInfo AudioPreviewAccess::clip(AudioRuntime& runtime, EntityRef ref) {
     runtime.impl_->check();

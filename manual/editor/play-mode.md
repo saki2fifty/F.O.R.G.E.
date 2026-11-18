@@ -147,11 +147,15 @@ Global Play/Pause/Step/Stop are also in **Run**, the command palette and the **M
 
 Use **Capture gameplay input** in Game. Escape, focus loss, hiding Game, or clicking outside its image releases input. Editor buttons receive that outside click. Runtime HUD and Reload UI belong to Game. Authoring stays locked during Play.
 
-## Record a fresh game run
+## Record a game movie
 
-Stop Play, then choose **Run → Record game…** to render an offline movie with
-game behavior, physics, HUD animation and sound. This starts a fresh run with
-private UserData and stops that run on completion or cancellation. Use the
-recording window's **Cancel** control; interactive input and Pause are unavailable
-in this profile. See [Record a game movie](game-recording.md) for setup, output and
-current limits.
+Choose **Run → Record game…** while ordinary Play is active to record its current
+Game output, input-driven behavior and sound. **Record current Play** keeps the
+same world and user data; Pause and Resume remain available. Completing or
+cancelling the clip leaves Play running. A runtime Scene change stops that clip.
+
+For a fresh offline movie, stop Play and leave **Record current Play** off. This
+starts at tick zero with private UserData and stops its run when the movie
+finishes or is cancelled. Interactive input and Pause are unavailable in that
+mode. Use **Across scenes** to include game-requested Scene changes. See
+[Record a game movie](game-recording.md) for setup, output and limits.

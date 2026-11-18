@@ -38,6 +38,10 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
               const std::filesystem::path& worker, const std::filesystem::path& root, float scale,
               bool narrow, int record, const std::filesystem::path& module = {}) {
     const bool session_movie = record == 3;
+    const bool live = record >= 4;
+    const bool live_scene_change = record == 7;
+    const bool cancel_movie = record == 2 || record == 5;
+    const bool run_movie = record != 0 && record != 6;
     const auto project = root / "Project";
     std::filesystem::create_directories(root);
     std::filesystem::copy(gallery, project, std::filesystem::copy_options::recursive);
@@ -53,8 +57,22 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
     settings["game"] = default_game_settings(
         "org.forge.recording-render-" + AssetId::generate().str(), "Recording rendering fixture");
     files.document.save_settings(settings);
-    if (session_movie) {
-        check(!module.empty(), "Session movie needs its original SDK example module");
+    if (live) {
+        auto candidate = scene.document();
+        unsigned sources = 0;
+        for (auto& entity : candidate.at("entities"))
+            if (auto& components = entity.at("components");
+                components.contains("forge.audio_source")) {
+                auto& source = components.at("forge.audio_source");
+                source["play_on_start"] = source["loop"] = true;
+                ++sources;
+            }
+        check(sources != 0, "Live recording fixture needs its existing audio source");
+        scene.edit(candidate);
+        files.document.save();
+    }
+    if (session_movie || live_scene_change) {
+        check(!module.empty(), "Scene transition movie needs its original SDK example module");
         std::filesystem::copy_file(module, project / module.filename());
         const auto runtime_path = path_utf8(runtime);
         const char* arguments[]{runtime_path.c_str(), "--sdk-info", nullptr};
@@ -204,31 +222,63 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
         request.input_recording = "Recordings/movie.json";
         request.frames = 4;
     }
+    if (live) {
+        request.recording_mode = "live";
+        request.fps = 10;
+        request.frames = live_scene_change ? 600 : 15;
+        play.configure(60, ProjectSettings(project).input(), {0, -9.81, 0}, project, true, true);
+        play.set_headless_audio(true, true);
+        play.set_user_data_override(root / "LiveUserData");
+        play.start(path_utf8(runtime), scene.snapshot());
+    }
+    const auto original_launch = play.launch_id();
+    const auto original_user_data = play.user_data_override();
+    unsigned starts = 0, stops = 0;
+    ui::GameRecordingTask* task = nullptr;
+    std::set<unsigned> referenced;
+    Json samples = Json::array();
+    const auto save_reference = [&](ITextureView* output, unsigned index) {
+        check(!referenced.contains(index), "Game image was copied more than once");
+        test::ViewImageReference reference;
+        reference.queue(presentation.device(), graphics, output);
+        const auto rgba = reference.read(graphics);
+        const auto& extent = output->GetTexture()->GetDesc();
+        save_view_png(root / ("reference-" + std::to_string(index) + ".png"), extent.Width,
+                      extent.Height, rgba);
+        samples.push_back(
+            {{"frame", index}, {"timing", play.timing()}, {"world", play.effective_snapshot()}});
+        referenced.insert(index);
+    };
     ui::GameRecordingHost host;
     host.start = [&](const auto& user_data) {
+        ++starts;
         play.configure(60, session_movie ? ProjectSettings(project).input() : InputMap{},
                        {0, -9.81, 0}, project, true, true);
         play.set_user_data_override(user_data);
         play.start(path_utf8(runtime), scene.snapshot(), false, Json(), true);
     };
-    host.stop = [&] { play.stop(); };
+    host.stop = [&] {
+        ++stops;
+        play.stop();
+    };
     host.poll_images = [&](auto& task, auto* context, const auto& path, AssetId id, auto& status) {
         task.poll(presentation, context, path, id, status);
     };
-    host.capture_image = [](auto& task, auto& owner, auto* context, auto* texture, auto& status) {
-        task.capture(ui::ViewImageTask::View::Game, owner, context, texture, status);
+    host.capture_image = [&](auto& image, auto& owner, auto* context, auto* texture, auto& status) {
+        if (live)
+            save_reference(texture,
+                           task->state().at("captured_png_frames").template get<unsigned>());
+        image.capture(ui::ViewImageTask::View::Game, owner, context, texture, status);
     };
     host.abandon_readback = [&] { presentation.cancel_readback(); };
     auto work = std::make_unique<ui::GameRecordingTask>(scene, files.document, play, worker,
                                                         request, std::move(host), true);
-    auto* task = work.get();
+    task = work.get();
     std::string message;
     check(images.begin_work(std::move(work), project, scene.asset_id(), message),
           "Recording did not open");
     std::string observed_session;
     std::uint64_t release_epoch = 0;
-    std::set<unsigned> referenced;
-    Json samples = Json::array();
     const auto frame = [&] {
         presentation.begin_frame();
         play.pump();
@@ -269,19 +319,11 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
             const bool ready = !renderer->pending() && renderer->diagnostics().empty();
             const auto state = task->state();
             const auto index = state.at("completed_frames").get<unsigned>();
-            if (ready && state.at("state") == "image" &&
+            if (!live && ready && state.at("state") == "image" &&
                 (session_movie ? index < unsigned(request.frames)
                                : (index == 0 || index == 15 || index == 30)) &&
                 !referenced.contains(index)) {
-                test::ViewImageReference reference;
-                reference.queue(presentation.device(), graphics, output);
-                const auto rgba = reference.read(graphics);
-                save_view_png(root / ("reference-" + std::to_string(index) + ".png"), extent.width,
-                              extent.height, rgba);
-                samples.push_back({{"frame", index},
-                                   {"timing", play.timing()},
-                                   {"world", play.effective_snapshot()}});
-                referenced.insert(index);
+                save_reference(output, index);
             }
             images.capture(ui::ViewImageTask::View::Game, presentation, graphics, output, message,
                            ready);
@@ -303,13 +345,40 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
     };
     for (unsigned i = 0; i < 8; ++i)
         frame();
+    if (live) {
+        const auto deadline = SDL_GetTicks() + 15000;
+        while ((!play.control_ready() || play.paused()) && SDL_GetTicks() < deadline) {
+            frame();
+            SDL_Delay(1);
+        }
+        check(play.control_ready() && !play.paused(), "Live graphical Play did not become ready");
+        if (live_scene_change)
+            for (unsigned visit = 0; visit < 2; ++visit) {
+                const auto generation = play.world_generation();
+                play.input_event({"key.tab", 1});
+                play.input_event({"key.tab", 0});
+                const auto until = SDL_GetTicks() + 15000;
+                while ((play.world_generation() == generation || !play.control_ready()) &&
+                       SDL_GetTicks() < until) {
+                    frame();
+                    SDL_Delay(1);
+                }
+                check(play.world_generation() != generation && play.control_ready(),
+                      "Scene transition fixture did not warm both existing Game worlds");
+                for (unsigned i = 0; i < 8; ++i)
+                    frame();
+            }
+        frame();
+    }
     for (const char* key :
-         {"game-recording:parent", "game-recording:name", "game-recording:fps",
-          "game-recording:frames", "game-recording:width", "game-recording:height",
-          "game-recording:quality", "game-recording:input", "game-recording:scope",
-          "game-recording:start", "game-recording:cancel"}) {
+         {"game-recording:mode", "game-recording:parent", "game-recording:name",
+          "game-recording:fps", "game-recording:frames", "game-recording:width",
+          "game-recording:height", "game-recording:quality", "game-recording:input",
+          "game-recording:scope", "game-recording:start", "game-recording:cancel"}) {
         const auto& box = test::ui_targets.at(key);
-        check(box.enabled && box.minimum.x >= box.clip_minimum.x &&
+        const bool enabled = !live || (std::string_view(key) != "game-recording:input" &&
+                                       std::string_view(key) != "game-recording:scope");
+        check(box.enabled == enabled && box.minimum.x >= box.clip_minimum.x &&
                   box.maximum.x <= box.clip_maximum.x && box.minimum.y >= box.clip_minimum.y &&
                   box.maximum.y <= box.clip_maximum.y,
               std::string("Recording control disabled or clipped: ") + key);
@@ -318,36 +387,71 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
     capture.queue(presentation.device(), graphics, srv);
     save_view_png(root / "controls.png", width, height, capture.read(graphics));
     test::ImGuiInputDriver input(frame);
-    input.click(record ? "game-recording:start" : "game-recording:cancel");
-    if (record) {
+    input.click(run_movie ? "game-recording:start" : "game-recording:cancel");
+    if (run_movie) {
         const auto end = SDL_GetTicks() + 90000;
-        bool cancelled = false;
+        bool cancelled = false, changed_scene = false;
         while (images.busy() && SDL_GetTicks() < end) {
             frame();
-            if (record == 2 && !cancelled && task->state().at("captured_png_frames") != 0) {
+            if (cancel_movie && !cancelled && task->state().at("captured_png_frames") != 0) {
                 input.click("game-recording:cancel");
                 cancelled = true;
             }
+            if (live_scene_change && !changed_scene &&
+                task->state().at("captured_png_frames") != 0) {
+                play.input_event({"key.tab", 1});
+                play.input_event({"key.tab", 0});
+                changed_scene = true;
+            }
             SDL_Delay(1);
         }
-        check(!images.busy() &&
-                  task->state().at("state") == (record == 2 ? "cancelled" : "complete"),
+        check(!images.busy() && task->state().at("state") == (cancel_movie        ? "cancelled"
+                                                              : live_scene_change ? "failed"
+                                                                                  : "complete"),
               "Rendered recording failed: " + task->state().dump() +
                   " | transport=" + play.fixture_transport_state().dump() + " | recording=" +
                   play.recording_status().dump() + " | loading=" + play.sdk_loading().dump());
-        check((record == 2 ? cancelled && !referenced.empty()
-                           : referenced.size() == (session_movie ? 4u : 3u)) &&
-                  !play.active(),
+        check((cancel_movie ? cancelled && !referenced.empty()
+               : live       ? !referenced.empty()
+                            : referenced.size() == (session_movie ? 4u : 3u)) &&
+                  play.active() == live,
               "Recording omitted sampled frames, cancellation or Play retirement");
         asset_storage::replace(root / "render-samples.json", samples.dump(2));
-        if (record != 2)
-            check(std::filesystem::file_size(root / "Movie/audio.s16le") ==
-                      (session_movie ? 6400u : 49600u) * 4,
+        if (!cancel_movie && !live_scene_change)
+            check(std::filesystem::file_size(root / "Movie/audio.s16le") == (live ? 72000u
+                                                                             : session_movie
+                                                                                 ? 6400u
+                                                                                 : 49600u) *
+                                                                                4,
                   "Rendered recording PCM duration differs");
         else
             check(!std::filesystem::exists(root / "Movie/game.avi") &&
                       std::filesystem::exists(root / "Movie/frame-000000.png"),
                   "Native cancellation published a partial movie or lost its PNG");
+        if (live) {
+            const auto receipt =
+                Json::parse(asset_storage::read(root / "Movie/recording.json").value());
+            check(receipt.at("version") == 3 && receipt.at("mode") == "live_game" &&
+                      receipt.at("captured_png_frames") == referenced.size() &&
+                      play.live_audio_status().at("state") == "stopped" &&
+                      play.live_audio_status().at("queued_frames") == 0,
+                  "Live rendered recording lost saved images or left its tap active: " +
+                      play.live_audio_status().dump() + " | " + task->state().dump());
+            if (live_scene_change)
+                check(
+                    changed_scene && play.world_generation() != receipt.at("world_generation") &&
+                        receipt.at("capture_scene") == authored.at("asset_id"),
+                    "Live Scene guard did not retain the old image scope and admit the new world");
+            for (const auto& sample : samples) {
+                const auto& image = receipt.at("images").at(sample.at("frame").get<unsigned>());
+                check(image.at("scene") == sample.at("world").at("asset_id") &&
+                          image.at("simulation_tick") == sample.at("timing").at("tick"),
+                      "Live PNG receipt differs from the actual copied Game world");
+            }
+            const auto pcm = asset_detail::read_bytes(root / "Movie/audio.s16le", 1024 * 1024);
+            check(std::ranges::any_of(pcm, [](std::byte b) { return b != std::byte{}; }),
+                  "Live rendered recording omitted the actual mixer tone");
+        }
         if (session_movie) {
             const auto receipt =
                 Json::parse(asset_storage::read(root / "Movie/recording.json").value());
@@ -369,15 +473,22 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
         }
     } else {
         frame();
-        check(!images.busy() && !play.active() && !std::filesystem::exists(root / "Movie"),
+        check(!images.busy() && play.active() == live && !std::filesystem::exists(root / "Movie"),
               "Cancelling options launched Play or created output");
     }
     check(scene.snapshot() == authored && scene.revision() == revision,
           "Native recording altered the authored Scene");
+    if (live)
+        check(play.launch_id() == original_launch &&
+                  play.user_data_override() == original_user_data && !play.paused() && !starts &&
+                  !stops && !std::filesystem::exists(root / "Movie/UserData"),
+              "Live recording replaced, stopped or redirected the original Play session");
     test::observe_ui = false;
     test::ui_targets.clear();
     staged.clear(play);
     runtime_ui.clear(play);
+    if (live)
+        play.stop();
     graphics->WaitForIdle();
 }
 } // namespace
@@ -390,7 +501,8 @@ int main(int argc, char** argv) {
                       << '\n';
             return 0;
         }
-        check(argc == 5 || argc == 6 ||
+        const bool live_only = argc == 7 && std::string_view(argv[6]) == "--live-only";
+        check(argc == 5 || argc == 6 || live_only ||
                   (argc == 7 && std::string_view(argv[6]) == "--session-only"),
               "Need Gallery, matching SDK runtime, asset worker, output root and optional module");
         const auto root = std::filesystem::absolute(argv[4]) / AssetId::generate().str();
@@ -408,13 +520,31 @@ int main(int argc, char** argv) {
                         std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
                         root / ((narrow ? "narrow-" : "wide-") + std::to_string(int(scale * 100))),
                         scale, narrow, scale == 1 ? (narrow ? 2 : 1) : 0);
-        if (argc >= 6)
+        if (argc >= 6 && !live_only)
             exercise(presentation, graphics, std::filesystem::absolute(argv[1]),
                      std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
                      root / "session", 1, false, 3, std::filesystem::absolute(argv[5]));
+        if (argc != 7 || live_only)
+            for (float scale : {1.f, 1.5f, 2.f})
+                for (bool narrow : {false, true})
+                    exercise(presentation, graphics, std::filesystem::absolute(argv[1]),
+                             std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                             root / ((narrow ? "live-narrow-" : "live-wide-") +
+                                     std::to_string(int(scale * 100))),
+                             scale, narrow, scale == 1 ? (narrow ? 5 : 4) : 6);
+        if (argc >= 6 && (argc != 7 || live_only))
+            exercise(presentation, graphics, std::filesystem::absolute(argv[1]),
+                     std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                     root / "live-scene-change", 1, false, 7, std::filesystem::absolute(argv[5]));
         std::cout << Json{{"output", path_utf8(root)},
-                          {"native_layouts", argc == 7 ? 1 : 6},
-                          {"rendered_game_frames", argc == 7 ? 4 : 31},
+                          {"native_layouts", live_only   ? 7
+                                             : argc == 7 ? 1
+                                             : argc >= 6 ? 14
+                                                         : 12},
+                          {"offline_movie_frames", live_only   ? 0
+                                                   : argc == 7 ? 4
+                                                               : 31},
+                          {"live_movie_frames", live_only || argc != 7 ? 15 : 0},
                           {"backend", "software Vulkan"}}
                          .dump()
                   << '\n';

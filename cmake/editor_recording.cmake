@@ -4,7 +4,7 @@ set(_forge_recording_headers "${diligent_SOURCE_DIR}")
 if(NOT _forge_recording_headers AND FETCHCONTENT_SOURCE_DIR_DILIGENT)
  set(_forge_recording_headers "${FETCHCONTENT_SOURCE_DIR_DILIGENT}")
 endif()
-add_library(forge_game_recording_editor STATIC src/editor/game_recording_task.cpp)
+add_library(forge_game_recording_editor STATIC src/editor/game_recording_task.cpp src/editor/live_game_recording.cpp)
 target_include_directories(forge_game_recording_editor PUBLIC src src/editor)
 target_include_directories(forge_game_recording_editor SYSTEM PUBLIC
  "${_forge_recording_headers}/DiligentCore" "${_forge_recording_headers}/DiligentFX/PBR/interface")

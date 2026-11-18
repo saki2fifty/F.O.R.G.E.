@@ -79,6 +79,7 @@ struct Fixture {
     std::filesystem::path content_root;
     bool audio_enabled = false;
     bool recording_enabled = false;
+    AudioOutput audio_output = AudioOutput::Offline;
 
     explicit Fixture() {
         project_root = temp_root();
@@ -115,7 +116,7 @@ SdkPlayRuntime::Config make_config(Fixture& f) {
     config.ui = false;
     config.recording = f.recording_enabled;
     if (f.audio_enabled)
-        config.audio = AudioConfig{f.content_root, AudioOutput::Offline, true};
+        config.audio = AudioConfig{f.content_root, f.audio_output, true};
     return config;
 }
 
@@ -2620,6 +2621,7 @@ void property_tune_rejects_wrong_world_or_unadmitted_type() {
           "Rejected live tuning changed active scene");
 }
 
+#include "audio_capture_sdk_tests.hpp"
 #include "game_recording_sdk_tests.hpp"
 #include "input_recording_sdk_tests.hpp"
 
@@ -2629,6 +2631,7 @@ int run() {
         game_recording_sdk_tests();
         session_game_recording_sdk_tests();
         movie_scene_response_budget();
+        live_audio_capture_sdk_tests();
         input_recording_sdk_tests();
         input_recording_sdk_tests(true);
         session_input_scene_transitions();

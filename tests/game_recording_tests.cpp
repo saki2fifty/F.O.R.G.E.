@@ -23,6 +23,78 @@ template <class F> void rejects(F action) {
     }
     throw std::runtime_error("Invalid recording operation was accepted");
 }
+void live_audio_protocol() {
+    for (const auto& [samples, frames] : std::array<std::pair<unsigned, unsigned>, 6>{
+             {{0, 0}, {1599, 0}, {1600, 1}, {47999, 29}, {48000, 30}, {48001, 30}}})
+        check(asset_detail::avi_game_frames_at_audio({30, 1}, 30, samples) == frames,
+              "Live movie mapping changed an exact integral audio boundary");
+    for (const auto& [samples, frames] : std::array<std::pair<unsigned, unsigned>, 6>{
+             {{1601, 0}, {1602, 1}, {3202, 1}, {3203, 2}, {4804, 2}, {4805, 3}}})
+        check(asset_detail::avi_game_frames_at_audio({30000, 1001}, 3, samples) == frames,
+              "Live movie mapping rounded fractional intervals repeatedly");
+    check(asset_detail::avi_game_frames_at_audio({30, 1}, 30,
+                                                 std::numeric_limits<std::uint64_t>::max()) == 30,
+          "A large live cursor exceeded the movie's frame bound");
+    rejects([] { (void)asset_detail::avi_game_frames_at_audio({0, 1}, 30, 0); });
+    rejects([] { (void)asset_detail::avi_game_frames_at_audio({30, 1}, 4097, 0); });
+    const auto scene = AssetId::generate();
+    Json status{{"state", "recording"},
+                {"generation", 2u},
+                {"world_generation", 7u},
+                {"scene", scene},
+                {"active_generation", 7u},
+                {"captured_frames", 20u},
+                {"read_frames", 4u},
+                {"queued_frames", 16u},
+                {"sample_rate", 48000u},
+                {"channels", 2u},
+                {"maximum_queued_frames", 96000u},
+                {"error", ""}};
+    validate_live_audio_status(status, 7, scene, 2);
+    rejects([&] { validate_live_audio_status(status, 8, scene, 2); });
+    rejects([&] { validate_live_audio_status(status, 7, AssetId::generate(), 2); });
+    rejects([&] { validate_live_audio_status(status, 7, scene, 1); });
+    for (const auto* field :
+         {"generation", "world_generation", "active_generation", "captured_frames", "read_frames",
+          "queued_frames", "sample_rate", "channels", "maximum_queued_frames"})
+        for (const Json& invalid : {Json(true), Json(-1), Json(1.5), Json("0")}) {
+            auto bad = status;
+            bad[field] = invalid;
+            rejects([&] { validate_live_audio_status(bad, 7, scene, 2); });
+        }
+    for (const auto& changes :
+         {Json{{"captured_frames", 3u}}, Json{{"captured_frames", 21u}},
+          Json{{"queued_frames", 96001u}}, Json{{"state", "unknown"}}, Json{{"generation", 0u}},
+          Json{{"error", "unexpected failure"}}, Json{{"state", "failed"}}}) {
+        auto bad = status;
+        bad.update(changes);
+        rejects([&] { validate_live_audio_status(bad, 7, scene, 2); });
+    }
+    status["state"] = "failed";
+    status["error"] = "Retained prefix";
+    validate_live_audio_status(status, 7, scene, 2);
+    const std::vector<std::byte> pcm{std::byte{0}, std::byte{0}, std::byte{255}, std::byte{127}};
+    Json chunk{{"format", "s16le-stereo-48000-v1"},
+               {"start_audio_frame", 16u},
+               {"audio_frames", 1u},
+               {"data", encode_base64(pcm)}};
+    const auto decoded = read_live_audio(chunk, 16, 2);
+    check(decoded.start_audio_frame == 16 && decoded.pcm == pcm,
+          "Live PCM decoder changed its sequential stereo prefix");
+    rejects([&] { (void)read_live_audio(chunk, 17, 2); });
+    rejects([&] { (void)read_live_audio(chunk, 16, 0); });
+    rejects([&] { (void)read_live_audio(chunk, 16, 4097); });
+    for (const auto& changes : {Json{{"format", "unknown"}}, Json{{"start_audio_frame", true}},
+                                Json{{"audio_frames", 2u}}, Json{{"audio_frames", 4097u}},
+                                Json{{"data", "%%%"}}, Json{{"extra", 1u}}}) {
+        auto bad = chunk;
+        bad.update(changes);
+        rejects([&] { (void)read_live_audio(bad, 16, 2); });
+    }
+    chunk["audio_frames"] = 0u;
+    chunk["data"] = "";
+    check(read_live_audio(chunk, 16, 2).pcm.empty(), "An empty live interval was not retained");
+}
 void policy() {
     for (const auto fps : {.5, 241., std::numeric_limits<double>::quiet_NaN()})
         rejects([&] { GameRecording invalid(fps, 3); });
@@ -338,6 +410,7 @@ int main(int argc, char** argv) {
     try {
         check(argc == 3, "Need Gallery and output paths");
         policy();
+        live_audio_protocol();
         resumable_frames();
         visit_receipts();
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();

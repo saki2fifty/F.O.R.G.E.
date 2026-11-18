@@ -2835,14 +2835,15 @@ capture/test environment and limits. These are Release/GCC12 software Vulkan
 captures; Windows, physical GPU/input/DPI and graphical executable review remain
 separate.
 
-## Fresh game recording
+## Game recording
 
-`manual/images/game-recording-options.png` is the production recording dialog;
+`manual/images/game-recording-options.png` shows fresh offline recording;
+`manual/images/game-recording-live-options.png` shows current Play recording;
 `manual/images/game-recording-frame.png` is the recorded Gallery182 Game display.
-Both are unretouched canonical PNGs. [Game recording](../../game-recording.md)
+All three are unretouched canonical PNGs. [Game recording](../../game-recording.md)
 records hashes, capture sources, independent movie/audio validation and software
 Vulkan limitations. The fixture exercises production scoped recording,
-PlayPresentation, runtime UI, six control layouts and private cross-Scene movie
+PlayPresentation, runtime UI, fourteen native control/movie cases and private cross-Scene movie
 copies with real SDK behavior and sound; complete Windows Main,
 physical GPU/input/DPI, external client and player review remain separate.
 

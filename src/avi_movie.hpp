@@ -42,6 +42,20 @@ inline void validate_avi_game_timing(MovieFrameRate fps, unsigned frames) {
         throw std::runtime_error(
             "Game recording requires1..240FPS,1..4096frames and at most128MiB PCM");
 }
+inline unsigned avi_game_frames_at_audio(MovieFrameRate fps, unsigned maximum_frames,
+                                         std::uint64_t samples) {
+    if (!valid_movie_frame_rate(fps) || maximum_frames > FORGE_SEQUENCE_FRAME_MAX_COUNT)
+        throw std::runtime_error("Invalid movie audio/frame mapping");
+    unsigned first = 0, last = maximum_frames + 1;
+    while (first + 1 < last) {
+        const auto middle = first + (last - first) / 2;
+        if (avi_movie_audio_frames(fps, middle) <= samples)
+            first = middle;
+        else
+            last = middle;
+    }
+    return first;
+}
 
 // Private bounded MJPEG AVI writer, optionally interleaved with stereo PCM16.
 // JPEG encoding, audio mixing and pixel/color admission retain their owners.

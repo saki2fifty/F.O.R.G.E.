@@ -1949,12 +1949,13 @@ scale, duration_seconds and jpeg_quality. No loop directive or movie image block
 invented. Existing source revision/generation, output grants, cancellation, retained
 PNGs and preview restoration apply. See [the exact profile](sequence-movie-export.md).
 
-Fresh game recording uses `capture_game_read/start`. Read the current `scene`,
+Game recording uses `capture_game_read/start`. Read the current `scene`,
 `source_revision` and `document_generation`, then supply all three to Start with
 a NEW output-root-relative `path`, `frames_per_second`, `frame_count`, `width`
 and `height`; `jpeg_quality` defaults to90. The method requires both execution
 and output grants and advertises `openWorldHint:true` because Project Code runs.
-It starts its own fresh exact-SDK Play process and private UserData, captures the
+The default `recording_mode:"offline"` starts its own fresh exact-SDK Play process
+and private UserData, captures the
 Game image, then mixes and advances through existing runtime owners. FPS1–240,
 1–4096frames, PCM128MiB and combined snapshots/movie256MiB apply. Interactive
 input, Pause and restoration of an existing live C++ world are unavailable.
@@ -1965,6 +1966,17 @@ version1 for scene scope. A mismatch rejects before output creation or launch.
 Game code must request the take's Scene sequence. Discovery advertises
 `capture_scopes` and `maximum_scene_visits`. Session receipts include per-PNG
 Scene/generation/local-tick identities and observed Scene/sample boundaries.
+
+Discovery also reports `recording_modes`, per-mode `mode_readiness` and
+`live_capture_scopes:["scene"]`; existing top-level readiness/scopes refer to
+fresh offline recording. `recording_mode:"live"` attaches to ready ordinary SDK
+Play with its current device/world/user data. Only scene scope and no new saved
+input path are accepted. Normal live input, Pause and Resume remain available;
+completion/Cancel leaves Play running. A runtime Scene change fails the clip,
+retains completed output and drains the original audio lease while the game
+continues. Live receipts separate actual PNGs from logical movie frames that
+can repeat a previously saved image. Mixer/render timing is observed, without
+a physical sample-accurate audiovisual guarantee.
 
 Poll `capture_status.game_recording` until retirement. Success retains PNGs,
 `audio.s16le`, `recording.json` and `game.avi` with MJPEG/48kHz stereo PCM16.

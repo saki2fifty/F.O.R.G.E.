@@ -55,6 +55,7 @@ class AudioRuntime : public AudioService {
   private:
     friend struct AudioPreviewAccess;
     friend struct AudioSourceAccess;
+    friend struct AudioCaptureAccess;
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

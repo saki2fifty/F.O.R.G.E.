@@ -61,9 +61,7 @@ class PlaySession {
         if (active())
             model_assets_changed_ = true;
     }
-    bool control_ready() const {
-        return ready() && control_.empty() && (!waiting_ || sent_command_ == "snapshot");
-    }
+    bool control_ready() const { return ready() && control_queue_ready(); }
 #ifdef FORGE_UI_FIXTURE
     Json fixture_transport_state() const {
         return {{"stage", unsigned(stage_)},
@@ -423,6 +421,66 @@ class PlaySession {
     }
     bool headless_audio() const { return headless_audio_ != nullptr; }
     bool recording_launch() const { return offline_recording_; }
+    bool live_audio_supported() const {
+        return sdk_game_ && !offline_recording_ && live_audio_supported_;
+    }
+    bool live_audio_ready() const {
+        return live_audio_supported() && active() &&
+               (stage_ == Stage::Preparing || stage_ == Stage::Running) && control_queue_ready();
+    }
+    const Json& live_audio_status() const { return live_audio_status_; }
+    const std::string& live_audio_error() const { return live_audio_error_; }
+    bool live_audio_retiring() const { return live_audio_retiring_; }
+    bool live_audio_pending() const {
+        return !live_audio_command_.is_null() || (waiting_ && sent_command_ == "audio_capture");
+    }
+    std::optional<LiveAudioChunk> take_live_audio() { return std::exchange(live_audio_frame_, {}); }
+    void retire_live_audio() {
+        live_audio_retiring_ =
+            live_audio_supported() && (live_audio_pending() || live_audio_status_.is_object());
+        live_audio_frame_.reset();
+    }
+    bool submit_live_audio(const std::string& operation, unsigned maximum_frames = 4096) {
+        if (!(operation == "begin"
+                  ? live_audio_supported() && control_ready() && !live_audio_retiring_
+                  : live_audio_ready()) ||
+            live_audio_pending() || (live_audio_frame_ && operation != "end") ||
+            (operation != "begin" && operation != "read" && operation != "end") ||
+            !maximum_frames || maximum_frames > 4096)
+            return false;
+        if (operation != "begin" && !live_audio_status_.is_object())
+            return false;
+        if (operation == "begin" && live_audio_status_.is_object() &&
+            (live_audio_status_.at("state") == "recording" ||
+             live_audio_status_.at("queued_frames") != 0))
+            return false;
+        live_audio_requested_operation_ = operation;
+        live_audio_error_.clear();
+        if (operation == "begin") {
+            live_audio_requested_world_ = world_generation();
+            live_audio_requested_scene_ = snapshot_.at("asset_id").get<AssetId>();
+            live_audio_requested_capture_ = live_audio_requested_cursor_ = 0;
+        } else {
+            live_audio_requested_world_ =
+                live_audio_status_.at("world_generation").get<std::uint64_t>();
+            live_audio_requested_scene_ = live_audio_status_.at("scene").get<AssetId>();
+            live_audio_requested_capture_ =
+                live_audio_status_.at("generation").get<std::uint64_t>();
+            live_audio_requested_cursor_ =
+                live_audio_status_.at("read_frames").get<std::uint64_t>();
+        }
+        live_audio_requested_maximum_ = maximum_frames;
+        live_audio_command_ = {{"command", "audio_capture"},
+                               {"operation", operation},
+                               {"generation", live_audio_requested_world_}};
+        if (operation != "begin")
+            live_audio_command_["capture_generation"] = live_audio_requested_capture_;
+        if (operation == "read") {
+            live_audio_command_["audio_frame"] = live_audio_requested_cursor_;
+            live_audio_command_["maximum_frames"] = maximum_frames;
+        }
+        return true;
+    }
     const Json& recording_status() const { return recording_status_; }
     bool recording_pending() const {
         return !recording_command_.is_null() ||
@@ -1038,6 +1096,55 @@ class PlaySession {
                     }
                     send({{"command", "snapshot"}});
                     return;
+                } else if (sent_command_ == "audio_capture" &&
+                           !response.value("quit_requested", false)) {
+                    if (!response.value("ok", false))
+                        live_audio_error_ = response.value("error", "Live audio capture failed");
+                    else {
+                        const auto& progress = response.at("audio_capture");
+                        validate_live_audio_status(progress, live_audio_requested_world_,
+                                                   live_audio_requested_scene_,
+                                                   live_audio_requested_capture_);
+                        if (live_audio_requested_operation_ == "end" &&
+                            progress.at("state") == "recording")
+                            throw std::runtime_error("Live audio End left its capture active");
+                        if (live_audio_status_.is_object() &&
+                            live_audio_status_.at("world_generation") ==
+                                progress.at("world_generation")) {
+                            if (live_audio_requested_operation_ == "begin") {
+                                if (progress.at("generation").get<std::uint64_t>() <=
+                                    live_audio_status_.at("generation").get<std::uint64_t>())
+                                    throw std::runtime_error(
+                                        "Live audio reused an earlier capture");
+                            } else if (progress.at("captured_frames").get<std::uint64_t>() <
+                                           live_audio_status_.at("captured_frames")
+                                               .get<std::uint64_t>() ||
+                                       progress.at("read_frames").get<std::uint64_t>() <
+                                           live_audio_status_.at("read_frames")
+                                               .get<std::uint64_t>() ||
+                                       (progress.at("state") == "recording" &&
+                                        live_audio_status_.at("state") != "recording"))
+                                throw std::runtime_error("Live audio progress moved backwards");
+                        }
+                        if (live_audio_requested_operation_ == "read") {
+                            auto chunk = read_live_audio(response.at("audio_capture_chunk"),
+                                                         live_audio_requested_cursor_,
+                                                         live_audio_requested_maximum_);
+                            if (progress.at("read_frames") !=
+                                    chunk.start_audio_frame + chunk.pcm.size() / 4 ||
+                                live_audio_frame_)
+                                throw std::runtime_error("Live audio response replaced or skipped "
+                                                         "an unconsumed PCM interval");
+                            live_audio_frame_ = std::move(chunk);
+                        } else if (response.contains("audio_capture_chunk") ||
+                                   progress.at("read_frames") != live_audio_requested_cursor_)
+                            throw std::runtime_error("Unexpected live audio consumption");
+                        live_audio_status_ = progress;
+                    }
+                    // Input/ack/time traffic keeps its normal snapshot boundary
+                    // between copied media replies, including during continuous reads.
+                    send({{"command", "snapshot"}});
+                    return;
                 } else {
                     // Branch BEFORE normal-snapshot parsing: a `candidate`
                     // response carries ONLY {protocol, session, id, ok,
@@ -1255,6 +1362,9 @@ class PlaySession {
                         session_game_recording_supported_ =
                             sdk_game_ && response.value("runtime_contract", Json::object())
                                              .value("session_game_recording", false);
+                        live_audio_supported_ =
+                            sdk_game_ && response.value("runtime_contract", Json::object())
+                                             .value("live_audio_capture", false);
                     }
                     const auto generation =
                         sdk_game_ ? response.at("activation").value("generation", std::uint64_t{})
@@ -1516,6 +1626,17 @@ class PlaySession {
             }
             if (!waiting_) {
                 if (sdk_game_ && (stage_ == Stage::Preparing || stage_ == Stage::Running)) {
+                    if (live_audio_retiring_ && live_audio_command_.is_null()) {
+                        live_audio_frame_.reset();
+                        if (!live_audio_error_.empty() || !live_audio_status_.is_object())
+                            live_audio_retiring_ = false;
+                        else if (live_audio_status_.at("state") == "recording")
+                            (void)submit_live_audio("end");
+                        else if (live_audio_status_.at("queued_frames") != 0)
+                            (void)submit_live_audio("read");
+                        else
+                            live_audio_retiring_ = false;
+                    }
                     // Single SDK Play scheduler. Priority order:
                     //  (1) observation/acks snapshot — anything pending
                     //      rides the next `snapshot` request before any
@@ -1578,6 +1699,10 @@ class PlaySession {
                             send({{"command", "ui"}, {"ui_command", std::move(command)}});
                         }
                     } else if (send_tile_request()) {
+                    } else if (!live_audio_command_.is_null()) {
+                        auto command = std::move(live_audio_command_);
+                        live_audio_command_ = nullptr;
+                        send(std::move(command));
                     } else if (SDL_GetTicks() - sent_at_ >= 8)
                         send({{"command", "snapshot"}});
                 } else if (!sdk_game_ && stage_ == Stage::Running) {
@@ -1667,6 +1792,15 @@ class PlaySession {
         // null. We can then clear local state.
         worker_.stop();
         worker_.join();
+        live_audio_command_ = live_audio_status_ = nullptr;
+        live_audio_frame_.reset();
+        live_audio_error_.clear();
+        live_audio_supported_ = false;
+        live_audio_retiring_ = false;
+        live_audio_requested_operation_.clear();
+        live_audio_requested_world_ = live_audio_requested_capture_ = live_audio_requested_cursor_ =
+            0;
+        live_audio_requested_scene_ = {};
         // Shutdown performs a final pipe drain; retain it before start clears the worker.
         collect_stderr();
         // Drain any leftover failure string so a later pump() (or
@@ -2004,6 +2138,18 @@ class PlaySession {
     bool schema_references_ = false;
     bool session_input_recording_supported_ = false;
     bool session_game_recording_supported_ = false;
+    bool control_queue_ready() const {
+        return control_.empty() &&
+               (!waiting_ || sent_command_ == "snapshot" || sent_command_ == "audio_capture");
+    }
+    bool live_audio_supported_ = false, live_audio_retiring_ = false;
+    Json live_audio_command_, live_audio_status_;
+    std::optional<LiveAudioChunk> live_audio_frame_;
+    std::string live_audio_error_, live_audio_requested_operation_;
+    std::uint64_t live_audio_requested_world_ = 0, live_audio_requested_capture_ = 0,
+                  live_audio_requested_cursor_ = 0;
+    AssetId live_audio_requested_scene_;
+    unsigned live_audio_requested_maximum_ = 4096;
     std::string recording_requested_scope_ = "scene";
     Json schema_identity_, sent_schema_hint_;
     Json time_scale_command_;

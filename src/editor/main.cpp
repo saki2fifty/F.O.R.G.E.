@@ -2682,23 +2682,26 @@ int main(int argc, char** argv) {
             else
                 throw std::runtime_error("Unknown runtime control");
         };
-        const auto make_game_recording = [&](const forge::ui::GameRecordingRequest& request,
+        const auto game_recording_source_unavailable = [&]() -> std::string {
+            return cpp_sources.dirty() || sdk_build->busy() || files.busy() || files.changed ||
+                           content_files.busy() || source_import.busy() ||
+                           !content_imports.ready_for_play() || runtime_dependencies.busy() ||
+                           authored_components.busy()
+                       ? "Settle changed Project Code, source assets and project work before "
+                         "recording"
+                       : "";
+        };
+        const auto make_game_recording = [&](forge::ui::GameRecordingRequest request,
                                              bool configure) {
+            if (configure && play.active())
+                request.recording_mode = "live";
             forge::ui::GameRecordingHost host;
             host.window = window.get();
             host.start = [start_project_play](const std::filesystem::path& user_data) {
                 start_project_play(false, true, user_data);
             };
             host.stop = [control_project_play] { control_project_play("stop"); };
-            host.unavailable = [&]() -> std::string {
-                return cpp_sources.dirty() || sdk_build->busy() || files.busy() || files.changed ||
-                               content_files.busy() || source_import.busy() ||
-                               !content_imports.ready_for_play() || runtime_dependencies.busy() ||
-                               authored_components.busy()
-                           ? "Settle changed Project Code, source assets and project work before "
-                             "recording"
-                           : "";
-            };
+            host.unavailable = game_recording_source_unavailable;
             host.poll_images = [&](forge::ui::ViewImageTask& images,
                                    Diligent::IDeviceContext* graphics,
                                    const std::filesystem::path& project, forge::AssetId scene_id,
@@ -2942,6 +2945,11 @@ int main(int argc, char** argv) {
             capturing.source_image = ui_source_image_input;
             capturing.record_game = [&](const forge::ui::GameRecordingRequest& request) {
                 return make_game_recording(request, false);
+            };
+            capturing.recording_unavailable = [&](const std::string& mode) {
+                if (auto reason = game_recording_source_unavailable(); !reason.empty())
+                    return reason;
+                return forge::ui::GameRecordingTask::unavailable(play, mode);
             };
             capturing.texture = [&](forge::AssetRef<forge::TextureAsset> texture,
                                     std::optional<forge::TextureSemantic> semantic,
@@ -5714,8 +5722,7 @@ int main(int argc, char** argv) {
                             perform(cpp_sources.request_build);
                         ImGui::EndDisabled();
                         actions.item("game.export");
-                        if (ImGui::MenuItem("Record game…", nullptr, false,
-                                            !view_image.busy() && !play.active()))
+                        if (ImGui::MenuItem("Record game…", nullptr, false, !view_image.busy()))
                             perform([&] {
                                 if (!view_image.begin_work(make_game_recording({}, true),
                                                            files.document.project(),

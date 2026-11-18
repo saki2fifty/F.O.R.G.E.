@@ -1,7 +1,7 @@
 #include "game_recording.hpp"
+#include "recorded_pcm.hpp"
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <stdexcept>
 #include <utility>
 
@@ -67,15 +67,7 @@ GameRecording::poll_frame(const Mix& mix, const Advance& advance, const Ready& r
             const auto output = std::span(buffer).first(std::size_t(count) * 2);
             std::fill(output.begin(), output.end(), 0.f);
             mix(output);
-            for (const auto value : output) {
-                if (!std::isfinite(value))
-                    throw std::runtime_error("Game recording mixer produced nonfinite PCM");
-                const auto integer = std::clamp(std::lround(std::clamp(value, -1.f, 1.f) * 32768.f),
-                                                -32768l, 32767l);
-                const auto bits = std::uint16_t(std::int16_t(integer));
-                frame_pcm_.push_back(std::byte(bits & 255));
-                frame_pcm_.push_back(std::byte(bits >> 8));
-            }
+            append_recorded_pcm(frame_pcm_, output);
             advance(at_sample(samples_ + count));
             samples_ += count;
             ++work;

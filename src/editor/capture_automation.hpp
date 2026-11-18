@@ -14,6 +14,7 @@ struct CaptureAutomationProviders {
     std::function<void(const std::string&)> open_sequence;
     std::function<ui::SequenceFrameSource&()> sequence;
     std::function<std::unique_ptr<ui::ViewImageWork>(const ui::GameRecordingRequest&)> record_game;
+    std::function<std::string(const std::string&)> recording_unavailable;
     std::function<std::string(bool)> unavailable;
     std::function<void(const std::string&, const ui::ReflectionCaptureRequest&)> reflection;
     std::function<ui::ViewImageTask::PixelInput(AssetRef<TextureAsset>,
@@ -21,6 +22,20 @@ struct CaptureAutomationProviders {
         texture;
 };
 struct CaptureAutomation {
+    static std::string recording_reason(const CaptureAutomationProviders& providers,
+                                        const std::string& mode) {
+        if (providers.recording_unavailable) {
+            if (providers.unavailable) {
+                const auto reason = providers.unavailable(false);
+                if (!reason.empty())
+                    return reason;
+            }
+            return providers.recording_unavailable(mode);
+        }
+        if (mode == "live")
+            return "Live recording is unavailable in this host";
+        return providers.unavailable ? providers.unavailable(true) : std::string{};
+    }
     static Json state(ui::ViewImageTask& owner, EditorFiles& files) {
         files.document.check_ownership();
         if (owner.project_ != files.document.project())
@@ -183,14 +198,14 @@ struct CaptureAutomation {
         if (providers.record_game)
             result.push_back(automation_method(
                 "capture.game.read",
-                "Read the current Scene/document baseline for fresh offline game recording. "
-                "Recording runs Project Code and needs execution plus output grants; it is not "
-                "interactive capture.",
+                "Read current Scene/document baselines and fresh/live recording readiness. "
+                "Recording needs execution and output grants. Live mode attaches ordinary SDK "
+                "Play.",
                 "capture.read", automation_object(), false,
                 [&owner, &scene, &files, providers, execution = permissions.execute](const Json&) {
                     files.document.check_ownership();
-                    const auto reason =
-                        providers.unavailable ? providers.unavailable(true) : std::string{};
+                    const auto reason = recording_reason(providers, "offline");
+                    const auto live_reason = recording_reason(providers, "live");
                     return Json{
                         {"scene", scene.asset_id()},
                         {"source_revision", scene.revision()},
@@ -199,6 +214,14 @@ struct CaptureAutomation {
                         {"reason", reason},
                         {"execution_granted", execution},
                         {"mode", "offline_game"},
+                        {"recording_modes", {"offline", "live"}},
+                        {"mode_readiness",
+                         {{"offline",
+                           {{"ready", !owner.busy() && reason.empty()}, {"reason", reason}}},
+                          {"live",
+                           {{"ready", !owner.busy() && live_reason.empty()},
+                            {"reason", live_reason}}}}},
+                        {"live_capture_scopes", {"scene"}},
                         {"capture_scopes", {"scene", "session"}},
                         {"maximum_scene_visits", input_recording_scene_limit},
                         {"maximum_frames", FORGE_SEQUENCE_FRAME_MAX_COUNT},
@@ -541,16 +564,19 @@ struct CaptureAutomation {
                 "Project Code runs with this account's OS access. Requires execution and output "
                 "grants, "
                 "current Scene/document baselines, matching SDK and saved/built code. "
-                "Use a NEW folder inside the output grant. Each run uses fresh UserData and writes "
+                "Use a NEW folder inside the output grant. Default recording_mode offline uses "
+                "fresh UserData and writes "
                 "exact PNG frames, stereo 48 kHz PCM16, recording.json and lossy Motion JPEG "
                 "game.avi. "
                 "FPS 1..240, 1..4096 frames; PCM 128 MiB, combined snapshots 256 MiB and movie 256 "
                 "MiB. "
-                "Frames need opaque sRGB Game output with an active camera. Interactive input and "
-                "Pause "
-                "are unavailable. Optional capture_scope session admits up to64 game-requested "
+                "Frames need opaque sRGB Game output with an active camera. Offline mode uses "
+                "fixed media time. Optional capture_scope session admits up to64 game-requested "
                 "Scene "
-                "visits and an optional v2 session input take; scene is the default. Poll "
+                "visits and an optional v2 session input take; scene is the default. Live mode "
+                "attaches current ordinary SDK Play with input/time controls and existing user "
+                "data. It requires scene scope and no input_recording path; repeated frame "
+                "references retain actual capture provenance. Scene changes stop capture. Poll "
                 "capture.status "
                 "and use capture.cancel; completed files "
                 "remain. "
@@ -567,11 +593,15 @@ struct CaptureAutomation {
                      {"height", automation_integer(1, 4096)},
                      {"jpeg_quality", automation_integer(1, 100)},
                      {"input_recording", automation_text(2047, 1)},
-                     {"capture_scope", {{"type", "string"}, {"enum", {"scene", "session"}}}}},
+                     {"capture_scope", {{"type", "string"}, {"enum", {"scene", "session"}}}},
+                     {"recording_mode", {{"type", "string"}, {"enum", {"offline", "live"}}}}},
                     {"path", "scene", "source_revision", "document_generation", "frames_per_second",
                      "frame_count", "width", "height"}),
                 true, [&owner, &scene, &files, providers, root, &message](const Json& request) {
-                    ready(files, providers, true);
+                    files.document.check_ownership();
+                    const auto mode = request.value("recording_mode", "offline");
+                    if (const auto reason = recording_reason(providers, mode); !reason.empty())
+                        throw AuthoringError("capture_busy", reason);
                     if (owner.busy())
                         throw AuthoringError("capture_busy", "Finish or cancel the active capture");
                     if (request.at("scene") != Json(scene.asset_id()) ||
@@ -586,6 +616,7 @@ struct CaptureAutomation {
                     settings.frames = request.at("frame_count").get<int>();
                     settings.input_recording = request.value("input_recording", "");
                     settings.capture_scope = request.value("capture_scope", "scene");
+                    settings.recording_mode = mode;
                     settings.output.width = request.at("width").get<int>();
                     settings.output.height = request.at("height").get<int>();
                     settings.output.jpeg_quality =

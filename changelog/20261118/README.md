@@ -1,5 +1,22 @@
 # 2026-11-18
 
+## Live Play movie capture
+
+Record game can attach to an ordinary Play launch through **Record current Play**.
+The clip keeps its world, user data and normal input/time controls. Completion or
+Cancel ends the mixer observer and leaves the game running. Scene changes retain
+partial output and fail the current-Scene clip. The existing offline Scene/session
+profiles remain available.
+
+The native task, automation and MCP share mode readiness, scope validation,
+output grants and file/encoding owners. Bounded callback PCM and scoped private
+SDK transport preserve normal input/acknowledgement traffic. Actual PNG images
+and logical movie frames have separate version3 provenance; missed intervals
+repeat an earlier saved image. Finished live PCM is cropped to exact duration.
+Owner-close, source-change and process-loss cleanup retain partial files and
+release the observer without taking ownership of the user's Play launch.
+Manual guides explain both modes and the observed timing limits.
+
 ## Game movies across Scenes
 
 Record game adds **Across scenes** for fresh offline movies spanning up to64

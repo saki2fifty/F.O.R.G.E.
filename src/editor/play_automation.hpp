@@ -562,7 +562,8 @@ struct PlayAutomation {
             "UI/text or arbitrary native state. Begin capture_scope defaults to scene; session "
             "requires interactive SDK Play and retains input across game-requested Scene changes. "
             "Replay follows the saved profile and waits at recorded Scene boundaries. Offline "
-            "movies and ordinary runtimes accept single-Scene takes only.",
+            "input-control requests and ordinary runtimes accept single-Scene takes; session "
+            "movies admit a take when beginning their own recording.",
             "play.execute", automation_object(recording_properties, recording_required), true,
             [&files, &play, providers](const Json& request) {
                 current(play, files, providers, request);

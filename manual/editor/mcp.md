@@ -871,12 +871,21 @@ Scene values and sample times remain unchanged; see the [movie export controls a
 limits](animation-sequences.md). This captures the sequence preview; it does not run
 gameplay or record sound.
 
-For a fresh game movie with sound, use **forge_capture_game_read** and then
+For a game movie with sound, use **forge_capture_game_read** and then
 **forge_capture_game_start**. Grant both execution and an output folder. Pass the
 observed **scene**, **source_revision** and **document_generation**, plus a new
 relative **path**, **frames_per_second**, **frame_count**, **width** and **height**.
-**jpeg_quality** is optional. The tool starts its own fresh Play run and private
-UserData; it cannot capture an existing live game or interactive input.
+**jpeg_quality** is optional. Read **mode_readiness** before choosing a mode.
+With **recording_mode: "offline"** (the default), stop Play first; the tool starts
+a fresh run with private UserData. Optional **capture_scope: "session"** includes
+Scene changes and requires a session take if **input_recording** is supplied.
+
+With **recording_mode: "live"**, start ordinary Play first. The tool attaches to
+that launch, keeps its user data and allows normal input, Pause and Resume.
+Only **capture_scope: "scene"** is available and a new **input_recording** cannot
+be supplied. Completing or cancelling the clip leaves Play running. A runtime
+Scene change fails the clip while the game continues. Missed movie intervals
+repeat saved images; live timing follows observed mixer/render progress.
 
 Poll **forge_capture_status** and read **game_recording**. Use its active
 **operation** with **forge_capture_cancel**. The completed folder includes

@@ -310,6 +310,8 @@ void exercise(const std::filesystem::path& runtime, const std::filesystem::path&
     std::cout << "Actual Play/process/image IO/PCM/movie workflow and owned frame previews PASS: "
               << request.destination << '\n';
 }
+#include "live_audio_editor_tests.hpp"
+#include "live_movie_editor_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     int result = 0;
@@ -319,6 +321,8 @@ int main(int argc, char** argv) {
         const auto root = std::filesystem::absolute(argv[3]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         exercise(argv[1], argv[2], root);
+        live_audio_transport(argv[1], root);
+        live_movie_workflow(argv[1], argv[2], root);
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
         result = 1;

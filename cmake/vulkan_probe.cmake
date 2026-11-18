@@ -567,7 +567,7 @@ if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
   # Compile the same production task with widget observation for native input
   # fixtures. Its normal library remains uninstrumented in shipped consumers.
   add_executable(forge_game_recording_vulkan_probe tests/game_recording_vulkan_probe.cpp
-   src/editor/game_recording_task.cpp src/editor/play_presentation.cpp
+   src/editor/game_recording_task.cpp src/editor/live_game_recording.cpp src/editor/play_presentation.cpp
    src/ui_diligent.cpp src/ui_filter_layers.cpp
    "${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp"
    "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiImplDiligent.cpp"
