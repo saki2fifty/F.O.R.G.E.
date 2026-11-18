@@ -2541,6 +2541,14 @@ accepts fixed Axis1/Axis2. Use an attached builtin or inspected opted-in project
 returns its cached `value.messages` observation, including tick, emitted count,
 overflow, per-source trigger and diagnostics. The normal Play launch/session/world
 correlation still applies. Sent means native dispatch, not proof of a receiver.
+The same observation exposes source/action names, per-source `emitted_total` and
+nullable `last_sent` with tick, encoded byte count, a2048-byte UTF-8 preview and
+explicit truncation. A truncated preview is an incomplete JSON text prefix.
+The preview is captured before receivers mutate source storage; reads do not
+advance Play or edit authored history. Pause/read and route/world reset behavior
+use the native owner, without a separate agent message cache or replay tool.
+Observations can omit the additive inspection fields; check for
+`preview_limit_bytes` before using this readout. Current packaged runtimes supply it.
 Source-code creation/build/inspection supplies C++ receivers through the existing
 workflow. See [the dispatch and lifecycle contract](input-messages.md).
 

@@ -297,6 +297,30 @@ Timeline guide in the combined editor manual. Rebuild modules with the matching 
 
 ## Cooked resources in gameplay
 
+### Action-triggered component messages
+
+`forge/input_message.hpp` declares the authored InputMessage value. Its saved
+action UUID selects a fixed input action; payload is an attached registered
+component key. Trigger0 sends on digital Pressed,1 on Released, and2 on Changed
+digital/Axis1/Axis2 values. Native typed observers use the payload's registered
+component type as their event ID, an Any term, and `iter.param<T>()` as a const
+borrow. Treat that value as callback-local and do not throw from observers.
+Every admitted native value is copied before the captured batch dispatches,
+including inherited values and supported native owned strings/vectors. Normal
+structural writes merge after the batch and before fixed Gameplay systems.
+
+The installed `input_messages_gameplay` target wraps the original message and
+trigger Gallery receivers. The combined manual explains configuration, input
+capture and source filters. Console Gameplay input and existing Play input
+observations show per-source counts and a last sent encoded preview bounded to
+2048UTF-8bytes, including encoded size and truncation. This readout retains no
+native event pointer and cannot replay a callback. The native callback still
+receives its complete admitted value.
+
+The private exact SDK fingerprint includes message implementation semantics.
+Rebuild modules against the matching kit when these semantics change, even with
+unchanged public component layouts and C callback table.
+
 ### Avoidance participation and priority
 
 `forge/navigation_components.hpp` declares `NavigationAvoidance`. Its `layers`

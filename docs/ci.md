@@ -3321,3 +3321,30 @@ packages, relocates, hides sources and repeats the complete patrol checks.
 reuse the native Game renderer to compare four exact animated source/export
 pairs per Scene, including portrait. Software rendering is not physical GPU or
 Windows acceptance.
+
+## Input Message inspection checks
+
+`input_messages` verifies original authoring/trigger/dispatch behavior together
+with per-source counts and captured payload inspection. Cases include inherited
+custom values with schema envelopes and uint64 maximum, observer mutation,
+retention on idle ticks, actual native generation replacement, trigger/route and
+activity changes, a Unicode codepoint spanning the2048-byte boundary,256-source
+copied batches and64KiB/4MiB native admission limits. Rejected deliveries cannot
+publish successful inspection. Full native string callbacks retain their data.
+
+`input_message_ui` exercises existing Inspector choices/history and the actual
+Console monitor widgets at three scales and two sizes. It opens the source tree
+with real input, verifies time/source invariance and recognizes older runtime
+observations without the additive metadata. The canonical image comes from an
+actual RuntimeSimulation dispatch through the existing SDL software capture owner.
+
+`input_messages_process` runs both ordinary and SDK hosts, verifying source
+counts/previews against the value captured before the Gallery observer moved its
+source. Paused reads remain identical; restart/cold ordinary recovery starts with
+empty source diagnostics. Native hosts must quit gracefully. The installed-only
+SDK case uses the same receiver and process checks after relocation.
+
+`mcp_input_messages_play_stdio` verifies this readout through both protocol
+envelopes, preserving existing launch/session/generation, input, source/history
+and reset checks. Existing content/Gallery cases retain source-hidden export
+coverage. Diagnostic metadata does not introduce new authoring or dispatch tools.

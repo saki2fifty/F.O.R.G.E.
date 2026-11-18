@@ -65,7 +65,8 @@ The event value remains the captured copy. No observer-order guarantee is added.
 
 The first observation starts at neutral, so a new neutral route sends nothing.
 The same durable source with a different native generation, action, kind, context
-or payload begins a new observation. Inactive, removed, invalid-mode and omitted
+or payload begins a new observation. Trigger changes also begin a new route.
+Inactive, removed, invalid-mode and omitted
 sources lose their prior observation at the next fixed tick. Reactivation or
 reattachment while input is nonneutral can send again. A missing payload reports
 an error while still observing valid input; restoring the payload does not replay
@@ -73,11 +74,19 @@ a change that already passed. There is no callback retry or event retention.
 Input-map replacement and rebinding use the existing input owner's neutralization;
 Changed observes its resulting values. A new Play world starts neutral.
 
-Each selected Changed source retains only its last fixed value and route identity.
+Each selected valid source retains its route identity and saturating dispatch
+counter; Changed additionally retains its last fixed input value. A successful
+dispatch retains the last tick, encoded byte count and at most2048UTF-8bytes of
+its encoded payload as a diagnostic string. The existing UTF-8 range helper
+preserves the boundary; JSON encoding still owns UTF-8 admission. The prefix has
+its own bounded string instead of retaining the full serialization allocation.
 Entries are pruned every tick and after an empty source query; persistent
 observations fit the existing256-source selection. The map can transiently hold
 old and newly selected rows until that tick's prune, at most512 entries. It keeps
-no payload copies or borrowed event pointers from earlier dispatches.
+no native payload copies or borrowed event pointers from earlier dispatches.
+The retained encoded prefixes total at most512KiB after pruning, or1MiB in the
+transient old/new map. Copied status/pending previews have separate lifetimes.
+These are encoded-byte bounds, not native allocator or execution-time guarantees.
 
 ## Bounds and observations
 
@@ -99,6 +108,26 @@ runtime, retains no event value and cannot replay a callback. The same copied
 status is available through existing Play transport and
 `forge_play_input`. Generic authoring tools plus `forge_play_input_submit` cover
 configuration and testing; no separate agent implementation is added.
+
+Each source row additionally publishes `name`, valid `action_name`, its own
+`emitted_total` and nullable `last_sent`. A last-sent record contains `tick`,
+`encoded_bytes`, `preview` and `truncated`; the top-level `preview_limit_bytes`
+is2048. A complete prefix is ordinary codec JSON, including a custom component's
+schema envelope. A truncated prefix is text, not a parseable value or replay
+record. The preview is captured alongside native storage before observers run,
+then published only after dispatch returns. Missing/invalid payloads cannot
+publish a new successful preview. A valid unchanged input route can retain its
+earlier preview while reporting a payload error.
+
+Console Gameplay input expands these same copied source rows. No presentation
+read advances time or modifies source/history. Counts/previews reset on route
+identity change, native source generation replacement, deactivation/pruning or a
+new runtime. Input action renaming retains identity. Global sent totals continue
+to describe the current runtime. Neither source diagnostics nor preview text
+persist in Scene/Prefab, native recovery or game recordings.
+The existing exact SDK contract includes the message implementation, so this
+diagnostic extension changes its fingerprint without changing public value layouts
+or the callback table. Rebuild project modules against the matching kit.
 
 Runtime delivery never edits the separate authoring World or its history. A new
 runtime starts with no message history; recovery and scene replacement restore

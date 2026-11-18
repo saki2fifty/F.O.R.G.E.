@@ -4270,3 +4270,19 @@ Reproduce with `forge_navigation_polygon_gallery_vulkan_probe GALLERY SCRATCH
 Scenes/233-navigation-avoidance-policies.scene.json` or the matching234 Scene.
 Native executable, source, Scene, raw PPM and exact comparison receipt hashes are
 retained in the local avoidance-policy batch's `game-screenshots.json`.
+
+
+## Input Message monitor
+
+`manual/images/input-message-monitor.png` is an unretouched820×560 capture of
+the actual input-message monitor widgets rendered by ImGui/SDL software. The
+native `forge_input_message_ui_tests SCRATCH` fixture dispatches Tint through
+RuntimeSimulation, opens the real source tree control at three scales/two sizes,
+and verifies presentation reads leave time and authored values unchanged. The
+image shows two source dispatches, tick3, encoded size72 and the captured native
+float values. It was personally reviewed and copied byte-for-byte.
+
+The isolated Runtime-role widget capture is not a full Console/editor screenshot
+or Windows/physical GPU/DPI acceptance. Source, executable and passing UI/process
+case provenance is retained in the local input-message-inspection batch's
+`monitor-capture.json`. PNG SHA256: `8b1a559243ed32684702dc014a61eb13ea471430a402912561d79d6382f7424d`.

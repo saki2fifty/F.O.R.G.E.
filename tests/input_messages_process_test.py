@@ -1,5 +1,6 @@
 """Original typed-message Gallery receiver through both actual runtime hosts."""
 import copy
+import json
 from pathlib import Path
 import sys
 from runtime_client import Runtime, activate
@@ -53,6 +54,17 @@ def verify(runtime, module, gallery):
                 second = worker.request('step')
                 quick = worker.request('step', input_events=[dict(control='key.space', value=0),
                                                             dict(control='key.space', value=1)])
+            assert messages(first)['preview_limit_bytes'] == 2048
+            previews = {row['entity']['entity']: row for row in messages(first)['sources']}
+            for key, position in zip(ids, start):
+                row = previews[key]
+                assert row['emitted_total'] == 1 and not row['last_sent']['truncated']
+                assert json.loads(row['last_sent']['preview'])['x'] == position
+            for row in messages(second)['sources']:
+                assert row['emitted_total'] == 1 and row['last_sent'] == previews[row['entity']['entity']]['last_sent']
+            for row in messages(quick)['sources']:
+                assert row['emitted_total'] == 2
+                assert json.loads(row['last_sent']['preview'])['x'] == start[ids.index(row['entity']['entity'])] + .5
             assert positions(first) == [value + .5 for value in start], dict(sdk=sdk, messages=messages(first))
             assert positions(second) == positions(first) and messages(second)['emitted'] == 0
             assert positions(quick) == [value + 1 for value in start]
@@ -73,6 +85,7 @@ def verify(runtime, module, gallery):
             assert positions(held) == positions(quick) and messages(held)['emitted'] == 0
             restarted = activate(worker, original, sdk)
             assert positions(restarted) == start and messages(restarted)['emitted_total'] == 0
+            assert all(row['emitted_total'] == 0 and row['last_sent'] is None for row in messages(restarted)['sources'])
             assert positions(worker.request('step')) == start
             # Ordinary-host recovery is an existing supported boundary. Rich SDK
             # recovery remains unavailable; never claim a project callback replay.
@@ -89,6 +102,7 @@ def verify(runtime, module, gallery):
                                               recovery_session=checkpoint['session'],
                                               recovery_tick=checkpoint['tick'])
                     assert state['timing']['paused'] and messages(state)['emitted'] == 0
+                    assert all(row['emitted_total'] == 0 and row['last_sent'] is None for row in messages(state)['sources'])
                     state = recovered.request('step')
                     assert messages(state)['emitted'] == 0
                     recovered.request('quit'); recovered.process.wait(timeout=5)

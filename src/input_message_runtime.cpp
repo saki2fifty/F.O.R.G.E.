@@ -1,6 +1,7 @@
 #include "input_message_runtime.hpp"
 #include "authored_component.hpp"
 #include "builtins.hpp"
+#include "utf8_boundary.hpp"
 #include <algorithm>
 #include <forge/input_message.hpp>
 #include <limits>
@@ -18,6 +19,8 @@ struct Pending {
     flecs::entity_t source, type;
     std::size_t row;
     std::unique_ptr<void, NativeValue> value;
+    std::string preview;
+    std::size_t encoded_bytes;
 };
 } // namespace
 void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) {
@@ -53,11 +56,15 @@ void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) 
         }
         auto entity = world.entity(handle);
         const auto config = entity.get<InputMessage>();
-        rows.push_back({{"entity", EntityRef{scene_.asset_id(), id}},
-                        {"action", config.action},
-                        {"payload", config.payload},
-                        {"trigger", config.trigger},
-                        {"state", "Ready"}});
+        rows.push_back(
+            {{"entity", EntityRef{scene_.asset_id(), id}},
+             {"name", entity.has<AuthoredName>() ? entity.get<AuthoredName>().value : id.str()},
+             {"action", config.action},
+             {"payload", config.payload},
+             {"trigger", config.trigger},
+             {"emitted_total", std::uint64_t{}},
+             {"last_sent", nullptr},
+             {"state", "Ready"}});
         auto& row = rows.back();
         try {
             config.validate();
@@ -75,6 +82,7 @@ void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) 
                              [&](const auto& value) { return value.id == action_id; });
             if (definition == map.actions().end())
                 throw std::runtime_error("Action is absent from the active input map");
+            row["action_name"] = definition->name;
             if (definition->kind != ActionKind::Digital &&
                 config.trigger != std::uint32_t(InputMessageTrigger::Changed))
                 throw std::runtime_error("Input Message requires a digital action");
@@ -85,27 +93,28 @@ void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) 
             if (action == input.actions.end())
                 throw std::runtime_error("Action is absent from the active input map");
             const auto& current = action->second;
+            auto& previous = observations_[id];
+            if (previous.source != handle || previous.action != action_id ||
+                previous.kind != definition->kind || previous.context != definition->context ||
+                previous.payload != config.payload || previous.trigger != config.trigger) {
+                previous = {};
+                previous.source = handle;
+                previous.action = action_id;
+                previous.kind = definition->kind;
+                previous.context = definition->context;
+                previous.payload = config.payload;
+                previous.trigger = config.trigger;
+            }
+            previous.seen = true;
             bool triggered = config.trigger == std::uint32_t(InputMessageTrigger::Released)
                                  ? current.released
                                  : current.pressed;
             if (config.trigger == std::uint32_t(InputMessageTrigger::Changed)) {
-                auto& previous = observations_[id];
-                if (previous.source != handle || previous.action != action_id ||
-                    previous.kind != definition->kind || previous.context != definition->context ||
-                    previous.payload != config.payload) {
-                    previous.source = handle;
-                    previous.action = action_id;
-                    previous.kind = definition->kind;
-                    previous.context = definition->context;
-                    previous.payload = config.payload;
-                    previous.value = {};
-                }
                 triggered =
                     definition->kind == ActionKind::Digital
                         ? current.pressed || current.released || current.held != previous.value.held
                         : current.x != previous.value.x || current.y != previous.value.y;
                 previous.value = current;
-                previous.seen = true;
             }
             ecs_entity_t type = 0;
             const Builtin* builtin_value = nullptr;
@@ -137,7 +146,9 @@ void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) 
                 continue;
             const auto value = builtin_value ? builtin_value->read(entity, true)
                                              : authored_value->read(entity, true);
-            const auto size = value.dump().size() + std::size_t(info->size);
+            auto encoded = value.dump();
+            const auto encoded_bytes = encoded.size();
+            const auto size = encoded_bytes + std::size_t(info->size);
             if (size > value_limit)
                 throw std::runtime_error("Input Message payload exceeds 64 KiB");
             if (size > tick_value_limit - bytes)
@@ -146,7 +157,10 @@ void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) 
             if (!copy || ecs_value_copy(world, type, copy.get(), ecs_get_id(world, entity, type)))
                 throw std::runtime_error("Input Message payload copy failed");
             bytes += size;
-            pending.push_back({entity, type, rows.size() - 1, std::move(copy)});
+            // Keep the bounded prefix separate from the full envelope's allocation.
+            auto preview = encoded.substr(0, utf8_range_end(encoded, 0, preview_limit));
+            pending.push_back({entity, type, rows.size() - 1, std::move(copy), std::move(preview),
+                               encoded_bytes});
         } catch (const std::exception& error) {
             row["state"] = "Error";
             row["diagnostic"] = error.what();
@@ -170,11 +184,30 @@ void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) 
         // owned payload column. The event type itself identifies the typed value.
         ecs_emit(world, &event);
         row["state"] = "Sent";
+        auto& observation = observations_.at(row.at("entity").get<EntityRef>().entity);
+        if (observation.emitted_total != std::numeric_limits<std::uint64_t>::max())
+            ++observation.emitted_total;
+        observation.last_sent_tick = input.tick;
+        observation.preview = std::move(message.preview);
+        observation.encoded_bytes = message.encoded_bytes;
         status_["emitted"] = status_["emitted"].get<std::size_t>() + 1;
         const auto total = status_["emitted_total"].get<std::uint64_t>();
         if (total != std::numeric_limits<std::uint64_t>::max())
             status_["emitted_total"] = total + 1;
         status_["last_sent_tick"] = input.tick;
+    }
+    for (auto& row : rows) {
+        const auto found = observations_.find(row.at("entity").get<EntityRef>().entity);
+        if (found == observations_.end())
+            continue;
+        const auto& observation = found->second;
+        row["emitted_total"] = observation.emitted_total;
+        if (observation.emitted_total)
+            row["last_sent"] = {
+                {"tick", observation.last_sent_tick},
+                {"encoded_bytes", observation.encoded_bytes},
+                {"preview", observation.preview},
+                {"truncated", observation.preview.size() < observation.encoded_bytes}};
     }
 }
 } // namespace forge::detail

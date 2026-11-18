@@ -1,6 +1,9 @@
 #include "editor/component_inspector.hpp"
+#include "editor/input_message_monitor.hpp"
+#include "imgui_software_capture.hpp"
 #include <backends/imgui_impl_sdlrenderer3.h>
 #include <forge/input_message.hpp>
+#include <forge/runtime.hpp>
 #include <iostream>
 #include <memory>
 
@@ -151,14 +154,101 @@ void exercise(const std::filesystem::path& output, float scale) {
         check(SDL_SavePNG(surface.get(), (output / "input-message-inspector.png").string().c_str()),
               SDL_GetError());
 }
+void monitor(const std::filesystem::path& output, float scale, int width, int height) {
+    EngineContext engine(WorldRole::Runtime);
+    Scene scene(engine.world());
+    const auto action = ActionId::generate().str();
+    scene.replace(
+        {{"version", 1},
+         {"entities",
+          Json::array(
+              {{{"id", "source"},
+                {"name", "Tint sender"},
+                {"components",
+                 {{"forge.tint", {{"r", .2}, {"g", .3}, {"b", .4}}},
+                  {"forge.input_message",
+                   {{"enabled", true}, {"action", action}, {"payload", "forge.tint"}}}}}}})}});
+    const auto source = scene.canonical_id("source");
+    const auto authored = scene.document();
+    RuntimeSimulation runtime(engine.world(), scene);
+    runtime.input().configure(InputMap(
+        {{"version", 1},
+         {"actions", Json::array({{{"id", action},
+                                   {"name", "Send tint"},
+                                   {"kind", "digital"},
+                                   {"bindings", Json::array({{{"control", "key.space"}}})}}})}}));
+    for (const auto value : {1., 0., 1.}) {
+        runtime.input().submit({{"key.space", value}});
+        runtime.tick(1.f / 60);
+    }
+    const auto snapshot = runtime.input_status();
+    const auto& messages = snapshot.at("messages");
+    const Json* display = &messages;
+    check(messages.at("sources").at(0).at("emitted_total").get<unsigned>() == 2,
+          "Monitor fixture did not dispatch through the actual native owner");
+    test::ImGuiSoftwareCapture capture(int(width * scale), int(height * scale));
+    auto& io = ImGui::GetIO();
+    io.FontGlobalScale = scale;
+    io.ConfigInputTrickleEventQueue = false;
+    ImGui::GetStyle().ScaleAllSizes(scale);
+    test::observe_ui = true;
+    const auto frame = [&] {
+        test::ui_targets.clear();
+        capture.new_frame();
+        ImGui::SetNextWindowPos({0, 0});
+        ImGui::SetNextWindowSize(io.DisplaySize);
+        ImGui::Begin("Input messages", nullptr,
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+                         ImGuiWindowFlags_NoSavedSettings);
+        ui::draw_input_messages(*display);
+        ImGui::End();
+        capture.render();
+    };
+    frame();
+    frame();
+    const auto target = test::ui_targets.at("input-message-monitor:" + source);
+    const float x = (target.minimum.x + target.maximum.x) * .5f,
+                y = (target.minimum.y + target.maximum.y) * .5f;
+    check(target.enabled && x >= target.clip_minimum.x && x <= target.clip_maximum.x &&
+              y >= target.clip_minimum.y && y <= target.clip_maximum.y,
+          "Actual message source control was clipped or disabled");
+    io.AddMousePosEvent(x, y);
+    frame();
+    io.AddMouseButtonEvent(0, true);
+    frame();
+    io.AddMouseButtonEvent(0, false);
+    frame();
+    check(test::ui_targets.contains("input-message-preview:" + source),
+          "Actual message monitor did not expand its native payload preview");
+    auto legacy = messages;
+    legacy.erase("preview_limit_bytes");
+    for (auto& row : legacy["sources"])
+        for (const auto* field : {"name", "action_name", "emitted_total", "last_sent"})
+            row.erase(field);
+    display = &legacy;
+    frame();
+    check(test::ui_targets.contains("input-message-inspection-unavailable:" + source) &&
+              !test::ui_targets.contains("input-message-preview:" + source),
+          "Older runtime observations were displayed as a new empty inspection");
+    display = &messages;
+    frame();
+    frame();
+    check(runtime.input_status() == snapshot && scene.document() == authored,
+          "Read-only monitor advanced time or changed authored history");
+    if (scale == 1 && width == 820)
+        capture.save(output / "input-message-monitor.png");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
         check(argc == 2, "Provide build-owned UI scratch");
         const auto output = std::filesystem::path(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(output);
-        for (float scale : {1.f, 1.5f, 2.f})
+        for (float scale : {1.f, 1.5f, 2.f}) {
             exercise(output, scale);
+            monitor(output, scale, 820, 560);
+            monitor(output, scale, 520, 440);
+        }
         std::cout << output << "\nActual Inspector selectors and history passed at three scales\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

@@ -3,10 +3,10 @@
 #include "../sdl_gamepads.hpp"
 #include "../sdl_input.hpp"
 #include "../sdl_touches.hpp"
+#include "input_message_monitor.hpp"
 #include "play.hpp"
 #include "widgets.hpp"
 #include <array>
-#include <forge/input_message.hpp>
 #include <source_location>
 namespace forge {
 // Independent logical gamepad slots, a legacy active alias, keyboard/mouse and bounded
@@ -676,28 +676,8 @@ inline void draw_input_monitor(const PlaySession& play) {
                 static_cast<unsigned long long>(status.value("tick", std::uint64_t{})));
     ui::help("This snapshot is immutable for the entire tick. Pause leaves it unchanged until Step "
              "or Resume.");
-    if (status.contains("messages")) {
-        const auto& messages = status.at("messages");
-        ImGui::Text("Input messages: %u sent this tick", messages.at("emitted").get<unsigned>());
-        ImGui::Text(
-            "Sent total: %llu | Last sent tick: %llu",
-            static_cast<unsigned long long>(messages.at("emitted_total").get<std::uint64_t>()),
-            static_cast<unsigned long long>(messages.at("last_sent_tick").get<std::uint64_t>()));
-        ui::help("Typed component copies sent to C++ observers before fixed gameplay systems.");
-        for (const auto& source : messages.at("sources")) {
-            const auto state = source.at("state").get<std::string>();
-            const auto* trigger = input_message_trigger_name(source.value("trigger", 0u));
-            ImGui::TextWrapped("%s [%s]: %s",
-                               source.at("payload").get_ref<const std::string&>().c_str(),
-                               trigger ? trigger : "Invalid trigger", state.c_str());
-            if (source.contains("diagnostic"))
-                ImGui::TextWrapped("%s",
-                                   source.at("diagnostic").get_ref<const std::string&>().c_str());
-        }
-        if (messages.at("overflow").get<unsigned>())
-            ImGui::TextWrapped("%u sources exceed the 256-source tick limit.",
-                               messages.at("overflow").get<unsigned>());
-    }
+    if (status.contains("messages"))
+        ui::draw_input_messages(status.at("messages"));
     if (status.contains("actions"))
         for (const auto& a : status.at("actions")) {
             ImGui::Text("%s: %s | %.3f, %.3f | presses %llu | releases %llu",

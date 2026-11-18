@@ -1,3 +1,4 @@
+#include "authored_component.hpp"
 #include "authored_schema.hpp"
 #include <algorithm>
 #include <array>
@@ -220,12 +221,28 @@ void dispatch() {
     check(observer_valid && ordered, "Observer payload or fixed dispatch order was incorrect");
     check(calls == 1 && fixed == 1, "Pressed edge did not dispatch");
     check(runtime.input_status()["messages"]["emitted"] == 1, "Input status omitted delivery");
+    const auto captured = runtime.input_status().at("messages").at("sources").at(0);
+    const auto captured_value =
+        Json::parse(captured.at("last_sent").at("preview").get<std::string>());
+    check(captured.at("name") == "Source" && captured.at("action_name") == "Send" &&
+              captured.at("emitted_total").get<std::uint64_t>() == 1 &&
+              captured.at("last_sent").at("tick").get<std::uint64_t>() == 1 &&
+              !captured.at("last_sent").at("truncated").get<bool>() &&
+              captured_value.at("title") == "snapshot" &&
+              captured_value.at("number").get<std::uint64_t>() == UINT64_MAX,
+          ("Inspection did not retain the inherited value captured before observer mutation: " +
+           captured.dump())
+              .c_str());
     runtime.tick(1.f / 60);
     check(calls == 1 && fixed == 2, "Held action repeated a message");
     check(runtime.input_status()["messages"]["emitted_total"] == 1 &&
               runtime.input_status()["messages"]["last_sent_tick"] == 1,
           "Message counters lost short dispatch between observations");
     check(runtime.input_status()["messages"]["emitted"] == 0, "Tick status retained old delivery");
+    const auto held = runtime.input_status().at("messages").at("sources").at(0);
+    check(held.at("last_sent") == captured.at("last_sent") &&
+              held.at("emitted_total").get<std::uint64_t>() == 1,
+          "An idle message tick lost or repeated its source inspection");
     check(scene.document()["entities"][0]["components"]["forge.input_message"] ==
               source_document["entities"][0]["components"]["forge.input_message"],
           "Runtime messages rewrote emitter configuration");
@@ -237,6 +254,97 @@ void dispatch() {
     runtime.tick(1.f / 60);
     check(runtime.input_status()["messages"]["sources"][0]["state"] == "Inactive",
           "Disabled emitter still resolved payload");
+}
+void inspection_lifetime() {
+    EngineContext engine(WorldRole::Runtime, false, {native_module()});
+    Scene scene(engine.world());
+    scene.replace({{"version", 1},
+                   {"entities", Json::array({{{"id", "source"},
+                                              {"name", "Inspected source"},
+                                              {"components", Json::object()}}})}});
+    const auto id = scene.canonical_id("source");
+    auto source = scene.entity(id);
+    source.set<Payload>({"", 0});
+    const auto codecs = detail::authored_codecs(engine.world().world());
+    const auto codec = std::ranges::find_if(
+        codecs, [](const auto& value) { return value.key() == "project.message_value"; });
+    check(codec != codecs.end(), "Inspection fixture lost its admitted native codec");
+    const auto prefix = codec->read(source, true).dump().find("\"title\":\"") + 9;
+    const auto title = std::string(2047 - prefix, 'x') + "\xf0\x9f\xa7\xad" + std::string(64, 'y');
+    source.set<Payload>({title, 0});
+    const auto encoded = codec->read(source, true).dump();
+    check(encoded.find("\xf0\x9f\xa7\xad") == 2047,
+          "Unicode fixture did not place its codepoint across the preview boundary");
+    source.set<Payload>({title, 0})
+        .set<Tint>({.2f, .3f, .4f})
+        .set<InputMessage>({true, action, "project.message_value"});
+    bool observer_valid = true;
+    engine.world()
+        .world()
+        .observer()
+        .event<Payload>()
+        .with(flecs::Any)
+        .each([&](flecs::iter& it, std::size_t row) {
+            observer_valid &= it.param<Payload>() != nullptr;
+            it.entity(row).set<Payload>({"after observer", 7});
+        });
+    RuntimeSimulation runtime(engine.world(), scene);
+    runtime.input().configure(map());
+    const auto route = [&] { return runtime.input_status().at("messages").at("sources").at(0); };
+    runtime.input().submit({{"key.space", 1}});
+    runtime.tick(1.f / 60);
+    auto last = route().at("last_sent");
+    const auto preview = last.at("preview").get<std::string>();
+    check(observer_valid && preview.size() == 2047 && preview == encoded.substr(0, 2047) &&
+              last.at("encoded_bytes").get<std::size_t>() == encoded.size() &&
+              last.at("truncated").get<bool>() && source.get<Payload>().title == "after observer" &&
+              runtime.input_status().at("messages").at("preview_limit_bytes").get<unsigned>() ==
+                  2048,
+          "Preview split Unicode, lost its size or observed mutated source storage");
+    const auto snapshot = runtime.input_status();
+    check(Json::parse(snapshot.dump()) == snapshot && runtime.input_status() == snapshot,
+          "Read-only inspection changed time or emitted invalid UTF-8 JSON");
+    auto config = source.get<InputMessage>();
+    config.trigger = std::uint32_t(InputMessageTrigger::Released);
+    source.set<InputMessage>(config);
+    runtime.tick(1.f / 60);
+    check(route().at("emitted_total").get<std::uint64_t>() == 0 &&
+              route().at("last_sent").is_null(),
+          "Changing trigger retained the previous route's inspection");
+    runtime.input().submit({{"key.space", 0}});
+    runtime.tick(1.f / 60);
+    check(route().at("emitted_total").get<std::uint64_t>() == 1 &&
+              !route().at("last_sent").at("truncated").get<bool>(),
+          "Released route did not start its own bounded source inspection");
+    config.enabled = false;
+    source.set<InputMessage>(config);
+    runtime.tick(1.f / 60);
+    check(route().at("state") == "Inactive" && route().at("last_sent").is_null(),
+          "Inactive route retained its payload preview");
+    config.enabled = true;
+    config.trigger = std::uint32_t(InputMessageTrigger::Changed);
+    source.set<InputMessage>(config);
+    runtime.input().submit({{"key.space", 1}});
+    runtime.tick(1.f / 60);
+    check(route().at("emitted_total").get<std::uint64_t>() == 1,
+          "Reactivated route inherited the retired source count");
+    source.remove<InputMessage>();
+    runtime.tick(1.f / 60);
+    check(runtime.input_status().at("messages").at("sources").empty(),
+          "Removed source retained inspection rows");
+    source.set<InputMessage>(config);
+    runtime.tick(1.f / 60);
+    check(route().at("emitted_total").get<std::uint64_t>() == 1,
+          "Reattached Changed source reused an old observation");
+    const auto generation = source.id();
+    const auto saved = scene.snapshot();
+    source.destruct();
+    scene.restore_snapshot(saved);
+    source = scene.entity(id);
+    check(source.id() != generation, "Generation fixture did not replace its native source");
+    runtime.tick(1.f / 60);
+    check(route().at("emitted_total").get<std::uint64_t>() == 1,
+          "New native generation inherited the prior source count");
 }
 void trigger_modes() {
     EngineContext engine(WorldRole::Runtime);
@@ -573,6 +681,12 @@ void bounded_mutations() {
           "Bounded snapshot batch or deferred mutation boundary was incorrect");
     check(status["emitted"] == 256 && status["overflow"] == 1 && status["sources"].size() == 256,
           "Emitter bound did not report omitted sources");
+    for (const auto& row : status.at("sources")) {
+        const auto value = Json::parse(row.at("last_sent").at("preview").get<std::string>());
+        check(row.at("emitted_total").get<unsigned>() == 1 &&
+                  std::abs(value.at("r").get<float>() - .2f) < 1e-6,
+              "Inspection observed another receiver's writes instead of the captured batch");
+    }
 }
 void aggregate_values() {
     EngineContext engine(WorldRole::Runtime, false, {native_module()});
@@ -610,6 +724,16 @@ void aggregate_values() {
             ++errors;
             check(source.at("diagnostic") == "Input Message tick payload budget exceeds 4 MiB",
                   "Aggregate-budget rejection concealed another failure");
+            check(source.at("emitted_total").get<unsigned>() == 0 &&
+                      source.at("last_sent").is_null(),
+                  "Rejected message published a successful source inspection");
+        } else {
+            const auto& sent = source.at("last_sent");
+            check(source.at("emitted_total").get<unsigned>() == 1 &&
+                      sent.at("preview").get_ref<const std::string&>().size() <= 2048 &&
+                      sent.at("truncated").get<bool>() &&
+                      sent.at("encoded_bytes").get<std::size_t>() > 60000,
+                  "Large native string dispatch escaped the bounded inspection profile");
         }
     check(received == 69 && errors == 11 && correct && status.at("emitted") == 69,
           "Aggregate native string snapshot bound or cleanup count is incorrect");
@@ -676,6 +800,7 @@ int main() {
         authoring();
         prefab_trigger_history();
         dispatch();
+        inspection_lifetime();
         trigger_modes();
         changed_route_lifetime();
         changed_source_bound();

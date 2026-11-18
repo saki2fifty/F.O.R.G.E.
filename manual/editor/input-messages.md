@@ -66,6 +66,35 @@ Treat the received value as read only, use it during the callback, and do not
 throw from observers. The copy is released when dispatch finishes. Check source
 identity when an observer should apply to only one scene or set of entities.
 
+## Inspect messages during Play
+
+1. Start Play and open **Console → Gameplay input**.
+2. Trigger your saved action. **Input messages** shows this tick's dispatch count; **Sent total** retains brief dispatches between editor frames.
+3. Expand a source by its name. Read its Action, Payload, **Source sent total** and **Last sent tick**. Source shows its durable entity ID when names are similar.
+4. Read the payload preview to see the encoded value captured before receivers changed the source. Project C++ components can include their schema information.
+
+![Expanded input-message source showing two dispatches, last sent tick three, encoded size and the captured Tint value](../images/input-message-monitor.png)
+
+Expand a source to inspect its count and last sent payload.
+
+The last preview stays available while the route is idle. It shows the last sent
+value, which can differ from the component's current Inspector value. A preview
+is limited to 2048 bytes. **Encoded bytes** gives the complete encoded size;
+a truncation notice means the displayed JSON is incomplete.
+
+Reading or expanding the monitor does not advance Play. Pause keeps the snapshot
+steady; Step processes one fixed tick. Changing the action, payload, trigger or
+input context creates a new source route. Disabling or removing the source, or
+starting a new Play world, clears that route's count and preview. Renaming an
+action keeps its saved identity. Save the Scene and Project Settings to retain
+configuration; inspection values belong to the running game.
+
+**Sent** means dispatch completed, even when no C++ receiver was registered.
+**Ready** means the route is waiting for its trigger. Expand an **Error** row for
+its diagnostic; it can still show the last successful dispatch for that route.
+If source inspection is unavailable, use the runtime included with this editor
+package.
+
 ## Test and export
 
 1. Open Feature Gallery scene Scenes/150-input-messages.scene.json for a complete example with a Camera, light and two message sources.

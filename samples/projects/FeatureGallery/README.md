@@ -2773,7 +2773,12 @@ and press Space: each fresh press moves both cubes half a unit right, wrapping
 back from their range end. Holding Space sends once.
 
 Edit each cube's Input Message choices through Inspector. Console / Gameplay
-input shows dispatch counts and diagnostics. Stop and save authored values before
+input shows dispatch counts and diagnostics. Expand a named source to inspect its
+own send count, last sent tick and encoded payload preview. The preview retains
+the value from before the receiver moved the cube; it can differ from the current
+Inspector position. Larger payloads show a truncation notice. Paused reads do not
+advance the game, and a new Play world starts with empty inspection data.
+Stop and save authored values before
 export; include the matching compiled module. Without a receiver, events can be
 sent but the cubes remain still. See [the complete workflow](../../../manual/editor/input-messages.md).
 

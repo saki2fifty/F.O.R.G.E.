@@ -314,7 +314,11 @@ struct PlayAutomation {
                 std::string("play.") + kind,
                 std::string("Read cached ") + kind +
                     " observations published by the actual Play owner, correlated with its "
-                    "launch/session/world. Watch-dependent values require an explicit watch.",
+                    "launch/session/world. Watch-dependent values require an explicit watch." +
+                    (std::string_view(kind) == "input"
+                         ? " Input includes per-source message send counts and the last sent JSON "
+                           "text preview (at most2048 UTF-8 bytes), encoded size and truncation."
+                         : ""),
                 "play.read", automation_object(), false,
                 [&files, &play, kind, localization = providers.ui_localization,
                  states = providers.ui_application_states](const Json&) {

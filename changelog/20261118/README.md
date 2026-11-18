@@ -1,5 +1,22 @@
 # 2026-11-18
 
+## Input Message source inspection
+
+Console Gameplay input expands each named message source to show its action,
+payload, source send count and last sent tick/encoded payload preview. The preview
+is captured before observers mutate native source storage, retained across idle
+ticks and limited to2048UTF-8bytes with encoded size and explicit truncation.
+Route changes, deactivation, source replacement and new runtime worlds reset
+source diagnostics. Native callback delivery retains its existing full-value copy.
+
+Play automation and MCP return the same read-only source metadata. Observations
+without inspection fields show unavailable inspection explicitly.
+The illustrated manual and existing message Gallery instructions explain the
+readout. No authored InputMessage layout, Scene/Prefab version, C callback table
+or dependency change is required.
+The private SDK fingerprint includes message implementation semantics; rebuild
+project modules against the matching kit even though public value layouts stay unchanged.
+
 ## Avoidance membership, masks and yielding priority
 
 Navigation Avoidance supports independent32bit membership and observed-peer

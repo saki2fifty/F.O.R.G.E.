@@ -1,4 +1,5 @@
 """Typed messages use existing Play launch scopes and input injection owners."""
+import json
 from mcp_test_client import failed
 
 
@@ -25,23 +26,42 @@ def check_input_messages_play(read, ok, control, mutate, until):
     control('forge_play_resume')
     control('forge_play_input_submit', events=[dict(control='key.space', value=1)])
     first = until(messages, lambda row: row.get('emitted_total') == 2)
+    first_sources = {row['entity']['entity']: row for row in first['sources']}
+    assert set(first_sources) == set(ids) and first['preview_limit_bytes'] == 2048
+    names = {row['id']: row['name'] for row in authored['entities']}
+    for source, row in first_sources.items():
+        assert row['name'] == names[source] and row['action_name']
+        assert row['emitted_total'] == 1 and row['last_sent']['tick'] == first['last_sent_tick']
+        assert not row['last_sent']['truncated']
+        assert row['last_sent']['encoded_bytes'] == len(row['last_sent']['preview'].encode('utf-8'))
+        assert json.loads(row['last_sent']['preview'])['x'] == baseline[source]
     until(positions, lambda rows: rows == {key: value + .5 for key, value in baseline.items()})
     until(messages, lambda row: row.get('tick', 0) >= first['tick'] + 4)
     assert messages()['emitted_total'] == 2
+    for row in messages()['sources']:
+        assert row['emitted_total'] == 1
+        assert row['last_sent'] == first_sources[row['entity']['entity']]['last_sent']
     scope = read('forge_play_status')
     failed(mutate('forge_play_input_submit', launch=scope['launch'], session=scope['session'],
                   generation=scope['generation'] + 1, events=[dict(control='key.space', value=0)]),
            'stale_play')
     control('forge_play_input_submit', events=[dict(control='key.space', value=0),
                                              dict(control='key.space', value=1)])
-    until(messages, lambda row: row.get('emitted_total') == 4)
+    second = until(messages, lambda row: row.get('emitted_total') == 4)
+    for row in second['sources']:
+        assert row['emitted_total'] == 2
+        assert json.loads(row['last_sent']['preview'])['x'] == baseline[row['entity']['entity']] + .5
     until(positions, lambda rows: rows == {key: value + 1 for key, value in baseline.items()})
     control('forge_play_pause')
     assert messages()['emitted_total'] == 4 and read('forge_scene_read') == authored
+    until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
+    paused_messages = messages()
+    assert messages() == paused_messages
     control('forge_play_stop')
     ok('forge_play_start')
     control('forge_play_pause')
     assert messages()['emitted_total'] == 0 and positions() == baseline
+    assert all(row['emitted_total'] == 0 and row['last_sent'] is None for row in messages()['sources'])
     control('forge_play_stop')
     assert read('forge_scene_read') == authored
     check_input_trigger_play(read, ok, control, until)
@@ -87,6 +107,9 @@ def check_input_trigger_play(read, ok, control, until):
     assert {row['trigger'] for row in messages()['sources']} == {1, 2}
     control('forge_play_input_submit', events=[dict(control='key.e', value=0), dict(control='key.d', value=0)])
     until(messages, lambda row: row.get('emitted_total') == 5)
+    for row in messages()['sources']:
+        assert row['emitted_total'] == (1 if row['entity']['entity'] == release else 2)
+        assert row['last_sent'] is not None and not row['last_sent']['truncated']
     until(positions, lambda rows: rows[axis1]['y'] == 1.5 and rows[axis2]['x'] == 1.5)
     control('forge_play_pause')
     assert read('forge_scene_read') == authored
