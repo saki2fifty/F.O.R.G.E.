@@ -1165,25 +1165,31 @@ NavigationAgent `movement` is an authored integer selector (0 Navigation,
 permission checks, history, Prefab intent and explicit Save. Missing/zero preserves
 legacy source. It is Edit-only and excluded from `forge_play_tune` and Keep review.
 Mode1 uses the existing enabled upright World +Y3D CharacterController, physical
-floor/colliders and a 3D ground route, including positive-lift physical jump links
+floor/colliders and a 3D ground route, including positive-lift physical jumps and
+descending zero-lift links
 between static supports. Configure NavigationLink arc_height and endpoints through
 the ordinary component/property tools, build with forge_navigation_build and set
 enough Agent speed for the range. Actual native takeoff, obstruction, landing and
-failure appear in Play observations; physical link debug includes physical_jump.
+failure appear in Play observations; physical link debug includes physical_jump
+or physical_drop for the active traversal.
 Gallery226 demonstrates a raised landing and a solid flight obstruction. Mode2 uses a World-bound
 Floating CharacterController2D, XY NavMesh and physical Collider2D obstructions,
 preserving visual Z, with gravity_factor0. Mode3 uses a World-bound Grounded
 CharacterController2D with positive gravity_factor, downward vertical XY Project
-gravity, static walkable physical support and a link-free XY route. The existing
+gravity and static walkable physical support. XY routes can include positive-lift
+jumps and descending zero-lift links. The existing
 native mover owns gravity, collision and vertical momentum; navigation supplies
 horizontal one-step steering. Ordinary property tools set gravity_factor and
 movement, with the same defaults, ranges, revisions and history. Native sampled
 feet/support establish arrival. Grounded unsupported route bends/goals reject;
 gaps block steering. No new MCP operation or private authoring implementation is
-needed. Gallery227 is editable/exportable without C++. General platformer
-jump/drop planning, moving-platform routes and XY explicit links are unsupported.
-Add/configure those
-through the same component/property operations; no character-navigation tool or
+needed. Gallery227/228/230 are editable/exportable without C++; Gallery229 supplies
+the corresponding 3D descent. For drops set arc_height0, End below Start and
+one-way direction, then build the matching profile through forge_navigation_build.
+Native physics walks off, falls and lands without a jump impulse. Same-height or
+upward zero-lift physical links, general platformer reachability graphs and
+moving-platform routes are unsupported. Add/configure the supported components
+through the same property operations; no character-navigation tool or
 alternate movement implementation exists. Existing Play observations report actual
 adopted physics motion; speed/destination/enabled remain live-tunable. See
 `docs/navigation.md` for refusals and exact-SDK/recovery limits.

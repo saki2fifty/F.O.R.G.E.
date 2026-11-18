@@ -1,4 +1,4 @@
-"""Actual jump observations through a matching project module in SDK Play."""
+"""Actual physical character crossings through a matching project module in SDK Play."""
 import json
 from pathlib import Path
 import shutil
@@ -11,9 +11,11 @@ from runtime_client import Runtime, activate
 
 runtime, module, gallery, scratch = map(lambda p: Path(p).resolve(), sys.argv[1:5])
 planar = '--planar' in sys.argv[5:]
-source = ('Scenes/228-navigation-character-jumps-xy.scene.json' if planar
-          else 'Scenes/226-navigation-character-jumps.scene.json')
-landing_height = -2 if planar else 2
+drop = '--drop' in sys.argv[5:]
+source = (('Scenes/230-navigation-character-drops-xy.scene.json' if planar
+           else 'Scenes/229-navigation-character-drops.scene.json') if drop else
+          ('Scenes/228-navigation-character-jumps-xy.scene.json' if planar
+           else 'Scenes/226-navigation-character-jumps.scene.json'))
 scratch.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='jump-sdk-', dir=scratch) as temporary:
     root = copy_gallery_project(gallery, Path(temporary) / 'Project', [source], startup=source)
@@ -24,13 +26,15 @@ with tempfile.TemporaryDirectory(prefix='jump-sdk-', dir=scratch) as temporary:
         sdk='experimental-1', fingerprint=info['fingerprint'], library=module.name,
         dependencies=['forge.navigation', 'forge.input'])]
     project['game'] = dict(version=1, application_id='org.forge.navigation-jump-test',
-        title='Physical jump', profile='development', save_schema=1,
+        title='Physical drop' if drop else 'Physical jump', profile='development', save_schema=1,
         display=dict(mode='windowed', width=640, height=480, display=0, vsync=False),
         audio=dict(master_volume=1), input=dict(mouse_sensitivity=1, gamepad_sensitivity=1,
             invert_mouse_y=False, invert_gamepad_y=False, stick_deadzone=.15, trigger_deadzone=.05))
     (root / 'forge.project.json').write_text(json.dumps(project))
     scene = json.loads((root / source).read_text())
     actor = next(e for e in scene['entities'] if e['name'] == 'Free route character')
+    landing_height = actor['components']['forge.navigation_agent']['destination_y']
+    start_height = actor['components']['forge.local_translation']['y']
     for entity in scene['entities']:
         if entity['id'] != actor['id']:
             entity['components'].pop('forge.navigation_agent', None)
@@ -51,7 +55,9 @@ with tempfile.TemporaryDirectory(prefix='jump-sdk-', dir=scratch) as temporary:
                 assert nav['sampled'] and nav['has_path'] and nav['status'] == 'success', nav
                 assert all(abs(nav['position'][axis] - observed['world_affine'][offset]) < 1e-6
                            for axis, offset in enumerate((3, 7, 11))), observed
-                airborne |= -1 < nav['position'][0] < 1 and nav['position'][1] > (landing_height if planar else 1)
+                airborne |= -1 < nav['position'][0] < 1 and (
+                    landing_height + .05 < nav['position'][1] < start_height - .05 if drop
+                    else nav['position'][1] > (landing_height if planar else 1))
                 positions.append(nav['position'])
                 assert state['recovery'] is None, 'SDK Play advertised native checkpoint recovery'
                 assert not any(d['text'].startswith('navigation ') and 'failed' in d['text']
@@ -74,4 +80,4 @@ with tempfile.TemporaryDirectory(prefix='jump-sdk-', dir=scratch) as temporary:
             worker.quit()
         finally:
             worker.close()
-print('Matching SDK query/PostPhysics actual jump/raised landing/authored restart passed')
+print('Matching SDK query/PostPhysics actual physical crossing/landing/authored restart passed')

@@ -478,6 +478,11 @@ gate. This source-tool change reuses the existing runtime/collector/client and
 changes no native code/ABI/game-creation operation; unchanged attributable native
 sanitizer/manual/package evidence remains reusable.
 
+The complete suite starts 28 native workload cases plus report metadata processes.
+Its aggregate CTest deadline is300seconds to accommodate Windows startup; individual
+protocol and graceful-shutdown bounds and every workload/report assertion remain
+unchanged. This is functional correctness evidence, not a hardware timing result.
+
 Pose-history ownership uses `runtime_clock_and_interpolation` for both legacy
 copying and owned-value admission: local interpolation, parent/resolution snaps,
 sparse insertion/removal, generation recycling, empty captures and unchanged caller

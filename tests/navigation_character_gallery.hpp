@@ -9,14 +9,20 @@ constexpr const char* grounded_character_scene_path =
     "Scenes/227-navigation-grounded-xy.scene.json";
 constexpr const char* planar_jump_character_scene_path =
     "Scenes/228-navigation-character-jumps-xy.scene.json";
+constexpr const char* drop_character_scene_path =
+    "Scenes/229-navigation-character-drops.scene.json";
+constexpr const char* planar_drop_character_scene_path =
+    "Scenes/230-navigation-character-drops-xy.scene.json";
 void prepare_character_gallery(const std::filesystem::path& root,
                                const std::filesystem::path& worker, bool planar = false,
-                               bool jump = false, bool grounded = false) {
-    const auto* path = planar && jump ? planar_jump_character_scene_path
-                       : grounded     ? grounded_character_scene_path
-                       : jump         ? jump_character_scene_path
-                       : planar       ? planar_character_scene_path
-                                      : character_scene_path;
+                               bool jump = false, bool grounded = false, bool drop = false) {
+    const auto* path = drop
+                           ? (planar ? planar_drop_character_scene_path : drop_character_scene_path)
+                       : planar && jump ? planar_jump_character_scene_path
+                       : grounded       ? grounded_character_scene_path
+                       : jump           ? jump_character_scene_path
+                       : planar         ? planar_character_scene_path
+                                        : character_scene_path;
     const auto lease = std::make_shared<ProjectLease>(root);
     EngineContext engine;
     Scene scene(engine.world());
@@ -37,7 +43,7 @@ void prepare_character_gallery(const std::filesystem::path& root,
 }
 void exercise_character_gallery(const std::filesystem::path& root,
                                 const std::filesystem::path& source, bool planar = false,
-                                bool jump = false, bool grounded = false) {
+                                bool jump = false, bool grounded = false, bool drop = false) {
     const auto saved = read(root / source);
     GameSession session(session_config(root));
     const auto candidate = session.prepare(saved);
@@ -58,7 +64,8 @@ void exercise_character_gallery(const std::filesystem::path& root,
             free = world.scene.entity(row.at("id"));
         else if (name == "Blocked route character")
             blocked = world.scene.entity(row.at("id"));
-        else if (name.starts_with("Red physical wall") || name.starts_with("Red flight wall"))
+        else if (name.starts_with("Red physical wall") || name.starts_with("Red flight wall") ||
+                 name.starts_with("Red drop wall"))
             wall = world.scene.entity(row.at("id"));
     }
     check(free && blocked && wall && physics, "Character Gallery participants are missing");
@@ -75,17 +82,28 @@ void exercise_character_gallery(const std::filesystem::path& root,
         return {{value.position.x, value.position.y, value.position.z}, value.velocity};
     };
     const auto blocked_start = blocked.get<LocalTranslation>();
+    const auto free_start = free.get<LocalTranslation>();
     const auto landing_height = free.get<NavigationAgent>().destination_y;
     bool saw_blocked = false, free_takeoff = false, blocked_takeoff = false;
+    bool free_fall = false, blocked_fall = false;
     for (unsigned tick = 0; tick != 420; ++tick) {
         session.step();
         for (const auto actor : {free, blocked}) {
             const auto state = navigation->agent_state(ref(actor));
             const auto [position, velocity] = actual(actor);
-            if (jump) {
+            if (jump || drop) {
                 const auto accepted = planar ? physics->character_2d(ref(actor)).jump_accepted
                                              : physics->character(ref(actor)).jump_accepted;
-                (actor == free ? free_takeoff : blocked_takeoff) |= accepted;
+                if (jump)
+                    (actor == free ? free_takeoff : blocked_takeoff) |= accepted;
+                if (drop) {
+                    check(!accepted, "Drop Gallery manufactured a jump impulse");
+                    const auto ground = planar ? physics->character_2d(ref(actor)).ground
+                                               : physics->character(ref(actor)).ground;
+                    (actor == free ? free_fall : blocked_fall) |=
+                        ground == CharacterGround::InAir &&
+                        position[1] < (actor == free ? free_start.y : blocked_start.y) - .2;
+                }
                 if (actor == blocked && state && state->phase == NavigationAgentPhase::Failed)
                     continue;
             }
@@ -108,7 +126,7 @@ void exercise_character_gallery(const std::filesystem::path& root,
                       "Grounded Gallery bypassed controller gravity or physical support");
             }
         saw_blocked |= state->phase == NavigationAgentPhase::Blocked ||
-                       (jump && state->phase == NavigationAgentPhase::Failed);
+                       ((jump || drop) && state->phase == NavigationAgentPhase::Failed);
         check(actual(blocked).first[0] < (planar ? -.44 : -.45),
               "Gallery character bypassed its physical wall");
     }
@@ -118,6 +136,9 @@ void exercise_character_gallery(const std::filesystem::path& root,
         check(free_takeoff && blocked_takeoff &&
                   std::abs(actual(free).first[1] - landing_height) < .1,
               "Jump Gallery did not demonstrate native takeoff and the raised landing");
+    if (drop)
+        check(free_fall && blocked_fall && std::abs(actual(free).first[1] - landing_height) < .1,
+              "Drop Gallery did not demonstrate actual native falling and lower landing");
     if (planar) {
         auto body = wall.get<PhysicsBody2D>();
         body.enabled = false;
@@ -127,7 +148,7 @@ void exercise_character_gallery(const std::filesystem::path& root,
         body.enabled = false;
         wall.set<PhysicsBody>(body);
     }
-    if (jump) {
+    if (jump || drop) {
         if (planar)
             physics->place_character_2d(ref(blocked), {blocked_start.x, blocked_start.y}, true);
         else

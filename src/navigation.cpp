@@ -42,6 +42,7 @@ struct Cached {
     std::uint64_t obstacle_attempt = 0;
 };
 struct AgentState {
+    enum class PhysicalTraversal { None, Jump, Drop };
     NavigationAgent config;
     std::vector<Double3> path;
     std::size_t next = 1;
@@ -51,13 +52,19 @@ struct AgentState {
     std::vector<Query::RouteLink> links;
     std::optional<std::size_t> crossing;
     bool replan_after_link = false;
-    bool physical_jump = false;
+    PhysicalTraversal physical = PhysicalTraversal::None;
     struct CharacterFrame {
         Double3 original{};
         bool jump_requested = false;
     };
     std::optional<CharacterFrame> character_frame;
 };
+bool physical_traversal(const AgentState& state) {
+    return state.physical != AgentState::PhysicalTraversal::None;
+}
+bool descending_link(const AgentState& state, const Query::RouteLink& link) {
+    return link.arc_height == 0 && state.path.at(link.exit)[1] < state.path.at(link.entry)[1];
+}
 const Query::RouteLink* crossing(const AgentState& state) {
     return state.crossing && *state.crossing < state.links.size() ? &state.links[*state.crossing]
                                                                   : nullptr;
@@ -527,13 +534,13 @@ struct NavigationRuntime::Impl {
         const auto support = physics.body_state_2d(*character.supporting_entity);
         return support && support->motion == 0 && support->epoch == character.supporting_epoch;
     }
-    struct JumpObservation {
+    struct CharacterObservation {
         CharacterState character;
         bool static_support = false;
     };
     // A temporary copied view shares jump math, never another physical pose owner.
-    static JumpObservation jump_observation(PhysicsService& physics, EntityRef reference,
-                                            bool planar, double visual_z) {
+    static CharacterObservation character_observation(PhysicsService& physics, EntityRef reference,
+                                                      bool planar, double visual_z) {
         if (!planar) {
             const auto character = physics.character(reference);
             const auto support = character.supporting_entity
@@ -555,9 +562,30 @@ struct NavigationRuntime::Impl {
         character.jump_accepted = value.jump_accepted;
         return {character, static_support_2d(physics, value)};
     }
-    static double jump_gap(Double3 first, Double3 second, bool planar) {
+    static double horizontal_gap(Double3 first, Double3 second, bool planar) {
         return planar ? std::abs(first[0] - second[0])
                       : std::hypot(first[0] - second[0], first[2] - second[2]);
+    }
+    bool ground_at_3d(PhysicsService& physics, EntityRef character,
+                      const CharacterController& controller, Double3 feet, double tolerance) {
+        const std::array exclusions{character};
+        const auto hit =
+            physics.raycast_filtered({feet[0], feet[1] + tolerance, feet[2]},
+                                     {0, -2 * tolerance, 0}, {controller.mask, false, exclusions});
+        if (!hit || hit->normal[1] < std::cos(controller.max_slope * std::numbers::pi / 180))
+            return false;
+        const auto actual = physics.body_state(hit->entity);
+        if (!actual || actual->motion != 0)
+            return false;
+        const auto resolved = context.resolve(hit->entity);
+        if (resolved.state != WorldContext::ResolveState::Available)
+            return false;
+        const auto entity = context.world().entity(resolved.entity);
+        if (entity.has<PhysicsBody>()) {
+            const auto body = entity.get<PhysicsBody>();
+            return body.enabled && body.motion == 0 && (body.mask & (1u << controller.layer));
+        }
+        return true; // Native implicit static shapes retain their existing physics ownership.
     }
     bool ground_at_2d(PhysicsService& physics, EntityRef character,
                       const CharacterController2D& controller, Double2 feet) {
@@ -925,7 +953,7 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
         auto a = e.get<NavigationAgent>();
         if (!a.enabled || !a.has_destination) {
             const auto previous = s.agents.find(id);
-            if (previous != s.agents.end() && !previous->second.physical_jump &&
+            if (previous != s.agents.end() && !physical_traversal(previous->second) &&
                 crossing(previous->second) && previous->second.config.navmesh == a.navmesh) {
                 previous->second.config = a;
                 previous->second.replan_after_link = true;
@@ -999,11 +1027,13 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                 continue;
             if ((a.movement == 2 && !state.links.empty()) ||
                 ((a.movement == 1 || a.movement == 3) &&
-                 std::ranges::any_of(state.links,
-                                     [](const auto& link) { return link.arc_height <= 0; })))
+                 std::ranges::any_of(state.links, [&](const auto& link) {
+                     return link.arc_height <= 0 && !descending_link(state, link);
+                 })))
                 throw NavigationFailure(
                     NavStatus::Invalid,
-                    "Character links require grounded 3D or XY movement and positive lift");
+                    "Character links require grounded 3D or XY movement and positive lift or a "
+                    "descending drop");
             const auto character_position = position;
             if ((a.movement == 1 || a.movement == 3) && !state.links.empty()) {
                 const bool planar = a.movement == 3;
@@ -1013,9 +1043,12 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                 const auto ref = s.context.reference(id);
                 if (!physics || !ref)
                     throw NavigationFailure(NavStatus::Unavailable,
-                                            "Character jump requires the physics service");
-                if (planar && !physics->find_character_2d(*ref)) {
-                    physics->move_character_2d_once(*ref, {});
+                                            "Character navigation requires the physics service");
+                if (planar ? !physics->find_character_2d(*ref) : !physics->find_character(*ref)) {
+                    if (planar)
+                        physics->move_character_2d_once(*ref, {});
+                    else
+                        physics->move_character_once(*ref, {});
                     state.character_frame = AgentState::CharacterFrame{position};
                     state.observation = {};
                     state.observation.phase = NavigationAgentPhase::Pending;
@@ -1027,38 +1060,59 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                 const auto acceleration = -gravity[1] * factor;
                 if (std::abs(gravity[0]) > 1e-8 || (!planar && std::abs(gravity[2]) > 1e-8) ||
                     !std::isfinite(acceleration) || acceleration <= 0)
-                    throw NavigationFailure(NavStatus::Invalid,
-                                            "Character jump requires downward vertical gravity");
-                std::optional<std::size_t> jump = state.crossing;
-                if (!jump && a.speed > 0)
+                    throw NavigationFailure(
+                        NavStatus::Invalid,
+                        "Character navigation requires downward vertical gravity");
+                std::optional<std::size_t> traversal = state.crossing;
+                if (!traversal && a.speed > 0)
                     for (std::size_t i = 0; i != state.links.size(); ++i) {
                         const auto& link = state.links[i];
                         const auto entry = state.path.at(link.entry);
                         if ((state.next == link.entry || state.next == link.exit) &&
-                            Impl::jump_gap(position, entry, planar) < .001) {
+                            Impl::horizontal_gap(position, entry, planar) < .001) {
                             if (route_distance(Impl::character_route_origin(asset, position),
                                                state) > a.stopping_distance + arrival_tolerance)
-                                jump = i;
+                                traversal = i;
                             break;
                         }
                     }
-                if (jump) {
-                    const auto& link = state.links.at(*jump);
+                if (traversal) {
+                    const auto& link = state.links.at(*traversal);
                     const auto entry = state.path.at(link.entry), exit = state.path.at(link.exit);
-                    const auto duration = std::sqrt(8 * double(link.arc_height) / acceleration);
-                    const auto horizontal = Impl::jump_gap(exit, entry, planar);
-                    const auto flight_speed = horizontal / duration;
-                    const bool takeoff = !state.physical_jump;
+                    const bool drop = descending_link(state, link);
+                    const auto duration =
+                        drop ? std::sqrt(2 * (entry[1] - exit[1]) / acceleration)
+                             : std::sqrt(8 * double(link.arc_height) / acceleration);
+                    const auto horizontal = Impl::horizontal_gap(exit, entry, planar);
+                    const auto flight_speed = drop ? double(a.speed) : horizontal / duration;
+                    const bool entering = !physical_traversal(state);
+                    const bool takeoff = entering && !drop;
                     float jump_speed = 0;
-                    if (takeoff) {
+                    if (entering) {
                         const auto observed =
-                            Impl::jump_observation(*physics, *ref, planar, position[2]);
+                            Impl::character_observation(*physics, *ref, planar, position[2]);
                         const auto& character = observed.character;
                         const auto settings =
                             asset.data.metadata.at("settings").get<NavigationSettings>();
                         const auto rise = exit[1] - position[1];
                         const auto speed = (rise + 4 * double(link.arc_height)) / duration +
                                            .5 * acceleration * dt;
+                        const double tolerance = 2 * settings.cell_height + .1;
+                        if (character.ground != CharacterGround::OnGround &&
+                            std::abs(position[1] - entry[1]) <= tolerance &&
+                            (planar ? s.ground_at_2d(*physics, *ref, e.get<CharacterController2D>(),
+                                                     {position[0], position[1]})
+                                    : s.ground_at_3d(*physics, *ref, e.get<CharacterController>(),
+                                                     position, tolerance))) {
+                            if (planar)
+                                physics->move_character_2d_once(*ref, {0, character.velocity[1]});
+                            else
+                                physics->move_character_once(*ref, {});
+                            state.character_frame = AgentState::CharacterFrame{character_position};
+                            state.observation = {};
+                            state.observation.phase = NavigationAgentPhase::Pending;
+                            continue;
+                        }
                         if (character.ground != CharacterGround::OnGround ||
                             !observed.static_support ||
                             std::hypot(character.ground_velocity[0], character.ground_velocity[1],
@@ -1066,34 +1120,34 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                             std::abs(position[1] - entry[1]) > 2 * settings.cell_height + .1)
                             throw NavigationFailure(
                                 NavStatus::Invalid,
-                                "Character jump requires static walkable takeoff support");
-                        const std::array exclusions{*ref};
-                        const double tolerance = 2 * settings.cell_height + .1;
+                                drop ? "Character drop requires static walkable launch support"
+                                     : "Character jump requires static walkable takeoff support");
                         bool supported_landing = false;
                         if (planar) {
                             supported_landing = s.ground_at_2d(
                                 *physics, *ref, e.get<CharacterController2D>(), {exit[0], exit[1]});
                         } else {
-                            const auto landing = physics->raycast_filtered(
-                                {exit[0], exit[1] + tolerance, exit[2]}, {0, -2 * tolerance, 0},
-                                {e.get<CharacterController>().mask, false, exclusions});
-                            const auto landing_body =
-                                landing ? physics->body_state(landing->entity) : std::nullopt;
-                            supported_landing = landing_body && landing_body->motion == 0;
+                            supported_landing = s.ground_at_3d(
+                                *physics, *ref, e.get<CharacterController>(), exit, tolerance);
                         }
                         if (!supported_landing)
                             throw NavigationFailure(
                                 NavStatus::Invalid,
-                                "Character jump requires static landing support");
-                        if (!std::isfinite(speed) || speed <= 0 || speed > 1000000 ||
-                            std::abs(rise) >= 4 * double(link.arc_height) || duration < 4 * dt ||
-                            flight_speed > a.speed + 1e-6)
+                                drop ? "Character drop requires static landing support"
+                                     : "Character jump requires static landing support");
+                        if (!std::isfinite(duration) || duration < 4 * dt ||
+                            (drop ? horizontal <= 1e-6
+                                  : !std::isfinite(speed) || speed <= 0 || speed > 1000000 ||
+                                        std::abs(rise) >= 4 * double(link.arc_height) ||
+                                        flight_speed > a.speed + 1e-6))
                             throw NavigationFailure(
                                 NavStatus::Invalid,
-                                "Character jump exceeds speed, lift or fixed-step limits");
-                        jump_speed = float(speed);
+                                drop ? "Character drop exceeds horizontal span or fixed-step limits"
+                                     : "Character jump exceeds speed, lift or fixed-step limits");
+                        if (!drop)
+                            jump_speed = float(speed);
                     }
-                    const auto gap = Impl::jump_gap(exit, position, planar);
+                    const auto gap = Impl::horizontal_gap(exit, position, planar);
                     const auto speed = std::min({flight_speed, double(a.speed), gap / dt});
                     const Double3 velocity =
                         gap > 1e-8 ? Double3{(exit[0] - position[0]) * speed / gap, 0,
@@ -1109,8 +1163,9 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                         physics->jump_character_once(*ref, velocity, jump_speed);
                     else
                         physics->move_character_once(*ref, velocity);
-                    state.crossing = jump;
-                    state.physical_jump = true;
+                    state.crossing = traversal;
+                    state.physical = drop ? AgentState::PhysicalTraversal::Drop
+                                          : AgentState::PhysicalTraversal::Jump;
                     state.next = link.exit;
                     state.character_frame = AgentState::CharacterFrame{character_position, takeoff};
                     state.observation = {};
@@ -1555,37 +1610,46 @@ void NavigationRuntime::physics_adopted(float dt, std::uint64_t tick) {
                 velocity = character.velocity;
             }
             auto& asset = s.get(config.navmesh);
-            if (state.physical_jump) {
+            if (physical_traversal(state)) {
+                const bool drop = state.physical == AgentState::PhysicalTraversal::Drop;
                 const auto* link = crossing(state);
                 if (!link)
                     throw NavigationFailure(NavStatus::Invalid,
-                                            "Character jump continuation is unavailable");
-                const auto observed =
-                    Impl::jump_observation(*physics, *reference, config.movement == 3, actual[2]);
+                                            "Physical character traversal is unavailable");
+                const auto observed = Impl::character_observation(*physics, *reference,
+                                                                  config.movement == 3, actual[2]);
                 const auto& character = observed.character;
                 if (frame.jump_requested && !character.jump_accepted)
                     throw NavigationFailure(NavStatus::Invalid,
                                             "Character jump was not accepted at takeoff");
                 const auto entry = state.path.at(link->entry), exit = state.path.at(link->exit);
                 const auto settings = asset.data.metadata.at("settings").get<NavigationSettings>();
-                const bool landed = !frame.jump_requested &&
-                                    character.ground == CharacterGround::OnGround &&
-                                    character.velocity[1] <= character.ground_velocity[1] + 1e-5;
+                const auto exit_gap = Impl::horizontal_gap(actual, exit, config.movement == 3);
+                const bool supported = character.ground == CharacterGround::OnGround &&
+                                       character.velocity[1] <= character.ground_velocity[1] + 1e-5;
+                const bool near_exit = exit_gap <= settings.radius + .05;
+                const bool landed = !frame.jump_requested && supported && (!drop || near_exit);
                 if (landed) {
                     if (!observed.static_support ||
-                        Impl::jump_gap(actual, exit, config.movement == 3) >
+                        Impl::horizontal_gap(actual, exit, config.movement == 3) >
                             settings.radius + .05 ||
                         std::abs(actual[1] - exit[1]) > 2 * settings.cell_height + .1)
-                        throw NavigationFailure(NavStatus::NoPath,
-                                                "Character jump landed outside its static exit");
+                        throw NavigationFailure(
+                            NavStatus::NoPath,
+                            drop ? "Character drop landed outside its static exit"
+                                 : "Character jump landed outside its static exit");
                     state.next = link->exit + 1;
                     state.crossing.reset();
-                    state.physical_jump = false;
+                    state.physical = AgentState::PhysicalTraversal::None;
                     state.replan_after_link = true;
                 } else {
+                    if (drop && supported && !observed.static_support)
+                        throw NavigationFailure(NavStatus::Invalid,
+                                                "Character drop requires static walkable support");
                     if (actual[1] < std::min(entry[1], exit[1]) - settings.height)
                         throw NavigationFailure(NavStatus::NoPath,
-                                                "Character jump missed its landing");
+                                                drop ? "Character drop missed its landing"
+                                                     : "Character jump missed its landing");
                     auto& out = state.observation;
                     out = {};
                     out.tick = tick;
@@ -1595,7 +1659,12 @@ void NavigationRuntime::physics_adopted(float dt, std::uint64_t tick) {
                     out.velocity = velocity;
                     out.projected_destination = state.path.back();
                     out.remaining_distance = route_distance(actual, state);
+                    const bool blocked =
+                        drop && (supported ? Impl::horizontal_gap(actual, frame.original,
+                                                                  config.movement == 3) <= 1e-8
+                                           : distance(actual, frame.original) <= 1e-8);
                     out.phase = config.speed == 0 ? NavigationAgentPhase::Paused
+                                : blocked         ? NavigationAgentPhase::Blocked
                                                   : NavigationAgentPhase::Moving;
                     state.last = actual;
                     s.errors.erase(id);
@@ -1650,7 +1719,7 @@ void NavigationRuntime::physics_adopted(float dt, std::uint64_t tick) {
             }
             s.errors.erase(id);
         } catch (const std::exception& error) {
-            state.physical_jump = false;
+            state.physical = AgentState::PhysicalTraversal::None;
             state.crossing.reset();
             state.path.clear();
             state.observation = {};
@@ -1708,8 +1777,10 @@ Json NavigationRuntime::debug(flecs::entity_t entity) const {
                     {"exit", state->second.path.at(current->exit)}};
             if (current->arc_height != 0)
                 link["arc_height"] = current->arc_height;
-            if (state->second.physical_jump)
+            if (state->second.physical == AgentState::PhysicalTraversal::Jump)
                 link["physical_jump"] = true;
+            if (state->second.physical == AgentState::PhysicalTraversal::Drop)
+                link["physical_drop"] = true;
         }
     Json diagnostic = "";
     if (out->phase == NavigationAgentPhase::Failed) {
@@ -1794,7 +1865,7 @@ Json NavigationRuntime::checkpoint() {
     Json revisions = Json::array(), agents = Json::array();
     bool has_crossing = false, has_arc = false, has_collision = false, has_character = false,
          has_planar_character = false, has_physical_jump = false,
-         has_grounded_planar_character = false, has_planar_jump = false;
+         has_grounded_planar_character = false, has_planar_jump = false, has_drop = false;
     if (impl_) {
         impl_->check();
         ApplicationStateActivation conditions(impl_->context);
@@ -1847,7 +1918,7 @@ Json NavigationRuntime::checkpoint() {
                 if (const auto* link = crossing(state->second);
                     link &&
                     (!translation.is_null() ||
-                     ((movement == 1 || movement == 3) && state->second.physical_jump)) &&
+                     ((movement == 1 || movement == 3) && physical_traversal(state->second))) &&
                     state->second.config.navmesh == e.get<NavigationAgent>().navmesh &&
                     distance(state->second.last, e.get<WorldTransform>().affine.point({0, 0, 0})) <=
                         retained_pose_tolerance(state->second)) {
@@ -1858,10 +1929,14 @@ Json NavigationRuntime::checkpoint() {
                         agents.back()["link"]["arc_height"] = link->arc_height;
                         has_arc = true;
                     }
-                    if (state->second.physical_jump) {
+                    if (state->second.physical == AgentState::PhysicalTraversal::Jump) {
                         agents.back()["link"]["physical_jump"] = true;
                         has_physical_jump = true;
                         has_planar_jump |= movement == 3;
+                    }
+                    if (state->second.physical == AgentState::PhysicalTraversal::Drop) {
+                        agents.back()["link"]["physical_drop"] = true;
+                        has_drop = true;
                     }
                     has_crossing = true;
                 }
@@ -1871,7 +1946,8 @@ Json NavigationRuntime::checkpoint() {
         for (auto& entry : agents)
             if (!entry.contains("collision"))
                 entry["collision"] = nullptr;
-    Json result = {{"version", has_planar_jump                 ? 11
+    Json result = {{"version", has_drop                        ? 12
+                               : has_planar_jump               ? 11
                                : has_grounded_planar_character ? 10
                                : has_physical_jump             ? 9
                                : has_planar_character          ? 8
@@ -1892,7 +1968,7 @@ void NavigationRuntime::restore(const Json& data) {
         !data.at("version").is_number_integer())
         throw std::runtime_error("Invalid navigation recovery version");
     const auto version = data.at("version").get<std::uint64_t>();
-    if (version < 1 || version > 11 || !data.at("assets").is_array() ||
+    if (version < 1 || version > 12 || !data.at("assets").is_array() ||
         data.at("assets").size() > 8 || !data.at("agents").is_array() ||
         data.at("agents").size() > 64)
         throw std::runtime_error("Invalid navigation recovery metadata");
@@ -1975,14 +2051,18 @@ void NavigationRuntime::restore(const Json& data) {
         }
         const bool physical_jump = entry.contains("link") && entry.at("link").is_object() &&
                                    entry.at("link").contains("physical_jump");
+        const bool physical_drop = entry.contains("link") && entry.at("link").is_object() &&
+                                   entry.at("link").contains("physical_drop");
         if (config.movement != 0 &&
             (version < (config.movement == 3   ? 10u
                         : config.movement == 2 ? 8u
                                                : 7u) ||
              translation || translation_owned ||
              (entry.contains("link") &&
-              !(physical_jump && ((version >= 9 && config.movement == 1) ||
-                                  (version >= 11 && config.movement == 3))))))
+              !((physical_jump && ((version >= 9 && config.movement == 1) ||
+                                   (version >= 11 && config.movement == 3))) ||
+                (physical_drop && version >= 12 &&
+                 (config.movement == 1 || config.movement == 3))))))
             throw std::runtime_error(
                 "Character navigation requires its recovery profile without a navigation-owned "
                 "pose or links");
@@ -1998,20 +2078,36 @@ void NavigationRuntime::restore(const Json& data) {
         }
         Json link = nullptr;
         if (entry.contains("link")) {
-            if (version < 4 || (!translation && !physical_jump))
+            if (version < 4 || (!translation && !physical_jump && !physical_drop))
                 throw std::runtime_error(
                     "Navigation traversal recovery requires version 4-8 and a valid pose");
             link = entry.at("link");
             const bool arc = link.contains("arc_height");
-            if (!link.is_object() || link.size() != 3u + unsigned(arc) + unsigned(physical_jump) ||
+            if (!link.is_object() ||
+                link.size() !=
+                    3u + unsigned(arc) + unsigned(physical_jump) + unsigned(physical_drop) ||
                 !link.at("source").get<EntityId>() ||
                 (arc && (version < 5 || !link.at("arc_height").is_number())))
                 throw std::runtime_error("Invalid navigation traversal recovery identity");
+            if (physical_jump && physical_drop)
+                throw std::runtime_error("Conflicting physical traversal recovery markers");
             if (physical_jump) {
                 if (version < (config.movement == 3 ? 11u : 9u) ||
                     (config.movement != 1 && config.movement != 3) || !arc ||
                     !link.at("physical_jump").is_boolean() || !link.at("physical_jump").get<bool>())
                     throw std::runtime_error("Invalid physical character jump recovery profile");
+                impl_->context.evaluate_world_transforms();
+                impl_->valid_agent(e, config, impl_->context.transform_nodes(), conditions);
+            }
+            if (physical_drop) {
+                if (version < 12 || (config.movement != 1 && config.movement != 3) || arc ||
+                    !link.at("physical_drop").is_boolean() || !link.at("physical_drop").get<bool>())
+                    throw std::runtime_error("Invalid physical character drop recovery profile");
+                const auto start = link.at("entry").get<Double3>();
+                const auto end = link.at("exit").get<Double3>();
+                if (end[1] >= start[1] ||
+                    Impl::horizontal_gap(start, end, config.movement == 3) <= 1e-6)
+                    throw std::runtime_error("Physical drop recovery requires a descending span");
                 impl_->context.evaluate_world_transforms();
                 impl_->valid_agent(e, config, impl_->context.transform_nodes(), conditions);
             }
@@ -2054,6 +2150,10 @@ void NavigationRuntime::restore(const Json& data) {
                    p.link.value("physical_jump", false);
         }))
         throw std::runtime_error("Navigation recovery11 requires an active XY physical jump");
+    if (version == 12 && std::ranges::none_of(pending, [](const auto& p) {
+            return p.link.is_object() && p.link.value("physical_drop", false);
+        }))
+        throw std::runtime_error("Navigation recovery12 requires an active physical drop");
     // Host-only recovery into an unpublished candidate world. Preserve component ownership;
     // semantic values cover direct gameplay edits hidden by authored property-override intent.
     for (const auto& p : pending) {
@@ -2095,7 +2195,8 @@ void NavigationRuntime::restore(const Json& data) {
                 "Navigation traversal recovery differs from the admitted oriented link");
         const auto position = p.entity.get<WorldTransform>().affine.point({0, 0, 0});
         const bool physical_jump = p.link.value("physical_jump", false);
-        if (physical_jump) {
+        const bool physical_drop = p.link.value("physical_drop", false);
+        if (physical_jump || physical_drop) {
             const auto physics = impl_->context.services().available(Capability::Physics)
                                      ? impl_->context.services().physics()
                                      : nullptr;
@@ -2104,12 +2205,14 @@ void NavigationRuntime::restore(const Json& data) {
                 throw std::runtime_error(
                     "Physical jump recovery requires restored character physics");
             const auto observed =
-                Impl::jump_observation(*physics, *ref, p.agent.movement == 3, position[2]);
+                Impl::character_observation(*physics, *ref, p.agent.movement == 3, position[2]);
             const auto& character = observed.character;
             if (distance(position, {character.position.x, character.position.y,
                                     character.position.z}) > 1e-6 ||
-                (character.ground == CharacterGround::OnGround &&
-                 character.velocity[1] <= character.ground_velocity[1]))
+                (physical_jump && character.ground == CharacterGround::OnGround &&
+                 character.velocity[1] <= character.ground_velocity[1]) ||
+                (physical_drop && character.ground == CharacterGround::OnGround &&
+                 !observed.static_support))
                 throw std::runtime_error(
                     "Physical jump recovery requires its active native character");
         } else if (arc_height != 0) {
@@ -2139,7 +2242,9 @@ void NavigationRuntime::restore(const Json& data) {
         state.path = {entry, exit};
         state.links = {{source, 0, 1, arc_height}};
         state.crossing = 0;
-        state.physical_jump = physical_jump;
+        state.physical = physical_drop   ? AgentState::PhysicalTraversal::Drop
+                         : physical_jump ? AgentState::PhysicalTraversal::Jump
+                                         : AgentState::PhysicalTraversal::None;
         state.last = position;
         state.query_generation = asset.query->generation();
         state.replan_after_link = true;

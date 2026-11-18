@@ -1,5 +1,25 @@
 # Feature Gallery
 
+## Physical character drops
+
+Open `Scenes/229-navigation-character-drops.scene.json` for 3D or
+`Scenes/230-navigation-character-drops-xy.scene.json` for XY and press Play. Cyan
+walks off the launch floor, falls and reaches its lower goal. Orange hits the red
+physical wall. Both scenes use static support, one-way links with Arc height `0`,
+a lower End and Speed `6`. Physics controls falling and landing; no jump impulse
+or project C++ module is required.
+
+Select a link to inspect its endpoints and build profile. Use Movement
+CharacterController for 3D or GroundedCharacterController2D with Automatic gravity
+`1` for XY. Same-height/upward zero-lift physical links, Floating XY drops and
+moving-platform routing are unavailable. Speed `0` releases steering while gravity
+continues; Pause freezes simulation.
+
+Stop, disable the red wall's Physics Body or Physics Body 2D, and Play again to let
+both characters cross. Save and choose the Scene as startup before exporting. Each
+includes its Camera and published NavMesh. See
+[physical drops](../../../manual/editor/navigation.md#drop-to-a-lower-static-platform).
+
 ## Physical XY character jumps
 
 Open `Scenes/228-navigation-character-jumps-xy.scene.json` and press Play. The

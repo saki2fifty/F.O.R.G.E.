@@ -1,0 +1,1158 @@
+{
+  "asset_id": "84b8df88-ba15-40d9-a409-b2038890c2d3",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.5,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "forge.navigation_region_2d": {
+          "enabled": true,
+          "height": 12.0,
+          "obstacle": false,
+          "points": [
+            {
+              "x": -3.5,
+              "y": -6.0
+            },
+            {
+              "x": 3.5,
+              "y": -6.0
+            },
+            {
+              "x": 3.5,
+              "y": 6.0
+            },
+            {
+              "x": -3.5,
+              "y": 6.0
+            }
+          ],
+          "source": 0,
+          "width": 7.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 12.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.18000000715255737,
+          "tint_g": 0.12999999523162842,
+          "tint_r": 0.07999999821186066,
+          "visible": true,
+          "width": 7.0
+        }
+      },
+      "id": "e958849d-ed88-4cd1-99af-536664b0a920",
+      "name": "Left XY navigation island",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.character_controller_2d": {
+          "crouch_height": 0.0,
+          "enabled": true,
+          "floor_probe": 0.10000000149011612,
+          "floor_stop_on_slope": false,
+          "gravity_factor": 1.0,
+          "height": 0.6000000238418579,
+          "layer": 0,
+          "mask": 4294967295,
+          "max_slope": 50.0,
+          "mode": 0,
+          "platform_carry": false,
+          "radius": 0.30000001192092896,
+          "slide_on_ceiling": true,
+          "step_height": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.0,
+          "y": -3.0,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 6.0,
+          "destination_y": -4.0,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": true,
+          "movement": 3,
+          "navmesh": "0e65ac94-c2f1-42fd-92ee-e542717dd14d",
+          "speed": 6.0,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c4538f73-73a4-4aa0-9f1d-8d6014570c94",
+      "name": "Free route character",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.6,
+          "z": -0.1
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.2,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "mip_filter": 0,
+          "order": 3,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.8199999928474426,
+          "tint_r": 0.05999999865889549,
+          "visible": true,
+          "width": 0.6
+        }
+      },
+      "id": "8af3c081-ba4f-4710-9947-555be5c21554",
+      "name": "Free route character visual",
+      "parent": "c4538f73-73a4-4aa0-9f1d-8d6014570c94",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.0,
+          "y": -3.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 0.7,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "mip_filter": 0,
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.8199999928474426,
+          "tint_r": 0.05999999865889549,
+          "visible": true,
+          "width": 0.7
+        }
+      },
+      "id": "607f5f78-1bb3-4a58-a19c-f8a0e21ebf13",
+      "name": "Free route character destination",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.character_controller_2d": {
+          "crouch_height": 0.0,
+          "enabled": true,
+          "floor_probe": 0.10000000149011612,
+          "floor_stop_on_slope": false,
+          "gravity_factor": 1.0,
+          "height": 0.6000000238418579,
+          "layer": 0,
+          "mask": 4294967295,
+          "max_slope": 50.0,
+          "mode": 0,
+          "platform_carry": false,
+          "radius": 0.30000001192092896,
+          "slide_on_ceiling": true,
+          "step_height": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.0,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 6.0,
+          "destination_y": 2.0,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": true,
+          "movement": 3,
+          "navmesh": "0e65ac94-c2f1-42fd-92ee-e542717dd14d",
+          "speed": 6.0,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "340567b9-6217-42c6-a2fb-09c4c1dfeeb3",
+      "name": "Blocked route character",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.6,
+          "z": -0.1
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.2,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "mip_filter": 0,
+          "order": 3,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.07999999821186066,
+          "tint_g": 0.47999998927116394,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 0.6
+        }
+      },
+      "id": "055ccd62-7b4d-4e78-8b06-8d172d2da7d7",
+      "name": "Blocked route character visual",
+      "parent": "340567b9-6217-42c6-a2fb-09c4c1dfeeb3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.0,
+          "y": 2.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 0.7,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "mip_filter": 0,
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.07999999821186066,
+          "tint_g": 0.47999998927116394,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 0.7
+        }
+      },
+      "id": "b3eba309-54f6-4f36-b29c-6f472bc66624",
+      "name": "Blocked route character destination",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 0.30000001192092896,
+          "y": 7.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.5,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.0,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6000000238418579,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "one_way": false,
+          "one_way_margin": 0.019999999552965164,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 7.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "mip_filter": 0,
+          "order": 2,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.05999999865889549,
+          "tint_g": 0.07000000029802322,
+          "tint_r": 0.800000011920929,
+          "visible": true,
+          "width": 0.3
+        }
+      },
+      "id": "d43af60a-48be-4035-96d9-9c7fa9754970",
+      "name": "Red drop wall - Stop and disable Physics Body 2D before replay",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.06499999761581421,
+          "background_g": 0.03999999910593033,
+          "background_r": 0.02500000037252903,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 80.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 17.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -20.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c008e67e-37f2-4c32-9456-b8350d0e9193",
+      "name": "Camera - top-down XY overview",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 7.0,
+          "y": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.5,
+          "y": -3.5,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.0,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6000000238418579,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "one_way": false,
+          "one_way_margin": 0.019999999552965164,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "mip_filter": 0,
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.3400000035762787,
+          "tint_g": 0.27000001072883606,
+          "tint_r": 0.18000000715255737,
+          "visible": true,
+          "width": 7.0
+        }
+      },
+      "id": "01e54b23-0cef-4b3b-bc83-02f7e8894c88",
+      "name": "Lower launch floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 7.0,
+          "y": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.5,
+          "y": 2.5,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.0,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6000000238418579,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "one_way": false,
+          "one_way_margin": 0.019999999552965164,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "mip_filter": 0,
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.3400000035762787,
+          "tint_g": 0.27000001072883606,
+          "tint_r": 0.18000000715255737,
+          "visible": true,
+          "width": 7.0
+        }
+      },
+      "id": "d136c6a1-8dd1-4149-a014-e7b0d81dcda4",
+      "name": "Upper launch floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.5,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "forge.navigation_region_2d": {
+          "enabled": true,
+          "height": 12.0,
+          "obstacle": false,
+          "points": [
+            {
+              "x": -3.5,
+              "y": -6.0
+            },
+            {
+              "x": 3.5,
+              "y": -6.0
+            },
+            {
+              "x": 3.5,
+              "y": 6.0
+            },
+            {
+              "x": -3.5,
+              "y": 6.0
+            }
+          ],
+          "source": 0,
+          "width": 7.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 12.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.18000000715255737,
+          "tint_g": 0.12999999523162842,
+          "tint_r": 0.07999999821186066,
+          "visible": true,
+          "width": 7.0
+        }
+      },
+      "id": "35871016-910d-4ac9-9ed6-8d8f7ad906b5",
+      "name": "Right XY navigation island",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 7.0,
+          "y": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.5,
+          "y": -4.5,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.0,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6000000238418579,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "one_way": false,
+          "one_way_margin": 0.019999999552965164,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "mip_filter": 0,
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.3400000035762787,
+          "tint_g": 0.27000001072883606,
+          "tint_r": 0.18000000715255737,
+          "visible": true,
+          "width": 7.0
+        }
+      },
+      "id": "bd43db50-b420-487d-a289-d54f2c7eb145",
+      "name": "Lower landing floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -3.0,
+          "z": 0.0
+        },
+        "forge.navigation_link": {
+          "arc_height": 0.0,
+          "bidirectional": false,
+          "enabled": true,
+          "end_x": 2.0,
+          "end_y": -1.0,
+          "end_z": 0.0,
+          "plane": 1,
+          "profile": "default",
+          "radius": 0.5,
+          "start_x": -2.0,
+          "start_y": 0.0,
+          "start_z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a3b0f801-ebb1-45cc-88d1-15b16fbeb281",
+      "name": "Lower physical drop link",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 7.0,
+          "y": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.5,
+          "y": 1.5,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.0,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6000000238418579,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "one_way": false,
+          "one_way_margin": 0.019999999552965164,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "mip_filter": 0,
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.3400000035762787,
+          "tint_g": 0.27000001072883606,
+          "tint_r": 0.18000000715255737,
+          "visible": true,
+          "width": 7.0
+        }
+      },
+      "id": "45bc72c6-9830-4531-b763-cb9f9dc9941c",
+      "name": "Upper landing floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "forge.navigation_link": {
+          "arc_height": 0.0,
+          "bidirectional": false,
+          "enabled": true,
+          "end_x": 2.0,
+          "end_y": -1.0,
+          "end_z": 0.0,
+          "plane": 1,
+          "profile": "default",
+          "radius": 0.5,
+          "start_x": -2.0,
+          "start_y": 0.0,
+          "start_z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "49f7fc06-ff0d-4e5b-98e5-2b29d64294c9",
+      "name": "Upper physical drop link",
+      "spatial": {
+        "mode": "world"
+      }
+    }
+  ],
+  "version": 3
+}

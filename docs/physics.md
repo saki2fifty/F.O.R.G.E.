@@ -504,6 +504,14 @@ boundary wins regardless of queue order, including an already armed request;
 ordinary CharacterService movement remains persistent. There is no lease or
 second movement registry. This host method adds no SDK callback.
 
+Host `find_character(EntityRef)` returns an optional copied native observation
+before first realization; the required `character(EntityRef)` getter retains its
+unavailable error. Navigation uses that availability while actual physics settles.
+Descending zero-lift navigation links renew only horizontal one-step steering,
+without a jump impulse or another physics recovery payload. Native gravity,
+collision, walkable static support and actual landing remain authoritative. See
+[descending links](navigation.md#physical-descending-links).
+
 Private physics recovery10 remains the default. Recovery11 is selected only for
 queued one-step commands or an armed CharacterRecord flag, and validates the
 extension before publication. Empty11, downgrade, malformed flags/commands and

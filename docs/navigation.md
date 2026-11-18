@@ -400,7 +400,7 @@ matching SDK. No C callback table or pinned dependency changed.
 
 Movement1 requires an enabled upright world +Y 3D CharacterController, World
 spatial binding and no other enabled body/controller. Spatial3D ground routes and
-the positive-lift physical link profile below are admitted. The existing route/avoidance owner
+the physical jump and descending-link profiles below are admitted. The existing route/avoidance owner
 computes steering. A host-only PhysicsService::move_character_once request joins
 the existing bounded character command queue, applies for one positive physics
 step, and expires without changing actual velocity observations. Zero-time
@@ -424,7 +424,8 @@ Movement3 selects a World-bound Grounded CharacterController2D with positive
 native automatic gravity and downward vertical XY Project gravity. The shared
 reflected controller validator runs before layer shifts, radius or slope queries.
 It uses a PlanarXY route with static walkable physical support and optional
-positive-lift links as specified by ADR055. Navigation preserves actual Y momentum while requesting horizontal
+positive-lift jumps or descending zero-lift links as specified by ADR055/056.
+Navigation preserves actual Y momentum while requesting horizontal
 one-step steering; Native2D alone integrates gravity and clips movement. Optional
 physics-owned availability handles the first realization without inventing a pose
 or changing the required getter's unavailable error.
@@ -483,7 +484,7 @@ candidate publication. Actual XY pose remains Scene/physics-owned.
 [ADR053](decisions/053-navigation-character-jumps.md) extends movement1 to
 positive-lift 3D links between static physical supports. No new authored field,
 pose owner, command queue or SDK callback is introduced. Floating XY and
-zero-height character links remain unsupported. Direct movement retains its
+same-height/upward zero-lift character links remain unsupported. Direct movement retains its
 prescribed arc and optional link-query collision behavior.
 
 Navigation reads configured gravity from PhysicsService, including the current
@@ -535,6 +536,47 @@ actual wall blockage, source-hidden relocated export and installed-only C++ SDK
 Play with authored restart. This remains bounded explicit-link traversal, not a
 general platformer reachability graph or moving-platform planner.
 
+### Physical descending links
+
+[ADR056](decisions/056-navigation-character-drops.md) admits an oriented link with
+Arc height0 and exitY below entryY for movement1/3. The existing authored values,
+cooked navigation format, C callback table and installed component layouts are
+unchanged. Recommend one-way drops; reverse travel on a bidirectional zero-lift
+link is rejected when its oriented exit is no longer lower.
+
+The shared physical traversal branch retains Drop intent and reads copied native
+observations. Static walkable launch/landing, upright World-bound mechanics,
+downward automatic gravity and nonzero horizontal span are required. Estimated
+fall duration sqrt(2*(entryY-exitY)/g) must allow at least four fixed steps. It is
+an admission bound, not a prescribed flight trajectory. Steering is bounded by
+Agent Speed and remaining horizontal gap/dt. No upward impulse or jump-acceptance
+receipt is produced. Native support may continue on the approach or settle before
+the endpoint; gravity, collision and floor response remain physics-owned.
+
+Cold native realization uses optional physics-owned availability, then a bounded
+static-support query while actual grounding settles. Queries reuse native rays,
+walkable normals, mutual collision masks and static body ownership. They do not
+invent a pose or freeze vertical motion. A wall before walk-off reports blockage
+from actual adopted displacement, including when native requested velocity remains
+nonzero. Clearing the wall can resume progress. Arrival requires actual supported
+position near the lower exit; falling below or missing that region fails.
+
+Speed0 and cancellation release steering while gravity continues. Pause freezes
+simulation; manual movement wins at the existing command boundary. Stopping
+distance is checked before traversal. Changed destinations replan after completion.
+XY visual Z remains independent. The existing one-step physics state suffices for
+recovery: navigation12 identifies active physical_drop intent without storing a
+character pose or enforcing a straight chord. Mixed 3D/XY positive jumps retain
+their markers, and earlier profiles remain canonical when no drop is active.
+Empty, downgraded, malformed, conflicting or non-descending extensions reject
+before candidate publication.
+
+Gallery229/230 provide editable 3D/XY static descents, physical walls, published
+NavMeshes and Cameras. Their source-hidden relocated exports and matching
+installed-only C++ consumers use the same navigation/physics owners. Automation
+and MCP use the existing reflected fields, source history and Play controls;
+no parallel authoring operation or agent-only movement implementation is added.
+
 ## Runtime ownership
 
 `forge.navigation` uses EngineModule lifecycle. Authoring/validation compositions receive schemas; runtime compositions provide a world-scoped Navigation service. No ImGui, renderer or audio device is required. Primitive-only compositions remain usable without a Resources provider. External Mesh geometry lazily requests builtin CPU Resources after bootstrap and holds world-scoped subscriptions; it never creates a competing runtime mesh pool. A selected Mesh load holds the agent Pending (no sample/tick0); missing providers or failed/stale selection prevents movement. Retaining last-good bytes does not authorize following a NavMesh built against a different selected revision. Provider shutdown revokes CPU leases. Synchronization reads retained data/revisions, without re-decoding cooked Mesh files on each tick. Owner-thread queries return owned FORGE waypoint arrays with explicit success, missing/stale, outside, no-path, partial, invalid, unavailable and limit statuses. Partial paths are diagnosed and not followed. Query scratch is private to the runtime world; immutable meshes are shared within its cache.
@@ -574,7 +616,7 @@ No callback-table field or independent authoring path is added. `FORGE_SDK_NAVIG
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, cost editing, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving supports upright 3D ground routes and bounded positive-lift jumps between static supports, or Floating XY routes without explicit links. Grounded XY movement supports continuous static physical ground and explicit positive-lift jumps between static supports with native automatic gravity. General XY platformer jump/drop planning remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, cost editing, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving supports upright 3D ground routes and bounded positive-lift jumps or descending zero-lift drops between static supports, or Floating XY routes without explicit links. Grounded XY movement supports continuous static physical ground and the same explicit jumps/drops with native automatic gravity. General XY platformer reachability planning remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 
@@ -787,7 +829,7 @@ exactly at an entry can omit its off-mesh flag; the first matching native corrid
 connection recovers that boundary using admitted native endpoints. The existing
 64-waypoint cap includes inserted exits. Native pointers/references do not escape.
 
-For zero-height links, Agent state retains the active span and applies linear movement through the same
+For ordinary movement0 zero-height links, Agent state retains the active span and applies linear movement through the same
 fixed-tick world-distance speed budget and sole LocalTranslation writer. Avoidance
 runs on ground; active crossers are excluded from its ground-plane participant
 sampling. Speed0, disabled and no-destination hold an active crossing. Retargeting
@@ -797,7 +839,9 @@ oriented connection identity and current ground attachments directly, independen
 of which parallel connection a shortest-path search might choose; disconnected endpoints hold it as Blocked until usable.
 Stale source/admission failure prevents movement and retains a matching held span.
 Changing Nav asset, directly repositioning or removing the Agent cancels its old
-continuation. These links do not simulate physics jumps or moving platforms.
+continuation. This direct movement does not simulate physics jumps or moving
+platforms. Movement1/3 instead delegates eligible links to the physical jump/drop
+profiles above, retaining native gravity and collision ownership.
 
 Read-only debug adds `link`: null or `{source, entry, exit}`, also for held spans.
 Public Agent observation and experimental C-table layout are unchanged. The added

@@ -349,6 +349,8 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& so
 int main(int argc, char** argv) {
     try {
         if (argc == 4 && (std::string_view(argv[1]) == "--prepare-characters" ||
+                          std::string_view(argv[1]) == "--prepare-drop-characters" ||
+                          std::string_view(argv[1]) == "--prepare-planar-drop-characters" ||
                           std::string_view(argv[1]) == "--prepare-jump-characters" ||
                           std::string_view(argv[1]) == "--prepare-planar-jump-characters" ||
                           std::string_view(argv[1]) == "--prepare-planar-characters" ||
@@ -356,12 +358,16 @@ int main(int argc, char** argv) {
             prepare_character_gallery(
                 std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
                 std::string_view(argv[1]) == "--prepare-planar-characters" ||
+                    std::string_view(argv[1]) == "--prepare-planar-drop-characters" ||
                     std::string_view(argv[1]) == "--prepare-planar-jump-characters" ||
                     std::string_view(argv[1]) == "--prepare-grounded-characters",
                 std::string_view(argv[1]) == "--prepare-jump-characters" ||
                     std::string_view(argv[1]) == "--prepare-planar-jump-characters",
                 std::string_view(argv[1]) == "--prepare-grounded-characters" ||
-                    std::string_view(argv[1]) == "--prepare-planar-jump-characters");
+                    std::string_view(argv[1]) == "--prepare-planar-jump-characters" ||
+                    std::string_view(argv[1]) == "--prepare-planar-drop-characters",
+                std::string_view(argv[1]) == "--prepare-drop-characters" ||
+                    std::string_view(argv[1]) == "--prepare-planar-drop-characters");
             return 0;
         }
         if (argc == 4 && (std::string_view(argv[1]) == "--prepare-collision-3d" ||
@@ -379,15 +385,22 @@ int main(int argc, char** argv) {
         }
         check(argc == 3 || (argc == 4 && (std::string_view(argv[3]) == "--collision" ||
                                           std::string_view(argv[3]) == "--characters" ||
+                                          std::string_view(argv[3]) == "--drop-characters" ||
+                                          std::string_view(argv[3]) == "--planar-drop-characters" ||
                                           std::string_view(argv[3]) == "--jump-characters" ||
                                           std::string_view(argv[3]) == "--planar-jump-characters" ||
                                           std::string_view(argv[3]) == "--planar-characters" ||
                                           std::string_view(argv[3]) == "--grounded-characters")),
               "Need Gallery, scratch root and optional collision or character profile");
+        const bool planar_drop_characters =
+            argc == 4 && std::string_view(argv[3]) == "--planar-drop-characters";
+        const bool drop_characters =
+            planar_drop_characters ||
+            (argc == 4 && std::string_view(argv[3]) == "--drop-characters");
         const bool planar_jump_characters =
             argc == 4 && std::string_view(argv[3]) == "--planar-jump-characters";
         const bool grounded_characters =
-            planar_jump_characters ||
+            planar_jump_characters || planar_drop_characters ||
             (argc == 4 && std::string_view(argv[3]) == "--grounded-characters");
         const bool planar_characters =
             grounded_characters ||
@@ -395,7 +408,7 @@ int main(int argc, char** argv) {
         const bool jump_characters =
             planar_jump_characters ||
             (argc == 4 && std::string_view(argv[3]) == "--jump-characters");
-        const bool characters = jump_characters || planar_characters ||
+        const bool characters = drop_characters || jump_characters || planar_characters ||
                                 (argc == 4 && std::string_view(argv[3]) == "--characters");
         const bool collision = argc == 4 && !characters;
         const unsigned count = characters ? 1 : 2;
@@ -405,17 +418,20 @@ int main(int argc, char** argv) {
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         std::array<AssetId, 2> roots;
         for (unsigned i = 0; i != count; ++i) {
-            const auto source = planar_jump_characters ? planar_jump_character_scene_path
-                                : grounded_characters  ? grounded_character_scene_path
-                                : jump_characters      ? jump_character_scene_path
-                                : planar_characters    ? planar_character_scene_path
-                                : characters           ? character_scene_path
-                                : collision            ? collision_scene_paths[i]
-                                : i                    ? arc_scene_path
-                                                       : scene_path;
+            const auto source = drop_characters
+                                    ? (planar_drop_characters ? planar_drop_character_scene_path
+                                                              : drop_character_scene_path)
+                                : planar_jump_characters ? planar_jump_character_scene_path
+                                : grounded_characters    ? grounded_character_scene_path
+                                : jump_characters        ? jump_character_scene_path
+                                : planar_characters      ? planar_character_scene_path
+                                : characters             ? character_scene_path
+                                : collision              ? collision_scene_paths[i]
+                                : i                      ? arc_scene_path
+                                                         : scene_path;
             if (characters)
                 exercise_character_gallery(root, source, planar_characters, jump_characters,
-                                           grounded_characters);
+                                           grounded_characters, drop_characters);
             else if (collision)
                 exercise_collision(root, source, i != 0);
             else
@@ -432,17 +448,20 @@ int main(int argc, char** argv) {
             const auto catalog = open_runtime_content(relocated, {"windows", "d3d12"});
             if (characters)
                 exercise_character_gallery(relocated, catalog.records().at(roots[i]).source,
-                                           planar_characters, jump_characters, grounded_characters);
+                                           planar_characters, jump_characters, grounded_characters,
+                                           drop_characters);
             else if (collision)
                 exercise_collision(relocated, catalog.records().at(roots[i]).source, i != 0);
             else
                 exercise(relocated, catalog.records().at(roots[i]).source, i != 0);
         }
-        std::cout << (planar_jump_characters ? "Gallery228 physical XY navigation jumps"
-                      : grounded_characters  ? "Gallery227 grounded XY navigation characters"
-                      : jump_characters      ? "Gallery226 physical navigation jumps"
-                      : planar_characters    ? "Gallery225 Floating XY navigation characters"
-                      : characters           ? "Gallery224 physics-driven navigation characters"
+        std::cout << (drop_characters ? (planar_drop_characters ? "Gallery230 physical XY drops"
+                                                                : "Gallery229 physical 3D drops")
+                      : planar_jump_characters ? "Gallery228 physical XY navigation jumps"
+                      : grounded_characters    ? "Gallery227 grounded XY navigation characters"
+                      : jump_characters        ? "Gallery226 physical navigation jumps"
+                      : planar_characters      ? "Gallery225 Floating XY navigation characters"
+                      : characters             ? "Gallery224 physics-driven navigation characters"
                       : collision ? "Gallery222/223 native collision blocking/live filtering"
                                   : "Gallery140/218 actual two-way patrol/one-way movement")
                   << " and source-hidden relocated export PASS\n";

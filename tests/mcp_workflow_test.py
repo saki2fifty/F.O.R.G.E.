@@ -49,6 +49,8 @@ NAVIGATION_PLANAR_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-planar-charac
 NAVIGATION_JUMP_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-jump-characters-only']
 NAVIGATION_GROUNDED_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-grounded-characters-only']
 NAVIGATION_PLANAR_JUMP_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-planar-jump-characters-only']
+NAVIGATION_DROP_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-drop-characters-only']
+NAVIGATION_PLANAR_DROP_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-planar-drop-characters-only']
 NAVIGATION_LINKS_SDK = sys.argv[7:] == ['--navigation-links-sdk-only']
 NAVIGATION_LINKS_ONLY = sys.argv[7:] == ['--navigation-links-only'] or NAVIGATION_LINKS_SDK
 NAVIGATION_COLLECTION_ONLY = sys.argv[7:] == ['--navigation-collection-only']
@@ -654,7 +656,7 @@ for legacy in selected_protocols:
             check_input_messages_play(read, ok, control, mutate, until)
             print(('legacy' if legacy else 'current') + ': typed-message authoring source/input scopes/real SDK Play/restart passed')
             continue
-        if NAVIGATION_CHARACTERS_ONLY or NAVIGATION_PLANAR_CHARACTERS_ONLY or NAVIGATION_JUMP_CHARACTERS_ONLY or NAVIGATION_GROUNDED_CHARACTERS_ONLY or NAVIGATION_PLANAR_JUMP_CHARACTERS_ONLY:
+        if NAVIGATION_CHARACTERS_ONLY or NAVIGATION_PLANAR_CHARACTERS_ONLY or NAVIGATION_JUMP_CHARACTERS_ONLY or NAVIGATION_GROUNDED_CHARACTERS_ONLY or NAVIGATION_PLANAR_JUMP_CHARACTERS_ONLY or NAVIGATION_DROP_CHARACTERS_ONLY or NAVIGATION_PLANAR_DROP_CHARACTERS_ONLY:
             from mcp_navigation_character_workflow import check_navigation_character
             schema = next(c for c in discovery()['result']['schema']['components']
                           if c['id'] == 'forge.navigation_agent')
@@ -668,11 +670,12 @@ for legacy in selected_protocols:
             assert gravity['default'] == gravity['default_if_missing'] == 0 and \
                 gravity['minimum'] == 0 and gravity['maximum'] == 10, gravity
             check_navigation_character(read, ok, control, until, edit_settings,
-                                       planar=NAVIGATION_PLANAR_CHARACTERS_ONLY or NAVIGATION_GROUNDED_CHARACTERS_ONLY or NAVIGATION_PLANAR_JUMP_CHARACTERS_ONLY,
+                                       planar=NAVIGATION_PLANAR_CHARACTERS_ONLY or NAVIGATION_GROUNDED_CHARACTERS_ONLY or NAVIGATION_PLANAR_JUMP_CHARACTERS_ONLY or NAVIGATION_PLANAR_DROP_CHARACTERS_ONLY,
                                        jump=NAVIGATION_JUMP_CHARACTERS_ONLY or NAVIGATION_PLANAR_JUMP_CHARACTERS_ONLY,
-                                       grounded=NAVIGATION_GROUNDED_CHARACTERS_ONLY or NAVIGATION_PLANAR_JUMP_CHARACTERS_ONLY)
+                                       grounded=NAVIGATION_GROUNDED_CHARACTERS_ONLY or NAVIGATION_PLANAR_JUMP_CHARACTERS_ONLY or NAVIGATION_PLANAR_DROP_CHARACTERS_ONLY,
+                                       drop=NAVIGATION_DROP_CHARACTERS_ONLY or NAVIGATION_PLANAR_DROP_CHARACTERS_ONLY)
             print(('legacy' if legacy else 'current') +
-                  (' grounded XY jumps' if NAVIGATION_PLANAR_JUMP_CHARACTERS_ONLY else ' grounded XY' if NAVIGATION_GROUNDED_CHARACTERS_ONLY else ' XY' if NAVIGATION_PLANAR_CHARACTERS_ONLY else ' 3D') +
+                  (' grounded XY drops' if NAVIGATION_PLANAR_DROP_CHARACTERS_ONLY else ' 3D drops' if NAVIGATION_DROP_CHARACTERS_ONLY else ' grounded XY jumps' if NAVIGATION_PLANAR_JUMP_CHARACTERS_ONLY else ' grounded XY' if NAVIGATION_GROUNDED_CHARACTERS_ONLY else ' XY' if NAVIGATION_PLANAR_CHARACTERS_ONLY else ' 3D') +
                   ': MCP-authored character, actual SDK Play step/block/arrival and clean restart passed')
             continue
         if NAVIGATION_COLLECTION_ONLY:

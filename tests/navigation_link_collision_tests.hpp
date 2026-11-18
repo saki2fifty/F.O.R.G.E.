@@ -94,11 +94,12 @@ void collision_movement(const Json& snapshot, const std::filesystem::path& root,
         const auto navigation =
             std::static_pointer_cast<NavigationRuntime>(refused.services().navigation());
         const auto feedback = navigation->debug(actor.id());
-        const auto expected =
-            plane == NavigationPlane::Spatial3D && arc_height > 0
-                ? "Character jump requires the physics service"
-                : "Character links require grounded 3D or XY movement and positive lift";
-        check(feedback.at("phase") == "Failed" && feedback.at("diagnostic") == expected &&
+        const auto expected = plane == NavigationPlane::Spatial3D && arc_height > 0
+                                  ? "Character navigation requires the physics service"
+                                  : "Character links require grounded 3D or XY movement and "
+                                    "positive lift or a descending drop";
+        check(feedback.at("phase").get<std::string>() == "Failed" &&
+                  feedback.at("diagnostic").get<std::string>() == expected &&
                   actor.get<LocalTranslation>() == before,
               "Character link admission failed to preserve its required boundary: " +
                   feedback.dump());

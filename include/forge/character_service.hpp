@@ -25,6 +25,8 @@ class CharacterService {
   public:
     virtual ~CharacterService() = default;
     virtual CharacterState character(EntityRef) const = 0;
+    // Optional host observation before first native realization; no pose is synthesized.
+    virtual std::optional<CharacterState> find_character(EntityRef) const = 0;
     // Requests are copied and consumed at the next fixed physics boundary.
     // Movement is world-space velocity perpendicular to the character up axis.
     virtual void move_character(EntityRef, Double3 planar_velocity) = 0;

@@ -61,6 +61,34 @@ planar_jump_links = [e['components']['forge.navigation_link'] for e in planar_ju
 assert len(planar_jump_links) == 2
 assert all(link['plane'] == 1 and link['arc_height'] == 1 and link['bidirectional'] for link in planar_jump_links)
 assert sum('forge.physics_body_2d' in e['components'] for e in planar_jump_scene['entities']) == 5
+for path, scene_id, nav_id, plane in [
+        ('Scenes/229-navigation-character-drops.scene.json',
+         '86fc3a0f-c41b-4927-9d9e-82fc270c56b2', '2316e019-c429-4d0a-9f9a-40724cc43bdd', 0),
+        ('Scenes/230-navigation-character-drops-xy.scene.json',
+         '84b8df88-ba15-40d9-a409-b2038890c2d3', '0e65ac94-c2f1-42fd-92ee-e542717dd14d', 1)]:
+    drop_scene = json.loads((project_root / path).read_text())
+    assert drop_scene['asset_id'] == by_source[path]['id'] == scene_id
+    drop_actors = [e for e in drop_scene['entities'] if 'forge.navigation_agent' in e['components']]
+    assert len(drop_actors) == 2
+    for actor in drop_actors:
+        c = actor['components']
+        assert actor['spatial']['mode'] == 'world'
+        agent = c['forge.navigation_agent']
+        assert agent['movement'] == (3 if plane else 1) and agent['speed'] == 6
+        assert agent['navmesh'] == nav_id
+        controller = c['forge.character_controller_2d' if plane else 'forge.character_controller']
+        assert controller['enabled'] and controller['gravity_factor'] == 1
+        if plane:
+            assert controller['mode'] == 0
+        assert not {'forge.physics_body', 'forge.physics_body_2d'} & c.keys()
+    links = [e['components']['forge.navigation_link'] for e in drop_scene['entities']
+             if 'forge.navigation_link' in e['components']]
+    assert len(links) == 2
+    assert all(link['plane'] == plane and link['arc_height'] == 0 and
+               not link['bidirectional'] and link['end_y'] < link['start_y'] for link in links)
+    assert sum(('forge.physics_body_2d' if plane else 'forge.physics_body') in e['components']
+               for e in drop_scene['entities']) == 5
+    assert any('forge.camera' in e['components'] for e in drop_scene['entities'])
 jump_path = 'Scenes/226-navigation-character-jumps.scene.json'
 jump_scene = json.loads((project_root / jump_path).read_text())
 assert jump_scene['asset_id'] == by_source[jump_path]['id'] == '155c0aba-3984-46eb-9625-1a353b9237a4'

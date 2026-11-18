@@ -1,7 +1,8 @@
 #pragma once
 
-void mixed_character_jump_recovery(const Json& source, const std::filesystem::path& root,
-                                   const std::filesystem::path& worker, EntityId planar_id) {
+void mixed_character_link_recovery(const Json& source, const std::filesystem::path& root,
+                                   const std::filesystem::path& worker, EntityId planar_id,
+                                   bool include_drop = false) {
     EngineContext author;
     Scene authored(author.world());
     authored.restore_snapshot(source);
@@ -33,7 +34,9 @@ void mixed_character_jump_recovery(const Json& source, const std::filesystem::pa
     for (const auto position : {LocalTranslation{-3, -.1, 10}, LocalTranslation{3, 1.9, 10}})
         create("Mixed spatial floor", position).set<PhysicsBody>({}).set<BoxCollider>({4, .2f, 6});
     for (double x : {-3., 3.})
-        create("Mixed planar floor", {x, -.5, 0}).set<PhysicsBody2D>({}).set<BoxCollider2D>({4, 1});
+        create("Mixed planar floor", {x, include_drop && x > 0 ? -1.5 : -.5, 0})
+            .set<PhysicsBody2D>({})
+            .set<BoxCollider2D>({4, 1});
     const auto planar = authored.entity(planar_id.str());
     CharacterController2D controller;
     controller.gravity_factor = 1;
@@ -50,6 +53,28 @@ void mixed_character_jump_recovery(const Json& source, const std::filesystem::pa
     const auto spatial = create("Mixed spatial character", {-3, .1, 10});
     spatial.set<CharacterController>({}).set<NavigationAgent>(agent);
     const auto spatial_id = spatial.get<PersistentEntityId>().value;
+    EntityId extra_id;
+    if (include_drop) {
+        NavigationLink xy_link;
+        xy_link.plane = 1;
+        xy_link.profile = "MixedPlanarJump";
+        xy_link.start_x = 1;
+        xy_link.end_x = 5;
+        xy_link.end_y = -1;
+        xy_link.arc_height = 1;
+        create("Mixed XY positive link", {-3, 0, 0}).set<NavigationLink>(xy_link);
+        NavigationSettings xy_settings;
+        xy_settings.plane = NavigationPlane::PlanarXY;
+        xy_settings.profile = xy_link.profile;
+        const auto xy_source = authored.effective_document();
+        const auto xy_asset =
+            prepare_navigation(root, xy_source, xy_settings, worker).publish(xy_source).id;
+        auto extra_agent = planar.get<NavigationAgent>();
+        extra_agent.navmesh = {xy_asset};
+        const auto extra = create("Mixed XY jump character", {-4, 0, 37.125});
+        extra.set<CharacterController2D>(controller).set<NavigationAgent>(extra_agent);
+        extra_id = extra.get<PersistentEntityId>().value;
+    }
     EngineContext engine(WorldRole::Runtime, false,
                          {navigation_module(root), physics_module({}, root)});
     Scene scene(engine.world());
@@ -59,18 +84,25 @@ void mixed_character_jump_recovery(const Json& source, const std::filesystem::pa
     const auto navigation =
         std::static_pointer_cast<NavigationRuntime>(engine.services().navigation());
     const auto xy = scene.reference(planar_id.str()), xyz = scene.reference(spatial_id.str());
-    bool both_in_flight = false;
+    bool all_crossing = false;
     for (unsigned tick = 0; tick < 180; ++tick) {
         simulation.tick(1.f / 60);
         const auto saved = navigation->checkpoint();
-        if (saved.at("version").get<std::uint64_t>() != 11)
+        if (saved.at("version").get<std::uint64_t>() != (include_drop ? 12u : 11u))
             continue;
-        unsigned physical = 0;
-        for (const auto& row : saved.at("agents"))
-            physical += row.contains("link") && row.at("link").value("physical_jump", false);
-        if (physical != 2)
+        unsigned jumps = 0, drops = 0;
+        for (const auto& row : saved.at("agents")) {
+            if (row.contains("link")) {
+                jumps += row.at("link").value("physical_jump", false);
+                drops += row.at("link").value("physical_drop", false);
+                check(row.at("translation").is_null(),
+                      "Mixed crossings duplicated native pose ownership");
+            }
+        }
+        if (jumps != 2 || drops != unsigned(include_drop) ||
+            (include_drop && physics->character_2d(xy).ground != CharacterGround::InAir))
             continue;
-        both_in_flight = true;
+        all_crossing = true;
         EngineContext restored(WorldRole::Runtime, false,
                                {navigation_module(root), physics_module({}, root)});
         Scene restored_scene(restored.world());
@@ -91,10 +123,16 @@ void mixed_character_jump_recovery(const Json& source, const std::filesystem::pa
                       std::hypot(c.position.x - d.position.x, c.position.y - d.position.y,
                                  c.position.z - d.position.z) < 1e-6,
                   "Mixed physical3D/XY navigation recovery diverged");
+            if (include_drop) {
+                const auto extra_ref = scene.reference(extra_id.str());
+                check(physics->character_2d(extra_ref).position ==
+                          restored_physics->character_2d(extra_ref).position,
+                      "Mixed drop recovery lost its concurrent XY positive jump");
+            }
         }
         break;
     }
-    check(both_in_flight, "Mixed recovery never observed both physical jump profiles");
+    check(all_crossing, "Mixed recovery never observed concurrent physical crossings");
 }
 
 void planar_character_jumps(const Json& source, const std::filesystem::path& root,

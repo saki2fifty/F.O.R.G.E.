@@ -32,6 +32,7 @@ focused_targets = {
     '--motion-only': 'gamepad_motion_gameplay',
     '--navigation-grounded-only': 'grounded_navigation_gameplay',
     '--navigation-planar-jump-only': 'planar_jump_navigation_gameplay',
+    '--navigation-drops-only': 'drop_navigation_gameplay',
     '--navigation-only': 'planar_navigation_gameplay', '--time-only': 'time_scale_gameplay',
     '--gamepads-only': 'multiple_gamepads_gameplay', '--feedback-only': 'gamepad_feedback_gameplay', '--input-only': 'gameplay',
     '--audio-pause-only': 'unpaused_audio_gameplay', '--audio-filters-only': 'audio_gameplay',
@@ -49,6 +50,7 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
     gamepads_only = sys.argv[4] == '--gamepads-only'
     input_only = sys.argv[4] == '--input-only'
     target = focused_targets[sys.argv[4]]
+    targets = [target, 'planar_drop_navigation_gameplay'] if sys.argv[4] == '--navigation-drops-only' else [target]
     # Reuse the install/sample owner for a focused public-boundary check.
     with tempfile.TemporaryDirectory(prefix='public-client-sdk-', dir=build) as temporary:
         base=Path(temporary);stage=base/'sdk';client=base/'client';moved=base/'relocated SDK'
@@ -57,14 +59,15 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
         subprocess.run([cmake,'-S',str(stage/'sdk/sample'),'-B',str(client),'-G','Ninja',
                         compiler_arg,'-DCMAKE_BUILD_TYPE=Release','-DCMAKE_MAKE_PROGRAM='+ninja,
                         '-DFORGE_NATIVE_SDK='+str(stage)],check=True)
-        subprocess.run([cmake,'--build',str(client),'--target',target,
+        subprocess.run([cmake,'--build',str(client),'--target',*targets,
                         '--parallel',build_jobs],check=True)
         windows=os.name=='nt';exe='.exe' if windows else '';ext='.dll' if windows else '.so'
         module=client/(target+ext)
         if not windows:
-            imports=subprocess.check_output(['readelf','-d',str(module)],text=True)
-            exports=subprocess.check_output(['nm','-D','--defined-only',str(module)],text=True)
-            assert 'libflecs.so.4' in imports and ' ecs_init' not in exports
+            for binary in [client/(name+ext) for name in targets]:
+                imports=subprocess.check_output(['readelf','-d',str(binary)],text=True)
+                exports=subprocess.check_output(['nm','-D','--defined-only',str(binary)],text=True)
+                assert 'libflecs.so.4' in imports and ' ecs_init' not in exports
         assert not (stage/'sdk/include/forge/assets.hpp').exists()
         stage.rename(moved)
         env=os.environ.copy()
@@ -253,6 +256,18 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
                             str(moved/'bin'/('forge_runtime'+exe)),str(module)],
                            env=env,cwd=moved,check=True,timeout=90)
             print('Installed public time client and relocated SDK Play passed')
+            sys.exit(0)
+        if sys.argv[4] == '--navigation-drops-only':
+            source = Path(__file__).resolve().parents[1]
+            for name in ('character_components.hpp', 'navigation_components.hpp'):
+                assert (moved/'sdk/include/forge'/name).read_bytes() == (source/'include/forge'/name).read_bytes()
+            for planar, binary in [(False, module), (True, client/('planar_drop_navigation_gameplay'+ext))]:
+                subprocess.run([sys.executable,str(Path(__file__).with_name('navigation_jump_sdk_play_test.py')),
+                                str(moved/'bin'/('forge_runtime'+exe)),str(binary),
+                                str(source/'samples/projects/FeatureGallery'),str(base/'drops'),
+                                '--drop', *(['--planar'] if planar else [])],
+                               env=env,cwd=moved,check=True,timeout=120)
+            print('Both installed-only physical drop clients, actual descent/landing/restart and relocated SDK Play passed')
             sys.exit(0)
         if sys.argv[4] == '--navigation-planar-jump-only':
             source = Path(__file__).resolve().parents[1]

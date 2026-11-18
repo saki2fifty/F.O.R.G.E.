@@ -26,14 +26,18 @@ Json record(const AssetCatalog& catalog, AssetId id) {
             return row;
     throw std::runtime_error("Published navigation record missing");
 }
+#include "navigation_character_drop_tests.hpp"
 #include "navigation_character_jump_tests.hpp"
 #include "navigation_link_collision_tests.hpp"
 #include "navigation_link_runtime_tests.hpp"
 #include "navigation_planar_character_jump_tests.hpp"
 void run(const std::filesystem::path& root, const std::filesystem::path& worker,
          NavigationPlane plane, bool dynamic, bool arc, bool collision = false,
-         bool character = false, bool bidirectional = false, double landing_height = 0) {
+         bool character = false, bool bidirectional = false, double landing_height = 0,
+         bool drop = false) {
     using namespace navigation_detail;
+    const double destination_height =
+        plane == NavigationPlane::Spatial3D && !drop ? 2 : landing_height;
     SceneDocument::create_project(root, "Authored navigation connections");
     EngineContext engine;
     Scene scene(engine.world());
@@ -47,7 +51,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
                 .get<std::string>();
         auto entity = scene.entity(id);
         entity.set<LocalTranslation>(
-            {x, plane == NavigationPlane::Spatial3D && x > 0 ? 2. : 0., 0});
+            {x, plane == NavigationPlane::Spatial3D && x > 0 ? destination_height : 0., 0});
         if (plane == NavigationPlane::PlanarXY)
             entity.set<NavigationRegion2D>({true, false, 4, 6});
         else
@@ -77,7 +81,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
     link.profile = settings.profile;
     link.arc_height = arc ? 1.f : 0.f;
     link.bidirectional = bidirectional;
-    link.end_y = plane == NavigationPlane::Spatial3D ? 2.f : float(landing_height);
+    link.end_y = float(destination_height);
     link.start_x = plane == NavigationPlane::PlanarXY ? 1.f : .25f;
     link.end_x = plane == NavigationPlane::PlanarXY ? 5.f : 1.25f;
     scene.entity(left).set<NavigationLink>(link);
@@ -114,8 +118,8 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
     Query query(load(root, baked).mesh);
     const Double3 start =
         plane == NavigationPlane::PlanarXY ? Double3{-3, 0, 11} : Double3{-3, 0, 0};
-    const Double3 end =
-        plane == NavigationPlane::PlanarXY ? Double3{3, landing_height, -8} : Double3{3, 2, 0};
+    const Double3 end = plane == NavigationPlane::PlanarXY ? Double3{3, destination_height, -8}
+                                                           : Double3{3, destination_height, 0};
     const auto route = query.route(start, end);
     check(route.path.status == NavStatus::Success && route.links.size() == 1 &&
               route.links.front().source == EntityId::parse(left) &&
@@ -142,9 +146,15 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
         .set<LocalTranslation>({2, plane == NavigationPlane::Spatial3D ? 2. : 0., 0})
         .set<NavigationObstacle>({false, 1, 2});
     if (character) {
-        if (plane == NavigationPlane::PlanarXY) {
+        if (drop) {
+            if (plane == NavigationPlane::PlanarXY)
+                mixed_character_link_recovery(scene.snapshot(), root, worker,
+                                              EntityId::parse(actor_id), true);
+            character_drops(scene.snapshot(), root, EntityId::parse(actor_id),
+                            plane == NavigationPlane::PlanarXY);
+        } else if (plane == NavigationPlane::PlanarXY) {
             if (!bidirectional && landing_height == 0)
-                mixed_character_jump_recovery(scene.snapshot(), root, worker,
+                mixed_character_link_recovery(scene.snapshot(), root, worker,
                                               EntityId::parse(actor_id));
             planar_character_jumps(scene.snapshot(), root, EntityId::parse(actor_id),
                                    link.arc_height, false, landing_height);
@@ -225,9 +235,11 @@ int main(int argc, char** argv) {
         const std::string_view profile = argc == 4 ? argv[3] : "all";
         const bool collision = profile == "collision-straight" || profile == "collision-arc";
         const bool raised = profile == "planar-character-jump-raised";
+        const bool drop = profile == "character-drop" || profile == "planar-character-drop";
         const bool bidirectional = profile == "planar-character-jump-bidirectional" || raised;
-        const bool planar_character = profile == "planar-character-jump" || bidirectional;
-        const bool character = profile == "character-jump" || planar_character;
+        const bool planar_character = profile == "planar-character-jump" || bidirectional ||
+                                      profile == "planar-character-drop";
+        const bool character = profile == "character-jump" || planar_character || drop;
         check(profile == "all" || profile == "straight" || profile == "arc" || collision ||
                   character,
               "Unknown navigation pipeline profile");
@@ -238,7 +250,7 @@ int main(int argc, char** argv) {
                 for (bool arc : {false, true}) {
                     if (character && (plane != (planar_character ? NavigationPlane::PlanarXY
                                                                  : NavigationPlane::Spatial3D) ||
-                                      dynamic || !arc))
+                                      dynamic || (drop ? arc : !arc)))
                         continue;
                     if (((profile == "straight" || profile == "collision-straight") && arc) ||
                         ((profile == "arc" || profile == "collision-arc") && !arc))
@@ -248,7 +260,11 @@ int main(int argc, char** argv) {
                                        (arc ? "-arc" : "-straight");
                     std::cout << "Navigation pipeline " << label << " begin" << std::endl;
                     run(root / label, std::filesystem::absolute(argv[2]), plane, dynamic, arc,
-                        collision, character, bidirectional, raised ? 1. : 0.);
+                        collision, character, bidirectional,
+                        drop     ? -1.
+                        : raised ? 1.
+                                 : 0.,
+                        drop);
                     std::cout << "Navigation pipeline " << label << " PASS" << std::endl;
                 }
         std::filesystem::remove_all(root);

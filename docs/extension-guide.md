@@ -646,7 +646,8 @@ and XY NavMesh without links. Read actual adopted pose/velocity through the same
 copied agent API; navigation never writes a character's flight or collision pose.
 Movement3 requires an upright World-bound Grounded CharacterController2D with
 positive automatic gravity, downward vertical Project gravity and static physical
-ground. It supports explicit positive-lift XY links between static supports.
+ground. It supports explicit positive-lift XY jumps and descending zero-lift links
+between static supports.
 
 Movement1 supports positive-lift 3D links and movement3 supports positive-lift XY
 links between static supports. Author
@@ -660,13 +661,24 @@ ground-route metric; satisfying it never starts an unnecessary jump. Active flig
 continues through actual landing. Use game Pause to freeze simulation. Clearing the destination releases
 steering, and destination changes during flight replan after landing.
 
+Both physical profiles also follow a zero-lift link whose oriented exit is lower
+than its entry. Author one-way links with horizontal room to walk off the launch
+floor. Native gravity and collision own the descent; no jump impulse is requested.
+Static support at both ends and at least four fixed samples over the estimated
+fall duration are required. Same-height/upward zero-lift physical links and
+Floating XY links remain unavailable. Copied progress reflects actual blockage,
+falling and supported landing. The installed `drop_navigation_gameplay` and
+`planar_drop_navigation_gameplay` samples query and drive the same existing typed
+Agent values; no additional SDK callback or component layout is introduced.
+
 Automatic steering/jumps are engine-owned one-step requests, with no additional
 SDK callback. Manual character movement/jump/placement wins in the same pending
 physics boundary; disable navigation before project C++ takes over motion.
 Private exact-runtime recovery is separate from SDK Play's authored restart.
 See [character ownership](decisions/052-navigation-characters.md) and
 [physical jump links](decisions/053-navigation-character-jumps.md) and
-[XY jump links](decisions/055-planar-character-jump-links.md).
+[XY jump links](decisions/055-planar-character-jump-links.md), and
+[physical descending links](decisions/056-navigation-character-drops.md).
 
 ### XY navigation assets
 

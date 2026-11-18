@@ -84,6 +84,7 @@ class PhysicsRuntime : public PhysicsService {
     std::size_t contact_count_2d() const override;
     std::optional<PhysicsContact2D> contact_event_2d(std::size_t) const override;
     CharacterState character(EntityRef) const override;
+    std::optional<CharacterState> find_character(EntityRef) const override;
     void move_character(EntityRef, Double3) override;
     void move_character_once(EntityRef, Double3) override;
     void move_character_2d_once(EntityRef, Double2) override;

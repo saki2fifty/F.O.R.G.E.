@@ -230,11 +230,15 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char*, uint32_t) {
             }
             const auto id = a.navmesh.id.str();
             double start[3]{-8, .1, 0}, end[3]{8, .1, 0}, points[192]{};
-#ifdef FORGE_NAVIGATION_JUMP
+#if defined(FORGE_NAVIGATION_JUMP) || defined(FORGE_NAVIGATION_DROP)
             start[0] = -3;
             start[2] = -3;
             end[0] = 3;
+#ifdef FORGE_NAVIGATION_DROP
+            end[1] = -1;
+#else
             end[1] = 2;
+#endif
             end[2] = -3;
 #endif
 #ifdef FORGE_NAVIGATION_PLANAR
@@ -244,9 +248,15 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char*, uint32_t) {
             start[1] = -3;
             end[1] = -2;
 #endif
+#ifdef FORGE_NAVIGATION_DROP
+            start[1] = -3;
+            end[1] = -4;
+#endif
 #endif
             ForgeSdkNavResultV1 out{sizeof(out), 0, 0, 64, points};
-#ifdef FORGE_NAVIGATION_GROUNDED
+#ifdef FORGE_NAVIGATION_DROP
+            constexpr unsigned required_points = 4;
+#elif defined(FORGE_NAVIGATION_GROUNDED)
             constexpr unsigned required_points = 2;
 #else
             constexpr unsigned required_points = 3;

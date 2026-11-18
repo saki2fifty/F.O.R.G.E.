@@ -2753,12 +2753,18 @@ std::optional<PhysicsContact> PhysicsRuntime::contact_event(std::size_t index) c
     return event;
 }
 CharacterState PhysicsRuntime::character(EntityRef ref) const {
+    const auto result = find_character(ref);
+    if (!result)
+        throw std::runtime_error("Character is unavailable or not yet realized");
+    return *result;
+}
+std::optional<CharacterState> PhysicsRuntime::find_character(EntityRef ref) const {
     auto& s = *impl_;
     s.check();
     const auto found = s.context.resolve(ref);
     if (found.state != WorldContext::ResolveState::Available ||
         !s.characters.contains(found.entity))
-        throw std::runtime_error("Character is unavailable or not yet realized");
+        return {};
     const auto& value = s.characters.at(found.entity);
     const auto& c = value.owner->native();
     CharacterState out;

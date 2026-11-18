@@ -20,7 +20,7 @@ Native ECS game editor under development. Windows/D3D12 is the first editor targ
 | Game interface and fonts | RmlUi, FreeType, HarfBuzz and utf8proc | Runtime HUD documents, native input, optional shaped text/whole-character editing and bundled-font rendering. |
 | Physics | Jolt Physics and Box2D | Jolt supplies 3D bodies, queries, constraints and character movement; private Box2D supplies XY bodies, colliders, joints, sensors, queries, painted Tile Map collision and native 2D character movement. |
 | Skeletal animation | Ozz Animation | Animation sampling, blending and glTF animation conversion. |
-| Navigation | Recast and Detour | Navigation mesh generation, static collision collection, dynamic obstacle updates, authored links, path queries, local steering and physical 3D/grounded XY character steering and jumps through the existing controllers. |
+| Navigation | Recast and Detour | Navigation mesh generation, static collision collection, dynamic obstacle updates, authored links, path queries, local steering and physical 3D/grounded XY character steering, jumps and drops through the existing controllers. |
 | Audio | miniaudio | WAV/FLAC/MP3 decoding, resident or bounded streamed playback, spatial sound and mixing. |
 | Serialization | nlohmann/json | Authored JSON documents and process messages. |
 | Mesh processing | meshoptimizer and Draco | Geometry processing and glTF compression decoding. |

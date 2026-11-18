@@ -1,5 +1,23 @@
 # 2026-11-18
 
+## Physical character descents
+
+3D and Grounded XY navigation can follow explicit descending zero-lift links
+between static supports. Physics owns walk-off, gravity, collision and landing;
+navigation supplies bounded horizontal steering. Actual blockage, missed landings,
+cold realization, manual handoff and stopping distance retain the same owners.
+Private navigation12 recovery preserves mixed jumps/drops without another pose
+database. Authored fields, cooked navigation and installed SDK layouts are unchanged.
+
+Gallery229/230 include editable 3D/XY descents, Cameras, native walls and ready
+NavMeshes. Existing automation/MCP controls and matching C++ SDK clients exercise
+the same workflows. The manual describes setup, controls, saving and export.
+General platformer reachability graphs and moving-platform routing remain pending.
+
+The full CPU benchmark test retains all 28 native workload cases with a bounded
+300-second aggregate deadline. This accommodates Windows process startup while
+preserving workload, numeric, report-integrity and graceful-exit checks.
+
 ## Physical XY character jump links
 
 Grounded Character Controller 2D navigation can traverse explicit positive-lift

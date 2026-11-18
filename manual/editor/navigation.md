@@ -66,10 +66,11 @@ The lower cyan route reaches a raised platform; the upper orange route has a phy
 4. Play and inspect **Navigation progress** and **Character movement**. Physics determines takeoff, collisions, flight and landing. Arc height selects the intended lift; the character's actual path may differ from the displayed intent curve.
 5. Stop, disable **Red flight wall → Physics Body → Enabled**, and Play again to let the orange character cross. Save the Scene and choose it as startup before exporting. Its built NavMesh, Camera and Light are included; no project C++ module is required.
 
-Takeoff and landing must have static physical support. Zero-height links,
+Takeoff and landing must have static physical support. Same-height or upward zero-lift links,
 sideways/upward gravity, moving-platform links and Floating XY jumps are
 unsupported. A route can exist while a particular character lacks enough speed
 or suitable support to jump it; inspect the navigation diagnostic.
+For a lower End and zero Arc height, follow **Drop to a lower static platform** below.
 
 During flight, Speed **0** stops navigation steering while gravity continues.
 Stopping distance applies before takeoff: if the remaining route is already
@@ -101,8 +102,8 @@ the same live controls and Keep review as other agents. Select Movement in Edit.
 Manual XY movement or placement takes precedence in the same physics step.
 
 Floating navigation requires **Automatic gravity** `0` and has no floor following.
-Use the grounded profile below for supported static ground and explicit jump
-links. Floating jump links and moving-platform routes are unavailable. Choose
+Use the grounded profile below for supported static ground and explicit jump/drop
+links. Floating jump/drop links and moving-platform routes are unavailable. Choose
 the Gallery Scene as startup, save it and export normally; no project C++ module
 is required.
 
@@ -134,8 +135,8 @@ Automatic gravity `1` uses vertical Project gravity; `0` leaves gravity to C++.
 This profile follows continuous supported static ground. Unsupported route bends
 or destinations are refused; gaps hold steering. Larger ledges can block the
 controller. **Step Height** and **Floor Probe** retain their ordinary physical
-limits. Use explicit positive-lift links for the jumps described below. Automatic
-platformer drop planning and moving-platform routes are unavailable. Use the
+limits. Use explicit positive-lift links for jumps and descending zero-lift links for
+drops, as described below. Automatic platformer reachability planning and moving-platform routes are unavailable. Use the
 Floating profile for free XY movement.
 
 Speed `0`, clearing **Has destination**, or disabling the Agent stops steering;
@@ -164,17 +165,52 @@ The lower lane has a clear crossing; the upper lane has a physical obstruction.
 4. Set enough **Speed** for the crossing. The Gallery uses a four-metre span, one-metre Arc height, a one-metre raised landing and Speed `6`. Project gravity must point down world Y. Play and inspect **Navigation progress** and **Character movement**; physics determines the actual flight and landing.
 5. Stop, disable the red wall's **Physics Body 2D → Enabled**, and Play again to let the orange character cross. Save, choose this Scene as startup and export normally. Its Camera and built NavMesh are included; no project C++ module is required.
 
-Takeoff and landing require static walkable support. Zero-height links, sideways
+Takeoff and landing require static walkable support. Same-height or upward zero-lift links, sideways
 or upward gravity, Floating controllers and moving-platform routes are unsupported.
 An unsupported route corner reports its index and XY coordinates. Insufficient
 speed or fixed-step resolution can refuse a jump before takeoff. Visual Z remains
 independent of physical XY movement.
+Use the drop workflow below for a descending zero-lift crossing.
 
 Speed `0` releases horizontal steering while gravity continues. Pause the game to
 freeze time. A destination changed during flight is replanned after landing;
 clearing **Has destination** or disabling navigation releases steering. Stopping
 distance is checked before takeoff, so a character already within that distance
 does not jump. Stop and Play to restart from the saved Scene after a missed landing.
+
+## Drop to a lower static platform
+
+Open Gallery **229-navigation-character-drops** for 3D, or
+**230-navigation-character-drops-xy** for XY, and press Play. The cyan character
+walks off the upper floor, falls and reaches the lower goal. The orange character
+meets the red physical wall. A missed or obstructed landing does not count as arrival.
+
+![Cyan 3D character descending toward a lower platform while the orange character meets the red wall](../images/navigation-character-drops-game.png)
+
+The 3D example uses physical platforms and a one-way descending link.
+
+![Cyan XY character falling between the two navigation islands while the upper orange character meets a wall](../images/navigation-planar-character-drops-game.png)
+
+The XY example uses separate navigation regions and physical floor colliders.
+
+1. Provide upper and lower static floors with solid colliders. Mark 3D routing surfaces with **Navigation Surface**, or draw **Navigation Region 2D** islands around the XY approach and landing areas. Artwork and routing geometry do not create physical support.
+2. Add an enabled **Navigation Link** with the matching **Plane** and **Build profile**. Put Start over supported upper ground and End over supported lower ground, with a horizontal gap. Set **Arc height → 0** and turn **Bidirectional** off. Endpoints use the link object's local coordinates; check that End is lower in world Y. XY endpoint Z stays `0`.
+3. Build the NavMesh. Use an upright World-bound **Character Controller** with positive **Gravity Factor** and **Movement → CharacterController** for 3D. For XY, use **Character Controller 2D → Mode → Grounded**, **Automatic gravity → 1** and **Movement → GroundedCharacterController2D**. Project gravity must point down world Y.
+4. Assign the NavMesh and a destination on the lower floor. Set enough **Speed** to cross the gap. Play and inspect **Navigation progress** and **Character movement**. The character walks to the edge; physics controls the descent, collision and actual landing. Test again after changing speed, gravity or collision.
+5. Stop, disable the red wall's **Physics Body → Enabled** or **Physics Body 2D → Enabled**, and Play again to let both characters cross. Save the Scene, choose it as startup and export normally. Both examples include a Camera and ready NavMesh and need no project C++ module.
+
+Drops require static walkable support at both ends and horizontal room to leave
+the upper floor. A blocked approach reports blockage and can resume when cleared.
+Stopping distance is checked before the crossing; an already satisfied distance
+does not start a fall. Very coarse fixed steps can refuse a short drop.
+Same-height or upward zero-lift physical links, Floating XY controllers,
+moving-platform routes and automatic platformer reachability graphs are unavailable.
+
+Speed `0`, clearing **Has Destination**, or disabling navigation releases steering
+while gravity continues. Use game Pause to freeze simulation. A destination changed
+during a crossing is replanned after reaching the exit. Disable navigation before
+handing movement to C++ code. Stop and Play to restart a missed landing from the
+saved Scene. XY visual Z remains independent of the physical descent.
 
 ## Build a 3D floor and obstacles
 
@@ -227,7 +263,8 @@ enabled Character Controllers, as in 3D.
 XY destinations and movement use world X/Y. The agent keeps its starting world Z;
 **Destination Z** does not move it between visual depths. Avoidance considers
 participants on the same NavMesh even when their visual Z differs. This is
-top-down routing; it does not plan platformer jumps, falls or moving platforms.
+authored XY routing. Grounded characters can use the explicit jump/drop workflows
+above; automatic platformer reachability graphs and moving-platform routes are unavailable.
 
 A Scene can have several named navigation profiles. Switching **Plane** requires
 an explicit rebuild and keeps that profile's asset identity. 3D Surface markers and 2D
@@ -393,9 +430,10 @@ not rebuild or change the asset.
 ## Connect separated walkable parts
 
 Use **Navigation Link** to connect two static walkable parts. With **Arc height = 0**,
-the Agent moves in a straight line between the admitted endpoints at its current Speed. This is useful
-for a deliberate crossing that ordinary ground routing cannot follow. It does not
-simulate a jump or drive a physics character.
+an Agent with **Movement → Navigation** moves in a straight line between the
+admitted endpoints at its current Speed. Use this for a deliberate crossing that
+ordinary ground routing cannot follow. Physical characters use the jump or
+descending-drop workflows above, where physics controls collision and landing.
 
 Open **Scenes/140-navigation-links.scene.json** in Feature Gallery. The cyan
 agent patrols across the upper gap in both directions through the `Loop` profile.
@@ -448,8 +486,9 @@ both locally and after transformation. With **Dynamic obstacles**, the endpoints
 must lie in the same or adjacent tile coordinates. Tiles are 32 cells wide; at the
 default 0.2 m Cell size this is 6.4 m. If the build reports a tile-span limit,
 shorten/reposition the link or choose a coarser Cell size and rebuild. Moving
-platform attachments are unavailable. For an upright physical character crossing
-a positive-height link, follow **Jump between static platforms** in this guide.
+platform attachments are unavailable. For an upright physical character, follow
+**Jump between static platforms** for positive lift or **Drop to a lower static
+platform** for a descending zero-lift link in this guide.
 
 ### Follow an authored arc
 
@@ -756,4 +795,4 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 - **Physics ownership error:** remove the agent's Physics Body and any moving physics spatial ancestor, or use an independent World spatial binding.
 - **Build/query limit:** reduce the included area or geometry, or increase cell size. A single build supports at most 512 × 512 cells.
 
-Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts for ordinary agents. Physical characters support upright 3D ground routes and positive-lift jumps between static supports, or Floating XY routes without links. Grounded XY movement supports continuous static physical ground and explicit positive-lift jumps between static supports with automatic gravity. General XY platformer jump/drop route planning, moving-platform routes and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
+Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts for ordinary agents. Physical characters support upright 3D ground routes, positive-lift jumps and descending zero-lift drops between static supports, or Floating XY routes without links. Grounded XY movement supports continuous static physical ground and the same explicit jumps/drops with automatic gravity. General XY platformer jump/drop route planning, moving-platform routes and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
