@@ -17,6 +17,7 @@
 // hooks inside the shipped runtime.
 
 #include "base64.hpp"
+#include "input_recording_protocol.hpp"
 #include "play_schema_reference.hpp"
 #include "sdk_play_runtime.hpp"
 #include <atomic>
@@ -2626,6 +2627,8 @@ int run() {
     try {
         schema_reference_contract();
         game_recording_sdk_tests();
+        session_game_recording_sdk_tests();
+        movie_scene_response_budget();
         input_recording_sdk_tests();
         input_recording_sdk_tests(true);
         session_input_scene_transitions();

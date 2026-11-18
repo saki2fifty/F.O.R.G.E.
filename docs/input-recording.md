@@ -42,7 +42,11 @@ The take records expected visits rather than issuing Scene requests itself.
 Game logic must request the recorded sequence. Control-phase actions, asynchronous
 completion times, saves/random state and arbitrary native state are outside this
 document. Legacy captures and ordinary hosts retain single-Scene refusal rules.
-Offline movies reject version-2 replay before runtime launch or output creation.
+Offline movies retain this refusal by default. Explicit session movies admit a
+version-2 replay atomically with `record_begin`, using the same input command and
+copied `RuntimeInput` before the first tick. The standalone offline
+`input_recording` command still refuses version-2 replay. See
+[movie scope and lifecycle](game-recording.md).
 
 The version-1 JSON document has exactly six fields: `version`, `profile`,
 `source`, `simulation_hz`, `input_map`, and `frames`. Action columns follow input

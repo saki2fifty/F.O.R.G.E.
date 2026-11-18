@@ -19,14 +19,14 @@ After recording, ordinary Play uses its previous user-data selection.
 
 ## Choose the recording
 
-![Record game window with a new output folder, frame rate, count, fixed dimensions and JPEG quality](../images/game-recording-options.png)
+![Record game window with output settings, optional saved input and the Across scenes checkbox](../images/game-recording-options.png)
 
 Choose the output and image settings before starting the fresh run.
 
 1. Open **Run → Record game…**.
 2. Choose an existing **Parent folder** and enter a **New recording folder** name. Use a new folder for every recording.
 3. Set **Frames per second**, **Frame count**, **Width (pixels)** and **Height (pixels)**. For a six-second movie at 30 FPS, use 180 frames.
-4. Set **JPEG quality**. Higher values usually retain more image detail and produce a larger movie. The default is 90. To use a [saved gameplay input take](input-recording.md), set **Input recording (optional)** to `Recordings/<name>.json`. Leave it empty for a run without recorded input.
+4. Set **JPEG quality**. Higher values usually retain more image detail and produce a larger movie. The default is 90. Enable **Across scenes** if game code loads other Scenes. To use a [saved gameplay input take](input-recording.md), set **Input recording (optional)** to `Recordings/<name>.json`. Use an Across Scenes take when this option is enabled, or a single-Scene take when it is off. Leave the path empty for a run without recorded input.
 5. Choose **Start recording**. Keep the Game view available while FORGE renders the frames. Recording can take longer or less time than the movie's duration.
 6. Wait for **Game movie, PNG frames and PCM saved**, then open **game.avi** in a player that supports Motion JPEG and PCM audio.
 
@@ -49,12 +49,23 @@ When you select an input recording, the folder also contains
 **input-recording.json**. The receipt records its source identity, tick count and
 digest. A selected take must match the fresh runtime's Scene/settings/build,
 input map and simulation rate. After its last tick, gameplay input becomes neutral.
-Choose a single-Scene take. Across Scenes recordings are rejected before the
-runtime starts or an output folder is created.
+The take and movie must use matching scopes. A mismatched scope is rejected
+before the runtime starts or an output folder is created.
+
+With **Across scenes** enabled, game code can load up to 64 Scene visits,
+including repeated visits to the same Scene. The recording waits for each new
+Scene's resources and presentation before continuing. Loading time does not add
+movie frames or sound. Each PNG retains the Scene, world generation and local
+simulation tick at capture time. The receipt also lists Scene visits and their
+positions in the recorded audio. A saved take supplies input; game code still
+has to request the recorded Scene sequence.
 
 Choose **Cancel** to retire the recording. Completed PNGs, audio and the receipt
 remain available. A file already being written must finish. A complete movie
 already published remains available; an incomplete movie is not published.
+Audio from a partially mixed frame is not saved. The receipt distinguishes
+completed audio from observed progress, so a retained PNG can have no matching
+completed audio interval.
 Closing the editor stops the recording's Play process and attempts to save its
 partial receipt after outstanding file work settles.
 
@@ -65,9 +76,11 @@ quality from 1–100. Audio is limited to 128 MiB; retained PNG/audio snapshots 
 the final movie each have a 256 MiB limit. Long recordings or large frames can
 reach these limits before the frame-count limit.
 
-This is an offline recording of a fresh run. Interactive input, Pause and scene
-changes during recording are unavailable. During capture, a scene change, runtime fault or
-authored scene edit stops the recording. Native audio events are sampled in
+This is an offline recording of a fresh run. Interactive input and Pause are
+unavailable. Leave **Across scenes** off for the default single-Scene recording;
+a Scene change then stops the run. With it enabled, a failed or cancelled Scene
+load stops the recording. Runtime faults, game-requested Pause or Quit, and
+authored scene edits also stop capture. Native audio events are sampled in
 bounded mixing intervals; they do not have sample-accurate scheduling.
 A saved input take can drive gameplay during capture, but does not guarantee
 identical game state when native code, random values or external state differ.
@@ -82,6 +95,9 @@ Open **FeatureGallery / Scenes / 182-game-recording.scene.json** to try scene
 motion, a falling red cube, three timed tones and a moving HUD pulse. A six-second
 recording at 30 FPS includes the full sequence. For a silent Timeline preview
 instead, use [sequence frame and movie export](animation-sequences.md).
+For a Project Code example that loads another Scene, follow the Room A/Room B
+setup in [gameplay input recording](input-recording.md), save an Across Scenes
+take, and select **Across scenes** in the movie options.
 
 ![Captured Game frame with the red cube on the floor, moving gold panel and timed HUD pulse](../images/game-recording-frame.png)
 

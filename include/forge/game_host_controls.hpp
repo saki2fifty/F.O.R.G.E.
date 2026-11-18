@@ -61,6 +61,7 @@ class GameHostControls {
     }
     bool cursor_captured() const { return cursor_; }
     bool quit_requested() const { return quit_; }
+    std::uint64_t automatic_scene_ticket() const { return auto_ticket_; }
     const Json& settings() const { return settings_; }
 
   private:

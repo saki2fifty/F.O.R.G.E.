@@ -7,15 +7,15 @@
 #include <span>
 
 namespace forge {
-inline std::string input_recording_source(const nlohmann::json& scene,
-                                          const std::filesystem::path& project) {
-    const auto encoded =
-        nlohmann::json{
-            {"scene", scene},
-            {"settings", project.empty() ? nlohmann::json() : ProjectSettings(project).document()},
-            {"build", source_commit},
-            {"sdk", FORGE_NATIVE_SDK_FINGERPRINT}}
-            .dump();
+inline std::string
+input_recording_source(const nlohmann::json& scene, const std::filesystem::path& project,
+                       const std::string& sdk_fingerprint = FORGE_NATIVE_SDK_FINGERPRINT) {
+    const auto encoded = nlohmann::json{
+        {"scene", scene},
+        {"settings", project.empty() ? nlohmann::json() : ProjectSettings(project).document()},
+        {"build", source_commit},
+        {"sdk",
+         sdk_fingerprint}}.dump();
     return asset_detail::content_digest(std::as_bytes(std::span(encoded)));
 }
 // Both Play hosts use the same fixed-input owner and admission rules. This is

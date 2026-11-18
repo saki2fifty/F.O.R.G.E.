@@ -47,7 +47,7 @@ class GameRecordingTask final : public ViewImageWork {
     bool replay_admitted_ = false;
     GameRecordingHost host_;
     std::filesystem::path worker_, project_, folder_, previous_user_data_;
-    AssetId scene_id_, sample_id_ = AssetId::generate();
+    AssetId scene_id_, frame_scene_id_, sample_id_ = AssetId::generate();
     std::uint64_t revision_ = 0, generation_ = 0, audio_frames_ = 0;
     asset_detail::MovieFrameRate rate_;
     unsigned completed_ = 0, captured_ = 0, stable_ = 0;
@@ -59,6 +59,9 @@ class GameRecordingTask final : public ViewImageWork {
     std::string launch_, session_, source_digest_, status_ = "Choose recording output";
     std::string error_, reason_, terminal_, image_message_, validation_, started_at_;
     std::uint64_t world_generation_ = 0;
+    std::uint64_t frame_generation_ = 0;
+    std::uint64_t observed_audio_frames_ = 0;
+    Json visits_ = Json::array();
     ViewImageTask images_;
     bool readback_used_ = false, user_data_scoped_ = false;
     std::future<std::size_t> file_;
@@ -108,8 +111,10 @@ class GameRecordingTask final : public ViewImageWork {
     std::optional<TemporalFrameSample> temporal_sample() const override {
         if (phase_ != Phase::Image || retiring_)
             return {};
-        return TemporalFrameSample{sample_id_,
-                                   play_.timing().at("presentation_seconds").get<double>()};
+        return TemporalFrameSample{
+            sample_id_, request_.capture_scope == "session"
+                            ? double(audio_frames_) / asset_detail::movie_audio_sample_rate
+                            : play_.timing().at("presentation_seconds").get<double>()};
     }
     std::filesystem::path preview_path(std::optional<unsigned> frame) const override {
         if (!finished_ || !frame || *frame >= captured_)
@@ -133,6 +138,7 @@ class GameRecordingTask final : public ViewImageWork {
                    {"width", request_.output.width},
                    {"height", request_.output.height},
                    {"fps", request_.fps},
+                   {"capture_scope", request_.capture_scope},
                    {"jpeg_quality", request_.output.jpeg_quality},
                    {"cancel_requested", retiring_ && terminal_ == "cancelled"}};
         if (movie_)
@@ -167,7 +173,7 @@ class GameRecordingTask final : public ViewImageWork {
             return;
         try {
             if (host_.poll_images)
-                host_.poll_images(images_, context, project_, scene_id_, image_message_);
+                host_.poll_images(images_, context, project_, frame_scene_id_, image_message_);
             else
                 (void)images_.poll_files(image_message_);
             observe_image();
@@ -203,7 +209,7 @@ class GameRecordingTask final : public ViewImageWork {
                 if (play_.control_ready()) {
                     session_ = play_.session();
                     world_generation_ = play_.world_generation();
-                    if (!replay_input_.is_null()) {
+                    if (!replay_input_.is_null() && request_.capture_scope == "scene") {
                         if (!replay_submitted_) {
                             if (!play_.submit_input_recording("replay", replay_input_))
                                 throw std::runtime_error(
@@ -220,15 +226,21 @@ class GameRecordingTask final : public ViewImageWork {
                         replay_admitted_ = true;
                     }
                     if (!play_.paused() || play_.timing().at("tick") != 0 ||
-                        !play_.begin_recording(request_.fps, unsigned(request_.frames)))
+                        !play_.begin_recording(
+                            request_.fps, unsigned(request_.frames), request_.capture_scope,
+                            request_.capture_scope == "session" ? replay_input_ : Json()))
                         throw std::runtime_error("Recording could not begin from fresh tick zero");
                     phase_ = Phase::Begin;
                     status_ = "Starting offline game recording";
                 }
             } else if (phase_ == Phase::Begin) {
                 require_launch();
-                if (!play_.recording_pending() && play_.recording_status().value("started", false))
+                if (!play_.recording_pending() &&
+                    play_.recording_status().value("started", false)) {
+                    if (request_.capture_scope == "session" && !replay_input_.is_null())
+                        replay_admitted_ = true;
                     begin_frame();
+                }
             } else if (phase_ == Phase::Image) {
                 require_launch();
                 if (frame_image_done_ && !images_.busy() && play_.control_ready()) {
@@ -239,9 +251,15 @@ class GameRecordingTask final : public ViewImageWork {
                 }
             } else if (phase_ == Phase::Advance) {
                 require_launch();
-                if (!play_.recording_pending())
+                if (!play_.recording_pending()) {
                     if (auto audio = play_.take_recording_frame())
                         write_pcm(std::move(*audio));
+                    else if (request_.capture_scope == "session" && play_.control_ready()) {
+                        if (!play_.advance_recording(completed_))
+                            throw std::runtime_error("Pending recording interval could not resume");
+                        status_ = "Preparing Scenes and completing the current audio interval";
+                    }
+                }
             }
             if (phase_ != Phase::Prepare && phase_ != Phase::Pcm &&
                 std::chrono::steady_clock::now() >= deadline_)
@@ -264,7 +282,7 @@ class GameRecordingTask final : public ViewImageWork {
   private:
     void start();
     void require_source() const;
-    void require_launch() const;
+    void require_launch();
     void stop_play() noexcept;
     void abort(std::string, bool);
     void observe_image();

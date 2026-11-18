@@ -428,15 +428,24 @@ class PlaySession {
         return !recording_command_.is_null() ||
                (waiting_ && (sent_command_ == "record_begin" || sent_command_ == "record_frame"));
     }
-    bool begin_recording(double fps, unsigned frames) {
+    bool begin_recording(double fps, unsigned frames, const std::string& scope = "scene",
+                         const Json& input = Json()) {
         if (!offline_recording_ || !control_ready() || recording_pending() ||
             recording_status_.value("started", false) || !std::isfinite(fps) || fps < 1 ||
-            fps > 240 || !frames || frames > 4096)
+            fps > 240 || !frames || frames > 4096 || (scope != "scene" && scope != "session") ||
+            (scope == "session" && !session_game_recording_supported_) ||
+            (!input.is_null() && (scope != "session" || !input.is_object())))
             return false;
         recording_command_ = {{"command", "record_begin"},
                               {"generation", world_generation()},
                               {"fps", fps},
                               {"frames", frames}};
+        recording_requested_scope_ = scope;
+        if (scope == "session") {
+            recording_command_["capture_scope"] = scope;
+            if (!input.is_null())
+                recording_command_["input_recording_document"] = input;
+        }
         return true;
     }
     bool advance_recording(unsigned frame) {
@@ -920,6 +929,7 @@ class PlaySession {
         recording_status_ = recording_command_ = nullptr;
         recording_frame_.reset();
         recording_requested_frame_ = 0;
+        recording_requested_scope_ = "scene";
         recoverable_ = false;
         status_ = "Stopped. Authored scene preserved.";
         // SDK Play transport state is reset by close_process(); stop()
@@ -932,6 +942,7 @@ class PlaySession {
         runtime_world_generation_ = 0;
         schema_references_ = false;
         session_input_recording_supported_ = false;
+        session_game_recording_supported_ = false;
         schema_identity_ = sent_schema_hint_ = nullptr;
         sdk_pending_platform_acks_ = false;
         sdk_platform_acks_ = nullptr;
@@ -1241,6 +1252,9 @@ class PlaySession {
                         session_input_recording_supported_ =
                             sdk_game_ && response.value("runtime_contract", Json::object())
                                              .value("session_input_recording", false);
+                        session_game_recording_supported_ =
+                            sdk_game_ && response.value("runtime_contract", Json::object())
+                                             .value("session_game_recording", false);
                     }
                     const auto generation =
                         sdk_game_ ? response.at("activation").value("generation", std::uint64_t{})
@@ -1255,13 +1269,35 @@ class PlaySession {
                         if (!recording.is_object() || recording.value("mode", "") != "offline_game")
                             throw std::runtime_error(
                                 "Runtime returned an incompatible recording profile");
-                        recording_status_ = recording;
-                        if (sent_command_ == "record_frame")
-                            recording_frame_ = read_recorded_audio(response.at("recording_frame"),
-                                                                   recording_requested_frame_,
-                                                                   recording_rate(recording));
-                        else if (response.contains("recording_frame"))
+                        if (recording.value("started", false) &&
+                            recording_requested_scope_ == "session")
+                            validate_recording_visits(recording, recording_status_, generation,
+                                                      snapshot_.at("asset_id").get<AssetId>());
+                        if (sent_command_ == "record_frame") {
+                            if (response.contains("recording_frame"))
+                                recording_frame_ = read_recorded_audio(
+                                    response.at("recording_frame"), recording_requested_frame_,
+                                    recording_rate(recording));
+                            else {
+                                const auto [start, end] = recorded_audio_bounds(
+                                    recording_requested_frame_, recording_rate(recording));
+                                if (recording_requested_scope_ != "session" ||
+                                    !recording.at("pending_frame").is_number_unsigned() ||
+                                    recording.at("pending_frame") != recording_requested_frame_ ||
+                                    recording.at("completed_frames") !=
+                                        recording_requested_frame_ ||
+                                    !recording.at("pending_audio_frames").is_number_unsigned() ||
+                                    recording.at("pending_audio_frames").get<std::uint64_t>() >
+                                        end - start ||
+                                    recording.at("audio_frames").get<std::uint64_t>() !=
+                                        start + recording.at("pending_audio_frames")
+                                                    .get<std::uint64_t>())
+                                    throw std::runtime_error(
+                                        "Runtime returned an invalid pending recording interval");
+                            }
+                        } else if (response.contains("recording_frame"))
                             throw std::runtime_error("Unexpected recording frame receipt");
+                        recording_status_ = recording;
                     }
                     const auto profile_generation =
                         sdk_game_ ? response.value("activation", Json::object())
@@ -1682,6 +1718,7 @@ class PlaySession {
         runtime_world_generation_ = 0;
         schema_references_ = false;
         session_input_recording_supported_ = false;
+        session_game_recording_supported_ = false;
         schema_identity_ = sent_schema_hint_ = nullptr;
         active_tiles_.clear();
         prepared_tiles_.clear();
@@ -1966,6 +2003,8 @@ class PlaySession {
     Json property_tune_command_, property_tune_ack_, runtime_schema_;
     bool schema_references_ = false;
     bool session_input_recording_supported_ = false;
+    bool session_game_recording_supported_ = false;
+    std::string recording_requested_scope_ = "scene";
     Json schema_identity_, sent_schema_hint_;
     Json time_scale_command_;
     Json recording_status_, recording_command_;

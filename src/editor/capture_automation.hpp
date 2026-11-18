@@ -199,6 +199,8 @@ struct CaptureAutomation {
                         {"reason", reason},
                         {"execution_granted", execution},
                         {"mode", "offline_game"},
+                        {"capture_scopes", {"scene", "session"}},
+                        {"maximum_scene_visits", input_recording_scene_limit},
                         {"maximum_frames", FORGE_SEQUENCE_FRAME_MAX_COUNT},
                         {"minimum_fps", 1},
                         {"maximum_fps", 240},
@@ -544,9 +546,13 @@ struct CaptureAutomation {
                 "game.avi. "
                 "FPS 1..240, 1..4096 frames; PCM 128 MiB, combined snapshots 256 MiB and movie 256 "
                 "MiB. "
-                "Frames need opaque sRGB Game output with an active camera. Input, Pause and scene "
-                "transitions "
-                "are unavailable. Poll capture.status and use capture.cancel; completed files "
+                "Frames need opaque sRGB Game output with an active camera. Interactive input and "
+                "Pause "
+                "are unavailable. Optional capture_scope session admits up to64 game-requested "
+                "Scene "
+                "visits and an optional v2 session input take; scene is the default. Poll "
+                "capture.status "
+                "and use capture.cancel; completed files "
                 "remain. "
                 "Inspect an owned completed PNG with capture.preview, then capture.image.",
                 "capture.write",
@@ -560,7 +566,8 @@ struct CaptureAutomation {
                      {"width", automation_integer(1, 4096)},
                      {"height", automation_integer(1, 4096)},
                      {"jpeg_quality", automation_integer(1, 100)},
-                     {"input_recording", automation_text(2047, 1)}},
+                     {"input_recording", automation_text(2047, 1)},
+                     {"capture_scope", {{"type", "string"}, {"enum", {"scene", "session"}}}}},
                     {"path", "scene", "source_revision", "document_generation", "frames_per_second",
                      "frame_count", "width", "height"}),
                 true, [&owner, &scene, &files, providers, root, &message](const Json& request) {
@@ -578,6 +585,7 @@ struct CaptureAutomation {
                     settings.fps = request.at("frames_per_second").get<double>();
                     settings.frames = request.at("frame_count").get<int>();
                     settings.input_recording = request.value("input_recording", "");
+                    settings.capture_scope = request.value("capture_scope", "scene");
                     settings.output.width = request.at("width").get<int>();
                     settings.output.height = request.at("height").get<int>();
                     settings.output.jpeg_quality =

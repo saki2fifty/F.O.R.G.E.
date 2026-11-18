@@ -580,10 +580,10 @@ if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
    forge_presentation_diligent forge_ui_presenter forge_runtime_package RmlUi::Core
    Diligent-BuildSettings Diligent-GraphicsEngineVk-static)
   if(FORGE_ENABLE_NATIVE_SDK)
-   add_dependencies(forge_game_recording_vulkan_probe forge_runtime forge_asset_build_worker)
+   add_dependencies(forge_game_recording_vulkan_probe forge_runtime forge_asset_build_worker forge_sdk_session_input)
    add_test(NAME game_recording_vulkan COMMAND forge_game_recording_vulkan_probe
     "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" $<TARGET_FILE:forge_runtime>
-    $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_BINARY_DIR}/game-recording-vulkan")
+    $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_BINARY_DIR}/game-recording-vulkan" $<TARGET_FILE:forge_sdk_session_input>)
    set_tests_properties(game_recording_vulkan PROPERTIES TIMEOUT 180)
   endif()
  endif()

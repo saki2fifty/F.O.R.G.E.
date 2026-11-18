@@ -127,7 +127,6 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
     const auto authored = scene.snapshot();
     if (prepare_only) {
         std::ofstream(root / "scene.json") << authored.dump(2) << '\n';
-        candidates.destruct();
         std::cout << root.string() << '\n';
         return;
     }
@@ -217,7 +216,6 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
     damaged["agents"][index].erase("filter");
     reject_recovery(damaged);
     check(scene.snapshot() == authored, "Runtime area tuning changed authored Scene data");
-    candidates.destruct();
     std::cout << (planar ? "XY" : "3D") << (dynamic ? " dynamic" : " static")
               << " worker/catalog/native capture/Agents/live/recovery passed\n";
 }

@@ -8,6 +8,10 @@
 #include <string>
 #include <type_traits>
 namespace forge::ui {
+struct IdScope {
+    explicit IdScope(const char* id) { ImGui::PushID(id); }
+    ~IdScope() { ImGui::PopID(); }
+};
 inline bool tooltips = true;
 inline ImVec2 tooltip_position(const ImRect& item, ImVec2 size, const ImRect& screen, float gap) {
     const float x =

@@ -72,8 +72,9 @@ runtime discards any recording that has not been retrieved and saved.
 To make a movie using a saved take, stop Play and open **Run → Record game…**.
 Set **Input recording (optional)** to its `Recordings/<name>.json` path and choose
 the movie settings. The movie uses those fixed gameplay actions and retains a
-copy of a single-Scene take. Movies reject Across Scenes recordings before
-starting a runtime or creating output. See [Record a game movie with sound](game-recording.md).
+copy of the take. Enable **Across scenes** in the movie options for an Across
+Scenes take; leave it off for a single-Scene take. Game code must request the
+recorded Scene visits. See [Record a game movie with sound](game-recording.md).
 
 Recording stops at 4,096 total ticks, 8 MiB or 64 Scene segments, whichever limit applies first. Its status reports
 the limit reached. Use **Finish and save input** to save that completed prefix.

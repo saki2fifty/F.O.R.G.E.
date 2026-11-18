@@ -106,6 +106,141 @@ void policy() {
         [](RuntimeClock::Time) {});
     check(bytes.size() == 6400 && !reentrant.failed(), "Reentrant read altered its outer interval");
 }
+void visit_receipts() {
+    const auto a = AssetId::generate(), b = AssetId::generate();
+    Json value{{"capture_scope", "session"},
+               {"profile", "offline-session-game-v2"},
+               {"audio_frames", 128u},
+               {"visits", Json::array({{{"generation", 1u},
+                                        {"scene", a},
+                                        {"source", std::string(64, 'a')},
+                                        {"audio_frame", 0u}}})}};
+    validate_recording_visits(value, Json::object(), 1, a);
+    const auto previous = value;
+    value["visits"].push_back({{"generation", 2u},
+                               {"scene", b},
+                               {"source", std::string(64, 'b')},
+                               {"audio_frame", 128u}});
+    validate_recording_visits(value, previous, 2, b);
+    rejects([&] { validate_recording_visits(value, previous, 1, a); });
+    for (const auto* field : {"generation", "audio_frame", "scene", "source"}) {
+        auto bad = value;
+        bad["visits"][1][field] = true;
+        rejects([&] { validate_recording_visits(bad, previous, 2, b); });
+    }
+    auto bad = value;
+    bad["visits"][1]["audio_frame"] = 129u;
+    rejects([&] { validate_recording_visits(bad, previous, 2, b); });
+    bad = value;
+    bad["visits"][0]["source"] = std::string(64, 'c');
+    rejects([&] { validate_recording_visits(bad, previous, 2, b); });
+    bad = value;
+    bad["visits"][0]["audio_frame"] = 1u;
+    rejects([&] { validate_recording_visits(bad, Json::object(), 2, b); });
+    bad = value;
+    bad["visits"][1]["generation"] = 1u;
+    rejects([&] { validate_recording_visits(bad, previous, 2, b); });
+}
+void resumable_frames() {
+    const auto generator = [](std::uint64_t& samples) {
+        return [&samples](std::span<float> output) {
+            for (auto& value : output)
+                value = float(int(samples++ % 31) - 15) / 16;
+        };
+    };
+    GameRecording reference(30, 1), pending(30, 1);
+    std::uint64_t reference_samples = 0, pending_samples = 0;
+    std::vector<RuntimeClock::Time> reference_times, pending_times;
+    const auto expected = reference.read_frame(generator(reference_samples),
+                                               [&](auto time) { reference_times.push_back(time); });
+    bool ready = false;
+    const auto advance = [&](RuntimeClock::Time time) {
+        pending_times.push_back(time);
+        if (pending_times.size() == 1)
+            ready = false;
+    };
+    const auto poll = [&] {
+        return pending.poll_frame(generator(pending_samples), advance, [&] { return ready; });
+    };
+    check(!poll() && !pending.failed() && pending.completed() == 0 && pending_samples == 0 &&
+              pending.status().at("audio_frames") == 0,
+          "Unready media consumed audio or became a failed frame");
+    ready = true;
+    check(!poll() && pending_samples == 256 && pending.status().at("audio_frames") == 128 &&
+              pending.status().at("pending_audio_frames") == 128 && pending.completed() == 0,
+          "Interrupted frame did not retain exactly its consumed quantum");
+    check(!poll() && pending_samples == 256 && pending_times.size() == 1,
+          "A preparation wait repeated audio or clock work");
+    ready = true;
+    const auto completed = poll();
+    check(completed && *completed == expected && pending_times == reference_times &&
+              pending_samples == reference_samples && pending.status() == reference.status(),
+          "Resumed frame changed legacy PCM, advance times or completion metadata");
+
+    GameRecording boundary(240, 1);
+    bool boundary_ready = true;
+    unsigned mixed = 0, advances = 0;
+    const auto boundary_poll = [&] {
+        return boundary.poll_frame(
+            [&](std::span<float> output) { mixed += unsigned(output.size() / 2); },
+            [&](auto) {
+                ++advances;
+                if (mixed == 200)
+                    boundary_ready = false;
+            },
+            [&] { return boundary_ready; });
+    };
+    check(!boundary_poll() && mixed == 200 && boundary.completed() == 0 &&
+              boundary.status().at("audio_frames") == 200 && !boundary.failed(),
+          "Last-quantum Scene preparation prematurely completed its frame");
+    check(!boundary_poll() && mixed == 200 && advances == 2,
+          "Completed interval was remixed while its Scene was unready");
+    boundary_ready = true;
+    const auto boundary_result = boundary_poll();
+    check(boundary_result && boundary_result->size() == 800 && mixed == 200 && advances == 2 &&
+              boundary.completed() == 1,
+          "Final readiness did not publish exactly the already consumed interval");
+
+    GameRecording bounded(1, 1);
+    unsigned work = 0, polls = 0;
+    std::optional<std::vector<std::byte>> result;
+    do {
+        const auto before = work;
+        result =
+            bounded.poll_frame([](std::span<float>) {}, [&](auto) { ++work; }, [] { return true; });
+        check(work - before <= GameRecording::poll_quantum_limit && ++polls <= 40,
+              "Media polling exceeded its bounded work or failed to make progress");
+    } while (!result);
+    check(result->size() == 48000 * 4 && work == 375 && polls > 1 && bounded.completed() == 1 &&
+              bounded.time() == RuntimeClock::Time{} + std::chrono::seconds(1),
+          "Bounded polling changed the cumulative media boundary");
+
+    GameRecording callback_guard(30, 1);
+    const GameRecording::Mix silence = [](std::span<float>) {};
+    const GameRecording::Advance idle = [](auto) {};
+    check(!callback_guard.poll_frame(silence, idle,
+                                     [&] {
+                                         rejects([&] {
+                                             (void)callback_guard.poll_frame(silence, idle,
+                                                                             [] { return true; });
+                                         });
+                                         return false;
+                                     }) &&
+              !callback_guard.failed(),
+          "Readiness reentry changed its outer pending frame");
+    check(callback_guard.read_frame(silence, idle).size() == 6400,
+          "Rejected reentry prevented subsequent valid completion");
+    GameRecording failure(30, 1);
+    rejects([&] {
+        (void)failure.poll_frame(silence, idle, []() -> bool {
+            throw std::runtime_error("Required candidate resource failed");
+        });
+    });
+    check(failure.failed() && failure.completed() == 0 &&
+              !failure.status().contains("pending_frame"),
+          "Resource failure published a frame or remained retryable");
+    rejects([&] { (void)failure.read_frame(silence, idle); });
+}
 void actual_game(const std::filesystem::path& gallery, const std::filesystem::path& root) {
     std::filesystem::create_directories(root / "Assets");
     std::filesystem::copy_file(gallery / "Assets/FalloffTone.wav", root / "Assets/tone.wav");
@@ -203,6 +338,8 @@ int main(int argc, char** argv) {
     try {
         check(argc == 3, "Need Gallery and output paths");
         policy();
+        resumable_frames();
+        visit_receipts();
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         actual_game(argv[1], root);
         std::cout << "Recording policy, native fixed ticks, physics and actual stereo PCM PASS: "

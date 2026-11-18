@@ -328,7 +328,7 @@ acceptance remain separate. See [UI source](../../../manual/editor/ui-source.md)
 software capture of the production widget after a real record/read/save. The
 file, tick count, Save controls and completed state are visible. Both Play hosts,
 three widths and project-affinity behavior are checked. The current
-`game-recording-options.png` adds the optional saved-input field through the
+`game-recording-options.png` includes the optional saved-input field and Across scenes through the
 production Diligent recording dialog; its six-layout software Vulkan probe also
 renders real game frames. Existing game movie imagery is unchanged.
 
@@ -2842,7 +2842,8 @@ separate.
 Both are unretouched canonical PNGs. [Game recording](../../game-recording.md)
 records hashes, capture sources, independent movie/audio validation and software
 Vulkan limitations. The fixture exercises production scoped recording,
-PlayPresentation, runtime UI and six control layouts; complete Windows Main,
+PlayPresentation, runtime UI, six control layouts and private cross-Scene movie
+copies with real SDK behavior and sound; complete Windows Main,
 physical GPU/input/DPI, external client and player review remain separate.
 
 ## Skeletal sequence tracks

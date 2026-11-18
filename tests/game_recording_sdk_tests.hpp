@@ -1,4 +1,275 @@
 // Included within the existing SDK Play fixture namespace.
+void movie_scene_response_budget() {
+    Fixture calibration;
+    std::string calibration_session;
+    auto calibration_host = build_activated(calibration, calibration_session);
+    const auto overhead =
+        send(*calibration_host, 4u, "snapshot", {{"session", calibration_session}}).dump().size();
+    constexpr std::size_t limit = 16u * 1024u * 1024u;
+    constexpr std::size_t headroom = 128u * 1024u;
+    check(overhead + headroom < limit, "Budget fixture schema already exceeds the wire limit");
+    // The unknown text appears in both authored and effective Scene snapshots.
+    // Leave less than a full 1 FPS PCM reply, accounting for the real schema.
+    const auto text_bytes = (limit - overhead - headroom) / 2;
+    for (const bool recording : {false, true}) {
+        Fixture f;
+        f.audio_enabled = f.recording_enabled = recording;
+        WorldContext world;
+        Scene big(world);
+        big.replace(
+            {{"version", 1},
+             {"entities",
+              Json::array({{{"id", "large"},
+                            {"name", "Large"},
+                            {"components",
+                             {{"missing.plugin", {{"text", std::string(text_bytes, 'b')}}}}}}})}});
+        std::filesystem::create_directories(f.project_root / "Scenes");
+        big.save(f.project_root / "Scenes/large.scene.json");
+        AssetCatalog catalog(f.project_root);
+        catalog.add_scene("Scenes/large.scene.json");
+        catalog.save(AssetCatalog::project_index(f.project_root));
+        std::string session;
+        auto host = build_activated(f, session);
+        std::uint64_t id = 3, epoch = 1;
+        const auto wire = [&](const std::string& command, Json fields = Json::object()) {
+            fields["session"] = session;
+            return send(*host, ++id, command, fields);
+        };
+        auto state =
+            wire("snapshot",
+                 {{"editor_epoch",
+                   {{"epoch", epoch}, {"captured", false}, {"input_device", "EditorHost"}}}});
+        const auto generation = state.at("activation").at("generation");
+        const auto original = state.at("scene");
+        const auto acknowledge = [&] {
+            auto acks = Json::array();
+            for (auto effect : host->live_effects()) {
+                effect["session"] = session;
+                effect["accepted"] = true;
+                acks.push_back(std::move(effect));
+            }
+            if (!acks.empty())
+                check(wire("snapshot", {{"platform_acks", acks}}).value("ok", false),
+                      "Budget fixture failed to acknowledge its released cursor");
+            if (wire("snapshot").value("release_required", false))
+                check(wire("snapshot", {{"editor_epoch",
+                                         {{"epoch", ++epoch},
+                                          {"captured", false},
+                                          {"input_device", "EditorHost"}}}})
+                          .value("ok", false),
+                      "Budget fixture failed its release observation");
+        };
+        if (recording)
+            check(wire("record_begin", {{"generation", generation},
+                                        {"fps", 1},
+                                        {"frames", 1u},
+                                        {"capture_scope", "session"}})
+                      .value("ok", false),
+                  "Movie transport-budget fixture could not begin");
+        f.capture.service->request(
+            "game.test", {{"operation", "prepare"}, {"asset", big.asset_id()}, {"activate", true}});
+        if (recording) {
+            Json response;
+            std::uint64_t before = 0;
+            for (unsigned poll = 0; poll < 8; ++poll) {
+                before = wire("snapshot").at("recording").at("audio_frames").get<std::uint64_t>();
+                response = wire("record_frame", {{"generation", generation}, {"frame", 0u}});
+                if (!response.value("ok", true))
+                    break;
+                check(!response.contains("recording_frame"),
+                      "Budget fixture advanced past its pending interval");
+                acknowledge();
+            }
+            check(!response.is_null() && !response.value("ok", true),
+                  "Movie admitted a world without reserving its PCM reply");
+            state = wire("snapshot");
+            check(!host->pending_candidate() &&
+                      state.at("activation").at("generation") == generation &&
+                      state.at("scene") == original &&
+                      state.at("recording").at("audio_frames").get<std::uint64_t>() == before &&
+                      host->loading().value("state", "") == "failed" &&
+                      host->loading().value("error", "").find("projected post-activation") !=
+                          std::string::npos,
+                  "Audio-budget rejection published a candidate, consumed PCM or replaced the old "
+                  "world");
+        } else {
+            for (unsigned poll = 0; poll < 8 && !host->pending_candidate() &&
+                                    host->loading().value("state", "") != "failed";
+                 ++poll) {
+                host->pump(RuntimeClock::Clock::now());
+                acknowledge();
+            }
+            check(host->pending_candidate().has_value(),
+                  "The same world should fit ordinary Play without a PCM interval");
+        }
+    }
+}
+void session_game_recording_sdk_tests() {
+    for (unsigned mode = 0; mode < 3; ++mode) {
+        const bool replay = mode == 1, preload = mode == 2;
+        Fixture f;
+        f.audio_enabled = f.recording_enabled = true;
+        AssetId first_scene, second_scene;
+        unsigned ticks = 0;
+        EngineModule module;
+        module.id = "test.movie_visits";
+        module.dependencies = {"forge.game"};
+        module.required_services = module.allowed_services = capability(Capability::Game);
+        module.runtime_roles = role_mask(WorldRole::Runtime);
+        module.scene_ready = [&](ModuleContext& context) {
+            const auto controls = context.services.game();
+            auto prepared = std::make_shared<std::uint64_t>(0);
+            context.world.system()
+                .kind(context.world.lookup("forge.runtime.Gameplay"))
+                .run([&, controls, prepared](flecs::iter&) {
+                    ++ticks;
+                    if (preload) {
+                        if (ticks == 2)
+                            *prepared =
+                                controls->request("test.movie_visits", {{"operation", "prepare"},
+                                                                        {"asset", second_scene},
+                                                                        {"activate", false}});
+                        if (*prepared &&
+                            controls->query().at("preparation").value("ready", false)) {
+                            const auto result = controls->inspect("test.movie_visits", *prepared);
+                            check(result.state == "succeeded",
+                                  "Movie preload request did not complete");
+                            controls->request(
+                                "test.movie_visits",
+                                {{"operation", "activate"}, {"ticket", result.value.at("ticket")}});
+                            controls->release("test.movie_visits", *prepared);
+                            *prepared = 0;
+                        }
+                    } else if (ticks == 2 || ticks == 4)
+                        controls->request("test.movie_visits",
+                                          {{"operation", "prepare"},
+                                           {"asset", ticks == 2 ? second_scene : first_scene},
+                                           {"activate", true}});
+                })
+                .add<FixedSimulation>();
+        };
+        f.modules.push_back(std::move(module));
+        std::string session;
+        auto host = build_activated(f, session);
+        std::uint64_t id = 3, epoch = 0;
+        const auto wire = [&](const std::string& command, Json fields = Json::object()) {
+            fields["session"] = session;
+            auto response = send(*host, ++id, command, fields);
+            if (command == "snapshot" && !response.value("ok", false))
+                throw std::runtime_error("Session movie snapshot failed: " + response.dump());
+            return response;
+        };
+        auto state = wire("snapshot");
+        first_scene = state.at("scene").at("asset_id").get<AssetId>();
+        WorldContext first_world, second_world;
+        Scene a(first_world), b(second_world);
+        a.restore_snapshot(state.at("scene"));
+        b.replace({{"version", 1}, {"entities", Json::array()}});
+        second_scene = b.asset_id();
+        std::filesystem::create_directories(f.project_root / "Scenes");
+        a.save(f.project_root / "Scenes/a.scene.json");
+        b.save(f.project_root / "Scenes/b.scene.json");
+        AssetCatalog catalog(f.project_root);
+        catalog.add_scene("Scenes/a.scene.json");
+        catalog.add_scene("Scenes/b.scene.json");
+        catalog.save(AssetCatalog::project_index(f.project_root));
+        Json begin{{"generation", state.at("activation").at("generation")},
+                   {"fps", 1},
+                   {"frames", 1u},
+                   {"capture_scope", "session"}};
+        auto bad = begin;
+        bad["capture_scope"] = "unexpected";
+        check(!wire("record_begin", bad).value("ok", true), "Movie admitted an unknown scope");
+        RuntimeInput input;
+        input.configure(InputMap{});
+        input.begin_session_input_recording(
+            input_recording_source(state.at("scene"), f.project_root), 60, first_scene);
+        input.latch(1);
+        input.latch(2);
+        input.finish_input_recording();
+        bad = begin;
+        bad["input_recording_document"] = input.input_recording_document();
+        bad["input_recording_document"]["source"] = "wrong";
+        check(!wire("record_begin", bad).value("ok", true),
+              "Movie admitted an incompatible replay source");
+        state = wire("snapshot");
+        check(state.at("timing").at("paused") == true && ticks == 0 &&
+                  state.at("recording").at("started") == false &&
+                  state.at("input").at("recording").at("mode") == "idle",
+              "Rejected movie admission mutated input, clock or media state");
+        if (replay)
+            begin["input_recording_document"] = input.input_recording_document();
+        state = wire("record_begin", begin);
+        check(state.value("ok", false) &&
+                  state.at("recording").at("profile") == "offline-session-game-v2" &&
+                  state.at("recording").at("visits").size() == 1 && ticks == 0,
+              "Session movie did not admit before its first tick");
+        unsigned pending = 0, admissions = 0;
+        std::uint64_t last_candidate = 0;
+        while (!state.contains("recording_frame")) {
+            check(++pending < 200, "Session movie did not finish a bounded interval");
+            state = wire("record_frame",
+                         {{"generation", state.at("activation").at("generation")}, {"frame", 0u}});
+            if (!state.value("ok", false))
+                throw std::runtime_error("Session movie interval failed: " + state.dump());
+            if (state.contains("recording_frame"))
+                break;
+            const auto held = state.at("recording").at("audio_frames");
+            const auto held_ticks = ticks;
+            for (unsigned poll = 0; poll < 3; ++poll)
+                host->pump(RuntimeClock::Clock::now() + std::chrono::hours(1));
+            auto observed = wire("snapshot");
+            check(observed.at("recording").at("audio_frames") == held && ticks == held_ticks,
+                  "Wall polling advanced partial movie audio or fixed ticks");
+            Json fields{
+                {"editor_epoch",
+                 {{"epoch", ++epoch}, {"captured", false}, {"input_device", "EditorHost"}}}};
+            auto acks = Json::array();
+            for (auto effect : host->live_effects()) {
+                effect["session"] = session;
+                effect["accepted"] = true;
+                acks.push_back(std::move(effect));
+            }
+            if (!acks.empty())
+                (void)wire("snapshot", {{"platform_acks", std::move(acks)}});
+            if (host->pending_candidate()) {
+                const auto ticket = host->pending_candidate()->at("ticket").get<std::uint64_t>();
+                if (ticket != last_candidate) {
+                    check(wire("candidate", {{"ticket", ticket}}).value("ok", false),
+                          "Movie Scene candidate fetch failed");
+                    fields["candidate_ack"] = {
+                        {"session", session}, {"ticket", ticket}, {"accepted", true}};
+                    last_candidate = ticket;
+                    ++admissions;
+                }
+            }
+            state = wire("snapshot", fields);
+        }
+        const auto& recording = state.at("recording");
+        const auto& visits = recording.at("visits");
+        const auto pcm =
+            decode_base64(state.at("recording_frame").at("data").get<std::string>(), 192000);
+        check(recording.at("completed_frames") == 1 && recording.at("audio_frames") == 48000 &&
+                  pcm.size() == 192000 && admissions == (preload ? 1u : 2u) &&
+                  visits.size() == (preload ? 2u : 3u) &&
+                  visits.at(0).at("scene").get<AssetId>() == first_scene &&
+                  visits.at(1).at("scene").get<AssetId>() == second_scene &&
+                  visits.back().at("scene").get<AssetId>() ==
+                      (preload ? second_scene : first_scene) &&
+                  visits.at(1).at("audio_frame").get<unsigned>() > 0 &&
+                  (preload || visits.at(2).at("audio_frame").get<unsigned>() >
+                                  visits.at(1).at("audio_frame").get<unsigned>()),
+              "Movie lost sequential PCM or repeated Scene visit/sample provenance");
+        check(ticks >= 58 && ticks <= 60 && state.at("timing").at("dropped_ticks") == 0,
+              "Scene preparation introduced phantom ticks or dropped simulation time");
+        check(!wire("record_frame", {{"generation", begin.at("generation")}, {"frame", 0u}})
+                   .value("ok", true),
+              "Session movie admitted an old world/frame after activation");
+        if (replay)
+            check(state.at("input").at("recording").at("mode") == "finished",
+                  "Session movie did not consume its atomically admitted replay");
+    }
+}
 void game_recording_sdk_tests() {
     Fixture f;
     f.audio_enabled = true;

@@ -110,6 +110,11 @@ metadata do not replace FORGE's EntityId/AssetId.
 
 ## Queries, notifications and caches
 
+An unnamed C++ query releases its native query through its wrapper destructor.
+Use `destruct()` for persistent named/entity-associated queries only. Navigation
+pipeline fixtures keep the pinned wrapper's assertions enabled in Release as
+well as Debug so invalid explicit cleanup cannot hide behind `NDEBUG`.
+
 Transform collection now reuses world-owned queries. The derived WorldTransform
 query is cached. The inherited LocalTranslation query is persistent but uncached:
 with automatic caching, the stable pin asserted in `query/cache/group.c` during

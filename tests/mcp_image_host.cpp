@@ -116,6 +116,15 @@ int main(int argc, char** argv) {
             input.finish_input_recording();
             forge::write_input_recording(files.document.project(), "Recordings/fixture.json",
                                          input.input_recording_document(), false);
+            forge::RuntimeInput session_input;
+            session_input.begin_session_input_recording(
+                forge::input_recording_source(scene.snapshot(), files.document.project()), 60,
+                scene.asset_id());
+            for (unsigned tick = 1; tick <= 6; ++tick)
+                session_input.latch(tick);
+            session_input.finish_input_recording();
+            forge::write_input_recording(files.document.project(), "Recordings/session.json",
+                                         session_input.input_recording_document(), false);
         }
         const std::unique_ptr<ImGuiContext, decltype(&ImGui::DestroyContext)> context(
             ImGui::CreateContext(), ImGui::DestroyContext);

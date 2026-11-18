@@ -83,6 +83,7 @@ Json contract() {
                 {"sdk_play", true},
                 {"schema_reference", play_schema_reference_protocol},
                 {"session_input_recording", true},
+                {"session_game_recording", true},
                 {"tile_projection", tile_map_play_protocol}};
 }
 } // namespace
@@ -113,7 +114,10 @@ struct SdkPlayRuntime::State {
     std::unique_ptr<PlaySceneAdmission> admission;
     std::unique_ptr<GameSession> game;
     std::optional<GameRecording> recording;
-    bool recording_advancing = false;
+    enum class RecordingWork { Idle, Prepare, Advance };
+    RecordingWork recording_work = RecordingWork::Idle;
+    bool recording_session = false;
+    Json recording_visits = Json::array();
     std::string recording_error;
     mutable TileMapPlaySource active_tiles, prepared_tiles;
     mutable Json prepared_tile_manifest = nullptr;
@@ -677,6 +681,17 @@ struct SdkPlayRuntime::State {
         }
         return out;
     }
+    Json recording_snapshot() const {
+        auto value =
+            recording ? recording->status() : Json{{"mode", "offline_game"}, {"started", false}};
+        value["error"] = recording_error;
+        if (recording_session) {
+            value["capture_scope"] = "session";
+            value["profile"] = "offline-session-game-v2";
+            value["visits"] = recording_visits;
+        }
+        return value;
+    }
     Json projected_active_response(RuntimeWorld& world, std::uint64_t generation) const {
         // Use the candidate world's diagnostics, not the active world's.
         // The candidate world is the one the wire response will publish
@@ -710,6 +725,8 @@ struct SdkPlayRuntime::State {
                       {"module", ""},
                       {"recovery", nullptr},
                       {"timing", status_value.value("clock", Json::object())}};
+        if (config.recording)
+            envelope["recording"] = recording_snapshot();
         envelope["activation"] = {
             {"state", "ready"}, {"generation", generation}, {"ticket", generation}};
         auto world_body = build_world_body(world, generation, session, status_value, true);
@@ -732,12 +749,18 @@ struct SdkPlayRuntime::State {
     // as the initial diagnostic. The active world is never touched
     // because activation has not happened.
     void validate_candidate_publication(RuntimeWorld& world, std::uint64_t ticket) const {
+        if (recording_session && recording_visits.size() >= input_recording_scene_limit)
+            throw std::runtime_error("Offline session recording exceeds 64 Scene visits");
         const auto projected = projected_active_response(world, ticket);
         if (projected.value("ok", true) == false)
             throw std::runtime_error("Scene preparation: candidate body serialization failed: " +
                                      projected.value("error", std::string{"unknown"}));
         const auto serialized = projected.dump().size() + 1; // trailing newline
-        if (serialized + kResponseVolatileAllowance > RuntimeIo::limit)
+        const auto audio_budget =
+            recording_session && recording && recording->completed() < recording->planned()
+                ? recorded_audio_response_budget(recording->completed(), recording->rate())
+                : 0;
+        if (serialized + audio_budget + kResponseVolatileAllowance > RuntimeIo::limit)
             throw std::runtime_error(
                 "Scene preparation: projected post-activation response would exceed 16 MiB; "
                 "active world retained, candidate rejected");
@@ -767,11 +790,8 @@ struct SdkPlayRuntime::State {
         response["module"] = "";
         response["recovery"] = nullptr;
         response["timing"] = status_value.value("clock", Json::object());
-        if (config.recording) {
-            response["recording"] = recording ? recording->status()
-                                              : Json{{"mode", "offline_game"}, {"started", false}};
-            response["recording"]["error"] = recording_error;
-        }
+        if (config.recording)
+            response["recording"] = recording_snapshot();
         response["activation"] = {{"state", empty ? "none" : "ready"},
                                   {"generation", active_generation},
                                   {"ticket", active_generation}};
@@ -891,6 +911,13 @@ struct SdkPlayRuntime::State {
             active_generation = ticket;
             ui_commands.reset(session, active_generation);
             last_loading_ticket = ticket;
+            if (recording_session)
+                recording_visits.push_back(
+                    {{"generation", ticket},
+                     {"scene", game->active().scene.asset_id()},
+                     {"source",
+                      input_recording_source(game->active().scene.snapshot(), config.project)},
+                     {"audio_frame", recording->audio_frames()}});
         } else if (state == "idle" && ticket == 0) {
             last_loading_ticket = 0;
         }
@@ -922,11 +949,11 @@ std::uint64_t SdkPlayRuntime::editor_epoch() const {
 void SdkPlayRuntime::pump(RuntimeClock::Time now, const std::function<void()>& between_ticks) {
     auto& s = *state_;
     s.check_owner();
-    if (s.config.recording && !s.recording_advancing) {
+    if (s.config.recording && s.recording_work != State::RecordingWork::Advance) {
         now = s.recording ? s.recording->time() : RuntimeClock::Time{};
         // Preparation may poll at time zero; an admitted run is serviced only
         // by sequential recording intervals, never by editor/transport cadence.
-        if (s.active_generation)
+        if (s.active_generation && s.recording_work == State::RecordingWork::Idle)
             return;
     }
     // Once gameplay Quit is latched, do NOT advance simulation or host
@@ -1047,7 +1074,7 @@ void SdkPlayRuntime::pump(RuntimeClock::Time now, const std::function<void()>& b
         s.profile_world_generation = s.active_generation;
     }
     try {
-        if (s.config.recording && !s.recording_advancing)
+        if (s.config.recording && s.recording_work != State::RecordingWork::Advance)
             return;
         if (state == "running")
             s.game->advance(now, between_ticks);
@@ -1307,8 +1334,45 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                                              "run, FPS and frame count");
                 GameRecording prepared(request.at("fps").get<double>(),
                                        request.at("frames").get<unsigned>());
+                const auto scope = request.value("capture_scope", std::string("scene"));
+                if (scope != "scene" && scope != "session")
+                    return s.build_error(id, "Recording capture_scope must be scene or session");
+                if (scope == "scene" && request.contains("input_recording_document"))
+                    return s.build_error(id, "Atomic input replay requires a session movie");
+                auto& world = s.game->active();
+                std::optional<RuntimeInput> prepared_input;
+                auto visits = Json::array();
+                if (scope == "session") {
+                    if (world.simulation.input().input_recording_status().at("mode") != "idle")
+                        return s.build_error(id,
+                                             "Begin a session movie before admitting input replay");
+                    const auto source =
+                        input_recording_source(world.scene.snapshot(), s.config.project);
+                    visits.push_back({{"generation", s.active_generation},
+                                      {"scene", world.scene.asset_id()},
+                                      {"source", source},
+                                      {"audio_frame", 0u}});
+                    if (request.contains("input_recording_document")) {
+                        const auto& document = request.at("input_recording_document");
+                        if (!document.is_object() ||
+                            document.value("profile", Json()) != "fixed-session-gameplay-input-v2")
+                            return s.build_error(id,
+                                                 "Session movies require a v2 session input take");
+                        prepared_input = world.simulation.input();
+                        (void)input_recording_command({{"operation", "replay"},
+                                                       {"generation", s.active_generation},
+                                                       {"document", document}},
+                                                      *prepared_input, status.at("clock"), source,
+                                                      s.active_generation, world.scene.asset_id(),
+                                                      true);
+                    }
+                }
                 s.game->resume(now);
+                if (prepared_input)
+                    world.simulation.input() = std::move(*prepared_input);
                 s.recording = std::move(prepared);
+                s.recording_session = scope == "session";
+                s.recording_visits = std::move(visits);
                 return snapshot();
             }
             if (!s.recording || s.recording->completed() == s.recording->planned() ||
@@ -1316,45 +1380,76 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                 request.at("frame").get<std::uint64_t>() != s.recording->completed())
                 return s.build_error(id, "Recording frame must match the next sequential interval");
             const auto generation = s.active_generation;
+            if (request.contains("capture_scope") || request.contains("input_recording_document"))
+                return s.build_error(id, "Recording scope and replay are admitted on Begin only");
             const auto frame = s.recording->completed();
-            const auto start = asset_detail::avi_movie_audio_frames(s.recording->rate(), frame);
-            const auto end = asset_detail::avi_movie_audio_frames(s.recording->rate(), frame + 1);
-            const auto encoded_bytes = ((end - start) * 4 + 2) / 3 * 4;
-            if (s.snapshot_response(id).dump().size() + encoded_bytes + 1024 > RuntimeIo::limit)
+            if (s.snapshot_response(id).dump().size() +
+                    recorded_audio_response_budget(frame, s.recording->rate()) >
+                RuntimeIo::limit)
                 return s.build_error(
                     id, "Recording PCM and current snapshot exceed the transport budget");
-            struct Advancing {
-                bool& value;
-                explicit Advancing(bool& target) : value(target) { value = true; }
-                ~Advancing() { value = false; }
-            } advancing(s.recording_advancing);
+            struct RecordingWorkScope {
+                State::RecordingWork& value;
+                State::RecordingWork previous;
+                explicit RecordingWorkScope(State::RecordingWork& target, State::RecordingWork next)
+                    : value(target), previous(target) {
+                    value = next;
+                }
+                ~RecordingWorkScope() { value = previous; }
+            } advancing(s.recording_work, State::RecordingWork::Advance);
             try {
                 auto healthy = [&] {
-                    if (s.active_generation != generation || s.tick_failed || s.quit_latched ||
+                    if ((!s.recording_session && s.active_generation != generation) ||
+                        s.tick_failed || s.quit_latched ||
                         s.game->status().value("state", "") != "running" || s.initial_ticket ||
-                        s.game->status().at("prepared_ticket") != 0)
+                        (!s.recording_session && s.game->status().at("prepared_ticket") != 0))
                         throw std::runtime_error(
                             "Recording run changed world, paused, quit or failed");
+                    if (s.recording_session && (s.game->loading_state().state == "failed" ||
+                                                s.game->loading_state().state == "cancelled"))
+                        throw std::runtime_error(
+                            "Recording Scene preparation failed or was cancelled: " +
+                            s.game->loading_state().error);
                 };
                 healthy();
-                const auto pcm = s.recording->read_frame(
-                    [&](std::span<float> output) {
+                const auto mix = [&](std::span<float> output) {
+                    healthy();
+                    auto audio = std::static_pointer_cast<AudioRuntime>(
+                        s.game->active().engine.services().audio());
+                    if (audio->status().at("pending_sources") != 0 &&
+                        !audio->wait_for_loading(std::chrono::milliseconds(100)))
+                        throw std::runtime_error("Recording audio sources did not become ready");
+                    audio->read_offline(output);
+                };
+                const auto advance = [&](RuntimeClock::Time target) {
+                    pump(target);
+                    healthy();
+                };
+                std::optional<std::vector<std::byte>> pcm;
+                if (s.recording_session)
+                    pcm = s.recording->poll_frame(mix, advance, [&] {
+                        // Service the existing host/preparation channel at the
+                        // held media cursor, without running controls or ticks.
+                        RecordingWorkScope held(s.recording_work, State::RecordingWork::Prepare);
+                        const auto pending_activation = s.host->automatic_scene_ticket();
+                        const auto previous_generation = s.active_generation;
+                        pump(s.recording->time());
                         healthy();
-                        auto audio = std::static_pointer_cast<AudioRuntime>(
-                            s.game->active().engine.services().audio());
-                        if (audio->status().at("pending_sources") != 0 &&
-                            !audio->wait_for_loading(std::chrono::milliseconds(100)))
+                        if (pending_activation && !s.host->automatic_scene_ticket() &&
+                            s.active_generation == previous_generation)
                             throw std::runtime_error(
-                                "Recording audio sources did not become ready");
-                        audio->read_offline(output);
-                    },
-                    [&](RuntimeClock::Time target) {
-                        pump(target);
-                        healthy();
+                                "Recording Scene activation failed or was cancelled");
+                        const auto& input = s.game->active().simulation.input();
+                        return !input.input_recording_waits_for_scene() &&
+                               (!s.host->automatic_scene_ticket() ||
+                                input.input_recording_delays_scene());
                     });
+                else
+                    pcm = s.recording->read_frame(mix, advance);
                 auto response = snapshot();
-                response["recording_frame"] =
-                    recorded_audio_document(frame, s.recording->rate(), pcm);
+                if (pcm)
+                    response["recording_frame"] =
+                        recorded_audio_document(frame, s.recording->rate(), *pcm);
                 return response;
             } catch (const std::exception& error) {
                 s.recording_error = error.what();

@@ -322,8 +322,4 @@ struct DisabledScope {
 struct PopupScope {
     ~PopupScope() { ImGui::EndPopup(); }
 };
-struct IdScope {
-    explicit IdScope(const char* id) { ImGui::PushID(id); }
-    ~IdScope() { ImGui::PopID(); }
-};
 } // namespace forge::ui

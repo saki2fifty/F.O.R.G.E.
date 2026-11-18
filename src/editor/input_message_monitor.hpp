@@ -1,9 +1,10 @@
 #pragma once
 #include "widgets.hpp"
 #include <forge/input_message.hpp>
+#include <nlohmann/json.hpp>
 
 namespace forge::ui {
-inline void draw_input_messages(const Json& messages) {
+inline void draw_input_messages(const nlohmann::json& messages) {
     ImGui::Text("Input messages: %u sent this tick", messages.at("emitted").get<unsigned>());
     ImGui::Text(
         "Sent total: %llu | Last sent tick: %llu",

@@ -1,5 +1,25 @@
 # 2026-11-18
 
+## Game movies across Scenes
+
+Record game adds **Across scenes** for fresh offline movies spanning up to64
+game-requested Scene visits. Optional saved session input is admitted before the
+first tick. Scene/resource waits retain bounded partial PCM without repeating
+audio or advancing movie time. Background Scene preparation can continue before
+activation; stale requests, failed activation and source mismatches retain the
+active world and completed output.
+
+The same task serves native controls, automation and MCP. Version2 receipts keep
+each PNG's actual Scene/generation/local timing, ordered Scene/sample witnesses,
+and completed versus observed audio progress. The default single-Scene workflow,
+version1 receipts and movie codec remain available. Runtime HUD preparation holds
+acknowledged movie time across world resets. The manual covers both scopes.
+
+Navigation fixtures use the pinned query wrapper's automatic unnamed-query
+cleanup and keep its assertions enabled in Release. The existing ImGui ID scope
+helper lives with shared widgets, allowing isolated presentation consumers to
+compile without including editor state.
+
 ## Input recording across Scenes
 
 Interactive SDK Play can record one fixed-input take across game-requested Scene
@@ -7,8 +27,8 @@ changes. Game view adds Across Scenes, segment progress, loading-boundary status
 and Cancel replay. Each replayed visit checks Scene/source/map/frequency before
 activation; fixed ticks wait at segment boundaries while loading and controls
 continue. Failed admission preserves the active world and take. Legacy takes
-retain their single-Scene behavior; movies reject session takes before launch
-or output creation.
+retain their single-Scene behavior. Movie recording has its own explicit scope
+selection and rejects mismatched take scopes before launch or output creation.
 
 The existing automation and MCP recording tools share the same optional capture
 scope, negotiated availability, status, generation guards and contained files.

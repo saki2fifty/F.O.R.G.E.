@@ -2,6 +2,7 @@
 from pathlib import Path
 from contextlib import contextmanager
 import argparse
+import base64
 import json
 import shutil
 import subprocess
@@ -16,6 +17,7 @@ parser.add_argument('module', type=Path)
 parser.add_argument('gallery', type=Path)
 parser.add_argument('tools', type=Path, nargs='?')
 parser.add_argument('--observe-seconds', type=float, default=10)
+parser.add_argument('--movie', action='store_true')
 arguments = parser.parse_args()
 if not 1 <= arguments.observe_seconds <= 120:
     parser.error('Observation budget must be within 1..120 seconds')
@@ -27,7 +29,7 @@ scene_b = 'b78ea324-266f-490e-94e1-8159d010302a'
 
 
 @contextmanager
-def launch():
+def launch(recording=False):
     with touch_example(runtime, module, gallery, Path(scenes[0]).name, 'project.session_input',
                        True, launch=False,
                        dependencies=['forge.input', 'forge.transforms', 'forge.game'],
@@ -47,8 +49,11 @@ def launch():
             # The fixture retains its original bytes for its preservation check;
             # moving the root proves the runtime cannot read its authored paths.
             source.rename(source.with_name('Hidden authored source'))
-        worker = Runtime(runtime, ['--sdk-project', project, '--sdk-play', 'on',
-                                   '--user-data', source.parent / 'Users'])
+        options = ['--sdk-project', project, '--sdk-play', 'on',
+                   '--user-data', source.parent / 'Users']
+        if recording:
+            options += ['--recording', 'on', '--audio', 'offline']
+        worker = Runtime(runtime, options)
         try:
             yield worker, scene
         finally:
@@ -147,3 +152,69 @@ for replay in (False, True):
         finally:
             worker.close()
 print('Three native gameplay Scene visits, fixed-action replay, source relocation and both exits0 passed')
+if arguments.movie:
+    with launch(recording=True) as (worker, scene):
+        state = activate(worker, scene, True)
+        worker.observation_epoch = state['activation']['generation']
+        frames = (sum(len(segment['frames']) for segment in document['segments']) + 59) // 60 + 2
+        state = worker.request('record_begin', generation=worker.observation_epoch, fps=1,
+                               frames=frames, capture_scope='session',
+                               input_recording_document=document)
+        assert state['input']['recording']['mode'] == 'replaying' and state['timing']['tick'] == 0
+        total_bytes = 0
+        pending = 0
+        for frame in range(frames):
+            deadline = time.monotonic() + arguments.observe_seconds
+            while True:
+                assert time.monotonic() < deadline, state.get('recording')
+                state = worker.request('record_frame',
+                                       generation=state['activation']['generation'], frame=frame)
+                if 'recording_frame' in state:
+                    audio = state['recording_frame']
+                    pcm = base64.b64decode(audio['data'], validate=True)
+                    assert audio['frame'] == frame and audio['start_audio_frame'] == total_bytes // 4
+                    assert audio['audio_frames'] == 48000 and len(pcm) == 192000
+                    assert not any(pcm), 'These Scene fixtures have no audio emitters'
+                    total_bytes += len(pcm)
+                    break
+                pending += 1
+                held = state['recording']['audio_frames']
+                state = traffic(worker, state)
+                assert state['recording']['audio_frames'] == held
+        visits = state['recording']['visits']
+        assert [visit['scene'] for visit in visits] == [scene_a, scene_b, scene_a], visits
+        assert visits[0]['audio_frame'] == 0 and all(
+            left['audio_frame'] <= right['audio_frame'] for left, right in zip(visits, visits[1:]))
+        assert len({visit['generation'] for visit in visits}) == 3 and pending > frames
+        assert state['recording']['complete'] and total_bytes == frames * 192000
+        assert state['input']['recording']['mode'] == 'finished' and pose(state) == -.5
+        worker.quit()
+    print('Offline session movie replay, held preparation, complete PCM and native exit0 passed')
+    with launch(recording=True) as (worker, scene):
+        state = activate(worker, scene, True)
+        worker.observation_epoch = state['activation']['generation']
+        first_generation = worker.observation_epoch
+        changed = json.loads(json.dumps(document))
+        changed['segments'][1]['source'] = '0' * 64
+        state = worker.request('record_begin', generation=first_generation, fps=1,
+                               frames=frames, capture_scope='session',
+                               input_recording_document=changed)
+        deadline = time.monotonic() + arguments.observe_seconds
+        rejected = False
+        while not rejected:
+            assert time.monotonic() < deadline, state.get('recording')
+            try:
+                state = worker.request('record_frame', generation=state['activation']['generation'],
+                                       frame=state['recording']['completed_frames'])
+            except RuntimeError as error:
+                assert str(error).startswith('Offline recording failed:'), error
+                assert 'Scene activation failed' in str(error), error
+                rejected = True
+            else:
+                state = traffic(worker, state)
+        state = worker.request('snapshot')
+        assert state['activation']['generation'] == first_generation
+        assert state['scene']['asset_id'] == scene_a and state['recording']['error']
+        assert state['input']['recording']['mode'] == 'replaying'
+        worker.quit()
+    print('Later Scene source mismatch retained the active world and failed the movie with exit0')

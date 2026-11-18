@@ -52,13 +52,25 @@ void GameRecordingTask::require_source() const {
         if (const auto reason = host_.unavailable(); !reason.empty())
             throw std::runtime_error(reason);
 }
-void GameRecordingTask::require_launch() const {
+void GameRecordingTask::require_launch() {
     if (!play_.active() || play_.launch_id() != launch_ || !play_.recording_launch())
         throw std::runtime_error("The recording Play process stopped or was replaced: " +
                                  play_.status());
     if (!session_.empty() &&
-        (play_.session() != session_ || play_.world_generation() != world_generation_))
+        (play_.session() != session_ ||
+         (request_.capture_scope == "scene" && play_.world_generation() != world_generation_)))
         throw std::runtime_error("The recording runtime session or world changed");
+    if (request_.capture_scope == "session" && play_.recording_status().is_object() &&
+        play_.recording_status().value("started", false)) {
+        const auto& status = play_.recording_status();
+        // PlaySession admits the append-only wire witnesses. Retain only the
+        // receipt copy here; unchanged visits need no per-UI-frame copy.
+        if (visits_.size() != status.at("visits").size())
+            visits_ = status.at("visits");
+        observed_audio_frames_ = status.at("audio_frames").get<std::uint64_t>();
+        if (phase_ == Phase::Image && frame_generation_ != play_.world_generation())
+            throw std::runtime_error("The recording world changed while its PNG was in flight");
+    }
 }
 void GameRecordingTask::stop_play() noexcept {
     if (!launch_.empty() && play_.launch_id() == launch_ && play_.active()) {
@@ -91,9 +103,11 @@ void GameRecordingTask::start() {
     if (!request_.input_recording.empty()) {
         replay_input_ =
             read_input_recording(project_, std::filesystem::u8path(request_.input_recording));
-        if (replay_input_.contains("segments"))
+        if (replay_input_.contains("segments") && request_.capture_scope == "scene")
             throw std::runtime_error(
                 "Game movies currently require a single-Scene input recording");
+        if (!replay_input_.contains("segments") && request_.capture_scope == "session")
+            throw std::runtime_error("Across-Scene movies require a session input recording");
     }
     started_at_ = event_time_local();
     folder_ = std::filesystem::absolute(request_.destination).lexically_normal();
@@ -194,6 +208,8 @@ void GameRecordingTask::complete_file() {
 void GameRecordingTask::begin_frame() {
     require_source();
     require_launch();
+    frame_scene_id_ = play_.snapshot().at("asset_id").get<AssetId>();
+    frame_generation_ = play_.world_generation();
     frame_image_done_ = false;
     stable_ = 0;
     const auto filename = request_.plan().filename(completed_);
@@ -208,11 +224,16 @@ void GameRecordingTask::begin_frame() {
          {"presentation_seconds", play_.timing().at("presentation_seconds")},
          {"simulation_tick", play_.timing().at("tick")},
          {"alpha", play_.timing().at("alpha")}});
+    if (request_.capture_scope == "session") {
+        frame_rows_.back()["scene"] = frame_scene_id_;
+        frame_rows_.back()["world_generation"] = frame_generation_;
+        frame_rows_.back()["source"] = visits_.back().at("source");
+    }
     const auto accepted =
         host_.pixels
             ? images_.selected_path(ViewImageTask::View::Texture, path, project_, {},
                                     image_message_, ViewImageFormat::Png, host_.pixels(completed_))
-            : images_.selected_path(ViewImageTask::View::Game, path, project_, scene_id_,
+            : images_.selected_path(ViewImageTask::View::Game, path, project_, frame_scene_id_,
                                     image_message_, ViewImageFormat::Png);
     if (!accepted)
         throw std::runtime_error("Recording PNG request failed: " + images_.status());
@@ -288,7 +309,7 @@ Json GameRecordingTask::receipt() const {
     for (unsigned i = 0; i < captured_; ++i)
         frames.push_back(frame_rows_.at(i));
     Json value{{"format", "forge.game-recording"},
-               {"version", 1},
+               {"version", request_.capture_scope == "session" ? 2 : 1},
                {"mode", "offline_game"},
                {"state", terminal_},
                {"error", error_},
@@ -317,13 +338,25 @@ Json GameRecordingTask::receipt() const {
                {"channels", 2},
                {"component_bits", 16},
                {"frames", std::move(frames)}};
+    if (request_.capture_scope == "session") {
+        value["capture_scope"] = "session";
+        value["profile"] = "offline-session-game-v2";
+        value["visits"] = visits_;
+        value["observed_audio_frames"] = observed_audio_frames_;
+    }
     if (!replay_input_.is_null()) {
         const auto text = replay_input_.dump();
+        std::size_t ticks = 0;
+        if (replay_input_.contains("segments"))
+            for (const auto& segment : replay_input_.at("segments"))
+                ticks += segment.at("frames").size();
+        else
+            ticks = replay_input_.at("frames").size();
         value["input_recording"] = {
             {"admitted", replay_admitted_},
             {"file", "input-recording.json"},
             {"source", replay_input_.at("source")},
-            {"ticks", replay_input_.at("frames").size()},
+            {"ticks", ticks},
             {"digest", asset_detail::content_digest(std::as_bytes(std::span(text)))}};
     }
     if (movie_) {
@@ -420,6 +453,10 @@ void GameRecordingTask::draw() {
         FORGE_UI_PROBE("game-recording:input");
         ImGui::TextWrapped(
             "Use Recordings/<name>.json from this project to replay saved fixed gameplay actions.");
+        bool across = request_.capture_scope == "session";
+        if (ImGui::Checkbox("Across scenes", &across))
+            request_.capture_scope = across ? "session" : "scene";
+        FORGE_UI_PROBE("game-recording:scope");
         bool valid = false;
         try {
             (void)request_.rate();
@@ -440,7 +477,8 @@ void GameRecordingTask::draw() {
             ImGui::TextWrapped("%s", validation_.c_str());
         ImGui::TextWrapped(
             "Includes PNG frames, stereo 48 kHz PCM16, a movie and a recording receipt. This run "
-            "uses fresh user data. Interactive input and scene transitions are unavailable.");
+            "uses fresh user data. Interactive input is unavailable. Across scenes admits up to "
+            "64 game-requested Scene visits; optional input must be an Across Scenes take.");
         ImGui::BeginDisabled(!valid);
         if (ImGui::Button("Start recording"))
             try {

@@ -61,7 +61,11 @@ class RuntimeUiHost {
                 recording_launch_ = launch;
                 recording_origin_ = presenter_time_;
             }
-            const auto seconds = play ? play->recording_status().value("seconds", 0.) : 0.;
+            // Candidate preparation has no new media observation. Hold the
+            // presenter's admitted time through later Scene visits as well.
+            if (!play)
+                return presenter_time_;
+            const auto seconds = play->recording_status().value("seconds", 0.);
             if (!std::isfinite(seconds) || seconds < 0 ||
                 recording_origin_ + seconds < presenter_time_)
                 throw std::runtime_error("Offline UI presentation progress must be monotonic");

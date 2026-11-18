@@ -7,12 +7,15 @@
 namespace forge::ui {
 struct GameRecordingRequest {
     std::string input_recording;
+    std::string capture_scope = "scene";
     std::filesystem::path destination;
     double fps = 30;
     int frames = 180;
     SequenceFrameOutput output{true, 1280, 720, false, true, FORGE_JPEG_DEFAULT_QUALITY};
     asset_detail::MovieFrameRate rate() const {
         output.validate();
+        if (capture_scope != "scene" && capture_scope != "session")
+            throw std::runtime_error("Recording capture scope must be scene or session");
         if (!output.fixed || !output.avi || output.webp || frames < 1)
             throw std::runtime_error(
                 "Game recording requires fixed AVI output and a positive frame count");

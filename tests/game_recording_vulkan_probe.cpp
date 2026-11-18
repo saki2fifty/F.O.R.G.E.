@@ -3,8 +3,12 @@
 #include "editor/files.hpp"
 #include "editor/game_recording_task.hpp"
 #include "editor/play_presentation.hpp"
+#include "editor/sdk_platform_effects.hpp"
 #include "fixtures/game_recording_gallery.hpp"
 #include "imgui_input_driver.hpp"
+#include "input_recording_files.hpp"
+#include "input_recording_protocol.hpp"
+#include "runtime_dependencies.hpp"
 #include "ui_test_renderer.hpp"
 #include "view_image_capture_reference.hpp"
 #include <forge/game_settings.hpp>
@@ -32,7 +36,8 @@ AssetId author_gallery(const std::filesystem::path& project) {
 void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
               const std::filesystem::path& gallery, const std::filesystem::path& runtime,
               const std::filesystem::path& worker, const std::filesystem::path& root, float scale,
-              bool narrow, int record) {
+              bool narrow, int record, const std::filesystem::path& module = {}) {
+    const bool session_movie = record == 3;
     const auto project = root / "Project";
     std::filesystem::create_directories(root);
     std::filesystem::copy(gallery, project, std::filesystem::copy_options::recursive);
@@ -48,6 +53,100 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
     settings["game"] = default_game_settings(
         "org.forge.recording-render-" + AssetId::generate().str(), "Recording rendering fixture");
     files.document.save_settings(settings);
+    if (session_movie) {
+        check(!module.empty(), "Session movie needs its original SDK example module");
+        std::filesystem::copy_file(module, project / module.filename());
+        const auto runtime_path = path_utf8(runtime);
+        const char* arguments[]{runtime_path.c_str(), "--sdk-info", nullptr};
+        auto* process = SDL_CreateProcess(arguments, true);
+        check(process, SDL_GetError());
+        std::size_t size = 0;
+        int code = -1;
+        auto* output = SDL_ReadProcess(process, &size, &code);
+        SDL_DestroyProcess(process);
+        const std::unique_ptr<void, decltype(&SDL_free)> bytes(output, &SDL_free);
+        check(output && code == 0 && size <= 65536, "Runtime SDK identity query failed");
+        const auto sdk =
+            Json::parse(static_cast<const char*>(output), static_cast<const char*>(output) + size);
+        settings["modules"] =
+            Json::array({{{"id", "project.session_input"},
+                          {"implementation", "1"},
+                          {"sdk", "experimental-1"},
+                          {"fingerprint", sdk.at("fingerprint")},
+                          {"library", path_utf8(module.filename())},
+                          {"dependencies", {"forge.input", "forge.transforms", "forge.game"}}}});
+        files.document.save_settings(settings);
+        Json hud, tone;
+        const auto recording_source = scene.snapshot();
+        for (const auto& entity : recording_source.at("entities")) {
+            const auto& components = entity.at("components");
+            if (components.contains("forge.ui_document"))
+                hud = components.at("forge.ui_document");
+            if (tone.is_null() && components.contains("forge.audio_source"))
+                tone = components.at("forge.audio_source");
+        }
+        check(!hud.is_null() && !tone.is_null(), "Movie fixture needs its existing HUD and tone");
+        tone["play_on_start"] = tone["loop"] = true;
+        const std::array paths{"Scenes/235-session-input-a.scene.json",
+                               "Scenes/236-session-input-b.scene.json"};
+        std::array<Json, 2> snapshots;
+        std::array<AssetId, 2> ids;
+        for (unsigned i = 0; i < paths.size(); ++i) {
+            files.document.open_scene(paths[i]);
+            const auto entity =
+                authoring_command(scene, "entity.create",
+                                  {{"recipe", "empty"}, {"name", "Movie HUD and tone"}})
+                    .at("selected")
+                    .get<std::string>();
+            auto candidate = scene.document();
+            for (auto& row : candidate.at("entities"))
+                if (row.at("id") == entity) {
+                    row["components"]["forge.ui_document"] = hud;
+                    row["components"]["forge.audio_source"] = tone;
+                    row["components"]["forge.audio_source"]["pitch"] = i ? 1.5 : .75;
+                }
+            scene.edit(candidate);
+            files.document.save();
+            snapshots[i] = scene.snapshot();
+            ids[i] = scene.asset_id();
+        }
+        auto catalog = AssetCatalog::open_project(project);
+        for (unsigned i = 0; i < ids.size(); ++i)
+            catalog = declare_runtime_dependencies(*files.document.writer_guard(), ids[i],
+                                                   {{ids[1 - i],
+                                                     "scene",
+                                                     AssetDependencyKind::Runtime,
+                                                     "declared:Session movie next Scene",
+                                                     {}}},
+                                                   catalog.document());
+        RuntimeInput first, second, again;
+        const InputMap map(resolve_game_settings(settings.at("game"), Json::object(),
+                                                 ProjectSettings(project).input())
+                               .at("input_map"));
+        for (auto* input : {&first, &second, &again})
+            input->configure(map);
+        const auto fingerprint = sdk.at("fingerprint").get<std::string>();
+        first.begin_session_input_recording(
+            input_recording_source(snapshots[0], project, fingerprint), 60, ids[0]);
+        const auto visit = [](RuntimeInput& input, bool change) {
+            input.submit({{"key.space", 1}, {"key.space", 0}});
+            input.latch(1);
+            if (change)
+                input.submit({{"key.tab", 1}, {"key.tab", 0}});
+            input.latch(2);
+        };
+        visit(first, true);
+        second.inherit_session_input_recording(
+            first, input_recording_source(snapshots[1], project, fingerprint), 60, ids[1]);
+        visit(second, true);
+        again.inherit_session_input_recording(
+            second, input_recording_source(snapshots[0], project, fingerprint), 60, ids[0]);
+        visit(again, false);
+        again.finish_input_recording();
+        write_input_recording(project, "Recordings/movie.json", again.input_recording_document(),
+                              false);
+        files.document.open_scene(paths[0]);
+    }
     const auto authored = scene.snapshot();
     const auto revision = scene.revision();
     Diligent::ImGuiImplDiligent gui(
@@ -78,7 +177,12 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
     auto* rtv = controls->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     auto* srv = controls->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     PlaySession play;
+    GameInput input_owner;
     RuntimeUiHost runtime_ui(nullptr, presentation.device(), font);
+    SdkPlatformEffects platform_effects(play, input_owner,
+                                        [&](const std::string& direction, std::string& error) {
+                                            runtime_ui.checked_navigate(direction, error);
+                                        });
     auto resources = std::make_shared<MeshResourceHost>(presentation, graphics, project);
     resources->catalog(std::make_shared<const AssetCatalog>(AssetCatalog::open_project(project)));
     FrameRenderer* renderer = nullptr;
@@ -95,9 +199,15 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
     request.fps = 30;
     request.output.width = 640;
     request.output.height = 360;
+    if (session_movie) {
+        request.capture_scope = "session";
+        request.input_recording = "Recordings/movie.json";
+        request.frames = 4;
+    }
     ui::GameRecordingHost host;
     host.start = [&](const auto& user_data) {
-        play.configure(60, InputMap{}, {0, -9.81, 0}, project, true, true);
+        play.configure(60, session_movie ? ProjectSettings(project).input() : InputMap{},
+                       {0, -9.81, 0}, project, true, true);
         play.set_user_data_override(user_data);
         play.start(path_utf8(runtime), scene.snapshot(), false, Json(), true);
     };
@@ -116,6 +226,7 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
     check(images.begin_work(std::move(work), project, scene.asset_id(), message),
           "Recording did not open");
     std::string observed_session;
+    std::uint64_t release_epoch = 0;
     std::set<unsigned> referenced;
     Json samples = Json::array();
     const auto frame = [&] {
@@ -125,6 +236,16 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
             if (play.submit_editor_observation(false, "KeyboardMouse"))
                 observed_session = play.session();
         }
+        if (release_epoch &&
+            (!play.sdk_release_required() || play.editor_epoch_confirmed() >= release_epoch))
+            release_epoch = 0;
+        if (play.sdk_release_required() && !release_epoch &&
+            input_owner.submit_external_release_observation(play))
+            release_epoch = play.current_effective_epoch();
+        platform_effects.pump(true);
+        Json platform_acks;
+        (void)platform_effects.take_pending_ack(platform_acks);
+        check(!platform_effects.stop_requested(), "SDK platform acknowledgement was rejected");
         (void)staged.poll(play, project);
         if (auto failure = staged.take_commit_failure(); !failure.empty())
             throw std::runtime_error(failure);
@@ -149,7 +270,9 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
             const auto state = task->state();
             const auto index = state.at("completed_frames").get<unsigned>();
             if (ready && state.at("state") == "image" &&
-                (index == 0 || index == 15 || index == 30) && !referenced.contains(index)) {
+                (session_movie ? index < unsigned(request.frames)
+                               : (index == 0 || index == 15 || index == 30)) &&
+                !referenced.contains(index)) {
                 test::ViewImageReference reference;
                 reference.queue(presentation.device(), graphics, output);
                 const auto rgba = reference.read(graphics);
@@ -183,7 +306,8 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
     for (const char* key :
          {"game-recording:parent", "game-recording:name", "game-recording:fps",
           "game-recording:frames", "game-recording:width", "game-recording:height",
-          "game-recording:quality", "game-recording:start", "game-recording:cancel"}) {
+          "game-recording:quality", "game-recording:input", "game-recording:scope",
+          "game-recording:start", "game-recording:cancel"}) {
         const auto& box = test::ui_targets.at(key);
         check(box.enabled && box.minimum.x >= box.clip_minimum.x &&
                   box.maximum.x <= box.clip_maximum.x && box.minimum.y >= box.clip_minimum.y &&
@@ -208,18 +332,41 @@ void exercise(DiligentPresentation& presentation, IDeviceContext* graphics,
         }
         check(!images.busy() &&
                   task->state().at("state") == (record == 2 ? "cancelled" : "complete"),
-              "Rendered recording failed: " + task->state().dump());
-        check((record == 2 ? cancelled && !referenced.empty() : referenced.size() == 3) &&
+              "Rendered recording failed: " + task->state().dump() +
+                  " | transport=" + play.fixture_transport_state().dump() + " | recording=" +
+                  play.recording_status().dump() + " | loading=" + play.sdk_loading().dump());
+        check((record == 2 ? cancelled && !referenced.empty()
+                           : referenced.size() == (session_movie ? 4u : 3u)) &&
                   !play.active(),
               "Recording omitted sampled frames, cancellation or Play retirement");
         asset_storage::replace(root / "render-samples.json", samples.dump(2));
-        if (record == 1)
-            check(std::filesystem::file_size(root / "Movie/audio.s16le") == 49600 * 4,
+        if (record != 2)
+            check(std::filesystem::file_size(root / "Movie/audio.s16le") ==
+                      (session_movie ? 6400u : 49600u) * 4,
                   "Rendered recording PCM duration differs");
         else
             check(!std::filesystem::exists(root / "Movie/game.avi") &&
                       std::filesystem::exists(root / "Movie/frame-000000.png"),
                   "Native cancellation published a partial movie or lost its PNG");
+        if (session_movie) {
+            const auto receipt =
+                Json::parse(asset_storage::read(root / "Movie/recording.json").value());
+            check(receipt.at("visits").size() == 3 && receipt.at("frames").size() == 4 &&
+                      receipt.at("frames")[0].at("scene") == receipt.at("frames")[3].at("scene") &&
+                      receipt.at("frames")[0].at("scene") != receipt.at("frames")[1].at("scene"),
+                  "Rendered movie lost its repeated Scene image provenance");
+            for (const auto& sample : samples) {
+                const auto frame = sample.at("frame").get<unsigned>();
+                check(receipt.at("frames").at(frame).at("scene") ==
+                              sample.at("world").at("asset_id") &&
+                          receipt.at("frames").at(frame).at("simulation_tick") ==
+                              sample.at("timing").at("tick"),
+                      "PNG Scene/tick receipt differs from the actual rendered world");
+            }
+            const auto pcm = asset_detail::read_bytes(root / "Movie/audio.s16le", 65536);
+            check(std::ranges::any_of(pcm, [](std::byte b) { return b != std::byte{}; }),
+                  "Rendered session movie omitted its autoplay audio");
+        }
     } else {
         frame();
         check(!images.busy() && !play.active() && !std::filesystem::exists(root / "Movie"),
@@ -243,7 +390,9 @@ int main(int argc, char** argv) {
                       << '\n';
             return 0;
         }
-        check(argc == 5, "Need Gallery, matching SDK runtime, asset worker and output root");
+        check(argc == 5 || argc == 6 ||
+                  (argc == 7 && std::string_view(argv[6]) == "--session-only"),
+              "Need Gallery, matching SDK runtime, asset worker, output root and optional module");
         const auto root = std::filesystem::absolute(argv[4]) / AssetId::generate().str();
         RefCntAutoPtr<IRenderDevice> device;
         RefCntAutoPtr<IDeviceContext> graphics;
@@ -251,15 +400,21 @@ int main(int argc, char** argv) {
         GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &graphics);
         check(device && graphics, "Recording Vulkan device unavailable");
         DiligentPresentation presentation(device);
-        for (float scale : {1.f, 1.5f, 2.f})
-            for (bool narrow : {false, true})
-                exercise(presentation, graphics, std::filesystem::absolute(argv[1]),
-                         std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
-                         root / ((narrow ? "narrow-" : "wide-") + std::to_string(int(scale * 100))),
-                         scale, narrow, scale == 1 ? (narrow ? 2 : 1) : 0);
+        if (argc != 7)
+            for (float scale : {1.f, 1.5f, 2.f})
+                for (bool narrow : {false, true})
+                    exercise(
+                        presentation, graphics, std::filesystem::absolute(argv[1]),
+                        std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                        root / ((narrow ? "narrow-" : "wide-") + std::to_string(int(scale * 100))),
+                        scale, narrow, scale == 1 ? (narrow ? 2 : 1) : 0);
+        if (argc >= 6)
+            exercise(presentation, graphics, std::filesystem::absolute(argv[1]),
+                     std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                     root / "session", 1, false, 3, std::filesystem::absolute(argv[5]));
         std::cout << Json{{"output", path_utf8(root)},
-                          {"native_layouts", 6},
-                          {"rendered_game_frames", 31},
+                          {"native_layouts", argc == 7 ? 1 : 6},
+                          {"rendered_game_frames", argc == 7 ? 4 : 31},
                           {"backend", "software Vulkan"}}
                          .dump()
                   << '\n';

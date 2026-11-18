@@ -113,7 +113,8 @@ for legacy in protocol_cases():
                 values[key]+=1
                 failed(mutate('forge_capture_game_start',**values),'stale_source')
             for invalid in (dict(width=True),dict(width=0),dict(height=4097),dict(frame_count=4097),
-                            dict(jpeg_quality=101),dict(frames_per_second=.5),dict(unknown=True),dict(input_recording=True)):
+                            dict(jpeg_quality=101),dict(frames_per_second=.5),dict(unknown=True),dict(input_recording=True),
+                            dict(capture_scope=True),dict(capture_scope='unknown')):
                 failed(mutate('forge_capture_game_start',**game_arguments('InvalidGame',**invalid)),
                        'invalid_arguments')
             assert not mutate('forge_capture_game_start',**game_arguments('../EscapeGame'))['ok']
@@ -144,6 +145,23 @@ for legacy in protocol_cases():
                 metadata,png=image(operation)
                 assert (metadata['source_width'],metadata['source_height'])==(7,5),metadata
                 assert png==(folder/f'frame-{frame:06}.png').read_bytes()
+            assert read('forge_capture_game_read')['capture_scopes']==['scene','session']
+            assert read('forge_capture_game_read')['maximum_scene_visits']==64
+            schema=catalog['forge_capture_game_start']['inputSchema']
+            assert schema['properties']['capture_scope']['enum']==['scene','session'],schema
+            session_request=game_arguments('SessionMovie',capture_scope='session',frames_per_second=1,
+                                           frame_count=2,input_recording='Recordings/session.json')
+            assert mutate('forge_capture_game_start',**session_request)['ok']
+            session_game=settled()['game_recording']
+            assert session_game['state']=='complete',session_game
+            session_folder=root/'Output/SessionMovie'
+            session_receipt=json.loads((session_folder/'recording.json').read_text())
+            assert session_receipt['version']==2 and session_receipt['capture_scope']=='session'
+            assert session_receipt['audio_frames']==96000 and session_receipt['completed_frames']==2
+            assert session_receipt['input_recording']['admitted'] and session_receipt['input_recording']['ticks']==6
+            assert len(session_receipt['visits'])==1
+            assert all(row['scene']==source['scene'] for row in session_receipt['frames'])
+            assert read('forge_scene_read')==game_authored
             (root/'fail_game').touch()
             assert mutate('forge_capture_game_start',**game_arguments('FailedGame'))['ok']
             failure=settled()['game_recording']

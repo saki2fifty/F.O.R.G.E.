@@ -1,6 +1,8 @@
 #pragma once
 #include "avi_movie.hpp"
 #include "base64.hpp"
+#include <algorithm>
+#include <forge/input.hpp>
 #include <nlohmann/json.hpp>
 #include <utility>
 
@@ -10,6 +12,42 @@ struct RecordedAudioFrame {
     std::uint64_t start_audio_frame = 0;
     std::vector<std::byte> pcm;
 };
+inline void validate_recording_visits(const nlohmann::json& value, const nlohmann::json& previous,
+                                      std::uint64_t generation, AssetId scene) {
+    if (value.value("capture_scope", "") != "session" ||
+        value.value("profile", "") != "offline-session-game-v2")
+        throw std::runtime_error("Runtime returned an incompatible session movie profile");
+    const auto& visits = value.at("visits");
+    if (!visits.is_array() || visits.empty() || visits.size() > input_recording_scene_limit ||
+        !value.at("audio_frames").is_number_unsigned())
+        throw std::runtime_error("Recording has invalid Scene visit progress");
+    std::uint64_t last_generation = 0, last_audio = 0;
+    for (const auto& visit : visits) {
+        if (!visit.is_object() || visit.size() != 4 ||
+            !visit.at("generation").is_number_unsigned() ||
+            !visit.at("audio_frame").is_number_unsigned() || !visit.at("source").is_string())
+            throw std::runtime_error("Recording has an invalid Scene visit receipt");
+        const auto next = visit.at("generation").get<std::uint64_t>();
+        const auto audio = visit.at("audio_frame").get<std::uint64_t>();
+        const auto& source = visit.at("source").get_ref<const std::string&>();
+        if (next <= last_generation || audio < last_audio ||
+            audio > value.at("audio_frames").get<std::uint64_t>() ||
+            (!last_generation && audio != 0) || !visit.at("scene").get<AssetId>() ||
+            source.size() != 64 ||
+            source.find_first_not_of("0123456789abcdef") != std::string::npos)
+            throw std::runtime_error(
+                "Recording Scene visit identity or sample boundary is invalid");
+        last_generation = next;
+        last_audio = audio;
+    }
+    if (last_generation != generation || visits.back().at("scene").get<AssetId>() != scene)
+        throw std::runtime_error("Recording Scene visits do not match the admitted world");
+    if (previous.value("capture_scope", "") == "session") {
+        const auto& prior = previous.at("visits");
+        if (prior.size() > visits.size() || !std::equal(prior.begin(), prior.end(), visits.begin()))
+            throw std::runtime_error("Recording rewrote an already observed Scene visit");
+    }
+}
 inline asset_detail::MovieFrameRate recording_rate(const nlohmann::json& value) {
     if (!value.is_object() || !value.at("rate").is_number_unsigned() ||
         !value.at("scale").is_number_unsigned() ||
@@ -39,6 +77,11 @@ inline nlohmann::json recorded_audio_document(unsigned frame, asset_detail::Movi
             {"start_audio_frame", start},
             {"audio_frames", end - start},
             {"data", encode_base64(pcm)}};
+}
+inline std::size_t recorded_audio_response_budget(unsigned frame,
+                                                  asset_detail::MovieFrameRate rate) {
+    const auto [start, end] = recorded_audio_bounds(frame, rate);
+    return std::size_t(((end - start) * 4 + 2) / 3 * 4) + 1024;
 }
 inline RecordedAudioFrame read_recorded_audio(const nlohmann::json& value, unsigned frame,
                                               asset_detail::MovieFrameRate rate) {

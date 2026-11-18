@@ -1956,8 +1956,15 @@ and `height`; `jpeg_quality` defaults to90. The method requires both execution
 and output grants and advertises `openWorldHint:true` because Project Code runs.
 It starts its own fresh exact-SDK Play process and private UserData, captures the
 Game image, then mixes and advances through existing runtime owners. FPS1–240,
-1–4096frames, PCM128MiB and combined snapshots/movie256MiB apply. Input, Pause,
-scene changes and restoration of an existing live C++ world are unavailable.
+1–4096frames, PCM128MiB and combined snapshots/movie256MiB apply. Interactive
+input, Pause and restoration of an existing live C++ world are unavailable.
+Optional `capture_scope:"session"` admits up to64 game-requested Scene visits;
+the default `"scene"` scope retains single-Scene recording. Optional
+`input_recording` selects a contained saved take: version2 for session scope,
+version1 for scene scope. A mismatch rejects before output creation or launch.
+Game code must request the take's Scene sequence. Discovery advertises
+`capture_scopes` and `maximum_scene_visits`. Session receipts include per-PNG
+Scene/generation/local-tick identities and observed Scene/sample boundaries.
 
 Poll `capture_status.game_recording` until retirement. Success retains PNGs,
 `audio.s16le`, `recording.json` and `game.avi` with MJPEG/48kHz stereo PCM16.

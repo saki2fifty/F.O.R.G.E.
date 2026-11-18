@@ -182,6 +182,45 @@ void exercise(const std::filesystem::path& runtime, const std::filesystem::path&
               "Recording did not retire: " + active->state().dump());
         return Json::parse(asset_storage::read(next.destination / "recording.json").value());
     };
+    const auto legacy_request = request;
+    request.capture_scope = "session";
+    request.input_recording = "Recordings/session-input.json";
+    request.fps = 1;
+    request.frames = 2;
+    unsigned partial_polls = 0;
+    const auto session_receipt = run_case("Session", [&](ui::GameRecordingTask&) {
+        if (play.recording_status().contains("pending_frame"))
+            ++partial_polls;
+    });
+    check(session_receipt.at("state") == "complete" && session_receipt.at("version") == 2 &&
+              session_receipt.at("capture_scope") == "session" && partial_polls > 0 &&
+              session_receipt.at("completed_frames") == 2 &&
+              session_receipt.at("audio_frames") == 96000 &&
+              session_receipt.at("input_recording").at("admitted") == true &&
+              session_receipt.at("input_recording").at("ticks") == 1 &&
+              session_receipt.at("visits").size() == 1 &&
+              session_receipt.at("frames").at(0).at("scene").get<AssetId>() == scene.asset_id() &&
+              session_receipt.at("frames").at(1).at("simulation_tick") == 60 &&
+              session_receipt.at("frames").at(0).at("source") ==
+                  session_receipt.at("visits").at(0).at("source") &&
+              scene.snapshot() == original && scene.revision() == revision,
+          "Session movie transport lost pending PCM, replay, frame provenance or authored state");
+    bool cancelled_partial = false;
+    const auto partial_receipt = run_case("SessionCancelled", [&](ui::GameRecordingTask&) {
+        const auto& progress = play.recording_status();
+        if (!cancelled_partial && progress.contains("pending_frame") &&
+            progress.at("audio_frames").get<std::uint64_t>() > 0) {
+            cancelled_partial = images.cancel(message);
+        }
+    });
+    check(cancelled_partial && partial_receipt.at("state") == "cancelled" &&
+              partial_receipt.at("completed_frames") == 0 &&
+              partial_receipt.at("audio_frames") == 0 &&
+              partial_receipt.at("captured_png_frames") == 1 &&
+              std::filesystem::exists(root / "Output/SessionCancelled/frame-000000.png") &&
+              !std::filesystem::exists(root / "Output/SessionCancelled/game.avi"),
+          "Cancelling a pending interval misreported unpublished audio or lost the completed PNG");
+    request = legacy_request;
     bool cancelled = false;
     const auto cancelled_receipt = run_case("Cancelled", [&](ui::GameRecordingTask& active) {
         if (!cancelled && active.state().at("captured_png_frames") == 1) {
