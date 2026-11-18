@@ -53,9 +53,9 @@ struct NavigationAgent {
     bool enabled = true, has_destination = false;
     float speed = 2, stopping_distance = .1f;
     double destination_x = 0, destination_y = 0, destination_z = 0;
-    // Navigation: prescribed links. CharacterController: ground/physical positive-lift jumps.
-    // CharacterController2D: Floating XY routes; GroundedCharacterController2D:
-    // static supported XY ground routes with opt-in native gravity. Neither uses links.
+    // Navigation prescribes links. CharacterController and GroundedCharacterController2D
+    // use static ground, physical positive-lift jumps and descending zero-lift drops.
+    // CharacterController2D uses Floating XY routes without links.
     std::uint32_t movement = 0;
     bool operator==(const NavigationAgent&) const = default;
 };

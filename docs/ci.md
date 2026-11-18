@@ -483,6 +483,13 @@ Its aggregate CTest deadline is300seconds to accommodate Windows startup; indivi
 protocol and graceful-shutdown bounds and every workload/report assertion remain
 unchanged. This is functional correctness evidence, not a hardware timing result.
 
+Navigation MCP validation admits movement0–3 and rejects values outside that
+range, fractional values, booleans and strings without changing source/history.
+Camera inspection captures its stable tick after the queued Pause acknowledgement
+reports paused/control_ready. The destination Inspector fixture releases its
+initial component focus before native target scrolling, then exercises the actual
+button and Scene tool at three scales and wide/narrow views in both planes.
+
 Pose-history ownership uses `runtime_clock_and_interpolation` for both legacy
 copying and owned-value admission: local interpolation, parent/resolution snaps,
 sparse insertion/removal, generation recycling, empty captures and unchanged caller

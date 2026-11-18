@@ -64,8 +64,10 @@ def check_camera_aim_play(read, ok, control, mutate, until, discovery, client, a
     ok('forge_play_start')
     until(lambda: read('forge_play_status'), lambda row: row['control_ready'])
     control('forge_play_pause')
+    paused = until(lambda: read('forge_play_status'),
+                   lambda row: row['paused'] and row['control_ready'])
     inspection_revision = discovery()['revision']
-    inspection_tick = read('forge_play_status')['timing']['tick']
+    inspection_tick = paused['timing']['tick']
     refused = client.tool('forge_play_cameras', target=discovery()['result']['target'], width=0, height=600)
     assert not refused['ok'] and discovery()['revision'] == inspection_revision
     inspected = read('forge_play_cameras', width=800, height=600, limit=1)

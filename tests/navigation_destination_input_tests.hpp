@@ -1,6 +1,7 @@
 #pragma once
 #include "editor/component_inspector.hpp"
 #include "editor/scene_tools.hpp"
+#include <imgui_internal.h>
 inline void check_destination_input(forge::NavigationTools& navigation, forge::Scene& scene,
                                     forge::SceneDocument& project, const std::string& actor,
                                     const std::string& other, forge::EditorCamera camera,
@@ -68,6 +69,7 @@ inline void check_destination_input(forge::NavigationTools& navigation, forge::S
     navigation.show_overlay(false);
     frame();
     frame();
+    inspector.fixture_focus_component.clear();
     const auto eligibility_source = scene.document();
     authoring_command(scene, "property.set",
                       {{"entity", actor},
@@ -98,12 +100,21 @@ inline void check_destination_input(forge::NavigationTools& navigation, forge::S
     // Restoring the optional policy changes content height. Let the real window
     // apply its pending scroll/clamp before aiming a click at rendered geometry.
     for (unsigned attempt = 0;; ++attempt) {
-        check(attempt < 20, "Destination Inspector action did not settle into view");
+        if (attempt == 20)
+            throw std::runtime_error(
+                "Destination Inspector action did not settle into view: scale=" +
+                std::to_string(ui::interface_scale) + ", width=" +
+                std::to_string(io.DisplaySize.x) + ", y=" + std::to_string(button.minimum.y) +
+                ", clip=" + std::to_string(button.clip_minimum.y) + ":" +
+                std::to_string(button.clip_maximum.y));
         const auto previous = button;
         if (button.maximum.y > button.clip_maximum.y || button.minimum.y < button.clip_minimum.y) {
-            io.AddMousePosEvent((button.clip_minimum.x + button.clip_maximum.x) * .5f,
-                                (button.clip_minimum.y + button.clip_maximum.y) * .5f);
-            io.AddMouseWheelEvent(0, button.minimum.y < button.clip_minimum.y ? 2 : -2);
+            auto* window = ImGui::FindWindowByName("Pinned destination Inspector");
+            check(window != nullptr, "Destination Inspector window is missing");
+            ImGui::SetScrollY(window,
+                              window->Scroll.y + (button.minimum.y + button.maximum.y -
+                                                  button.clip_minimum.y - button.clip_maximum.y) *
+                                                     .5f);
         }
         frame();
         button = test::ui_targets.at("navigation:destination-tool");

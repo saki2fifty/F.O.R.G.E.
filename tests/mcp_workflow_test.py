@@ -2255,7 +2255,7 @@ for legacy in selected_protocols:
             assert read('forge_scene_read') == original_goal
             ok('forge_history_redo')
             assert read('forge_scene_read') == character_goal
-            for invalid in (-1, 3, .5, True, 'CharacterController'):
+            for invalid in (-1, 4, .5, True, 'CharacterController'):
                 rejected = mutate('forge_property_set', arguments=dict(entity=agent,
                     component='forge.navigation_agent', field='movement', value=invalid))
                 assert not rejected['ok'] and read('forge_scene_read') == character_goal, rejected

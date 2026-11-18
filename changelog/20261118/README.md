@@ -1,5 +1,17 @@
 # 2026-11-18
 
+## Delivery acceptance coverage
+
+Navigation MCP checks use the current movement range, camera inspection waits for
+the queued Pause acknowledgement, and the destination Inspector test releases its
+initial focus before scrolling and clicking the actual control. Existing source,
+history, clipping, activation and observation assertions remain in place.
+
+The installed navigation header documents physical jumps and descending drops for
+both grounded profiles. Its exact SDK fingerprint changes with the header bytes;
+component layouts and the callback table remain unchanged. Rebuild project modules
+with the matching SDK.
+
 ## Physical character descents
 
 3D and Grounded XY navigation can follow explicit descending zero-lift links
