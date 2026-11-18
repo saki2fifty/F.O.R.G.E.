@@ -608,11 +608,28 @@ Mode0 is Grounded, mode1 Floating. Defaults are radius0.3m, straight height0.6m,
 max slope50degrees and floor probe0.1m. Grounded accepts walkable support when
 `normal.y >= cos(max_slope)`; maximum authored slope is85degrees. Floor probe is
 0..1 world metres and is not multiplied by presentation scale. Floating reports
-InAir and performs no floor following. Neither mode implicitly applies gravity.
+InAir and performs no floor following. The mode alone does not enable gravity.
+`gravity_factor` defaults to0, preserving game-supplied full XY velocity. A finite
+positive factor up to10 opts into native vertical Project gravity. Horizontal
+Project gravity is unsupported for this upright automatic profile and rejects
+before either physics domain advances. Native2D computes the same effective
+velocity for preflight and movement, checks finite norm/endpoints/displacement,
+adds `gravity.y * gravity_factor * dt` at each positive step, and retains clipped
+Y velocity in the existing Body mover intent. No extra velocity cache or solver
+is introduced. Zero-time synchronization does not integrate gravity.
+
+A full manual velocity command replaces both components before that next increment.
+Collision clipping, placement clear, stance and capsule replacement retain the
+existing native owners. One-step expiry stops horizontal steering while preserving
+automatic falling. Zero-factor native configuration JSON retains its prior shape;
+positive values add their configuration field to the existing exact-runtime codec.
+The public component extension requires a matching rebuilt SDK, without a C-table
+or authored identity migration. [ADR054](decisions/054-grounded-planar-navigation.md)
+defines this opt-in profile and grounded navigation ownership.
 
 `move_character_2d` copies full world XY velocity, not acceleration or displacement.
 The last velocity remains active until replaced or cleared by successful placement.
-Game C++ chooses gravity and jump policy. Requested norm is at most1e6m/s and one
+At factor0, game C++ chooses gravity and jump policy. Requested norm is at most1e6m/s and one
 fixed-step translation at most1000m. Invalid endpoints/displacement reject before
 either native physics domain advances. At60Hz, a3m/s X request asks for0.05m travel.
 An original example jump requests6m/s upward for0.1m first-step rise, then subtracts
@@ -624,8 +641,11 @@ same bounded CharacterCommand FIFO and Native2D Body, with intent consumed after
 the next positive physics step. Zero-time synchronization does not consume it;
 capsule replacement preserves its lifetime. Manual XY movement or placement takes
 precedence in either pending order, including an already armed request. Copied
-actual clipped velocity and support remain available after intent expiry. This
-host-only method adds no C SDK callback. Armed/queued requests use private physics
+actual clipped velocity and support remain available after intent expiry. Optional
+automatic vertical gravity continues after horizontal expiry. The host-only
+`find_character_2d` query returns no observation before first realization; the
+existing required `character_2d` getter retains its unavailable error. Both use
+one physics-owned observation implementation. These host methods add no C SDK callback. Armed/queued requests use private physics
 recovery12; ordinary persistent profiles retain recovery10. See
 [navigation character ownership](decisions/052-navigation-characters.md).
 

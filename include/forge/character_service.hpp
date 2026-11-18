@@ -33,7 +33,9 @@ class CharacterService {
     virtual void place_character(EntityRef, LocalTranslation, LocalRotation,
                                  bool clear_velocity) = 0;
     virtual CharacterState2D character_2d(EntityRef) const = 0;
-    // Full world-axis XY locomotion velocity; game C++ supplies gravity/jumping.
+    // Full world-axis XY locomotion velocity; game C++ chooses jumping.
+    // Automatic controller gravity adds its next step after this replacement;
+    // factor0 retains explicit game-supplied gravity.
     // Copied velocity excludes recovery, floor follow and support transport.
     virtual void move_character_2d(EntityRef, Double2 velocity) = 0;
     // Checked feet-preserving stance at the shared fixed command boundary.

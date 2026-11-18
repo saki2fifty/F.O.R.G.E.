@@ -196,7 +196,8 @@ void controller_schema(EngineContext& engine) {
           std::pair{"crouch_height", offsetof(CharacterController2D, crouch_height)},
           std::pair{"floor_stop_on_slope", offsetof(CharacterController2D, floor_stop_on_slope)},
           std::pair{"slide_on_ceiling", offsetof(CharacterController2D, slide_on_ceiling)},
-          std::pair{"step_height", offsetof(CharacterController2D, step_height)}}) {
+          std::pair{"step_height", offsetof(CharacterController2D, step_height)},
+          std::pair{"gravity_factor", offsetof(CharacterController2D, gravity_factor)}}) {
         const auto* member = ecs_struct_get_member(world.c_ptr(), native.id(), name);
         require(member && std::size_t(member->offset) == offset,
                 "2D controller native member offset mismatch");
@@ -207,6 +208,8 @@ void controller_schema(EngineContext& engine) {
                 CharacterController2D{}.slide_on_ceiling &&
                 !type.defaults.at("floor_stop_on_slope").get<bool>() &&
                 type.defaults.at("slide_on_ceiling").get<bool>() &&
+                CharacterController2D{}.gravity_factor == 0 &&
+                type.defaults.at("gravity_factor") == 0 &&
                 CharacterController2D{}.step_height == 0 && type.defaults.at("step_height") == 0 &&
                 detail::canonical_builtin_value(type, Json::object()) == type.defaults,
             "2D controller defaults were not backfilled by the shared schema");
@@ -243,6 +246,9 @@ void controller_schema(EngineContext& engine) {
                                        {"crouch_height", .601},
                                        {"step_height", -.01},
                                        {"step_height", 1.01},
+                                       {"gravity_factor", -.01},
+                                       {"gravity_factor", 10.01},
+                                       {"gravity_factor", std::numeric_limits<double>::infinity()},
                                        {"floor_probe", -1},
                                        {"floor_probe", 1.01},
                                        {"layer", 32},
@@ -281,6 +287,13 @@ void controller_authoring(EngineContext& engine, const std::filesystem::path& pa
                                   {"forge.local_scale", {{"x", -2}, {"y", 2}, {"z", 0}}}}}}})}});
     const auto original = scene.document();
     const auto value = scene.entity(id).get<CharacterController2D>();
+    authoring_command(
+        scene, "property.set",
+        {{"entity", id}, {"component", type.name}, {"field", "gravity_factor"}, {"value", 1}});
+    require(scene.entity(id).get<CharacterController2D>().gravity_factor == 1 && scene.undo() &&
+                scene.document() == original && scene.redo() &&
+                scene.entity(id).get<CharacterController2D>().gravity_factor == 1 && scene.undo(),
+            "Automatic gravity source edit lost default-zero history or opaque data");
     authoring_command(
         scene, "property.set",
         {{"entity", id}, {"component", type.name}, {"field", "floor_probe"}, {"value", .25}});
@@ -388,7 +401,7 @@ void tile_map_collider(EngineContext& engine, const std::filesystem::path& paren
     require(type.read(target, false) == Json{{"layer", layer}} &&
                 std::get<TileMapCollider2D>(type.decode(Json{{"layer", layer}})).layer == layer,
             "Tile Map layer key passed through float or a row index");
-    for (const Json invalid : {Json(-1), Json(1.5), Json(true), Json("1")})
+    for (const Json& invalid : {Json(-1), Json(1.5), Json(true), Json("1")})
         rejects([&] { (void)type.decode({{"layer", invalid}}); });
     target.destruct();
     const auto bounded = world.component<BoundedLayerKey>("fixture.BoundedLayerKey");

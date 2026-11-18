@@ -40,7 +40,9 @@ body receives ordinary C++ targets. Save before Play/export; Stop resets the pat
 
 **Character Controller 2D** owns the physical feet position and bounded movement.
 **Character Movement 2D** is game policy: the C++ system reads project actions,
-chooses horizontal velocity, integrates gravity and requests a jump. A second
+chooses horizontal velocity, integrates gravity and requests a jump. Keep
+**Character Controller 2D → Automatic gravity** at `0` for this behavior, so gravity
+is applied once. A second
 system copies the final grounded observation after physics. The sprite's bottom
 pivot follows the feet; there is no hidden Physics Body 2D or Capsule Collider 2D.
 

@@ -238,8 +238,26 @@ to the same object.
 
 Grounded mode reports floor support and can follow a nearby descending surface.
 Floating mode accepts XY movement without floor support. Grounded mode can use
-optional **Step Height** for bounded stair rise; 2D navigation remains unavailable.
+optional **Step Height** for bounded stair rise. Built-in XY navigation supports
+Floating routes and static supported Grounded routes through the same controller;
+see [Navigation](navigation.md). Platformer jump routes are not supported.
 See the example's **README.md** for the editable source and export experiment.
+
+### Choose how gravity is applied
+
+**Character Controller 2D → Automatic gravity** defaults to `0`. Keep it at `0`
+when your C++ behavior applies gravity, including the **Character2D** example.
+
+To let physics apply gravity, stop Play, set **Automatic gravity** to `1`, and
+save. Project gravity must be vertical in XY: X must be `0`; negative Y pulls
+downward. Values up to `10` multiply its strength. Physics accumulates vertical
+motion, resolves floors and ceilings, and continues falling when navigation stops
+steering. The character's independent visual Z remains unchanged.
+
+A C++ movement request replaces both velocity components before the next gravity
+increment. When steering horizontally, preserve the observed Y velocity. To start
+a jump, request an upward Y velocity once while grounded. Apply gravity in one
+place: with **Automatic gravity** enabled, do not subtract it again in C++.
 
 ### Ride a moving platform
 
@@ -290,7 +308,7 @@ sliding. Stop returns both to their saved positions.
 While stopped, select either character and find **Character Controller 2D**:
 
 - **Stop on slopes** stops downward-only movement on a walkable floor. It defaults off. Horizontal movement and upward jumps remain controlled by C++; steep surfaces still behave as walls.
-- **Slide on ceilings** defaults on. Turn it off to stop the current upward movement at a ceiling. C++ must supply gravity or another movement request afterward; the engine does not add gravity automatically.
+- **Slide on ceilings** defaults on. Turn it off to stop the current upward movement at a ceiling. With **Automatic gravity** at `0`, C++ supplies the next gravity or movement request. A positive setting resumes native gravity on the next physics step.
 - **Max Slope** also defines the ceiling angle: a ceiling must face downward within this angle of vertical. Steeper surfaces keep ordinary wall sliding. These two options apply in Grounded mode; Floating mode ignores them.
 
 Use Undo/Redo to restore a setting. Save before Play or export. **Live gameplay →

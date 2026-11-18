@@ -1,5 +1,20 @@
 # Feature Gallery
 
+## Grounded XY navigation characters
+
+Open `Scenes/227-navigation-grounded-xy.scene.json` and press Play. Cyan walks along
+the lower physical floor; orange stops at the upper red wall. Each uses
+**Character Controller 2D → Mode → Grounded**, **Automatic gravity → 1** and
+**Navigation Agent → Movement → GroundedCharacterController2D**. Physics supplies
+gravity, collision and actual support; the saved XY NavMesh supplies route intent.
+
+Stop, disable **Red physical wall → Physics Body 2D → Enabled**, then Play to
+release orange. Speed0 and cancelling navigation stop steering while gravity
+continues. The Scene includes its orthographic Camera and ready NavMesh and needs
+no project C++ module. Save and choose it as startup before export. This profile
+supports continuous static ground, not general platformer jump/drop planning or
+moving-platform routes. See [grounded XY steering](../../../manual/editor/navigation.md#steer-a-grounded-xy-character).
+
 ## Physical character jumps
 
 Open `Scenes/226-navigation-character-jumps.scene.json` and press Play. The cyan

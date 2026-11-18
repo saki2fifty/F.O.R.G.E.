@@ -295,7 +295,8 @@ template <class T> Json encode(const T& p) {
                 {"crouch_height", p.crouch_height},
                 {"floor_stop_on_slope", p.floor_stop_on_slope},
                 {"slide_on_ceiling", p.slide_on_ceiling},
-                {"step_height", p.step_height}};
+                {"step_height", p.step_height},
+                {"gravity_factor", p.gravity_factor}};
     else if constexpr (std::is_same_v<T, CharacterController>)
         return {{"enabled", p.enabled},
                 {"shape", p.shape},
@@ -538,7 +539,7 @@ template <class T> Value decode(const Json& p) {
         a.destination_y = p.at("destination_y");
         a.destination_z = p.at("destination_z");
         const auto movement = p.value("movement", Json(a.movement));
-        if (!movement.is_number_integer() || movement.get<std::uint64_t>() > 2)
+        if (!movement.is_number_integer() || movement.get<std::uint64_t>() > 3)
             throw std::runtime_error("Invalid navigation movement selection");
         a.movement = movement.get<std::uint32_t>();
         return a;
@@ -791,7 +792,8 @@ template <class T> Value decode(const Json& p) {
                 p.value("crouch_height", defaults.crouch_height),
                 p.value("floor_stop_on_slope", defaults.floor_stop_on_slope),
                 p.value("slide_on_ceiling", defaults.slide_on_ceiling),
-                p.value("step_height", defaults.step_height)};
+                p.value("step_height", defaults.step_height),
+                p.value("gravity_factor", defaults.gravity_factor)};
         if (value.crouch_height > value.height)
             throw std::runtime_error(
                 "Character Controller 2D crouch height exceeds standing height");
@@ -1788,7 +1790,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("crouch_height")
             .template member<bool>("floor_stop_on_slope")
             .template member<bool>("slide_on_ceiling")
-            .template member<float>("step_height");
+            .template member<float>("step_height")
+            .template member<float>("gravity_factor");
     else if constexpr (std::is_same_v<T, CharacterController>)
         c.template member<bool>("enabled")
             .template member<std::uint32_t>("shape")
@@ -2810,6 +2813,14 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
     }
     if (name == "forge.character_controller_2d") {
+        if (field == "gravity_factor") {
+            value["display_name"] = "Automatic gravity";
+            value["minimum"] = 0;
+            value["maximum"] = 10;
+            value["description"] = "Automatic vertical Project gravity multiplier;0 keeps "
+                                   "game-supplied full XY velocity. Positive values accumulate "
+                                   "clipped vertical motion and require vertical Project gravity";
+        }
         if (field == "step_height") {
             value["maximum"] = 1;
             value["unit"] = "meters";
@@ -3876,12 +3887,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (name == "forge.navigation_agent") {
         if (field == "movement") {
             value["minimum"] = 0;
-            value["maximum"] = 2;
+            value["maximum"] = 3;
             value["animatable"] = false;
             value["description"] =
                 "Navigation writes the pose directly; Character Controller requests 3D ground "
                 "steering and positive-lift jumps between static supports; Character Controller "
-                "2D requests Floating XY steering through the existing physics owner";
+                "2D requests Floating XY steering; Grounded Character Controller 2D requests "
+                "static supported XY steering with native automatic gravity";
         }
         if (field == "navmesh") {
             value["asset_type"] = NavMeshAsset::type;
@@ -4028,7 +4040,8 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
         names = {"Spatial3D", "PlanarXY"};
     } else if (component == "forge.navigation_agent" && field == "movement") {
         type = "forge.NavigationMovement";
-        names = {"Navigation", "CharacterController", "CharacterController2D"};
+        names = {"Navigation", "CharacterController", "CharacterController2D",
+                 "GroundedCharacterController2D"};
     } else if (component == "forge.camera_shot" && field == "blend_curve") {
         type = "forge.CameraShotBlendCurve";
         names = {"Smooth", "Linear", "EaseIn", "EaseOut"};
@@ -4260,6 +4273,11 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("arc_height")
                 .set<ReflectedMemberDefault>({NavigationLink{}.arc_height})
                 .add<ReflectedNoAnimation>();
+        }
+        if (name == "forge.character_controller_2d") {
+            world.component<ReflectedMemberDefault>(reflected_member_default_type);
+            c.lookup("gravity_factor")
+                .set<ReflectedMemberDefault>({CharacterController2D{}.gravity_factor});
         }
         if (name == "forge.navigation_agent")
             c.lookup("movement")

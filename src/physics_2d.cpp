@@ -236,6 +236,9 @@ void validate_geometry(const Body2DConfiguration& config) {
         if (!std::isfinite(profile.floor_probe) || profile.floor_probe < 0 ||
             profile.floor_probe > 1)
             throw std::runtime_error("2D mover floor probe must be0..1m");
+        if (!std::isfinite(profile.gravity_factor) || profile.gravity_factor < 0 ||
+            profile.gravity_factor > 10)
+            throw std::runtime_error("2D mover automatic gravity factor must be0..10");
         if (!std::isfinite(profile.step_height) || profile.step_height < 0 ||
             profile.step_height > 1)
             throw std::runtime_error("2D mover step height must be0..1m");
@@ -438,7 +441,8 @@ Body2DConfiguration controller_configuration_2d(const CharacterController2D& val
                                  : collider_dimension_2d(value.crouch_height * scale.y, .01f, 1000),
         value.floor_stop_on_slope,
         value.slide_on_ceiling,
-        value.step_height};
+        value.step_height,
+        value.gravity_factor};
     validate_geometry(config);
     return config;
 }
@@ -1236,12 +1240,28 @@ struct Native2D::Impl {
             return {};
         return MoverMotion2D{{dx, next[1] - feet[1]}, {dx, 0}, ordinary.iterations};
     }
+    Double2 mover_step_velocity(const Body& body, float dt) const {
+        auto velocity = body.mover_intent;
+        const auto factor = body.admitted.config.mover_profile->gravity_factor;
+        if (factor != 0) {
+            const auto gravity = b2World_GetGravity(world);
+            if (gravity.x != 0)
+                throw std::runtime_error("2D controller automatic gravity requires vertical "
+                                         "Project gravity");
+            velocity[1] += double(gravity.y) * double(factor) * dt;
+        }
+        if (!std::isfinite(velocity[0]) || !std::isfinite(velocity[1]) ||
+            std::hypot(velocity[0], velocity[1]) > 1000000)
+            throw std::runtime_error("2D controller effective velocity exceeds1000000m/s");
+        return velocity;
+    }
     void step_movers(float dt, std::size_t& work) {
         for (auto id : mover_order) {
             auto& body = bodies.at(id);
             const auto position = b2Body_GetPosition(body.id);
             const auto feet = carry_mover(body, {position.x, position.y}, work);
             body.carry_start.reset();
+            body.mover_intent = mover_step_velocity(body, dt);
             auto request = mover_request(body, feet);
             request.displacement = {body.mover_intent[0] * dt, body.mover_intent[1] * dt};
             const auto& profile = *body.admitted.config.mover_profile;
@@ -1289,6 +1309,8 @@ struct Native2D::Impl {
             }
             valid_xy({next[0], next[1], 0});
             body.mover_velocity = velocity;
+            if (profile.gravity_factor != 0)
+                body.mover_intent[1] = velocity[1]; // Collision owns the next vertical state.
             body.mover_support = support;
             body.mover_support_valid = true;
             b2Body_SetTransform(body.id, {next[0], next[1]}, b2Rot_identity);
@@ -1758,7 +1780,8 @@ struct Native2D::Impl {
             normal.x * query.support_intent[0] + normal.y * query.support_intent[1] >
                 query.departure_tolerance;
         if (query.support_floor_y >= 0 && normal.y > mover_tolerance &&
-            value->plane.offset >= -.01f - mover_tolerance && !departing) {
+            value->plane.offset >= -float(character_contact_band_2d) - mover_tolerance &&
+            !departing) {
             const bool walkable = normal.y >= query.support_floor_y;
             if (!query.support || walkable > query.support->walkable ||
                 (walkable == query.support->walkable &&
@@ -1852,7 +1875,7 @@ struct Native2D::Impl {
         // probe by the1cm contact band; never enlarge the native inner body.
         gather_mover_planes(planes, {request.shape, request.dimensions, request.origin, 0},
                             request.origin, std::uint64_t{1} << body.admitted.config.body.layer,
-                            .01f);
+                            float(character_contact_band_2d));
         if (supporting)
             *supporting = planes.support_body;
         return planes.support;
@@ -2094,6 +2117,8 @@ Json Body2DConfiguration::json() const {
                                    {"floor_stop_on_slope", mover_profile->floor_stop_on_slope},
                                    {"slide_on_ceiling", mover_profile->slide_on_ceiling},
                                    {"step_height", mover_profile->step_height}};
+    if (mover_profile && mover_profile->gravity_factor != 0)
+        result["mover_profile"]["gravity_factor"] = mover_profile->gravity_factor;
     if (shape == 3) {
         validate_geometry(*this);
         result["parts"] = Json::array();
@@ -3185,7 +3210,9 @@ void Native2D::cancel_mover_once(std::uint64_t entity, EntityRef ref) {
     impl_->check();
     auto& body = impl_->mover(entity, ref);
     if (body.mover_movement_once) {
-        body.mover_intent = {};
+        body.mover_intent = {0, body.admitted.config.mover_profile->gravity_factor != 0
+                                    ? body.mover_velocity[1]
+                                    : 0};
         body.mover_movement_once = false;
         body.mover_support_valid = false;
     }
@@ -3332,7 +3359,8 @@ void Native2D::validate_step(float dt) const {
             const auto& body = impl_->bodies.at(id);
             const auto point = b2Body_GetPosition(body.id);
             auto request = Impl::mover_request(body, {point.x, point.y});
-            request.displacement = {body.mover_intent[0] * dt, body.mover_intent[1] * dt};
+            const auto velocity = impl_->mover_step_velocity(body, dt);
+            request.displacement = {velocity[0] * dt, velocity[1] * dt};
             validate_sweep_2d(request);
             if (std::hypot(request.displacement[0], request.displacement[1]) > 1000)
                 throw std::runtime_error("2D character intent exceeds1000m per fixed step");
@@ -3445,7 +3473,9 @@ void Native2D::step(float dt, std::uint64_t tick) {
     for (const auto id : self.mover_order) {
         auto& body = self.bodies.at(id);
         if (body.mover_movement_once) {
-            body.mover_intent = {};
+            body.mover_intent = {0, body.admitted.config.mover_profile->gravity_factor != 0
+                                        ? body.mover_velocity[1]
+                                        : 0};
             body.mover_movement_once = false;
         }
     }

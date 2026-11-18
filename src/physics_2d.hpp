@@ -28,7 +28,8 @@ struct MoverProfile2D {
     bool platform_carry = false;
     float crouch_height = 0; // World straight height;0 uses half standing height.
     bool floor_stop_on_slope = false, slide_on_ceiling = true;
-    float step_height = 0; // Optional world-space rise, metres.
+    float step_height = 0;    // Optional world-space rise, metres.
+    float gravity_factor = 0; // Opt-in automatic vertical gravity, independent of steering.
     bool operator==(const MoverProfile2D&) const = default;
 };
 struct Body2DConfiguration {

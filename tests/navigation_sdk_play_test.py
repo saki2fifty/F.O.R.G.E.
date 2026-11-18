@@ -8,10 +8,11 @@ import sys
 from runtime_client import Runtime, activate
 
 runtime, prepare, worker, module = map(lambda p: Path(p).resolve(), sys.argv[1:5])
-character = '--character' in sys.argv[5:]
+grounded = '--grounded' in sys.argv[5:]
+character = '--character' in sys.argv[5:] or grounded
 root = Path(subprocess.check_output(
     [prepare, runtime.parent / 'navigation-sdk-play-data', worker,
-     '--prepare-planar-character' if character else '--prepare-planar'], text=True).strip())
+     '--prepare-grounded-planar-character' if grounded else '--prepare-planar-character' if character else '--prepare-planar'], text=True).strip())
 shutil.copy2(module, root / module.name)
 info = json.loads(subprocess.check_output([runtime, '--sdk-info'], text=True))
 (root / 'forge.project.json').write_text(json.dumps(dict(
@@ -69,14 +70,18 @@ try:
     tune('enabled', False)
     tune('has_destination', False)
     tune('destination_x', -8)
-    tune('destination_y', 1)
+    tune('destination_y', 0 if grounded else 1)
     tune('destination_z', -99)
     tune('stopping_distance', .25)
     tune('speed', 0)
     tune('enabled', True)
     tune('has_destination', True)
     paused = first.request('step')
-    assert observation(paused)['position'] == original_pose
+    parked = observation(paused)['position']
+    if grounded:
+        assert parked[0] == original_pose[0] and parked[2] == original_pose[2] and abs(parked[1] - original_pose[1]) < .001
+    else:
+        assert parked == original_pose
     assert next(row for row in paused['effective_scene']['entities'] if row['name'] == 'Agent')['navigation_debug']['phase'] == 'Paused'
     tick = paused['timing']['tick']
     for changed in [dict(target, generation=generation+1), dict(target, scene_asset='11111111-1111-4111-8111-111111111111')]:

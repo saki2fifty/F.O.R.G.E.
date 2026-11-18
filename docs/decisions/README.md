@@ -58,6 +58,9 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [049](049-navigation-link-arcs.md) | Optional arcs retain the navigation source, Query, Agent and distance owners |
 | [050](050-navigation-link-collision.md) | Opt-in link sweeps reuse navigation movement and realized physics queries |
 | [051](051-stopped-sequence-ui.md) | Stopped sequence UI reuses copied values and the exclusive native presentation owner |
+| [052](052-navigation-characters.md) | Character navigation delegates pose and collision to the existing physics owner |
+| [053](053-navigation-character-jumps.md) | Physical character jumps retain native takeoff, gravity, collision and landing |
+| [054](054-grounded-planar-navigation.md) | Grounded XY steering and opt-in vertical gravity share the native controller |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

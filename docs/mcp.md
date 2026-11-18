@@ -1160,7 +1160,7 @@ ack and keep-values capture/Stop/review/history paths apply. No extra MCP schema
 pose writer or independent navigation implementation is introduced.
 
 NavigationAgent `movement` is an authored integer selector (0 Navigation,
-1 CharacterController, 2 CharacterController2D) exposed by ordinary reflected discovery and
+1 CharacterController, 2 CharacterController2D, 3 GroundedCharacterController2D) exposed by ordinary reflected discovery and
 `forge_property_set`/`forge_property_set_many`. It retains revision guards,
 permission checks, history, Prefab intent and explicit Save. Missing/zero preserves
 legacy source. It is Edit-only and excluded from `forge_play_tune` and Keep review.
@@ -1172,7 +1172,16 @@ enough Agent speed for the range. Actual native takeoff, obstruction, landing an
 failure appear in Play observations; physical link debug includes physical_jump.
 Gallery226 demonstrates a raised landing and a solid flight obstruction. Mode2 uses a World-bound
 Floating CharacterController2D, XY NavMesh and physical Collider2D obstructions,
-preserving visual Z. Grounded XY platformer routing and XY explicit links are unsupported.
+preserving visual Z, with gravity_factor0. Mode3 uses a World-bound Grounded
+CharacterController2D with positive gravity_factor, downward vertical XY Project
+gravity, static walkable physical support and a link-free XY route. The existing
+native mover owns gravity, collision and vertical momentum; navigation supplies
+horizontal one-step steering. Ordinary property tools set gravity_factor and
+movement, with the same defaults, ranges, revisions and history. Native sampled
+feet/support establish arrival. Grounded unsupported route bends/goals reject;
+gaps block steering. No new MCP operation or private authoring implementation is
+needed. Gallery227 is editable/exportable without C++. General platformer
+jump/drop planning, moving-platform routes and XY explicit links are unsupported.
 Add/configure those
 through the same component/property operations; no character-navigation tool or
 alternate movement implementation exists. Existing Play observations report actual

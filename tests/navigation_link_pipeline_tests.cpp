@@ -141,7 +141,8 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
     if (character)
         character_jumps(scene.snapshot(), root, EntityId::parse(actor_id));
     else if (collision)
-        collision_movement(scene.snapshot(), root, EntityId::parse(actor_id), plane);
+        collision_movement(scene.snapshot(), root, EntityId::parse(actor_id), plane,
+                           link.arc_height);
     else {
         movement(scene.snapshot(), root, EntityId::parse(actor_id), baked, untouched,
                  EntityId::parse(left), projected.points[0], plane, link.arc_height);

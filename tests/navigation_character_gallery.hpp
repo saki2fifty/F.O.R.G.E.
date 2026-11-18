@@ -5,10 +5,13 @@ constexpr const char* planar_character_scene_path =
     "Scenes/225-navigation-characters-xy.scene.json";
 constexpr const char* jump_character_scene_path =
     "Scenes/226-navigation-character-jumps.scene.json";
+constexpr const char* grounded_character_scene_path =
+    "Scenes/227-navigation-grounded-xy.scene.json";
 void prepare_character_gallery(const std::filesystem::path& root,
                                const std::filesystem::path& worker, bool planar = false,
-                               bool jump = false) {
-    const auto* path = jump     ? jump_character_scene_path
+                               bool jump = false, bool grounded = false) {
+    const auto* path = grounded ? grounded_character_scene_path
+                       : jump   ? jump_character_scene_path
                        : planar ? planar_character_scene_path
                                 : character_scene_path;
     const auto lease = std::make_shared<ProjectLease>(root);
@@ -31,7 +34,7 @@ void prepare_character_gallery(const std::filesystem::path& root,
 }
 void exercise_character_gallery(const std::filesystem::path& root,
                                 const std::filesystem::path& source, bool planar = false,
-                                bool jump = false) {
+                                bool jump = false, bool grounded = false) {
     const auto saved = read(root / source);
     GameSession session(session_config(root));
     const auto candidate = session.prepare(saved);
@@ -87,6 +90,17 @@ void exercise_character_gallery(const std::filesystem::path& root,
                       navigation->debug(actor.id()).dump());
         }
         const auto state = navigation->agent_state(ref(blocked));
+        if (grounded)
+            for (auto actor : {free, blocked}) {
+                const auto observed = navigation->agent_state(ref(actor));
+                const auto character = physics->character_2d(ref(actor));
+                check(actor.get<CharacterController2D>().gravity_factor == 1 &&
+                          actor.get<CharacterController2D>().mode == 0 &&
+                          actor.get<NavigationAgent>().movement == 3 &&
+                          (observed->phase != NavigationAgentPhase::Arrived ||
+                           character.ground == CharacterGround::OnGround),
+                      "Grounded Gallery bypassed controller gravity or physical support");
+            }
         saw_blocked |= state->phase == NavigationAgentPhase::Blocked ||
                        (jump && state->phase == NavigationAgentPhase::Failed);
         check(actual(blocked).first[0] < (planar ? -.44 : -.45),

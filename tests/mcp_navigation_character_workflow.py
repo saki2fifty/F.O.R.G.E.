@@ -1,8 +1,9 @@
 """Author a physical character and observe its actual Play route through MCP."""
 
 
-def check_navigation_character(read, ok, control, until, edit_settings, planar=False, jump=False):
+def check_navigation_character(read, ok, control, until, edit_settings, planar=False, jump=False, grounded=False):
     assert not (planar and jump)
+    assert not grounded or planar
     def create(name, kind=4):
         return ok('forge_entity_create', arguments=dict(name=name, kind=kind))['results'][0]['selected']
 
@@ -16,6 +17,12 @@ def check_navigation_character(read, ok, control, until, edit_settings, planar=F
     if planar:
         add(floor, 'forge.navigation_region_2d')
         values(floor, 'forge.navigation_region_2d', width=20, height=12)
+        if grounded:
+            ground = create('Physical grounded XY floor')
+            values(ground, 'forge.local_translation', y=-.5)
+            add(ground, 'forge.physics_body_2d')
+            add(ground, 'forge.box_collider_2d')
+            values(ground, 'forge.box_collider_2d', x=20, y=1)
     else:
         values(floor, 'forge.local_scale', x=4 if jump else 20, y=1, z=6 if jump else 12)
         if jump:
@@ -52,15 +59,15 @@ def check_navigation_character(read, ok, control, until, edit_settings, planar=F
     assert baked['asset'] and not baked['error'], baked
     actor = create('MCP physical character')
     start_x = -3 if jump else -4
-    values(actor, 'forge.local_translation', x=start_x, y=.1, z=37.125 if planar else 0)
+    values(actor, 'forge.local_translation', x=start_x, y=0 if grounded else .1, z=37.125 if planar else 0)
     ok('forge_transform_binding', arguments=dict(entity=actor, spatial=dict(mode='world')))
     controller = 'forge.character_controller_2d' if planar else 'forge.character_controller'
     add(actor, controller)
     if planar:
-        values(actor, controller, mode=1)
+        values(actor, controller, mode=0 if grounded else 1, gravity_factor=1 if grounded else 0)
     add(actor, 'forge.navigation_agent')
     before_navigation = read('forge_scene_read')
-    values(actor, 'forge.navigation_agent', navmesh=baked['asset'], movement=2 if planar else 1,
+    values(actor, 'forge.navigation_agent', navmesh=baked['asset'], movement=3 if grounded else 2 if planar else 1,
            has_destination=True, destination_x=3 if jump else 4,
            destination_y=2 if jump else 0, destination_z=0, speed=0)
     authored_navigation = read('forge_scene_read')
@@ -124,6 +131,8 @@ def check_navigation_character(read, ok, control, until, edit_settings, planar=F
     control('forge_play_resume')
     arrived = until(follower, lambda row: row.get('navigation_debug', {}).get('phase') == 'Arrived')
     assert arrived['world_affine'][3] > (2.8 if jump else 3.8), arrived
+    if grounded:
+        assert abs(arrived['world_affine'][7]) < .02, arrived
     if jump:
         assert abs(arrived['world_affine'][7] - 2) < .1, arrived
     if planar:

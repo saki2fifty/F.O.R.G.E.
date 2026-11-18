@@ -390,7 +390,8 @@ Prefab intent/Save owner. Transforms and the NavMesh reference are never reviewe
 ## Character movement selection
 
 ADR052 defines the opt-in `NavigationAgent.movement` profile: zero/absent is
-ordinary Navigation; one is CharacterController; two is CharacterController2D.
+ordinary Navigation; one is CharacterController; two is CharacterController2D;
+three is GroundedCharacterController2D as defined by ADR054.
 The reflected uint32 selector has
 an explicit default and enum, is not animatable or live-tunable, and uses the same
 Scene/Prefab/history/automation/MCP property owner. Canonical source omits zero.
@@ -408,8 +409,8 @@ in that boundary wins regardless of queue order. Ordinary move_character remains
 persistent. Disabling/removing navigation or clearing its destination stops renewal;
 character gravity, step/slope and physical collision remain physics-owned.
 
-Movement2 requires a World-bound Floating CharacterController2D and a PlanarXY
-NavMesh without explicit links. PhysicsService::move_character_2d_once joins the
+Movement2 requires a World-bound Floating CharacterController2D with
+gravity_factor0 and a PlanarXY NavMesh without explicit links. PhysicsService::move_character_2d_once joins the
 same FIFO, with its lifetime stored in the existing Native2D Body. Manual XY
 movement or placement wins in either order, including a prior armed request.
 The next positive step consumes autonomous intent while retaining actual clipped
@@ -418,6 +419,33 @@ replacement preserve an armed request. Neither navigation nor this profile
 supplies platformer gravity, jumps or floor following. Visual Z remains independent.
 Blocked feedback excludes shallow-recovery-only corrections when the copied
 requested XY velocity is zero; the actual corrected position remains observable.
+
+Movement3 selects a World-bound Grounded CharacterController2D with positive
+native automatic gravity and downward vertical XY Project gravity. The shared
+reflected controller validator runs before layer shifts, radius or slope queries.
+It uses a PlanarXY route without explicit links and static walkable physical
+support. Navigation preserves actual Y momentum while requesting horizontal
+one-step steering; Native2D alone integrates gravity and clips movement. Optional
+physics-owned availability handles the first realization without inventing a pose
+or changing the required getter's unavailable error.
+
+Each remaining route corner requires geometric static support (at most64corners).
+A bounded32-sample forward support guard holds horizontal steering at unsupported
+ground. It excludes the character and sensors and checks walkability, mutual masks
+and current static body ownership. This is conservative ground following, not a
+platformer jump/drop reachability graph. Native step/floor response remains
+physical; higher ledges can still block a route. Arrival requires actual static
+walkable support and actual remaining distance, with the existing0.01m minimum
+stopping distance and1mm arrival tolerance. Corner admission reuses the native1cm
+support contact band so collision slop cannot strand a supported waypoint. The
+actual observation is never replaced by a projected or requested pose.
+
+Private navigation recovery10 requires movement3, carries no character translation
+and can retain existing physical3D jump markers in mixed worlds. Earlier profiles
+retain their meanings; downgrade, empty10 and fabricated character pose/link data
+reject. Automatic2D gravity reuses the existing mover intent and exact-runtime
+configuration; no second velocity payload or public save-game format is added.
+See [ADR054](decisions/054-grounded-planar-navigation.md).
 
 Navigation never sets the character's LocalTranslation. After the existing
 PhysicsAdoptionSystem, it reads CharacterState and reconciles actual corner
@@ -527,7 +555,7 @@ No callback-table field or independent authoring path is added. `FORGE_SDK_NAVIG
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, cost editing, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving supports upright 3D ground routes and bounded positive-lift jumps between static supports, or Floating XY routes without explicit links. Grounded XY platformer routing remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, cost editing, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving supports upright 3D ground routes and bounded positive-lift jumps between static supports, or Floating XY routes without explicit links. Grounded XY movement supports continuous static physical ground with native automatic gravity. General XY platformer jump/drop planning remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 

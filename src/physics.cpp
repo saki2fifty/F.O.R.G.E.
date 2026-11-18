@@ -2836,14 +2836,20 @@ void PhysicsRuntime::place_character(EntityRef ref, LocalTranslation p, LocalRot
     impl_->queue_character(c);
 }
 CharacterState2D PhysicsRuntime::character_2d(EntityRef ref) const {
+    const auto result = find_character_2d(ref);
+    if (!result)
+        throw std::runtime_error("2D character is unavailable or not yet realized");
+    return *result;
+}
+std::optional<CharacterState2D> PhysicsRuntime::find_character_2d(EntityRef ref) const {
     const auto& self = *impl_;
     self.check();
     const auto found = self.context.resolve(ref);
     if (found.state != WorldContext::ResolveState::Available || !self.native_2d)
-        throw std::runtime_error("2D character is unavailable or not yet realized");
+        return {};
     const auto value = self.native_2d->mover_state(found.entity, ref);
     if (!value)
-        throw std::runtime_error("2D character is unavailable or not yet realized");
+        return {};
     CharacterState2D result;
     result.position = value->position;
     result.velocity = value->velocity;

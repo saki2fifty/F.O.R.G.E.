@@ -1,5 +1,36 @@
 # README screenshots
 
+## Grounded XY controls and Game view
+
+`manual/images/navigation-grounded-character-inspector.png` is the exact780 by720
+production ComponentInspector capture. Reproduce with
+`forge_navigation_agent_editor_tests --capture-grounded-character OUTPUT.png`.
+It shows Automatic gravity1 and Movement GroundedCharacterController2D after native
+selection and Undo/Redo. NavMesh is unassigned; this illustrates configuration.
+
+`manual/images/physics-2d-gravity-inspector.png` is the exact700 by1400 production
+controller panel. Reproduce with
+`forge_physics_2d_inspector_tests --capture-gravity OUTPUT.png`.
+Sources are `tests/navigation_agent_editor_tests.cpp` and
+`tests/physics_2d_inspector_tests.cpp`. Both use the packaged font, actual ImGui
+draw data and SDL software composition on Linux, with no retouching.
+
+PNG SHA256 `63e5c2932f1f07786c08b54f1da65f3ef75faf25f53afe786b4557d0e90e5ddc`; native executable SHA256 `212596174d430e0b187d747569a0dafbc689ebf9d55dc90debfb1f990cbfa308`.
+
+PNG SHA256 `ec569ddfeeca9e606c506b059e0bdd0bda314873b92e857bab4aecb97035b98d`; native executable SHA256 `10192b754a05b61103f3ac581d398162af915079a5a37c38712fe88b6af65760`.
+
+`manual/images/navigation-grounded-characters-game.png` is the original640 by360
+RGB Game output after90 fixed ticks from
+`samples/projects/FeatureGallery/Scenes/227-navigation-grounded-xy.scene.json`.
+Reproduce with `forge_navigation_polygon_gallery_vulkan_probe GALLERY SCRATCH
+Scenes/227-navigation-grounded-xy.scene.json` on the configured software Vulkan/lvp
+fixture. Four exact authored/source-hidden relocated-export display pairs include
+portrait output. The PNG losslessly encodes `authored/90-640.ppm`, without
+cropping, resizing or inserted controls. PNG SHA256 `d4b958848b75d5354d930ed3b8876e5cc76164618e80536fc78a53a3fc644571`.
+All images were visually reviewed; source, Scene, native actor, original image and
+receipt hashes are retained with capture evidence. Windows desktop, physical GPU,
+input and display-density acceptance remain separate.
+
 ## Physical character jump Game view
 
 `manual/images/navigation-character-jumps-game.png` is actual Gallery226 Game
@@ -28,9 +59,9 @@ Native mouse input selects CharacterController2D and checks single Scene
 Undo/Redo. The NavMesh is intentionally unassigned; the image illustrates
 configuration, not a running game. Source:
 `tests/navigation_agent_editor_tests.cpp`. PNG SHA256
-`6d086a119de86a2b2093112c0c87d17b9fd361c12b34e66b509f2d49b3b13d1e`;
+`fab1cff1d8c6dc068d50c58a8e5b3591be0e634c883d033123a12acf029ddcbf`;
 executable SHA256
-`75fb48bb1ff2e4cd82148c5170d3c3062eaec884e91405281a6cdd5f780cca8c`.
+`212596174d430e0b187d747569a0dafbc689ebf9d55dc90debfb1f990cbfa308`.
 The reviewed image uses packaged font/native ImGui draw data and SDL software
 composition on Linux, without retouching. Physical Windows/GPU/input/DPI review
 remains separate.
@@ -44,8 +75,8 @@ uses native mouse events to select CharacterController, then verifies a single
 Scene Undo/Redo. Its NavMesh remains unassigned: the image illustrates selecting
 the owner before assigning a route, not a running Gallery or physical acceptance.
 Source: `tests/navigation_agent_editor_tests.cpp`. PNG SHA256
-`492f3375d9be365c44c763208df3da58c154af2a24e0a8b4c04ee3598252c2b8`.
-Executable SHA256 `75fb48bb1ff2e4cd82148c5170d3c3062eaec884e91405281a6cdd5f780cca8c`.
+`d6c00808cebebba14d2243987977ed04ef7be6ee77edff66db9495561820e251`.
+Executable SHA256 `212596174d430e0b187d747569a0dafbc689ebf9d55dc90debfb1f990cbfa308`.
 The reviewed image uses packaged font/native ImGui draw data and SDL software
 composition on Linux, without retouching. Windows desktop, physical GPU, input
 and DPI acceptance remain separate.

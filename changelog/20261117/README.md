@@ -1,5 +1,28 @@
 # 2026-11-17
 
+## Automatic 2D gravity and grounded navigation
+
+Character Controller 2D has an opt-in Automatic gravity factor. The zero default
+retains game-supplied gravity; positive values integrate vertical Project gravity
+through the existing native mover, retaining collision-clipped vertical motion
+when one-step steering ends. Manual velocity, stance, placement, recovery and
+shape replacement keep the same owners.
+
+Navigation Agent adds GroundedCharacterController2D for continuous static XY
+ground. Actual support and post-physics motion establish progress and arrival;
+unsupported bends, gaps and vertical goals cannot fabricate success. The shared
+reflection, Inspector, source history, automation/MCP and matching installed C++
+SDK use the same component and movement owners. Gallery227 supplies two ready
+lanes, physical floors and a blocker; the manual includes authentic controls and
+Game output. General XY jump/drop graphs and moving-platform route planning
+remain unavailable.
+
+The SDK workflow fixture samples actual runtime receipts between rendered frames
+while retaining its rise, landing, input-session and stage deadline assertions.
+Link refusal fixtures distinguish unsupported profiles from supported positive-lift
+3D links missing physics. The general installed SDK package sequence driver uses
+the same180-second bound as its focused installed counterpart.
+
 ## Physical character jump links
 
 The 3D CharacterController navigation profile can traverse positive-lift links

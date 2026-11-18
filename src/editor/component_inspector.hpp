@@ -637,7 +637,9 @@ class ComponentInspector {
                 ImGui::TextWrapped(
                     "Movement: Navigation writes the pose directly. Character Controller steers "
                     "an enabled World-space 3D controller with world +Y up. Character Controller "
-                    "2D steers a World-space Floating controller on XY. Physics writes the actual "
+                    "2D steers a World-space Floating controller on XY. Grounded Character "
+                    "Controller 2D steers static supported XY ground with positive automatic "
+                    "gravity. Physics writes the actual "
                     "pose. The 3D controller also jumps positive-lift links between static "
                     "supports; "
                     "Speed must cover the jump range. XY controllers support routes without links. "

@@ -75,6 +75,7 @@ struct Fixture {
 };
 #include "navigation_character_tests.hpp"
 #include "navigation_feedback_tests.hpp"
+#include "navigation_grounded_planar_character_tests.hpp"
 #include "navigation_live_tests.hpp"
 #include "navigation_obstacle_runtime_tests.hpp"
 #include "navigation_planar_character_tests.hpp"
@@ -105,7 +106,10 @@ int main(int argc, char** argv) {
         auto root = std::filesystem::path(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         if (argc == 4 && (std::string_view(argv[3]) == "--prepare-planar" ||
-                          std::string_view(argv[3]) == "--prepare-planar-character")) {
+                          std::string_view(argv[3]) == "--prepare-planar-character" ||
+                          std::string_view(argv[3]) == "--prepare-grounded-planar-character")) {
+            const bool grounded =
+                std::string_view(argv[3]) == "--prepare-grounded-planar-character";
             EngineContext engine;
             Scene prepared(engine.world());
             prepared.restore_snapshot(input());
@@ -117,7 +121,19 @@ int main(int argc, char** argv) {
             prepared.entity("obstacle").set<LocalTranslation>({0, 0, 19});
             NavigationRegion2D obstacle_region{true, true, 2, 4};
             obstacle_region.points = {{-1, -2}, {1, -2}, {1, 0}, {0, 0}, {0, 2}, {-1, 2}};
+            obstacle_region.enabled = !grounded;
             prepared.entity("obstacle").set<NavigationRegion2D>(obstacle_region);
+            if (grounded) {
+                const auto id =
+                    authoring_command(prepared, "entity.create", {{"name", "Physical ground"}})
+                        .at("selected")
+                        .get<std::string>();
+                const auto floor = prepared.entity(id);
+                floor.set<SpatialBinding>({SpatialMode::World, {}});
+                floor.set<LocalTranslation>({0, -.5, 91});
+                floor.set<PhysicsBody2D>({});
+                floor.set<BoxCollider2D>({20, 1});
+            }
             NavigationSettings settings;
             settings.plane = NavigationPlane::PlanarXY;
             const auto record = prepare_navigation(root, prepared.effective_document(), settings,
@@ -126,16 +142,21 @@ int main(int argc, char** argv) {
             prepared.entity("agent").set<LocalTranslation>({-8, .1, 37.125});
             prepared.entity("agent").set<NavigationAgent>(
                 {{record.id}, true, true, 2, .1f, 8, .1, -19});
-            if (std::string_view(argv[3]) == "--prepare-planar-character") {
+            if (std::string_view(argv[3]) == "--prepare-planar-character" || grounded) {
                 const auto actor = prepared.entity("agent");
                 actor.set<SpatialBinding>({SpatialMode::World, {}});
                 CharacterController2D controller;
-                controller.mode = 1;
+                controller.mode = grounded ? 0 : 1;
+                controller.gravity_factor = grounded ? 1 : 0;
                 controller.radius = .1f;
                 controller.height = .05f;
                 actor.set<CharacterController2D>(controller);
                 auto agent = actor.get<NavigationAgent>();
-                agent.movement = 2;
+                agent.movement = grounded ? 3 : 2;
+                if (grounded) {
+                    actor.set<LocalTranslation>({-8, 0, 37.125});
+                    agent.destination_y = 0;
+                }
                 actor.set<NavigationAgent>(agent);
             }
             std::ofstream(root / "scene.json") << prepared.snapshot().dump(2) << '\n';

@@ -468,6 +468,191 @@ void controller_shared_queue() {
     require(test.physics->character(spatial).ground == CharacterGround::InAir,
             "2D requests changed the separate3D controller meaning");
 }
+void automatic_controller_gravity() {
+    auto controller_source = [](Fixture& test, float factor) {
+        auto source = test.source();
+        auto& components = source["entities"][1]["components"];
+        components.erase("forge.physics_body_2d");
+        components.erase("forge.box_collider_2d");
+        components["forge.character_controller_2d"] = {{"gravity_factor", factor}};
+        components["forge.local_translation"]["y"] = 3;
+        return source;
+    };
+    Fixture test;
+    test.load(controller_source(test, 1));
+    const auto ref = test.scene.reference(test.actor);
+    const auto initial = test.physics->character_2d(ref);
+    for (unsigned i = 0; i < 4; ++i)
+        test.physics->synchronize(0);
+    require(test.physics->character_2d(ref).position == initial.position &&
+                test.physics->character_2d(ref).velocity == initial.velocity,
+            "Zero-time synchronization integrated automatic controller gravity");
+    test.tick(10);
+    auto falling = test.physics->character_2d(ref);
+    const double dt = 1.f / 60;
+    require(std::abs(falling.velocity[1] + 9.81 * dt * 10) < 1e-6 &&
+                std::abs(falling.position[1] - (3 - 9.81 * dt * dt * 55)) < 1e-6,
+            "Automatic controller gravity did not accumulate native vertical velocity");
+    test.physics->move_character_2d_once(ref, {2, falling.velocity[1]});
+    test.tick();
+    const auto steered = test.physics->character_2d(ref);
+    test.tick();
+    const auto expired = test.physics->character_2d(ref);
+    require(std::abs(steered.position[0] - falling.position[0] - 2 * dt) < 1e-6 &&
+                expired.position[0] == steered.position[0] &&
+                expired.position[1] < steered.position[1] &&
+                expired.velocity[1] < steered.velocity[1],
+            "One-step expiry retained steering or stopped automatic gravity");
+    auto controller = test.entity().get<CharacterController2D>();
+    controller.height = .8f;
+    test.entity().set<CharacterController2D>(controller);
+    test.physics->synchronize(0);
+    const auto recreated = test.physics->character_2d(ref);
+    require(recreated.epoch != expired.epoch && recreated.position == expired.position &&
+                recreated.velocity == expired.velocity,
+            "Capsule recreation lost accumulated automatic gravity motion");
+    test.tick(); // Replacement retirement is adopted by a completed native step.
+    const auto recoverable = test.physics->character_2d(ref);
+    Fixture recovered;
+    recovered.scene.restore_snapshot(test.scene.snapshot());
+    recovered.physics->restore(test.physics->checkpoint());
+    const auto restored = recovered.physics->character_2d(recovered.scene.reference(test.actor));
+    require(restored.position == recoverable.position && restored.velocity == recoverable.velocity,
+            "Private recovery lost automatic controller gravity motion");
+    test.tick();
+    recovered.tick();
+    require(recovered.physics->character_2d(recovered.scene.reference(test.actor)).position ==
+                test.physics->character_2d(ref).position,
+            "Recovered automatic gravity did not continue from the owned vertical state");
+    test.tick(150);
+    const auto landed = test.physics->character_2d(ref);
+    require(landed.ground == CharacterGround::OnGround && std::abs(landed.position[1]) < .02 &&
+                std::abs(landed.velocity[1]) < 1e-5,
+            "Automatic controller gravity failed to land or retained downward velocity");
+    test.physics->move_character_2d(ref, {0, 6});
+    test.tick(20);
+    require(test.physics->character_2d(ref).position[1] > landed.position[1] + 1 &&
+                test.physics->character_2d(ref).ground == CharacterGround::InAir,
+            "One manual upward request did not initiate an automatic-gravity jump");
+    test.tick(120);
+    require(test.physics->character_2d(ref).ground == CharacterGround::OnGround &&
+                test.entity().get<LocalTranslation>().z == 7 &&
+                test.entity().get<LocalScale>() == LocalScale{-1, 1, 0},
+            "Automatic gravity failed to reland or changed independent depth/scale");
+    test.physics->place_character_2d(ref, {0, 3}, true);
+    test.physics->synchronize(0);
+    require(test.physics->character_2d(ref).velocity == Double2{},
+            "Clear placement retained automatic gravity velocity");
+    test.tick();
+    require(test.physics->character_2d(ref).position[1] < 3,
+            "Clear placement disabled the authored automatic gravity mechanic");
+    Fixture ceiling;
+    auto ceiling_source = controller_source(ceiling, 1);
+    ceiling_source["entities"][1]["components"]["forge.local_translation"]["y"] = 0;
+    auto roof = row(EntityId::generate().str(), "Ceiling", 0, 2.1, 0);
+    roof["components"]["forge.box_collider_2d"] = {{"x", 20}, {"y", .2}};
+    ceiling_source["entities"].push_back(roof);
+    ceiling.load(ceiling_source);
+    const auto ceiling_ref = ceiling.scene.reference(ceiling.actor);
+    ceiling.physics->move_character_2d(ceiling_ref, {0, 6});
+    double highest = 0;
+    for (unsigned i = 0; i < 90; ++i) {
+        ceiling.tick();
+        highest = std::max(highest, ceiling.physics->character_2d(ceiling_ref).position[1]);
+    }
+    require(highest > .5 && highest < .82 &&
+                ceiling.physics->character_2d(ceiling_ref).ground == CharacterGround::OnGround,
+            "Automatic gravity retained ceiling-clipped upward intent or failed to reland");
+    for (bool armed : {false, true})
+        for (bool manual_first : {false, true}) {
+            Fixture priority;
+            priority.load(controller_source(priority, 1));
+            priority.tick();
+            const auto reference = priority.scene.reference(priority.actor);
+            const auto before = priority.physics->character_2d(reference);
+            if (armed) {
+                priority.physics->move_character_2d_once(reference, {4, before.velocity[1]});
+                priority.physics->synchronize(0);
+            }
+            if (manual_first)
+                priority.physics->move_character_2d(reference, {1, before.velocity[1]});
+            priority.physics->move_character_2d_once(reference, {4, before.velocity[1]});
+            if (!manual_first)
+                priority.physics->move_character_2d(reference, {1, before.velocity[1]});
+            priority.tick();
+            const auto after = priority.physics->character_2d(reference);
+            require(std::abs(after.position[0] - before.position[0] - dt) < 1e-6 &&
+                        std::abs(after.velocity[1] - before.velocity[1] + 9.81 * dt) < 1e-6,
+                    "Manual2D movement lost queue priority or automatic vertical momentum");
+        }
+    for (const float factor : {.5f, 2.f}) {
+        Fixture scaled;
+        scaled.load(controller_source(scaled, factor));
+        scaled.tick(10);
+        const auto actual = scaled.physics->character_2d(scaled.scene.reference(scaled.actor));
+        require(std::abs(actual.velocity[1] + 9.81 * factor * dt * 10) < 1e-6,
+                "Automatic controller gravity ignored its authored factor");
+    }
+    for (const bool stairs : {false, true}) {
+        Fixture ground;
+        auto input = controller_source(ground, 1);
+        input["entities"][1]["components"]["forge.character_controller_2d"].update(
+            {{"floor_stop_on_slope", true}, {"step_height", .25}});
+        if (stairs) {
+            auto step = row(EntityId::generate().str(), "Low static step", 1, .1, 0);
+            step["components"]["forge.box_collider_2d"] = {{"x", 1}, {"y", .2}};
+            input["entities"].push_back(step);
+        }
+        ground.load(input);
+        if (!stairs)
+            ground.scene.entity(ground.floor)
+                .set<LocalRotation>(rotation_about_axis({0, 0, 1}, 30));
+        ground.tick(120);
+        const auto reference = ground.scene.reference(ground.actor);
+        const auto before = ground.physics->character_2d(reference);
+        require(before.ground == CharacterGround::OnGround,
+                "Automatic gravity did not establish initial walkable support");
+        ground.physics->move_character_2d(reference, {2, before.velocity[1]});
+        double highest = before.position[1];
+        for (unsigned i = 0; i < 90; ++i) {
+            ground.tick();
+            highest = std::max(highest, ground.physics->character_2d(reference).position[1]);
+        }
+        const auto after = ground.physics->character_2d(reference);
+        require(after.position[0] > before.position[0] + 1.6 &&
+                    highest > before.position[1] + (stairs ? .15 : .3) &&
+                    after.ground == CharacterGround::OnGround,
+                "Automatic gravity lost static stair ascent or walkable slope support");
+    }
+    Fixture legacy;
+    legacy.load(controller_source(legacy, 0));
+    legacy.tick(30);
+    const auto old = legacy.physics->character_2d(legacy.scene.reference(legacy.actor));
+    require(old.position[1] == 3 && old.velocity == Double2{},
+            "Zero-default controllers acquired implicit gravity");
+    Fixture invalid;
+    PhysicsConfig settings;
+    settings.gravity = {1, -9.81, 0};
+    invalid.physics->configure(settings);
+    auto source = controller_source(invalid, 1);
+    auto spatial = row(EntityId::generate().str(), "Spatial body", 20, 5, 2);
+    spatial["components"].erase("forge.physics_body_2d");
+    spatial["components"].erase("forge.box_collider_2d");
+    spatial["components"]["forge.local_scale"] = {{"x", 1}, {"y", 1}, {"z", 1}};
+    spatial["components"]["forge.box_collider"] = {{"x", 1}, {"y", 1}, {"z", 1}};
+    source["entities"].push_back(spatial);
+    invalid.load(source);
+    PhysicsBody moving;
+    moving.motion = 2;
+    invalid.scene.entity(spatial.at("id").get<std::string>()).set<PhysicsBody>(moving);
+    invalid.physics->synchronize(0);
+    invalid.physics->adopt();
+    const auto before = invalid.physics->checkpoint();
+    rejects([&] { invalid.physics->step(1.f / 60); });
+    require(invalid.physics->checkpoint() == before,
+            "Unsupported automatic gravity advanced a partial mixed-domain step");
+    std::cout << "Opt-in2D gravity fall/land/jump/lifetime/recreation/recovery/preflight PASS\n";
+}
 void bounded_work_fault() {
     for (unsigned profile : {0u, 1u, 2u}) {
         Fixture test;
@@ -499,6 +684,7 @@ int main() {
         controller_service_motion_and_placement();
         controller_shared_queue();
         std::cout << "2D CharacterService motion/placement/status/sharedFIFO PASS\n";
+        automatic_controller_gravity();
         bounded_work_fault();
         std::cout << "2D fixed-phase bodies, domain separation, settings, writer admission and "
                      "work-fault checks passed\n";

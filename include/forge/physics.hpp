@@ -92,6 +92,7 @@ class PhysicsRuntime : public PhysicsService {
     void crouch_character(EntityRef, bool) override;
     void place_character(EntityRef, LocalTranslation, LocalRotation, bool) override;
     CharacterState2D character_2d(EntityRef) const override;
+    std::optional<CharacterState2D> find_character_2d(EntityRef) const override;
     void move_character_2d(EntityRef, Double2) override;
     void crouch_character_2d(EntityRef, bool) override;
     void place_character_2d(EntityRef, Double2, bool) override;

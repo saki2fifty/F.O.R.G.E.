@@ -252,7 +252,7 @@ void exercise(const std::filesystem::path& project, float scale) {
     require(!engine.services().available(Capability::Physics), "Inspector created a solver");
     ImGui::DestroyContext();
 }
-void capture_controls(const std::filesystem::path& output) {
+void capture_controls(const std::filesystem::path& output, bool character = false) {
     const auto root = output.parent_path() / ("sensor-controls-" + AssetId::generate().str());
     struct Cleanup {
         std::filesystem::path path;
@@ -261,7 +261,8 @@ void capture_controls(const std::filesystem::path& output) {
             std::filesystem::remove_all(path, error);
         }
     } cleanup{root};
-    SceneDocument::create_project(root, "Directional sensor controls");
+    SceneDocument::create_project(root, character ? "Automatic character gravity"
+                                                  : "Directional sensor controls");
     test::ImGuiSoftwareCapture capture(700, 1400);
     ui::style(1);
     ui::EditorUiContext context;
@@ -270,17 +271,33 @@ void capture_controls(const std::filesystem::path& output) {
     Scene scene(engine.world());
     SceneDocument project(scene);
     project.open_project(root, true);
-    const auto entity = authoring_command(scene, "entity.create", {{"name", "Directional sensor"}})
-                            .at("selected")
-                            .get<std::string>();
-    for (const auto* component : {"forge.physics_body_2d", "forge.box_collider_2d"})
-        authoring_command(scene, "component.add", {{"entity", entity}, {"component", component}});
-    authoring_command(scene, "property.set_many",
-                      {{"entity", entity},
-                       {"component", "forge.physics_body_2d"},
-                       {"values", {{"sensor", true}, {"one_way", true}}}});
+    const auto entity =
+        authoring_command(scene, "entity.create",
+                          {{"name", character ? "Grounded character" : "Directional sensor"}})
+            .at("selected")
+            .get<std::string>();
+    if (character) {
+        authoring_command(scene, "component.add",
+                          {{"entity", entity}, {"component", "forge.character_controller_2d"}});
+        scene.entity(entity).set<SpatialBinding>({SpatialMode::World, {}});
+        authoring_command(scene, "property.set",
+                          {{"entity", entity},
+                           {"component", "forge.character_controller_2d"},
+                           {"field", "gravity_factor"},
+                           {"value", 1}});
+    } else {
+        for (const auto* component : {"forge.physics_body_2d", "forge.box_collider_2d"})
+            authoring_command(scene, "component.add",
+                              {{"entity", entity}, {"component", component}});
+        authoring_command(scene, "property.set_many",
+                          {{"entity", entity},
+                           {"component", "forge.physics_body_2d"},
+                           {"values", {{"sensor", true}, {"one_way", true}}}});
+    }
     const auto before = scene.document();
     ComponentInspector inspector;
+    if (character)
+        inspector.fixture_focus_component = "forge.character_controller_2d";
     for (unsigned frame = 0; frame != 4; ++frame) {
         capture.new_frame();
         ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
@@ -297,8 +314,10 @@ void capture_controls(const std::filesystem::path& output) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 3 && std::string_view(argv[1]) == "--capture") {
-            capture_controls(std::filesystem::u8path(argv[2]));
+        if (argc == 3 && (std::string_view(argv[1]) == "--capture" ||
+                          std::string_view(argv[1]) == "--capture-gravity")) {
+            capture_controls(std::filesystem::u8path(argv[2]),
+                             std::string_view(argv[1]) == "--capture-gravity");
             return 0;
         }
         require(argc == 2, "Provide build-owned scratch");

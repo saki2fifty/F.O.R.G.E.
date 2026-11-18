@@ -119,6 +119,31 @@ const nlohmann::json level_snapshot() {
 int main() {
     using Workflow = forge::test::EditorSdkWorkflow;
     {
+        // A slow rendered frame can see ground before and after a brief flight.
+        // Receipt sampling must observe the real intermediate pose independently.
+        const std::array<double, 5> poses{0, .08, .3, 1, 0};
+        Uint64 now = 0;
+        std::size_t receipt = 0;
+        const bool rose = Workflow::poll_jump_rise(
+            0, 2000, [&]() -> std::optional<double> { return poses.at(receipt); },
+            [&] { ++receipt; }, [&] { return now; }, [&] { now += 5; });
+        require(rose && receipt == 2 && now == 10 && poses.front() == poses.back(),
+                "A flight between rendered frames was not sampled from runtime receipts");
+        now = 0;
+        unsigned pumps = 0;
+        require(!Workflow::poll_jump_rise(
+                    0, 400, []() -> std::optional<double> { return 0; }, [&] { ++pumps; },
+                    [&] { return now; }, [&] { now += 100; }) &&
+                    pumps == 4 && now == 400,
+                "A missing jump extended the receipt sampling deadline");
+        pumps = 0;
+        require(!Workflow::poll_jump_rise(
+                    0, 1000, []() -> std::optional<double> { return {}; }, [&] { ++pumps; },
+                    [] { return Uint64{0}; }, [] {}) &&
+                    pumps == 0,
+                "A changed or unavailable runtime session continued jump sampling");
+    }
+    {
         nlohmann::json input{{"actions", nlohmann::json::array({{{"id", reference::jump},
                                                                  {"held", true},
                                                                  {"presses", 7u},

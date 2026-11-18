@@ -100,10 +100,51 @@ Body 2D → Enabled**, then Play again. Speed **0**, Has destination and Enabled
 the same live controls and Keep review as other agents. Select Movement in Edit.
 Manual XY movement or placement takes precedence in the same physics step.
 
-Floating movement has no floor following or implicit gravity. Grounded platformer
-routing, jumps, moving-platform routes and explicit links are unavailable. Choose
+Floating navigation requires **Automatic gravity** `0` and has no floor following.
+Use the grounded profile below for supported static ground. XY jump/drop links
+and moving-platform routes are unavailable. Choose
 the Gallery Scene as startup, save it and export normally; no project C++ module
 is required.
+
+## Steer a grounded XY character
+
+![Two grounded XY lanes in the Game view, with a red physical wall on the upper lane](../images/navigation-grounded-characters-game.png)
+
+The two characters follow static ground toward their goal markers. The red physical
+wall obstructs the upper route.
+
+Open Gallery **227-navigation-grounded-xy** and press Play. The cyan character
+walks along the lower physical floor. The orange character walks along the upper
+floor and stops at the red wall. Both use native gravity and physical support.
+
+1. In Edit, draw a **Navigation Region 2D** corridor that includes the character's feet and build a **2D (XY)** NavMesh. Provide separate static **Physics Body 2D** objects with solid Collider 2D shapes for the actual ground. A baked region does not create collision; a solid floor's filled footprint does not describe the space above a platform.
+2. Give the character **Character Controller 2D → Mode → Grounded**, set **Automatic gravity** to `1`, and use **World** spatial binding with upright, uniformly scaled XY mechanics. Project gravity must have X `0` and negative Y. Do not add another enabled body or controller to the same object.
+3. Add **Navigation Agent**, choose **Movement → GroundedCharacterController2D**, assign the saved NavMesh, and set a supported ground destination in X/Y. Leave room for the capsule and any authored stair rise. Visual Z stays independent.
+4. Play and inspect **Navigation progress** and **Character movement**. Speed, blockage, arrival and support follow the actual physics result. Stop, disable the red wall's **Physics Body 2D → Enabled**, and Play again to let the orange character continue.
+5. Save the Scene and choose it as startup before exporting. The Gallery includes its Camera and ready NavMesh and requires no project C++ module.
+
+![Navigation Agent Inspector with grounded XY movement selected](../images/navigation-grounded-character-inspector.png)
+
+Choose the grounded movement profile and enable automatic gravity on its controller.
+
+![Character Controller 2D with Automatic gravity enabled](../images/physics-2d-gravity-inspector.png)
+
+Automatic gravity `1` uses vertical Project gravity; `0` leaves gravity to C++.
+
+This profile follows continuous supported static ground. Unsupported route bends
+or destinations are refused; gaps hold steering. Larger ledges can block the
+controller. **Step Height** and **Floor Probe** retain their ordinary physical
+limits. It does not plan jump/drop links or moving-platform routes. Use the
+Floating profile for free XY movement.
+
+Speed `0`, clearing **Has destination**, or disabling the Agent stops steering;
+automatic gravity continues. Use game Pause to freeze simulation. Choose Movement
+in Edit. Disable navigation before handing movement to C++ code; explicit manual
+movement or placement wins at that physics boundary. Read about
+[automatic gravity](physics-2d.md) before combining it
+with your own controller code. Stopping distance has a `0.01` metre minimum.
+Corner progress allows the controller's native contact band; arrival still uses
+the actual remaining route and the chosen stopping distance.
 
 ## Build a 3D floor and obstacles
 
@@ -605,7 +646,8 @@ Keep the agent's effective spatial parents stationary and free of enabled
 character controllers. The default **Movement → Navigation** refuses an enabled
 controller on the object. Use **Movement → CharacterController** for the supported
 upright, World-bound 3D ground profile, or **CharacterController2D** for a World-bound
-Floating XY controller. If project C++ owns the
+Floating XY controller, or **GroundedCharacterController2D** for a Grounded XY
+controller with positive automatic gravity and static physical support. If project C++ owns the
 character's movement, disable its Navigation Agent and use read-only Navigation
 queries to obtain routes.
 
@@ -684,4 +726,4 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 - **Physics ownership error:** remove the agent's Physics Body and any moving physics spatial ancestor, or use an independent World spatial binding.
 - **Build/query limit:** reduce the included area or geometry, or increase cell size. A single build supports at most 512 × 512 cells.
 
-Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts for ordinary agents. Physical characters support upright 3D ground routes and positive-lift jumps between static supports, or Floating XY routes without links. Grounded XY platformer routes, moving-platform routes and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
+Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts for ordinary agents. Physical characters support upright 3D ground routes and positive-lift jumps between static supports, or Floating XY routes without links. Grounded XY movement supports continuous static physical ground with automatic gravity. General XY platformer jump/drop route planning, moving-platform routes and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.

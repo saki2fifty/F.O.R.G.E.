@@ -8,6 +8,7 @@ void planar_runtime_tests(const std::filesystem::path& root, Scene& authored, As
     authored.entity("floor").set<NavigationSurface>({true});
     const auto snapshot = authored.snapshot();
     navigation_planar_character_tests(root, snapshot);
+    navigation_grounded_planar_character_tests(root, snapshot);
     {
         Fixture refused(root);
         refused.scene.restore_snapshot(snapshot);

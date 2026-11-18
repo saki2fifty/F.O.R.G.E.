@@ -12952,6 +12952,16 @@
       "type": "prefab"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "906431dc-89f5-4f4b-af0d-a9d7e1d6193e",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/227-navigation-grounded-xy.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "d2d84a7d-bbec-44ce-84ca-5a3d920b4467",
         "254c884d-808d-401c-ab66-b31fc0fc24c8"
@@ -17421,6 +17431,65 @@
       "source": "Assets/Tiles/ContourTiles.tileset.json",
       "source_dependencies": [],
       "type": "tile_set"
+    },
+    {
+      "dependencies": [
+        "906431dc-89f5-4f4b-af0d-a9d7e1d6193e"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "e5b9b835b5c9b8b6043297dc0a5f77751bb0e840babfdf82b80e048f6655c880",
+          "role": "navigation.scene",
+          "target": "906431dc-89f5-4f4b-af0d-a9d7e1d6193e",
+          "type": "scene"
+        }
+      ],
+      "id": "ce272586-0b4f-40b0-a0be-749c62e7402a",
+      "metadata": {
+        "asset_id": "ce272586-0b4f-40b0-a0be-749c62e7402a",
+        "bounds": {
+          "cell_inverse": 5.0,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "maximum": [
+            10.0,
+            4.099999904632568,
+            6.0
+          ],
+          "minimum": [
+            -10.0,
+            -0.20000000298023224,
+            -6.0
+          ],
+          "radius": 0.4000000059604645
+        },
+        "geometry_sha256": "e5b9b835b5c9b8b6043297dc0a5f77751bb0e840babfdf82b80e048f6655c880",
+        "geometry_version": 3,
+        "layout": "le-polyref32-detour7-static-single-v1",
+        "mesh_inputs": [],
+        "recast_revision": "6dc1667f580357e8a2154c28b7867bea7e8ad3a7",
+        "settings": {
+          "cell_height": 0.10000000149011612,
+          "cell_size": 0.20000000298023224,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "plane": 1,
+          "radius": 0.4000000059604645,
+          "slope": 45.0
+        },
+        "sha256": "fb59cf23610af56278e3fd928087dc258a483ca0f7c88be7f33aaae74d4974e7",
+        "source_scene": "906431dc-89f5-4f4b-af0d-a9d7e1d6193e",
+        "sources": [
+          "63497aa0-ae2d-4873-a139-d8db1ec0ccd4"
+        ],
+        "tile_sha256": "2df80ea75ebb233ccd9a742ef0075df2f2ab43b208ec98a2960d54e1062b3146",
+        "version": 3
+      },
+      "schema_version": 3,
+      "source": "Assets/Navigation/Generated/ce272586-0b4f-40b0-a0be-749c62e7402a/742937e3-dc80-4610-b47e-90646da0b880.fnav",
+      "source_dependencies": [],
+      "type": "navmesh"
     },
     {
       "dependencies": [

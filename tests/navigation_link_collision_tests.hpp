@@ -49,7 +49,7 @@ void collision_budget_continuation(const Json& snapshot, const std::filesystem::
 
 // Existing published-link pipeline supplies the asset, source IDs and route.
 void collision_movement(const Json& snapshot, const std::filesystem::path& root, EntityId actor_id,
-                        NavigationPlane plane) {
+                        NavigationPlane plane, float arc_height) {
     EngineContext authored;
     Scene source(authored.world());
     source.restore_snapshot(snapshot);
@@ -94,11 +94,13 @@ void collision_movement(const Json& snapshot, const std::filesystem::path& root,
         const auto navigation =
             std::static_pointer_cast<NavigationRuntime>(refused.services().navigation());
         const auto feedback = navigation->debug(actor.id());
-        check(feedback.at("phase") == "Failed" &&
-                  feedback.at("diagnostic").get<std::string>().find("explicit links") !=
-                      std::string::npos &&
+        const auto expected = plane == NavigationPlane::Spatial3D && arc_height > 0
+                                  ? "Character jump requires the physics service"
+                                  : "Character links require 3D movement and positive lift";
+        check(feedback.at("phase") == "Failed" && feedback.at("diagnostic") == expected &&
                   actor.get<LocalTranslation>() == before,
-              "Character navigation bypassed an unsupported explicit link");
+              "Character link admission failed to preserve its required boundary: " +
+                  feedback.dump());
     }
     EngineContext engine(WorldRole::Runtime, false, {navigation_module(root), physics_module()});
     Scene scene(engine.world());

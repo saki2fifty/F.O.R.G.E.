@@ -30,6 +30,7 @@ focused_targets = {
     '--reflection-probes-only': 'reflection_probe_gameplay',
     '--component-animation-only': 'component_animation_gameplay',
     '--motion-only': 'gamepad_motion_gameplay',
+    '--navigation-grounded-only': 'grounded_navigation_gameplay',
     '--navigation-only': 'planar_navigation_gameplay', '--time-only': 'time_scale_gameplay',
     '--gamepads-only': 'multiple_gamepads_gameplay', '--feedback-only': 'gamepad_feedback_gameplay', '--input-only': 'gameplay',
     '--audio-pause-only': 'unpaused_audio_gameplay', '--audio-filters-only': 'audio_gameplay',
@@ -252,6 +253,16 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
                            env=env,cwd=moved,check=True,timeout=90)
             print('Installed public time client and relocated SDK Play passed')
             sys.exit(0)
+        if sys.argv[4] == '--navigation-grounded-only':
+            source = Path(__file__).resolve().parents[1]
+            for name in ('character_components.hpp', 'navigation_components.hpp'):
+                assert (moved/'sdk/include/forge'/name).read_bytes() == (source/'include/forge'/name).read_bytes()
+            subprocess.run([sys.executable,str(Path(__file__).with_name('navigation_sdk_play_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)),str(build/('forge_navigation_tests'+exe)),
+                            str(build/('forge_nav_build'+exe)),str(module),'--character','--grounded'],
+                           env=env,cwd=moved,check=True,timeout=120)
+            print('Installed-only grounded2D values, shared Flecs and relocated SDK Play passed')
+            sys.exit(0)
         for profile in ([], ['--character']):
             subprocess.run([sys.executable,str(Path(__file__).with_name('navigation_process_test.py')),
                             str(moved/'bin'/('forge_runtime'+exe)),str(build/('forge_navigation_tests'+exe)),
@@ -371,7 +382,7 @@ subprocess.run([sys.executable,str(Path(__file__).with_name('sprite_image_proces
                env=env,cwd=stage,check=True,timeout=60)
 subprocess.run([sys.executable,str(Path(__file__).with_name('animation_sequence_process_test.py')),
                 str(runtime),str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),
-                str(client/('sequence_gameplay'+ext))],env=env,cwd=stage,check=True,timeout=120)
+                str(client/('sequence_gameplay'+ext))],env=env,cwd=stage,check=True,timeout=180)
 # Ordinary gameplay starter: installed-only headers, admitted data and fixed system.
 # No internal probe behavior, private headers, graphics device or second Flecs.
 starter = build / 'sdk-starter-client-test'

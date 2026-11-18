@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
 namespace forge {
+// Native XY support observations admit this world-space contact band.
+inline constexpr double character_contact_band_2d = .01;
 // Authored mechanics only. No input bindings, camera, velocity or contact cache.
 struct CharacterController {
     bool enabled = true;
@@ -14,7 +16,8 @@ struct CharacterController {
     bool operator==(const CharacterController&) const = default;
 };
 // XY capsule mechanics. The local origin is at the feet. Game C++ supplies
-// world-space velocity, gravity and jump policy through CharacterService.
+// world-space velocity and jump policy through CharacterService. Automatic
+// vertical gravity is opt-in; zero retains game-supplied gravity.
 struct CharacterController2D {
     bool enabled = true;
     std::uint32_t mode = 0;           // Grounded, Floating.
@@ -27,6 +30,7 @@ struct CharacterController2D {
     bool floor_stop_on_slope = false; // Stop downward-only intent on walkable floors.
     bool slide_on_ceiling = true;     // Otherwise stop the upward request at a ceiling.
     float step_height = 0;            // Optional Grounded rise in world metres;0 disables.
+    float gravity_factor = 0;         // Automatic Project Y gravity;0 retains explicit velocity.
     bool operator==(const CharacterController2D&) const = default;
 };
 } // namespace forge

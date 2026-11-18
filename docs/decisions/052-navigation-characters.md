@@ -4,7 +4,9 @@ Status: accepted.
 
 The positive-lift 3D link extension is defined by
 [ADR053](053-navigation-character-jumps.md). The ground and Floating XY ownership
-and default profiles below remain in force.
+and default profiles below remain in force. [ADR054](054-grounded-planar-navigation.md)
+adds a distinct grounded XY selection and opt-in native2D gravity; existing
+zero-default game-supplied gravity and movement2 remain unchanged.
 
 ## Ownership and explicit selection
 

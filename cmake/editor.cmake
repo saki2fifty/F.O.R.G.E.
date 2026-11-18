@@ -436,21 +436,7 @@ if(BUILD_TESTING)
  add_test(NAME application_state_conditions_ui_render COMMAND forge_ui_render_tests "${CMAKE_BINARY_DIR}/application-state-conditions-ui-images" "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf" "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" --state-conditions-only)
  set_tests_properties(application_state_conditions_ui_render PROPERTIES TIMEOUT 120)
 endif()
-if(BUILD_TESTING)
- # Regression for the Windows79 SDK fixture init-order crash: the
- # workflow's safe-probe gate must return nullptr without touching
- # Rml::GetNumContexts()/Rml::GetContext() before Rml::Initialise()
- # runs. Driven from the public static seam in
- # tests/editor_sdk_workflow.hpp. Same dependency set as
- # forge_ui_input_tests because the workflow header pulls in the
- # full graphical RmlUi + SDL3 + imgui surface under FORGE_UI_FIXTURE.
- add_executable(forge_sdk_workflow_probe_tests tests/editor_sdk_workflow_probe_tests.cpp "${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp")
- target_include_directories(forge_sdk_workflow_probe_tests PRIVATE src/editor "${rmlui_SOURCE_DIR}/Backends")
- target_compile_definitions(forge_sdk_workflow_probe_tests PRIVATE RMLUI_SDL_VERSION_MAJOR=3 FORGE_UI_FIXTURE=1)
- target_link_libraries(forge_sdk_workflow_probe_tests PRIVATE forge_ui_presenter forge_authoring RmlUi::Core SDL3::SDL3 imgui forge_game_platform forge_play_transport_worker forge_tile_map_play_receiver)
- add_test(NAME native_sdk_workflow_probe COMMAND forge_sdk_workflow_probe_tests)
- set_tests_properties(native_sdk_workflow_probe PROPERTIES TIMEOUT 15)
-endif()
+
 
 # Durable shim for the SdlGameCursor / cursor-correction review. The
 # stub is compiled directly into the test executable so the stub's

@@ -28,6 +28,22 @@ for actor in characters:
 assert len(navs) == 1 and None not in navs
 assert not any('forge.navigation_link' in e['components'] for e in character_scene['entities'])
 assert sum('forge.navigation_surface' in e['components'] for e in character_scene['entities']) == 1
+grounded_path = 'Scenes/227-navigation-grounded-xy.scene.json'
+grounded_scene = json.loads((project_root / grounded_path).read_text())
+assert grounded_scene['asset_id'] == by_source[grounded_path]['id'] == '906431dc-89f5-4f4b-af0d-a9d7e1d6193e'
+grounded_actors = [e for e in grounded_scene['entities'] if 'forge.navigation_agent' in e['components']]
+assert len(grounded_actors) == 2
+for actor in grounded_actors:
+    components = actor['components']
+    assert actor['spatial']['mode'] == 'world'
+    assert components['forge.navigation_agent']['movement'] == 3
+    controller = components['forge.character_controller_2d']
+    assert controller['enabled'] and controller['mode'] == 0 and controller['gravity_factor'] == 1
+    assert not {'forge.physics_body', 'forge.physics_body_2d'} & components.keys()
+grounded_navs = {e['components']['forge.navigation_agent']['navmesh'] for e in grounded_actors}
+assert grounded_navs == {'ce272586-0b4f-40b0-a0be-749c62e7402a'}
+assert not any('forge.navigation_link' in e['components'] for e in grounded_scene['entities'])
+assert any('forge.physics_body_2d' in e['components'] for e in grounded_scene['entities'])
 jump_path = 'Scenes/226-navigation-character-jumps.scene.json'
 jump_scene = json.loads((project_root / jump_path).read_text())
 assert jump_scene['asset_id'] == by_source[jump_path]['id'] == '155c0aba-3984-46eb-9625-1a353b9237a4'
@@ -1016,6 +1032,8 @@ def same_authored_value(actual, expected, location='$'):
     if isinstance(expected, dict):
         if location.endswith('.components.forge.navigation_link'):
             expected = dict(arc_height=0.) | expected
+        if location.endswith('.components.forge.character_controller_2d'):
+            expected = dict(gravity_factor=0.) | expected
         if location.endswith('.components.forge.sound_cue'):
             expected = dict(repeat_interval_seconds=0., repeat_on_start=False,
                             repeat_pause_with_game=True, repeat_mode=0, repeat_event_limit=0) | expected

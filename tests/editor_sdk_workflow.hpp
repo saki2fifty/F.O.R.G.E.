@@ -53,6 +53,7 @@
 #include <forge/scene.hpp>
 #include <functional>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -98,6 +99,8 @@ class EditorSdkWorkflow {
     bool pending_j_release_ = false;
     std::uint64_t j_press_baseline_ = 0;
     std::string j_press_session_;
+    std::uint64_t last_jump_sample_version_ = 0;
+    Json jump_samples_ = Json::array();
     bool failed_ = false;
     bool done_ = false;
     bool captured_failure_ = false;
@@ -243,6 +246,7 @@ class EditorSdkWorkflow {
         const auto* action = jump_action(play.input_status());
         j_press_baseline_ = action ? action->value("presses", std::uint64_t{}) : 0;
         j_press_session_ = play.session();
+        last_jump_sample_version_ = 0;
         key_down(window, SDL_SCANCODE_J, SDLK_J);
         pending_j_release_ = true;
     }
@@ -394,6 +398,63 @@ class EditorSdkWorkflow {
             return {t.value("x", 0.0), t.value("y", 0.0), t.value("z", 0.0)};
         }
         return {0, 0, 0};
+    }
+
+  public:
+    static bool poll_jump_rise(double baseline, Uint64 deadline,
+                               const std::function<std::optional<double>()>& sample,
+                               const std::function<void()>& pump,
+                               const std::function<Uint64()>& clock,
+                               const std::function<void()>& idle) {
+        while (clock() < deadline) {
+            const auto y = sample();
+            if (!y)
+                return false;
+            if (*y > baseline + .15)
+                return true;
+            pump();
+            idle();
+        }
+        return false;
+    }
+
+  private:
+    void sample_jump_rise(PlaySession& play) {
+        if ((stage_ != 12 && stage_ != 17 && stage_ != 22) || jump_baseline_recorded_)
+            return;
+        // SDL Down was routed at the start of this editor frame. Observe the
+        // separate runtime before another software-rendered frame can outlast
+        // the flight. Keep the same actual-rise/landing assertions and input;
+        // this loop neither advances time nor retries a jump.
+        const auto deadline = std::min(
+            SDL_GetTicks() + Uint64{2000},
+            std::min(stage_started_ + stage_deadline_budget(stage_loading_observed_, false),
+                     started_ + kOverallBudgetMs));
+        poll_jump_rise(
+            jump_baseline_y_, deadline,
+            [&]() -> std::optional<double> {
+                if (!play.active() || play.session() != j_press_session_)
+                    return {};
+                const auto version = play.snapshot_version();
+                const auto y = player_position(play)[1];
+                if (version != last_jump_sample_version_) {
+                    last_jump_sample_version_ = version;
+                    if (jump_samples_.size() == 64)
+                        jump_samples_.erase(jump_samples_.begin());
+                    const auto* action = jump_action(play.input_status());
+                    jump_samples_.push_back(
+                        {{"stage", stage_},
+                         {"session", play.session()},
+                         {"version", version},
+                         {"tick", play.timing().value("tick", std::uint64_t{})},
+                         {"y", y},
+                         {"presses", action ? action->value("presses", std::uint64_t{}) : 0},
+                         {"held", action && action->value("held", false)}});
+                    trace_["jump_samples"] = jump_samples_;
+                }
+                return y;
+            },
+            [&] { play.pump(); }, [] { return SDL_GetTicks(); }, [] { SDL_Delay(1); });
     }
     static std::string scene_asset(PlaySession& play) {
         return scene_asset_from_snapshot(play.effective_snapshot());
@@ -606,6 +667,7 @@ class EditorSdkWorkflow {
                     {"pending_j_release", pending_j_release_},
                     {"j_press_baseline", j_press_baseline_},
                     {"j_press_session", j_press_session_},
+                    {"jump_samples", jump_samples_},
                     {"timing", play.timing()},
                     {"input", play.input_status()},
                     {"input_routing", game_input_captured()},
@@ -749,6 +811,7 @@ class EditorSdkWorkflow {
                                     j_press_baseline_))
                 release_pending_j(window);
         }
+        sample_jump_rise(play);
         // Pump staged toolbar click first so its second-frame up is observed.
         pump_toolbar_click(window);
         // Same for the outside-surrender split-click: DOWN is sent

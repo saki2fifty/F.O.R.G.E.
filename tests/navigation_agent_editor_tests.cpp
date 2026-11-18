@@ -509,16 +509,17 @@ void capture_collision(const std::filesystem::path& image, unsigned movement = 0
                            .at("selected")
                            .get<std::string>();
     for (const auto* type :
-         {"forge.navigation_agent", movement == 2 ? "forge.character_controller_2d"
+         {"forge.navigation_agent", movement >= 2 ? "forge.character_controller_2d"
                                     : character   ? "forge.character_controller"
                                                   : "forge.navigation_link_collision"})
         authoring_command(scene, "component.add", {{"entity", actor}, {"component", type}});
-    if (movement == 2)
-        authoring_command(scene, "property.set",
-                          {{"entity", actor},
-                           {"component", "forge.character_controller_2d"},
-                           {"field", "mode"},
-                           {"value", 1}});
+    if (movement >= 2)
+        authoring_command(
+            scene, "property.set_many",
+            {{"entity", actor},
+             {"component", "forge.character_controller_2d"},
+             {"values",
+              {{"mode", movement == 2 ? 1 : 0}, {"gravity_factor", movement == 3 ? 1 : 0}}}});
     const int height = character ? 720 : 460;
     test::ImGuiSoftwareCapture capture(780, height);
     ui::style(1);
@@ -574,11 +575,13 @@ int main(int argc, char** argv) {
     try {
         if (argc == 3 && (std::string_view(argv[1]) == "--capture-collision" ||
                           std::string_view(argv[1]) == "--capture-character" ||
-                          std::string_view(argv[1]) == "--capture-planar-character")) {
+                          std::string_view(argv[1]) == "--capture-planar-character" ||
+                          std::string_view(argv[1]) == "--capture-grounded-character")) {
             capture_collision(std::filesystem::absolute(argv[2]),
-                              std::string_view(argv[1]) == "--capture-planar-character" ? 2
-                              : std::string_view(argv[1]) == "--capture-character"      ? 1
-                                                                                        : 0);
+                              std::string_view(argv[1]) == "--capture-grounded-character" ? 3
+                              : std::string_view(argv[1]) == "--capture-planar-character" ? 2
+                              : std::string_view(argv[1]) == "--capture-character"        ? 1
+                                                                                          : 0);
             return 0;
         }
         check(argc == 1, "Unexpected navigation controls fixture arguments");

@@ -1,4 +1,5 @@
 #include <flecs.h>
+#include <forge/character_components.hpp>
 #include <forge/native_sdk.h>
 #include <forge/native_sdk_identity.h>
 #include <forge/navigation_components.hpp>
@@ -17,7 +18,23 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* h, char*, uint32_t) {
     auto expected_agent = agent_probe.get<forge::NavigationAgent>();
     if (expected_agent.movement != 0)
         return 0;
-#ifdef FORGE_NAVIGATION_PLANAR
+#ifdef FORGE_NAVIGATION_GROUNDED
+    expected_agent.movement = 3;
+    const auto character =
+        w.component<forge::CharacterController2D>("forge.character_controller_2d");
+    if (!character.lookup("gravity_factor"))
+        return 0;
+    auto gravity_probe = w.entity().add(flecs::Prefab).set<forge::CharacterController2D>({});
+    if (gravity_probe.get<forge::CharacterController2D>().gravity_factor != 0)
+        return 0;
+    auto settings = gravity_probe.get<forge::CharacterController2D>();
+    settings.gravity_factor = 1;
+    gravity_probe.set<forge::CharacterController2D>(settings);
+    const bool gravity_matches = gravity_probe.get<forge::CharacterController2D>() == settings;
+    gravity_probe.destruct();
+    if (!gravity_matches)
+        return 0;
+#elif defined(FORGE_NAVIGATION_PLANAR)
     expected_agent.movement = 2;
 #else
     expected_agent.movement = 1;
@@ -225,9 +242,14 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char*, uint32_t) {
             end[2] = -19;
 #endif
             ForgeSdkNavResultV1 out{sizeof(out), 0, 0, 64, points};
+#ifdef FORGE_NAVIGATION_GROUNDED
+            constexpr unsigned required_points = 2;
+#else
+            constexpr unsigned required_points = 3;
+#endif
             bool ok = (h->capabilities & FORGE_SDK_NAVIGATION) &&
                       h->navigation_query(h->context, id.c_str(), 1, start, end, &out) &&
-                      out.status == 0 && out.count > 2;
+                      out.status == 0 && out.count >= required_points;
 #ifdef FORGE_NAVIGATION_PLANAR
             for (unsigned i = 0; i < out.count && i < 64; ++i)
                 ok = ok && points[i * 3 + 2] == 37.125;
