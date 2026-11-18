@@ -16,6 +16,11 @@ bounded take is additional to the PNG/PCM movie budgets. Actions become neutral
 after exhaustion. This preserves input samples, not arbitrary game-state
 determinism. See [input recording](input-recording.md).
 
+Movies accept single-Scene input takes only. A version-2 session take fails in
+`GameRecordingTask::start` before output-folder creation or runtime launch; the
+offline SDK host independently rejects its admission. Interactive multi-Scene
+input recording does not imply multi-Scene audiovisual movie capture.
+
 See the [user workflow](../manual/editor/game-recording.md). Silent Timeline
 movies retain their [separate source semantics](sequence-movie-export.md).
 

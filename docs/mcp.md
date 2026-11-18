@@ -1072,11 +1072,18 @@ Start accepts `paused: true` to admit input recording before tick one.
 begin, finish, read or replay fixed gameplay snapshots. Replay loads a saved
 `Recordings/<name>.json` path and checks the fresh runtime's source, input map and
 Hz. Observe `input_recording`, `input_recording_pending`, `input_recording_ready`
-and `input_recording_error` through status. Finish then Read before
+and `input_recording_error` through status. Begin accepts optional
+`capture_scope: "scene"|"session"`; the default is `scene`. `session` requires
+`input_recording_session_available: true` from interactive SDK Play. Replay
+selects its saved profile. Session status includes segment/total, next Scene,
+consumed ticks and `waiting_for_scene`; Finish cancels a waiting replay without
+altering authored history. Scope applies only to Begin. Unsupported ordinary or
+movie hosts reject the session profile before changing input. Finish then Read before
 `forge_play_input_recording_save`; Save also requires the asset-write grant and
 explicit `replace: true` for existing files. The contained file owner creates
-the Recordings folder and never changes Scene history. UI/text, Scene transitions
-and arbitrary game-state determinism are outside this profile. See
+the Recordings folder and never changes Scene history. Game code must request
+the recorded Scene visits; source/identity checks guard activation. UI/text,
+control-phase actions and arbitrary game-state determinism are outside these profiles. See
 [input recording](input-recording.md).
 
 `forge_play_status` returns an owner-generated `launch` UUID, wire `session` and

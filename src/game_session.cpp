@@ -3,6 +3,7 @@
 #include <forge/audio.hpp>
 #include <forge/game_session.hpp>
 #include <limits>
+#include <type_traits>
 namespace forge {
 namespace {
 struct Mutation {
@@ -37,7 +38,10 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
                                    const Json& module_state) {
     owner();
     Mutation guard(changing_);
-    if (active_ && active_->simulation.input().input_recording_status().at("mode") != "idle")
+    if (active_ &&
+        active_->simulation.input().input_recording_status().at("mode").get<std::string>() !=
+            "idle" &&
+        (!active_->simulation.input().session_input_recording() || !config_.recording_source))
         throw std::runtime_error("Restart Play before changing an input-recording Scene");
     if (generation_ == std::numeric_limits<std::uint64_t>::max())
         throw std::runtime_error("game.session: Transition generation exhausted");
@@ -93,8 +97,7 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
                                               : "structural",
                      0, 0};
         error_.clear();
-        loading_.state = progress_.ready ? "ready" : "loading";
-        loading_.stage = progress_.stage;
+        publish_preparation_progress();
         loading_.can_cancel = true;
         return ticket;
     } catch (const std::exception& e) {
@@ -104,6 +107,14 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         loading_.error = error_.substr(0, 1024);
         throw;
     }
+}
+void GameSession::publish_preparation_progress() {
+    if (progress_.ready && active_ && active_->simulation.input().input_recording_delays_scene())
+        progress_ = {false, "recorded input", 0, 1};
+    loading_.state = progress_.ready ? "ready" : "loading";
+    loading_.stage = progress_.stage;
+    loading_.completed = progress_.completed;
+    loading_.total = progress_.total;
 }
 void GameSession::discard_candidate() {
     candidate_preparation_.reset();
@@ -131,6 +142,11 @@ GamePreparationProgress GameSession::poll_candidate() {
         }
         if (candidate_initialized_ && !candidate_->prepare_audio_sources())
             progress_ = {false, "audio", 0, 1};
+        else if (candidate_initialized_ && candidate_preparation_ && active_ &&
+                 active_->simulation.input().input_recording_delays_scene())
+            // Host preparation can publish an editor candidate before it is
+            // acknowledged. Keep that publication behind the replay boundary.
+            progress_ = {false, "recorded input", 0, 1};
         else if (candidate_initialized_ && candidate_preparation_) {
             auto next = candidate_preparation_->poll(*candidate_);
             if (next.completed > next.total || next.stage.empty() || next.stage.size() > 256)
@@ -138,10 +154,7 @@ GamePreparationProgress GameSession::poll_candidate() {
             progress_ = std::move(next);
         } else if (candidate_initialized_)
             progress_ = {true, "structural", 0, 0};
-        loading_.state = progress_.ready ? "ready" : "loading";
-        loading_.stage = progress_.stage;
-        loading_.completed = progress_.completed;
-        loading_.total = progress_.total;
+        publish_preparation_progress();
         return progress_;
     } catch (const std::exception& e) {
         error_ = e.what();
@@ -172,7 +185,10 @@ void GameSession::activate(std::uint64_t ticket, RuntimeClock::Time now, bool ru
     owner();
     if (!candidate_ || ticket != pending_)
         throw std::runtime_error("game.session: Stale or missing prepared scene");
-    if (active_ && active_->simulation.input().input_recording_status().at("mode") != "idle")
+    if (active_ &&
+        active_->simulation.input().input_recording_status().at("mode").get<std::string>() !=
+            "idle" &&
+        (!active_->simulation.input().session_input_recording() || !config_.recording_source))
         throw std::runtime_error("Restart Play before activating an input-recording Scene");
     Mutation guard(changing_);
     if (!poll_candidate().ready)
@@ -180,6 +196,28 @@ void GameSession::activate(std::uint64_t ticket, RuntimeClock::Time now, bool ru
     // Finish potentially failing preparation before pausing or replacing active.
     candidate_->simulation.restore_input_tick(0);
     candidate_->simulation.reset_presentation();
+    if (active_ && active_->simulation.input().session_input_recording()) {
+        const auto& input = active_->simulation.input();
+        const auto mode = input.input_recording_status().at("mode").get<std::string>();
+        const auto source = mode == "recording" || mode == "replaying"
+                                ? config_.recording_source(candidate_->scene)
+                                : std::string{};
+        static_assert(std::is_nothrow_move_assignable_v<RuntimeInput>);
+        auto fresh_input = candidate_->simulation.input();
+        try {
+            candidate_->simulation.input().inherit_session_input_recording(
+                input, source, config_.clock.simulation_hz, candidate_->scene.asset_id());
+            // Response admission must see the actual recording status, rather
+            // than the idle input used during initial resource preparation.
+            if (!poll_candidate().ready)
+                throw std::runtime_error("game.session: Recorded Scene resources are not ready");
+        } catch (...) {
+            // Preparation failure may already have discarded the candidate.
+            if (candidate_)
+                candidate_->simulation.input() = std::move(fresh_input);
+            throw;
+        }
+    }
     const auto controls = config_.controls ? candidate_->engine.world().services().game() : nullptr;
     if (active_)
         active_->simulation.suspend_audio();
@@ -287,17 +325,22 @@ void GameSession::sample_time(RuntimeClock::Time now) {
 }
 void GameSession::step() {
     require_active();
+    if (active_->simulation.input().input_recording_waits_for_scene())
+        throw std::runtime_error("Input replay is waiting for the recorded Scene");
     Mutation guard(changing_);
     clock_.step([&](float dt) { tick(dt); });
 }
 void GameSession::advance(RuntimeClock::Time now, const std::function<void()>& between_ticks) {
     require_active();
     Mutation guard(changing_);
-    clock_.advance(now, [&](float dt) {
-        tick(dt);
-        if (between_ticks)
-            between_ticks();
-    });
+    clock_.advance(
+        now,
+        [&](float dt) {
+            tick(dt);
+            if (between_ticks)
+                between_ticks();
+        },
+        [&] { return !active_->simulation.input().input_recording_waits_for_scene(); });
 }
 void GameSession::control_frame() {
     require_active();

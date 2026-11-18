@@ -36,6 +36,7 @@ struct Adapter final : GameScenePreparation {
     PlaySceneAdmission::PublicationValidator validator;
     std::function<Json()> tile_projection;
     bool runtime_ready = false;
+    bool validated_session_input = false;
     Adapter(std::weak_ptr<PendingRecord> p, std::string s,
             PlaySceneAdmission::PublicationValidator v, std::function<Json()> tiles)
         : pending(std::move(p)), session(std::move(s)), validator(std::move(v)),
@@ -55,6 +56,7 @@ struct Adapter final : GameScenePreparation {
             // the GameSession loading state; the active world is untouched.
             if (validator)
                 validator(world, record->ticket);
+            validated_session_input = world.simulation.input().session_input_recording();
             runtime_ready = true;
             Json envelope = Json::object();
             envelope["session"] = session;
@@ -69,6 +71,14 @@ struct Adapter final : GameScenePreparation {
                 throw std::runtime_error("Play scene admission envelope exceeded 8 MiB");
             record->envelope = std::move(envelope);
             record->exported = true;
+        }
+        if (world.simulation.input().session_input_recording() != validated_session_input) {
+            // GameSession stages the retained take after the editor accepts the
+            // candidate. Recheck the actual post-adoption response budget once;
+            // ordinary polls retain their original single-validation behavior.
+            if (validator)
+                validator(world, record->ticket);
+            validated_session_input = world.simulation.input().session_input_recording();
         }
         switch (record->ack) {
         case AckResult::Accepted:

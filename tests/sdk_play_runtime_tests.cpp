@@ -2627,6 +2627,8 @@ int run() {
         schema_reference_contract();
         game_recording_sdk_tests();
         input_recording_sdk_tests();
+        input_recording_sdk_tests(true);
+        session_input_scene_transitions();
         {
             Fixture f;
             std::string session;

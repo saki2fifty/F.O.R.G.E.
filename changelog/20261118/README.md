@@ -1,5 +1,20 @@
 # 2026-11-18
 
+## Input recording across Scenes
+
+Interactive SDK Play can record one fixed-input take across game-requested Scene
+changes. Game view adds Across Scenes, segment progress, loading-boundary status
+and Cancel replay. Each replayed visit checks Scene/source/map/frequency before
+activation; fixed ticks wait at segment boundaries while loading and controls
+continue. Failed admission preserves the active world and take. Legacy takes
+retain their single-Scene behavior; movies reject session takes before launch
+or output creation.
+
+The existing automation and MCP recording tools share the same optional capture
+scope, negotiated availability, status, generation guards and contained files.
+Gallery Scenes235/236 and the optional SessionInput System provide a two-room
+example with declared runtime dependencies, Space movement and Tab transitions.
+
 ## SDK module header dependencies
 
 The built-in prefab, Character2D, physics-ray/work and Tile Map modules declare

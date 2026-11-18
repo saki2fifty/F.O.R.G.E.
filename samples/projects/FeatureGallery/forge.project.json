@@ -659,6 +659,16 @@
         "id": "15900000-1590-4159-8159-000000000011",
         "kind": "axis2",
         "name": "Message position"
+      },
+      {
+        "id": "d84113b2-c7dc-44f4-afa6-405201cfcbe3",
+        "name": "Session input next Scene",
+        "kind": "digital",
+        "bindings": [
+          {
+            "control": "key.tab"
+          }
+        ]
       }
     ],
     "version": 1

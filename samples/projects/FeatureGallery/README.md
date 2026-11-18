@@ -1,5 +1,21 @@
 # Feature Gallery
 
+## Input recording across Scenes
+
+Open `Scenes/235-session-input-a.scene.json` and build the optional
+`CodeExamples/SessionInput.cpp` System with Game access. Room A and
+`Scenes/236-session-input-b.scene.json` each include a camera, light and input
+message sources. Space moves the cube; Tab asks the game host to prepare the
+other Scene. Each visit starts from its authored position.
+
+Stop Play, open **Game → Input recording**, choose **Across Scenes**, then
+**Record input**. Capture input, move between rooms, then finish/save. Stop and
+Replay with the same file to drive the original actions and game-requested
+transitions. Scene segments show each visit; Cancel replay remains available
+while waiting for a next Scene. Both Scenes declare each other as runtime
+dependencies, so choosing Room A as Startup Scene retains both during export.
+Movies use single-Scene takes. See the [complete setup and limits](../../../manual/editor/input-recording.md).
+
 ## Avoidance participation and priority
 
 Open `Scenes/233-navigation-avoidance-policies.scene.json` for 3D or

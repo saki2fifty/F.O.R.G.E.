@@ -26,6 +26,7 @@ class RuntimeClock {
     using Clock = std::chrono::steady_clock;
     using Time = Clock::time_point;
     using Tick = std::function<void(float)>;
+    using Ready = std::function<bool()>;
     explicit RuntimeClock(RuntimeConfig config = {});
     void resume(Time now);
     void pause(Time now);
@@ -33,13 +34,18 @@ class RuntimeClock {
     // neither Pause nor simulation scaling changes this transient timeline.
     void sample_time(Time now);
     void advance(Time now, const Tick& tick);
+    // The owner may gate a fixed tick on an admitted prerequisite. Waiting
+    // discards elapsed debt and holds the last completed presentation sample;
+    // it does not change user Pause, scale or fixed dt. ready must not mutate
+    // the clock or throw. Normal two-argument advance retains its contract.
+    void advance(Time now, const Tick& tick, const Ready& ready);
     void step(const Tick& tick);
     // Frame-boundary policy, not a change to the physics/fixed simulation delta.
     void set_time_scale(double value);
     double time_scale() const { return time_scale_; }
     bool paused() const { return paused_; }
     double fixed_dt() const { return 1 / config_.simulation_hz; }
-    double alpha() const { return paused_ ? 1 : accumulator_ / fixed_dt(); }
+    double alpha() const { return paused_ || hold_presentation_ ? 1 : accumulator_ / fixed_dt(); }
     // Derive the same previous/current interval used by presentation poses.
     double presentation_seconds() const;
     std::uint64_t tick() const { return tick_; }
@@ -58,6 +64,7 @@ class RuntimeClock {
     double unscaled_delta_ = 0;
     std::uint64_t unscaled_sequence_ = 0;
     bool paused_ = true;
+    bool hold_presentation_ = false;
     double accumulator_ = 0, clamped_seconds_ = 0;
     double time_scale_ = 1;
     std::uint64_t tick_ = 0, dropped_ticks_ = 0;

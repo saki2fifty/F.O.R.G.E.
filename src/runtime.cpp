@@ -24,12 +24,14 @@ void RuntimeConfig::validate() const {
 }
 RuntimeClock::RuntimeClock(RuntimeConfig config) : config_(config) { config_.validate(); }
 void RuntimeClock::resume(Time now) {
+    hold_presentation_ = false;
     previous_ = now;
     accumulator_ = 0;
     paused_ = false;
     presentation_floor_tick_ = tick_;
 }
 void RuntimeClock::pause(Time now) {
+    hold_presentation_ = false;
     previous_ = now;
     accumulator_ = 0;
     paused_ = true;
@@ -51,7 +53,8 @@ void RuntimeClock::sample_time(Time now) {
     unscaled_previous_ = now;
     ++unscaled_sequence_;
 }
-void RuntimeClock::advance(Time now, const Tick& simulate) {
+void RuntimeClock::advance(Time now, const Tick& simulate) { advance(now, simulate, {}); }
+void RuntimeClock::advance(Time now, const Tick& simulate, const Ready& ready) {
     if (now < previous_)
         throw std::runtime_error("Runtime clock must be monotonic");
     sample_time(now);
@@ -65,11 +68,17 @@ void RuntimeClock::advance(Time now, const Tick& simulate) {
     const auto dt = fixed_dt();
     // Only absorb floating-point summation error, not a meaningful fraction of a tick.
     const double epsilon = dt * 1e-10;
-    while (accumulator_ + epsilon >= dt && last_ticks_ < config_.max_ticks) {
+    while (accumulator_ + epsilon >= dt && last_ticks_ < config_.max_ticks && (!ready || ready())) {
         simulate(static_cast<float>(dt));
         ++tick_;
         ++last_ticks_;
+        hold_presentation_ = false;
         accumulator_ = std::max(0.0, accumulator_ - dt);
+    }
+    if (ready && !ready()) {
+        accumulator_ = 0;
+        hold_presentation_ = true;
+        return;
     }
     const auto debt = static_cast<std::uint64_t>((accumulator_ + epsilon) / dt);
     dropped_ticks_ += debt;
@@ -80,6 +89,7 @@ void RuntimeClock::step(const Tick& simulate) {
         throw std::runtime_error("Single Step requires Pause");
     simulate(static_cast<float>(fixed_dt()));
     ++tick_;
+    hold_presentation_ = false;
     last_ticks_ = 1;
     accumulator_ = 0;
 }

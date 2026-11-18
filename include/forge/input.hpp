@@ -172,6 +172,7 @@ struct InputSnapshot {
 };
 inline constexpr std::size_t input_recording_tick_limit = 4096;
 inline constexpr std::size_t input_recording_byte_limit = 8 * 1024 * 1024;
+inline constexpr std::size_t input_recording_scene_limit = 64;
 // Fixed gameplay snapshots only. Validates the complete copied document before use.
 void validate_input_recording(const nlohmann::json&);
 // Single runtime-owner thread. A batch validates completely before altering state.
@@ -187,8 +188,17 @@ class RuntimeInput {
     const InputSnapshot& snapshot() const { return current_; }
     const InputMap& map() const { return map_; }
     void begin_input_recording(const std::string& source, double simulation_hz);
+    void begin_session_input_recording(const std::string& source, double simulation_hz,
+                                       AssetId scene);
     void replay_input_recording(const nlohmann::json&, const std::string& source,
-                                double simulation_hz);
+                                double simulation_hz, AssetId scene = {});
+    bool session_input_recording() const;
+    bool input_recording_waits_for_scene() const;
+    bool input_recording_delays_scene() const;
+    // Prepare only in a fresh unpublished world. Failure leaves the previous
+    // world's recording intact; GameSession owns the subsequent publication.
+    void inherit_session_input_recording(const RuntimeInput& previous, const std::string& source,
+                                         double simulation_hz, AssetId scene);
     void finish_input_recording();
     nlohmann::json input_recording_status() const;
     const nlohmann::json& input_recording_document() const { return recording_; }
@@ -213,6 +223,11 @@ class RuntimeInput {
     bool control_action(const InputAction&) const;
     const InputSnapshot& latch_domain(std::uint64_t sequence, bool control);
     void record_snapshot();
+    void begin_input_recording_document(const std::string& source, double simulation_hz,
+                                        AssetId scene);
+    nlohmann::json& recording_frames();
+    const nlohmann::json& recording_frames() const;
+    std::size_t recorded_ticks() const;
     InputMap map_;
     std::map<std::string, double> controls_;
     std::map<ActionId, ActionState> pending_;
@@ -228,6 +243,7 @@ class RuntimeInput {
     nlohmann::json recording_;
     std::string recording_mode_ = "idle", recording_notice_;
     std::size_t recording_bytes_ = 0, replay_cursor_ = 0;
+    std::size_t recording_segment_ = 0;
 };
 // A bounded built-in fixed-pipeline consumer, independent of game action names.
 class InputMonitor {

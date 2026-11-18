@@ -77,7 +77,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Choose game modes and condition object activity](editor/application-states.md)
 - [Project Code (C++ authoring, find and replace, diagnostic navigation, formatting, symbol navigation, reviewed rename in one, open or project files, quick fixes and code assistance)](editor/native-gameplay.md)
 - [Gameplay input, sixteen local controllers, raw motion, analog response and vibration](editor/input.md)
-- [Record and replay fixed gameplay input](editor/input-recording.md)
+- [Record and replay gameplay input in one Scene or across Scenes](editor/input-recording.md)
 - [Send component data on press, release or change and inspect the last payload](editor/input-messages.md)
 - [Touch contacts, tap, hold, swipe, pan, pinch and rotation](editor/touch-input.md)
 - [Physics](editor/physics.md)

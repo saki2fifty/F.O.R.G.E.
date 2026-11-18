@@ -68,6 +68,7 @@ struct PlayAutomation {
                 {"timing", play.timing()},
                 {"status", play.status()},
                 {"input_recording", play.input_recording_status()},
+                {"input_recording_session_available", play.session_input_recording_available()},
                 {"input_recording_pending", play.input_recording_pending()},
                 {"input_recording_ready", !play.input_recording_document().is_null()},
                 {"input_recording_error", play.input_recording_error()},
@@ -547,7 +548,8 @@ struct PlayAutomation {
         auto recording_properties = properties();
         recording_properties.update(
             {{"operation", {{"type", "string"}, {"enum", {"begin", "finish", "read", "replay"}}}},
-             {"path", automation_text(2047, 1)}});
+             {"path", automation_text(2047, 1)},
+             {"capture_scope", {{"type", "string"}, {"enum", {"scene", "session"}}}}});
         auto recording_required = required();
         recording_required.push_back("operation");
         methods.push_back(automation_method(
@@ -557,11 +559,18 @@ struct PlayAutomation {
             ".json path and requires matching Scene/settings/build, input map and Hz. Finish stops "
             "capture or cancels replay; Read retrieves a finished recording for Save. Observe "
             "play.status for acknowledgement/errors. This has no Scene Undo and does not record "
-            "UI/text, Scene transitions or arbitrary native state.",
+            "UI/text or arbitrary native state. Begin capture_scope defaults to scene; session "
+            "requires interactive SDK Play and retains input across game-requested Scene changes. "
+            "Replay follows the saved profile and waits at recorded Scene boundaries. Offline "
+            "movies and ordinary runtimes accept single-Scene takes only.",
             "play.execute", automation_object(recording_properties, recording_required), true,
             [&files, &play, providers](const Json& request) {
                 current(play, files, providers, request);
                 const auto operation = request.at("operation").get<std::string>();
+                if (request.contains("capture_scope") && operation != "begin")
+                    throw AuthoringError("invalid_arguments",
+                                         "capture_scope applies to Begin only");
+                const auto scope = request.value("capture_scope", std::string("scene"));
                 if ((operation == "replay") != request.contains("path"))
                     throw AuthoringError("invalid_arguments",
                                          "Only replay requires a recording path");
@@ -571,7 +580,11 @@ struct PlayAutomation {
                               files.document.project(),
                               automation_relative_path(request.at("path").get<std::string>()))
                         : Json();
-                if (!play.submit_input_recording(operation, document))
+                if ((scope == "session" || document.contains("segments")) &&
+                    !play.session_input_recording_available())
+                    throw AuthoringError("unsupported_profile",
+                                         "Across-Scene input requires interactive SDK Play");
+                if (!play.submit_input_recording(operation, document, scope))
                     throw AuthoringError("play_busy",
                                          "Wait for fresh paused Play or the pending input control");
                 return state(play);

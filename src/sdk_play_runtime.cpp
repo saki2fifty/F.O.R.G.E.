@@ -82,6 +82,7 @@ Json contract() {
                 {"sdk_project", true},
                 {"sdk_play", true},
                 {"schema_reference", play_schema_reference_protocol},
+                {"session_input_recording", true},
                 {"tile_projection", tile_map_play_protocol}};
 }
 } // namespace
@@ -215,6 +216,9 @@ struct SdkPlayRuntime::State {
         session_config.ui = config.ui;
         session_config.modules = modules;
         session_config.controls = queue;
+        session_config.recording_source = [project = config.project](const Scene& scene) {
+            return input_recording_source(scene.snapshot(), project);
+        };
         session_config.preparation = [this](std::uint64_t ticket) {
             return admission->prepare(
                 ticket,
@@ -1275,7 +1279,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             const auto document = input_recording_command(
                 request, world.simulation.input(), s.game->status().at("clock"),
                 input_recording_source(world.scene.snapshot(), s.config.project),
-                s.active_generation);
+                s.active_generation, world.scene.asset_id(), !s.config.recording);
             if (!document.is_null())
                 return {{"protocol", 2},
                         {"session", s.session},

@@ -28,6 +28,9 @@ struct GameSessionConfig {
     std::function<std::unique_ptr<GameScenePreparation>(std::uint64_t)> preparation;
     std::shared_ptr<GameControlQueue> controls;
     RuntimeExecutionConfig execution;
+    // Trusted host witness for optional input takes spanning Scene activations.
+    // Called only before publication, never from a fixed tick or IO worker.
+    std::function<std::string(const Scene&)> recording_source;
 };
 // Owner-thread simulation session. Presentation/window and persistent saves remain
 // separate owners. One active scene and at most one unpublished candidate world.
@@ -81,6 +84,7 @@ class GameSession {
     void tick(float dt);
     void fault(std::string error);
     GamePreparationProgress poll_candidate();
+    void publish_preparation_progress();
     void discard_candidate();
     GameSessionConfig config_;
     RuntimeClock clock_;

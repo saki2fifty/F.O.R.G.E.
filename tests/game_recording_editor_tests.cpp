@@ -67,6 +67,28 @@ void exercise(const std::filesystem::path& runtime, const std::filesystem::path&
     write_input_recording(files.document.project(), "Recordings/movie-input.json",
                           recorded_input.input_recording_document(), false);
     request.input_recording = "Recordings/movie-input.json";
+    RuntimeInput session_input;
+    session_input.begin_session_input_recording(
+        input_recording_source(scene.snapshot(), files.document.project()), 60, scene.asset_id());
+    session_input.latch(1);
+    session_input.finish_input_recording();
+    write_input_recording(files.document.project(), "Recordings/session-input.json",
+                          session_input.input_recording_document(), false);
+    auto unsupported = request;
+    unsupported.input_recording = "Recordings/session-input.json";
+    unsupported.destination = root / "Output/UnsupportedSession";
+    auto refusal_host = host;
+    bool launched = false, rejected = false;
+    refusal_host.start = [&](const std::filesystem::path&) { launched = true; };
+    try {
+        ui::GameRecordingTask invalid(scene, files.document, play, worker, unsupported,
+                                      refusal_host);
+    } catch (const std::exception& error) {
+        rejected = std::string(error.what()).find("single-Scene") != std::string::npos;
+    }
+    check(rejected && !launched && !play.active() &&
+              !std::filesystem::exists(unsupported.destination),
+          "Multi-Scene movie rejection created output or launched a runtime");
     auto task =
         std::make_unique<ui::GameRecordingTask>(scene, files.document, play, worker, request, host);
     auto* recording = task.get();

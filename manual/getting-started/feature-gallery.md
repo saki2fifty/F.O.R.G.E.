@@ -93,6 +93,13 @@ input, finish/save, stop, then replay the take. Build the included `InputMessage
 C++ System to move the cube half a unit on each fresh press. The same take can
 drive offline movie recording. See [record and replay gameplay input](../editor/input-recording.md).
 
+**235-session-input-a** and **236-session-input-b** demonstrate recording across
+game-requested Scene changes. Build the optional **SessionInput** System with Game
+access, then open Room A, select **Game → Input recording → Across Scenes**, and
+record. Space moves the cube; Tab loads the other room. Save, Stop and Replay to
+repeat the recorded room visits. Each Scene includes its camera/light and declares
+the other as a runtime dependency for export. See the [two-Scene setup steps](../editor/input-recording.md).
+
 **208-prefab-source-contributions** compares a common marker, a wider variant,
 a color variant and a variant combining both. Open it and press **Play → Game**.
 Stop Play, edit `Assets/Contributions/WideBrightMarker.prefab.json`, and expand

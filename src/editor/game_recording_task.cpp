@@ -88,9 +88,13 @@ void GameRecordingTask::start() {
     generation_ = document_.generation();
     require_source();
     rate_ = request_.rate();
-    if (!request_.input_recording.empty())
+    if (!request_.input_recording.empty()) {
         replay_input_ =
             read_input_recording(project_, std::filesystem::u8path(request_.input_recording));
+        if (replay_input_.contains("segments"))
+            throw std::runtime_error(
+                "Game movies currently require a single-Scene input recording");
+    }
     started_at_ = event_time_local();
     folder_ = std::filesystem::absolute(request_.destination).lexically_normal();
     asset_storage::ordinary(folder_);

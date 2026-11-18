@@ -363,6 +363,146 @@ void preparation() {
     rejects([&] { missing.prepare(snapshot("missing")); });
     check(missing.status().at("prepared_ticket") == 0, "Missing adapter bypassed readiness");
 }
+void session_input_takes() {
+    const auto a = snapshot("record-a"), b = snapshot("record-b");
+    const auto scene_a = a.at("asset_id").get<AssetId>();
+    const auto scene_b = b.at("asset_id").get<AssetId>();
+    const auto action = ActionId::generate();
+    std::string salt;
+    GameSessionConfig config;
+    config.clock = {10, .25, 8};
+    config.input = InputMap(
+        {{"version", 1},
+         {"actions", Json::array({{{"id", action},
+                                   {"name", "Jump"},
+                                   {"kind", "digital"},
+                                   {"bindings", Json::array({{{"control", "key.space"}}})}}})}});
+    config.recording_source = [&](const Scene& scene) { return scene.asset_id().str() + salt; };
+    GameSession capture(config);
+    capture.activate(capture.prepare(a), at(0), false);
+    capture.active().simulation.input().begin_session_input_recording(scene_a.str(), 10, scene_a);
+    capture.input({{"key.space", 1}});
+    capture.step();
+    capture.step();
+    const auto original = capture.active().simulation.input().input_recording_document();
+    rejects([&] { capture.prepare({{"version", 999}}); });
+    check(capture.active().simulation.input().input_recording_document() == original,
+          "Failed Scene preparation changed a recording prefix");
+    auto candidate = capture.prepare(b);
+    capture.cancel(candidate);
+    check(capture.active().simulation.input().input_recording_document() == original,
+          "Canceled Scene preparation changed a recording prefix");
+    candidate = capture.prepare(b);
+    capture.activate(candidate, at(100), false);
+    capture.step();
+    capture.active().simulation.input().finish_input_recording();
+    const auto take = capture.active().simulation.input().input_recording_document();
+    validate_input_recording(take);
+    check(take.at("segments").size() == 2 && take.at("segments")[0].at("frames").size() == 2 &&
+              take.at("segments")[1].at("frames").size() == 1,
+          "Actual world activation did not retain local input timelines");
+    GameSession replay(config);
+    replay.activate(replay.prepare(a), at(0), false);
+    replay.active().simulation.input().replay_input_recording(take, scene_a.str(), 10, scene_a);
+    candidate = replay.prepare(b);
+    check(!replay.poll_preparation(candidate).ready,
+          "Faster preparation skipped recorded frames in the current world");
+    rejects([&] { replay.activate(candidate, at(0), true); });
+    replay.resume(at(1000));
+    replay.advance(at(1250));
+    check(replay.status().at("clock").at("tick").get<std::uint64_t>() == 2 &&
+              replay.active().simulation.input().input_recording_waits_for_scene() &&
+              replay.active().scene.asset_id() == scene_a,
+          "Catch-up applied recorded input beyond its world boundary");
+    check(replay.poll_preparation(candidate).ready,
+          "Recorded boundary did not unblock preparation");
+    replay.advance(at(1500));
+    check(replay.status().at("clock").at("tick").get<std::uint64_t>() == 2 &&
+              replay.status().at("clock").at("alpha").get<double>() == 1,
+          "Slower publication advanced input or rewound held presentation");
+    rejects([&] { replay.step(); });
+    salt = "changed";
+    rejects([&] { replay.activate(candidate, at(1500), true); });
+    check(replay.active().scene.asset_id() == scene_a &&
+              replay.active().simulation.input().input_recording_document() == take,
+          "Source witness rejection replaced the active recording world");
+    salt.clear();
+    replay.activate(candidate, at(1500), true);
+    check(replay.active().scene.asset_id() == scene_b &&
+              replay.status().at("clock").at("tick").get<std::uint64_t>() == 0,
+          "Scene replay did not restart its local timeline");
+    replay.advance(at(1600));
+    check(
+        replay.active().simulation.input().input_recording_status().at("mode").get<std::string>() ==
+                "finished" &&
+            replay.active()
+                    .simulation.input()
+                    .input_recording_status()
+                    .at("consumed_ticks")
+                    .get<std::size_t>() == 3,
+        "Actual Scene replay did not consume the complete take");
+    const auto next = snapshot("after-take");
+    replay.activate(replay.prepare(next), at(1600), false);
+    replay.input({{"key.space", 1}});
+    replay.step();
+    check(!replay.active().simulation.input().snapshot().actions.at(action).held &&
+              replay.active().simulation.input().input_recording_document() == take,
+          "Post-take activation lost neutral input or retained document");
+    GameSession legacy(config);
+    legacy.activate(legacy.prepare(a), at(0), false);
+    legacy.active().simulation.input().begin_input_recording(scene_a.str(), 10);
+    rejects([&] { legacy.prepare(b); });
+
+    struct State {
+        bool reject = false, wait_once = false;
+    };
+    struct Validator final : GameScenePreparation {
+        std::shared_ptr<State> state;
+        explicit Validator(std::shared_ptr<State> value) : state(std::move(value)) {}
+        GamePreparationProgress poll(RuntimeWorld& world) override {
+            if (world.simulation.input().session_input_recording()) {
+                if (state->reject)
+                    throw std::runtime_error("Candidate recording exceeds response admission");
+                if (state->wait_once) {
+                    state->wait_once = false;
+                    return {false, "recording", 0, 1};
+                }
+            }
+            return {true, "recording", 1, 1};
+        }
+        void activate() noexcept override {}
+    };
+    for (bool reject : {false, true}) {
+        auto state = std::make_shared<State>();
+        state->reject = reject;
+        state->wait_once = !reject;
+        auto guarded_config = config;
+        guarded_config.preparation = [state](std::uint64_t) {
+            return std::make_unique<Validator>(state);
+        };
+        GameSession guarded(guarded_config);
+        guarded.activate(guarded.prepare(a), at(0), false);
+        guarded.active().simulation.input().begin_session_input_recording(scene_a.str(), 10,
+                                                                          scene_a);
+        guarded.step();
+        const auto safe_prefix = guarded.active().simulation.input().input_recording_document();
+        const auto staged = guarded.prepare(b);
+        rejects([&] { guarded.activate(staged, at(100), true); });
+        check(guarded.active().scene.asset_id() == scene_a &&
+                  guarded.active().simulation.input().input_recording_document() == safe_prefix,
+              "Post-adoption candidate admission replaced the active world or take");
+        if (!reject) {
+            guarded.activate(staged, at(100), true);
+            check(guarded.active().scene.asset_id() == scene_b &&
+                      guarded.active()
+                              .simulation.input()
+                              .input_recording_document()
+                              .at("segments")
+                              .size() == 2,
+                  "Candidate recording rollback broke retry or duplicated its segment");
+        }
+    }
+}
 void session() {
     GameSession game(GameSessionConfig{});
     check(game.status().at("state") == "empty", "New game session not empty");
@@ -513,6 +653,7 @@ int main(int argc, char** argv) {
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         settings();
         storage(root);
+        session_input_takes();
         session();
         preparation();
         control_frames();

@@ -26,7 +26,7 @@ from mcp_skeletal_sequence_play import check_skeletal_sequence_play
 from mcp_audio_routing_play import check_audio_routing_play
 from mcp_sound_cues_play import check_sound_cues_play
 from mcp_sound_playlist import check_sound_playlist
-from mcp_input_recording_play import check_input_recording_play
+from mcp_input_recording_play import check_input_recording_play, check_session_input_recording_play
 from mcp_ui_source_authoring import check_ui_source_authoring
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
@@ -68,7 +68,9 @@ PROFILE_ONLY = sys.argv[7:] == ['--profile-only']
 GESTURES_ONLY = sys.argv[7:] == ['--gestures-only']
 TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
-INPUT_RECORDING_ONLY = sys.argv[7:] == ['--input-recording-only']
+SESSION_INPUT_MODULE = len(sys.argv) == 9 and sys.argv[7] == '--session-input-module-only'
+INPUT_RECORDING_SDK = SESSION_INPUT_MODULE or sys.argv[7:] == ['--input-recording-sdk-only']
+INPUT_RECORDING_ONLY = sys.argv[7:] == ['--input-recording-only'] or INPUT_RECORDING_SDK
 UI_EFFECTS_ONLY = sys.argv[7:] == ['--ui-effects-only']
 UI_CONTROL_PROPERTIES_ONLY = sys.argv[7:] == ['--ui-control-properties-only']
 UI_TYPOGRAPHY_ONLY = sys.argv[7:] == ['--ui-typography-only']
@@ -167,6 +169,23 @@ def message_project_template(root):
                                fingerprint=fingerprint, library=module.name,
                                dependencies=['forge.input', 'forge.transforms'])]
     path.write_text(json.dumps(settings))
+    return output
+
+
+def session_input_project_template(root):
+    source = 'Scenes/235-session-input-a.scene.json'
+    output = selected_project_template(root, (source, 'Scenes/236-session-input-b.scene.json'),
+                                       'Session input template')
+    settings_path = output / 'forge.project.json'
+    settings = json.loads(settings_path.read_text())
+    settings['startup_scene'] = dict(asset='306f7bf0-c7cc-4733-9043-7c379d2afff2', source=source)
+    module = Path(sys.argv[8]).resolve()
+    shutil.copy2(module, output / module.name)
+    fingerprint = json.loads(subprocess.check_output([RUNTIME, '--sdk-info'], text=True))['fingerprint']
+    settings['modules'] = [dict(id='project.session_input', implementation='1', sdk='experimental-1',
+                               fingerprint=fingerprint, library=module.name,
+                               dependencies=['forge.input', 'forge.transforms', 'forge.game'])]
+    settings_path.write_text(json.dumps(settings))
     return output
 
 
@@ -272,6 +291,8 @@ def editor(mode='full'):
             command.append(str(template))
         elif UI_SEQUENCE_ONLY:
             command.append(str(selected_project_template(root, ('Scenes/151-sequence-ui.scene.json', 'Assets/Sequences/UiValues.animation.json', 'Assets/UI/Sequence/hud.rml', 'Assets/UI/Sequence/hud.rcss'), 'UI sequence template')))
+        elif SESSION_INPUT_MODULE:
+            command.append(str(session_input_project_template(root)))
         elif MESSAGES_ONLY:
             command.append(str(message_project_template(root)))
         elif APPLICATION_STATES_ONLY:
@@ -282,7 +303,7 @@ def editor(mode='full'):
             command.append(str(audio_profile_project_template(root)))
         elif SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if (AUDIO_PAUSE_ONLY and os.environ.get('FORGE_MCP_TEST_SDK') == '1') or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK or UI_FONT_COLLECTIONS_SDK or CAMERA_TRANSITION_SDK or CAMERA_AIM_SDK or MAP_PROFILE_SDK or NAVIGATION_LINKS_SDK:
+        if (AUDIO_PAUSE_ONLY and os.environ.get('FORGE_MCP_TEST_SDK') == '1') or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK or UI_FIELDS_SDK or UI_FONT_COLLECTIONS_SDK or CAMERA_TRANSITION_SDK or CAMERA_AIM_SDK or MAP_PROFILE_SDK or NAVIGATION_LINKS_SDK or INPUT_RECORDING_SDK:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -441,7 +462,10 @@ for legacy in selected_protocols:
             assert 'forge_export_start' in names
         if INPUT_RECORDING_ONLY:
             assert {'forge_play_input_recording_control', 'forge_play_input_recording_save'} <= names
-            check_input_recording_play(root, read, ok, control, mutate, edit_settings, until, failed)
+            if SESSION_INPUT_MODULE:
+                check_session_input_recording_play(root, read, ok, control, mutate, until, failed)
+            else:
+                check_input_recording_play(root, read, ok, control, mutate, edit_settings, until, failed)
             with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
                 readable = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
                 assert 'forge_play_input_recording_control' not in readable

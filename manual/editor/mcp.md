@@ -1,5 +1,26 @@
 # Connect an AI agent through MCP
 
+## Record gameplay input
+
+Start with `forge_play_start` and `paused: true`, then wait for a ready
+`forge_play_status`. Echo its current launch, session and generation in each
+control. Begin with `forge_play_input_recording_control`, `operation: "begin"`.
+For an interactive SDK game, add `capture_scope: "session"` to include later
+game-requested Scenes. Check `input_recording_session_available` first. Omit the
+scope for a single-Scene take; it is only valid on Begin.
+
+Resume and supply gameplay controls normally. Finish, wait for acknowledgement,
+then Read and use `forge_play_input_recording_save` with a project-relative
+`Recordings/<name>.json` path. Saving requires the asset-write grant; replacing
+an existing file also requires `replace: true`. Stop and start a fresh paused
+run before Replay, passing the saved path. Replay follows the file's profile.
+
+Read the current generation again after a Scene change. Session replay reports
+its segment and `waiting_for_scene` while loading the next recorded Scene. Your
+game must request that Scene. Finish cancels replay, including a boundary wait;
+gameplay input stays neutral until a new Play launch. Movies and ordinary Play
+hosts accept single-Scene takes only. See [input recording](input-recording.md).
+
 For RML/RCSS editing, `forge_ui_source_open/read` opens the same **UI Source**
 document used by a person. Its text, attribute, child, move and remove tools share
 native source Undo/Redo. Read the current source guards before each change, save

@@ -478,6 +478,45 @@ void validator_runs_once_with_actual_world_and_exact_ticket() {
     check(calls == 0, "Validator re-ran after committal");
     (void)seen_world;
 }
+void session_recording_revalidates_adopted_input() {
+    PlaySceneAdmission channel("session-input-budget");
+    GameSessionConfig config;
+    config.recording_source = [](const Scene&) { return "session-source"; };
+    std::vector<bool> validations;
+    bool reject_adoption = false;
+    config.preparation = [&](std::uint64_t ticket) {
+        return channel.prepare(ticket, [&](RuntimeWorld& world, std::uint64_t) {
+            const bool adopted = world.simulation.input().session_input_recording();
+            validations.push_back(adopted);
+            if (reject_adoption && adopted)
+                throw std::runtime_error("Actual adopted input exceeds the response budget");
+        });
+    };
+    GameSession game(config);
+    const auto activate = [&](const Json& scene) {
+        const auto ticket = game.prepare(scene);
+        game.poll_preparation(ticket);
+        check(channel.acknowledge("session-input-budget", ticket, true), "Recording ack failed");
+        game.activate(ticket, at(0), false);
+    };
+    activate(scene_snapshot("initial"));
+    game.active().simulation.input().begin_session_input_recording("session-source", 60,
+                                                                   game.active().scene.asset_id());
+    game.step();
+    activate(scene_snapshot("adopted"));
+    check(validations == std::vector<bool>({false, false, true}) &&
+              game.active().simulation.input().input_recording_status().at("segments") == 2,
+          "Publication did not revalidate the actual adopted take exactly once");
+    const auto original = &game.active();
+    const auto take = game.active().simulation.input().input_recording_document();
+    reject_adoption = true;
+    rejects([&] { activate(scene_snapshot("rejected")); });
+    check(&game.active() == original &&
+              game.active().simulation.input().input_recording_document() == take &&
+              game.loading_state().state == "failed" &&
+              validations == std::vector<bool>({false, false, true, false, true}),
+          "Rejected post-adoption budget changed the active world/take or skipped validation");
+}
 void throwing_validator_never_exports_or_acks() {
     // A validator that throws must prevent envelope publication, so
     // ack cannot succeed and the previous active scene survives.
@@ -543,6 +582,7 @@ int main() {
         envelope_size_bound();
         copied_tile_manifest_is_frozen_and_budgeted();
         validator_runs_once_with_actual_world_and_exact_ticket();
+        session_recording_revalidates_adopted_input();
         throwing_validator_never_exports_or_acks();
     } catch (const std::exception& e) {
         std::cerr << "play_scene_admission_tests failed: " << e.what() << "\n";

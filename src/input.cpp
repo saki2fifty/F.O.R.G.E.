@@ -604,13 +604,14 @@ void recording_identity(const std::string& source, double hz) {
 }
 } // namespace
 void validate_input_recording(const Json& document) {
-    if (!document.is_object() || document.size() != 6 ||
-        !document.value("version", Json()).is_number_integer() ||
-        document.value("version", Json()) != Json(1) ||
-        document.value("profile", Json()) != "fixed-gameplay-input-v1" ||
+    if (!document.is_object())
+        throw std::runtime_error("Invalid fixed gameplay input recording");
+    const auto version = document.value("version", Json());
+    const auto profile = document.value("profile", Json());
+    const bool session = version == Json(2) && profile == Json("fixed-session-gameplay-input-v2");
+    if (document.size() != 6 || !version.is_number_integer() ||
+        (!session && (version != Json(1) || profile != Json("fixed-gameplay-input-v1"))) ||
         !document.at("source").is_string() || !document.at("simulation_hz").is_number() ||
-        !document.at("frames").is_array() || document.at("frames").empty() ||
-        document.at("frames").size() > input_recording_tick_limit ||
         document.dump().size() > input_recording_byte_limit)
         throw std::runtime_error("Invalid or oversized fixed gameplay input recording");
     recording_identity(document.at("source").get<std::string>(),
@@ -629,42 +630,89 @@ void validate_input_recording(const Json& document) {
                 }
             bounds.push_back(bound);
         }
-    for (const auto& frame : document.at("frames")) {
-        if (!frame.is_array() || frame.size() != kinds.size())
-            throw std::runtime_error("Input recording frame does not match gameplay actions");
-        for (std::size_t i = 0; i < kinds.size(); ++i) {
-            const auto& cell = frame.at(i);
-            if (!cell.is_array() || cell.size() != 3 || !cell.at(0).is_number() ||
-                !cell.at(1).is_number() || !cell.at(2).is_number_integer() || cell.at(2) < 0 ||
-                cell.at(2) > 7)
-                throw std::runtime_error("Invalid recorded action cell");
-            const auto x = cell.at(0).get<double>(), y = cell.at(1).get<double>();
-            const auto flags = cell.at(2).get<unsigned>();
-            if (!std::isfinite(x) || !std::isfinite(y) || std::abs(x) > bounds[i].x ||
-                std::abs(y) > bounds[i].y || (kinds[i] == ActionKind::Axis1 && y != 0) ||
-                (kinds[i] == ActionKind::Digital && (x != ((flags & 1) ? 1 : 0) || y != 0)) ||
-                (kinds[i] != ActionKind::Digital && flags != 0))
-                throw std::runtime_error("Recorded action values disagree with their kind");
+    const auto validate_frames = [&](const Json& frames) {
+        if (!frames.is_array() || frames.size() > input_recording_tick_limit)
+            throw std::runtime_error("Invalid input recording frame count");
+        for (const auto& frame : frames) {
+            if (!frame.is_array() || frame.size() != kinds.size())
+                throw std::runtime_error("Input recording frame does not match gameplay actions");
+            for (std::size_t i = 0; i < kinds.size(); ++i) {
+                const auto& cell = frame.at(i);
+                if (!cell.is_array() || cell.size() != 3 || !cell.at(0).is_number() ||
+                    !cell.at(1).is_number() || !cell.at(2).is_number_integer() || cell.at(2) < 0 ||
+                    cell.at(2) > 7)
+                    throw std::runtime_error("Invalid recorded action cell");
+                const auto x = cell.at(0).get<double>(), y = cell.at(1).get<double>();
+                const auto flags = cell.at(2).get<unsigned>();
+                if (!std::isfinite(x) || !std::isfinite(y) || std::abs(x) > bounds[i].x ||
+                    std::abs(y) > bounds[i].y || (kinds[i] == ActionKind::Axis1 && y != 0) ||
+                    (kinds[i] == ActionKind::Digital && (x != ((flags & 1) ? 1 : 0) || y != 0)) ||
+                    (kinds[i] != ActionKind::Digital && flags != 0))
+                    throw std::runtime_error("Recorded action values disagree with their kind");
+            }
         }
+    };
+    if (!session) {
+        const auto& frames = document.at("frames");
+        if (frames.empty())
+            throw std::runtime_error("Input recording has no frames");
+        validate_frames(frames);
+        return;
     }
+    const auto& segments = document.at("segments");
+    if (!segments.is_array() || segments.empty() || segments.size() > input_recording_scene_limit)
+        throw std::runtime_error("Invalid input recording Scene count");
+    std::size_t total = 0;
+    for (const auto& segment : segments) {
+        if (!segment.is_object() || segment.size() != 3 || !segment.at("source").is_string() ||
+            !segment.at("scene").get<AssetId>())
+            throw std::runtime_error("Invalid input recording Scene identity");
+        recording_identity(segment.at("source").get<std::string>(),
+                           document.at("simulation_hz").get<double>());
+        const auto& frames = segment.at("frames");
+        validate_frames(frames);
+        if (frames.size() > input_recording_tick_limit - total)
+            throw std::runtime_error("Input recording exceeds the total tick limit");
+        total += frames.size();
+    }
+    if (!total || segments.front().at("source") != document.at("source"))
+        throw std::runtime_error("Input recording has no frames or inconsistent initial source");
 }
 void RuntimeInput::begin_input_recording(const std::string& source, double hz) {
+    begin_input_recording_document(source, hz, {});
+}
+void RuntimeInput::begin_session_input_recording(const std::string& source, double hz,
+                                                 AssetId scene) {
+    if (!scene)
+        throw std::runtime_error("Session input recording requires a Scene identity");
+    begin_input_recording_document(source, hz, scene);
+}
+void RuntimeInput::begin_input_recording_document(const std::string& source, double hz,
+                                                  AssetId scene) {
     recording_identity(source, hz);
     if (current_.tick || recording_mode_ != "idle" || listening_)
         throw std::runtime_error("Input recording requires a fresh tick-zero runtime");
     Json prepared{
         {"version", 1},        {"profile", "fixed-gameplay-input-v1"}, {"source", source},
         {"simulation_hz", hz}, {"input_map", map_.source()},           {"frames", Json::array()}};
+    if (scene) {
+        prepared["version"] = 2;
+        prepared["profile"] = "fixed-session-gameplay-input-v2";
+        prepared.erase("frames");
+        prepared["segments"] =
+            Json::array({{{"scene", scene}, {"source", source}, {"frames", Json::array()}}});
+    }
     const auto bytes = prepared.dump().size();
     if (bytes > input_recording_byte_limit)
         throw std::runtime_error("Input map exceeds the recording byte limit");
     recording_ = std::move(prepared);
     recording_bytes_ = bytes;
+    recording_segment_ = replay_cursor_ = 0;
     recording_mode_ = "recording";
     recording_notice_.clear();
 }
 void RuntimeInput::replay_input_recording(const Json& document, const std::string& source,
-                                          double hz) {
+                                          double hz, AssetId scene) {
     validate_input_recording(document);
     recording_identity(source, hz);
     if (current_.tick || recording_mode_ != "idle" || listening_ ||
@@ -672,17 +720,20 @@ void RuntimeInput::replay_input_recording(const Json& document, const std::strin
         document.at("input_map") != map_.source())
         throw std::runtime_error(
             "Replay requires a fresh runtime with matching source, map and Hz");
+    if (document.contains("segments") &&
+        (!scene || document.at("segments").front().at("scene").get<AssetId>() != scene))
+        throw std::runtime_error("Replay requires the recorded initial Scene");
     auto prepared = document;
     release_all();
     pending_.clear();
     recording_ = std::move(prepared);
-    replay_cursor_ = 0;
+    replay_cursor_ = recording_segment_ = 0;
     recording_mode_ = "replaying";
     recording_notice_.clear();
 }
 void RuntimeInput::finish_input_recording() {
     if (recording_mode_ == "recording") {
-        if (recording_.at("frames").empty())
+        if (!recorded_ticks())
             throw std::runtime_error("Record at least one fixed tick before finishing");
         recording_mode_ = "recorded";
     } else if (recording_mode_ == "replaying") {
@@ -691,16 +742,119 @@ void RuntimeInput::finish_input_recording() {
     } else
         throw std::runtime_error("No active input recording or replay");
 }
+bool RuntimeInput::session_input_recording() const {
+    return recording_.is_object() && recording_.contains("segments");
+}
+const Json& RuntimeInput::recording_frames() const {
+    return session_input_recording() ? recording_.at("segments").at(recording_segment_).at("frames")
+                                     : recording_.at("frames");
+}
+Json& RuntimeInput::recording_frames() {
+    return session_input_recording() ? recording_.at("segments").at(recording_segment_).at("frames")
+                                     : recording_.at("frames");
+}
+std::size_t RuntimeInput::recorded_ticks() const {
+    if (!recording_.is_object())
+        return 0;
+    if (!session_input_recording())
+        return recording_.at("frames").size();
+    std::size_t total = 0;
+    for (const auto& segment : recording_.at("segments"))
+        total += segment.at("frames").size();
+    return total;
+}
+bool RuntimeInput::input_recording_waits_for_scene() const {
+    return session_input_recording() && recording_mode_ == "replaying" &&
+           recording_segment_ + 1 < recording_.at("segments").size() &&
+           current_.tick >= recording_frames().size();
+}
+bool RuntimeInput::input_recording_delays_scene() const {
+    return session_input_recording() && recording_mode_ == "replaying" &&
+           !input_recording_waits_for_scene();
+}
 Json RuntimeInput::input_recording_status() const {
-    return {{"mode", recording_mode_},
-            {"ticks", recording_.is_object() ? recording_.at("frames").size() : 0},
-            {"consumed_ticks", replay_cursor_},
-            {"tick_limit", input_recording_tick_limit},
-            {"byte_limit", input_recording_byte_limit},
-            {"notice", recording_notice_}};
+    Json result{{"mode", recording_mode_},
+                {"ticks", recorded_ticks()},
+                {"consumed_ticks", replay_cursor_},
+                {"tick_limit", input_recording_tick_limit},
+                {"byte_limit", input_recording_byte_limit},
+                {"notice", recording_notice_}};
+    if (session_input_recording()) {
+        const auto& segments = recording_.at("segments");
+        result["profile"] = "fixed-session-gameplay-input-v2";
+        result["segments"] = segments.size();
+        result["segment_limit"] = input_recording_scene_limit;
+        result["segment"] = recording_segment_;
+        result["scene"] = segments.at(recording_segment_).at("scene");
+        result["waiting_for_scene"] = input_recording_waits_for_scene();
+        result["next_scene"] = recording_segment_ + 1 < segments.size()
+                                   ? segments.at(recording_segment_ + 1).at("scene")
+                                   : Json();
+    }
+    return result;
+}
+void RuntimeInput::inherit_session_input_recording(const RuntimeInput& previous,
+                                                   const std::string& source, double hz,
+                                                   AssetId scene) {
+    if (!previous.session_input_recording() || current_.tick || recording_mode_ != "idle" ||
+        listening_ || !scene)
+        throw std::runtime_error("Recording transfer requires a fresh unpublished Scene");
+    const auto& mode = previous.recording_mode_;
+    if (replay_mode(mode) && (map_.source() != previous.recording_.at("input_map") ||
+                              hz != previous.recording_.at("simulation_hz").get<double>()))
+        throw std::runtime_error("Session replay requires the recorded map and frequency");
+    auto next_segment = previous.recording_segment_;
+    if (mode == "replaying") {
+        if (!previous.input_recording_waits_for_scene())
+            throw std::runtime_error(
+                "Consume the current Scene's recorded input before activation");
+        const auto& expected = previous.recording_.at("segments").at(++next_segment);
+        if (expected.at("scene").get<AssetId>() != scene ||
+            expected.at("source").get<std::string>() != source)
+            throw std::runtime_error("Replay expected a different Scene or source witness");
+    }
+    auto prepared = previous.recording_;
+    auto next_mode = mode;
+    auto notice = previous.recording_notice_;
+    if (mode == "recording") {
+        recording_identity(source, hz);
+        if (map_.source() != prepared.at("input_map") ||
+            hz != prepared.at("simulation_hz").get<double>()) {
+            next_mode = "failed";
+            notice = "Input map or frequency changed; the recording is incomplete";
+        } else if (prepared.at("segments").size() == input_recording_scene_limit) {
+            next_mode = previous.recorded_ticks() ? "recorded" : "failed";
+            notice = "Recording Scene limit reached";
+        } else {
+            prepared["segments"].push_back(
+                {{"scene", scene}, {"source", source}, {"frames", Json::array()}});
+            if (prepared.dump().size() > input_recording_byte_limit) {
+                prepared["segments"].erase(prepared["segments"].end() - 1);
+                next_mode = previous.recorded_ticks() ? "recorded" : "failed";
+                notice = "Recording byte limit reached during Scene activation";
+            } else
+                ++next_segment;
+        }
+    }
+    if (next_mode == "replaying" && next_segment + 1 == prepared.at("segments").size() &&
+        prepared.at("segments").at(next_segment).at("frames").empty())
+        next_mode = "finished";
+    const auto bytes = prepared.dump().size();
+    // Admission and copies precede replacement of this unpublished world's
+    // input state. The previous recording owner is never modified.
+    if (replay_mode(next_mode)) {
+        release_all();
+        pending_.clear();
+    }
+    recording_ = std::move(prepared);
+    recording_mode_ = std::move(next_mode);
+    recording_notice_ = std::move(notice);
+    recording_segment_ = next_segment;
+    replay_cursor_ = previous.replay_cursor_;
+    recording_bytes_ = bytes;
 }
 void RuntimeInput::record_snapshot() {
-    auto& frames = recording_.at("frames");
+    auto& frames = recording_frames();
     if (current_.tick != frames.size() + 1) {
         recording_mode_ = "failed";
         recording_notice_ = "Input tick sequence changed; the recording is incomplete";
@@ -717,15 +871,15 @@ void RuntimeInput::record_snapshot() {
     }
     const auto bytes = frame.dump().size() + (frames.empty() ? 0 : 1);
     if (bytes > input_recording_byte_limit - recording_bytes_) {
-        recording_mode_ = frames.empty() ? "failed" : "recorded";
-        recording_notice_ = frames.empty()
+        recording_mode_ = !recorded_ticks() ? "failed" : "recorded";
+        recording_notice_ = !recorded_ticks()
                                 ? "The first input snapshot exceeds the recording byte budget"
                                 : "Recording byte limit reached";
         return;
     }
     recording_bytes_ += bytes;
     frames.push_back(std::move(frame));
-    if (frames.size() == input_recording_tick_limit) {
+    if (recorded_ticks() == input_recording_tick_limit) {
         recording_mode_ = "recorded";
         recording_notice_ = "Recording tick limit reached";
     }
@@ -979,18 +1133,21 @@ void RuntimeInput::release_all() {
 }
 const InputSnapshot& RuntimeInput::latch(std::uint64_t tick) {
     if (replay_mode(recording_mode_)) {
+        if (input_recording_waits_for_scene())
+            throw std::runtime_error("Replay is waiting for the recorded Scene");
         if (tick != current_.tick + 1)
             throw std::runtime_error("Input replay requires consecutive fixed ticks from one");
         const auto previous = std::move(current_);
         current_ = {tick, {}};
-        const auto& frames = recording_.at("frames");
+        const auto& frames = recording_frames();
+        const auto frame_index = session_input_recording() ? std::size_t(tick - 1) : replay_cursor_;
         std::size_t column = 0;
         for (const auto& action : map_.actions()) {
             if (control_action(action))
                 continue;
             ActionState state;
-            if (recording_mode_ == "replaying" && replay_cursor_ < frames.size()) {
-                const auto& cell = frames.at(replay_cursor_).at(column);
+            if (recording_mode_ == "replaying" && frame_index < frames.size()) {
+                const auto& cell = frames.at(frame_index).at(column);
                 state.x = cell.at(0).get<double>();
                 state.y = cell.at(1).get<double>();
                 const auto flags = cell.at(2).get<unsigned>();
@@ -1006,7 +1163,9 @@ const InputSnapshot& RuntimeInput::latch(std::uint64_t tick) {
         }
         if (recording_mode_ == "replaying")
             ++replay_cursor_;
-        if (recording_mode_ == "replaying" && replay_cursor_ >= frames.size())
+        if (recording_mode_ == "replaying" && frame_index + 1 >= frames.size() &&
+            (!session_input_recording() ||
+             recording_segment_ + 1 == recording_.at("segments").size()))
             recording_mode_ = "finished";
         return current_;
     }

@@ -49,6 +49,8 @@ When you select an input recording, the folder also contains
 **input-recording.json**. The receipt records its source identity, tick count and
 digest. A selected take must match the fresh runtime's Scene/settings/build,
 input map and simulation rate. After its last tick, gameplay input becomes neutral.
+Choose a single-Scene take. Across Scenes recordings are rejected before the
+runtime starts or an output folder is created.
 
 Choose **Cancel** to retire the recording. Completed PNGs, audio and the receipt
 remain available. A file already being written must finish. A complete movie

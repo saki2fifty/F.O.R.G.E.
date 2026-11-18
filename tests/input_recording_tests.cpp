@@ -46,6 +46,116 @@ Json cells(const InputSnapshot& snapshot) {
         result.push_back(Json::array({id, s.x, s.y, s.held, s.pressed, s.released}));
     return result;
 }
+void session_recordings() {
+    const auto scene_a = AssetId::generate(), scene_b = AssetId::generate();
+    RuntimeInput a;
+    a.configure(map());
+    rejects([&] { a.begin_session_input_recording("source-a", 120, {}); });
+    a.begin_session_input_recording("source-a", 120, scene_a);
+    a.submit({{"key.space", 1}, {"mouse.delta_x", 4}});
+    const auto a1 = cells(a.latch(1));
+    const auto a2 = cells(a.latch(2));
+    const auto prefix = a.input_recording_document();
+    RuntimeInput b;
+    b.configure(map());
+    b.inherit_session_input_recording(a, "source-b", 120, scene_b);
+    check(a.input_recording_document() == prefix, "Candidate preparation modified the old take");
+    b.submit({{"mouse.delta_x", -6}});
+    const auto b1 = cells(b.latch(1));
+    RuntimeInput again;
+    again.configure(map());
+    again.inherit_session_input_recording(b, "source-a", 120, scene_a);
+    again.submit({{"key.space", 1}});
+    const auto a3 = cells(again.latch(1));
+    again.finish_input_recording();
+    const auto take = again.input_recording_document();
+    validate_input_recording(take);
+    check(take.at("segments").size() == 3 &&
+              again.input_recording_status().at("ticks").get<std::size_t>() == 4,
+          "Session take lost total frames or repeated Scene visits");
+    RuntimeInput replay_a;
+    replay_a.configure(map());
+    rejects([&] { replay_a.replay_input_recording(take, "source-a", 120, scene_b); });
+    replay_a.replay_input_recording(take, "source-a", 120, scene_a);
+    RuntimeInput replay_b;
+    replay_b.configure(map());
+    rejects([&] { replay_b.inherit_session_input_recording(replay_a, "source-b", 120, scene_b); });
+    check(replay_a.input_recording_delays_scene(), "Replay allowed publication before its frames");
+    check(cells(replay_a.latch(1)) == a1 && cells(replay_a.latch(2)) == a2,
+          "First Scene replay changed captured actions");
+    check(replay_a.input_recording_waits_for_scene(), "Replay did not wait at the Scene boundary");
+    rejects([&] { replay_a.latch(3); });
+    rejects([&] { replay_b.inherit_session_input_recording(replay_a, "wrong", 120, scene_b); });
+    rejects([&] { replay_b.inherit_session_input_recording(replay_a, "source-b", 120, scene_a); });
+    check(replay_b.input_recording_status().at("mode").get<std::string>() == "idle" &&
+              replay_a.input_recording_status().at("consumed_ticks").get<std::size_t>() == 2,
+          "Failed Scene admission changed either recording owner");
+    replay_b.inherit_session_input_recording(replay_a, "source-b", 120, scene_b);
+    check(cells(replay_b.latch(1)) == b1 && replay_b.input_recording_waits_for_scene(),
+          "Second Scene replay lost actions or boundary");
+    RuntimeInput replay_again;
+    replay_again.configure(map());
+    replay_again.inherit_session_input_recording(replay_b, "source-a", 120, scene_a);
+    check(cells(replay_again.latch(1)) == a3 &&
+              replay_again.input_recording_status().at("mode").get<std::string>() == "finished" &&
+              replay_again.input_recording_status().at("consumed_ticks").get<std::size_t>() == 4,
+          "Repeated Scene replay did not finish at the total frame count");
+    const auto jump = map().actions().front().id;
+    replay_again.submit({{"key.space", 1}});
+    check(replay_again.latch(2).actions.at(jump).released &&
+              !replay_again.latch(3).actions.at(jump).released,
+          "Finished session replay did not neutralize the final held action once");
+    rejects([&] { replay_again.replace_map(map()); });
+    // A Scene may activate without running a fixed tick. Do not invent a frame.
+    RuntimeInput zero;
+    zero.configure(map());
+    zero.begin_session_input_recording("source-a", 60, scene_a);
+    RuntimeInput after_zero;
+    after_zero.configure(map());
+    after_zero.inherit_session_input_recording(zero, "source-b", 60, scene_b);
+    after_zero.latch(1);
+    after_zero.finish_input_recording();
+    const auto zero_take = after_zero.input_recording_document();
+    validate_input_recording(zero_take);
+    RuntimeInput zero_replay;
+    zero_replay.configure(map());
+    zero_replay.replay_input_recording(zero_take, "source-a", 60, scene_a);
+    check(zero_replay.input_recording_waits_for_scene(), "Tick-zero transition was not retained");
+    rejects([&] { zero_replay.latch(1); });
+    zero_replay.finish_input_recording();
+    check(!zero_replay.input_recording_waits_for_scene(), "Cancel retained the Scene wait");
+    zero_replay.submit({{"key.space", 1}});
+    check(!zero_replay.latch(1).actions.at(jump).held, "Canceled session admitted physical input");
+    for (const auto& key : {"scene", "source", "frames"}) {
+        auto malformed = take;
+        malformed["segments"][1].erase(key);
+        rejects([&] { validate_input_recording(malformed); });
+    }
+    auto malformed = take;
+    malformed["segments"][0]["source"] = "wrong";
+    rejects([&] { validate_input_recording(malformed); });
+    malformed = take;
+    malformed["version"] = 2.0;
+    rejects([&] { validate_input_recording(malformed); });
+    malformed = take;
+    malformed["segments"][1]["scene"] = "00000000-0000-0000-0000-000000000000";
+    rejects([&] { validate_input_recording(malformed); });
+    RuntimeInput bounded;
+    bounded.configure(map());
+    bounded.begin_session_input_recording("source-a", 60, scene_a);
+    bounded.latch(1);
+    for (std::size_t i = 0; i < input_recording_scene_limit; ++i) {
+        RuntimeInput next;
+        next.configure(map());
+        next.inherit_session_input_recording(bounded, "source-b", 60, scene_b);
+        bounded = std::move(next);
+    }
+    check(bounded.input_recording_status().at("mode").get<std::string>() == "recorded" &&
+              bounded.input_recording_document().at("segments").size() ==
+                  input_recording_scene_limit,
+          "Scene capacity did not retain a bounded complete prefix");
+    validate_input_recording(bounded.input_recording_document());
+}
 void exercise() {
     RuntimeInput input;
     input.configure(map());
@@ -192,6 +302,7 @@ void exercise() {
 } // namespace
 int main() {
     try {
+        session_recordings();
         exercise();
         std::cout << "Fixed gameplay input recording, validation and replay passed\n";
     } catch (const std::exception& e) {

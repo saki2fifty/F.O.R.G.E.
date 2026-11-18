@@ -120,6 +120,11 @@ stops the old world before new gameplay ticks, and resets presentation/input deb
 Fresh scene activation resets the world clock, input tick and physics timeline
 together, matching existing runtime replacement. Game/session progress is separate
 from this per-world simulation time; no persistent time identity is introduced.
+Interactive SDK Play can opt into the [session input recording profile](input-recording.md).
+The candidate inherits its bounded take before activation, after source/Scene
+validation and actual adopted-state response admission. Replay holds host
+publication and fixed ticks at recorded segment boundaries while loading/control
+work continues. Single-Scene takes retain their replacement refusal.
 Optional paused activation,
 Pause/Resume/Step and unload use the existing fixed clock. A failed fixed tick faults
 the session; resuming that partially executed world is rejected. A validated new

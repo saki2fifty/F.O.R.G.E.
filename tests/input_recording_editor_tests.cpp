@@ -10,7 +10,7 @@ void check(bool value, const std::string& message) {
         throw std::runtime_error(message);
 }
 void exercise(const std::filesystem::path& runtime, const std::filesystem::path& scratch, int width,
-              bool sdk, const std::filesystem::path& image) {
+              bool sdk, bool session_capture, const std::filesystem::path& image) {
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(scratch);
     SceneDocument::create_project(root, "Input recording");
@@ -89,6 +89,14 @@ void exercise(const std::filesystem::path& runtime, const std::filesystem::path&
     };
     frame();
     click("section");
+    if (!sdk) {
+        click("across-scenes");
+        click("record");
+        wait([&] { return !play.active(); });
+        check(!document.dirty(), "Unsupported session capture changed authored content");
+        click("across-scenes");
+    } else if (session_capture)
+        click("across-scenes");
     click("record");
     wait([&] {
         return play.ready() && !play.paused() &&
@@ -103,7 +111,10 @@ void exercise(const std::filesystem::path& runtime, const std::filesystem::path&
     const auto file = root / "Recordings/input-recording.json";
     wait([&] { return std::filesystem::is_regular_file(file); });
     const auto recorded = read_input_recording(root, "Recordings/input-recording.json");
-    check(recorded.at("frames").size() > 0, "Native controls saved no actual ticks");
+    const auto& frames =
+        session_capture ? recorded.at("segments").at(0).at("frames") : recorded.at("frames");
+    check(!frames.empty() && recorded.at("version").get<unsigned>() == (session_capture ? 2u : 1u),
+          "Native controls saved no actual ticks or the wrong profile");
     if (!image.empty()) {
         ImGui::GetIO().AddMousePosEvent(-FLT_MAX, -FLT_MAX);
         frame();
@@ -132,6 +143,25 @@ void exercise(const std::filesystem::path& runtime, const std::filesystem::path&
     check(scene.snapshot() == original && !document.dirty(),
           "Input workflow changed authored history");
     play.stop();
+    if (session_capture) {
+        auto longer = recorded;
+        auto& replay_frames = longer["segments"][0]["frames"];
+        const auto neutral = Json::array({Json::array({0, 0, 0})});
+        while (replay_frames.size() < 1000)
+            replay_frames.push_back(neutral);
+        write_input_recording(root, "Recordings/input-recording.json", longer, true);
+        frame();
+        click("replay");
+        wait([&] {
+            return play.control_ready() && !play.paused() && !play.input_recording_pending() &&
+                   play.input_recording_status().value("mode", "") == "replaying";
+        });
+        click("cancel-replay");
+        wait([&] { return play.input_recording_status().value("mode", "") == "canceled"; });
+        check(scene.snapshot() == original && !document.dirty(),
+              "Native replay cancellation changed authored history");
+        play.stop();
+    }
     test::observe_ui = false;
 }
 } // namespace
@@ -142,9 +172,12 @@ int main(int argc, char** argv) {
         for (bool sdk : {false, true})
             for (int width : {1180, 700, 400})
                 exercise(std::filesystem::absolute(argv[1]), std::filesystem::absolute(argv[2]),
-                         width, sdk,
-                         argc == 4 && !sdk && width == 700 ? std::filesystem::absolute(argv[3])
-                                                           : std::filesystem::path{});
+                         width, sdk, false, {});
+        for (int width : {1180, 700, 400})
+            exercise(std::filesystem::absolute(argv[1]), std::filesystem::absolute(argv[2]), width,
+                     true, true,
+                     argc == 4 && width == 700 ? std::filesystem::absolute(argv[3])
+                                               : std::filesystem::path{});
         SDL_Quit();
         std::cout
             << "Native record/save/replay controls passed in both Play hosts at three widths\n";

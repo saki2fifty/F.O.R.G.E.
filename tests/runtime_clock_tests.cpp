@@ -24,6 +24,52 @@ template <class F> void rejects(F f) {
     throw std::runtime_error("expected rejection");
 }
 RuntimeClock::Time time_ms(int n) { return RuntimeClock::Time{} + std::chrono::milliseconds(n); }
+void prerequisite_wait() {
+    RuntimeClock clock({10, .25, 8});
+    unsigned remaining = 2, calls = 0;
+    const auto tick = [&](float dt) {
+        expect_near(dt, .1, 1e-7);
+        check(remaining > 0, "Prerequisite admitted an extra simulation tick");
+        --remaining;
+        ++calls;
+    };
+    const auto ready = [&] { return remaining > 0; };
+    clock.resume(time_ms(0));
+    clock.advance(time_ms(250), tick, ready);
+    check(calls == 2 && clock.tick() == 2 && !clock.paused(),
+          "Readiness gate changed user Pause or fixed tick bookkeeping");
+    expect_near(clock.alpha(), 1);
+    expect_near(clock.presentation_seconds(), .2);
+    clock.advance(time_ms(1000), tick, ready);
+    check(calls == 2 && clock.status().at("dropped_ticks").get<std::uint64_t>() == 0,
+          "Waiting created phantom or dropped simulation ticks");
+    remaining = 2;
+    clock.advance(time_ms(1050), tick, ready);
+    check(calls == 2, "Readiness release replayed waiting-time debt");
+    expect_near(clock.alpha(), 1);
+    expect_near(clock.presentation_seconds(), .2);
+    clock.advance(time_ms(1100), tick, ready);
+    check(calls == 3, "Readiness release lost its next fixed tick");
+    expect_near(clock.presentation_seconds(), .2);
+    clock.advance(time_ms(1300), tick, ready);
+    check(calls == 4 && clock.tick() == 4, "Catch-up ran beyond the next prerequisite");
+    expect_near(clock.presentation_seconds(), .4);
+    clock.pause(time_ms(1400));
+    remaining = 1;
+    clock.step(tick);
+    check(clock.paused() && clock.tick() == 5, "Single Step changed Pause at a prerequisite");
+    clock.resume(time_ms(1400));
+    clock.set_time_scale(0);
+    clock.advance(time_ms(1500), tick, ready);
+    remaining = 1;
+    clock.advance(time_ms(1600), tick, ready);
+    check(calls == 5, "Readiness ignored zero simulation scale");
+    clock.set_time_scale(2);
+    clock.advance(time_ms(1650), tick, ready);
+    check(calls == 6 && clock.tick() == 6, "Readiness changed scaled fixed scheduling");
+    expect_near(clock.presentation_seconds(), .6);
+    rejects([&] { clock.advance(time_ms(1649), tick, ready); });
+}
 void presentation_time() {
     RuntimeClock clock({10, .25, 8});
     const auto tick = [](float) {};
@@ -515,6 +561,7 @@ void live() {
 } // namespace
 int main() {
     try {
+        prerequisite_wait();
         clocks();
         presentation_time();
         simulation_rates();

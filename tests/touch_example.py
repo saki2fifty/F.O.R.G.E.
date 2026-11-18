@@ -8,12 +8,17 @@ import subprocess
 import tempfile
 import time
 from runtime_client import Runtime
+from gallery_project_fixture import copy_gallery_project
 
 @contextmanager
-def touch_example(runtime, module, gallery, scene_name, module_id, sdk, *, launch=True):
+def touch_example(runtime, module, gallery, scene_name, module_id, sdk, *, launch=True,
+                  dependencies=None, sources=None):
     with tempfile.TemporaryDirectory(prefix='touch-example-', dir=runtime.parent) as temporary:
         root = Path(temporary) / 'Game'
-        shutil.copytree(gallery, root)
+        if sources is None:
+            shutil.copytree(gallery, root)
+        else:
+            copy_gallery_project(gallery, root, sources, 'Scenes/' + scene_name)
         source = root / 'Scenes' / scene_name
         original = json.loads(source.read_text())
         before = hashlib.sha256(source.read_bytes()).hexdigest()
@@ -24,7 +29,8 @@ def touch_example(runtime, module, gallery, scene_name, module_id, sdk, *, launc
         fingerprint = json.loads(subprocess.check_output([runtime, '--sdk-info'], text=True))['fingerprint']
         project['modules'] = [dict(id=module_id, implementation='1', sdk='experimental-1',
                                    fingerprint=fingerprint, library=module.name,
-                                   dependencies=['forge.input', 'forge.transforms'] +
+                                   dependencies=dependencies if dependencies is not None else
+                                   ['forge.input', 'forge.transforms'] +
                                    (['forge.game'] if module_id == 'project.gamepad_motion' else []))]
         (root / 'forge.project.json').write_text(json.dumps(project))
         if not launch:

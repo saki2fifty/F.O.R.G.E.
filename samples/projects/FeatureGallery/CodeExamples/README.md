@@ -1,5 +1,16 @@
 # Optional C++ behaviors
 
+## Input-driven Scene visits
+
+Create an empty System named **SessionInput** and replace its source with
+`SessionInput.cpp`. The module descriptor needs `forge.input`, `forge.transforms`
+and `forge.game` dependencies and `FORGE_SDK_GAME` in its required/allowed
+capabilities. Build with the matching SDK. Scenes235/236 use stable input-message
+sources: Space moves a cube and Tab queues the other Scene through the existing
+game host. Requests remain world-scoped; queued duplicates wait and terminal
+receipts are released. This sample's fixed Scene/source UUIDs are deliberate.
+Follow the [record/save/replay/export steps](../../../../manual/editor/input-recording.md).
+
 ## Fixed ECS worker motion
 
 Use `ParallelMotion.hpp` and `ParallelMotion.cpp` with Scene161. Create a managed

@@ -227,20 +227,33 @@ class PlaySession {
                 live_command_.value("command", "") == "input_recording") ||
                (waiting_ && sent_command_ == "input_recording");
     }
-    bool submit_input_recording(const std::string& operation, const Json& document = Json()) {
+    bool session_input_recording_available() const {
+        return session_input_recording_supported_ && !offline_recording_;
+    }
+    bool submit_input_recording(const std::string& operation, const Json& document = Json(),
+                                const std::string& capture_scope = "scene") {
         if (!control_ready() || (offline_recording_ && operation != "replay") ||
             !live_command_.is_null() || input_recording_pending() || !world_generation() ||
             (operation != "begin" && operation != "replay" && operation != "finish" &&
              operation != "read"))
             return false;
+        if ((capture_scope != "scene" && capture_scope != "session") ||
+            (capture_scope == "session" &&
+             (operation != "begin" || !session_input_recording_available())))
+            return false;
         if ((operation == "begin" || operation == "replay") &&
             (!paused() || timing_.value("tick", std::uint64_t{}) != 0))
             return false;
-        if (operation == "replay")
+        if (operation == "replay") {
             validate_input_recording(document);
+            if (document.contains("segments") && !session_input_recording_available())
+                return false;
+        }
         live_command_ = {{"command", "input_recording"},
                          {"generation", world_generation()},
                          {"operation", operation}};
+        if (operation == "begin" && capture_scope == "session")
+            live_command_["capture_scope"] = capture_scope;
         if (operation == "replay")
             live_command_["document"] = document;
         input_recording_error_.clear();
@@ -918,6 +931,7 @@ class PlaySession {
         runtime_schema_ = nullptr;
         runtime_world_generation_ = 0;
         schema_references_ = false;
+        session_input_recording_supported_ = false;
         schema_identity_ = sent_schema_hint_ = nullptr;
         sdk_pending_platform_acks_ = false;
         sdk_platform_acks_ = nullptr;
@@ -1219,11 +1233,15 @@ class PlaySession {
                             active_tiles_.observe(maps);
                         }
                     }
-                    if (stage_ == Stage::Hello)
+                    if (stage_ == Stage::Hello) {
                         schema_references_ =
                             sdk_game_ && response.value("runtime_contract", Json::object())
                                                  .value("schema_reference", 0u) ==
                                              play_schema_reference_protocol;
+                        session_input_recording_supported_ =
+                            sdk_game_ && response.value("runtime_contract", Json::object())
+                                             .value("session_input_recording", false);
+                    }
                     const auto generation =
                         sdk_game_ ? response.at("activation").value("generation", std::uint64_t{})
                                   : response.value("world_generation", std::uint64_t{});
@@ -1663,6 +1681,7 @@ class PlaySession {
             nullptr;
         runtime_world_generation_ = 0;
         schema_references_ = false;
+        session_input_recording_supported_ = false;
         schema_identity_ = sent_schema_hint_ = nullptr;
         active_tiles_.clear();
         prepared_tiles_.clear();
@@ -1946,6 +1965,7 @@ class PlaySession {
     TileMapPlayReceiver* tile_reply_ = nullptr;
     Json property_tune_command_, property_tune_ack_, runtime_schema_;
     bool schema_references_ = false;
+    bool session_input_recording_supported_ = false;
     Json schema_identity_, sent_schema_hint_;
     Json time_scale_command_;
     Json recording_status_, recording_command_;

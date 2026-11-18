@@ -14,6 +14,36 @@ one-time relative motion and neutralization after capture/focus loss.
 
 ## Document and admission
 
+Interactive SDK Play also supports the opt-in `fixed-session-gameplay-input-v2`
+profile. Its version-2 document replaces `frames` with `segments`. Each segment
+has exactly `scene` (AssetId), `source` and `frames`; all segments share the
+document's input map and simulation frequency. Local ticks restart from one for
+each visit; `consumed_ticks` counts replayed frames across visits. Repeated visits
+and zero-tick segments retain their order. A take requires at least one frame
+and admits at most 64 segments, 4,096 total frames and 8 MiB. The initial source
+equals the first segment's source.
+
+SDK configuration supplies each candidate's witness through the existing source
+hash helper. Before a world swap, `GameSession` stages the previous recorder in
+the candidate's existing `RuntimeInput`, verifies Scene/source/map/Hz and polls
+admission with the actual adopted state. Failure preserves the active world/take.
+The editor admission adapter validates before publication and again only when
+session-input adoption changes its admitted state. Ordinary repeated polls retain
+their original single validation.
+
+Replay delays host candidate publication until the current segment is consumed.
+At that boundary, the clock's optional readiness predicate prevents additional
+fixed ticks while loading/control/transport work continues. Waiting discards
+elapsed debt and holds the current presentation, without phantom ticks or changes
+to user Pause/time scale. Step refuses the boundary. Finished/canceled replay
+stays neutral through later world changes; live input cannot take over.
+
+The take records expected visits rather than issuing Scene requests itself.
+Game logic must request the recorded sequence. Control-phase actions, asynchronous
+completion times, saves/random state and arbitrary native state are outside this
+document. Legacy captures and ordinary hosts retain single-Scene refusal rules.
+Offline movies reject version-2 replay before runtime launch or output creation.
+
 The version-1 JSON document has exactly six fields: `version`, `profile`,
 `source`, `simulation_hz`, `input_map`, and `frames`. Action columns follow input
 map declaration order, excluding control-phase actions. Each cell is
@@ -33,8 +63,9 @@ the input map ends active capture with a failure notice; a nonempty completed
 prefix can still be retrieved. Replay refuses map replacement and rebinding, including after completion or
 cancellation. Finishing an empty capture fails without ending capture. A first
 frame that cannot fit the byte budget reports failure. Replay progress counts
-consumed saved frames and stops increasing at completion or cancellation. The GameSession
-owner rejects Scene preparation/activation during recording or replay; explicit
+consumed saved frames and stops increasing at completion or cancellation. For
+version 1, the GameSession owner rejects Scene preparation/activation during
+recording or replay; explicit
 runtime Scene replacement likewise requires a new launch after recording use.
 
 ## Replay and limits
@@ -56,8 +87,8 @@ take. Interactive physical input remains unavailable during offline capture.
 This is input fidelity, not arbitrary game-state determinism. Native random
 values, external storage, asset timing, control callbacks, physics, asynchronous
 work and other external state can affect results. Recordings do not restore
-arbitrary C++ state or support cross-build replay. Scene-transition recording
-and live-state attachment are separate profiles. Movie rendering does not
+arbitrary C++ state or support cross-build replay. The version-2 profile retains
+game-requested Scene visits; attaching to a live run remains unsupported. Movie rendering does not
 establish that other game-state effects match the original interactive run.
 
 ## Editor, automation and files
@@ -86,11 +117,11 @@ See the [usage guide](../manual/editor/input-recording.md) and
 ## Control capture provenance
 
 The guide's input-recording image is an unretouched 700×700 capture of the
-production control widget after an actual record/read/save workflow, rendered
+production control widget after an actual Across Scenes record/read/save workflow, rendered
 through ImGui/SDL software draw data. The native fixture exercises both Play
-hosts at 1180/700/400 widths, fresh replay, input-consumer counts, project switching
+hosts at 1180/700/400 widths, SDK session capture/cancel, fresh replay, input-consumer counts, project switching
 and authored-source isolation. The capture shows one 700-wide viewport; it is
 not a full-editor or Windows/physical-device acceptance image.
 
-Canonical image: `manual/images/input-recording-controls.png`; SHA-256: `0dd3c6db6f96f5752f58839050085471d064994f724a503c6201724e742e086e`. The movie-options guide uses the current production
+Canonical image: `manual/images/input-recording-controls.png`; SHA-256: `7c8f57d3d5536997aa0423b2622b21d73b0209072714fb9d8e98850ea708cd37`. The movie-options guide uses the current production
 Diligent control capture documented in [game recording](game-recording.md).

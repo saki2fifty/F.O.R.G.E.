@@ -48,6 +48,19 @@ Real Windows editor captures using small validation scenes. Click an image to op
 
 [Capture sources](docs/images/readme/README.md) · [Implementation and delivery status](docs/status.md)
 
+[Record and replay gameplay input](manual/editor/input-recording.md) in one Scene
+or across game-requested Scene visits. SDK Play retains one bounded take, validates
+the next Scene before activation and waits at replay boundaries while loading
+continues. Editor controls and MCP share the same runtime/file owners.
+Gallery235/236 include the optional two-room C++ example. Movie recording accepts
+single-Scene takes; input fidelity does not guarantee arbitrary game-state determinism.
+
+[![Production Input recording controls with Across Scenes selected and a saved take](manual/images/input-recording-controls.png)](manual/editor/input-recording.md)
+
+This controls capture uses native ImGui/SDL software draw data at 700×700;
+[capture provenance](docs/input-recording.md#control-capture-provenance) records
+its source and scope. It is separate from Windows desktop acceptance.
+
 [Smooth Camera Shot transitions](manual/editor/animation-sequences.md#camera-shots)
 move between adjacent camera views and lenses while preserving animated camera rigs.
 Gallery153 includes an incoming blend, a return blend and an overview gap.

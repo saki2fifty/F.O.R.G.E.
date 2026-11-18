@@ -13,6 +13,7 @@
 #include "project_automation.hpp"
 #include "project_source_automation.hpp"
 #include "script_automation.hpp"
+#include "sdk_platform_effects.hpp"
 #include "texture_authoring.hpp"
 #include "tile_asset_reimport_routes.hpp"
 #include "ui_localization_authoring.hpp"
@@ -157,6 +158,18 @@ int main(int argc, char** argv) {
         renderer.masks_supported = true;
         renderer.snapshots_supported = true;
         std::unique_ptr<forge::UiPresenter> presenter;
+        forge::SdkPlatformEffects platform_effects(
+            play, input, [&](const std::string& direction, std::string& error) {
+                if (!presenter) {
+                    error = "No runtime UI presenter in this fixture";
+                    return;
+                }
+                try {
+                    presenter->navigate(direction);
+                } catch (const std::exception& failure) {
+                    error = failure.what();
+                }
+            });
         std::string presenter_session;
         std::uint64_t presenter_generation = 0, submitted = 0;
         const auto blocked = [&]() -> std::string {
@@ -446,6 +459,13 @@ int main(int argc, char** argv) {
                 play.submit_sdk_candidate_ack(true, play.session(), play.sdk_candidate_ticket());
             if (sdk_play || mode == "gamepads")
                 input.pump(play, true);
+            if (sdk_play) {
+                // Exercise the production executor. The headless fixture has
+                // no physical capture target; release can still be confirmed.
+                platform_effects.pump(false);
+                forge::Json acknowledgements;
+                platform_effects.take_pending_ack(acknowledgements);
+            }
             if (play.active() && source_preview)
                 ui_source.close_preview();
             if (play.ready() && play.ui_snapshot().is_object() &&

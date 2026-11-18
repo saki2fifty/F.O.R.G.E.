@@ -17,6 +17,7 @@ class InputRecordingControls {
             error_.clear();
             saved_.clear();
             replace_ = false;
+            across_scenes_ = false;
             replay_ = nullptr;
         }
         try {
@@ -34,12 +35,16 @@ class InputRecordingControls {
             "Replay supplies the same actions; game-state determinism is not guaranteed.");
         ImGui::BeginDisabled(!pending_.empty());
         ImGui::InputText("Project file", &path_);
-        help("Use Recordings/<name>.json. Saving creates the Recordings folder. UI/text input and "
-             "Scene "
-             "transitions are outside this recording profile.");
+        help("Use Recordings/<name>.json. Saving creates the Recordings folder. UI/text input "
+             "and arbitrary native state are not recorded.");
         ImGui::Checkbox("Replace existing recording", &replace_);
         ImGui::EndDisabled();
         ImGui::BeginDisabled(play.active() || !pending_.empty());
+        ImGui::Checkbox("Across Scenes", &across_scenes_);
+        FORGE_UI_PROBE("input-recording:across-scenes");
+        help("For new recordings, include game-requested Scene changes in interactive SDK Play. "
+             "Replay follows its saved profile. Ordinary runtimes and movies use single-Scene "
+             "takes.");
         if (ImGui::Button("Record input"))
             attempt([&] {
                 document.check_ownership();
@@ -71,6 +76,30 @@ class InputRecordingControls {
         const auto mode = status.value("mode", "idle");
         ImGui::Text("%s | %llu ticks", mode.c_str(),
                     static_cast<unsigned long long>(status.value("ticks", std::uint64_t{})));
+        if (status.contains("segments")) {
+            ImGui::Text(
+                "Scene segment %llu of %llu",
+                static_cast<unsigned long long>(status.value("segment", std::uint64_t{}) + 1),
+                static_cast<unsigned long long>(status.value("segments", std::uint64_t{})));
+            if (status.value("waiting_for_scene", false))
+                ImGui::TextWrapped("Waiting for the next recorded Scene to load.");
+        }
+        if (mode == "replaying" || mode == "finished" || mode == "canceled")
+            ImGui::Text("Replayed %llu ticks", static_cast<unsigned long long>(status.value(
+                                                   "consumed_ticks", std::uint64_t{})));
+        if (mode == "finished" || mode == "canceled")
+            ImGui::TextWrapped("Gameplay input stays neutral until a new Play launch.");
+        if (mode == "replaying") {
+            ImGui::BeginDisabled(!play.control_ready() || play.input_recording_pending() ||
+                                 !pending_.empty());
+            if (ImGui::Button("Cancel replay"))
+                attempt([&] {
+                    if (!play.submit_input_recording("finish"))
+                        throw std::runtime_error("Wait for the current Play control");
+                });
+            FORGE_UI_PROBE("input-recording:cancel-replay");
+            ImGui::EndDisabled();
+        }
         const auto notice = status.value("notice", "");
         if (!notice.empty())
             ImGui::TextWrapped("%s", notice.c_str());
@@ -128,7 +157,14 @@ class InputRecordingControls {
         if (!play.control_ready() || play.input_recording_pending())
             return;
         if (pending_ == "begin" || pending_ == "replay") {
-            if (!play.submit_input_recording(pending_, replay_))
+            const bool session =
+                pending_ == "begin" ? across_scenes_ : replay_.contains("segments");
+            if (session && !play.session_input_recording_available()) {
+                play.stop(); // Only the fresh launch owned by this workflow.
+                throw std::runtime_error("Across-Scene input recording/replay requires SDK Play");
+            }
+            if (!play.submit_input_recording(
+                    pending_, replay_, pending_ == "begin" && across_scenes_ ? "session" : "scene"))
                 throw std::runtime_error("Fresh input recording was not admitted");
             pending_ = "resume";
         } else if (pending_ == "resume") {
@@ -149,6 +185,6 @@ class InputRecordingControls {
     std::filesystem::path project_;
     std::string path_ = "Recordings/input-recording.json", pending_, launch_, error_, saved_;
     Json replay_;
-    bool replace_ = false;
+    bool replace_ = false, across_scenes_ = false;
 };
 } // namespace forge::ui

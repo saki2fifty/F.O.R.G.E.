@@ -4891,6 +4891,33 @@
     },
     {
       "dependencies": [
+        "b78ea324-266f-490e-94e1-8159d010302a"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "declared:Session input next Scene",
+          "target": "b78ea324-266f-490e-94e1-8159d010302a",
+          "type": "scene"
+        }
+      ],
+      "id": "306f7bf0-c7cc-4733-9043-7c379d2afff2",
+      "metadata": {
+        "forge.runtime_declarations": {
+          "sources": {
+            "Scenes/235-session-input-a.scene.json": "8da37281f357c0c5763df8b44d0ca15da0899caf3afd8deebe12b5e0559bbf18"
+          },
+          "version": 1
+        }
+      },
+      "schema_version": 3,
+      "source": "Scenes/235-session-input-a.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [
         "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6"
       ],
       "dependency_edges": [
@@ -16320,6 +16347,33 @@
       "source": "Assets/UvFitted.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [
+        "306f7bf0-c7cc-4733-9043-7c379d2afff2"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "declared:Session input next Scene",
+          "target": "306f7bf0-c7cc-4733-9043-7c379d2afff2",
+          "type": "scene"
+        }
+      ],
+      "id": "b78ea324-266f-490e-94e1-8159d010302a",
+      "metadata": {
+        "forge.runtime_declarations": {
+          "sources": {
+            "Scenes/236-session-input-b.scene.json": "e0c9bebc7d5c6249b2a7b988caac0380577d1b45e1e98a7eb6929b02969119ba"
+          },
+          "version": 1
+        }
+      },
+      "schema_version": 3,
+      "source": "Scenes/236-session-input-b.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
