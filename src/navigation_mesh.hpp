@@ -9,16 +9,17 @@ inline constexpr const char* recast_revision = "6dc1667f580357e8a2154c28b7867bea
 inline constexpr std::size_t max_nav_bytes = 4 * 1024 * 1024;
 inline constexpr unsigned max_polygons = 4096, max_waypoints = 64;
 nlohmann::json tile_properties(std::span<const std::byte> bytes, MeshSpace = MeshSpace::Spatial3D,
-                               std::span<const NavigationLinkData> = {});
+                               std::span<const NavigationLinkData> = {}, bool classified = false);
 void validate_tile(std::span<const std::byte> bytes, MeshSpace = MeshSpace::Spatial3D,
-                   std::span<const NavigationLinkData> = {});
+                   std::span<const NavigationLinkData> = {}, bool classified = false);
 class Mesh {
   public:
     explicit Mesh(std::span<const std::byte> bytes, MeshSpace = MeshSpace::Spatial3D,
-                  bool dynamic_obstacles = false, std::span<const NavigationLinkData> = {});
+                  bool dynamic_obstacles = false, std::span<const NavigationLinkData> = {},
+                  bool classified = false);
     ~Mesh();
     MeshSpace space() const;
-    std::vector<Double3> triangles() const;
+    std::vector<Double3> triangles(std::vector<std::uint32_t>* areas = nullptr) const;
     bool dynamic_obstacles() const;
 
   private:
@@ -46,16 +47,18 @@ class Query {
     bool obstacles(std::span<const CylinderObstacle>);
     std::uint64_t generation() const;
     std::uint64_t tile_rebuilds() const;
-    NavResult project(Double3 point);
-    NavResult path(Double3 start, Double3 end);
+    NavResult project(Double3 point, const NavigationAreaFilter& = {});
+    NavResult path(Double3 start, Double3 end, const NavigationAreaFilter& = {});
     // Same path owner, retaining explicit traversal boundaries for Agent movement.
-    Route route(Double3 start, Double3 end);
+    Route route(Double3 start, Double3 end, const NavigationAreaFilter& = {});
     // Validate the retained connection directly; another shortest route may use a different link.
-    bool link_available(EntityId source, Double3 entry, Double3 exit, float arc_height = 0) const;
-    NavResult move(Double3 start, Double3 target);
+    bool link_available(EntityId source, Double3 entry, Double3 exit, float arc_height = 0,
+                        const NavigationAreaFilter& = {}) const;
+    NavResult move(Double3 start, Double3 target, const NavigationAreaFilter& = {});
     // Owned velocity in points[0]; private engine steering, not a public route API.
     NavResult avoid_velocity(Double3 position, Double3 desired, Double3 previous, float speed,
-                             float radius, float horizon, std::span<const Neighbour>);
+                             float radius, float horizon, std::span<const Neighbour>,
+                             const NavigationAreaFilter& = {});
 
   private:
     struct Impl;

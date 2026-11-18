@@ -18,6 +18,7 @@ struct HeightfieldLayers {
     NavigationSettings settings;
     std::array<float, 3> minimum{}, maximum{};
     std::vector<HeightfieldLayer> layers;
+    bool classified = false;
 };
 // This is a FORGE raw-cell format. Native headers and mutable cache state are
 // constructed only after structural admission; they are never deserialized.

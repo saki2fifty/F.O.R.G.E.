@@ -46,6 +46,10 @@ class NavigationService {
     virtual ~NavigationService() = default;
     virtual NavResult project_point(AssetRef<NavMeshAsset>, Double3 point) = 0;
     virtual NavResult find_path(AssetRef<NavMeshAsset>, Double3 start, Double3 end) = 0;
+    virtual NavResult project_point(AssetRef<NavMeshAsset>, Double3 point,
+                                    const NavigationAreaFilter&) = 0;
+    virtual NavResult find_path(AssetRef<NavMeshAsset>, Double3 start, Double3 end,
+                                const NavigationAreaFilter&) = 0;
     virtual std::optional<NavigationAgentObservation> agent_state(EntityRef) const = 0;
 };
 } // namespace forge

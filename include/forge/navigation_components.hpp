@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <forge/asset_ref.hpp>
@@ -13,6 +14,23 @@ struct NavMeshAsset {
 struct NavigationSurface {
     bool enabled = true;
     bool operator==(const NavigationSurface&) const = default;
+};
+inline constexpr std::size_t navigation_area_limit = 16;
+inline constexpr float navigation_area_max_cost = 1000000.f;
+// Classifies included walkable sources and links; it does not include geometry.
+struct NavigationArea {
+    std::uint32_t area = 0;
+    bool operator==(const NavigationArea&) const = default;
+};
+// Query-time policy. Costs are indexed by area and multiply distance, not speed.
+struct NavigationAreaFilter {
+    std::uint32_t mask = UINT16_MAX;
+    std::array<float, navigation_area_limit> costs = [] {
+        std::array<float, navigation_area_limit> values{};
+        values.fill(1.f);
+        return values;
+    }();
+    bool operator==(const NavigationAreaFilter&) const = default;
 };
 // Explicit static connection for one Scene build profile. Endpoint coordinates
 // are local metres; XY uses local X/Y with zero endpoint Z. Radius is world metres.

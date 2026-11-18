@@ -1,7 +1,9 @@
 #include "authored_schema.hpp"
 #include "bounded_json.hpp"
+#include "navigation_area_value.hpp"
 #include "runtime_entity_creation.hpp"
 #include "runtime_tile_map.hpp"
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstring>
@@ -106,6 +108,54 @@ struct Bridge {
         if (bridge.owner != std::this_thread::get_id())
             throw std::runtime_error("SDK requires its owner thread");
         return bridge;
+    }
+    static int32_t navigation_query(void* p, const char* asset, uint32_t operation,
+                                    const double* start, const double* end,
+                                    const ForgeSdkNavigationFilterV1* requested,
+                                    ForgeSdkNavResultV1* out, bool filtered) {
+        if (!p || !start || !out || out->size != sizeof(*out) || operation > 1 ||
+            (operation == 1 && !end) || !out->xyz || out->capacity == 0 || out->capacity > 64)
+            return 0;
+        out->count = 0;
+        out->status = uint32_t(NavStatus::Unavailable);
+        if (filtered &&
+            (!requested || requested->size != sizeof(*requested) || requested->version != 1)) {
+            out->status = uint32_t(NavStatus::Invalid);
+            return 0;
+        }
+        try {
+            NavigationAreaFilter filter;
+            if (requested) {
+                filter.mask = requested->mask;
+                std::copy(std::begin(requested->costs), std::end(requested->costs),
+                          filter.costs.begin());
+            }
+            navigation_detail::validate_navigation_area_filter(filter);
+            auto& c = get(p).context;
+            if (!c.input)
+                return 0;
+            if (!c.services.available(Capability::Navigation))
+                return 1;
+            const AssetRef<NavMeshAsset> ref{AssetId::parse(bounded(asset, 36))};
+            auto service = c.services.navigation();
+            auto value = operation == 0
+                             ? service->project_point(ref, {start[0], start[1], start[2]}, filter)
+                             : service->find_path(ref, {start[0], start[1], start[2]},
+                                                  {end[0], end[1], end[2]}, filter);
+            if (value.points.size() > out->capacity) {
+                out->status = uint32_t(NavStatus::Limit);
+                return 1;
+            }
+            out->status = uint32_t(value.status);
+            out->count = uint32_t(value.points.size());
+            for (unsigned i = 0; i < out->count; ++i)
+                for (unsigned j = 0; j < 3; ++j)
+                    out->xyz[i * 3 + j] = value.points[i][j];
+            return 1;
+        } catch (...) {
+            out->status = uint32_t(NavStatus::Invalid);
+            return 1;
+        }
     }
     struct QueryExclusions {
         std::array<EntityRef, physics_query_exclusion_limit> values{};
@@ -1290,37 +1340,13 @@ struct Bridge {
         host.navigation_query = [](void* p, const char* asset, uint32_t operation,
                                    const double* start, const double* end,
                                    ForgeSdkNavResultV1* out) -> int32_t {
-            if (!p || !start || !out || out->size != sizeof(*out) || operation > 1 ||
-                (operation == 1 && !end) || !out->xyz || out->capacity == 0 || out->capacity > 64)
-                return 0;
-            out->count = 0;
-            out->status = uint32_t(NavStatus::Unavailable);
-            try {
-                auto& c = Bridge::get(p).context;
-                if (!c.input)
-                    return 0;
-                if (!c.services.available(Capability::Navigation))
-                    return 1;
-                AssetRef<NavMeshAsset> ref{AssetId::parse(bounded(asset, 36))};
-                auto service = c.services.navigation();
-                auto value = operation == 0
-                                 ? service->project_point(ref, {start[0], start[1], start[2]})
-                                 : service->find_path(ref, {start[0], start[1], start[2]},
-                                                      {end[0], end[1], end[2]});
-                if (value.points.size() > out->capacity) {
-                    out->status = uint32_t(NavStatus::Limit);
-                    return 1;
-                }
-                out->status = uint32_t(value.status);
-                out->count = uint32_t(value.points.size());
-                for (unsigned i = 0; i < out->count; ++i)
-                    for (unsigned j = 0; j < 3; ++j)
-                        out->xyz[i * 3 + j] = value.points[i][j];
-                return 1;
-            } catch (...) {
-                out->status = uint32_t(NavStatus::Invalid);
-                return 1;
-            }
+            return navigation_query(p, asset, operation, start, end, nullptr, out, false);
+        };
+        host.navigation_query_filtered = [](void* p, const char* asset, uint32_t operation,
+                                            const double* start, const double* end,
+                                            const ForgeSdkNavigationFilterV1* filter,
+                                            ForgeSdkNavResultV1* out) -> int32_t {
+            return navigation_query(p, asset, operation, start, end, filter, out, true);
         };
         host.navigation_agent_state = [](void* p, const char* scene, const char* entity,
                                          ForgeSdkNavigationAgentV1* out) -> int32_t {

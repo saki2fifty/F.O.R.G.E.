@@ -12,6 +12,36 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+for area_path, area_scene_id, area_nav_id, plane in (
+        ('Scenes/231-navigation-area-costs.scene.json',
+         'ac8360f3-f406-4428-89b5-1961a95e8e0e', 'f9f83fc9-59b0-4a6e-a756-1443b998954f', 0),
+        ('Scenes/232-navigation-area-costs-xy.scene.json',
+         '52a1b1b5-a8d5-4bff-ae7f-0b0dfbf7a2e0', 'a9df3f60-a733-4310-a7ae-7e89c967e250', 1)):
+    area_scene = json.loads((project_root / area_path).read_text())
+    assert area_scene['asset_id'] == by_source[area_path]['id'] == area_scene_id
+    area_nodes = {row['id']: row for row in area_scene['entities']}
+    area_actors = [row for row in area_nodes.values() if 'forge.navigation_agent' in row['components']]
+    assert len(area_actors) == 3
+    for row in area_actors:
+        c = row['components']
+        assert c['forge.navigation_agent']['navmesh'] == area_nav_id
+        policy = c['forge.navigation_area_filter']
+        assert policy['mask'] == (1 if row['name'].startswith('Violet') else 65535)
+        assert len(policy['costs']) == 16
+        assert policy['costs'][2] == (20 if row['name'].startswith('Orange') else 1)
+        assert all(cost == 1 for i, cost in enumerate(policy['costs']) if i != 2)
+        behavior = c['forge.navigation_behavior']
+        assert behavior['graph'] == '76244d2c-0da5-45bd-933f-278c7efcd6dc'
+        assert behavior['anchor']['scene'] == area_scene_id and behavior['anchor']['entity'] in area_nodes
+    area_record = next(row for row in assets if row['id'] == area_nav_id)
+    assert area_record['schema_version'] == area_record['metadata']['version'] == 9
+    assert area_record['metadata']['settings'].get('plane', 0) == plane
+    assert area_record['metadata']['settings']['dynamic_obstacles']
+    assert len(area_record['metadata']['area_sources']) == 1
+    assert area_record['metadata']['area_sources'][0]['area'] == 2
+    assert area_record['metadata']['area_sources'][0]['entity'] in area_nodes
+    assert struct.unpack_from('<I', (project_root / area_record['source']).read_bytes(), 8)[0] == 9
+    assert any('forge.camera' in row['components'] for row in area_nodes.values())
 character_path = 'Scenes/224-navigation-characters.scene.json'
 character_scene = json.loads((project_root / character_path).read_text())
 assert character_scene['asset_id'] == by_source[character_path]['id'] == '96f838b6-4bb7-4ccc-8034-60042b648a61'

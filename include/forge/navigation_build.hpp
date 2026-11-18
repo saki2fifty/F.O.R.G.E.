@@ -51,4 +51,8 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project,
 // Read-only visualization uses the same admission path as runtime.
 std::vector<Double3> navigation_triangles(const std::filesystem::path& project,
                                           AssetRef<NavMeshAsset>);
+// Matching logical class per emitted triangle, from the same admitted mesh.
+std::vector<Double3> navigation_triangles(const std::filesystem::path& project,
+                                          AssetRef<NavMeshAsset>,
+                                          std::vector<std::uint32_t>& areas);
 } // namespace forge

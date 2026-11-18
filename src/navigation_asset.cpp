@@ -1,11 +1,13 @@
 #include "navigation_asset.hpp"
 #include "asset_bytes.hpp"
 #include "json_document.hpp"
+#include "navigation_area_value.hpp"
 #include "navigation_layers.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
+#include <optional>
 #include <set>
 #include <string_view>
 namespace forge::navigation_detail {
@@ -52,26 +54,32 @@ NavigationSettings provenance_settings(const nlohmann::json& meta) {
     const auto version = meta.at("version");
     require(version.is_number_integer() &&
                 (version == 1 || version == 2 || version == 3 || version == 4 || version == 5 ||
-                 version == 6 || version == 7 || version == 8),
+                 version == 6 || version == 7 || version == 8 || version == 9),
             "Unsupported navigation envelope version");
     auto settings = meta.at("settings").get<NavigationSettings>();
-    require(version == 8 || (version == 7) == settings.collect_static_colliders,
-            "Static collision collection requires navigation version 7 or 8");
-    require(version == 7 || version == 8 ||
+    const bool classified = version == 9;
+    require(classified || version == 8 || (version == 7) == settings.collect_static_colliders,
+            "Static collision collection requires navigation version 7, 8 or 9");
+    require(classified || version == 7 || version == 8 ||
                 ((version == 4 || (version == 6 && settings.dynamic_obstacles)) ==
                      settings.dynamic_obstacles &&
                  (version == 4 || version == 6 ||
                   (version == 3 || version == 5) == (settings.plane == NavigationPlane::PlanarXY))),
             "Navigation envelope version/profile/plane mismatch");
-    if (version == 6 || version == 8 || (version == 7 && meta.contains("links"))) {
-        const auto links = read_navigation_links(meta.at("links"), settings.plane, version == 8);
+    bool classified_link = false;
+    if (version == 6 || version == 8 || ((version == 7 || classified) && meta.contains("links"))) {
+        const auto links = read_navigation_links(meta.at("links"), settings.plane,
+                                                 version == 8 || classified, classified);
         require(!links.empty(), "Navigation link metadata requires at least one authored link");
-        require((version == 8) == std::ranges::any_of(
+        classified_link =
+            std::ranges::any_of(links, [](const auto& link) { return link.area != 0; });
+        require(classified || (version == 8) ==
+                                  std::ranges::any_of(
                                       links, [](const auto& link) { return link.arc_height != 0; }),
                 "Navigation arc metadata requires version 8 and at least one arced link");
     } else
-        require(!meta.contains("links"), "Authored links require navigation version 6, 7 or 8");
-    if ((version == 7 || version == 8) && settings.collect_static_colliders &&
+        require(!meta.contains("links"), "Authored links require navigation version 6, 7, 8 or 9");
+    if ((version == 7 || version == 8 || classified) && settings.collect_static_colliders &&
         settings.plane == NavigationPlane::Spatial3D)
         resource_inputs(meta.at("collision_inputs"), "Collision");
     else
@@ -99,6 +107,28 @@ NavigationSettings provenance_settings(const nlohmann::json& meta) {
                 "Invalid navigation Mesh inputs for this plane");
         resource_inputs(inputs, "Mesh");
     }
+    if (classified) {
+        const auto& areas = meta.at("area_sources");
+        const auto& sources = meta.at("sources");
+        require(areas.is_array() && areas.size() <= 512 && sources.is_array(),
+                "Invalid classified navigation source provenance");
+        std::optional<EntityId> previous;
+        for (const auto& entry : areas) {
+            require(entry.is_object() && entry.size() == 2 && entry.contains("entity") &&
+                        entry.contains("area"),
+                    "Invalid classified navigation source fields");
+            const auto id = entry.at("entity").get<EntityId>();
+            const auto area =
+                area_integer(entry.at("area"), navigation_area_limit - 1, "Navigation source area");
+            require(bool(id) && area != 0 && (!previous || *previous < id) &&
+                        std::ranges::find(sources, nlohmann::json(id)) != sources.end(),
+                    "Invalid, repeated or undeclared classified navigation source");
+            previous = id;
+        }
+        require(!areas.empty() || classified_link,
+                "Classified navigation requires a nondefault source or link area");
+    } else
+        require(!meta.contains("area_sources"), "Classified sources require navigation version 9");
     return settings;
 }
 std::vector<std::byte> envelope(nlohmann::json meta, std::span<const std::byte> tile) {
@@ -106,21 +136,25 @@ std::vector<std::byte> envelope(nlohmann::json meta, std::span<const std::byte> 
     if (!meta.contains("version"))
         meta["version"] = 1;
     const auto settings = provenance_settings(meta);
+    const bool classified = meta.at("version") == 9;
     const auto connections =
         meta.contains("links")
-            ? read_navigation_links(meta.at("links"), settings.plane, meta.at("version") == 8)
+            ? read_navigation_links(meta.at("links"), settings.plane,
+                                    meta.at("version") == 8 || classified, classified)
             : std::vector<NavigationLinkData>{};
     if (settings.dynamic_obstacles) {
         const auto layers = decode_layers(tile);
-        require(layers.settings == settings, "Navigation layer/settings mismatch");
+        require(layers.settings == settings && layers.classified == classified,
+                "Navigation layer/settings or area profile mismatch");
         meta["bounds"] = layer_properties(layers);
     } else {
-        meta["bounds"] = tile_properties(tile, settings.plane, connections);
+        meta["bounds"] = tile_properties(tile, settings.plane, connections, classified);
     }
     const unsigned version = meta.value("version", 1u);
     meta["version"] = version;
     meta["recast_revision"] = recast_revision;
-    meta["layout"] = layout(settings.dynamic_obstacles, !connections.empty());
+    meta["layout"] = std::string(layout(settings.dynamic_obstacles, !connections.empty())) +
+                     (classified ? "-areas-v1" : "");
     meta["tile_sha256"] = asset_detail::content_digest(tile);
     auto text = meta.dump();
     require(text.size() <= 65536, "Navigation metadata exceeds 64 KiB");
@@ -142,7 +176,7 @@ Admitted admit(std::span<const std::byte> bytes) {
                        [](char a, std::byte b) { return a == std::to_integer<char>(b); }) &&
                 (u32(bytes, 8) == 1 || u32(bytes, 8) == 2 || u32(bytes, 8) == 3 ||
                  u32(bytes, 8) == 4 || u32(bytes, 8) == 5 || u32(bytes, 8) == 6 ||
-                 u32(bytes, 8) == 7 || u32(bytes, 8) == 8),
+                 u32(bytes, 8) == 7 || u32(bytes, 8) == 8 || u32(bytes, 8) == 9),
             "Unsupported navigation envelope");
     const auto n = u32(bytes, 12), t = u32(bytes, 16);
     require(n > 0 && n <= 65536 && t > 0 && t <= max_nav_bytes &&
@@ -163,11 +197,15 @@ Admitted admit(std::span<const std::byte> bytes) {
     require(digest(meta.at("geometry_sha256").get<std::string>()),
             "Invalid navigation geometry digest");
     const auto settings = provenance_settings(meta);
+    const bool classified = meta.at("version") == 9;
     const auto connections =
         meta.contains("links")
-            ? read_navigation_links(meta.at("links"), settings.plane, meta.at("version") == 8)
+            ? read_navigation_links(meta.at("links"), settings.plane,
+                                    meta.at("version") == 8 || classified, classified)
             : std::vector<NavigationLinkData>{};
-    const auto expected_layout = layout(settings.dynamic_obstacles, !connections.empty());
+    const auto expected_layout =
+        std::string(layout(settings.dynamic_obstacles, !connections.empty())) +
+        (classified ? "-areas-v1" : "");
     require(meta.at("layout") == expected_layout, "Incompatible navigation layout/profile");
     const auto& ids = meta.at("sources");
     require(ids.is_array() && !ids.empty() && ids.size() <= 512,
@@ -184,9 +222,10 @@ Admitted admit(std::span<const std::byte> bytes) {
     // Structural validation precedes all Detour runtime calls, even if checksums match.
     const auto properties = [&] {
         if (!settings.dynamic_obstacles)
-            return tile_properties(tile, settings.plane, connections);
+            return tile_properties(tile, settings.plane, connections, classified);
         const auto layers = decode_layers(tile);
-        require(layers.settings == settings, "Navigation layer/settings mismatch");
+        require(layers.settings == settings && layers.classified == classified,
+                "Navigation layer/settings or area profile mismatch");
         return layer_properties(layers);
     }();
     require(meta.at("bounds") == properties, "Navmesh bounds/properties mismatch");
@@ -195,8 +234,8 @@ Admitted admit(std::span<const std::byte> bytes) {
             properties.at("climb") == settings.climb &&
             std::abs(properties.at("cell_inverse").get<float>() - 1 / settings.cell_size) < .0001f,
         "Navmesh agent settings mismatch");
-    auto mesh =
-        std::make_shared<Mesh>(tile, settings.plane, settings.dynamic_obstacles, connections);
+    auto mesh = std::make_shared<Mesh>(tile, settings.plane, settings.dynamic_obstacles,
+                                       connections, classified);
     return {std::move(meta), std::move(mesh)};
 }
 Admitted load(const std::filesystem::path& root, const AssetRecord& record) {
@@ -204,7 +243,8 @@ Admitted load(const std::filesystem::path& root, const AssetRecord& record) {
                 (record.schema_version == 1 || record.schema_version == 2 ||
                  record.schema_version == 3 || record.schema_version == 4 ||
                  record.schema_version == 5 || record.schema_version == 6 ||
-                 record.schema_version == 7 || record.schema_version == 8),
+                 record.schema_version == 7 || record.schema_version == 8 ||
+                 record.schema_version == 9),
             "Wrong navigation asset type/version");
     auto bytes =
         asset_detail::read_bytes(ProjectPaths(root).resolve(record.source), max_nav_bytes + 65556);
@@ -224,10 +264,16 @@ Admitted load(const std::filesystem::path& root, const AssetRecord& record) {
 namespace forge {
 std::vector<Double3> navigation_triangles(const std::filesystem::path& project,
                                           AssetRef<NavMeshAsset> ref) {
+    std::vector<std::uint32_t> areas;
+    return navigation_triangles(project, ref, areas);
+}
+std::vector<Double3> navigation_triangles(const std::filesystem::path& project,
+                                          AssetRef<NavMeshAsset> ref,
+                                          std::vector<std::uint32_t>& areas) {
     auto catalog = AssetCatalog::open_project(project);
     auto found = catalog.resolve(ref);
     if (found.state != AssetState::Available)
         throw std::runtime_error(found.diagnostic);
-    return navigation_detail::load(project, *found.record).mesh->triangles();
+    return navigation_detail::load(project, *found.record).mesh->triangles(&areas);
 }
 } // namespace forge

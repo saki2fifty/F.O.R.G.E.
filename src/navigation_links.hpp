@@ -17,12 +17,14 @@ struct NavigationLinkData {
     float radius = .5f;
     bool bidirectional = true;
     float arc_height = 0;
+    std::uint32_t area = 0;
     bool operator==(const NavigationLinkData&) const = default;
 };
 void validate_navigation_links(std::span<const NavigationLinkData>, MeshSpace);
 nlohmann::json navigation_link_values(std::span<const NavigationLinkData>, MeshSpace);
 std::vector<NavigationLinkData> read_navigation_links(const nlohmann::json&, MeshSpace,
-                                                      bool allow_arcs = false);
+                                                      bool allow_arcs = false,
+                                                      bool allow_areas = false);
 
 // Bounded call-lifetime storage for the dependency's public builder API. The
 // caller keeps this alive through dtCreateNavMeshData or the tile-cache callback.

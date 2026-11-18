@@ -25,6 +25,7 @@ struct Surface {
     std::optional<NavigationColliderSource> collider;
     // Canonical physical shape components only; never render geometry or native handles.
     nlohmann::json collision;
+    std::uint32_t area = 0;
 };
 struct Sources {
     AssetId scene;
@@ -34,6 +35,7 @@ struct Sources {
     NavigationPlane plane = NavigationPlane::Spatial3D;
     std::vector<NavigationLinkData> connections;
 };
+nlohmann::json area_sources(const Sources&);
 inline bool collider_sources(const Sources& value) {
     return std::any_of(value.surfaces.begin(), value.surfaces.end(),
                        [](const auto& surface) { return bool(surface.collider); });
@@ -56,6 +58,9 @@ struct Geometry {
     // Bounded convex native-XZ masks; original rectangles retain their four vertices.
     std::vector<std::vector<float>> obstacles;
     std::vector<NavigationLinkData> connections;
+    // One logical area per emitted triangle. Empty keeps the legacy raster profile.
+    std::vector<unsigned char> areas;
+    bool classified = false;
 };
 Geometry geometry(const nlohmann::json& effective_scene);
 Geometry geometry(const Sources&); // Original primitive-only v1 canonical bytes.

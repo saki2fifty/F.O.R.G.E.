@@ -22,6 +22,11 @@ void validate_geometry(const Geometry& g, NavigationSettings settings) {
     const auto& indices = g.indices;
     require(!indices.empty() && indices.size() % 3 == 0 && indices.size() <= 16384 * 3 &&
             verts.size() == indices.size() * 3);
+    require(g.classified ? g.areas.size() == indices.size() / 3 : g.areas.empty());
+    for (auto area : g.areas)
+        require(area < navigation_area_limit);
+    require(g.classified ||
+            std::ranges::none_of(g.connections, [](const auto& link) { return link.area != 0; }));
     for (std::size_t i = 0; i < indices.size(); ++i)
         require(indices[i] == int(i));
     for (float v : verts)
@@ -87,6 +92,10 @@ Compact rasterize(rcContext& context, const Geometry& g, NavigationSettings sett
     std::vector<unsigned char> areas(indices.size() / 3);
     rcMarkWalkableTriangles(&context, settings.slope, verts.data(), int(verts.size() / 3),
                             indices.data(), int(areas.size()), areas.data());
+    if (g.classified)
+        for (std::size_t i = 0; i < areas.size(); ++i)
+            if (areas[i] != RC_NULL_AREA)
+                areas[i] = g.areas[i] + 1;
     require(rcRasterizeTriangles(&context, verts.data(), int(verts.size() / 3), indices.data(),
                                  areas.data(), int(areas.size()), *solid, cfg.walkableClimb));
     rcFilterLowHangingWalkableObstacles(&context, cfg.walkableClimb, *solid);
@@ -153,8 +162,10 @@ std::vector<std::byte> build_tile(const Geometry& g, NavigationSettings settings
     for (float v : std::span(detail->verts, std::size_t(detail->nverts) * 3))
         require(std::isfinite(v) && std::abs(v) <= 4096);
     for (int i = 0; i < polys->npolys; ++i) {
-        polys->flags[i] = 1;
-        polys->areas[i] = 0;
+        require(!g.classified ||
+                (polys->areas[i] >= 1 && polys->areas[i] <= navigation_area_limit));
+        polys->areas[i] = g.classified ? polys->areas[i] - 1 : 0;
+        polys->flags[i] = static_cast<unsigned short>(1u << polys->areas[i]);
     }
     dtNavMeshCreateParams p{};
     p.verts = polys->verts;
@@ -187,7 +198,7 @@ std::vector<std::byte> build_tile(const Geometry& g, NavigationSettings settings
     require(bytes > 0 && bytes <= int(max_nav_bytes));
     std::vector<std::byte> out(bytes);
     std::memcpy(out.data(), data, bytes);
-    validate_tile(out, settings.plane, g.connections);
+    validate_tile(out, settings.plane, g.connections, g.classified);
     return out;
 }
 HeightfieldLayers build_layers(const Geometry& g, NavigationSettings settings) {
@@ -199,6 +210,7 @@ HeightfieldLayers build_layers(const Geometry& g, NavigationSettings settings) {
     require(nx * nz <= max_layers);
     HeightfieldLayers out;
     out.settings = settings;
+    out.classified = g.classified;
     std::copy(whole.bmin, whole.bmin + 3, out.minimum.begin());
     std::copy(whole.bmax, whole.bmax + 3, out.maximum.begin());
     rcContext context;

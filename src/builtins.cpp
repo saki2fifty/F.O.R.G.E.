@@ -3,6 +3,7 @@
 #include "authored_schema.hpp"
 #include "material_parameter_overrides.hpp"
 #include "material_slot.hpp"
+#include "navigation_area_value.hpp"
 #include "navigation_link_collision.hpp"
 #include "navigation_link_value.hpp"
 #include "navigation_region_value.hpp"
@@ -26,6 +27,7 @@
 #include <mutex>
 #include <numbers>
 #include <stdexcept>
+#include <tuple>
 namespace forge::detail {
 namespace {
 ecs_entity_t builtin_enum(flecs::world&, const std::string&, const std::string&);
@@ -119,6 +121,10 @@ template <class T> Json encode(const T& p) {
                 {"trigger", p.trigger}};
     else if constexpr (std::is_same_v<T, NavigationSurface>)
         return {{"enabled", p.enabled}};
+    else if constexpr (std::is_same_v<T, NavigationArea>)
+        return navigation_detail::area_value(p);
+    else if constexpr (std::is_same_v<T, NavigationAreaFilter>)
+        return navigation_detail::area_filter_value(p);
     else if constexpr (std::is_same_v<T, NavigationLink>)
         return navigation_detail::link_value(p);
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
@@ -507,6 +513,10 @@ template <class T> Value decode(const Json& p) {
         return value;
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         return T{p.at("enabled")};
+    else if constexpr (std::is_same_v<T, NavigationArea>)
+        return navigation_detail::area_from_value(p);
+    else if constexpr (std::is_same_v<T, NavigationAreaFilter>)
+        return navigation_detail::area_filter_from_value(p);
     else if constexpr (std::is_same_v<T, NavigationLink>)
         return navigation_detail::link_from_value(p);
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
@@ -1461,7 +1471,38 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::uint32_t>("trigger");
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         c.template member<bool>("enabled");
-    else if constexpr (std::is_same_v<T, NavigationLink>) {
+    else if constexpr (std::is_same_v<T, NavigationArea>)
+        c.template member<std::uint32_t>("area");
+    else if constexpr (std::is_same_v<T, NavigationAreaFilter>) {
+        static_assert(sizeof(std::array<float, navigation_area_limit>) ==
+                      sizeof(float) * navigation_area_limit);
+        ecs_struct_desc_t fields{};
+        fields.entity = c.id();
+        fields.create_member_entities = true;
+        fields.members[0].name = "mask";
+        fields.members[0].type = w.id<std::uint32_t>();
+        fields.members[0].offset = offsetof(NavigationAreaFilter, mask);
+        fields.members[0].use_offset = true;
+        fields.members[0].range = {0, UINT16_MAX};
+        fields.members[0].error_range = fields.members[0].range;
+        fields.members[1].name = "costs";
+        fields.members[1].type = w.id<float>();
+        fields.members[1].offset = offsetof(NavigationAreaFilter, costs);
+        fields.members[1].use_offset = true;
+        fields.members[1].count = std::int32_t(navigation_area_limit);
+        fields.members[1].range = {1, navigation_area_max_cost};
+        fields.members[1].error_range = fields.members[1].range;
+        if (!ecs_struct_init(w.c_ptr(), &fields))
+            throw std::runtime_error("Navigation area filter Meta registration failed");
+        for (const auto& [name, offset, count] :
+             {std::tuple{"mask", offsetof(NavigationAreaFilter, mask), 0},
+              std::tuple{"costs", offsetof(NavigationAreaFilter, costs),
+                         int(navigation_area_limit)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), name);
+            if (!member || std::size_t(member->offset) != offset || member->count != count)
+                throw std::runtime_error("Navigation filter Meta disagrees with typed layout");
+        }
+    } else if constexpr (std::is_same_v<T, NavigationLink>) {
         w.component<std::string>("forge.authored_string").opaque(reflected_string);
         c.template member<bool>("enabled")
             .template member<bool>("bidirectional")
@@ -2122,6 +2163,16 @@ const std::array<Builtin, builtin_count>& builtins() {
             "unitless", {}, {},
             [](flecs::world&
                    w) { return register_type<NavigationLink>(w, "forge.navigation_link"); }),
+        descriptor<NavigationArea>(
+            "forge.navigation_area", "Classify included walkable geometry and links", "unitless",
+            {}, {}, [](flecs::world& w) {
+                return register_type<NavigationArea>(w, "forge.navigation_area");
+            }),
+        descriptor<NavigationAreaFilter>(
+            "forge.navigation_area_filter", "Allowed routing areas and distance costs per Agent",
+            "unitless", {}, {}, [](flecs::world& w) {
+                return register_type<NavigationAreaFilter>(w, "forge.navigation_area_filter");
+            }),
         descriptor<NavigationRegion2D>(
             "forge.navigation_region_2d",
             "Rectangle or simple polygon XY walkable region or obstacle mask", "unitless", {}, {},
@@ -3865,6 +3916,29 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] = "Check explicit navigation links against the realized physics "
                                    "world; surface movement keeps its existing owner";
     }
+    if (name == "forge.navigation_area") {
+        value["minimum"] = 0;
+        value["maximum"] = navigation_area_limit - 1;
+        value["animatable"] = false;
+        value["description"] =
+            "Classify included walkable geometry and links. Rebuild navigation "
+            "after editing; this does not include geometry or set physics layers.";
+    }
+    if (name == "forge.navigation_area_filter") {
+        value["animatable"] = false;
+        if (field == "mask") {
+            value["display_name"] = "Allowed areas";
+            value["minimum"] = 0;
+            value["maximum"] = UINT16_MAX;
+            value["description"] = "Navigation area bits 0-15; zero permits no routing surface. "
+                                   "This is independent of physics collision layers.";
+        } else if (field == "costs") {
+            value["minimum"] = 1;
+            value["maximum"] = navigation_area_max_cost;
+            value["description"] = "Sixteen costs indexed by navigation area. Higher values "
+                                   "prefer other routes without changing movement speed.";
+        }
+    }
     if (name == "forge.navigation_avoidance") {
         if (field == "shared_group") {
             value["display_name"] = "Shared group";
@@ -4041,6 +4115,10 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.navigation_link" && field == "plane") {
         type = "forge.NavigationPlane";
         names = {"Spatial3D", "PlanarXY"};
+    } else if (component == "forge.navigation_area" && field == "area") {
+        type = "forge.NavigationAreaKind";
+        names = {"Default", "Area1", "Area2",  "Area3",  "Area4",  "Area5",  "Area6",  "Area7",
+                 "Area8",   "Area9", "Area10", "Area11", "Area12", "Area13", "Area14", "Area15"};
     } else if (component == "forge.navigation_agent" && field == "movement") {
         type = "forge.NavigationMovement";
         names = {"Navigation", "CharacterController", "CharacterController2D",
@@ -4114,7 +4192,12 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     }
     if (!ecs_enum_init(world, &desc))
         throw std::runtime_error("Builtin enum registration failed");
-    if (component == "forge.navigation_region_2d") {
+    if (component == "forge.navigation_area") {
+        for (std::size_t i = 1; i < names.size(); ++i)
+            world.entity(desc.entity)
+                .lookup(names[i])
+                .set_doc_name(("Area " + std::to_string(i)).c_str());
+    } else if (component == "forge.navigation_region_2d") {
         world.entity(desc.entity).lookup("Region").set_doc_name("Rectangle / Points");
         world.entity(desc.entity).lookup("Collider2D").set_doc_name("Collider 2D");
     } else if (component == "forge.navigation_link") {

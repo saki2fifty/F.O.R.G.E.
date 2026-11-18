@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "json_document.hpp"
+#include "navigation_area_value.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_geometry.hpp"
 #include <fstream>
@@ -29,9 +30,20 @@ int main(int argc, char** argv) {
         std::iota(g.indices.begin(), g.indices.end(), 0);
         auto meta = input.at("metadata");
         const auto settings = provenance_settings(meta);
+        g.classified = meta.at("version") == 9;
+        if (g.classified) {
+            const auto& areas = input.at("areas");
+            if (!areas.is_array() || areas.size() != g.indices.size() / 3)
+                throw std::runtime_error("Navigation triangle area count mismatch");
+            for (const auto& area : areas)
+                g.areas.push_back(static_cast<unsigned char>(
+                    area_integer(area, navigation_area_limit - 1, "Navigation triangle area")));
+        } else if (input.contains("areas"))
+            throw std::runtime_error("Triangle areas require the classified navigation profile");
         if (meta.contains("links"))
             g.connections =
-                read_navigation_links(meta.at("links"), settings.plane, meta.at("version") == 8);
+                read_navigation_links(meta.at("links"), settings.plane,
+                                      meta.at("version") == 8 || g.classified, g.classified);
         if (settings.plane == NavigationPlane::PlanarXY) {
             const auto& masks = input.at("obstacles");
             if (!masks.is_array() || masks.size() > 512)

@@ -362,14 +362,14 @@ MCP reads the same runtime snapshot/diagnostics through existing Play permission
 
 ## Live agent tuning
 
-NavigationRuntime::tune owns temporary NavigationAgent, NavigationAvoidance and
-enabled-only NavigationBehavior
+NavigationRuntime::tune owns temporary NavigationAgent, NavigationAvoidance,
+NavigationLinkCollision, NavigationAreaFilter and enabled-only NavigationBehavior
 edits; tune_avoidance remains a compatibility wrapper. RuntimePropertyTune provides
 one shared type/property predicate for the runtime, live Inspector and frozen
 keep-values review. Agent fields are enabled, has_destination, speed,
 stopping_distance and destination_x/y/z. The NavMesh AssetRef, movement selector, bake sources and
 geometry are excluded. Movement selection is Edit-only. Behavior graph/target/anchor are excluded too. Live tuning
-does not change an asset or checkpoint format.
+does not change the baked asset. Area policy uses the recovery profile described below.
 
 Both ordinary and SDK Play hosts retain their generation/scene/entity/role/thread/
 writability checks and dispatch through that owner. A copied candidate uses the
@@ -381,11 +381,12 @@ a copied progress sample/path as necessary; the next fixed tick performs ordinar
 routing, ownership and movement checks. Numeric admission is not route reachability.
 
 Live inherited values materialize only temporary runtime component state; the authored
-Prefab source is unchanged. Existing recovery2 records semantic config/ownership,
-including these live values, in its supporting runtime. Production SDK Play continues
+Prefab source is unchanged. Recovery records semantic configuration and ownership,
+including these live values, through the applicable private profile. Production SDK Play continues
 to reject recovery and restarts from authored content. Keeping values instead uses
-the existing frozen review, scalar allowlist, Stop lock and ordinary property history/
+the existing frozen review, property allowlist, Stop lock and ordinary property history/
 Prefab intent/Save owner. Transforms and the NavMesh reference are never reviewed.
+The sixteen area costs are reviewed and kept as one array field.
 
 ## Character movement selection
 
@@ -601,6 +602,7 @@ Pause performs no movement; Step advances one fixed tick. Presentation reads do 
 | Active world cache | 8 assets; each payload/base/derived tile set is bounded to4 MiB |
 | Dynamic profile |32-cell tiles;64 layers,4per coordinate;8obstacles,8touched layers each |
 | Authored agents | 64 |
+| Logical areas / per-query costs | 16 / finite1–1,000,000; sixteen-bit allowed mask |
 | Query nodes / corridor / waypoints | 2,048 / 128 / 64 |
 | Worker | 512 MiB, 30 seconds wall time, 32 MiB total staged files |
 
@@ -612,11 +614,52 @@ Exceeding these bounds returns a diagnostic rather than silently truncating a pa
 to exact-version direct-Flecs modules. Region layout/Meta offsets and vector copy/
 removal are verified against the matching installed SDK. The planar sample reads
 both four-point floors and concave obstacle values through ordinary typed access.
-No callback-table field or independent authoring path is added. `FORGE_SDK_NAVIGATION` exposes `navigation_query` for projection and path finding during an owner fixed tick. Results use a caller-owned buffer with capacity 1–64 and explicit status/count. An undersized buffer returns the limit status with no points. No Recast/Detour type crosses the boundary. SDK fingerprints include the new component/header contract; modules must be rebuilt together. The movement-only ABI1 path mentioned in the original phase record has since been retired. Generic AssetHandle remains deferred: the private AssetId cache is sufficient.
+`FORGE_SDK_NAVIGATION` exposes `navigation_query` for projection and path finding during an owner fixed tick. Results use a caller-owned buffer with capacity 1–64 and explicit status/count. An undersized buffer returns the limit status with no points. No Recast/Detour type crosses the boundary. The area-policy extension appends `navigation_query_filtered`, as described below; the original callback remains available. SDK fingerprints include the component/header contract; modules must be rebuilt together. The movement-only ABI1 path mentioned in the original phase record has since been retired. Generic AssetHandle remains deferred: the private AssetId cache is sufficient.
+
+## Area classification and query policy
+
+`NavigationArea` classifies selected walkable geometry and authored links on that
+entity with a logical class0–15. Effective/native capture shares the source owner;
+nondefault classes participate in source digests and stale-candidate validation.
+Absent/default0 preserves earlier canonical digests and native bytes.
+
+Classified assets use envelope9 with sorted nonzero `area_sources` provenance and
+optional nonzero link `area`. Static polygons carry the logical area and exactly
+its `1 << area` flag. Raster1–16 maps logical0–15 while preserving null0; generic
+walkable63 cannot erase overlapping classes. Higher class wins an eligible merged
+span. Dynamic raw layers use `FNTILE09` with occupied raster1–16 and the same tile
+callback conversion after carving. Older envelopes/layers retain strict admission.
+Worker profile/provenance matching rejects silent classified downgrades.
+
+`NavigationAreaFilter` stores a uint32 mask bounded to sixteen bits and sixteen
+fixed float costs. Defaults permit all classes at unit cost. Costs are finite
+1–1,000,000, preserving the distance heuristic's lower bound. Mask0 permits no
+surface. Query constructs call-local filters for projection, paths, movement,
+avoidance walls and retained connection/endpoint checks. Assets and another
+Agent's policy stay immutable. Costs belong to queries rather than build profiles.
+
+Agents replan at the next legal boundary. Active crossings retain their admission
+policy until completion. Private navigation recovery13 preserves configured
+values, ownership and retained crossing policy; absent policy keeps older profiles
+canonical. Physics retains character pose ownership. Malformed, empty, conflicting
+or downgraded policy extensions reject before candidate publication.
+
+The matching SDK exposes typed components, filtered NavigationService overloads
+and an appended `navigation_query_filtered` C callback. Its sized/version1
+`ForgeSdkNavigationFilterV1` contains a sixteen-bit mask and sixteen bounded costs.
+Initialize each cost to1; zero-initialized costs are invalid. The typed
+`sdk::Client::navigation` overload builds the descriptor through the same provider,
+thread, fixed-tick and result-buffer contract. The earlier callback/default queries
+remain available. Rebuild modules with the matching private fingerprint; there is
+no stable cross-version C++ ABI claim.
+
+Inspector, live tuning, Keep review and automation/MCP use existing component,
+property, source and Play owners. The Scene overlay reads triangle classes from
+the same admitted mesh. See [ADR057](decisions/057-navigation-areas-and-filters.md).
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, cost editing, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving supports upright 3D ground routes and bounded positive-lift jumps or descending zero-lift drops between static supports, or Floating XY routes without explicit links. Grounded XY movement supports continuous static physical ground and the same explicit jumps/drops with native automatic gravity. General XY platformer reachability planning remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving supports upright 3D ground routes and bounded positive-lift jumps or descending zero-lift drops between static supports, or Floating XY routes without explicit links. Grounded XY movement supports continuous static physical ground and the same explicit jumps/drops with native automatic gravity. General XY platformer reachability planning remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 

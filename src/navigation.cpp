@@ -1,5 +1,6 @@
 #include "builtins.hpp"
 #include "json_output_text.hpp"
+#include "navigation_area_value.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_behavior_runtime.hpp"
 #include "navigation_link_collision.hpp"
@@ -44,6 +45,7 @@ struct Cached {
 struct AgentState {
     enum class PhysicalTraversal { None, Jump, Drop };
     NavigationAgent config;
+    NavigationAreaFilter filter;
     std::vector<Double3> path;
     std::size_t next = 1;
     Double3 last{};
@@ -208,8 +210,9 @@ struct NavigationRuntime::Impl {
                    return item.second.character_frame.has_value();
                });
     }
-    static Double3 character_route_origin(Cached& asset, Double3 actual) {
-        const auto projected = asset.query->project(actual);
+    static Double3 character_route_origin(Cached& asset, Double3 actual,
+                                          const NavigationAreaFilter& policy) {
+        const auto projected = asset.query->project(actual, policy);
         if (projected.status != NavStatus::Success || projected.points.size() != 1)
             throw NavigationFailure(projected.status == NavStatus::Success ? NavStatus::Invalid
                                                                            : projected.status,
@@ -612,6 +615,8 @@ struct NavigationRuntime::Impl {
                      ApplicationStateActivation& conditions) {
         try {
             detail::validate_reflected_value(e, a);
+            if (e.has<NavigationAreaFilter>())
+                validate_navigation_area_filter(e.get<NavigationAreaFilter>());
         } catch (const std::exception& error) {
             throw NavigationFailure(NavStatus::Invalid, error.what());
         }
@@ -822,6 +827,10 @@ void NavigationRuntime::synchronize() {
     });
 }
 NavResult NavigationRuntime::project_point(AssetRef<NavMeshAsset> ref, Double3 p) {
+    return project_point(ref, p, {});
+}
+NavResult NavigationRuntime::project_point(AssetRef<NavMeshAsset> ref, Double3 p,
+                                           const NavigationAreaFilter& filter) {
     if (!impl_)
         return {NavStatus::Unavailable, {}, "Navigation stopped"};
     try {
@@ -829,7 +838,7 @@ NavResult NavigationRuntime::project_point(AssetRef<NavMeshAsset> ref, Double3 p
         if (!impl_->context.world().is_readonly())
             synchronize();
         auto scope = impl_->context.services().profile("navigation", "NavQuery", impl_->tick);
-        return impl_->get(ref).query->project(p);
+        return impl_->get(ref).query->project(p, filter);
     } catch (const NavigationFailure& e) {
         return {e.status, {}, e.what()};
     } catch (const std::exception& e) {
@@ -837,6 +846,10 @@ NavResult NavigationRuntime::project_point(AssetRef<NavMeshAsset> ref, Double3 p
     }
 }
 NavResult NavigationRuntime::find_path(AssetRef<NavMeshAsset> ref, Double3 a, Double3 b) {
+    return find_path(ref, a, b, {});
+}
+NavResult NavigationRuntime::find_path(AssetRef<NavMeshAsset> ref, Double3 a, Double3 b,
+                                       const NavigationAreaFilter& filter) {
     if (!impl_)
         return {NavStatus::Unavailable, {}, "Navigation stopped"};
     try {
@@ -844,7 +857,7 @@ NavResult NavigationRuntime::find_path(AssetRef<NavMeshAsset> ref, Double3 a, Do
         if (!impl_->context.world().is_readonly())
             synchronize();
         auto scope = impl_->context.services().profile("navigation", "NavQuery", impl_->tick);
-        return impl_->get(ref).query->path(a, b);
+        return impl_->get(ref).query->path(a, b, filter);
     } catch (const NavigationFailure& e) {
         return {e.status, {}, e.what()};
     } catch (const std::exception& e) {
@@ -971,6 +984,8 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
         try {
             s.context.evaluate_world_transforms();
             s.valid_agent(e, a, nodes, conditions);
+            const auto policy = e.has<NavigationAreaFilter>() ? e.get<NavigationAreaFilter>()
+                                                              : NavigationAreaFilter{};
             const bool avoiding =
                 e.has<NavigationAvoidance>() && e.get<NavigationAvoidance>().enabled;
             if (avoiding)
@@ -992,27 +1007,30 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                 state.replan_after_link |= state.config.has_destination != a.has_destination ||
                                            state.config.destination_x != a.destination_x ||
                                            state.config.destination_y != a.destination_y ||
-                                           state.config.destination_z != a.destination_z;
+                                           state.config.destination_z != a.destination_z ||
+                                           state.filter != policy;
                 state.config = a;
                 const bool changed = state.query_generation != asset.query->generation();
                 if (changed || crossing(state)->arc_height != 0) {
                     const auto* link = crossing(state);
                     if (!asset.query->link_available(link->source, state.path.at(link->entry),
-                                                     state.path.at(link->exit), link->arc_height))
+                                                     state.path.at(link->exit), link->arc_height,
+                                                     state.filter))
                         throw NavigationFailure(NavStatus::NoPath,
                                                 "Navigation link exit is blocked; traversal held");
                     state.query_generation = asset.query->generation();
                     state.replan_after_link |= changed;
                 }
-            } else if (avoiding || state.config != a || state.path.empty() ||
-                       state.replan_after_link ||
+            } else if (avoiding || state.config != a || state.filter != policy ||
+                       state.path.empty() || state.replan_after_link ||
                        state.query_generation != asset.query->generation() ||
                        distance(state.last, position) > retained_pose_tolerance(state)) {
                 retained_link.reset();
-                auto route = asset.query->route(position, destination);
+                auto route = asset.query->route(position, destination, policy);
                 const auto previous = state.observation;
                 state = {};
                 state.config = a;
+                state.filter = policy;
                 state.path = std::move(route.path.points);
                 state.links = std::move(route.links);
                 state.next = 1;
@@ -1070,8 +1088,9 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                         const auto entry = state.path.at(link.entry);
                         if ((state.next == link.entry || state.next == link.exit) &&
                             Impl::horizontal_gap(position, entry, planar) < .001) {
-                            if (route_distance(Impl::character_route_origin(asset, position),
-                                               state) > a.stopping_distance + arrival_tolerance)
+                            if (route_distance(
+                                    Impl::character_route_origin(asset, position, state.filter),
+                                    state) > a.stopping_distance + arrival_tolerance)
                                 traversal = i;
                             break;
                         }
@@ -1174,7 +1193,7 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                 }
             }
             if (a.movement != 0) {
-                position = Impl::character_route_origin(asset, position);
+                position = Impl::character_route_origin(asset, position, state.filter);
                 state.next = std::min(state.next, state.path.size() - 1);
             }
             const auto original_next = state.next;
@@ -1272,7 +1291,7 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                                               : Double3{};
                     auto steering = asset.query->avoid_velocity(
                         position, desired, previous, float(speed), settings.radius,
-                        e.get<NavigationAvoidance>().horizon, neighbours);
+                        e.get<NavigationAvoidance>().horizon, neighbours, state.filter);
                     if (steering.status != NavStatus::Success)
                         throw NavigationFailure(steering.status,
                                                 "Navigation avoidance: " + steering.diagnostic);
@@ -1284,7 +1303,7 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                         Double3 target = position;
                         for (unsigned j = 0; j < 3; ++j)
                             target[j] += steering.points.front()[j] * dt * fraction;
-                        moved = asset.query->move(position, target);
+                        moved = asset.query->move(position, target, state.filter);
                         if (moved.status != NavStatus::Success)
                             throw NavigationFailure(moved.status, moved.diagnostic);
                         const auto length = distance(position, moved.points.front());
@@ -1380,7 +1399,7 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                     desired[j] = position[j] + (waypoint[j] - position[j]) * (advance / d);
                 auto next = desired;
                 if (!crossing(state)) {
-                    auto moved = asset.query->move(position, desired);
+                    auto moved = asset.query->move(position, desired, state.filter);
                     if (moved.status != NavStatus::Success)
                         throw NavigationFailure(moved.status, moved.diagnostic);
                     next = moved.points.front();
@@ -1538,9 +1557,11 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                 e.get<WorldTransform>().resolved &&
                 distance(state.last, e.get<WorldTransform>().affine.point({0, 0, 0})) <=
                     retained_pose_tolerance(state);
-            if (!held)
+            if (!held) {
                 state = {};
-            else
+                state.filter = e.has<NavigationAreaFilter>() ? e.get<NavigationAreaFilter>()
+                                                             : NavigationAreaFilter{};
+            } else
                 state.observation = {};
             state.config = a;
             const auto* failure = dynamic_cast<const NavigationFailure*>(&error);
@@ -1671,7 +1692,7 @@ void NavigationRuntime::physics_adopted(float dt, std::uint64_t tick) {
                     continue;
                 }
             }
-            const auto ground = Impl::character_route_origin(asset, actual);
+            const auto ground = Impl::character_route_origin(asset, actual, state.filter);
             const auto travel =
                 config.movement == 3 ? std::abs(actual[0] - frame.original[0])
                 : config.movement == 2
@@ -1755,7 +1776,11 @@ std::optional<NavigationAgentObservation> NavigationRuntime::agent_state(EntityR
         out.status = NavStatus::Limit;
         out.tick = s.tick;
     } else if (const auto found = s.agents.find(entity.id());
-               found != s.agents.end() && found->second.config == config)
+               found != s.agents.end() && found->second.config == config &&
+               (crossing(found->second) ||
+                found->second.filter == (entity.has<NavigationAreaFilter>()
+                                             ? entity.get<NavigationAreaFilter>()
+                                             : NavigationAreaFilter{})))
         return found->second.observation;
     return out;
 }
@@ -1822,6 +1847,7 @@ Json NavigationRuntime::tune(EntityRef ref, const std::string& type, const std::
     if (e.has(flecs::Prefab) || !e.has<NavigationAgent>() ||
         (type == "forge.navigation_avoidance" && !e.has<NavigationAvoidance>()) ||
         (type == "forge.navigation_link_collision" && !e.has<NavigationLinkCollision>()) ||
+        (type == "forge.navigation_area_filter" && !e.has<NavigationAreaFilter>()) ||
         (type == "forge.navigation_behavior" && !e.has<NavigationBehavior>()))
         throw std::runtime_error(
             "Live navigation tuning requires an existing navigation participant");
@@ -1836,6 +1862,8 @@ Json NavigationRuntime::tune(EntityRef ref, const std::string& type, const std::
         const auto& typed = std::get<NavigationAgent>(decoded);
         detail::validate_reflected_value(e, typed);
         e.set<NavigationAgent>(typed);
+    } else if (type == "forge.navigation_area_filter") {
+        e.set<NavigationAreaFilter>(std::get<NavigationAreaFilter>(decoded));
     } else if (type == "forge.navigation_behavior") {
         const auto& typed = std::get<NavigationBehavior>(decoded);
         detail::validate_reflected_value(e, typed);
@@ -1865,7 +1893,8 @@ Json NavigationRuntime::checkpoint() {
     Json revisions = Json::array(), agents = Json::array();
     bool has_crossing = false, has_arc = false, has_collision = false, has_character = false,
          has_planar_character = false, has_physical_jump = false,
-         has_grounded_planar_character = false, has_planar_jump = false, has_drop = false;
+         has_grounded_planar_character = false, has_planar_jump = false, has_drop = false,
+         has_filter = false;
     if (impl_) {
         impl_->check();
         ApplicationStateActivation conditions(impl_->context);
@@ -1908,6 +1937,13 @@ Json NavigationRuntime::checkpoint() {
                  {"avoidance", avoidance},
                  {"translation", translation},
                  {"translation_owned", !translation.is_null() && e.owns<LocalTranslation>()}});
+            if (e.has<NavigationAreaFilter>()) {
+                const auto value = area_filter_value(e.get<NavigationAreaFilter>());
+                detail::validate_components({{"forge.navigation_area_filter", value}});
+                agents.back()["filter"] = {{"config", value},
+                                           {"owned", e.owns<NavigationAreaFilter>()}};
+                has_filter = true;
+            }
             if (e.has<NavigationLinkCollision>()) {
                 const auto value = link_collision_value(e.get<NavigationLinkCollision>());
                 agents.back()["collision"] = {{"config", value},
@@ -1925,6 +1961,12 @@ Json NavigationRuntime::checkpoint() {
                     agents.back()["link"] = {{"source", link->source},
                                              {"entry", state->second.path.at(link->entry)},
                                              {"exit", state->second.path.at(link->exit)}};
+                    if (e.has<NavigationAreaFilter>() ||
+                        state->second.filter != NavigationAreaFilter{}) {
+                        validate_navigation_area_filter(state->second.filter);
+                        agents.back()["link"]["filter"] = area_filter_value(state->second.filter);
+                        has_filter = true;
+                    }
                     if (link->arc_height != 0) {
                         agents.back()["link"]["arc_height"] = link->arc_height;
                         has_arc = true;
@@ -1946,7 +1988,12 @@ Json NavigationRuntime::checkpoint() {
         for (auto& entry : agents)
             if (!entry.contains("collision"))
                 entry["collision"] = nullptr;
-    Json result = {{"version", has_drop                        ? 12
+    if (has_filter)
+        for (auto& entry : agents)
+            if (!entry.contains("filter"))
+                entry["filter"] = nullptr;
+    Json result = {{"version", has_filter                      ? 13
+                               : has_drop                      ? 12
                                : has_planar_jump               ? 11
                                : has_grounded_planar_character ? 10
                                : has_physical_jump             ? 9
@@ -1959,7 +2006,7 @@ Json NavigationRuntime::checkpoint() {
                                                                : 3},
                    {"assets", revisions},
                    {"agents", agents}};
-    if (has_character || has_collision || has_crossing || !behaviors.empty())
+    if (has_filter || has_character || has_collision || has_crossing || !behaviors.empty())
         result["behaviors"] = behaviors;
     return result;
 }
@@ -1968,7 +2015,7 @@ void NavigationRuntime::restore(const Json& data) {
         !data.at("version").is_number_integer())
         throw std::runtime_error("Invalid navigation recovery version");
     const auto version = data.at("version").get<std::uint64_t>();
-    if (version < 1 || version > 12 || !data.at("assets").is_array() ||
+    if (version < 1 || version > 13 || !data.at("assets").is_array() ||
         data.at("assets").size() > 8 || !data.at("agents").is_array() ||
         data.at("agents").size() > 64)
         throw std::runtime_error("Invalid navigation recovery metadata");
@@ -1987,6 +2034,9 @@ void NavigationRuntime::restore(const Json& data) {
         std::optional<LocalTranslation> translation;
         bool owned, translation_owned, avoidance_owned, collision_owned;
         Json link;
+        std::optional<NavigationAreaFilter> filter;
+        bool filter_owned = false;
+        NavigationAreaFilter retained_filter;
     };
     std::vector<Pending> pending;
     std::set<flecs::entity_t> expected, seen_entities;
@@ -2002,6 +2052,25 @@ void NavigationRuntime::restore(const Json& data) {
         auto e = impl_->context.world().entity(found.entity);
         detail::validate_components({{"forge.navigation_agent", entry.at("config")}});
         auto config = std::get<NavigationAgent>(agent_descriptor().decode(entry.at("config")));
+        std::optional<NavigationAreaFilter> filter;
+        bool filter_owned = false;
+        if (version == 13) {
+            const auto& value = entry.at("filter");
+            if (!value.is_null()) {
+                if (!value.is_object() || value.size() != 2 || !value.at("owned").is_boolean())
+                    throw std::runtime_error("Invalid navigation recovery filter fields");
+                detail::validate_components({{"forge.navigation_area_filter", value.at("config")}});
+                filter = area_filter_from_value(value.at("config"));
+                filter_owned = value.at("owned").get<bool>();
+                if (!e.has<NavigationAreaFilter>() ||
+                    filter_owned != e.owns<NavigationAreaFilter>() ||
+                    (!filter_owned && *filter != e.get<NavigationAreaFilter>()))
+                    throw std::runtime_error(
+                        "Navigation recovery filter ownership/inheritance differs");
+            } else if (e.has<NavigationAreaFilter>())
+                throw std::runtime_error("Navigation recovery filter component set differs");
+        } else if (e.has<NavigationAreaFilter>() || entry.contains("filter"))
+            throw std::runtime_error("Legacy navigation recovery cannot restore area policy");
         std::optional<NavigationAvoidance> avoidance;
         bool avoidance_owned = false;
         if (version == 1) {
@@ -2077,15 +2146,28 @@ void NavigationRuntime::restore(const Json& data) {
             impl_->valid_agent(e, config, impl_->context.transform_nodes(), conditions);
         }
         Json link = nullptr;
+        NavigationAreaFilter retained_filter;
         if (entry.contains("link")) {
             if (version < 4 || (!translation && !physical_jump && !physical_drop))
                 throw std::runtime_error(
                     "Navigation traversal recovery requires version 4-8 and a valid pose");
             link = entry.at("link");
             const bool arc = link.contains("arc_height");
+            const bool link_filter = link.contains("filter");
+            if (link_filter) {
+                if (version != 13)
+                    throw std::runtime_error("Retained area policy requires navigation recovery13");
+                detail::validate_components({{"forge.navigation_area_filter", link.at("filter")}});
+                retained_filter = area_filter_from_value(link.at("filter"));
+                if (!filter && retained_filter == NavigationAreaFilter{})
+                    throw std::runtime_error(
+                        "Default retained area policy must be omitted without a configured filter");
+            } else if (filter)
+                throw std::runtime_error(
+                    "Filtered traversal recovery requires its retained area policy");
             if (!link.is_object() ||
-                link.size() !=
-                    3u + unsigned(arc) + unsigned(physical_jump) + unsigned(physical_drop) ||
+                link.size() != 3u + unsigned(arc) + unsigned(physical_jump) +
+                                   unsigned(physical_drop) + unsigned(link_filter) ||
                 !link.at("source").get<EntityId>() ||
                 (arc && (version < 5 || !link.at("arc_height").is_number())))
                 throw std::runtime_error("Invalid navigation traversal recovery identity");
@@ -2128,7 +2210,8 @@ void NavigationRuntime::restore(const Json& data) {
             }
         }
         pending.push_back({e, config, avoidance, collision, translation, owned, translation_owned,
-                           avoidance_owned, collision_owned, std::move(link)});
+                           avoidance_owned, collision_owned, std::move(link), filter, filter_owned,
+                           retained_filter});
     }
     if (expected != seen_entities)
         throw std::runtime_error("Navigation recovery agent set differs");
@@ -2154,6 +2237,11 @@ void NavigationRuntime::restore(const Json& data) {
             return p.link.is_object() && p.link.value("physical_drop", false);
         }))
         throw std::runtime_error("Navigation recovery12 requires an active physical drop");
+    if (version == 13 && std::ranges::none_of(pending, [](const auto& p) {
+            return p.filter || (p.link.is_object() && p.link.contains("filter"));
+        }))
+        throw std::runtime_error(
+            "Navigation recovery13 requires configured or retained area policy");
     // Host-only recovery into an unpublished candidate world. Preserve component ownership;
     // semantic values cover direct gameplay edits hidden by authored property-override intent.
     for (const auto& p : pending) {
@@ -2163,6 +2251,8 @@ void NavigationRuntime::restore(const Json& data) {
             p.entity.set<NavigationAvoidance>(*p.avoidance);
         if (p.collision_owned)
             p.entity.set<NavigationLinkCollision>(*p.collision);
+        if (p.filter_owned)
+            p.entity.set<NavigationAreaFilter>(*p.filter);
         if (p.translation_owned)
             p.entity.set<LocalTranslation>(*p.translation);
     }
@@ -2190,7 +2280,7 @@ void NavigationRuntime::restore(const Json& data) {
         const auto entry = p.link.at("entry").get<Double3>(),
                    exit = p.link.at("exit").get<Double3>();
         const auto arc_height = p.link.value("arc_height", 0.f);
-        if (!asset.query->link_available(source, entry, exit, arc_height))
+        if (!asset.query->link_available(source, entry, exit, arc_height, p.retained_filter))
             throw std::runtime_error(
                 "Navigation traversal recovery differs from the admitted oriented link");
         const auto position = p.entity.get<WorldTransform>().affine.point({0, 0, 0});
@@ -2239,6 +2329,7 @@ void NavigationRuntime::restore(const Json& data) {
         }
         AgentState state;
         state.config = p.agent;
+        state.filter = p.retained_filter;
         state.path = {entry, exit};
         state.links = {{source, 0, 1, arc_height}};
         state.crossing = 0;

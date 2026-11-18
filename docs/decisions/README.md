@@ -61,6 +61,9 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [052](052-navigation-characters.md) | Character navigation delegates pose and collision to the existing physics owner |
 | [053](053-navigation-character-jumps.md) | Physical character jumps retain native takeoff, gravity, collision and landing |
 | [054](054-grounded-planar-navigation.md) | Grounded XY steering and opt-in vertical gravity share the native controller |
+| [055](055-planar-character-jump-links.md) | Grounded XY link jumps use native takeoff, gravity, collision and landing |
+| [056](056-navigation-character-drops.md) | Descending links retain physical character movement and recovery ownership |
+| [057](057-navigation-areas-and-filters.md) | Source areas and per-agent query policies share navigation admission and routing |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

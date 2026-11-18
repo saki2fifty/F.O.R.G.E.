@@ -212,6 +212,12 @@ typedef struct ForgeSdkNavResultV1 {
     uint32_t size, status, count, capacity;
     double* xyz; /* Caller-owned capacity*3 doubles; capacity 1..64. */
 } ForgeSdkNavResultV1;
+/* Query-time policy. Costs multiply distance, never movement speed.
+   mask uses bits 0-15; each cost must be finite and between 1 and 1000000. */
+typedef struct ForgeSdkNavigationFilterV1 {
+    uint32_t size, version, mask;
+    float costs[16];
+} ForgeSdkNavigationFilterV1;
 /* Agent phases:0 disabled,1 idle(no destination),2 pending,3 moving,
    4 paused(zero speed),5 arrived,6 blocked(no advance this tick),7 failed.
    Navigation status is the independent query/admission status above. */
@@ -629,6 +635,13 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* physics_shape_cast_2d_excluding)(void*, const ForgeSdkSweep2DV1*,
                                                              const ForgeSdkPhysicsExclusionsV1*,
                                                              ForgeSdkPhysicsHit2DV1*);
+    /* Same owner, fixed-tick availability and result contract as navigation_query.
+       Requires a size/version1 policy; default policy is mask65535 and sixteen costs1. */
+    int32_t(FORGE_SDK_CALL* navigation_query_filtered)(void*, const char* navmesh_uuid,
+                                                       uint32_t operation, const double start[3],
+                                                       const double end[3],
+                                                       const ForgeSdkNavigationFilterV1*,
+                                                       ForgeSdkNavResultV1*);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

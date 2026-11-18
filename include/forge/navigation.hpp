@@ -13,6 +13,9 @@ class NavigationRuntime final : public NavigationService {
     bool prepare_assets(); // Unpublished-world readiness; never advances behavior clocks.
     NavResult project_point(AssetRef<NavMeshAsset>, Double3) override;
     NavResult find_path(AssetRef<NavMeshAsset>, Double3, Double3) override;
+    NavResult project_point(AssetRef<NavMeshAsset>, Double3, const NavigationAreaFilter&) override;
+    NavResult find_path(AssetRef<NavMeshAsset>, Double3, Double3,
+                        const NavigationAreaFilter&) override;
     std::optional<NavigationAgentObservation> agent_state(EntityRef) const override;
     // Private editor Play transport; no movement or authored history is advanced.
     Json tune(EntityRef, const std::string& type, const std::string& property, const Json& value);

@@ -17,19 +17,18 @@
 #include <optional>
 #include <variant>
 namespace forge::detail {
-using Value =
-    std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive, PhysicsBody,
-                 PhysicsJoint, BoxCollider, SphereCollider, CapsuleCollider, CylinderCollider,
-                 AssetCollider, CharacterController, CharacterController2D, AudioSource,
-                 AudioListener, SoundCue, Animator, TransformAnimator, AnimationSequence,
-                 CameraShot, TwoBoneIK, AimIK, NavigationSurface, NavigationLink,
-                 NavigationRegion2D, NavigationObstacle, NavigationBehavior, NavigationAgent,
-                 NavigationAvoidance, NavigationLinkCollision, UiDocument, UiLocalization, UiValues,
-                 ApplicationStates, ApplicationStateGate, InputMessage, MeshRenderer, ModelSource,
-                 Camera, CameraAim, CameraFollow, Light, NodeVisibility, NodeSelectability,
-                 ParticleEmitter, AudioCue, SpriteRenderer, TileMapRenderer, PhysicsBody2D,
-                 BoxCollider2D, CircleCollider2D, CapsuleCollider2D, PhysicsJoint2D,
-                 TileMapCollider2D, ReflectionProbe, DecalProjector, FogVolume, UiSurfaceInput>;
+using Value = std::variant<
+    LocalTranslation, LocalRotation, LocalScale, Tint, Primitive, PhysicsBody, PhysicsJoint,
+    BoxCollider, SphereCollider, CapsuleCollider, CylinderCollider, AssetCollider,
+    CharacterController, CharacterController2D, AudioSource, AudioListener, SoundCue, Animator,
+    TransformAnimator, AnimationSequence, CameraShot, TwoBoneIK, AimIK, NavigationSurface,
+    NavigationArea, NavigationAreaFilter, NavigationLink, NavigationRegion2D, NavigationObstacle,
+    NavigationBehavior, NavigationAgent, NavigationAvoidance, NavigationLinkCollision, UiDocument,
+    UiLocalization, UiValues, ApplicationStates, ApplicationStateGate, InputMessage, MeshRenderer,
+    ModelSource, Camera, CameraAim, CameraFollow, Light, NodeVisibility, NodeSelectability,
+    ParticleEmitter, AudioCue, SpriteRenderer, TileMapRenderer, PhysicsBody2D, BoxCollider2D,
+    CircleCollider2D, CapsuleCollider2D, PhysicsJoint2D, TileMapCollider2D, ReflectionProbe,
+    DecalProjector, FogVolume, UiSurfaceInput>;
 inline constexpr std::size_t builtin_count = std::variant_size_v<Value>;
 struct Builtin {
     const char* name;

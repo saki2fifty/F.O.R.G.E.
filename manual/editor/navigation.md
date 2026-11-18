@@ -421,7 +421,7 @@ Click **Build NavMesh**. The editor stays responsive while the worker builds and
 
 The ready/stale message checks included objects and the editor's current asset selection. Changing an included object or a build setting updates it immediately. Refreshing assets keeps your unfinished navigation settings. **NavigationStatus** in the editor CPU profiler shows the time spent checking this message.
 
-Enable **Scene → View → Navigation overlay** to see translucent teal triangles. There should be an opening around the obstacle, with clearance determined by the agent radius. Yellow lines show runtime routes; dots mark their start and end.
+Enable **Scene → View → Navigation overlay** to see translucent triangles. Default surfaces are teal; classified surfaces use their area colors. There should be an opening around the obstacle, with clearance determined by the agent radius. Yellow lines show runtime routes; dots mark their start and end.
 
 Changing scenes or projects clears the previous overlay. Open **Content → Create /
 Register → Navigation** to load the current scene's saved NavMesh. Loading it does
@@ -603,6 +603,58 @@ Rebuilding or changing Plane keeps that profile's asset ID. Other profiles remai
 available. After changing shared marked geometry, rebuild every affected profile
 before Play. A running world can load at most eight Nav assets within its existing
 32MiB tile-data budget. Profile controls are locked during Play.
+
+## Choose allowed areas and route costs
+
+Use areas when agents of the same size should prefer different routes on one
+NavMesh. For different physical clearances, use the named profiles above.
+
+1. Select an included **Navigation Surface**, walkable **Navigation Region 2D** or static collider selected by collision collection. Add **Navigation Area** through **+ Add Component**.
+2. Choose **Area**. **Default** is area 0; areas 1–15 provide additional classes. This class applies to included walkable geometry and matching Navigation Links on that entity. Structural children keep their own classification.
+3. Rebuild the affected profiles. Enable **Scene → View → Navigation overlay**. The **Surface areas** legend in the navigation controls identifies saved surface colors.
+4. Select an object with **Navigation Agent** and add **Navigation Area Filter**.
+5. Set **Allowed areas**. Each bit permits one area: 1 allows area 0, 2 allows area 1, and 4 allows area 2. For example, 5 permits areas 0 and 2. The default 65535 permits all sixteen areas; 0 permits no routing surface.
+6. Expand **Costs**. Its sixteen entries are labeled **Area 0** through **Area 15**. Each defaults to 1 and accepts 1–1,000,000. A cost of 2 counts travel through that area as twice its distance when choosing a route. Speed still controls movement speed.
+7. Save the Scene and Play. Agents can share one NavMesh while using different masks and costs. A route needs permitted start and end surfaces, intermediate surfaces and links.
+
+Navigation area bits and physics collision-layer bits are independent. Adding
+Navigation Area alone does not include geometry in a build or provide physical
+support. Where eligible surfaces overlap at the same height, the higher area
+number takes priority. Obstacle masks remain blocked space.
+
+![Navigation controls showing the Surface areas legend beside the colored baked triangles](../images/navigation-areas-overlay.png)
+
+The saved Area 0 and Area 2 surfaces use different overlay colors. These colors
+identify navigation classes independently of the visible floor material.
+
+![Live gameplay Inspector showing allowed areas 5 and sixteen costs with Area 2 set to 20](../images/navigation-areas-inspector.png)
+
+Mask 5 permits areas 0 and 2. Increasing Area 2's cost favors another permitted
+route when one is available.
+
+The Feature Gallery includes **231 — Navigation area costs** and
+**232 — Navigation area costs XY**. Cyan crosses the gold surface directly,
+Orange routes around its higher cost, and Violet excludes that area. Each scene
+shares one NavMesh and a patrol graph across its agents.
+
+![Three-dimensional gallery agents crossing or avoiding a gold navigation area](../images/navigation-area-costs-game.png)
+
+In the 3D course, Cyan takes the direct route through the gold area while Orange
+and Violet pass around it.
+
+![XY gallery agents following independent routes around a gold navigation area](../images/navigation-area-costs-xy-game.png)
+
+The XY course uses the same area and filter controls with explicit walkable regions.
+
+During Play, use **Live gameplay → Navigation Area Filter** to change mask and
+costs without rebuilding. Changes take effect at the next navigation boundary. An
+active link crossing retains its admitted policy until completion, then replans.
+Physical collision and gravity continue to control character poses.
+
+Stopping Play restores authored values. To retain edits, use **Keep values after
+Stop...**, review the mask and Costs fields, Stop, then apply the selected values
+and save. Costs is reviewed as one array field. Keep uses ordinary Scene/Prefab
+property operations and Undo history.
 
 ## Route around moving obstacles
 

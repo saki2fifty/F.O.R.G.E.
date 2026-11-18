@@ -177,7 +177,8 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
         settings.plane == NavigationPlane::PlanarXY ? (collider_sources(source) ? 5 : 3) : 2;
     const bool arcs =
         std::ranges::any_of(g.connections, [](const auto& link) { return link.arc_height != 0; });
-    const unsigned version = arcs                                ? 8
+    const unsigned version = g.classified                        ? 9
+                             : arcs                              ? 8
                              : settings.collect_static_colliders ? 7
                              : !g.connections.empty()
                                  ? 6
@@ -192,11 +193,15 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                  {"settings", settings}};
     if (!g.connections.empty())
         meta["links"] = navigation_link_values(g.connections, settings.plane);
+    if (g.classified)
+        meta["area_sources"] = area_sources(source);
     if (geometry_version == 5)
         meta["tile_inputs"] = tiles;
     if (settings.collect_static_colliders && settings.plane == NavigationPlane::Spatial3D)
         meta["collision_inputs"] = collision_provenance;
     Json input = {{"metadata", meta}, {"vertices", g.vertices}};
+    if (g.classified)
+        input["areas"] = g.areas;
     if (settings.plane == NavigationPlane::PlanarXY)
         input["obstacles"] = g.obstacles;
     auto text = input.dump();

@@ -67,11 +67,12 @@ class NavigationTools {
         AssetId selected;
         Json metadata;
         std::vector<Double3> triangles;
+        std::vector<std::uint32_t> areas;
         if (const auto found = profiles.find(profile); found != profiles.end()) {
             selected = found->second;
             metadata = catalog.records().at(selected).metadata;
             settings = metadata.at("settings").get<NavigationSettings>();
-            triangles = navigation_triangles(project.project(), {selected});
+            triangles = navigation_triangles(project.project(), {selected}, areas);
         }
         validate_navigation_settings(settings);
         // Load/validate before replacing the current view or unfinished settings.
@@ -82,6 +83,7 @@ class NavigationTools {
         selected_ = selected;
         metadata_ = std::move(metadata);
         triangles_ = std::move(triangles);
+        areas_ = std::move(areas);
         validation_at_ = {};
         error_.clear();
         status_ = selected_ ? "Navigation profile selected" : "New navigation profile draft";
@@ -99,16 +101,16 @@ class NavigationTools {
             settings_.profile != settings.profile) {
             selected_ = {};
             metadata_ = nullptr;
-            triangles_.clear();
+            clear_preview();
             if (const auto found = profiles.find(settings.profile); found != profiles.end()) {
                 selected_ = found->second;
                 metadata_ = catalog.records().at(selected_).metadata;
                 // Rebuilding can repair an unavailable artifact; its failed view
                 // load must not prevent the ordinary worker/publication path.
                 try {
-                    triangles_ = navigation_triangles(project.project(), {selected_});
+                    load_preview(project.project(), selected_);
                 } catch (const std::exception&) {
-                    triangles_.clear();
+                    clear_preview();
                 }
             }
         }
@@ -135,7 +137,7 @@ class NavigationTools {
             loaded_scene_ = selected_ = {};
             observed_catalog_.reset();
             metadata_ = nullptr;
-            triangles_.clear();
+            clear_preview();
             settings_ = {};
             profiles_.clear();
             validation_at_ = {};
@@ -158,7 +160,7 @@ class NavigationTools {
             selected_ = record.id;
             metadata_ = record.metadata;
             validation_at_ = {};
-            triangles_ = navigation_triangles(project.project(), {record.id});
+            load_preview(project.project(), record.id);
             show_ = true;
             message = "Navigation built. Add a Navigation Agent, choose this navmesh and enter its "
                       "destination.";
@@ -216,10 +218,10 @@ class NavigationTools {
                     if (scene_changed || settings_followed_saved)
                         settings_ = metadata_.at("settings").get<NavigationSettings>();
                     if (scene_changed || selected_ != old_selected || old_metadata != metadata_)
-                        triangles_ = navigation_triangles(project.project(), {selected_});
+                        load_preview(project.project(), selected_);
                 }
                 if (!selected_)
-                    triangles_.clear();
+                    clear_preview();
             }
         } catch (const std::exception& e) {
             message = e.what();
@@ -371,13 +373,32 @@ class NavigationTools {
         // and fixed runtime validation always recheck their exact captured inputs.
         ImGui::TextWrapped("%s", validation_state_.c_str());
         FORGE_UI_PROBE("navigation:status:" + validation_state_);
+        if (metadata_.is_object() && metadata_.value("version", 1u) == 9) {
+            std::array<bool, navigation_area_limit> visible{};
+            for (auto area : areas_)
+                if (area < visible.size())
+                    visible[area] = true;
+            ui::heading("Surface areas", "Saved navigation classes; colors identify the baked "
+                                         "surface, not physics collision layers.");
+            for (std::size_t area = 0; area < visible.size(); ++area)
+                if (visible[area]) {
+                    const auto color =
+                        area ? area_color(unsigned(area), 1.f) : IM_COL32(80, 205, 190, 255);
+                    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(color), "Area %u%s",
+                                       unsigned(area), area ? "" : " (Default)");
+                    FORGE_UI_PROBE("navigation:area:" + std::to_string(area));
+                }
+        }
         ui::help(
             "Changes to included geometry or these settings require an explicit rebuild. "
             "3D includes shapes/static Mesh leaves; XY includes selected region sources. "
             "Navigation Link connects static walkable parts in the matching plane/profile. "
-            "It uses straight Agent travel; physics jumping and moving platforms are unavailable. "
+            "Direct Agents traverse links; grounded character movement supports positive-lift "
+            "jumps and descending zero-lift links. Moving-platform routes are unavailable. "
             "Dynamic rebaking is unavailable. Navigation Avoidance "
-            "provides optional local steering for nonphysics agents.");
+            "provides optional local steering for nonphysics agents. Navigation Area classifies "
+            "included geometry and links; rebuild after editing it. Navigation Area Filter "
+            "changes allowed areas and distance costs per Agent without rebuilding.");
     }
     template <class View>
     void draw(const Json& doc, const View& camera, ImVec2 origin, ImVec2 size,
@@ -405,8 +426,11 @@ class NavigationTools {
             auto a = overlay(triangles_[i]), b = overlay(triangles_[i + 1]),
                  c = overlay(triangles_[i + 2]);
             if (a && b && c) {
-                draw->AddTriangleFilled(*a, *b, *c, IM_COL32(45, 180, 175, 45));
-                draw->AddTriangle(*a, *b, *c, IM_COL32(80, 205, 190, 100));
+                const auto area = i / 3 < areas_.size() ? areas_[i / 3] : 0;
+                draw->AddTriangleFilled(*a, *b, *c,
+                                        area ? area_color(area, .18f) : IM_COL32(45, 180, 175, 45));
+                draw->AddTriangle(*a, *b, *c,
+                                  area ? area_color(area, .6f) : IM_COL32(80, 205, 190, 100));
             }
         }
         std::size_t drawn_links = 0;
@@ -429,7 +453,10 @@ class NavigationTools {
                 if (!a || !b)
                     continue;
                 ++drawn_links;
-                const auto color = IM_COL32(210, 150, 255, 255);
+                const auto area = components.contains("forge.navigation_area")
+                                      ? components.at("forge.navigation_area").value("area", 0u)
+                                      : 0u;
+                const auto color = area ? area_color(area, 1.f) : IM_COL32(210, 150, 255, 255);
                 const auto scale = ui::interface_scale;
                 ImVec2 minimum{std::min(a->x, b->x), std::min(a->y, b->y)},
                     maximum{std::max(a->x, b->x), std::max(a->y, b->y)};
@@ -553,6 +580,19 @@ class NavigationTools {
     }
 
   private:
+    static ImU32 area_color(std::uint32_t area, float alpha) {
+        return ImColor::HSV(std::fmod(.48f + .61803398875f * float(area), 1.f), .7f, .9f, alpha);
+    }
+    void clear_preview() {
+        triangles_.clear();
+        areas_.clear();
+    }
+    void load_preview(const std::filesystem::path& root, AssetId asset) {
+        std::vector<std::uint32_t> areas;
+        auto triangles = navigation_triangles(root, {asset}, areas);
+        triangles_ = std::move(triangles);
+        areas_ = std::move(areas);
+    }
     WorldContext& context_;
     flecs::query<const PersistentEntityId> source_entities_;
     std::weak_ptr<const AssetCatalog> observed_catalog_;
@@ -563,6 +603,7 @@ class NavigationTools {
     std::array<char, 65> profile_name_{};
     Json metadata_;
     std::vector<Double3> triangles_;
+    std::vector<std::uint32_t> areas_;
     bool show_ = false;
     std::stop_source cancel_;
     std::future<NavigationCandidate> job_;

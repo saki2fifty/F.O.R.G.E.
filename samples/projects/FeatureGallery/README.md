@@ -1,5 +1,27 @@
 # Feature Gallery
 
+## Navigation area costs and filtering
+
+Open `Scenes/231-navigation-area-costs.scene.json` for 3D or
+`Scenes/232-navigation-area-costs-xy.scene.json` for XY and press Play. Three agents
+share one NavMesh and the existing patrol graph, with separate anchors:
+
+- Cyan uses unit costs and crosses the gold Area 2 surface directly.
+- Orange permits Area 2 with cost 20 and prefers a cheaper route around it.
+- Violet permits only Default area 0 (Allowed areas 1) and routes around Area 2.
+
+Select an agent and expand **Navigation Area Filter → Costs**. Its sixteen entries
+are indexed by area 0–15. Change costs or Allowed areas in Edit and save, or tune
+them temporarily in **Live gameplay** during Play. Speed controls movement speed;
+costs control route selection. The existing **Keep values after Stop...** review
+can retain selected mask and Costs edits. No C++ module is required.
+
+The gold source has **Navigation Area → Area 2**. After changing source classes,
+rebuild that scene's NavMesh through **Content → Create / Register → Navigation**.
+Mask/cost edits need no rebuild. The Scene navigation overlay shows the saved area
+colors and legend. Choose the scene as startup and export to run the same example
+standalone. See the manual's Navigation guide for bit values and current limits.
+
 ## Physical character drops
 
 Open `Scenes/229-navigation-character-drops.scene.json` for 3D or

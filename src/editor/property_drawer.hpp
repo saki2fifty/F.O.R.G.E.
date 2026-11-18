@@ -414,8 +414,17 @@ inline bool property_collection(const std::filesystem::path& root, const Json& f
         ui::IdScope entry(std::to_string(i).c_str());
         auto element = field.at("element");
         element["id"] = "value";
-        element["display_name"] = "Item " + std::to_string(i + 1);
+        const bool area_cost =
+            field.value("property_id", std::string{}) == "forge.navigation_area_filter.costs";
+        element["display_name"] =
+            area_cost ? "Area " + std::to_string(i) : "Item " + std::to_string(i + 1);
+        // Member ranges constrain every primitive collection entry in the value owner.
+        for (const auto* bound : {"minimum", "maximum"})
+            if (field.contains(bound) && !element.contains(bound))
+                element[bound] = field.at(bound);
         changed |= property_field(root, element, value[i], commit_on_enter);
+        FORGE_UI_PROBE("property-collection-entry:" + field.at("id").get<std::string>() + ":" +
+                       std::to_string(i));
         if (dynamic) {
             if (ui::button("Remove item",
                            "Remove this entry. The whole collection edit is undoable.")) {

@@ -297,6 +297,29 @@ Timeline guide in the combined editor manual. Rebuild modules with the matching 
 
 ## Cooked resources in gameplay
 
+### Navigation areas and costs
+
+Include `forge/navigation_components.hpp` for `NavigationArea` and
+`NavigationAreaFilter`. The source component classifies eligible geometry or
+authored links as Area0–15. The filter holds a sixteen-bit allowed-area mask and
+sixteen finite float costs in the range1–1,000,000. Its default constructor permits
+all areas with unit costs. Editing a filter does not require rebaking the NavMesh.
+
+For a read-only query during an owner fixed tick, request `FORGE_SDK_NAVIGATION`
+and pass a `NavigationAreaFilter` to the `sdk::Client::navigation` overload.
+`ForgeSdkWorldV1::navigation_query_filtered` accepts the equivalent sized/versioned
+`ForgeSdkNavigationFilterV1` descriptor. Initialize every cost to1 before changing
+selected entries; a zero-initialized cost array is invalid. Mask0 permits no area.
+The old callback and unfiltered overload retain their default policy. Both paths
+use caller-owned waypoint buffers of capacity1–64 and the same status, capability,
+thread and fixed-tick checks. No native routing-library type crosses the boundary.
+
+The installed `navigation_area_gameplay` sample uses one admitted mesh with
+independent unit-cost, expensive-area and excluded-area queries, and checks copied
+results through the typed Client. Components and callbacks require the matching
+SDK fingerprint. See the [area policy contract](decisions/057-navigation-areas-and-filters.md)
+for source admission, retained crossings and recovery limits.
+
 ### Navigation Behavior
 
 The installed value header `forge/navigation_behavior_components.hpp` declares

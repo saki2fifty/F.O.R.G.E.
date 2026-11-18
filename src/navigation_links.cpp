@@ -1,4 +1,5 @@
 #include "navigation_links.hpp"
+#include "navigation_area_value.hpp"
 #include "navigation_link_curve.hpp"
 #include "navigation_link_shape.hpp"
 #include <DetourNavMesh.h>
@@ -28,6 +29,7 @@ void validate_navigation_links(std::span<const NavigationLinkData> links, MeshSp
     require(links.size() <= navigation_link_limit, "Navigation exceeds 32 authored links");
     std::optional<EntityId> previous;
     for (const auto& link : links) {
+        validate_navigation_area({link.area});
         require(bool(link.entity) && (!previous || *previous < link.entity),
                 "Navigation links require unique sorted source identities");
         previous = link.entity;
@@ -48,19 +50,23 @@ nlohmann::json navigation_link_values(std::span<const NavigationLinkData> links,
                                     {"bidirectional", link.bidirectional}};
         if (link.arc_height != 0)
             value["arc_height"] = link.arc_height;
+        if (link.area != 0)
+            value["area"] = link.area;
         values.push_back(std::move(value));
     }
     return values;
 }
 std::vector<NavigationLinkData> read_navigation_links(const nlohmann::json& values, MeshSpace space,
-                                                      bool allow_arcs) {
+                                                      bool allow_arcs, bool allow_areas) {
     require(values.is_array() && values.size() <= navigation_link_limit,
             "Navigation links require an array of at most 32 entries");
     std::vector<NavigationLinkData> links;
     links.reserve(values.size());
     for (const auto& value : values) {
         const bool arc = value.contains("arc_height");
-        require(value.is_object() && value.size() == (arc ? 6u : 5u) &&
+        const bool area = value.contains("area");
+        require(value.is_object() && value.size() == 5u + unsigned(arc) + unsigned(area) &&
+                    (!area || allow_areas) &&
                     (!arc || (allow_arcs && value.at("arc_height").is_number())) &&
                     value.contains("entity") && value.contains("start") && value.contains("end") &&
                     value.contains("radius") && value.contains("bidirectional") &&
@@ -68,7 +74,11 @@ std::vector<NavigationLinkData> read_navigation_links(const nlohmann::json& valu
                 "Invalid navigation link metadata fields");
         links.push_back({value.at("entity").get<EntityId>(), read_endpoint(value.at("start")),
                          read_endpoint(value.at("end")), value.at("radius").get<float>(),
-                         value.at("bidirectional").get<bool>(), value.value("arc_height", 0.f)});
+                         value.at("bidirectional").get<bool>(), value.value("arc_height", 0.f),
+                         area ? area_integer(value.at("area"), navigation_area_limit - 1,
+                                             "Navigation link area")
+                              : 0u});
+        require(!area || links.back().area != 0, "Default link area must be omitted");
     }
     validate_navigation_links(links, space);
     return links;
@@ -89,7 +99,8 @@ NativeNavigationLinks::NativeNavigationLinks(std::span<const NavigationLinkData>
                 vertices_[i * 6 + end * 3 + axis] = float(point[axis]);
         }
         radii_[i] = links[i].radius;
-        flags_[i] = 1;
+        flags_[i] = static_cast<unsigned short>(1u << links[i].area);
+        areas_[i] = static_cast<unsigned char>(links[i].area);
         directions_[i] = links[i].bidirectional ? DT_OFFMESH_CON_BIDIR : 0;
         ids_[i] = unsigned(i + 1);
     }

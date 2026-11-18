@@ -1,5 +1,6 @@
 #include "navigation_sources.hpp"
 #include "builtins.hpp"
+#include "navigation_area_value.hpp"
 #include "navigation_collision_collection.hpp"
 #include "navigation_link_value.hpp"
 #include "navigation_region_value.hpp"
@@ -32,6 +33,8 @@ Json row(flecs::entity e, EntityId id, bool active, NavigationPlane plane,
     auto& c = out["components"];
     if (declared_prefab(e))
         out["prefab"] = true;
+    if (e.has<NavigationArea>())
+        c["forge.navigation_area"] = area_value(e.get<NavigationArea>());
     if (e.has<NavigationSurface>())
         c["forge.navigation_surface"] = {{"enabled", active && e.get<NavigationSurface>().enabled}};
     if (e.has<NavigationRegion2D>()) {

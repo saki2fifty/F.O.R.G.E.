@@ -5,6 +5,7 @@
 #include <chrono>
 #include <forge/application_state_key.hpp>
 #include <forge/native_sdk.h>
+#include <forge/navigation_components.hpp>
 #include <optional>
 #include <span>
 #include <string>
@@ -404,6 +405,20 @@ class Client {
         out.status = FORGE_SDK_NAV_UNAVAILABLE;
         return callable(Capability::Navigation) &&
                host_->navigation_query(host_->context, asset, operation, start, end, &out) == 1;
+    }
+    bool navigation(const char* asset, uint32_t operation, const double start[3],
+                    const double end[3], const NavigationAreaFilter& filter,
+                    ForgeSdkNavResultV1& out) const {
+        out.count = 0;
+        out.status = FORGE_SDK_NAV_UNAVAILABLE;
+        ForgeSdkNavigationFilterV1 request{};
+        request.size = sizeof(request);
+        request.version = 1;
+        request.mask = filter.mask;
+        std::copy(filter.costs.begin(), filter.costs.end(), std::begin(request.costs));
+        return callable(Capability::Navigation) && host_->navigation_query_filtered &&
+               host_->navigation_query_filtered(host_->context, asset, operation, start, end,
+                                                &request, &out) == 1;
     }
     int32_t navigation_agent(const char* scene, const char* entity,
                              ForgeSdkNavigationAgentV1& out) const {

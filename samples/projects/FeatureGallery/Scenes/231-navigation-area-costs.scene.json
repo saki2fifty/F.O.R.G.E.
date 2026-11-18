@@ -1,0 +1,739 @@
+{
+  "asset_id": "ac8360f3-f406-4428-89b5-1961a95e8e0e",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 18.0,
+          "y": 1.0,
+          "z": 12.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.navigation_surface": {
+          "enabled": true
+        },
+        "forge.primitive": {
+          "kind": 3
+        },
+        "forge.tint": {
+          "b": 0.12999999523162842,
+          "g": 0.09000000357627869,
+          "r": 0.03500000014901161
+        }
+      },
+      "id": "5826bd2a-8383-4a4d-9c45-ca2f5f846109",
+      "name": "Default routing surface"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 3.0,
+          "y": 1.0,
+          "z": 6.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.01,
+          "z": 0.0
+        },
+        "forge.navigation_area": {
+          "area": 2
+        },
+        "forge.navigation_surface": {
+          "enabled": true
+        },
+        "forge.primitive": {
+          "kind": 3
+        },
+        "forge.tint": {
+          "b": 0.04500000178813934,
+          "g": 0.23000000417232513,
+          "r": 0.46000000834465027
+        }
+      },
+      "id": "8b4d3b4e-ea2e-42cb-81e9-e7c2b92d855e",
+      "name": "Gold Area 2 surface"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.1,
+          "z": -1.6
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fb61bdbe-0ee1-414b-a1e0-6c4f1ec4b6e1",
+      "name": "Cyan - unit costs patrol anchor"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": 0.1,
+          "z": -1.6
+        },
+        "forge.navigation_agent": {
+          "destination_x": 4.0,
+          "destination_y": 0.1,
+          "destination_z": -1.6,
+          "enabled": true,
+          "has_destination": false,
+          "movement": 0,
+          "navmesh": "f9f83fc9-59b0-4a6e-a756-1443b998954f",
+          "speed": 2.799999952316284,
+          "stopping_distance": 0.07999999821186066
+        },
+        "forge.navigation_area_filter": {
+          "costs": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "mask": 65535
+        },
+        "forge.navigation_behavior": {
+          "anchor": {
+            "entity": "fb61bdbe-0ee1-414b-a1e0-6c4f1ec4b6e1",
+            "scene": "ac8360f3-f406-4428-89b5-1961a95e8e0e"
+          },
+          "enabled": true,
+          "graph": "76244d2c-0da5-45bd-933f-278c7efcd6dc",
+          "target": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fda90e83-d953-4541-a078-293356e9182c",
+      "name": "Cyan - unit costs"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6000000238418579,
+          "y": 0.6000000238418579,
+          "z": 0.6000000238418579
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.4,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.8500000238418579,
+          "r": 0.05000000074505806
+        }
+      },
+      "id": "366a556b-d077-4721-b744-adcdcf118c85",
+      "name": "Cyan - unit costs visual",
+      "parent": "fda90e83-d953-4541-a078-293356e9182c"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.2199999988079071,
+          "y": 0.05999999865889549,
+          "z": 0.2199999988079071
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 0.04,
+          "z": -1.6
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.8500000238418579,
+          "r": 0.05000000074505806
+        }
+      },
+      "id": "4ca9d03c-99c9-4a1b-84a5-77c9ae39c41e",
+      "name": "Cyan - unit costs destination marker"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.2199999988079071,
+          "y": 0.05999999865889549,
+          "z": 0.2199999988079071
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 0.04,
+          "z": -1.6
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.8500000238418579,
+          "r": 0.05000000074505806
+        }
+      },
+      "id": "756e1ae1-e0e6-4000-864a-a1f1c65fb665",
+      "name": "Cyan - unit costs destination marker"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.1,
+          "z": 1.6
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1292e948-1d99-4c0a-9b28-2259123c66b0",
+      "name": "Orange - Area 2 cost 20 patrol anchor"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": 0.1,
+          "z": 1.6
+        },
+        "forge.navigation_agent": {
+          "destination_x": 4.0,
+          "destination_y": 0.1,
+          "destination_z": 1.6,
+          "enabled": true,
+          "has_destination": false,
+          "movement": 0,
+          "navmesh": "f9f83fc9-59b0-4a6e-a756-1443b998954f",
+          "speed": 2.799999952316284,
+          "stopping_distance": 0.07999999821186066
+        },
+        "forge.navigation_area_filter": {
+          "costs": [
+            1.0,
+            1.0,
+            20.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "mask": 65535
+        },
+        "forge.navigation_behavior": {
+          "anchor": {
+            "entity": "1292e948-1d99-4c0a-9b28-2259123c66b0",
+            "scene": "ac8360f3-f406-4428-89b5-1961a95e8e0e"
+          },
+          "enabled": true,
+          "graph": "76244d2c-0da5-45bd-933f-278c7efcd6dc",
+          "target": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "4cf7d01c-5c23-44e8-9fe9-5f7a242de9ff",
+      "name": "Orange - Area 2 cost 20"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6000000238418579,
+          "y": 0.6000000238418579,
+          "z": 0.6000000238418579
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.4,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.04500000178813934,
+          "g": 0.41999998688697815,
+          "r": 1.0
+        }
+      },
+      "id": "7e831b39-bd5b-49d5-8869-d7b7a7d09ea8",
+      "name": "Orange - Area 2 cost 20 visual",
+      "parent": "4cf7d01c-5c23-44e8-9fe9-5f7a242de9ff"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.2199999988079071,
+          "y": 0.05999999865889549,
+          "z": 0.2199999988079071
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 0.04,
+          "z": 1.6
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.04500000178813934,
+          "g": 0.41999998688697815,
+          "r": 1.0
+        }
+      },
+      "id": "96f05a98-bc34-44b8-a4ff-296cfe0a7f9f",
+      "name": "Orange - Area 2 cost 20 destination marker"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.2199999988079071,
+          "y": 0.05999999865889549,
+          "z": 0.2199999988079071
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 0.04,
+          "z": 1.6
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.04500000178813934,
+          "g": 0.41999998688697815,
+          "r": 1.0
+        }
+      },
+      "id": "937e3922-e9fb-4b70-9e89-0f3eed25266f",
+      "name": "Orange - Area 2 cost 20 destination marker"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.1,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3915deea-4dc8-4e73-9cf0-7073ebcb551e",
+      "name": "Violet - default area only patrol anchor"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": 0.1,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 4.0,
+          "destination_y": 0.1,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": false,
+          "movement": 0,
+          "navmesh": "f9f83fc9-59b0-4a6e-a756-1443b998954f",
+          "speed": 2.799999952316284,
+          "stopping_distance": 0.07999999821186066
+        },
+        "forge.navigation_area_filter": {
+          "costs": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "mask": 1
+        },
+        "forge.navigation_behavior": {
+          "anchor": {
+            "entity": "3915deea-4dc8-4e73-9cf0-7073ebcb551e",
+            "scene": "ac8360f3-f406-4428-89b5-1961a95e8e0e"
+          },
+          "enabled": true,
+          "graph": "76244d2c-0da5-45bd-933f-278c7efcd6dc",
+          "target": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "54c62979-2d4a-4b63-940b-1ca497bacb23",
+      "name": "Violet - default area only"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6000000238418579,
+          "y": 0.6000000238418579,
+          "z": 0.6000000238418579
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.4,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.23999999463558197,
+          "r": 0.7200000286102295
+        }
+      },
+      "id": "69c50f5e-a1f7-486d-a38b-099fa37409b7",
+      "name": "Violet - default area only visual",
+      "parent": "54c62979-2d4a-4b63-940b-1ca497bacb23"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.2199999988079071,
+          "y": 0.05999999865889549,
+          "z": 0.2199999988079071
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 0.04,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.23999999463558197,
+          "r": 0.7200000286102295
+        }
+      },
+      "id": "005b6c4e-585f-4c21-876f-7082e87df271",
+      "name": "Violet - default area only destination marker"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.2199999988079071,
+          "y": 0.05999999865889549,
+          "z": 0.2199999988079071
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 0.04,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.23999999463558197,
+          "r": 0.7200000286102295
+        }
+      },
+      "id": "c4ca83c8-f4ee-450e-a55a-350c146c2939",
+      "name": "Violet - default area only destination marker"
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 16.0,
+          "orthographic_width": 22.0,
+          "projection": 1,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 13.0,
+          "z": -16.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "71c5b399-7558-4c88-8481-2976defaeba2",
+      "name": "Overview Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "3a9aa6da-72ef-4770-b6fb-1e0084da8dcc",
+      "name": "Sunlight",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

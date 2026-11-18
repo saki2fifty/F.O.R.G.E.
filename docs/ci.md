@@ -3257,3 +3257,34 @@ shutdown, revision/history checks and diagnostics remain mandatory. The extended
 profile previously reached the 240-second native lifetime under selected O0
 sanitizer instrumentation and disconnected cleanly before completing its Play
 cases. A successful supervisor alone is not native-child sanitizer acceptance.
+
+
+### Navigation area and filter coverage
+
+`navigation_area_values`, `navigation_area_mesh` and `navigation_area_pipeline`
+cover strict reflected values, static/dynamic classified meshes in3D/XY, worker
+publication, stale inputs, independent query policies, live replanning, physical
+character and behavior consumers, retained links and private recovery13. The
+existing unclassified profiles remain regression inputs.
+
+`mcp_navigation_areas_spatial_stdio` and `mcp_navigation_areas_planar_stdio` run
+actual component/schema/source/history and Play workflows through both protocol
+envelopes. `navigation_agent_editor` exercises real Inspector inputs, scale/size
+variants, ordinary/Prefab Keep, Undo/Redo and Save/reopen;
+`navigation_areas_editor` captures the actual live controls.
+`navigation_areas_spatial_overlay_editor` and its planar variant render the actual
+NavigationTools panel and overlay, require visible class legends, distinct fills
+and outlines, check the hidden overlay emits no geometry, and preserve saved source.
+
+`native_sdk_navigation_areas`, its planar and denied variants, and the installed
+variant exercise the typed client and appended sized callback, numeric/capacity/
+thread/capability rejection and graceful native host shutdown. The installed
+consumer builds exclusively from installed headers and runs after SDK relocation.
+
+`navigation_area_gallery` runs all three independent agents in Gallery231/232,
+then packages both Scenes, hides their source project and repeats from the
+relocated package. The Windows gallery preparer publishes through the existing
+navigation build/catalog owner and reuses a current, admitted immutable artifact.
+The two `navigation_areas_*_gallery_vulkan` cases use the existing Game capture
+owner to compare four source/export display pairs per Scene, including portrait.
+Software Vulkan evidence does not establish physical GPU or Windows acceptance.

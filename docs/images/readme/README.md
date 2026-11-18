@@ -4185,3 +4185,52 @@ rendering establishes native controls, without physical desktop, Windows/D3D12,
 GPU or physical DPI acceptance. The Linux SDK consumer configures, compiles and
 links; its deployment-kit install correctly refuses the Windows-only target.
 This screenshot establishes semantic review, not Linux game deployment.
+
+## Navigation area policy controls
+
+`manual/images/navigation-areas-inspector.png` is an unretouched780×920 capture of
+the actual Runtime-role ComponentInspector and reflected fixed-array controls.
+The native `forge_navigation_agent_editor_tests --capture-areas` fixture renders
+ImGui through SDL software; it shows mask5, all sixteen indexed costs and Area2
+set to20. The isolated widget fixture has no Keep callback, so its Keep button is
+disabled. Separate ordinary/Prefab tests cover Keep, Undo/Redo and Save/reopen.
+This is neither a full-editor screenshot nor physical GPU/D3D12 acceptance.
+PNG SHA256: `5ba632bf10fdb03f084a1bb0fee9060bcce5cb03d0ed654b6e7da4152890427c`.
+The matching build, executable and passing capture-test hashes are retained in
+the local navigation-area batch's `inspector-capture.json`.
+
+
+## Navigation area Game views
+
+`manual/images/navigation-area-costs-game.png` and
+`manual/images/navigation-area-costs-xy-game.png` are lossless640×360 captures
+of the actual Game renderer at fixed tick90 in Gallery231/232. Cyan takes the
+direct route, Orange makes Area2 expensive, and Violet excludes it. The native
+Game capture uses software Vulkan/lavapipe and compares four exact source/
+source-hidden relocated export pairs per Scene, including a portrait display.
+Both images were visually reviewed; no pixels, framing or controls were altered.
+This does not establish physical GPU or Windows/D3D12 acceptance.
+
+PNG SHA256 values: `ceee6d3d5b52a35e7627dc0aeaba746d7d05543ca2799ed86da7a6378684e559`
+and `a8eddb02b3c7e1d0811009894dc9d4a8c3e9692f645cb2dc6f2c104c0bc43207`.
+Reproduce with `forge_navigation_polygon_gallery_vulkan_probe GALLERY SCRATCH
+Scenes/231-navigation-area-costs.scene.json` or the232 XY Scene. Exact actor,
+source, PPM, Scene and receipt hashes remain in the local navigation-area batch's
+`game-screenshots.json`; the two `navigation_areas_*_gallery_vulkan` tests check
+actual motion and source/export identity.
+
+
+## Navigation area legend and overlay
+
+`manual/images/navigation-areas-overlay.png` is an unretouched1200×840 native
+ImGui/SDL software capture of NavigationTools content and its actual triangle
+overlay for Gallery231. The same control fixture verifies the XY course. Both
+legends remain visible, admitted classes have distinct fills/outlines, turning
+the overlay off emits no geometry, and the saved Scene remains unchanged. The
+capture's two fixture windows do not represent the complete editor workspace.
+Both images were visually reviewed. No physical GPU, DPI or Windows acceptance
+is claimed. PNG SHA256:
+`aaab1026ee6c11d78347646b9533996fa8a8ba06f6f9860f80177f0d8d1f5dd8`.
+Reproduce with `forge_navigation_link_editor_tests --capture-areas GALLERY OUTPUT`
+or `--capture-areas-xy`. Exact actor/source hashes and both capture identities
+remain in the local navigation-area batch's `overlay-captures.json`.

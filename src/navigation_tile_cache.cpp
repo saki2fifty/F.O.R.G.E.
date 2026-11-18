@@ -39,10 +39,13 @@ class WalkablePolygons final : public dtTileCacheMeshProcess {
     std::vector<NavigationLinkData> connections_;
     MeshSpace space_;
     std::optional<NativeNavigationLinks> native_;
+    bool classified_ = false;
 
   public:
-    WalkablePolygons(std::span<const NavigationLinkData> connections, MeshSpace space)
-        : connections_(connections.begin(), connections.end()), space_(space) {
+    WalkablePolygons(std::span<const NavigationLinkData> connections, MeshSpace space,
+                     bool classified)
+        : connections_(connections.begin(), connections.end()), space_(space),
+          classified_(classified) {
         validate_navigation_links(connections_, space_);
     }
     void process(dtNavMeshCreateParams* params, unsigned char* areas,
@@ -51,8 +54,10 @@ class WalkablePolygons final : public dtTileCacheMeshProcess {
                     params->vertCount >= 0 && params->vertCount <= 16384,
                 "Navigation rebuilt tile exceeds polygon/vertex limits");
         for (int i = 0; i < params->polyCount; ++i) {
-            areas[i] = 0;
-            flags[i] = 1;
+            require(!classified_ || (areas[i] >= 1 && areas[i] <= navigation_area_limit),
+                    "Rebuilt navigation polygon has an invalid raster area");
+            areas[i] = classified_ ? areas[i] - 1 : 0;
+            flags[i] = static_cast<unsigned short>(1u << areas[i]);
         }
         if (!connections_.empty()) {
             const float altitude =
@@ -64,8 +69,8 @@ class WalkablePolygons final : public dtTileCacheMeshProcess {
 };
 } // namespace
 struct TileCache::Impl {
-    Impl(std::span<const NavigationLinkData> connections, MeshSpace space)
-        : process(connections, space) {}
+    Impl(std::span<const NavigationLinkData> connections, MeshSpace space, bool classified)
+        : process(connections, space, classified) {}
     // Callbacks outlive the native cache and all its destruction work.
     dtTileCacheAlloc allocator;
     IdentityCodec codec;
@@ -144,7 +149,7 @@ struct TileCache::Impl {
     }
 };
 TileCache::TileCache(const HeightfieldLayers& data, std::span<const NavigationLinkData> connections)
-    : impl_(std::make_unique<Impl>(connections, data.settings.plane)) {
+    : impl_(std::make_unique<Impl>(connections, data.settings.plane, data.classified)) {
     validate_layers(data);
     const double tile_width = layer_width * double(data.settings.cell_size);
     for (const auto& connection : connections) {

@@ -314,7 +314,7 @@ void exercise_agent_live(float scale, ImVec2 size) {
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
-void exercise_agent_keep_values(bool prefab) {
+void exercise_agent_keep_values(bool prefab, bool areas = false) {
     const auto root =
         std::filesystem::current_path() / ("navigation-review-" + AssetId::generate().str());
     struct Cleanup {
@@ -336,6 +336,9 @@ void exercise_agent_keep_values(bool prefab) {
                       {{"entity", actor}, {"component", "forge.navigation_agent"}});
     authoring_command(scene, "component.add",
                       {{"entity", actor}, {"component", "forge.navigation_link_collision"}});
+    if (areas)
+        authoring_command(scene, "component.add",
+                          {{"entity", actor}, {"component", "forge.navigation_area_filter"}});
     if (prefab) {
         const auto definition = create_prefab_source(scene, actor);
         const auto asset =
@@ -355,8 +358,15 @@ void exercise_agent_keep_values(bool prefab) {
     navigation->tune(reference, "forge.navigation_link_collision", "radius", .75);
     navigation->tune(reference, "forge.navigation_link_collision", "mask", 7u);
     navigation->tune(reference, "forge.navigation_link_collision", "include_sensors", true);
+    if (areas) {
+        navigation->tune(reference, "forge.navigation_area_filter", "mask", 5u);
+        auto costs = Json::array();
+        for (unsigned i = 0; i < 16; ++i)
+            costs.push_back(i == 2 ? 20 : 1);
+        navigation->tune(reference, "forge.navigation_area_filter", "costs", costs);
+    }
     const auto checkpoint = navigation->checkpoint();
-    check(checkpoint.at("version").get<unsigned>() == 6u,
+    check(checkpoint.at("version").get<unsigned>() == (areas ? 13u : 6u),
           "Live collision values did not select semantic recovery version 6");
     {
         EngineContext recovered(WorldRole::Runtime, false, {navigation_module(root)});
@@ -369,6 +379,10 @@ void exercise_agent_keep_values(bool prefab) {
         check(restored.entity(actor).get<NavigationLinkCollision>() ==
                   live.entity(actor).get<NavigationLinkCollision>(),
               "Recovery lost native collision settings behind Prefab intent");
+        if (areas)
+            check(restored.entity(actor).get<NavigationAreaFilter>() ==
+                      live.entity(actor).get<NavigationAreaFilter>(),
+                  "Recovery lost fixed-array policy values behind Prefab intent");
         const auto before_rejection = restored.effective_document();
         for (const bool downgrade : {false, true}) {
             auto invalid = checkpoint;
@@ -397,7 +411,7 @@ void exercise_agent_keep_values(bool prefab) {
         }
     RuntimeTuningReview review;
     check(review.capture(scene, document, snapshot, live.schema(), actor, 0) &&
-              review.fields().size() == 5 && scene.document() == before,
+              review.fields().size() == (areas ? 7u : 5u) && scene.document() == before,
           "Navigation keep-values review lost fields or copied an asset/pose");
     for (std::size_t i = 0; i < review.fields().size(); ++i)
         if (review.fields()[i].property == "destination_x")
@@ -412,6 +426,10 @@ void exercise_agent_keep_values(bool prefab) {
               scene.entity(actor).get<NavigationLinkCollision>() ==
                   NavigationLinkCollision{true, .75f, 1.2f, .02f, 7, true},
           "Navigation review did not apply only the selected frozen scalar value");
+    if (areas)
+        check(scene.entity(actor).get<NavigationAreaFilter>().mask == 5 &&
+                  scene.entity(actor).get<NavigationAreaFilter>().costs[2] == 20,
+              "Keep review omitted selected policy mask/fixed-array values");
     const auto after = scene.document();
     check(scene.undo() && scene.document() == before && scene.redo() && scene.document() == after,
           "Kept navigation values lost ordinary Undo/Redo");
@@ -570,9 +588,14 @@ void capture_collision(const std::filesystem::path& image, unsigned movement = 0
     }
     capture.save(image);
 }
+#include "navigation_area_inspector_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 3 && std::string_view(argv[1]) == "--capture-areas") {
+            exercise_area_live(1.f, {780, 920}, std::filesystem::absolute(argv[2]));
+            return 0;
+        }
         if (argc == 3 && (std::string_view(argv[1]) == "--capture-collision" ||
                           std::string_view(argv[1]) == "--capture-character" ||
                           std::string_view(argv[1]) == "--capture-planar-character" ||
@@ -590,9 +613,12 @@ int main(int argc, char** argv) {
                 exercise(scale, size);
                 exercise_avoidance(scale, size);
                 exercise_agent_live(scale, size);
+                exercise_area_live(scale, size);
             }
         exercise_agent_keep_values(false);
         exercise_agent_keep_values(true);
+        exercise_agent_keep_values(false, true);
+        exercise_agent_keep_values(true, true);
         std::cout << "Navigation Live progress, failure/metric gating, scales and readonly "
                      "isolation passed\n";
     } catch (const std::exception& e) {

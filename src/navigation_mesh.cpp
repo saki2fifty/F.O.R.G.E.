@@ -1,4 +1,5 @@
 #include "navigation_mesh.hpp"
+#include "navigation_area_value.hpp"
 #include "navigation_link_curve.hpp"
 #include <DetourNavMesh.h>
 #include <DetourNavMeshBuilder.h>
@@ -87,10 +88,21 @@ bool point(Double3 v) {
                        [](double x) { return std::isfinite(x) && std::abs(x) <= 4096; });
 }
 NavResult result(NavStatus s) { return {s, {}, nav_status_name(s)}; }
+dtQueryFilter native_filter(const NavigationAreaFilter& policy) {
+    validate_navigation_area_filter(policy);
+    dtQueryFilter filter;
+    filter.setIncludeFlags(static_cast<unsigned short>(policy.mask));
+    for (std::size_t i = 0; i < policy.costs.size(); ++i)
+        filter.setAreaCost(int(i), policy.costs[i]);
+    return filter;
+}
 } // namespace
 void validate_tile(std::span<const std::byte> bytes, MeshSpace space,
-                   std::span<const NavigationLinkData> connections) {
+                   std::span<const NavigationLinkData> connections, bool classified) {
     validate_navigation_links(connections, space);
+    require(classified ||
+                std::ranges::none_of(connections, [](const auto& link) { return link.area != 0; }),
+            "Classified links require the classified tile profile");
     require(space == MeshSpace::Spatial3D || space == MeshSpace::PlanarXY,
             "Unsupported navigation coordinate space");
     Reader r(bytes);
@@ -151,8 +163,11 @@ void validate_tile(std::span<const std::byte> bytes, MeshSpace space,
     const auto ground_vertices = unsigned(h.vertCount - h.offMeshConCount * 2);
     for (int i = 0; i < h.offMeshBase; ++i) {
         const auto& p = polys[i];
-        require(p.vertCount >= 3 && p.vertCount <= 6 && p.firstLink == 0 && p.flags == 1 &&
-                    p.areaAndtype == 0,
+        require(p.vertCount >= 3 && p.vertCount <= 6 && p.firstLink == 0 &&
+                    p.getType() == DT_POLYTYPE_GROUND &&
+                    (classified
+                         ? p.getArea() < navigation_area_limit && p.flags == (1u << p.getArea())
+                         : p.flags == 1 && p.areaAndtype == 0),
                 "Unsupported or invalid navmesh polygon");
         edges += p.vertCount;
         std::set<unsigned> unique;
@@ -219,8 +234,10 @@ void validate_tile(std::span<const std::byte> bytes, MeshSpace space,
                     connection.userId == parameters.offMeshConUserID[i] &&
                     connection.rad == parameters.offMeshConRad[i],
                 "Navigation link identity, direction, radius or tile side mismatch");
-        require(polygon.vertCount == 2 && polygon.firstLink == 0 && polygon.flags == 1 &&
-                    polygon.areaAndtype == (DT_POLYTYPE_OFFMESH_CONNECTION << 6) &&
+        require(polygon.vertCount == 2 && polygon.firstLink == 0 &&
+                    polygon.flags == parameters.offMeshConFlags[i] &&
+                    polygon.areaAndtype ==
+                        ((DT_POLYTYPE_OFFMESH_CONNECTION << 6) | parameters.offMeshConAreas[i]) &&
                     polygon.verts[0] == ground_vertices + i * 2 &&
                     polygon.verts[1] == ground_vertices + i * 2 + 1,
                 "Invalid navigation link polygon");
@@ -237,8 +254,8 @@ void validate_tile(std::span<const std::byte> bytes, MeshSpace space,
             "Navmesh section counts do not agree");
 }
 nlohmann::json tile_properties(std::span<const std::byte> bytes, MeshSpace space,
-                               std::span<const NavigationLinkData> connections) {
-    validate_tile(bytes, space, connections);
+                               std::span<const NavigationLinkData> connections, bool classified) {
+    validate_tile(bytes, space, connections, classified);
     dtMeshHeader h;
     std::memcpy(&h, bytes.data(), sizeof h);
     return {{"minimum", {h.bmin[0], h.bmin[1], h.bmin[2]}},
@@ -258,17 +275,21 @@ struct Mesh::Impl {
     const dtNavMesh* native() const { return base_tiles ? base_tiles->mesh() : mesh.get(); }
 };
 Mesh::Mesh(std::span<const std::byte> bytes, MeshSpace space, bool dynamic,
-           std::span<const NavigationLinkData> connections) {
+           std::span<const NavigationLinkData> connections, bool classified) {
     validate_navigation_links(connections, space);
+    require(classified ||
+                std::ranges::none_of(connections, [](const auto& link) { return link.area != 0; }),
+            "Classified links require the classified mesh profile");
     impl_ = std::make_unique<Impl>();
     impl_->space = space;
     impl_->connections.assign(connections.begin(), connections.end());
     if (dynamic) {
         impl_->layers = decode_layers(bytes);
-        require(impl_->layers->settings.plane == space, "Navigation layer/query plane mismatch");
+        require(impl_->layers->settings.plane == space && impl_->layers->classified == classified,
+                "Navigation layer/query plane or area profile mismatch");
         impl_->base_tiles = std::make_unique<TileCache>(*impl_->layers, connections);
     } else {
-        validate_tile(bytes, space, connections);
+        validate_tile(bytes, space, connections, classified);
         require(bool(impl_->mesh), "Cannot allocate navmesh");
         auto* data = static_cast<unsigned char*>(dtAlloc(bytes.size(), DT_ALLOC_PERM));
         require(data, "Cannot allocate navmesh tile");
@@ -310,8 +331,10 @@ Mesh::Mesh(std::span<const std::byte> bytes, MeshSpace space, bool dynamic,
 Mesh::~Mesh() = default;
 MeshSpace Mesh::space() const { return impl_->space; }
 bool Mesh::dynamic_obstacles() const { return impl_->layers.has_value(); }
-std::vector<Double3> Mesh::triangles() const {
+std::vector<Double3> Mesh::triangles(std::vector<std::uint32_t>* areas) const {
     std::vector<Double3> out;
+    if (areas)
+        areas->clear();
     const auto* native = impl_->native();
     for (int index = 0; index < native->getMaxTiles(); ++index) {
         const auto* tile = native->getTile(index);
@@ -319,11 +342,14 @@ std::vector<Double3> Mesh::triangles() const {
             continue;
         for (int i = 0; i < tile->header->polyCount; ++i) {
             const auto& p = tile->polys[i];
-            for (unsigned j = 1; j + 1 < p.vertCount; ++j)
+            for (unsigned j = 1; j + 1 < p.vertCount; ++j) {
+                if (areas)
+                    areas->push_back(p.getArea());
                 for (auto v : {p.verts[0], p.verts[j], p.verts[j + 1]}) {
                     auto* xyz = &tile->verts[v * 3];
                     out.push_back(world_coordinates(impl_->space, {xyz[0], xyz[1], xyz[2]}));
                 }
+            }
         }
     }
     return out;
@@ -332,7 +358,6 @@ struct Query::Impl {
     std::shared_ptr<const Mesh> owner;
     std::unique_ptr<dtNavMeshQuery, decltype(&dtFreeNavMeshQuery)> query{dtAllocNavMeshQuery(),
                                                                          dtFreeNavMeshQuery};
-    dtQueryFilter filter;
     std::unique_ptr<TileCache> tiles;
     std::uint64_t generation = 0;
     std::unique_ptr<dtObstacleAvoidanceQuery, decltype(&dtFreeObstacleAvoidanceQuery)> avoidance{
@@ -345,7 +370,7 @@ struct Query::Impl {
             dtStatusSucceed(query->init(tiles ? tiles->mesh() : owner->impl_->mesh.get(), 2048)),
             "Cannot initialize nav query");
     }
-    dtPolyRef nearest(Double3 p, float* projected) {
+    dtPolyRef nearest(Double3 p, float* projected, const dtQueryFilter& filter) {
         p = native_coordinates(owner->space(), p);
         if (owner->space() == MeshSpace::PlanarXY)
             p[1] = owner->impl_->altitude;
@@ -385,34 +410,38 @@ std::uint64_t Query::generation() const { return impl_->generation; }
 std::uint64_t Query::tile_rebuilds() const {
     return impl_->tiles ? impl_->tiles->rebuild_count() : 0;
 }
-NavResult Query::project(Double3 p) {
+NavResult Query::project(Double3 p, const NavigationAreaFilter& policy) {
+    const auto filter = native_filter(policy);
     if (impl_->owner->dynamic_obstacles() && !impl_->tiles)
         return result(NavStatus::Unavailable);
     if (!point(p))
         return result(NavStatus::Invalid);
     float pos[3];
-    if (!impl_->nearest(p, pos))
+    if (!impl_->nearest(p, pos, filter))
         return result(NavStatus::StartOutside);
     return {NavStatus::Success,
             {world_coordinates(impl_->owner->space(), {pos[0], pos[1], pos[2]}, p[2])},
             {}};
 }
-NavResult Query::path(Double3 a, Double3 b) { return route(a, b).path; }
-Query::Route Query::route(Double3 a, Double3 b) {
+NavResult Query::path(Double3 a, Double3 b, const NavigationAreaFilter& policy) {
+    return route(a, b, policy).path;
+}
+Query::Route Query::route(Double3 a, Double3 b, const NavigationAreaFilter& policy) {
+    const auto filter = native_filter(policy);
     const auto failure = [](NavStatus status) { return Route{result(status), {}}; };
     if (impl_->owner->dynamic_obstacles() && !impl_->tiles)
         return failure(NavStatus::Unavailable);
     if (!point(a) || !point(b))
         return failure(NavStatus::Invalid);
     float start[3], end[3];
-    auto ra = impl_->nearest(a, start), rb = impl_->nearest(b, end);
+    auto ra = impl_->nearest(a, start, filter), rb = impl_->nearest(b, end, filter);
     if (!ra)
         return failure(NavStatus::StartOutside);
     if (!rb)
         return failure(NavStatus::EndOutside);
     dtPolyRef polys[128]{};
     int count = 0;
-    auto status = impl_->query->findPath(ra, rb, start, end, &impl_->filter, polys, &count, 128);
+    auto status = impl_->query->findPath(ra, rb, start, end, &filter, polys, &count, 128);
     if (status & (DT_OUT_OF_NODES | DT_BUFFER_TOO_SMALL))
         return failure(NavStatus::Limit);
     if (dtStatusFailed(status) || count == 0)
@@ -500,13 +529,16 @@ Query::Route Query::route(Double3 a, Double3 b) {
     }
     return out;
 }
-bool Query::link_available(EntityId source, Double3 entry, Double3 exit, float arc_height) const {
+bool Query::link_available(EntityId source, Double3 entry, Double3 exit, float arc_height,
+                           const NavigationAreaFilter& policy) const {
+    validate_navigation_area_filter(policy);
     if (!point(entry) || !point(exit) || (impl_->owner->dynamic_obstacles() && !impl_->tiles))
         return false;
     const auto& admitted = impl_->owner->impl_->connections;
     const auto selected = std::find_if(admitted.begin(), admitted.end(),
                                        [&](const auto& link) { return link.entity == source; });
-    if (selected == admitted.end() || selected->arc_height != arc_height)
+    if (selected == admitted.end() || selected->arc_height != arc_height ||
+        !(policy.mask & (1u << selected->area)))
         return false;
     if (arc_height != 0) {
         try {
@@ -529,6 +561,15 @@ bool Query::link_available(EntityId source, Double3 entry, Double3 exit, float a
             const auto endpoints = ground_endpoints(*native, *tile, link);
             if (!endpoints[0] || !endpoints[1])
                 continue;
+            const auto permitted = [&](dtPolyRef endpoint) {
+                const dtMeshTile* ground_tile = nullptr;
+                const dtPoly* ground_poly = nullptr;
+                return dtStatusSucceed(
+                           native->getTileAndPolyByRef(endpoint, &ground_tile, &ground_poly)) &&
+                       (ground_poly->flags & policy.mask) != 0;
+            };
+            if (!permitted(endpoints[0]) || !permitted(endpoints[1]))
+                continue;
             float from[3]{}, to[3]{};
             const auto ref = native->getPolyRefBase(tile) | dtPolyRef(link.poly);
             if (dtStatusFailed(
@@ -545,7 +586,8 @@ bool Query::link_available(EntityId source, Double3 entry, Double3 exit, float a
     }
     return false;
 }
-NavResult Query::move(Double3 a, Double3 b) {
+NavResult Query::move(Double3 a, Double3 b, const NavigationAreaFilter& policy) {
+    const auto filter = native_filter(policy);
     if (impl_->owner->dynamic_obstacles() && !impl_->tiles)
         return result(NavStatus::Unavailable);
     if (!point(a) || !point(b))
@@ -556,13 +598,12 @@ NavResult Query::move(Double3 a, Double3 b) {
     float start[3],
         target[3]{float(native_target[0]), float(native_target[1]), float(native_target[2])},
         end[3]{};
-    auto ref = impl_->nearest(a, start);
+    auto ref = impl_->nearest(a, start, filter);
     if (!ref)
         return result(NavStatus::StartOutside);
     dtPolyRef visited[32]{};
     int n = 0;
-    auto s =
-        impl_->query->moveAlongSurface(ref, start, target, &impl_->filter, end, visited, &n, 32);
+    auto s = impl_->query->moveAlongSurface(ref, start, target, &filter, end, visited, &n, 32);
     if (s & DT_BUFFER_TOO_SMALL)
         return result(NavStatus::Limit);
     if (dtStatusFailed(s) || !n)
@@ -578,8 +619,9 @@ NavResult Query::move(Double3 a, Double3 b) {
     return {NavStatus::Success, {world_coordinates(impl_->owner->space(), p, a[2])}, {}};
 }
 NavResult Query::avoid_velocity(Double3 position, Double3 desired, Double3 previous, float speed,
-                                float radius, float horizon,
-                                std::span<const Neighbour> neighbours) {
+                                float radius, float horizon, std::span<const Neighbour> neighbours,
+                                const NavigationAreaFilter& policy) {
+    const auto filter = native_filter(policy);
     if (impl_->owner->dynamic_obstacles() && !impl_->tiles)
         return result(NavStatus::Unavailable);
     if (!point(position) || !std::isfinite(speed) || speed < 0 || speed > 20 ||
@@ -601,7 +643,7 @@ NavResult Query::avoid_velocity(Double3 position, Double3 desired, Double3 previ
     if (speed == 0)
         return {NavStatus::Success, {Double3{}}, {}};
     float center[3];
-    auto start = impl_->nearest(position, center);
+    auto start = impl_->nearest(position, center, filter);
     if (!start)
         return result(NavStatus::StartOutside);
     constexpr int max_nearby = 32, max_walls = max_nearby * DT_VERTS_PER_POLYGON;
@@ -625,9 +667,8 @@ NavResult Query::avoid_velocity(Double3 position, Double3 desired, Double3 previ
     }
     dtPolyRef nearby[max_nearby]{};
     int count = 0;
-    auto status =
-        impl_->query->findLocalNeighbourhood(start, center, speed * horizon + 2 * radius,
-                                             &impl_->filter, nearby, nullptr, &count, max_nearby);
+    auto status = impl_->query->findLocalNeighbourhood(
+        start, center, speed * horizon + 2 * radius, &filter, nearby, nullptr, &count, max_nearby);
     if (status & (DT_BUFFER_TOO_SMALL | DT_OUT_OF_NODES))
         return result(NavStatus::Limit);
     if (dtStatusFailed(status))
@@ -635,8 +676,8 @@ NavResult Query::avoid_velocity(Double3 position, Double3 desired, Double3 previ
     for (int i = 0; i < count; ++i) {
         float walls[DT_VERTS_PER_POLYGON * 6]{};
         int wall_count = 0;
-        status = impl_->query->getPolyWallSegments(nearby[i], &impl_->filter, walls, nullptr,
-                                                   &wall_count, DT_VERTS_PER_POLYGON);
+        status = impl_->query->getPolyWallSegments(nearby[i], &filter, walls, nullptr, &wall_count,
+                                                   DT_VERTS_PER_POLYGON);
         if (status & DT_BUFFER_TOO_SMALL)
             return result(NavStatus::Limit);
         if (dtStatusFailed(status))

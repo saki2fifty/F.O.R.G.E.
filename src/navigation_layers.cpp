@@ -12,6 +12,7 @@
 namespace forge::navigation_detail {
 namespace {
 constexpr std::string_view magic = "FNTILE04";
+constexpr std::string_view classified_magic = "FNTILE09";
 using Json = nlohmann::json;
 void require(bool value, const char* why) {
     if (!value)
@@ -69,13 +70,16 @@ void validate_layers(const HeightfieldLayers& data) {
         for (unsigned i = 0; i < grid; ++i) {
             const auto height = layer.cells[i], area = layer.cells[grid + i],
                        con = layer.cells[grid * 2 + i];
-            require(area == 0 || area == 63, "Unsupported navigation layer area");
+            const auto walkable = [&](unsigned char value) {
+                return data.classified ? value >= 1 && value <= navigation_area_limit : value == 63;
+            };
+            require(area == 0 || walkable(area), "Unsupported navigation layer area");
             if (height == 255) {
                 require(area == 0 && con == 0, "Empty navigation cell contains connections");
                 continue;
             }
             const int x = int(i % layer_width), z = int(i / layer_width);
-            require(area == 63, "Occupied navigation cell has no walkable area");
+            require(walkable(area), "Occupied navigation cell has no walkable area");
             require(unsigned(x) >= layer.minx && unsigned(x) <= layer.maxx &&
                         unsigned(z) >= layer.minz && unsigned(z) <= layer.maxz,
                     "Navigation cell exceeds its layer rectangle");
@@ -96,7 +100,7 @@ void validate_layers(const HeightfieldLayers& data) {
                 require(nx >= 0 && nz >= 0 && nx < int(layer_width) && nz < int(layer_width),
                         "Navigation connection leaves its cell array");
                 const auto neighbour = unsigned(nx + nz * int(layer_width));
-                require(layer.cells[neighbour] != 255 && layer.cells[grid + neighbour] == 63 &&
+                require(layer.cells[neighbour] != 255 && walkable(layer.cells[grid + neighbour]) &&
                             (layer.cells[grid * 2 + neighbour] & (1u << ((d + 2) % 4))),
                         "Navigation connection has no reciprocal occupied neighbour");
             }
@@ -125,7 +129,7 @@ std::vector<std::byte> encode_layers(const HeightfieldLayers& data) {
     const auto text = description.dump();
     require(text.size() <= 65536, "Navigation layer description exceeds 64 KiB");
     std::vector<std::byte> out;
-    for (auto c : magic)
+    for (auto c : data.classified ? classified_magic : magic)
         out.push_back(std::byte(c));
     for (unsigned i = 0; i < 4; ++i)
         out.push_back(std::byte((text.size() >> (8 * i)) & 255));
@@ -139,9 +143,13 @@ std::vector<std::byte> encode_layers(const HeightfieldLayers& data) {
     return out;
 }
 HeightfieldLayers decode_layers(std::span<const std::byte> bytes) {
+    const auto matches = [&](std::string_view candidate) {
+        return bytes.size() >= candidate.size() &&
+               std::equal(candidate.begin(), candidate.end(), bytes.begin(),
+                          [](char a, std::byte b) { return a == std::to_integer<char>(b); });
+    };
     require(bytes.size() >= 12 && bytes.size() <= max_nav_bytes &&
-                std::equal(magic.begin(), magic.end(), bytes.begin(),
-                           [](char a, std::byte b) { return a == std::to_integer<char>(b); }),
+                (matches(magic) || matches(classified_magic)),
             "Unsupported navigation layers");
     unsigned size = 0;
     for (unsigned i = 0; i < 4; ++i)
@@ -161,6 +169,7 @@ HeightfieldLayers decode_layers(std::span<const std::byte> bytes) {
                 bytes.size() - 12 - size == entries.size() * sizeof(HeightfieldLayer::cells),
             "Navigation layer counts/lengths do not match");
     HeightfieldLayers out;
+    out.classified = matches(classified_magic);
     out.settings = meta.at("settings").get<NavigationSettings>();
     out.minimum = meta.at("minimum").get<std::array<float, 3>>();
     out.maximum = meta.at("maximum").get<std::array<float, 3>>();

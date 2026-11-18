@@ -1,5 +1,25 @@
 # 2026-11-18
 
+## Navigation areas and independent routing costs
+
+Eligible navigation sources and authored links support sixteen logical areas.
+Each agent can permit a subset and assign independent traversal costs while
+sharing one baked NavMesh. Static and dynamic-obstacle profiles support both3D
+and XY. Policy edits replan at the next legal boundary; an active link crossing
+finishes under its admitted policy. Character pose ownership stays with physics.
+
+Inspector exposes allowed-area masks and sixteen labeled costs, including live
+editing and selective Keep review. Scene overlays color the admitted classes.
+Existing component/history/Play automation and MCP access use the same owners.
+The matching SDK adds typed filtered queries and an appended sized C callback;
+rebuild project modules against the matching SDK fingerprint.
+
+Classified assets use navigation envelope9 and classified dynamic layers. Older
+default-area assets remain readable with their existing canonical representation.
+Private navigation13 recovery preserves configured and retained policies.
+Gallery231/232 demonstrate direct, expensive-area and excluded-area routes with
+editable Cameras, shared behavior and ready navigation in both planes.
+
 ## Delivery acceptance coverage
 
 Navigation MCP checks use the current movement range, camera inspection waits for

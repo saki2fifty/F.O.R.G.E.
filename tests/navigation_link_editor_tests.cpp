@@ -3,6 +3,8 @@
 #include "imgui_software_capture.hpp"
 #include <imgui_internal.h>
 #include <iostream>
+#include <optional>
+#include <set>
 #include <thread>
 using namespace forge;
 namespace {
@@ -298,20 +300,27 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
                  (arcs ? "navigation-link-arc-inspector.png" : "navigation-link-inspector.png"));
     test::observe_ui = false;
 }
-void capture_collection(const std::filesystem::path& gallery, const std::filesystem::path& output) {
-    const auto root = output / "Gallery";
+void capture_navigation(const std::filesystem::path& gallery, const std::filesystem::path& output,
+                        std::optional<NavigationPlane> area_plane = {}) {
+    const bool classified = area_plane.has_value();
+    const auto root = (classified ? output / AssetId::generate().str() : output) / "Gallery";
     std::filesystem::create_directories(root);
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
     EngineContext engine;
     Scene scene(engine.world());
     SceneDocument project(scene);
     project.open_project(root);
-    project.open_scene(root / "Scenes/141-navigation-collision-collection.scene.json");
+    const bool planar = area_plane == NavigationPlane::PlanarXY;
+    project.open_scene(root / (classified
+                                   ? (planar ? "Scenes/232-navigation-area-costs-xy.scene.json"
+                                             : "Scenes/231-navigation-area-costs.scene.json")
+                                   : "Scenes/141-navigation-collision-collection.scene.json"));
     const auto document = scene.document();
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     NavigationTools navigation(engine.world(), {});
-    navigation.select_profile(scene, project, *catalog, "Physical");
-    test::ImGuiSoftwareCapture capture(860, 600);
+    navigation.select_profile(scene, project, *catalog, classified ? "default" : "Physical");
+    navigation.show_overlay(classified);
+    test::ImGuiSoftwareCapture capture(classified ? 1200 : 860, classified ? 840 : 600);
     ui::style(1);
     test::observe_ui = true;
     std::string message;
@@ -319,18 +328,48 @@ void capture_collection(const std::filesystem::path& gallery, const std::filesys
         test::ui_targets.clear();
         capture.new_frame();
         ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
-        ImGui::SetNextWindowSize({860, 600}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize(classified ? ImVec2{430, 840} : ImVec2{860, 600},
+                                 ImGuiCond_Always);
         ImGui::Begin("Content - Navigation", nullptr,
                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
         ImGui::SetNextItemOpen(true, ImGuiCond_Always);
         navigation.content(scene, project, false, message, catalog);
         ImGui::End();
+        if (classified) {
+            ImGui::SetNextWindowPos({430, 0}, ImGuiCond_Always);
+            ImGui::SetNextWindowSize({770, 840}, ImGuiCond_Always);
+            ImGui::Begin("Scene navigation overlay", nullptr,
+                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+            EditorCamera camera;
+            camera.target = {0, 0, 0};
+            camera.align(planar ? 2 : 1, 1);
+            camera.projection = CameraProjection::Orthographic;
+            camera.orthographic_height = 22;
+            auto* draw = ImGui::GetWindowDrawList();
+            const auto before = draw->VtxBuffer.Size;
+            navigation.draw(scene.effective_document(), camera, {448, 38}, {734, 784});
+            std::set<ImU32> colors;
+            for (int i = before; i < draw->VtxBuffer.Size; ++i)
+                colors.insert(draw->VtxBuffer[i].col);
+            check(colors.size() >= 4, "Area overlay omitted distinct surface fills and outlines");
+            navigation.show_overlay(false);
+            const auto visible = draw->VtxBuffer.Size;
+            navigation.draw(scene.effective_document(), camera, {448, 38}, {734, 784});
+            check(draw->VtxBuffer.Size == visible, "Hidden area overlay still emitted triangles");
+            navigation.show_overlay(true);
+            ImGui::End();
+        }
         capture.render();
     }
-    for (const auto* key :
-         {"navigation:profile-selected:Physical", "navigation:setting:Collect static colliders",
-          "physics-layer-picker:##navigation_collision_layers",
-          "navigation:status:NavMesh ready"}) {
+    const std::vector<std::string> keys =
+        classified
+            ? std::vector<std::string>{"navigation:profile-selected:default", "navigation:area:0",
+                                       "navigation:area:2", "navigation:status:NavMesh ready"}
+            : std::vector<std::string>{"navigation:profile-selected:Physical",
+                                       "navigation:setting:Collect static colliders",
+                                       "physics-layer-picker:##navigation_collision_layers",
+                                       "navigation:status:NavMesh ready"};
+    for (const auto& key : keys) {
         const auto& box = test::ui_targets.at(key);
         check(box.enabled && box.minimum.y >= box.clip_minimum.y &&
                   box.maximum.y <= box.clip_maximum.y && box.minimum.x >= box.clip_minimum.x &&
@@ -339,7 +378,9 @@ void capture_collection(const std::filesystem::path& gallery, const std::filesys
     }
     check(message.empty() && scene.document() == document && !project.dirty(),
           "Collection control capture changed the saved Gallery or reported an error");
-    capture.save(output / "navigation-collection-controls.png");
+    capture.save(output / (classified ? (planar ? "navigation-areas-overlay-xy.png"
+                                                : "navigation-areas-overlay.png")
+                                      : "navigation-collection-controls.png"));
     test::observe_ui = false;
 }
 } // namespace
@@ -352,8 +393,16 @@ int main(int argc, char** argv) {
             return 0;
         }
         if (argc == 4 && std::string_view(argv[1]) == "--capture-collection") {
-            capture_collection(std::filesystem::absolute(argv[2]),
+            capture_navigation(std::filesystem::absolute(argv[2]),
                                std::filesystem::absolute(argv[3]));
+            return 0;
+        }
+        if (argc == 4 && (std::string_view(argv[1]) == "--capture-areas" ||
+                          std::string_view(argv[1]) == "--capture-areas-xy")) {
+            capture_navigation(
+                std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                std::string_view(argv[1]) == "--capture-areas-xy" ? NavigationPlane::PlanarXY
+                                                                  : NavigationPlane::Spatial3D);
             return 0;
         }
         check(argc == 3, "Need scratch root and matching navigation worker");
