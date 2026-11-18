@@ -2,7 +2,7 @@
 
 
 def check_navigation_character(read, ok, control, until, edit_settings, planar=False, jump=False, grounded=False):
-    assert not (planar and jump)
+    assert not (planar and jump) or grounded
     assert not grounded or planar
     def create(name, kind=4):
         return ok('forge_entity_create', arguments=dict(name=name, kind=kind))['results'][0]['selected']
@@ -16,13 +16,28 @@ def check_navigation_character(read, ok, control, until, edit_settings, planar=F
     floor = create('Baked character route', 4 if planar else 3)
     if planar:
         add(floor, 'forge.navigation_region_2d')
-        values(floor, 'forge.navigation_region_2d', width=20, height=12)
+        values(floor, 'forge.navigation_region_2d', width=4 if jump else 20, height=6 if jump else 12)
+        if jump:
+            values(floor, 'forge.local_translation', x=-3, y=0)
+            landing = create('Baked XY landing')
+            values(landing, 'forge.local_translation', x=3, y=0)
+            add(landing, 'forge.navigation_region_2d')
+            values(landing, 'forge.navigation_region_2d', width=4, height=6)
+            add(floor, 'forge.navigation_link')
+            values(floor, 'forge.navigation_link', plane=1, start_x=1, end_x=5,
+                   end_y=1, arc_height=1, bidirectional=False)
         if grounded:
             ground = create('Physical grounded XY floor')
-            values(ground, 'forge.local_translation', y=-.5)
+            values(ground, 'forge.local_translation', x=-3 if jump else 0, y=-.5)
             add(ground, 'forge.physics_body_2d')
             add(ground, 'forge.box_collider_2d')
-            values(ground, 'forge.box_collider_2d', x=20, y=1)
+            values(ground, 'forge.box_collider_2d', x=4 if jump else 20, y=1)
+            if jump:
+                support = create('Physical XY landing')
+                values(support, 'forge.local_translation', x=3, y=.5)
+                add(support, 'forge.physics_body_2d')
+                add(support, 'forge.box_collider_2d')
+                values(support, 'forge.box_collider_2d', x=4, y=1)
     else:
         values(floor, 'forge.local_scale', x=4 if jump else 20, y=1, z=6 if jump else 12)
         if jump:
@@ -52,7 +67,7 @@ def check_navigation_character(read, ok, control, until, edit_settings, planar=F
     values(wall, 'forge.local_translation', x=0, y=3 if jump else 1.5, z=0)
     add(wall, body_type)
     add(wall, collider_type)
-    values(wall, collider_type, **(dict(x=.3, y=8) if planar else dict(x=.3, y=20 if jump else 3, z=8)))
+    values(wall, collider_type, **(dict(x=.3, y=20 if jump else 8) if planar else dict(x=.3, y=20 if jump else 3, z=8)))
     ok('forge_navigation_build', settings=dict(radius=.4, height=2, climb=.4, slope=45,
         cell_size=.2, cell_height=.1, plane=int(planar), profile='default', dynamic_obstacles=False))
     baked = until(lambda: read('forge_navigation_status'), lambda row: not row['busy'])
@@ -69,7 +84,7 @@ def check_navigation_character(read, ok, control, until, edit_settings, planar=F
     before_navigation = read('forge_scene_read')
     values(actor, 'forge.navigation_agent', navmesh=baked['asset'], movement=3 if grounded else 2 if planar else 1,
            has_destination=True, destination_x=3 if jump else 4,
-           destination_y=2 if jump else 0, destination_z=0, speed=0)
+           destination_y=(1 if planar else 2) if jump else 0, destination_z=0, speed=0)
     authored_navigation = read('forge_scene_read')
     ok('forge_history_undo')
     assert read('forge_scene_read') == before_navigation
@@ -131,10 +146,10 @@ def check_navigation_character(read, ok, control, until, edit_settings, planar=F
     control('forge_play_resume')
     arrived = until(follower, lambda row: row.get('navigation_debug', {}).get('phase') == 'Arrived')
     assert arrived['world_affine'][3] > (2.8 if jump else 3.8), arrived
-    if grounded:
+    if grounded and not jump:
         assert abs(arrived['world_affine'][7]) < .02, arrived
     if jump:
-        assert abs(arrived['world_affine'][7] - 2) < .1, arrived
+        assert abs(arrived['world_affine'][7] - (1 if planar else 2)) < .1, arrived
     if planar:
         assert arrived['world_affine'][11] == 37.125, arrived
     control('forge_play_stop')

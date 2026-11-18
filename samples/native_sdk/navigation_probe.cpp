@@ -240,6 +240,10 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char*, uint32_t) {
 #ifdef FORGE_NAVIGATION_PLANAR
             start[2] = 37.125;
             end[2] = -19;
+#ifdef FORGE_NAVIGATION_JUMP
+            start[1] = -3;
+            end[1] = -2;
+#endif
 #endif
             ForgeSdkNavResultV1 out{sizeof(out), 0, 0, 64, points};
 #ifdef FORGE_NAVIGATION_GROUNDED

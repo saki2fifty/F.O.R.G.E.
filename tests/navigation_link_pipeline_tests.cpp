@@ -29,9 +29,10 @@ Json record(const AssetCatalog& catalog, AssetId id) {
 #include "navigation_character_jump_tests.hpp"
 #include "navigation_link_collision_tests.hpp"
 #include "navigation_link_runtime_tests.hpp"
+#include "navigation_planar_character_jump_tests.hpp"
 void run(const std::filesystem::path& root, const std::filesystem::path& worker,
          NavigationPlane plane, bool dynamic, bool arc, bool collision = false,
-         bool character = false) {
+         bool character = false, bool bidirectional = false, double landing_height = 0) {
     using namespace navigation_detail;
     SceneDocument::create_project(root, "Authored navigation connections");
     EngineContext engine;
@@ -75,8 +76,8 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
     link.plane = unsigned(plane);
     link.profile = settings.profile;
     link.arc_height = arc ? 1.f : 0.f;
-    link.bidirectional = false;
-    link.end_y = plane == NavigationPlane::Spatial3D ? 2.f : 0.f;
+    link.bidirectional = bidirectional;
+    link.end_y = plane == NavigationPlane::Spatial3D ? 2.f : float(landing_height);
     link.start_x = plane == NavigationPlane::PlanarXY ? 1.f : .25f;
     link.end_x = plane == NavigationPlane::PlanarXY ? 5.f : 1.25f;
     scene.entity(left).set<NavigationLink>(link);
@@ -113,12 +114,14 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
     Query query(load(root, baked).mesh);
     const Double3 start =
         plane == NavigationPlane::PlanarXY ? Double3{-3, 0, 11} : Double3{-3, 0, 0};
-    const Double3 end = plane == NavigationPlane::PlanarXY ? Double3{3, 0, -8} : Double3{3, 2, 0};
+    const Double3 end =
+        plane == NavigationPlane::PlanarXY ? Double3{3, landing_height, -8} : Double3{3, 2, 0};
     const auto route = query.route(start, end);
     check(route.path.status == NavStatus::Success && route.links.size() == 1 &&
               route.links.front().source == EntityId::parse(left) &&
               route.links.front().arc_height == link.arc_height &&
-              query.path(end, start).status != NavStatus::Success,
+              (bidirectional ? query.path(end, start).status == NavStatus::Success
+                             : query.path(end, start).status != NavStatus::Success),
           "Published link lost source identity, reachability or one-way direction");
     const auto actor_id =
         authoring_command(scene, "entity.create", {{"name", "Link traveler"}, {"kind", 4}})
@@ -138,9 +141,19 @@ void run(const std::filesystem::path& root, const std::filesystem::path& worker,
     scene.entity(obstacle_id)
         .set<LocalTranslation>({2, plane == NavigationPlane::Spatial3D ? 2. : 0., 0})
         .set<NavigationObstacle>({false, 1, 2});
-    if (character)
-        character_jumps(scene.snapshot(), root, EntityId::parse(actor_id));
-    else if (collision)
+    if (character) {
+        if (plane == NavigationPlane::PlanarXY) {
+            if (!bidirectional && landing_height == 0)
+                mixed_character_jump_recovery(scene.snapshot(), root, worker,
+                                              EntityId::parse(actor_id));
+            planar_character_jumps(scene.snapshot(), root, EntityId::parse(actor_id),
+                                   link.arc_height, false, landing_height);
+            if (bidirectional)
+                planar_character_jumps(scene.snapshot(), root, EntityId::parse(actor_id),
+                                       link.arc_height, true, landing_height);
+        } else
+            character_jumps(scene.snapshot(), root, EntityId::parse(actor_id));
+    } else if (collision)
         collision_movement(scene.snapshot(), root, EntityId::parse(actor_id), plane,
                            link.arc_height);
     else {
@@ -211,7 +224,10 @@ int main(int argc, char** argv) {
               "Need scratch root, matching navigation worker and optional profile");
         const std::string_view profile = argc == 4 ? argv[3] : "all";
         const bool collision = profile == "collision-straight" || profile == "collision-arc";
-        const bool character = profile == "character-jump";
+        const bool raised = profile == "planar-character-jump-raised";
+        const bool bidirectional = profile == "planar-character-jump-bidirectional" || raised;
+        const bool planar_character = profile == "planar-character-jump" || bidirectional;
+        const bool character = profile == "character-jump" || planar_character;
         check(profile == "all" || profile == "straight" || profile == "arc" || collision ||
                   character,
               "Unknown navigation pipeline profile");
@@ -220,7 +236,9 @@ int main(int argc, char** argv) {
         for (auto plane : {NavigationPlane::Spatial3D, NavigationPlane::PlanarXY})
             for (bool dynamic : {false, true})
                 for (bool arc : {false, true}) {
-                    if (character && (plane != NavigationPlane::Spatial3D || dynamic || !arc))
+                    if (character && (plane != (planar_character ? NavigationPlane::PlanarXY
+                                                                 : NavigationPlane::Spatial3D) ||
+                                      dynamic || !arc))
                         continue;
                     if (((profile == "straight" || profile == "collision-straight") && arc) ||
                         ((profile == "arc" || profile == "collision-arc") && !arc))
@@ -230,7 +248,7 @@ int main(int argc, char** argv) {
                                        (arc ? "-arc" : "-straight");
                     std::cout << "Navigation pipeline " << label << " begin" << std::endl;
                     run(root / label, std::filesystem::absolute(argv[2]), plane, dynamic, arc,
-                        collision, character);
+                        collision, character, bidirectional, raised ? 1. : 0.);
                     std::cout << "Navigation pipeline " << label << " PASS" << std::endl;
                 }
         std::filesystem::remove_all(root);

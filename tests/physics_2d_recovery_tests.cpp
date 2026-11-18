@@ -1,4 +1,5 @@
 #include "physics_2d.hpp"
+#include <algorithm>
 #include <cmath>
 #include <forge/runtime.hpp>
 #include <iostream>
@@ -603,6 +604,114 @@ void controller_one_step_recovery() {
     rejects([&] { original.physics->move_character_2d_once(ref, {800000, 800000}); });
     rejects([&] { original.physics->move_character_once(ref, {1, 0, 0}); });
 }
+void controller_jump_recovery_rejection() {
+    Fixture original;
+    PhysicsConfig settings;
+    original.physics->configure(settings);
+    auto source = original.source();
+    auto& components = source["entities"][0]["components"];
+    components.erase("forge.physics_body_2d");
+    components.erase("forge.box_collider_2d");
+    components["forge.character_controller_2d"] = {{"mode", 0}, {"gravity_factor", 1}};
+    components["forge.local_translation"] = {{"x", 0}, {"y", 0}, {"z", 7}};
+    components["forge.local_scale"] = {{"x", 1}, {"y", 1}, {"z", 1}};
+    source["entities"].push_back({{"id", EntityId::generate()},
+                                  {"name", "Jump support"},
+                                  {"spatial", {{"mode", "world"}}},
+                                  {"components",
+                                   {{"forge.local_translation", {{"x", 0}, {"y", -.5}, {"z", 0}}},
+                                    {"forge.local_scale", {{"x", 1}, {"y", 1}, {"z", 1}}},
+                                    {"forge.physics_body_2d", {{"motion", 0}}},
+                                    {"forge.box_collider_2d", {{"x", 8}, {"y", 1}}}}}});
+    original.load(source);
+    original.tick();
+    source = original.scene.snapshot();
+    original.physics->jump_character_2d_once(original.ref(), 2, 4);
+    const auto queued = original.physics->checkpoint();
+    original.physics->synchronize(0);
+    const auto armed = original.physics->checkpoint();
+    require(queued.at("version").get<unsigned>() == 14 && armed.at("version").get<unsigned>() == 14,
+            "XY jump did not select its queued/armed recovery profile");
+    for (const auto& image : {queued, armed}) {
+        Fixture copy;
+        copy.actor = original.actor;
+        copy.physics->configure(settings);
+        copy.scene.restore_snapshot(source);
+        copy.physics->restore(image);
+        copy.tick();
+        require(copy.physics->character_2d(copy.ref()).jump_accepted,
+                "Recovered XY takeoff lost actual native acceptance");
+    }
+    for (unsigned bad = 0; bad < 15; ++bad) {
+        auto invalid = armed;
+        auto& mapping = invalid["planar"]["metadata"]["mapping"];
+        auto mover = std::find_if(mapping.begin(), mapping.end(),
+                                  [](const auto& row) { return row.contains("mover"); });
+        require(mover != mapping.end(), "Armed jump has no native mover");
+        auto& intent = (*mover)["mover"];
+        switch (bad) {
+        case 0:
+            invalid["version"] = 13;
+            break;
+        case 1:
+            invalid["version"] = 12;
+            break;
+        case 2:
+            intent.erase("jump_speed");
+            break;
+        case 3:
+            intent["jump_speed"] = 0;
+            break;
+        case 4:
+            intent["jump_speed"] = -1;
+            break;
+        case 5:
+            intent["jump_speed"] = "4";
+            break;
+        case 6:
+            intent["jump_speed"] = 1000001;
+            break;
+        case 7:
+            intent.erase("movement_once");
+            break;
+        case 8:
+            intent["movement_once"] = false;
+            break;
+        case 9:
+            intent["jump_accepted"] = false;
+            break;
+        case 10:
+            intent["jump_accepted"] = "true";
+            break;
+        case 11:
+            invalid = queued;
+            invalid["character_commands"][0]["velocity"][1] = 1;
+            break;
+        case 12:
+            invalid = queued;
+            invalid["character_commands"][0]["planar"] = false;
+            break;
+        case 13:
+            invalid = queued;
+            invalid["character_commands"][0]["speed"] = 0;
+            break;
+        case 14:
+            intent.erase("jump_speed");
+            intent.erase("movement_once");
+            break;
+        }
+        reseal(invalid);
+        Fixture candidate;
+        candidate.actor = original.actor;
+        candidate.physics->configure(settings);
+        candidate.scene.restore_snapshot(source);
+        const auto before = candidate.scene.snapshot();
+        rejects([&] { candidate.physics->restore(invalid); });
+        require(candidate.scene.snapshot() == before &&
+                    !candidate.physics->status().at("native_2d_realized").get<bool>(),
+                "Malformed XY jump recovery published a native/source candidate");
+    }
+}
 } // namespace
 int main() {
     try {
@@ -614,6 +723,7 @@ int main() {
         parent_frame_recovery();
         controller_queue_recovery();
         controller_one_step_recovery();
+        controller_jump_recovery_rejection();
         std::cout << "2D character FIFO/version10/fresh-recovery/rejection PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

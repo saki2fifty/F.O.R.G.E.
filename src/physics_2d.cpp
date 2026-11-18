@@ -816,6 +816,8 @@ struct Native2D::Impl {
         std::uint64_t epoch = 0;
         Double2 mover_intent{}, mover_velocity{};
         bool mover_movement_once = false;
+        float mover_jump_speed = 0;
+        bool mover_jump_accepted = false;
         std::optional<MoverSupport2D> mover_support;
         bool mover_support_valid = false;
         bool mover_placement_blocked = false;
@@ -1240,9 +1242,33 @@ struct Native2D::Impl {
             return {};
         return MoverMotion2D{{dx, next[1] - feet[1]}, {dx, 0}, ordinary.iterations};
     }
-    Double2 mover_step_velocity(const Body& body, float dt) const {
+    static void validate_jump_profile(const MoverProfile2D& profile, Double2 gravity) {
+        if (profile.minimum_floor_y < 0 || profile.gravity_factor <= 0 || gravity[0] != 0 ||
+            gravity[1] >= 0)
+            throw std::runtime_error(
+                "Automatic XY jump requires Grounded mechanics and downward automatic gravity");
+    }
+    Double2 mover_step_velocity(const Body& body, float dt, std::size_t& work,
+                                bool* jump_accepted = nullptr) const {
         auto velocity = body.mover_intent;
-        const auto factor = body.admitted.config.mover_profile->gravity_factor;
+        const auto& profile = *body.admitted.config.mover_profile;
+        const auto factor = profile.gravity_factor;
+        if (jump_accepted)
+            *jump_accepted = false;
+        if (body.mover_jump_speed > 0) {
+            const auto gravity = b2World_GetGravity(world);
+            validate_jump_profile(profile, {gravity.x, gravity.y});
+            const auto point = b2Body_GetPosition(body.id);
+            const Body* supporting = nullptr;
+            const auto support =
+                support_mover(body, {point.x, point.y}, body.mover_intent, work, &supporting);
+            if (support && support->walkable && supporting &&
+                supporting->admitted.config.body.motion == 0) {
+                velocity[1] = body.mover_jump_speed;
+                if (jump_accepted)
+                    *jump_accepted = true;
+            }
+        }
         if (factor != 0) {
             const auto gravity = b2World_GetGravity(world);
             if (gravity.x != 0)
@@ -1261,7 +1287,7 @@ struct Native2D::Impl {
             const auto position = b2Body_GetPosition(body.id);
             const auto feet = carry_mover(body, {position.x, position.y}, work);
             body.carry_start.reset();
-            body.mover_intent = mover_step_velocity(body, dt);
+            body.mover_intent = mover_step_velocity(body, dt, work);
             auto request = mover_request(body, feet);
             request.displacement = {body.mover_intent[0] * dt, body.mover_intent[1] * dt};
             const auto& profile = *body.admitted.config.mover_profile;
@@ -2335,6 +2361,11 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
                 {"position", {body.last_start->position.x, body.last_start->position.y}},
                 {"rotation", {body.last_start->rotation.c, body.last_start->rotation.s}}};
         if (body.admitted.config.mover_profile) {
+            if (body.mover_jump_speed > 0) {
+                const auto gravity = b2World_GetGravity(self.world);
+                Impl::validate_jump_profile(*body.admitted.config.mover_profile,
+                                            {gravity.x, gravity.y});
+            }
             mapping.back()["mover"] = {{"intent", body.mover_intent},
                                        {"velocity", body.mover_velocity},
                                        {"placement_blocked", body.mover_placement_blocked},
@@ -2342,6 +2373,10 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
                                        {"shape_change_blocked", body.mover_shape_blocked}};
             if (body.mover_movement_once)
                 mapping.back()["mover"]["movement_once"] = true;
+            if (body.mover_jump_speed > 0)
+                mapping.back()["mover"]["jump_speed"] = body.mover_jump_speed;
+            if (body.mover_jump_accepted)
+                mapping.back()["mover"]["jump_accepted"] = true;
         }
     }
     if (joints.size() != self.joints.size())
@@ -2381,7 +2416,8 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
     return image;
 }
 void Native2D::restore(const Json& metadata, const std::string& bytes, const Desired2D& desired,
-                       std::uint64_t tick, const DesiredJoints2D& joints, bool allow_one_step) {
+                       std::uint64_t tick, const DesiredJoints2D& joints, bool allow_one_step,
+                       bool allow_jump) {
     auto& self = *impl_;
     self.check();
     if (realized() || !self.bodies.empty() || !self.joints.empty())
@@ -2426,6 +2462,23 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
             throw std::runtime_error("2D recovery configuration/target/binding mismatch");
         if (body.config.mover_profile) {
             const auto& mover = entry.at("mover");
+            const bool has_jump = mover.contains("jump_speed") || mover.contains("jump_accepted");
+            if (has_jump && !allow_jump)
+                throw std::runtime_error("Invalid XY automatic jump recovery profile");
+            if (mover.contains("jump_speed"))
+                Impl::validate_jump_profile(
+                    *body.config.mover_profile,
+                    {float(self.config.gravity[0]), float(self.config.gravity[1])});
+            if (mover.contains("jump_speed") &&
+                (!mover.at("jump_speed").is_number() ||
+                 !std::isfinite(mover.at("jump_speed").get<float>()) ||
+                 mover.at("jump_speed").get<float>() <= 0 ||
+                 mover.at("jump_speed").get<float>() > 1000000 ||
+                 !mover.value("movement_once", false)))
+                throw std::runtime_error("Invalid XY pending jump recovery");
+            if (mover.contains("jump_accepted") &&
+                (!mover.at("jump_accepted").is_boolean() || !mover.at("jump_accepted").get<bool>()))
+                throw std::runtime_error("Invalid XY takeoff recovery receipt");
             if (mover.contains("movement_once") &&
                 (!allow_one_step || !mover.at("movement_once").is_boolean() ||
                  !mover.at("movement_once").get<bool>()))
@@ -2510,6 +2563,8 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
         }
         if (body.config.mover_profile) {
             record.mover_movement_once = entry->at("mover").value("movement_once", false);
+            record.mover_jump_speed = entry->at("mover").value("jump_speed", 0.f);
+            record.mover_jump_accepted = entry->at("mover").value("jump_accepted", false);
             record.mover_crouched = crouched;
             record.mover_shape_blocked = entry->at("mover").at("shape_change_blocked").get<bool>();
             record.mover_intent = entry->at("mover").at("intent").get<Double2>();
@@ -2764,6 +2819,8 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                 Double2 mover_intent{}, mover_velocity{};
                 float angular = 0;
                 bool preserve = false, awake = true, crouched = false, movement_once = false;
+                float jump_speed = 0;
+                bool jump_accepted = false;
                 auto pose = commanded.contains(id) ? initial.at(id).pose : value.pose;
                 if (old != self.bodies.end()) {
                     preserve =
@@ -2777,6 +2834,8 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                         mover_intent = old->second.mover_intent;
                         mover_velocity = old->second.mover_velocity;
                         movement_once = old->second.mover_movement_once;
+                        jump_speed = old->second.mover_jump_speed;
+                        jump_accepted = old->second.mover_jump_accepted;
                         linear = b2Body_GetLinearVelocity(old->second.id);
                         angular = b2Body_GetAngularVelocity(old->second.id);
                         awake = b2Body_IsAwake(old->second.id);
@@ -2794,6 +2853,8 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                     body.mover_intent = mover_intent;
                     body.mover_velocity = mover_velocity;
                     body.mover_movement_once = movement_once;
+                    body.mover_jump_speed = jump_speed;
+                    body.mover_jump_accepted = jump_accepted;
                     b2Body_SetLinearVelocity(body.id, linear);
                     b2Body_SetAngularVelocity(body.id, angular);
                     if (!awake && value.config.body.allow_sleeping)
@@ -3195,13 +3256,20 @@ MoverMotion2D Native2D::mover_motion(const PhysicsSweep2D& request, PhysicsQuery
     std::size_t work = 0;
     return impl_->motion_mover(request, filter, work, query_category, minimum_floor_y);
 }
-void Native2D::move_mover(std::uint64_t entity, EntityRef ref, Double2 velocity, bool once) {
+void Native2D::move_mover(std::uint64_t entity, EntityRef ref, Double2 velocity, bool once,
+                          float jump_speed) {
     auto& self = *impl_;
     self.check();
     if (!std::isfinite(velocity[0]) || !std::isfinite(velocity[1]) ||
         std::hypot(velocity[0], velocity[1]) > 1000000)
         throw std::runtime_error("2D controller velocity must be finite and at most1000000m/s");
+    if (!std::isfinite(jump_speed) || jump_speed < 0 || jump_speed > 1000000 ||
+        (jump_speed > 0 && !once))
+        throw std::runtime_error("Invalid one-step XY jump speed");
     auto& body = self.mover(entity, ref);
+    if (jump_speed > 0)
+        velocity[1] = body.mover_intent[1]; // A refused takeoff cannot erase native falling.
+    body.mover_jump_speed = jump_speed;
     body.mover_intent = velocity;
     body.mover_movement_once = once;
     body.mover_support_valid = false;
@@ -3214,8 +3282,15 @@ void Native2D::cancel_mover_once(std::uint64_t entity, EntityRef ref) {
                                     ? body.mover_velocity[1]
                                     : 0};
         body.mover_movement_once = false;
+        body.mover_jump_speed = 0;
         body.mover_support_valid = false;
     }
+}
+bool Native2D::has_jump_motion() const {
+    impl_->check();
+    return std::ranges::any_of(impl_->bodies, [](const auto& item) {
+        return item.second.mover_jump_speed > 0 || item.second.mover_jump_accepted;
+    });
 }
 bool Native2D::has_one_step_motion() const {
     impl_->check();
@@ -3297,6 +3372,8 @@ bool Native2D::place_mover(std::uint64_t entity, EntityRef ref, Double2 feet, bo
     if (clear_velocity) {
         body.mover_intent = body.mover_velocity = {};
         body.mover_movement_once = false;
+        body.mover_jump_speed = 0;
+        body.mover_jump_accepted = false;
     }
     return true;
 }
@@ -3321,7 +3398,8 @@ std::optional<MoverState2D> Native2D::mover_state(std::uint64_t entity, EntityRe
                         support,
                         body.mover_placement_blocked,
                         body.mover_crouched,
-                        body.mover_shape_blocked};
+                        body.mover_shape_blocked,
+                        body.mover_jump_accepted};
 }
 bool Native2D::current(std::uint64_t entity, EntityRef ref, std::uint64_t epoch) const {
     impl_->check();
@@ -3354,12 +3432,13 @@ void Native2D::validate_step(float dt) const {
         throw std::runtime_error("Adopt the completed 2D fixed step before starting another");
     if (!std::isfinite(dt) || dt < 0)
         throw std::runtime_error("2D step admission requires finite nonnegative dt");
+    std::size_t work = 0;
     if (dt > 0)
         for (auto id : impl_->mover_order) {
             const auto& body = impl_->bodies.at(id);
             const auto point = b2Body_GetPosition(body.id);
             auto request = Impl::mover_request(body, {point.x, point.y});
-            const auto velocity = impl_->mover_step_velocity(body, dt);
+            const auto velocity = impl_->mover_step_velocity(body, dt, work);
             request.displacement = {velocity[0] * dt, velocity[1] * dt};
             validate_sweep_2d(request);
             if (std::hypot(request.displacement[0], request.displacement[1]) > 1000)
@@ -3435,6 +3514,18 @@ void Native2D::step(float dt, std::uint64_t tick) {
     try {
         self.capture_response_contacts();
         self.refresh_mover_supports(mover_work, true);
+        // Consume takeoff before rigid motion, against the same static geometry
+        // used by preflight. Gravity integration remains in the ordinary mover.
+        for (const auto id : self.mover_order) {
+            auto& body = self.bodies.at(id);
+            body.mover_jump_accepted = false;
+            if (body.mover_jump_speed > 0) {
+                self.mover_step_velocity(body, dt, mover_work, &body.mover_jump_accepted);
+                if (body.mover_jump_accepted)
+                    body.mover_intent[1] = body.mover_jump_speed;
+                body.mover_jump_speed = 0;
+            }
+        }
     } catch (...) {
         self.fault = true;
         throw;

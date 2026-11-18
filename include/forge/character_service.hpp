@@ -19,7 +19,7 @@ struct CharacterState2D {
     std::uint64_t epoch = 0, supporting_epoch = 0;
     CharacterGround ground = CharacterGround::InAir;
     bool placement_blocked = false;
-    bool crouched = false, shape_change_blocked = false;
+    bool crouched = false, shape_change_blocked = false, jump_accepted = false;
 };
 class CharacterService {
   public:

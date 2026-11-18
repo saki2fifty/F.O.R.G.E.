@@ -833,11 +833,11 @@ struct PhysicsRuntime::Impl {
         for (const auto& command : character_commands) {
             const auto id = context.resolve(command.ref).entity;
             if (command.planar) {
-                if (command.kind == 0 || command.kind == 4) {
+                if (command.kind == 0 || command.kind == 4 || command.kind == 5) {
                     if (command.kind == 0 || !manual_motion.contains(id))
-                        native_2d->move_mover(id, command.ref,
-                                              {command.velocity[0], command.velocity[1]},
-                                              command.kind == 4);
+                        native_2d->move_mover(
+                            id, command.ref, {command.velocity[0], command.velocity[1]},
+                            command.kind != 0, command.kind == 5 ? command.speed : 0);
                 } else if (command.kind == 2)
                     native_2d->crouch_mover(id, command.ref, command.flag, placement_work);
                 else if (command.kind == 3) {
@@ -909,9 +909,18 @@ struct PhysicsRuntime::Impl {
             const auto entity = context.world().entity(found.entity);
             if (!entity.has<CharacterController2D>() ||
                 !entity.get<CharacterController2D>().enabled ||
-                (command.kind != 0 && command.kind != 2 && command.kind != 3 && command.kind != 4))
+                (command.kind != 0 && command.kind != 2 && command.kind != 3 && command.kind != 4 &&
+                 command.kind != 5))
                 throw std::runtime_error(
                     "Missing/disabled2D character command target or unsupported request");
+            if (command.kind == 5) {
+                const auto controller = entity.get<CharacterController2D>();
+                detail::validate_reflected_value(entity, controller);
+                if (controller.mode != 0 || controller.gravity_factor <= 0 ||
+                    config.gravity[0] != 0 || config.gravity[1] >= 0)
+                    throw std::runtime_error("Automatic XY jump requires Grounded mechanics and "
+                                             "downward automatic gravity");
+            }
             // Every target/domain is revalidated together before native writes.
             // XY intent needs no scan of previous requests to check an up axis.
             character_commands.push_back(std::move(command));
@@ -2857,6 +2866,7 @@ std::optional<CharacterState2D> PhysicsRuntime::find_character_2d(EntityRef ref)
     result.placement_blocked = value->placement_blocked;
     result.crouched = value->crouched;
     result.shape_change_blocked = value->shape_change_blocked;
+    result.jump_accepted = value->jump_accepted;
     if (value->support) {
         result.supporting_entity = value->support->entity;
         result.supporting_epoch = value->support->epoch;
@@ -2873,6 +2883,18 @@ void PhysicsRuntime::move_character_2d(EntityRef ref, Double2 velocity) {
 }
 void PhysicsRuntime::move_character_2d_once(EntityRef ref, Double2 velocity) {
     impl_->queue_character_movement_2d(ref, velocity, true);
+}
+void PhysicsRuntime::jump_character_2d_once(EntityRef ref, double horizontal, float speed) {
+    if (!std::isfinite(horizontal) || std::abs(horizontal) > 1000000 || !std::isfinite(speed) ||
+        speed <= 0 || speed > 1000000)
+        throw std::runtime_error("Invalid automatic XY jump request");
+    Impl::CharacterCommand command;
+    command.ref = ref;
+    command.planar = true;
+    command.kind = 5;
+    command.velocity = {horizontal, 0, 0};
+    command.speed = speed;
+    impl_->queue_character(std::move(command));
 }
 void PhysicsRuntime::place_character_2d(EntityRef ref, Double2 feet, bool clear) {
     valid_position_2d(feet);
@@ -2910,6 +2932,7 @@ Json PhysicsRuntime::character_debug(EntityRef ref) const {
                   {"ground_velocity", value.ground_velocity},
                   {"epoch", value.epoch},
                   {"supporting_epoch", value.supporting_epoch},
+                  {"jump_accepted", value.jump_accepted},
                   {"crouched", value.crouched},
                   {"placement_blocked", value.placement_blocked},
                   {"stance_blocked", value.shape_change_blocked},
@@ -3088,6 +3111,10 @@ Json PhysicsRuntime::checkpoint() const {
     if (std::ranges::any_of(s.characters, [](const auto& c) { return c.second.jump_once; }) ||
         std::ranges::any_of(s.character_commands, [](const auto& c) { return c.kind == 5; }))
         out["version"] = 13;
+    if ((s.native_2d && s.native_2d->has_jump_motion()) ||
+        std::ranges::any_of(s.character_commands,
+                            [](const auto& c) { return c.planar && c.kind == 5; }))
+        out["version"] = 14;
     out["commands"] = Json::array();
     for (const auto& c : s.commands)
         out["commands"].push_back({{"entity", c.ref},
@@ -3117,7 +3144,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     if (!checked.at("version").is_number_integer())
         throw std::runtime_error("Invalid physics checkpoint version");
     const auto version = checked.at("version").get<std::uint64_t>();
-    if (digest(checked.dump()) != checksum || version < 10 || version > 13 ||
+    if (digest(checked.dump()) != checksum || version < 10 || version > 14 ||
         checked.at("build") != build_id || checked.at("source") != source_commit ||
         checked.at("runtime") != FORGE_NATIVE_SDK_FINGERPRINT ||
         checked.at("jolt") != "e77f175595e64cb44218cc9d9d56fc365ad0e36a-double-sse2-rtti" ||
@@ -3219,8 +3246,10 @@ void PhysicsRuntime::restore(const Json& payload) {
         throw std::runtime_error("Combined physics recovery solver byte limit exceeded");
     auto native_2d = std::make_unique<physics_detail::Native2D>(s.config);
     native_2d->restore(planar.at("metadata"), unhex(planar_hex), desired_2d,
-                       checked.at("tick").get<std::uint64_t>(), desired_joints_2d, version >= 12);
+                       checked.at("tick").get<std::uint64_t>(), desired_joints_2d, version >= 12,
+                       version >= 14);
     bool planar_one_step_profile = native_2d->has_one_step_motion();
+    bool planar_jump_profile = native_2d->has_jump_motion();
     std::vector<Impl::CharacterCommand> character_commands;
     const auto& pending_characters = checked.at("character_commands");
     if (!pending_characters.is_array() || pending_characters.size() > 4096)
@@ -3243,9 +3272,12 @@ void PhysicsRuntime::restore(const Json& payload) {
             planar_one_step_profile |= c.planar;
         }
         if (c.kind == 5) {
-            if (version < 13 || c.planar)
+            if (version < (c.planar ? 14u : 13u))
                 throw std::runtime_error("Invalid automatic character jump recovery command");
-            jump_once_profile = true;
+            if (c.planar)
+                planar_jump_profile = true;
+            else
+                jump_once_profile = true;
         }
         c.velocity = item.at("velocity").get<Double3>();
         c.speed = item.at("speed").get<float>();
@@ -3263,10 +3295,11 @@ void PhysicsRuntime::restore(const Json& payload) {
             throw std::runtime_error("Invalid automatic character jump recovery payload");
         const auto resolved = s.context.resolve(c.ref);
         if (resolved.state != WorldContext::ResolveState::Available ||
-            (c.planar ? !desired_2d.contains(resolved.entity) ||
-                            !desired_2d.at(resolved.entity).config.mover_profile ||
-                            (c.kind != 0 && c.kind != 2 && c.kind != 3 && c.kind != 4)
-                      : !desired_chars.contains(resolved.entity)) ||
+            (c.planar
+                 ? !desired_2d.contains(resolved.entity) ||
+                       !desired_2d.at(resolved.entity).config.mover_profile ||
+                       (c.kind != 0 && c.kind != 2 && c.kind != 3 && c.kind != 4 && c.kind != 5)
+                 : !desired_chars.contains(resolved.entity)) ||
             !std::isfinite(c.speed) || c.speed < 0 || c.speed > 1000000)
             throw std::runtime_error("Invalid character recovery command");
         for (auto v : c.velocity)
@@ -3276,6 +3309,12 @@ void PhysicsRuntime::restore(const Json& payload) {
             (c.velocity[2] != 0 || c.position.z != 0 || !equivalent(c.rotation, LocalRotation{}) ||
              std::hypot(c.velocity[0], c.velocity[1]) > 1000000))
             throw std::runtime_error("Invalid2D character recovery request");
+        if (c.planar && c.kind == 5) {
+            const auto& profile = *desired_2d.at(resolved.entity).config.mover_profile;
+            if (c.velocity[1] != 0 || profile.minimum_floor_y < 0 || profile.gravity_factor <= 0 ||
+                s.config.gravity[0] != 0 || s.config.gravity[1] >= 0)
+                throw std::runtime_error("Invalid XY automatic jump recovery command");
+        }
         if (c.planar && c.kind == 2 && (c.velocity != Double3{} || c.speed != 0 || p != Double3{}))
             throw std::runtime_error("Invalid2D stance recovery payload");
         if (c.planar && c.kind == 3)
@@ -3283,7 +3322,8 @@ void PhysicsRuntime::restore(const Json& payload) {
                                                       {c.position.x, c.position.y});
         character_commands.push_back(c);
     }
-    if (version != (jump_once_profile         ? 13u
+    if (version != (planar_jump_profile       ? 14u
+                    : jump_once_profile       ? 13u
                     : planar_one_step_profile ? 12u
                     : one_step_profile        ? 11u
                                               : 10u))

@@ -44,6 +44,23 @@ grounded_navs = {e['components']['forge.navigation_agent']['navmesh'] for e in g
 assert grounded_navs == {'ce272586-0b4f-40b0-a0be-749c62e7402a'}
 assert not any('forge.navigation_link' in e['components'] for e in grounded_scene['entities'])
 assert any('forge.physics_body_2d' in e['components'] for e in grounded_scene['entities'])
+planar_jump_path = 'Scenes/228-navigation-character-jumps-xy.scene.json'
+planar_jump_scene = json.loads((project_root / planar_jump_path).read_text())
+assert planar_jump_scene['asset_id'] == by_source[planar_jump_path]['id'] == 'd7ff31d2-18b6-4ee5-94be-c4fc725b828f'
+planar_jump_actors = [e for e in planar_jump_scene['entities'] if 'forge.navigation_agent' in e['components']]
+assert len(planar_jump_actors) == 2
+for actor in planar_jump_actors:
+    c = actor['components']
+    assert actor['spatial']['mode'] == 'world'
+    assert c['forge.navigation_agent']['movement'] == 3 and c['forge.navigation_agent']['speed'] == 6
+    assert c['forge.character_controller_2d']['mode'] == 0 and c['forge.character_controller_2d']['gravity_factor'] == 1
+    assert not {'forge.physics_body', 'forge.physics_body_2d'} & c.keys()
+assert {e['components']['forge.navigation_agent']['navmesh'] for e in planar_jump_actors} == {'dbea5c53-d0cd-49ce-a073-d58377516523'}
+planar_jump_links = [e['components']['forge.navigation_link'] for e in planar_jump_scene['entities']
+                    if 'forge.navigation_link' in e['components']]
+assert len(planar_jump_links) == 2
+assert all(link['plane'] == 1 and link['arc_height'] == 1 and link['bidirectional'] for link in planar_jump_links)
+assert sum('forge.physics_body_2d' in e['components'] for e in planar_jump_scene['entities']) == 5
 jump_path = 'Scenes/226-navigation-character-jumps.scene.json'
 jump_scene = json.loads((project_root / jump_path).read_text())
 assert jump_scene['asset_id'] == by_source[jump_path]['id'] == '155c0aba-3984-46eb-9625-1a353b9237a4'

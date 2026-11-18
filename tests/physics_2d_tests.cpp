@@ -624,6 +624,134 @@ void automatic_controller_gravity() {
                     after.ground == CharacterGround::OnGround,
                 "Automatic gravity lost static stair ascent or walkable slope support");
     }
+    Fixture takeoff;
+    auto takeoff_source = controller_source(takeoff, 1);
+    takeoff_source["entities"][1]["components"]["forge.local_translation"]["y"] = 0;
+    takeoff.load(takeoff_source);
+    takeoff.tick();
+    const auto takeoff_ref = takeoff.scene.reference(takeoff.actor);
+    takeoff.physics->jump_character_2d_once(takeoff_ref, 2, 4);
+    takeoff.physics->synchronize(0);
+    takeoff.physics->synchronize(0);
+    require(!takeoff.physics->character_2d(takeoff_ref).jump_accepted &&
+                takeoff.physics->checkpoint().at("version").get<std::uint64_t>() == 14,
+            "Zero-time XY jump fabricated acceptance or lost its recovery profile");
+    Fixture pending_jump;
+    pending_jump.scene.restore_snapshot(takeoff.scene.snapshot());
+    pending_jump.physics->restore(takeoff.physics->checkpoint());
+    auto resized = takeoff.entity().get<CharacterController2D>();
+    resized.height = .8f;
+    takeoff.entity().set<CharacterController2D>(resized);
+    takeoff.physics->synchronize(0);
+    takeoff.tick();
+    pending_jump.tick();
+    const auto flight = takeoff.physics->character_2d(takeoff_ref);
+    require(flight.jump_accepted && flight.ground == CharacterGround::InAir &&
+                std::abs(flight.velocity[1] - (4 - 9.81 * dt)) < 1e-6 &&
+                pending_jump.physics->character_2d(takeoff_ref).position == flight.position,
+            "Native XY takeoff/recreation or pending-jump recovery failed");
+    Fixture accepted_jump;
+    accepted_jump.scene.restore_snapshot(takeoff.scene.snapshot());
+    accepted_jump.physics->restore(takeoff.physics->checkpoint());
+    require(accepted_jump.physics->character_2d(takeoff_ref).jump_accepted,
+            "XY accepted takeoff receipt was lost during fresh native recovery");
+    takeoff.tick();
+    accepted_jump.tick();
+    auto airborne = takeoff.physics->character_2d(takeoff_ref);
+    require(!airborne.jump_accepted && airborne.position[0] == flight.position[0] &&
+                accepted_jump.physics->character_2d(takeoff_ref).position == airborne.position,
+            "XY jump repeated its receipt/steering or diverged after recovery");
+    takeoff.physics->jump_character_2d_once(takeoff_ref, 0, 8);
+    takeoff.tick();
+    const auto refused_air = takeoff.physics->character_2d(takeoff_ref);
+    require(!refused_air.jump_accepted &&
+                std::abs(refused_air.velocity[1] - airborne.velocity[1] + 9.81 * dt) < 1e-6,
+            "Refused airborne XY jump reset native vertical momentum");
+    takeoff.tick(120);
+    require(takeoff.physics->character_2d(takeoff_ref).ground == CharacterGround::OnGround,
+            "Native accepted XY jump failed to land");
+    for (bool armed : {false, true})
+        for (bool manual_first : {false, true}) {
+            Fixture priority;
+            auto input = controller_source(priority, 1);
+            input["entities"][1]["components"]["forge.local_translation"]["y"] = 0;
+            priority.load(input);
+            priority.tick();
+            const auto reference = priority.scene.reference(priority.actor);
+            const auto before = priority.physics->character_2d(reference);
+            if (armed) {
+                priority.physics->jump_character_2d_once(reference, 2, 4);
+                priority.physics->synchronize(0);
+            }
+            if (manual_first)
+                priority.physics->move_character_2d(reference, {1, 0});
+            priority.physics->jump_character_2d_once(reference, 2, 4);
+            if (!manual_first)
+                priority.physics->move_character_2d(reference, {1, 0});
+            priority.tick();
+            const auto actual = priority.physics->character_2d(reference);
+            require(!actual.jump_accepted && actual.ground == CharacterGround::OnGround &&
+                        std::abs(actual.position[0] - before.position[0] - dt) < 1e-6,
+                    "Manual movement lost priority over a queued/armed XY automatic jump");
+        }
+    Fixture platform_jump;
+    auto platform_source = controller_source(platform_jump, 1);
+    platform_source["entities"][0]["components"]["forge.physics_body_2d"]["motion"] = 1;
+    platform_source["entities"][1]["components"]["forge.local_translation"]["y"] = 0;
+    platform_jump.load(platform_source);
+    platform_jump.tick();
+    const auto platform_ref = platform_jump.scene.reference(platform_jump.actor);
+    platform_jump.physics->jump_character_2d_once(platform_ref, 0, 4);
+    platform_jump.tick();
+    require(!platform_jump.physics->character_2d(platform_ref).jump_accepted,
+            "Automatic XY jump accepted unsupported Kinematic takeoff policy");
+    Fixture mixed_jump;
+    auto mixed_source = controller_source(mixed_jump, 1);
+    mixed_source["entities"][1]["components"]["forge.local_translation"]["y"] = 0;
+    auto spatial_actor = row(EntityId::generate().str(), "Spatial automatic jumper", 10, 0, 0);
+    auto spatial_floor = row(EntityId::generate().str(), "Spatial jump floor", 10, -.5, 0);
+    for (auto* entity : {&spatial_actor, &spatial_floor}) {
+        auto& parts = (*entity)["components"];
+        parts.erase("forge.physics_body_2d");
+        parts.erase("forge.box_collider_2d");
+        parts["forge.local_translation"]["z"] = 0;
+        parts["forge.local_scale"] = {{"x", 1}, {"y", 1}, {"z", 1}};
+    }
+    spatial_floor["components"]["forge.box_collider"] = {{"x", 4}, {"y", 1}, {"z", 4}};
+    mixed_source["entities"].push_back(spatial_actor);
+    mixed_source["entities"].push_back(spatial_floor);
+    mixed_jump.load(mixed_source);
+    mixed_jump.scene.entity(spatial_actor.at("id").get<std::string>()).set<CharacterController>({});
+    mixed_jump.scene.entity(spatial_floor.at("id").get<std::string>()).set<PhysicsBody>({});
+    mixed_jump.tick(10);
+    const auto planar_ref = mixed_jump.scene.reference(mixed_jump.actor);
+    const auto spatial_ref = mixed_jump.scene.reference(spatial_actor.at("id").get<std::string>());
+    mixed_jump.physics->jump_character_2d_once(planar_ref, 1, 4);
+    mixed_jump.physics->jump_character_once(spatial_ref, {1, 0, 0}, 4);
+    mixed_jump.physics->synchronize(0);
+    const auto mixed_saved = mixed_jump.physics->checkpoint();
+    require(mixed_saved.at("version").get<std::uint64_t>() == 14,
+            "Mixed automatic jump recovery lost its XY extension");
+    Fixture mixed_restored;
+    mixed_restored.scene.restore_snapshot(mixed_jump.scene.snapshot());
+    mixed_restored.physics->restore(mixed_saved);
+    for (unsigned i = 0; i < 5; ++i) {
+        mixed_jump.tick();
+        mixed_restored.tick();
+        const auto a2 = mixed_jump.physics->character_2d(planar_ref);
+        const auto b2 = mixed_restored.physics->character_2d(planar_ref);
+        const auto a3 = mixed_jump.physics->character(spatial_ref);
+        const auto b3 = mixed_restored.physics->character(spatial_ref);
+        require(a2.position == b2.position &&
+                    std::hypot(a3.position.x - b3.position.x, a3.position.y - b3.position.y,
+                               a3.position.z - b3.position.z) < 1e-6,
+                "Mixed3D/XY automatic jump recovery diverged from native motion");
+        if (i == 0)
+            require(
+                a2.jump_accepted && a3.jump_accepted &&
+                    mixed_jump.physics->character_debug(planar_ref).at("jump_accepted").get<bool>(),
+                "Mixed native takeoff or copied XY debug receipt was lost");
+    }
     Fixture legacy;
     legacy.load(controller_source(legacy, 0));
     legacy.tick(30);

@@ -423,8 +423,8 @@ requested XY velocity is zero; the actual corrected position remains observable.
 Movement3 selects a World-bound Grounded CharacterController2D with positive
 native automatic gravity and downward vertical XY Project gravity. The shared
 reflected controller validator runs before layer shifts, radius or slope queries.
-It uses a PlanarXY route without explicit links and static walkable physical
-support. Navigation preserves actual Y momentum while requesting horizontal
+It uses a PlanarXY route with static walkable physical support and optional
+positive-lift links as specified by ADR055. Navigation preserves actual Y momentum while requesting horizontal
 one-step steering; Native2D alone integrates gravity and clips movement. Optional
 physics-owned availability handles the first realization without inventing a pose
 or changing the required getter's unavailable error.
@@ -516,6 +516,25 @@ requires matching restored native physics. Older profiles remain unchanged.
 SDK Play uses authored restart. Gallery226 exercises physical blockage, a raised
 landing and source-hidden relocated export through the same owners.
 
+[ADR055](decisions/055-planar-character-jump-links.md) extends this same flight
+branch to movement3 and PlanarXY. A temporary copied observation adapts native2D
+support, pose, velocity and actual takeoff receipt to the shared admission and
+landing math. Horizontal distance is absolute X; visual Z remains independent.
+`jump_character_2d_once` uses the existing FIFO kind5 with its planar tag. Native2D
+consumes the pending impulse only on actual static walkable support, before its
+rigid-body step, and retains ordinary vertical momentum on refusal. The regular
+native mover then integrates gravity and collision. Manual full-XY movement wins
+in either pending order, including after zero-time arming or capsule recreation.
+
+Physics recovery14 identifies queued/armed XY takeoff or a native receipt;
+navigation recovery11 identifies an active XY physical jump. Mixed worlds retain
+their physical3D jump intent under the same profile. Empty, malformed or downgraded
+extensions reject without publishing a candidate; physics remains the pose owner.
+Gallery228 supplies editable two-way positive-lift links, raised static landings,
+actual wall blockage, source-hidden relocated export and installed-only C++ SDK
+Play with authored restart. This remains bounded explicit-link traversal, not a
+general platformer reachability graph or moving-platform planner.
+
 ## Runtime ownership
 
 `forge.navigation` uses EngineModule lifecycle. Authoring/validation compositions receive schemas; runtime compositions provide a world-scoped Navigation service. No ImGui, renderer or audio device is required. Primitive-only compositions remain usable without a Resources provider. External Mesh geometry lazily requests builtin CPU Resources after bootstrap and holds world-scoped subscriptions; it never creates a competing runtime mesh pool. A selected Mesh load holds the agent Pending (no sample/tick0); missing providers or failed/stale selection prevents movement. Retaining last-good bytes does not authorize following a NavMesh built against a different selected revision. Provider shutdown revokes CPU leases. Synchronization reads retained data/revisions, without re-decoding cooked Mesh files on each tick. Owner-thread queries return owned FORGE waypoint arrays with explicit success, missing/stale, outside, no-path, partial, invalid, unavailable and limit statuses. Partial paths are diagnosed and not followed. Query scratch is private to the runtime world; immutable meshes are shared within its cache.
@@ -555,7 +574,7 @@ No callback-table field or independent authoring path is added. `FORGE_SDK_NAVIG
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, cost editing, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving supports upright 3D ground routes and bounded positive-lift jumps between static supports, or Floating XY routes without explicit links. Grounded XY movement supports continuous static physical ground with native automatic gravity. General XY platformer jump/drop planning remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, cost editing, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving supports upright 3D ground routes and bounded positive-lift jumps between static supports, or Floating XY routes without explicit links. Grounded XY movement supports continuous static physical ground and explicit positive-lift jumps between static supports with native automatic gravity. General XY platformer jump/drop planning remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 

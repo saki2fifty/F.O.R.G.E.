@@ -637,15 +637,19 @@ matching SDK. Existing authored NavigationAgent layout and no-link NavMesh forma
 
 ### Physical character navigation
 
-NavigationAgent `movement` selects Navigation0, CharacterController1 or
-CharacterController2D2 through ordinary typed values and reflected authoring.
+NavigationAgent `movement` selects Navigation0, CharacterController1,
+CharacterController2D2 or GroundedCharacterController2D3 through ordinary typed values and reflected authoring.
 Absent/zero retains direct navigation. Movement1 requires an existing enabled
 upright world-Y 3D CharacterController with World spatial binding and physical
 floor colliders. Movement2 requires a World-bound Floating CharacterController2D
 and XY NavMesh without links. Read actual adopted pose/velocity through the same
 copied agent API; navigation never writes a character's flight or collision pose.
+Movement3 requires an upright World-bound Grounded CharacterController2D with
+positive automatic gravity, downward vertical Project gravity and static physical
+ground. It supports explicit positive-lift XY links between static supports.
 
-Movement1 also supports positive-lift 3D links between static supports. Author
+Movement1 supports positive-lift 3D links and movement3 supports positive-lift XY
+links between static supports. Author
 NavigationLink endpoints/arc_height, build its NavMesh and give the Agent enough
 speed for the span. Downward vertical gravity, positive controller gravity factor,
 walkable static takeoff/landing and bounded step resolution are required. Native
@@ -661,7 +665,8 @@ SDK callback. Manual character movement/jump/placement wins in the same pending
 physics boundary; disable navigation before project C++ takes over motion.
 Private exact-runtime recovery is separate from SDK Play's authored restart.
 See [character ownership](decisions/052-navigation-characters.md) and
-[physical jump links](decisions/053-navigation-character-jumps.md).
+[physical jump links](decisions/053-navigation-character-jumps.md) and
+[XY jump links](decisions/055-planar-character-jump-links.md).
 
 ### XY navigation assets
 

@@ -1,5 +1,25 @@
 # Feature Gallery
 
+## Physical XY character jumps
+
+Open `Scenes/228-navigation-character-jumps-xy.scene.json` and press Play. The
+lower cyan character crosses a four-metre gap and lands one metre higher. The
+upper orange character hits a red physical wall and falls. Both use Grounded
+Character Controller 2D, Automatic gravity `1`, Movement
+GroundedCharacterController2D and Speed `6`.
+
+Inspect the two editable Navigation Region 2D islands and the lower/upper
+Navigation Links. Their positive Arc height describes lift; native physics owns
+actual takeoff, collision, gravity and descending landing. Static physical floors
+supply support. Zero-height links, automatic drop planning and moving-platform
+routing are unavailable. Speed `0` stops steering while gravity continues; Pause
+freezes simulation.
+
+Stop, disable the red wall's **Physics Body 2D → Enabled**, and Play again to let
+both characters cross. Save the Scene and choose it as startup before exporting.
+Its Camera and ready NavMesh require no project C++ module. See
+[XY character jumps](../../../manual/editor/navigation.md#jump-between-static-xy-platforms).
+
 ## Grounded XY navigation characters
 
 Open `Scenes/227-navigation-grounded-xy.scene.json` and press Play. Cyan walks along

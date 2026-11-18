@@ -96,7 +96,7 @@ struct MoverState2D {
     std::uint64_t epoch = 0;
     std::optional<MoverSupport2D> support;
     bool placement_blocked = false;
-    bool crouched = false, shape_change_blocked = false;
+    bool crouched = false, shape_change_blocked = false, jump_accepted = false;
 };
 // Reads the existing effective graph and schema. No native creation or ECS writes.
 class Native2D;
@@ -153,9 +153,11 @@ class Native2D {
                                float minimum_floor_y = -1) const;
     // Private fixed-boundary controller operations. Outer CharacterService owns
     // command admission/FIFO; body APIs cannot control this representation.
-    void move_mover(std::uint64_t, EntityRef, Double2 velocity, bool once = false);
+    void move_mover(std::uint64_t, EntityRef, Double2 velocity, bool once = false,
+                    float jump_speed = 0);
     void cancel_mover_once(std::uint64_t, EntityRef);
     bool has_one_step_motion() const;
+    bool has_jump_motion() const;
     bool crouch_mover(std::uint64_t, EntityRef, bool crouched, std::size_t& query_work);
     bool place_mover(std::uint64_t, EntityRef, Double2 feet, bool clear_velocity,
                      std::size_t& query_work);
@@ -180,7 +182,8 @@ class Native2D {
                              const DesiredJoints2D& joints = {}) const;
     bool checkpoint_ready() const;
     void restore(const Json&, const std::string&, const Desired2D&, std::uint64_t tick,
-                 const DesiredJoints2D& joints = {}, bool allow_one_step = false);
+                 const DesiredJoints2D& joints = {}, bool allow_one_step = false,
+                 bool allow_jump = false);
 
   private:
     struct Impl;

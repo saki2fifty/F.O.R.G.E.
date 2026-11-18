@@ -31,6 +31,7 @@ focused_targets = {
     '--component-animation-only': 'component_animation_gameplay',
     '--motion-only': 'gamepad_motion_gameplay',
     '--navigation-grounded-only': 'grounded_navigation_gameplay',
+    '--navigation-planar-jump-only': 'planar_jump_navigation_gameplay',
     '--navigation-only': 'planar_navigation_gameplay', '--time-only': 'time_scale_gameplay',
     '--gamepads-only': 'multiple_gamepads_gameplay', '--feedback-only': 'gamepad_feedback_gameplay', '--input-only': 'gameplay',
     '--audio-pause-only': 'unpaused_audio_gameplay', '--audio-filters-only': 'audio_gameplay',
@@ -252,6 +253,16 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
                             str(moved/'bin'/('forge_runtime'+exe)),str(module)],
                            env=env,cwd=moved,check=True,timeout=90)
             print('Installed public time client and relocated SDK Play passed')
+            sys.exit(0)
+        if sys.argv[4] == '--navigation-planar-jump-only':
+            source = Path(__file__).resolve().parents[1]
+            for name in ('character_components.hpp', 'navigation_components.hpp'):
+                assert (moved/'sdk/include/forge'/name).read_bytes() == (source/'include/forge'/name).read_bytes()
+            subprocess.run([sys.executable,str(Path(__file__).with_name('navigation_jump_sdk_play_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)),str(module),
+                            str(source/'samples/projects/FeatureGallery'),str(base/'planar-jump'), '--planar'],
+                           env=env,cwd=moved,check=True,timeout=120)
+            print('Installed-only grounded XY jump values, actual flight/landing/restart and relocated SDK Play passed')
             sys.exit(0)
         if sys.argv[4] == '--navigation-grounded-only':
             source = Path(__file__).resolve().parents[1]

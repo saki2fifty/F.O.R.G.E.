@@ -649,6 +649,21 @@ one physics-owned observation implementation. These host methods add no C SDK ca
 recovery12; ordinary persistent profiles retain recovery10. See
 [navigation character ownership](decisions/052-navigation-characters.md).
 
+`jump_character_2d_once` combines horizontal steering and a positive lift velocity
+in the same host FIFO. Grounded mode, positive automatic gravity and downward
+vertical Project gravity are required. The existing native mover accepts the
+impulse only on static walkable support and reports actual `jump_accepted` in its
+copied host state/debug data. Refused airborne requests preserve native vertical
+momentum. Zero-time synchronization, manual priority and shape replacement follow
+the existing one-step lifetime. No project C SDK callback is added; game-defined
+manual full-XY velocity remains available.
+
+Private physics recovery14 is canonical when XY takeoff is queued/armed or the
+native receipt is present, including mixed3D/XY worlds. Pending settings are
+validated before native snapshot publication. Historical accepted receipts may
+outlive changed mechanics; they do not reapply an impulse. See
+[XY physical jump ownership](decisions/055-planar-character-jump-links.md).
+
 Movement composes checked public native casts, overlaps and collision planes.
 Exclude every shape of the same canonical controller, sensors, and objects that
 fail mutual physical layer masks. Process controllers in canonical-reference order.

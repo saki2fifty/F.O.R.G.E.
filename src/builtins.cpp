@@ -3893,7 +3893,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
                 "Navigation writes the pose directly; Character Controller requests 3D ground "
                 "steering and positive-lift jumps between static supports; Character Controller "
                 "2D requests Floating XY steering; Grounded Character Controller 2D requests "
-                "static supported XY steering with native automatic gravity";
+                "XY ground steering and positive-lift jumps between static supports with native "
+                "automatic gravity";
         }
         if (field == "navmesh") {
             value["asset_type"] = NavMeshAsset::type;

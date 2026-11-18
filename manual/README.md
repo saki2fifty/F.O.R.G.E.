@@ -81,7 +81,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Send component data on press, release or change](editor/input-messages.md)
 - [Touch contacts, tap, hold, swipe, pan, pinch and rotation](editor/touch-input.md)
 - [Physics](editor/physics.md)
-- [Navigation profiles, physical 3D characters and jumps, grounded and Floating XY characters, straight and arced links, crossing collision checks, polygon regions, static collision collection, moving obstacles and destinations](editor/navigation.md)
+- [Navigation profiles, physical 3D and grounded XY character jumps, Floating XY characters, straight and arced links, crossing collision checks, polygon regions, static collision collection, moving obstacles and destinations](editor/navigation.md)
 - [Create patrol, wait and chase graphs and behavior trees](editor/navigation-behavior.md)
 - [Audio: import, stream, create ordered playlists, event sound cues, offsets, repeating and finite runs, filters, source/shared bus effects, impulse responses, buses/sends, live mixing and music/UI pause](editor/audio.md)
 - [Runtime UI: HUDs, interactive quad/animated-mesh surfaces, camera-image panels, menus, animation, filters, shadows, backdrops, gradients, alpha/luminance masks and static/animated panel shadows](editor/runtime-ui.md)

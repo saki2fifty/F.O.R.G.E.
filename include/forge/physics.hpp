@@ -88,6 +88,7 @@ class PhysicsRuntime : public PhysicsService {
     void move_character_once(EntityRef, Double3) override;
     void move_character_2d_once(EntityRef, Double2) override;
     void jump_character_once(EntityRef, Double3, float) override;
+    void jump_character_2d_once(EntityRef, double horizontal_velocity, float speed) override;
     void jump_character(EntityRef, float) override;
     void crouch_character(EntityRef, bool) override;
     void place_character(EntityRef, LocalTranslation, LocalRotation, bool) override;

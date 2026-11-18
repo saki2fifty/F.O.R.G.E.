@@ -635,15 +635,15 @@ class ComponentInspector {
             }
             if (key == "forge.navigation_agent")
                 ImGui::TextWrapped(
-                    "Movement: Navigation writes the pose directly. Character Controller steers "
-                    "an enabled World-space 3D controller with world +Y up. Character Controller "
-                    "2D steers a World-space Floating controller on XY. Grounded Character "
-                    "Controller 2D steers static supported XY ground with positive automatic "
-                    "gravity. Physics writes the actual "
-                    "pose. The 3D controller also jumps positive-lift links between static "
-                    "supports; "
-                    "Speed must cover the jump range. XY controllers support routes without links. "
-                    "Choose the movement mode in Edit; speed and destination remain live-tunable.");
+                    "Movement: Navigation writes pose directly. Character Controller steers "
+                    "upright "
+                    "world +Y 3D mechanics. Grounded Character Controller 2D steers XY with "
+                    "positive "
+                    "Automatic gravity. Both jump positive-lift links between static supports; "
+                    "Physics owns their poses. Character Controller 2D is Floating XY without "
+                    "links. "
+                    "Speed must cover jump range. Choose Movement in Edit; speed and destination "
+                    "are live controls.");
             if (key == "forge.navigation_agent" && edit_scene_target) {
                 ImGui::BeginDisabled(!scene_target_available ||
                                      !scene_target_available(entity, key));

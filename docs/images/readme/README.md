@@ -1,5 +1,20 @@
 # README screenshots
 
+## Physical XY jump Game view
+
+`manual/images/navigation-planar-character-jumps-game.png` is the original640 by360
+RGB Game output after90 fixed ticks from Gallery228. The cyan character crosses
+toward its raised lower landing; the orange character meets the upper physical
+wall. Reproduce with `forge_navigation_polygon_gallery_vulkan_probe GALLERY SCRATCH
+Scenes/228-navigation-character-jumps-xy.scene.json` on the configured software
+Vulkan/lvp fixture. Four exact authored/source-hidden relocated-export display
+pairs include portrait output. The PNG losslessly encodes `authored/90-640.ppm`,
+without cropping, resizing or inserted controls. PNG SHA256 `c7694874f90d95a5039094e8eb505ded0cee795d1b6d6bdbe547232bbc4dc87a`.
+
+The Game image was visually reviewed. Local capture receipts bind the native
+actor, source, Scene, original pixels and exact relocated-display proof. Windows
+desktop, physical GPU, input and display-density acceptance remain separate.
+
 ## Grounded XY controls and Game view
 
 `manual/images/navigation-grounded-character-inspector.png` is the exact780 by720
@@ -15,7 +30,7 @@ Sources are `tests/navigation_agent_editor_tests.cpp` and
 `tests/physics_2d_inspector_tests.cpp`. Both use the packaged font, actual ImGui
 draw data and SDL software composition on Linux, with no retouching.
 
-PNG SHA256 `63e5c2932f1f07786c08b54f1da65f3ef75faf25f53afe786b4557d0e90e5ddc`; native executable SHA256 `212596174d430e0b187d747569a0dafbc689ebf9d55dc90debfb1f990cbfa308`.
+PNG SHA256 `3e058f384c83b0a45bf9c9c506bcf317e3d8d793646c5f7fc24088d8f223f81f`; native executable SHA256 `0967677929a52515d5ca173e679b1699875f3e880e5d02a5e244de3d24cca74d`.
 
 PNG SHA256 `ec569ddfeeca9e606c506b059e0bdd0bda314873b92e857bab4aecb97035b98d`; native executable SHA256 `10192b754a05b61103f3ac581d398162af915079a5a37c38712fe88b6af65760`.
 
@@ -59,9 +74,9 @@ Native mouse input selects CharacterController2D and checks single Scene
 Undo/Redo. The NavMesh is intentionally unassigned; the image illustrates
 configuration, not a running game. Source:
 `tests/navigation_agent_editor_tests.cpp`. PNG SHA256
-`fab1cff1d8c6dc068d50c58a8e5b3591be0e634c883d033123a12acf029ddcbf`;
+`c90806bb72bf41795cf672a7bb650e1831a982f708212ca4e4ac2d066eb344d6`;
 executable SHA256
-`212596174d430e0b187d747569a0dafbc689ebf9d55dc90debfb1f990cbfa308`.
+`0967677929a52515d5ca173e679b1699875f3e880e5d02a5e244de3d24cca74d`.
 The reviewed image uses packaged font/native ImGui draw data and SDL software
 composition on Linux, without retouching. Physical Windows/GPU/input/DPI review
 remains separate.
@@ -75,8 +90,8 @@ uses native mouse events to select CharacterController, then verifies a single
 Scene Undo/Redo. Its NavMesh remains unassigned: the image illustrates selecting
 the owner before assigning a route, not a running Gallery or physical acceptance.
 Source: `tests/navigation_agent_editor_tests.cpp`. PNG SHA256
-`d6c00808cebebba14d2243987977ed04ef7be6ee77edff66db9495561820e251`.
-Executable SHA256 `212596174d430e0b187d747569a0dafbc689ebf9d55dc90debfb1f990cbfa308`.
+`9e6463ff1a92fb8dc7665b31da1af13bec62521d909204cf5fe2ad80a16e4422`.
+Executable SHA256 `0967677929a52515d5ca173e679b1699875f3e880e5d02a5e244de3d24cca74d`.
 The reviewed image uses packaged font/native ImGui draw data and SDL software
 composition on Linux, without retouching. Windows desktop, physical GPU, input
 and DPI acceptance remain separate.
