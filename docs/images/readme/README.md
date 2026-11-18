@@ -4165,6 +4165,16 @@ Windows/editor-chrome or input acceptance. Canonical image SHA256: `a7ad22dfbe9c
 Local provenance/validation: `AgentFiles/build/phase395-stopped-sequence-ui-preview/screenshot.json`
 and `AgentFiles/build/phase356-ui-custom-shader-capability/phase395-render-native14.json` (outside the product repository).
 
+The single-clip profile reproduces these exact canonical pixels at clip time1s
+through the Timeline's shared seek and complete sampled proposal. The current
+`sequence_ui_vulkan` fixture also checks clip times0/.5/1s against native layout,
+opacity/class and pixel oracles, fixed CSS time, noninteractive authority, Stop
+retirement and identical relocated-project pixels. No duplicate image is stored.
+Local receipt `AgentFiles/build/phase356-ui-custom-shader-capability/phase412-render11.json`
+and `AgentFiles/build/phase412-single-clip-ui-preview/controls-capture.json` identify
+the new capture, source-input digest and binary. This remains software-Vulkan Game
+composition evidence, without Windows editor-chrome or physical-device acceptance.
+
 
 ## Rename across project C++ sources
 

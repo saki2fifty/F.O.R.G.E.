@@ -323,6 +323,19 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
               published->records().at(asset).metadata["forge.import"]["output_version"] == 9,
           "Material Timeline did not publish cooked5");
     const auto saved = editor.document()->source().document;
+    {
+        AnimationTimelineEditor pending;
+        pending.open(project, "Assets/Material.animation.json");
+        pending.seek_preview(scene, actor, 1.);
+        const auto before_pending = scene.document();
+        const auto revision_pending = scene.revision();
+        const auto sample = pending.preview(before_pending);
+        check(sample == before_pending && pending.preview_active() &&
+                  pending.preview_ui_snapshot(project, scene, sample).is_null() &&
+                  scene.revision() == revision_pending &&
+                  pending.document()->source().document == saved,
+              "Pending materials published partial clip UI or changed authoring data");
+    }
     editor.open(project, "Assets/Material.animation.json");
     check(editor.document()->source().document == saved,
           "Material Timeline save/reopen lost key identity, semantics or curves");

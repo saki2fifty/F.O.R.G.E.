@@ -13,11 +13,15 @@ namespace forge {
 inline std::vector<LiveAuthoringMethod>
 source_document_automation_methods(ui::DocumentWorkspace& workspace,
                                    const ui::AutomationPermissions& permissions) {
-    Json editors = Json::array();
+    Json editors = Json::array(), preview_editors = Json::array();
     for (const auto& entry : workspace.entries())
-        if (entry.source && entry.source->invoke)
+        if (entry.source && entry.source->invoke) {
             editors.push_back(entry.id);
+            if (entry.source->animation_preview)
+                preview_editors.push_back(entry.id);
+        }
     const Json editor_schema{{"type", "string"}, {"enum", editors}};
+    const Json preview_editor_schema{{"type", "string"}, {"enum", preview_editors}};
     auto invoke = [&workspace](std::string_view action, const Json& request) {
         const auto* entry = workspace.find(request.at("editor").get<std::string>());
         if (!entry || !entry->source || !entry->source->invoke)
@@ -516,6 +520,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                     result.push_back({{"editor", entry.id},
                                       {"title", entry.title},
                                       {"suffix", entry.source->suffix},
+                                      {"animation_preview", entry.source->animation_preview},
                                       {"status", entry.source->invoke("status", Json::object())}});
             return Json{{"editors", std::move(result)}};
         }));
@@ -599,6 +604,17 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                   4096, 1)}},
             {"editor", "document_session", "points"}),
         false, [invoke](const Json& request) { return invoke("pixels", request); }));
+    if (!preview_editors.empty())
+        methods.push_back(automation_method(
+            "asset.document.preview.read",
+            "Read the opened clip's Timeline preview target, time, playback intent and projected "
+            "UI model. model_ready describes the noninteractive model; displayed pixels require "
+            "a visible stopped Game preview. Source and history are preserved.",
+            "asset.read",
+            automation_object(
+                {{"editor", preview_editor_schema}, {"document_session", automation_integer(1)}},
+                {"editor", "document_session"}),
+            false, [invoke](const Json& request) { return invoke("preview_read", request); }));
     if (!permissions.assets)
         return methods;
     for (const auto* action : {"open", "create"}) {
@@ -655,6 +671,32 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        {"document_session", automation_integer(1)},
                        {"document_revision", automation_integer(1)}};
     const Json required = {"editor", "document_session", "document_revision"};
+    if (!preview_editors.empty())
+        for (const auto* action : {"seek", "stop"}) {
+            auto properties = fields;
+            properties["editor"] = preview_editor_schema;
+            auto needed = required;
+            if (std::string_view(action) == "seek") {
+                properties["entity"] = automation_uuid();
+                properties["seconds"] = {{"type", "number"}, {"minimum", 0}, {"maximum", 3600}};
+                properties["playing"] = {{"type", "boolean"}};
+                needed.push_back("entity");
+                needed.push_back("seconds");
+            }
+            methods.push_back(automation_method(
+                std::string("asset.document.preview.") + action,
+                std::string(action) == "seek"
+                    ? "Seek the opened clip on a current Scene entity through the Timeline owner. "
+                      "Optional playing starts its existing preview clock. Time must fit the clip; "
+                      "pending fields reject. No Scene/source/history writes or gameplay execution."
+                    : "Stop this exact opened clip's transient Timeline/UI preview while "
+                      "preserving "
+                      "its source, history and bound target.",
+                "asset.write", automation_object(std::move(properties), needed), true,
+                [invoke, action](const Json& request) {
+                    return invoke(std::string("preview_") + action, request);
+                }));
+        }
     for (const auto* action :
          {"patch", "paint", "tile_collision", "tile_animation", "tile_autotile", "stroke",
           "mesh_stroke", "fill", "copy_pixels", "cancel_pixels", "undo", "redo", "save", "close"}) {

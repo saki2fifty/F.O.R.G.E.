@@ -1,5 +1,15 @@
 # 2026-11-18
 
+## Single-clip UI preview
+
+The Animation Timeline can present a standalone clip's sampled camera image and
+saved UI in the stopped Game view. Shared seek/play/stop controls and MCP preview
+operations use the same Timeline owner. Named UI values drive text, width, opacity
+and classes without changing Scene/source values or history. Pending material
+preparation withholds partial composition, and Play/source-preview handoffs
+retire temporary authority. Native RCSS time stays at zero; buttons and text input
+are inactive. Sequence frame export retains its existing scope.
+
 ## Live Play movie capture
 
 Record game can attach to an ordinary Play launch through **Record current Play**.

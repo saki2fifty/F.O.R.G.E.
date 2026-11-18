@@ -1,4 +1,4 @@
-# ADR051 — Runtime UI in stopped sequence presentation
+# ADR051 — Runtime UI in stopped animation presentation
 
 Status: accepted and implemented. Native CPU, scoped sanitizer and software Vulkan
 render/export checks pass; physical desktop/GPU acceptance is separately pending.
@@ -16,8 +16,19 @@ Scene/Prefab write or public SDK/Scene-format change is introduced.
 
 The Game preview and frame exporter consume this same sampled snapshot through
 SequenceFrameSource. Sources without UI retain their prior rendering behavior.
-This profile concerns Scene sequences; a single clip's Edit Scene overlay remains
-outside this initial profile. Arbitrary DOM property tracks and native CSS seeking
+Single-clip Game preview also uses this noninteractive presentation profile. Its
+Timeline samples the existing complete transform/component/material proposal;
+AnimationUiPreview projects that same proposal through a copied Runtime Context,
+Scene and UiRuntime. Scene::reset owns atomic replacement and retained entity
+handles. It retains source Prefab definitions and copied authored types without
+running animation, gameplay, physics or audio. Project, Scene revision, target,
+clip and document generation scope the copy; restarting advances its presentation
+generation. Pending material preparation withholds the UI candidate. No second
+sampler, clock or UI model registry is introduced.
+
+The existing per-entity single-clip Edit Scene overlay remains unchanged. Stopped
+UI composition is available in Game; single-clip frame export and unrestricted
+Edit Scene HUD composition remain outside this profile. Arbitrary DOM property tracks and native CSS seeking
 remain unsupported. Preview CSS presentation uses a fixed zero time rather than
 pretending to seek transient CSS state. Keep simultaneous binding/transition
 writers on one property outside the supported value-animation workflow.
@@ -32,7 +43,7 @@ retire previews through this owner; there is no second RML initialization owner.
 Resolve competing authoring previews deliberately, without reallocating two
 purposes repeatedly in one frame or silently editing either source draft.
 
-Sequence presentation is noninteractive: no OS clipboard/text/IME, surface input,
+Stopped animation presentation is noninteractive: no OS clipboard/text/IME, surface input,
 gameplay command delivery, live field authority or runtime asset publication.
 Internal native events may update presentation, but queued gameplay commands are
 discarded through the presenter's current queue owner. Existing Runtime and
@@ -54,3 +65,9 @@ noninteractive authority and Scene/history isolation. Source-hidden relocated
 export, existing automation/MCP image/frame workflows, authentic manual captures
 and scoped normal/strict/sanitizer/graphics gates belong to the batch. Physical
 Windows/GPU/input acceptance remains separately attributable.
+
+For single clips, Timeline and automation/MCP share seek/play/stop ownership and
+the same complete sampled proposal. Reads identify projected UI models separately
+from displayed pixels. Document/session/revision, source-busy and existing grant
+checks apply. Preview never authors Scene/source values or history; Play and
+competing source-preview handoffs retire stopped presentation authority.

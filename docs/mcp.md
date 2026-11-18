@@ -393,6 +393,18 @@ second geometry recipe.
 and their suffixes. `template` exposes each existing owner's initial source shape;
 `create` allocates the ordinary fresh asset identity, and `open` borrows that
 editor's current document. These tools never create a parallel draft or history.
+Rows also expose `animation_preview`; the Timeline supports single-clip
+`forge_asset_document_preview_read`, `forge_asset_document_preview_seek` and
+`forge_asset_document_preview_stop`. Read requires editor and document session;
+seek/stop additionally require the current document revision and ordinary mutation
+envelope. Seek takes a current Scene entity, seconds within the clip duration and
+optional `playing=true`. Pending fields/publication reject seeking. These tools
+borrow the native Timeline owner, change only transient preview state and preserve
+Scene/source history. Existing asset read/write grants and replay guards apply.
+`preview.model_ready` describes a projected native UI model, not displayed pixels;
+inspect its `ui`, target, seconds, playing and generation fields. A stopped visible
+Game view presents that model noninteractively. Native RCSS time remains zero;
+single-clip frame export and interactive gameplay are outside this workflow.
 Material, material graph, collision, editable mesh, particle, terrain, Tile Set,
 Tile Map, Sprite atlas, animation states/blend space/mask, transform animation and
 Navigation Behavior, UI Localization, Application States and Render Texture are bound. `forge_asset_behavior_catalog` describes the native

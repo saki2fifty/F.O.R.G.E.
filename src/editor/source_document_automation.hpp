@@ -17,6 +17,48 @@ namespace forge {
 // Private adapters borrow the same editor instances registered in DocumentWorkspace.
 // They own neither source values, history, publication queues nor persistent IDs.
 struct AssetDocumentAutomation {
+    template <class Editor>
+    static ui::SourceDocumentAccess bind_timeline(Editor& editor, SceneDocument& project,
+                                                  Scene& scene) {
+        auto access = bind(editor, project);
+        access.animation_preview = true;
+        access.invoke = [invoke = std::move(access.invoke), &editor, &project,
+                         &scene](std::string_view action, const Json& request) -> Json {
+            if (action != "preview_read" && action != "preview_seek" && action != "preview_stop")
+                return invoke(action, request);
+            check(editor, project, request, action != "preview_read");
+            if (editor.sequence_mode())
+                throw AuthoringError("wrong_document", "Open a single animation clip first");
+            if (action == "preview_stop")
+                editor.stop_preview();
+            else if (action == "preview_seek") {
+                if (transient(editor) || publishing(editor))
+                    throw AuthoringError("source_busy", "Finish pending Timeline fields first");
+                editor.seek_preview(scene, request.at("entity").get<std::string>(),
+                                    request.at("seconds").get<double>());
+                if (request.value("playing", false))
+                    editor.play_preview(true);
+            }
+            Json model;
+            if (editor.preview_active() && !transient(editor) && !publishing(editor)) {
+                const auto sampled = editor.preview(scene.document());
+                model = editor.preview_ui_snapshot(project, scene, sampled);
+            }
+            auto result = status(editor, project);
+            result["preview"] = {
+                {"active", editor.preview_active()},
+                {"playing", editor.playing_},
+                {"entity", editor.target_.entity ? Json(editor.target_.entity) : Json()},
+                {"seconds", editor.time_ / animation_timebase},
+                {"duration_seconds",
+                 editor.clip_ ? double(editor.clip_->duration) / animation_timebase : 0.},
+                {"generation", editor.preview_presentation_generation()},
+                {"model_ready", model.is_object() && model.at("errors").empty()},
+                {"ui", std::move(model)}};
+            return result;
+        };
+        return access;
+    }
     static bool mesh_creation_options(const Json& request) {
         for (const auto* name :
              {"mesh_profile", "mesh_size", "outline", "holes", "ellipse_radii", "ellipse_segments",

@@ -305,6 +305,7 @@ project_frames(DiligentPresentation& presentation, Diligent::IDeviceContext* gra
           "Sequence UI presentation changed authored data or history");
     return expected;
 }
+#include "clip_ui_render_tests.hpp"
 inline void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context,
                      const std::filesystem::path& gallery, const std::filesystem::path& output,
                      const std::filesystem::path& font, const std::filesystem::path& runtime = {}) {
@@ -315,11 +316,14 @@ inline void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* 
     DiligentPresentation presentation(device);
     const auto authored =
         project_frames(presentation, context, root, scratch / "authored", font, runtime);
+    const auto clip = clip_frames(presentation, context, root, scratch / "clip", font);
     const auto relocated = scratch / "Relocated Project";
     std::filesystem::rename(root, relocated);
     const auto moved =
         project_frames(presentation, context, relocated, scratch / "relocated", font, runtime);
     check(authored == moved, "Relocating the project changed stopped UI display/export pixels");
+    check(clip == clip_frames(presentation, context, relocated, scratch / "clip-relocated", font),
+          "Relocating the project changed stopped clip Game pixels");
     context->WaitForIdle();
 }
 } // namespace forge::test_sequence_ui_render

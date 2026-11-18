@@ -81,6 +81,20 @@ Cubic field curves and ordinary held keys use the same clip controls as other
 
 ## Preview the UI without Play
 
+To inspect one clip:
+
+1. Stop Game Play and open the clip from **Content**.
+2. Set **Preview object** to the entity containing **UI Document** and **UI Values**.
+3. Scrub **Playhead** or choose **Play preview**, then open **Game**.
+4. The **CLIP PREVIEW** label identifies the temporary camera image and UI. Scrub to inspect a value, use **Pause preview** to hold time, or **Stop preview** to end it.
+
+The clip uses its own time from zero, independently of any sequence placement.
+Preview uses the open clip draft and saved UI files, so the clip does not need
+to be attached or published to inspect its UI. A valid enabled game camera is
+needed for the camera image. Finish pending Timeline fields before seeking.
+
+To inspect a coordinated Scene sequence:
+
 1. Stop Game Play. Select the root Animation Sequence and choose **Open sequence timeline**.
 2. Choose **Refresh clips**, then **Preview sequence**. Open the **Game** tab.
 3. Scrub the sequence playhead. The **SEQUENCE PREVIEW** label identifies the temporary view; bound text, styles and classes follow the sampled UI Values.
@@ -91,21 +105,23 @@ Buttons, text input and gameplay commands are inactive; the model shows `tick=0`
 and `paused=true`. Native RCSS animations stay at their initial presentation time;
 the sequence seeks bound numbers, not RCSS animation progress. Use **Play → Game**
 for interaction, project C++ model publications and normal native animation.
-A standalone clip's Scene preview samples the numbers without drawing its UI.
+The **Scene** tab retains its object preview; use **Game** for the composed UI.
 
 ![Saved UI at sequence time two seconds, with a gold bar, opacity one and width 360](../images/sequence-ui-preview.png)
 
-A stopped sequence frame at two seconds. The bound bar is fully visible; buttons
-are inactive and native RCSS animation stays at its initial presentation time.
+The bound bar is fully visible at clip time one second or sequence time two
+seconds. Buttons are inactive and native RCSS animation stays at its initial
+presentation time.
 
 Choose **Export frames…** to include the same saved UI in the sequence's PNG,
 WebP or AVI output. [Sequence frame export](animation-sequences.md) explains the
 controls. Output uses density 1 and waits for the complete UI and camera image.
 
-UI Source and sequence preview share the native UI presenter. Focusing UI Source
-and requesting its preview, or choosing its refresh control, leaves sequence
-preview. Return to Timeline and choose **Preview sequence** to resume. A visible,
-unfocused UI Source view does not interrupt sequence preview. Finish a frame
+UI Source and Timeline preview share the native UI presenter. Focusing UI Source
+and requesting its preview, or choosing its refresh control, leaves animation
+preview. Return to Timeline and seek or choose **Play preview** to resume a clip,
+or choose **Preview sequence** to resume a sequence. A visible,
+unfocused UI Source view does not interrupt Timeline preview. Finish a frame
 export before starting another preview.
 
 ## Live changes, saving and export

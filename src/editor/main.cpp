@@ -775,7 +775,7 @@ int main(int argc, char** argv) {
         forge::Viewport viewport(presentation, true);
         auto game_viewport_owner = std::make_unique<forge::FrameRenderer>(presentation);
         forge::FrameRenderer* game_viewport = game_viewport_owner.get();
-        std::optional<std::pair<bool, std::uint64_t>> game_preview_generation;
+        std::optional<std::pair<unsigned, std::uint64_t>> game_preview_generation;
         std::optional<std::tuple<bool, std::string, std::string, std::uint64_t>>
             play_view_generation;
         std::shared_ptr<forge::MeshResourceHost> mesh_resources;
@@ -1791,7 +1791,7 @@ int main(int argc, char** argv) {
                 if (!refresh && editor.task.id() != "ui_source")
                     throw forge::AuthoringError(
                         "preview_busy",
-                        "Focus UI Source or refresh its preview to leave sequence preview");
+                        "Focus UI Source or refresh its preview to leave animation preview");
                 animation_timeline.stop_preview();
                 runtime_ui.stop_sequence_preview(play);
             }
@@ -2575,8 +2575,8 @@ int main(int argc, char** argv) {
                                                      animation_graph, files.document));
         documents.bind_source("animation_mask",
                               forge::AssetDocumentAutomation::bind(animation_mask, files.document));
-        documents.bind_source("animation_timeline", forge::AssetDocumentAutomation::bind(
-                                                        animation_timeline, files.document));
+        documents.bind_source("animation_timeline", forge::AssetDocumentAutomation::bind_timeline(
+                                                        animation_timeline, files.document, scene));
         documents.bind_importer(
             "model_import", forge::ImportDocumentAutomation::bind(model_imports, files.document));
         documents.bind_importer(
@@ -3318,7 +3318,6 @@ int main(int argc, char** argv) {
                 const auto _t0 = SDL_GetTicks();
                 runtime_ui.sync(play, files.document.project(), workspace.game,
                                 workspace.game && !sdk_build->busy() &&
-                                    animation_timeline.sequence_mode() &&
                                     animation_timeline.preview_active() &&
                                     runtime_ui.sequence_preview_active());
                 play.sdk_diag_slow("runtime_ui.sync", SDL_GetTicks() - _t0);
@@ -6768,12 +6767,14 @@ int main(int argc, char** argv) {
                     viewport.preview_lighting(preview_lighting);
                     view_camera.fly_speed = scene_tools.fly_speed;
                     viewport.exposure(scene_tools.exposure);
-                    const bool sequence_camera_preview =
-                        game_view && !play.active() && !sdk_build->busy() &&
-                        animation_timeline.sequence_mode() && animation_timeline.preview_active();
-                    if (sequence_camera_preview)
-                        ImGui::TextUnformatted("SEQUENCE PREVIEW | authored scene unchanged");
-                    if (game_view && !play.ready() && !sequence_camera_preview) {
+                    const bool timeline_camera_preview = game_view && !play.active() &&
+                                                         !sdk_build->busy() &&
+                                                         animation_timeline.preview_active();
+                    if (timeline_camera_preview)
+                        ImGui::TextUnformatted(animation_timeline.sequence_mode()
+                                                   ? "SEQUENCE PREVIEW | authored scene unchanged"
+                                                   : "CLIP PREVIEW | authored scene unchanged");
+                    if (game_view && !play.ready() && !timeline_camera_preview) {
                         ImGui::TextWrapped("%s", play.status().c_str());
                         const bool sdk_active_no_world =
                             play.active() && play.sdk_play() && !play.sdk_activation_active();
@@ -6820,6 +6821,7 @@ int main(int argc, char** argv) {
                         else
                             animation_timeline.stop_preview();
                     }
+                    forge::Json clip_ui_snapshot;
                     auto read_preview = [&]() -> const forge::Json& {
                         return view_cache.get(
                             game_view ? play.snapshot_version() : scene.revision(), game_view,
@@ -6827,14 +6829,18 @@ int main(int argc, char** argv) {
                                 animation_timeline.preview_active() ||
                                 animation_preview.preview_active(),
                             [&] {
-                                if (game_view && !sequence_camera_preview)
+                                if (game_view && !timeline_camera_preview)
                                     return play.ready() ? play.effective_snapshot()
                                                         : scene.effective_document();
                                 auto source = authoring_snapshot.document(scene);
                                 if (animation_preview.preview_active())
                                     return animation_preview.snapshot(std::move(source));
-                                if (animation_timeline.preview_active())
+                                if (animation_timeline.preview_active()) {
                                     source = animation_timeline.preview(std::move(source));
+                                    if (game_view && !animation_timeline.sequence_mode())
+                                        clip_ui_snapshot = animation_timeline.preview_ui_snapshot(
+                                            files.document, scene, source);
+                                }
                                 if (blockout.active())
                                     source = blockout.preview(source);
                                 if (scene_tools.active())
@@ -7032,11 +7038,13 @@ int main(int argc, char** argv) {
                             play_view_generation = play_generation;
                         }
                         if (game_view) {
-                            const auto generation = std::pair{
-                                sequence_camera_preview,
-                                sequence_camera_preview
-                                    ? animation_timeline.sequence_presentation_generation()
-                                    : std::uint64_t(0)};
+                            const auto generation =
+                                std::pair{timeline_camera_preview
+                                              ? (animation_timeline.sequence_mode() ? 1u : 2u)
+                                              : 0u,
+                                          timeline_camera_preview
+                                              ? animation_timeline.preview_presentation_generation()
+                                              : std::uint64_t(0)};
                             if (game_preview_generation != generation)
                                 game_viewport->invalidate_temporal_history();
                             game_preview_generation = generation;
@@ -7044,8 +7052,11 @@ int main(int argc, char** argv) {
                         forge::RenderTextureOverlay ui_output;
                         bool sequence_ui_ready = true;
                         if (game_view) {
-                            if (sequence_camera_preview) {
-                                const auto snapshot = animation_timeline.frame_export_ui_snapshot();
+                            if (timeline_camera_preview) {
+                                const auto snapshot =
+                                    animation_timeline.sequence_mode()
+                                        ? animation_timeline.frame_export_ui_snapshot()
+                                        : clip_ui_snapshot;
                                 if (snapshot.is_null()) {
                                     runtime_ui.stop_sequence_preview(play);
                                     sequence_ui_ready = false;
@@ -7096,10 +7107,10 @@ int main(int argc, char** argv) {
 #endif
                         if (game_view) {
                             const bool composed =
-                                sequence_ui_ready && ((sequence_camera_preview &&
+                                sequence_ui_ready && ((timeline_camera_preview &&
                                                        !runtime_ui.sequence_preview_active()) ||
                                                       runtime_ui.draw(play, context, texture));
-                            if (sequence_camera_preview)
+                            if (timeline_camera_preview)
                                 sequence_ui_ready = composed;
                         }
                         if (texture && (!game_view || !game_viewport->cameras().empty())) {

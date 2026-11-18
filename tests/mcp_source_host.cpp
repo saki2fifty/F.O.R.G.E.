@@ -45,7 +45,8 @@ int main(int argc, char** argv) {
         const bool read_only = std::string(argv[3]) == "read";
         const bool publication = argc == 5 && std::string(argv[3]) == "publication";
         const bool file_changes = argc == 5 && std::string(argv[3]) == "file_changes";
-        if (publication || file_changes) {
+        const bool clip_preview = argc == 5 && std::string(argv[3]) == "clip_preview";
+        if (publication || file_changes || clip_preview) {
             if (!std::filesystem::create_directory(root / "Game"))
                 throw std::runtime_error("Publication fixture requires an empty test directory");
             std::filesystem::copy(argv[4], root / "Game", std::filesystem::copy_options::recursive);
@@ -100,7 +101,12 @@ int main(int argc, char** argv) {
             entry.id = entry.title = id;
             entry.is_open = [&owner] { return owner.is_open(); };
             entry.dirty = [&owner] { return owner.dirty(); };
-            entry.source = forge::AssetDocumentAutomation::bind(owner, files.document);
+            if constexpr (std::is_same_v<std::remove_cvref_t<decltype(owner)>,
+                                         forge::AnimationTimelineEditor>)
+                entry.source =
+                    forge::AssetDocumentAutomation::bind_timeline(owner, files.document, scene);
+            else
+                entry.source = forge::AssetDocumentAutomation::bind(owner, files.document);
             documents.add(std::move(entry));
         };
         bind("material", material);

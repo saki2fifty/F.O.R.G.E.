@@ -424,6 +424,16 @@ collision, terrain, tile, Sprite atlas, paint texture, particle and animation so
 create or open a source, inspect its format, edit validated fields, and use that
 source document's Undo and Redo. You see the same draft in the editor.
 
+For a single transform clip, the agent can open it in **animation_timeline** and
+use `forge_asset_document_preview_seek` with the current document session/revision,
+Scene entity and time in seconds. Optional `playing:true` starts **Play preview**;
+`forge_asset_document_preview_stop` ends it. Read
+`forge_asset_document_preview_read` to inspect time, target, playback intent and
+the projected UI model. `model_ready` describes the model, while the visible
+stopped **Game** view displays the camera and saved UI. Preview leaves Scene and
+clip history unchanged. Buttons and text input are inactive; native RCSS time
+stays at zero. Use an Animation Sequence for frame export.
+
 For [skeletal retargeting](animation-retargeting.md), the agent can inspect published
 joint identities, parents and rest transforms, create or open a `.retarget.json`
 recipe with the **animation_retarget** editor, map joints explicitly and publish

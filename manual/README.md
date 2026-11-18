@@ -85,7 +85,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Create patrol, wait and chase graphs and behavior trees](editor/navigation-behavior.md)
 - [Audio: import, stream, create ordered playlists, event sound cues, offsets, repeating and finite runs, filters, source/shared bus effects, impulse responses, buses/sends, live mixing and music/UI pause](editor/audio.md)
 - [Runtime UI: HUDs, interactive quad/animated-mesh surfaces, camera-image panels, menus, animation, filters, shadows, backdrops, gradients, alpha/luminance masks and static/animated panel shadows](editor/runtime-ui.md)
-- [Animate, preview and export UI with a Scene sequence](editor/sequence-ui.md)
+- [Animate UI values, preview clips and export sequences](editor/sequence-ui.md)
 - [Create and assign UI Material graph/HLSL effects and textures; try the editable panel Gallery](editor/ui-material-effects.md)
 - [Create UI controls, zoom and scroll Preview, select with a rectangle or keyboard, duplicate sibling groups and delete, choose or drop project images, link and order stylesheets, declare project fonts and collection faces with weight, style and missing-glyph fallback, edit properties and styles, bind displayed game values and button commands, translate/rotate/scale with transform origins, center or stretch controls with layout presets, author viewport-width stylesheet rules, resize, align or match group sizes, snap and constrain drags, retain visible aspect and move with arrow keys](editor/ui-source.md)
 - [Shape game UI text: ligatures, script runs, collections, weights and layered color glyphs](editor/ui-text-shaping.md)

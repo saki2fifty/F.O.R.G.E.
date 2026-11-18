@@ -15,6 +15,7 @@ struct SourceDocumentAccess {
     // A destination relocates the source; no destination means committed deletion.
     std::function<void(AssetId, const std::optional<std::filesystem::path>&)> source_file_changed =
         {};
+    bool animation_preview = false;
 };
 struct WorkspaceDocument {
     std::string id, title, window_id;

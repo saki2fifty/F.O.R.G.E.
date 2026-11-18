@@ -57,6 +57,13 @@ is stopped. Preview leaves the saved scene,
 scene Undo history and physics unchanged. Stop, entering Play, closing the timeline,
 changing projects or deleting the preview object ends preview.
 
+Open **Game** while previewing to see the sampled camera image and saved UI.
+The **CLIP PREVIEW** label identifies this temporary view. Named **UI Values**
+drive bound text, styles and classes without starting gameplay. Buttons and text
+input are inactive, and native RCSS animations hold their initial presentation
+time. See [Animate UI values](sequence-ui.md) for the complete UI workflow.
+Frame export uses an [Animation Sequence](animation-sequences.md).
+
 **Capture authored pose** copies the chosen object's saved local transform into
 the fields. It does not capture the temporary preview. Timeline **Undo / Redo**
 affects clip edits; scene Undo affects attachment and ordinary scene edits.

@@ -22,6 +22,8 @@ from mcp_lightmap_graph_workflow import check_lightmap_graph_workflow
 from mcp_sequence_property_sources import check_sequence_property_sources
 from mcp_planar_mesh_workflow import check_planar_mesh_workflow
 from mcp_mesh_foliage_workflow import check_mesh_foliage_workflow
+from gallery_project_fixture import copy_gallery_project
+from mcp_clip_preview_workflow import check_clip_preview
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
 # Keep the wire evidence on assertion failure as well as successful completion.
@@ -52,13 +54,23 @@ APPLICATION_STATES_ONLY = "--application-states-only" in sys.argv[5:]
 PLANAR_MESH_ONLY = "--planar-mesh-only" in sys.argv[5:]
 CURVED_MESH_ONLY = "--curved-mesh-only" in sys.argv[5:]
 MESH_FOLIAGE_ONLY = "--mesh-foliage-only" in sys.argv[5:]
+CLIP_PREVIEW_ONLY = '--clip-preview-only' in sys.argv[5:]
 
 
 @contextmanager
 def editor(mode='edit'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-sources-') as temporary:
         root = Path(temporary)
-        process = subprocess.Popen([HOST, str(root), WORKER, mode], stdout=subprocess.PIPE,
+        command = [HOST, str(root), WORKER, mode]
+        if CLIP_PREVIEW_ONLY and mode != 'read':
+            gallery = Path(__file__).resolve().parents[1] / 'samples/projects/FeatureGallery'
+            template = copy_gallery_project(gallery, root/'Template', (
+                'Scenes/151-sequence-ui.scene.json', 'Assets/Sequences/UiValues.animation.json',
+                'Assets/UI/Sequence/hud.rml', 'Assets/UI/Sequence/hud.rcss'),
+                startup='Scenes/151-sequence-ui.scene.json')
+            command[3] = 'clip_preview'
+            command.append(str(template))
+        process = subprocess.Popen(command, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, text=True, encoding='utf-8')
         try:
             line = process.stdout.readline()
@@ -160,6 +172,8 @@ for legacy in protocol_cases():
                 scale_min=1, scale_max=1, yaw_min=0, yaw_max=0)])), 'invalid_surface')
         assert client.tool('forge_discover')['revision'] == state['revision']
         assert 'forge_asset_document_types' in names
+        assert 'forge_asset_document_preview_read' in names
+        assert not {'forge_asset_document_preview_seek', 'forge_asset_document_preview_stop'} & names
         assert {'forge_asset_skeleton_joints', 'forge_asset_animation_retarget_catalog',
                 'forge_asset_animation_graph_catalog'} <= names
         assert {'forge_prefab_source_read', 'forge_prefab_source_targets'} <= names
@@ -230,6 +244,10 @@ for legacy in protocol_cases():
 
         kinds = read('forge_asset_document_types')['editors']
         assert len(kinds) == 20 and all(not item['status']['open'] for item in kinds), kinds
+        assert [item['editor'] for item in kinds if item['animation_preview']] == ['animation_timeline']
+        if CLIP_PREVIEW_ONLY:
+            check_clip_preview(read, mutate, edit, status, content, root, declared_tools, client, discovery)
+            continue
         if MESH_FOLIAGE_ONLY:
             check_mesh_foliage_workflow(read, mutate, edit, status, content, root, declared_tools, client, discovery)
             print(('legacy' if legacy else 'current') + ': Mesh foliage projection, source selection, slope, history, save and read-only preflight passed')

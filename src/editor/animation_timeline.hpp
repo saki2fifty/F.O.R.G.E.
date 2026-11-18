@@ -1,5 +1,6 @@
 #pragma once
 #include "../animation_material_preview.hpp"
+#include "../animation_ui_preview.hpp"
 #include "../texture_authoring.hpp"
 #include "../transform_animation_authoring.hpp"
 #include "../transform_animation_preview.hpp"
@@ -27,6 +28,23 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
     bool sequence_mode() const { return sequence_.is_open(); }
     std::uint64_t sequence_presentation_generation() const {
         return sequence_.presentation_generation();
+    }
+    std::uint64_t preview_presentation_generation() const {
+        return sequence_mode() ? sequence_.presentation_generation() : ui_preview_.generation();
+    }
+    Json preview_ui_snapshot(SceneDocument& project, const Scene& scene, const Json& sampled) {
+        if (sequence_mode())
+            return sequence_.preview_ui_snapshot();
+        if (!preview_active() || !preview_ready_)
+            return nullptr;
+        try {
+            return ui_preview_.snapshot(project.project(), scene, sampled, target_, clip_->asset,
+                                        project.generation());
+        } catch (const std::exception& e) {
+            stop_preview();
+            report("ui_preview", e.what());
+            return nullptr;
+        }
     }
     void on_frame_export(std::function<void()> request, std::function<bool()> available) {
         sequence_.export_frames_requested = std::move(request);
@@ -140,8 +158,39 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                                : document_ && preview_ && target_.entity && clip_;
     }
     void stop_preview() {
-        preview_ = playing_ = false;
+        preview_ = playing_ = preview_ready_ = false;
+        ui_preview_.reset();
         sequence_.stop_preview();
+    }
+    void seek_preview(Scene& scene, const std::string& entity, double seconds) {
+        if (sequence_mode() || !document_ || !clip_)
+            throw std::runtime_error("Open a single animation clip first");
+        if (!std::isfinite(seconds) || seconds < 0 ||
+            seconds > double(clip_->duration) / animation_timebase)
+            throw std::runtime_error("Preview time must be within the clip duration");
+        const auto target = entity.empty() ? EntityRef{} : scene.reference(entity);
+        if (!entity.empty() && !target.entity)
+            throw std::runtime_error("Choose a current preview object");
+        if (target.entity && target_ != target)
+            bind(scene, entity);
+        cancel_curve_drag();
+        if (!apply_pending_curves())
+            throw std::runtime_error(error_);
+        time_ = seconds * animation_timebase;
+        key_ = {};
+        selected_keys_.clear();
+        sample_fields(time_);
+        preview_ = bool(target_.entity);
+        playing_ = preview_ready_ = false;
+    }
+    void play_preview(bool playing) {
+        if (sequence_mode() || !document_ || !target_.entity || !clip_)
+            throw std::runtime_error("Choose a single clip and preview object first");
+        if (time_ >= clip_->duration)
+            time_ = 0;
+        preview_ = true;
+        playing_ = playing;
+        preview_ready_ = false;
     }
     void project_camera_shots(Json& resolved) const {
         if (sequence_mode())
@@ -150,14 +199,17 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
     Json preview(Json source) {
         if (sequence_mode())
             return sequence_.preview(std::move(source));
+        preview_ready_ = false;
         try {
             if (preview_active() && !clip_->material_bindings.empty() && !material_error_.empty())
                 throw std::runtime_error(material_error_);
-            if (preview_active() &&
-                !apply_material_animation_preview(source, target_, *clip_, time_, material_ready(),
-                                                  &component_schema_)) {
-                stop_preview();
-                error_ = "Preview target is no longer in this scene. Choose an object again.";
+            if (preview_active()) {
+                preview_ready_ = apply_material_animation_preview(
+                    source, target_, *clip_, time_, material_ready(), &component_schema_);
+                if (!preview_ready_) {
+                    stop_preview();
+                    error_ = "Preview target is no longer in this scene. Choose an object again.";
+                }
             }
         } catch (const AnimationMaterialPending& e) {
             material_status_ = e.what();
@@ -404,28 +456,22 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             double seconds = time_ / animation_timebase;
             if (ImGui::SliderScalar("Playhead (seconds)", ImGuiDataType_Double, &seconds, &zero_,
                                     &duration, "%.3f")) {
-                cancel_curve_drag();
-                if (apply_pending_curves()) {
-                    time_ = seconds * animation_timebase;
-                    key_ = {};
-                    selected_keys_.clear();
-                    sample_fields(time_);
-                    preview_ = bool(target_.entity);
-                    playing_ = false;
+                try {
+                    seek_preview(scene, target_.entity ? target_.entity.str() : std::string{},
+                                 seconds);
+                } catch (const std::exception& e) {
+                    report("preview", e.what());
                 }
             }
             FORGE_UI_PROBE("animation:playhead");
-            if (ui::button(
-                    playing_ ? "Pause preview" : "Play preview",
-                    "Animate the chosen object in Scene without changing its authored values.")) {
-                if (target_.entity) {
-                    if (time_ >= clip_->duration)
-                        time_ = 0;
-                    preview_ = true;
-                    playing_ = !playing_;
-                } else
-                    error_ = "Choose a preview object first.";
-            }
+            if (ui::button(playing_ ? "Pause preview" : "Play preview",
+                           "Preview the chosen object in Scene and Game without changing authored "
+                           "values."))
+                try {
+                    play_preview(!playing_);
+                } catch (const std::exception& e) {
+                    report("preview", e.what());
+                }
             ImGui::SameLine();
             if (ui::button("Stop preview", "Restore the authored Scene view."))
                 stop_preview();
@@ -511,6 +557,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         target_ = {scene.asset_id(), EntityId::parse(id)};
         try {
             capture(scene, false);
+            preview_ready_ = false;
         } catch (...) {
             target_ = before;
             throw;
@@ -540,6 +587,8 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
 
   private:
     AnimationSequenceEditor sequence_;
+    AnimationUiPreview ui_preview_;
+    bool preview_ready_ = false;
     std::optional<EntityRef> next_sequence_;
     std::unique_ptr<TransformAnimationDocument> document_;
     std::unique_ptr<AssetImportService> service_;

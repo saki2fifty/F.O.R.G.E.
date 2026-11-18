@@ -1,8 +1,10 @@
 #include "animation_component_values.hpp"
 #include "animation_playback_access.hpp"
+#include "animation_ui_preview.hpp"
 #include "asset_bytes.hpp"
 #include "runtime_package.hpp"
 #include "transform_animation_authoring.hpp"
+#include "transform_animation_preview.hpp"
 #include "ui_test_renderer.hpp"
 #include <forge/authoring.hpp>
 #include <forge/runtime.hpp>
@@ -246,6 +248,7 @@ void exercise(const std::filesystem::path& root, const Json& source,
     check(renderer.geometry.empty() && renderer.textures.empty(),
           "Sequence UI native resources survived retirement");
 }
+#include "clip_ui_preview_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -260,6 +263,7 @@ int main(int argc, char** argv) {
         const auto root = scratch / "source";
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         const auto source = read(root / scene_path);
+        clip_ui_preview(root, font);
         exercise(root, source, font);
         check(read(root / scene_path) == source, "Playback changed the authored Scene file");
         const std::array roots{source.at("asset_id").get<AssetId>()};

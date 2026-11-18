@@ -1026,6 +1026,17 @@ writes the authored ECS, physics world or Scene history. Preview target is an
 EntityRef; close, project/scene switch, Play or target deletion stops preview.
 Viewport authoring gestures stop preview before starting a competing operation.
 
+Stopped Game composition also projects a single clip's complete sampled proposal
+through `AnimationUiPreview` and the normal `UiRuntime` model owner. Its copied
+Runtime Scene preserves Prefab definitions/authored types, never executes gameplay,
+and uses atomic `Scene::reset` for retained entities. Pending Material preparation
+withholds UI composition. Timeline seek/play/stop are shared by native controls
+and source-document automation/MCP. The model stays tick0/paused; CSS time stays
+zero and input/commands are inactive. Source/project/Scene/target generations and
+the existing RuntimeUiHost single-presenter lifecycle remain authoritative.
+See [ADR051](decisions/051-stopped-sequence-ui.md). Single-clip frame export and
+unrestricted Edit Scene HUD overlays remain unavailable.
+
 ## Runtime, failures and recovery
 
 A private `TransformAnimationPlayback` helper inside `AnimationRuntime` borrows
