@@ -1,5 +1,14 @@
 # 2026-11-18
 
+## Single-clip frame output
+
+A clean published Timeline clip can export numbered PNGs, WebP animation or a
+silent AVI directly on its preview object. Existing capture controls, render/UI
+composition, encoding and MCP grants are shared with sequence export. Explicit
+source/target guards hold playback during sampling and restore the prior cursor
+only while the source remains current. Clip receipts identify the clip and target;
+existing sequence receipts retain their format.
+
 ## Exported-game GPU reports
 
 Profile game and Verify GPU timings use the existing export run owner to collect

@@ -10,10 +10,12 @@ import sys
 import tempfile
 import time
 from mcp_test_client import Client, failed, test_symlink, finish_host, write_capture, protocol_cases
+from mcp_clip_frames_workflow import check_clip_frames
 
 TOOLS, HOST = sys.argv[1:3]
 GAME_ONLY = len(sys.argv) == 7 and sys.argv[6] == '--game-only'
-assert len(sys.argv) <= 6 or GAME_ONLY, 'Unknown capture test selection'
+CLIP_ONLY = len(sys.argv) == 7 and sys.argv[6] == '--clip-only'
+assert len(sys.argv) <= 6 or GAME_ONLY or CLIP_ONLY, 'Unknown capture test selection'
 
 
 @contextmanager
@@ -53,7 +55,7 @@ def png_has_chunk(data, wanted):
 
 
 for legacy in protocol_cases():
-    with editor('game-output' if GAME_ONLY else 'output') as (root,config),Client(config,legacy) as client:
+    with editor('clip-output' if CLIP_ONLY else 'game-output' if GAME_ONLY else 'output') as (root,config),Client(config,legacy) as client:
         catalog={tool['name']:tool for tool in client.request('tools/list')['result']['tools']}
         assert catalog['forge_capture_image']['annotations']['readOnlyHint']
         assert {'forge_capture_sequence_start','forge_output_folder_create'} <= set(catalog)
@@ -94,6 +96,9 @@ for legacy in protocol_cases():
             assert len(png)==plain['result']['image']['bytes']
             return plain['result'],png
 
+        if CLIP_ONLY:
+            check_clip_frames(read, mutate, ok, settled, image, root, catalog)
+            continue
         if len(sys.argv)>5:
             assert catalog['forge_capture_game_start']['annotations']['openWorldHint']
             assert catalog['forge_capture_game_start']['inputSchema']['properties']['input_recording']['type']=='string'

@@ -33,6 +33,13 @@ class AnimationUiPreview {
   public:
     void reset() { context_.reset(); }
     std::uint64_t generation() const { return generation_; }
+    Json snapshot() const {
+        if (!context_)
+            return nullptr;
+        const auto session =
+            "clip/" + target_.scene.str() + "/" + target_.entity.str() + "/" + clip_.str();
+        return context_->ui->snapshot(context_->scene, session, generation_, 0, true);
+    }
     Json snapshot(const std::filesystem::path& project, const Scene& source, const Json& sampled,
                   EntityRef target, AssetId clip, std::uint64_t document_generation) {
         if (!clip || !document_generation || target.scene != source.asset_id() ||
@@ -57,9 +64,7 @@ class AnimationUiPreview {
             ++generation_;
         } else
             context_->scene.reset(sampled);
-        const auto session =
-            "clip/" + target.scene.str() + "/" + target.entity.str() + "/" + clip.str();
-        return context_->ui->snapshot(context_->scene, session, generation_, 0, true);
+        return snapshot();
     }
 };
 } // namespace forge

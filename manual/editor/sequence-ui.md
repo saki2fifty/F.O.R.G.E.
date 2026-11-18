@@ -113,7 +113,7 @@ The bound bar is fully visible at clip time one second or sequence time two
 seconds. Buttons are inactive and native RCSS animation stays at its initial
 presentation time.
 
-Choose **Export frames…** to include the same saved UI in the sequence's PNG,
+Choose **Export frames…** in the clip or sequence Timeline to include the same saved UI in its PNG,
 WebP or AVI output. [Sequence frame export](animation-sequences.md) explains the
 controls. Output uses density 1 and waits for the complete UI and camera image.
 

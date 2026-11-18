@@ -4321,3 +4321,23 @@ The isolated Runtime-role widget capture is not a full Console/editor screenshot
 or Windows/physical GPU/DPI acceptance. Source, executable and passing UI/process
 case provenance is retained in the local input-message-inspection batch's
 `monitor-capture.json`. PNG SHA256: `8b1a559243ed32684702dc014a61eb13ea471430a402912561d79d6382f7424d`.
+
+## Single-clip frame export controls
+
+`manual/images/clip-frame-export.png` is the unretouched production
+AnimationTimelineEditor captured by the existing ImGui/SDL software fixture,
+using the packaged Lato font and Scene151's published UI Values clip. The image
+shows the bound target, preview time and actual **Export frames…** control. It is
+a Timeline subsection capture, not a full native Main window, export modal,
+Windows or physical-device acceptance. Four layouts (wide/narrow100%, wide150%
+and wide200%) exercise actual input/callback routing and busy/authoring/lease
+disabling. The wide100% image is canonical; the other validation images stay local.
+
+Capture source: `AgentFiles/build/mcp-authoring/clip-frame-controls/wide-100.png`;
+source base `8d3158920c5d54b9fe874071d2ceb762aa822bed`, with current source-input
+digest `0ef546290091ecd34b5ce9b125630e737b3cddf89c4c0a28d8c6d9f78e67c5b9`.
+Configured development binary metadata is `unassigned`/`d70e63a`, not the future
+accepted commit. Native control test: `clip_frame_controls`; the separate
+`sequence_ui_vulkan` check compares actual Game/UI clip samples and exported PNGs
+and repeats after project relocation. These software fixtures establish behavior,
+not physical GPU performance. Canonical SHA-256: `f7e401c0d48620dd4b9753f10ef427c2d7dcb3bdecb9cd32846ed1fb9005ea8c`.

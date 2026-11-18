@@ -922,6 +922,7 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
   target_link_libraries(forge_mcp_image_host PRIVATE forge_sequence_encoding forge_mcp forge_authoring forge_model_render_resources forge_view_image SDL3::SDL3 imgui)
   target_link_libraries(forge_mcp_image_host PRIVATE forge_texture_image_process)
   target_link_libraries(forge_mcp_image_host PRIVATE forge_game_recording_editor)
+  target_link_libraries(forge_mcp_image_host PRIVATE forge_animation forge_runtime_ui forge_runtime_resources forge_ui_presenter RmlUi::Core forge_transform_animation_authoring forge_animation_preview forge_texture_authoring forge_model_placement)
   add_dependencies(forge_mcp_image_host forge_asset_build_worker)
   set(_forge_mcp_image_runtime)
   if(FORGE_ENABLE_NATIVE_SDK)
@@ -932,6 +933,8 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
   # Both protocol envelopes include fresh-runtime recording, owned previews,
   # cancellation and encoder failure in addition to the image/sequence cases.
   set_tests_properties(mcp_image_stdio PROPERTIES TIMEOUT 180)
+  add_test(NAME mcp_clip_frames_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_image_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_image_host> "${CMAKE_CURRENT_BINARY_DIR}/mcp-clip-frames-capture.json.gz" $<TARGET_FILE:forge_asset_build_worker> "-" --clip-only)
+  set_tests_properties(mcp_clip_frames_stdio PROPERTIES TIMEOUT 120)
  endif()
 
 endif()

@@ -62,11 +62,36 @@ The **CLIP PREVIEW** label identifies this temporary view. Named **UI Values**
 drive bound text, styles and classes without starting gameplay. Buttons and text
 input are inactive, and native RCSS animations hold their initial presentation
 time. See [Animate UI values](sequence-ui.md) for the complete UI workflow.
-Frame export uses an [Animation Sequence](animation-sequences.md).
+Use **Export frames…** to capture this clip directly on its preview object, or
+use an [Animation Sequence](animation-sequences.md) to arrange multiple clips.
 
 **Capture authored pose** copies the chosen object's saved local transform into
 the fields. It does not capture the temporary preview. Timeline **Undo / Redo**
 affects clip edits; scene Undo affects attachment and ordinary scene edits.
+
+## Export clip frames and silent movies
+
+1. Stop Game Play, open the clip in **Animation Timeline**, and choose its **Preview object**.
+2. Finish clip edits with **Save & Publish** and wait for publication and material preparation.
+3. Choose **Export frames…**. Keep **Game** open with an enabled camera. Set the start time, frame rate and count; every sample must fall before the clip's end.
+4. Choose the output size, a parent folder and a new folder name. Under **Additional output**, choose **PNG frames only**, **WebP animation** or **AVI movie (Motion JPEG)**, then **Start export**.
+
+![Animation Timeline with a bound clip, preview controls and Export frames button](../images/clip-frame-export.png)
+
+*Choose Export frames beneath the clip preview controls. The preview object is the
+object sampled for the output.*
+
+The [frame export controls and limits](animation-sequences.md)
+apply to both clips and sequences. WebP needs at least two frames; AVI is silent
+and offers **JPEG quality**. PNG frames remain exact in either case. Saved UI
+Documents and animated UI Values are included noninteractively; native RCSS time
+stays at zero. This capture does not run gameplay or record sound.
+
+Export holds normal preview playback and restores its previous cursor and playback
+state afterward while the source is current. **Cancel** keeps completed frames.
+Changing the Scene, source, target or project ends that capture's authority. Clip
+`frames.json` identifies the clip, target, sampled times and completed output;
+export does not author the preview pose into the Scene.
 
 ## Animate a component field
 

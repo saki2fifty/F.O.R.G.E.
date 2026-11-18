@@ -1,3 +1,4 @@
+#include "animation_timeline.hpp"
 #include "automation.hpp"
 #include "capture_automation.hpp"
 #include "game_recording_task.hpp"
@@ -94,15 +95,37 @@ int main(int argc, char** argv) {
         const auto root = std::filesystem::u8path(argv[1]);
         const bool output = std::string(argv[2]) != "read";
         const bool asset_write = output && std::string(argv[2]) != "game-output";
+        const bool clip_mode = std::string(argv[2]) == "clip-output";
         forge::SceneDocument::create_project(root / "Game", "Native image IO fixture");
         std::filesystem::create_directory(root / "Output");
         if (argc >= 4)
             forge::test::published_texture_fixture(std::filesystem::u8path(argv[3]), root / "Game");
+        if (clip_mode)
+            std::filesystem::copy(std::filesystem::u8path(argv[3]), root / "Game",
+                                  std::filesystem::copy_options::recursive |
+                                      std::filesystem::copy_options::overwrite_existing);
         forge::EngineContext engine;
         forge::Scene scene(engine.world());
         std::vector<std::string> recent;
         forge::EditorFiles files(scene, nullptr, recent);
         files.start(root / "Game");
+        forge::AnimationTimelineEditor clip;
+        if (clip_mode) {
+            files.document.open_scene("Scenes/151-sequence-ui.scene.json");
+            clip.open(files.document, "Assets/Sequences/UiValues.animation.json");
+            const auto authored = scene.document();
+            for (const auto& row : authored.at("entities"))
+                if (row.at("components").contains("forge.ui_values"))
+                    clip.seek_preview(scene, row.at("id"), .25);
+            // The real Source workspace preview_seek prepares its native UI model
+            // before returning. Establish that same precondition before connecting.
+            const auto sampled = clip.preview(scene.document());
+            const auto prepared = clip.preview_ui_snapshot(files.document, scene, sampled);
+            if (!prepared.is_object() || !prepared.at("errors").empty())
+                throw std::runtime_error("Prepared real clip UI model is unavailable");
+            if (!clip.frame_export_ready())
+                throw std::runtime_error("Prepared real clip capture source is not ready");
+        }
         if (argc == 6) {
             auto settings = files.document.settings().document();
             settings["game"] = forge::default_game_settings("org.forge.mcp-recording-" +
@@ -152,7 +175,9 @@ int main(int argc, char** argv) {
                 throw std::runtime_error("Choose a current entity");
             frames.controller = {scene.asset_id(), forge::EntityId::parse(entity)};
         };
-        providers.sequence = [&]() -> forge::ui::SequenceFrameSource& { return frames; };
+        providers.sequence = [&]() -> forge::ui::SequenceFrameSource& {
+            return clip_mode ? static_cast<forge::ui::SequenceFrameSource&>(clip) : frames;
+        };
         providers.unavailable = [&](bool sequence) {
             return sequence && play.active() ? std::string("Stop the current Play session")
                                              : std::string{};
@@ -263,9 +288,19 @@ int main(int argc, char** argv) {
             if (!images.busy() && !play.active() && !play.user_data_override().empty())
                 throw std::runtime_error("Recording leaked its private user-data selection");
             images.poll_files(message);
-            if (!forge::test::marker_present(root / "hold_pixels"))
-                forge::test::ViewImageTaskAccess::deliver_test_pixels(images, message,
-                                                                      frames.cursor);
+            if (!forge::test::marker_present(root / "hold_pixels")) {
+                double cursor = frames.cursor;
+                if (const auto sample = images.temporal_sample(); clip_mode && sample) {
+                    const auto snapshot = clip.frame_export_ui_snapshot();
+                    const auto width =
+                        snapshot.at("documents").at(0).at("model").at("width").get<double>();
+                    const double t = sample->seconds <= 1 ? sample->seconds : 2 - sample->seconds;
+                    if (std::abs(width - (80 + 280 * t)) > 1e-6)
+                        throw std::runtime_error("Actual clip owner lost the requested UI sample");
+                    cursor = sample->seconds;
+                }
+                forge::test::ViewImageTaskAccess::deliver_test_pixels(images, message, cursor);
+            }
             workspace.pump(files.document, "");
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }

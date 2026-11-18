@@ -10,6 +10,8 @@ struct SequenceFrameSourceInfo {
     double duration = 0;
     std::uint64_t revision = 0, preview_generation = 0;
     std::shared_ptr<const AssetCatalog> catalog;
+    // Empty for a Scene sequence; otherwise controller identifies the clip target.
+    AssetId clip{};
 };
 // Borrowed editor boundary. Timeline retains its preview world, cursor and clock.
 // Image export and its minimal GPU tests need no animation-runtime link dependency.

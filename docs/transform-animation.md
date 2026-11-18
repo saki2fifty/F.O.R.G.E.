@@ -1034,8 +1034,17 @@ withholds UI composition. Timeline seek/play/stop are shared by native controls
 and source-document automation/MCP. The model stays tick0/paused; CSS time stays
 zero and input/commands are inactive. Source/project/Scene/target generations and
 the existing RuntimeUiHost single-presenter lifecycle remain authoritative.
-See [ADR051](decisions/051-stopped-sequence-ui.md). Single-clip frame export and
-unrestricted Edit Scene HUD overlays remain unavailable.
+See [ADR051](decisions/051-stopped-sequence-ui.md). Single-clip frame export borrows
+this same complete proposal through SequenceFrameSource and ViewImageTask. A bound
+current target, clean published source and prepared materials are required. A
+run-scoped token guards the Scene/source revisions, document generation, target
+and retained catalog; end-exclusive explicit times hold normal playback. Existing
+output/readback/PNG/WebP/silent AVI owners are reused. Source retirement prevents
+obsolete cursor restoration. Clip receipts use `forge.clip-preview-frames` version1
+with `scene`, `target` and `clip`; sequence receipts retain their existing format.
+Both retain source/catalog digests and planned/completed sample times. This does
+not execute gameplay or record live audio. Unrestricted Edit Scene HUD overlays
+remain unavailable.
 
 ## Runtime, failures and recovery
 

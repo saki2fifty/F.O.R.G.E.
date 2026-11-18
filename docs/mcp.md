@@ -404,7 +404,8 @@ Scene/source history. Existing asset read/write grants and replay guards apply.
 `preview.model_ready` describes a projected native UI model, not displayed pixels;
 inspect its `ui`, target, seconds, playing and generation fields. A stopped visible
 Game view presents that model noninteractively. Native RCSS time remains zero;
-single-clip frame export and interactive gameplay are outside this workflow.
+use the existing capture tools below to export a clean published clip. Interactive
+gameplay remains outside stopped preview.
 Material, material graph, collision, editable mesh, particle, terrain, Tile Set,
 Tile Map, Sprite atlas, animation states/blend space/mask, transform animation and
 Navigation Behavior, UI Localization, Application States and Render Texture are bound. `forge_asset_behavior_catalog` describes the native
@@ -1930,8 +1931,15 @@ observation and `players` includes separate `forge.animator` and
 weight. Existing C++/SDK queries keep transform-first priority. These are copied
 observations of the same native owners, not an additional authoring operation.
 
-Timeline frame export uses `capture_sequence_open/read/start`, the actual sequence
-controller and observed source revision/preview generation. Start chooses a new
+Timeline frame export uses `capture_sequence_open/read/start`, the actual Timeline
+source and observed source revision/preview generation. For a single clip, open it
+through the Source workspace and bind/seek its target with
+`asset_document_preview_seek`; then read `capture_sequence_read`. The added
+`source_kind:"clip"`, `clip` and `target` identify that source; the existing
+`controller` request field carries its target object. `capture_sequence_open`
+continues to open Scene sequences. A clip must be clean/published with prepared
+materials. Clip receipts use `forge.clip-preview-frames` version1 and explicit
+clip/target IDs; existing sequence receipts remain unchanged. Start chooses a new
 folder and native end-exclusive frame plan; fixed dimensions render real pixels.
 Saved Scene UI Documents and sequence-sampled UI Values compose through the same
 Game/output UI renderer at density1, with native CSS presentation time0 and no

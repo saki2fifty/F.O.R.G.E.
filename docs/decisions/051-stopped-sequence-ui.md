@@ -27,8 +27,16 @@ generation. Pending material preparation withholds the UI candidate. No second
 sampler, clock or UI model registry is introduced.
 
 The existing per-entity single-clip Edit Scene overlay remains unchanged. Stopped
-UI composition is available in Game; single-clip frame export and unrestricted
-Edit Scene HUD composition remain outside this profile. Arbitrary DOM property tracks and native CSS seeking
+UI composition and frame export are available in Game for both source kinds.
+Single-clip export borrows the existing Timeline sampler and copied UI Context
+through SequenceFrameSource. The current target, Scene/source revisions, project
+generation, catalog and export token guard every explicit sample. Normal preview
+playback is held; the prior cursor/preview/play state is restored only while its
+source remains current. A clean published clip and prepared materials are required.
+Existing PNG/WebP/silent AVI output, cancellation and output authorization remain
+owned by ViewImageTask. New clip receipts identify clip/target explicitly; existing
+sequence receipt formats remain unchanged. Unrestricted Edit Scene HUD composition
+remains outside this profile. Arbitrary DOM property tracks and native CSS seeking
 remain unsupported. Preview CSS presentation uses a fixed zero time rather than
 pretending to seek transient CSS state. Keep simultaneous binding/transition
 writers on one property outside the supported value-animation workflow.

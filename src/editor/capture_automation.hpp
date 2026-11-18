@@ -100,6 +100,11 @@ struct CaptureAutomation {
                                  {"reason", frames->reason}};
         if (frames) {
             value["sequence"]["format"] = frames->output.format();
+            if (frames->source.clip) {
+                value["sequence"]["source_kind"] = "clip";
+                value["sequence"]["clip"] = frames->source.clip;
+                value["sequence"]["target"] = frames->source.controller.entity;
+            }
             auto encoded = frames->encoded_document();
             if (!encoded.is_null()) {
                 encoded["file"] = path_utf8(frames->folder / encoded.at("file").get<std::string>());
@@ -138,12 +143,18 @@ struct CaptureAutomation {
         if (!info.catalog || info.catalog->project_root() != files.document.project() ||
             info.controller.scene != scene.asset_id())
             return {{"ready", false}};
-        return {{"ready", true},
-                {"controller", info.controller.entity},
-                {"scene", info.controller.scene},
-                {"duration", info.duration},
-                {"source_revision", info.revision},
-                {"preview_generation", info.preview_generation}};
+        Json value{{"ready", true},
+                   {"controller", info.controller.entity},
+                   {"scene", info.controller.scene},
+                   {"duration", info.duration},
+                   {"source_revision", info.revision},
+                   {"preview_generation", info.preview_generation}};
+        if (info.clip) {
+            value["source_kind"] = "clip";
+            value["clip"] = info.clip;
+            value["target"] = info.controller.entity;
+        }
+        return value;
     }
     static std::filesystem::path image_destination(const std::filesystem::path& root,
                                                    const Json& request, bool hdr = false) {
@@ -188,8 +199,10 @@ struct CaptureAutomation {
             result.push_back(
                 automation_method("capture.sequence.read",
                                   "Read the existing Timeline "
-                                  "sequence export source, cursor generation, duration "
-                                  "and readiness. No rendering starts.",
+                                  "sequence or published single-clip export source, cursor "
+                                  "generation, duration and readiness. For clips, controller "
+                                  "identifies the bound target; source_kind, clip and target "
+                                  "are also returned. No rendering starts.",
                                   "capture.read", automation_object(), false,
                                   [&scene, &files, providers](const Json&) {
                                       files.document.check_ownership();
@@ -658,7 +671,8 @@ struct CaptureAutomation {
         result.push_back(automation_method(
             "capture.sequence.start",
             "Export sampled Timeline "
-            "preview frames through the existing image task at its exact source "
+            "preview frames, from a Scene sequence or a clean published single clip on its "
+            "bound preview object, through the existing image task at its exact source "
             "revision/generation. "
             "Choose a new folder inside the output grant. Samples are end-exclusive; fixed output "
             "uses real renderer pixels, not resized PNG files. Saved Scene UI Documents and "
@@ -673,7 +687,11 @@ struct CaptureAutomation {
             "sRGB frames, FPS0.001..240, rational timing and JPEG quality1..100 (default90). "
             "AVI output is lossy and bounded to256MiB; PNGs stay exact. "
             "supervised encoding has finite time/memory and can be cancelled before commit. "
-            "Image inspection still reads an explicitly selected completed PNG frame.",
+            "Image inspection still reads an explicitly selected completed PNG frame. "
+            "For a single clip, open/bind/seek it with the Source workspace preview tools, "
+            "read capture.sequence.read, then pass its controller (the target object) and guards. "
+            "Clip receipts identify the clip and target; prior cursor/playback is restored only "
+            "while that source remains current.",
             "capture.write",
             automation_object(
                 {{"path", automation_text(2047, 1)},

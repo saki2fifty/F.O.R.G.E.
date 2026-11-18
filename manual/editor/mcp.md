@@ -432,7 +432,11 @@ Scene entity and time in seconds. Optional `playing:true` starts **Play preview*
 the projected UI model. `model_ready` describes the model, while the visible
 stopped **Game** view displays the camera and saved UI. Preview leaves Scene and
 clip history unchanged. Buttons and text input are inactive; native RCSS time
-stays at zero. Use an Animation Sequence for frame export.
+stays at zero. For a clean published clip, use **forge_capture_sequence_read**
+and **forge_capture_sequence_start** after binding its preview object. The read
+returns **source_kind: clip**, **clip** and **target**; pass its **controller**
+(the target object), source revision and preview generation unchanged. See
+[Export clip frames](transform-animation.md).
 
 For [skeletal retargeting](animation-retargeting.md), the agent can inspect published
 joint identities, parents and rest transforms, create or open a `.retarget.json`

@@ -60,7 +60,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 
 ## Animation
 
-- [Transform animation timeline, camera controls and C++ component fields](editor/transform-animation.md)
+- [Transform animation timeline, clip frame export, camera controls and C++ component fields](editor/transform-animation.md)
 - [Arrange up to eight skeletal or object clips per track, layer overlaps, crossfade properties/Material/component fields, move, trim, split or duplicate camera shots and choose timing curves, repeat nested controller placements with rates and loops, and export PNG/WebP/AVI previews](editor/animation-sequences.md)
 - [Transfer animation between imported skeletons](editor/animation-retargeting.md)
 - [Compose clips, blends and additive layers with named graph inputs](editor/animation-graphs.md)

@@ -51,23 +51,109 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         sequence_.export_frames_available = std::move(available);
     }
     bool frame_export_ready() const override {
-        return sequence_mode() && sequence_.frame_export_ready();
+        return sequence_mode() ? sequence_.frame_export_ready()
+                               : !clip_frames_ && clip_frame_source_current();
     }
     AnimationSequenceEditor::FrameExportInfo frame_export_info() const override {
-        return sequence_.frame_export_info();
+        if (sequence_mode())
+            return sequence_.frame_export_info();
+        if (!frame_export_ready())
+            throw std::runtime_error("Choose a current preview object and finish publishing the "
+                                     "clip and preparing its materials before exporting frames");
+        return {target_,
+                double(clip_->duration) / animation_timebase,
+                preview_scene_->revision(),
+                clip_frame_serial_,
+                material_catalog_,
+                clip_->asset};
     }
-    Json frame_export_document() const override { return sequence_.frame_export_document(); }
+    Json frame_export_document() const override {
+        if (sequence_mode())
+            return sequence_.frame_export_document();
+        if (!clip_frame_source_current() ||
+            (clip_frames_ && !frame_export_current(clip_frames_->token)))
+            throw std::runtime_error("Clip preview source changed before frame export");
+        return preview_scene_->document();
+    }
     Json frame_export_ui_snapshot() const override {
-        return sequence_mode() ? sequence_.preview_ui_snapshot() : Json();
+        if (sequence_mode())
+            return sequence_.preview_ui_snapshot();
+        return preview_active() && preview_ready_ && clip_frame_source_current() &&
+                       (!clip_frames_ || frame_export_current(clip_frames_->token))
+                   ? ui_preview_.snapshot()
+                   : Json();
     }
-    std::uint64_t begin_frame_export() override { return sequence_.begin_frame_export(); }
+    std::uint64_t begin_frame_export() override {
+        if (sequence_mode())
+            return sequence_.begin_frame_export();
+        (void)frame_export_info();
+        advance_clip_frame_generation();
+        clip_frames_ = ClipFrameLease{clip_frame_serial_,
+                                      preview_scene_->revision(),
+                                      document_->revision(),
+                                      project_->generation(),
+                                      target_,
+                                      material_catalog_,
+                                      time_,
+                                      preview_,
+                                      playing_};
+        preview_ = true;
+        playing_ = false;
+        return clip_frame_serial_;
+    }
     bool frame_export_current(std::uint64_t token) const override {
-        return sequence_mode() && sequence_.frame_export_current(token);
+        if (sequence_mode())
+            return sequence_.frame_export_current(token);
+        return clip_frames_ && clip_frames_->token == token && token == clip_frame_serial_ &&
+               clip_frame_source_current() &&
+               clip_frames_->scene_revision == preview_scene_->revision() &&
+               clip_frames_->document_revision == document_->revision() &&
+               clip_frames_->project_generation == project_->generation() &&
+               clip_frames_->target == target_ && clip_frames_->catalog == material_catalog_;
     }
     void sample_frame_export(std::uint64_t token, double seconds) override {
-        sequence_.sample_frame_export(token, seconds);
+        if (sequence_mode()) {
+            sequence_.sample_frame_export(token, seconds);
+            return;
+        }
+        if (!frame_export_current(token))
+            throw std::runtime_error("Clip preview changed during frame export");
+        if (!std::isfinite(seconds) || seconds < 0 ||
+            seconds >= double(clip_->duration) / animation_timebase)
+            throw std::runtime_error("Frame sample must be inside the clip duration");
+        time_ = seconds * animation_timebase;
+        sample_fields(time_);
+        preview_ = true;
+        playing_ = false;
+        auto sampled = preview(preview_scene_->document());
+        if (!preview_ready_)
+            throw std::runtime_error("Wait for the complete clip preview before exporting frames");
+        (void)preview_ui_snapshot(*project_, *preview_scene_, sampled);
     }
-    void end_frame_export(std::uint64_t token) override { sequence_.end_frame_export(token); }
+    void end_frame_export(std::uint64_t token) override {
+        if (sequence_mode()) {
+            sequence_.end_frame_export(token);
+            return;
+        }
+        if (!clip_frames_ || clip_frames_->token != token)
+            return;
+        const bool current = frame_export_current(token);
+        const auto saved = std::exchange(clip_frames_, {});
+        if (!current) {
+            stop_preview();
+            return;
+        }
+        time_ = saved->time;
+        sample_fields(time_);
+        preview_ = saved->preview;
+        playing_ = saved->playing;
+        preview_ready_ = false;
+        if (preview_) {
+            const auto sampled = preview(preview_scene_->document());
+            (void)preview_ui_snapshot(*project_, *preview_scene_, sampled);
+        } else
+            ui_preview_.reset();
+    }
     bool take_scene_save_request() { return std::exchange(sequence_.save_requested, false); }
     bool pending() const { return job_ != 0; }
     bool dirty() const {
@@ -78,14 +164,14 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
     bool can_undo() const {
         if (sequence_mode())
             return sequence_.can_undo();
-        return document_ && !pending() &&
+        return document_ && !pending() && !clip_frames_ &&
                (curve_dirty_ || curve_drag_ || box_ || pan_ || document_->can_undo());
     }
     bool can_redo() const {
         if (sequence_mode())
             return sequence_.can_redo();
-        return document_ && !pending() && !curve_dirty_ && !curve_drag_ && !box_ && !pan_ &&
-               document_->can_redo();
+        return document_ && !pending() && !clip_frames_ && !curve_dirty_ && !curve_drag_ && !box_ &&
+               !pan_ && document_->can_redo();
     }
     const TransformAnimationDocument* document() const { return document_.get(); }
     const std::set<AssetId>& selected_keys() const { return selected_keys_; }
@@ -94,6 +180,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         if (!catalog || catalog == material_catalog_)
             return;
         sequence_.asset_catalog_changed(catalog);
+        advance_clip_frame_generation();
         material_catalog_ = std::move(catalog);
         if (material_state_)
             material_state_->preview.refresh();
@@ -158,11 +245,14 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                                : document_ && preview_ && target_.entity && clip_;
     }
     void stop_preview() {
+        clip_frames_.reset();
         preview_ = playing_ = preview_ready_ = false;
         ui_preview_.reset();
         sequence_.stop_preview();
     }
     void seek_preview(Scene& scene, const std::string& entity, double seconds) {
+        if (clip_frames_)
+            throw std::runtime_error("Finish the frame export before seeking the clip preview");
         if (sequence_mode() || !document_ || !clip_)
             throw std::runtime_error("Open a single animation clip first");
         if (!std::isfinite(seconds) || seconds < 0 ||
@@ -171,7 +261,8 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         const auto target = entity.empty() ? EntityRef{} : scene.reference(entity);
         if (!entity.empty() && !target.entity)
             throw std::runtime_error("Choose a current preview object");
-        if (target.entity && target_ != target)
+        if (target.entity && (target_ != target || preview_scene_ != &scene ||
+                              preview_project_generation_ != project_->generation()))
             bind(scene, entity);
         cancel_curve_drag();
         if (!apply_pending_curves())
@@ -184,6 +275,8 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         playing_ = preview_ready_ = false;
     }
     void play_preview(bool playing) {
+        if (clip_frames_)
+            throw std::runtime_error("Finish the frame export before playing the clip preview");
         if (sequence_mode() || !document_ || !target_.entity || !clip_)
             throw std::runtime_error("Choose a single clip and preview object first");
         if (time_ >= clip_->duration)
@@ -410,7 +503,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             cancel_curve_drag();
         if (expanded && document_) {
             ImGui::TextWrapped("%s", path_utf8(document_->locator()).c_str());
-            ImGui::BeginDisabled(locked || pending());
+            ImGui::BeginDisabled(locked || pending() || clip_frames_.has_value());
             if (ui::button("Save & Publish",
                            "Save the source and publish the clip for Play and export."))
                 request_save();
@@ -478,6 +571,14 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             ImGui::SameLine();
             ImGui::Checkbox("Loop preview", &preview_loop_);
             ImGui::SliderFloat("Preview speed", &preview_speed_, 0, 4, "%.2fx");
+            ImGui::BeginDisabled(
+                !frame_export_ready() || !sequence_.export_frames_requested ||
+                (sequence_.export_frames_available && !sequence_.export_frames_available()));
+            if (ui::button("Export frames…", "Export this clip on the preview object as numbered "
+                                             "PNGs, a WebP animation or a silent AVI movie."))
+                sequence_.export_frames_requested();
+            FORGE_UI_PROBE("animation:export-frames");
+            ImGui::EndDisabled();
             ImGui::TextColored(preview_ ? ImVec4{.4f, .85f, 1, 1} : ImVec4{.6f, .65f, .7f, 1},
                                preview_ ? "PREVIEW — temporary view; Scene source is unchanged"
                                         : "Preview stopped — authored Scene view");
@@ -522,7 +623,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                 ImGui::CloseCurrentPopup();
             ImGui::TextWrapped(
                 "Save and publish this animation, discard the draft, or keep editing?");
-            ImGui::BeginDisabled(locked || pending());
+            ImGui::BeginDisabled(locked || pending() || clip_frames_.has_value());
             if (ui::button("Save", "Publish before closing.")) {
                 request_save();
                 ImGui::CloseCurrentPopup();
@@ -549,6 +650,10 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
     // Domain actions shared with interaction tests. Scene attachment has Scene history;
     // keys have source-document history.
     void bind(Scene& scene, const std::string& id) {
+        if (!document_ || !project_)
+            throw std::runtime_error("Open a single animation clip before choosing its target");
+        if (clip_frames_)
+            throw std::runtime_error("Finish the frame export before changing its target");
         const auto entity = scene.entity(id);
         if (!entity || entity.has(flecs::Prefab))
             throw std::runtime_error("Choose a scene object for animation preview");
@@ -557,6 +662,9 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         target_ = {scene.asset_id(), EntityId::parse(id)};
         try {
             capture(scene, false);
+            advance_clip_frame_generation();
+            preview_scene_ = &scene;
+            preview_project_generation_ = project_->generation();
             preview_ready_ = false;
         } catch (...) {
             target_ = before;
@@ -591,6 +699,34 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
     bool preview_ready_ = false;
     std::optional<EntityRef> next_sequence_;
     std::unique_ptr<TransformAnimationDocument> document_;
+    SceneDocument* project_ = nullptr;
+    Scene* preview_scene_ = nullptr;
+    std::uint64_t preview_project_generation_ = 0, clip_frame_serial_ = 0;
+    struct ClipFrameLease {
+        std::uint64_t token, scene_revision, document_revision, project_generation;
+        EntityRef target;
+        std::shared_ptr<const AssetCatalog> catalog;
+        double time;
+        bool preview, playing;
+    };
+    std::optional<ClipFrameLease> clip_frames_;
+    void advance_clip_frame_generation() {
+        if (clip_frame_serial_ == std::numeric_limits<std::uint64_t>::max())
+            throw std::runtime_error("Clip frame export generation exhausted");
+        ++clip_frame_serial_;
+        if (clip_frames_)
+            stop_preview();
+    }
+    bool clip_frame_source_current() const {
+        return document_ && clip_ && project_ && preview_scene_ && material_catalog_ && !dirty() &&
+               !box_ && !pan_ && !curve_drag_ && !drag_key_ &&
+               document_->project() == project_->project() &&
+               material_catalog_->project_root() == project_->project() &&
+               preview_project_generation_ == project_->generation() &&
+               target_.scene == preview_scene_->asset_id() && target_.entity &&
+               preview_scene_->entity(target_.entity.str()) &&
+               (clip_->material_bindings.empty() || (material_error_.empty() && material_ready()));
+    }
     std::unique_ptr<AssetImportService> service_;
     std::optional<TransformAnimationClip> clip_;
     std::shared_ptr<const AssetCatalog> published_;
@@ -677,6 +813,8 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         curve_drag_ = false;
         curve_fit_handles_ = false;
         stop_preview();
+        project_ = nullptr;
+        preview_scene_ = nullptr;
         material_state_.reset();
         material_catalog_.reset();
         material_fields_.clear();
@@ -720,6 +858,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                                asset_detail::content_digest(bytes);
         finish_close();
         document_ = std::move(next);
+        project_ = &project;
         service_ = std::move(service);
         material_catalog_ = std::make_shared<const AssetCatalog>(catalog);
         needs_publish_ = needs;
@@ -731,6 +870,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         error_.clear();
     }
     void changed() {
+        advance_clip_frame_generation();
         cancel_ruler_capture();
         curve_drag_ = false;
         clip_ = document_->source().clip();

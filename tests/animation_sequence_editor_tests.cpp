@@ -22,6 +22,7 @@ void expect_close(double a, double b) {
           "Sequence UI numeric oracle differs: " + std::to_string(a) + " vs " + std::to_string(b));
 }
 #include "camera_sequence_editor_workflow.hpp"
+#include "clip_frame_controls.hpp"
 #include "clip_ui_timeline_tests.hpp"
 #include "nested_sequence_editor_workflow.hpp"
 #include "sequence_frame_export_tests.hpp"
@@ -546,6 +547,10 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 4 && std::string_view(argv[1]) == "--clip-frame-controls") {
+            clip_frame_controls(argv[2], argv[3]);
+            return 0;
+        }
         if (argc == 4 && std::string_view(argv[1]) == "--clip-ui") {
             clip_ui_timeline(argv[2], argv[3]);
             return 0;

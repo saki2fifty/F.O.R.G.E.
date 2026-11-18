@@ -29,34 +29,41 @@ inline std::array<Pixels, 3> clip_frames(DiligentPresentation& presentation,
     constexpr unsigned width = 800, height = 600;
     std::array<Pixels, 3> pixels;
     float pulse_opacity = -1;
+    const auto render = [&]() {
+        presentation.begin_frame();
+        ui.sync(play, root, true, ui.sequence_preview_active());
+        // Match Game composition: one complete raw proposal supplies both consumers.
+        const auto sampled = timeline.preview(scene.document());
+        const auto snapshot = timeline.preview_ui_snapshot(project, scene, sampled);
+        check(snapshot.is_object() && snapshot.at("errors").empty(),
+              "Clip Game UI projection failed");
+        check(ui.prepare_sequence_frame(play, root, snapshot, width, height),
+              ui.diagnostic().c_str());
+        RenderTextureOverlay overlay = [&](auto* context, AssetId id, auto* view, unsigned w,
+                                           unsigned h) {
+            ui.draw_output(play, context, id, view, w, h);
+        };
+        auto* image = renderer.game(graphics, extract_render_scene(scene.preview_document(sampled)),
+                                    width, height, 0, nullptr, &overlay);
+        check(image && ui.draw(play, graphics, image), "Clip Game composition failed");
+        return image;
+    };
+    const auto submit = [&]() {
+        resources->submit();
+        presentation.end_frame(graphics);
+        graphics->Flush();
+        graphics->FinishFrame();
+        presentation.device()->ReleaseStaleResources();
+    };
     for (unsigned i = 0; i < pixels.size(); ++i) {
         timeline.seek_preview(scene, target, .5 * i);
         Diligent::ITextureView* image = nullptr;
         unsigned stable = 0;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
         while (stable < 3) {
-            presentation.begin_frame();
-            ui.sync(play, root, true, ui.sequence_preview_active());
-            // Match Game composition: one complete raw proposal supplies both consumers.
-            const auto sampled = timeline.preview(scene.document());
-            const auto snapshot = timeline.preview_ui_snapshot(project, scene, sampled);
-            check(snapshot.is_object() && snapshot.at("errors").empty(),
-                  "Clip Game UI projection failed");
-            check(ui.prepare_sequence_frame(play, root, snapshot, width, height),
-                  ui.diagnostic().c_str());
-            RenderTextureOverlay overlay = [&](auto* context, AssetId id, auto* view, unsigned w,
-                                               unsigned h) {
-                ui.draw_output(play, context, id, view, w, h);
-            };
-            image = renderer.game(graphics, extract_render_scene(scene.preview_document(sampled)),
-                                  width, height, 0, nullptr, &overlay);
-            check(image && ui.draw(play, graphics, image), "Clip Game composition failed");
+            image = render();
             stable = renderer.pending() ? 0 : stable + 1;
-            resources->submit();
-            presentation.end_frame(graphics);
-            graphics->Flush();
-            graphics->FinishFrame();
-            presentation.device()->ReleaseStaleResources();
+            submit();
             check(std::chrono::steady_clock::now() < deadline, "Clip Game resources stalled");
         }
         auto* document = Rml::GetContext(0)->GetDocument(0);
@@ -94,6 +101,46 @@ inline std::array<Pixels, 3> clip_frames(DiligentPresentation& presentation,
         check(ui.buttons(instance).is_null() && !ui.command(instance, "Pause", {}),
               "Clip Game preview exposed gameplay authority");
     }
+    // The production image task borrows this same clip source and writes actual GPU pixels.
+    ui::ViewImageTask task;
+    constexpr ui::SequenceFramePlan plan{0, 2, 3};
+    const auto folder = output / "Frames";
+    std::string message;
+    check(task.begin_sequence(timeline, plan, folder, root, scene.asset_id(), message,
+                              {true, int(width), int(height)}),
+          "Clip frame export did not start");
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(45);
+    while (task.busy()) {
+        task.poll(presentation, graphics, root, scene.asset_id(), message);
+        if (task.sequence_active() && timeline.preview_active()) {
+            auto* image = render();
+            task.capture(ui::ViewImageTask::View::Game, presentation, graphics, image, message,
+                         !renderer.pending() && ui.sequence_frame_ready());
+            submit();
+        }
+        check(std::chrono::steady_clock::now() < deadline, "Clip GPU frame export stalled");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    const auto receipt = Json::parse(read(folder / "frames.json"));
+    check(receipt.at("format") == "forge.clip-preview-frames" &&
+              receipt.at("state") == "complete" && receipt.at("completed_frames") == 3 &&
+              receipt.at("clip") == Json(timeline.document()->source().asset()) &&
+              receipt.at("target") == target && !receipt.contains("sequence"),
+          "Clip export lost its explicit source/target receipt");
+    for (unsigned i = 0; i < pixels.size(); ++i) {
+        const auto bytes = read(folder / plan.filename(i));
+        ForgeImagePixels decoded{};
+        const bool ok = forge_png_decode(bytes.data(), bytes.size(), FORGE_VIEW_IMAGE_MAX_EXTENT,
+                                         FORGE_VIEW_IMAGE_PIXEL_LIMIT, false, &decoded);
+        const bool equal = ok && decoded.width == width && decoded.height == height &&
+                           decoded.size == pixels[i].size() &&
+                           std::memcmp(decoded.pixels, pixels[i].data(), decoded.size) == 0;
+        forge_image_pixels_free(&decoded);
+        check(equal, "Exported clip PNG differs from the actual Game/UI sample pixels");
+    }
+    const auto restored = timeline.frame_export_ui_snapshot();
+    check(restored.at("documents").at(0).at("model").at("width") == 360,
+          "Clip GPU export failed to restore the prior Timeline cursor");
     timeline.stop_preview();
     ui.sync(play, root, true);
     check(!ui.sequence_preview_active() && !ui.presenter_alive() && !ui.asset_snapshot() &&

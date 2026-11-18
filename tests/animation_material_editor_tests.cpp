@@ -331,6 +331,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
         const auto revision_pending = scene.revision();
         const auto sample = pending.preview(before_pending);
         check(sample == before_pending && pending.preview_active() &&
+                  !pending.frame_export_ready() &&
                   pending.preview_ui_snapshot(project, scene, sample).is_null() &&
                   scene.revision() == revision_pending &&
                   pending.document()->source().document == saved,

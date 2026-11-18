@@ -689,15 +689,24 @@ class ViewImageTask {
             ImGui::SetNextWindowSizeConstraints(
                 {0, 0}, {std::max(240.f, available.x - 32), std::max(180.f, available.y - 32)});
         }
-        if (ImGui::BeginPopupModal("Export sequence frames", nullptr,
+        const auto* frame_title = frames_ && frames_->source.clip
+                                      ? "Export clip frames###Export sequence frames"
+                                      : "Export sequence frames";
+        if (ImGui::BeginPopupModal(frame_title, nullptr,
                                    ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
             if (!frames_) {
                 frame_popup_ = false;
                 ImGui::CloseCurrentPopup();
             } else if (frames_->configuring) {
-                ImGui::TextUnformatted("Sequence preview: numbered PNG frames");
+                ImGui::TextUnformatted(frames_->source.clip
+                                           ? "Clip preview: numbered PNG frames"
+                                           : "Sequence preview: numbered PNG frames");
                 ImGui::TextWrapped("Choose a new folder. Your previous preview position returns "
-                                   "when export ends.");
+                                   "when export ends while its source remains current.");
+                if (frames_->source.clip)
+                    ImGui::TextWrapped("Clip %s | Preview object %s",
+                                       frames_->source.clip.str().c_str(),
+                                       frames_->source.controller.entity.str().c_str());
                 ImGui::BeginChild(
                     "Frame settings",
                     {std::max(220.f, std::min(620.f * scale, available.x - 96.f * scale)),
@@ -825,7 +834,7 @@ class ViewImageTask {
                 if (!frames_->validation.empty())
                     ImGui::TextWrapped("%s", frames_->validation.c_str());
                 if (valid)
-                    ImGui::TextWrapped("Samples %.6f–%.6f s | Sequence duration %.6f s",
+                    ImGui::TextWrapped("Samples %.6f–%.6f s | Timeline duration %.6f s",
                                        frames_->plan.sample(0),
                                        frames_->plan.sample(frames_->plan.frame_count - 1),
                                        frames_->source.duration);
@@ -1153,6 +1162,12 @@ class ViewImageTask {
                       {"error", receipt.error},
                       {"reason", receipt.reason},
                       {"frames", Json::array()}};
+        if (receipt.source.clip) {
+            document["format"] = "forge.clip-preview-frames";
+            document.erase("sequence");
+            document["target"] = receipt.source.controller.entity;
+            document["clip"] = receipt.source.clip;
+        }
         document["output_format"] = receipt.output.format();
         const auto encoded = receipt.encoded_document();
         if (!encoded.is_null())
