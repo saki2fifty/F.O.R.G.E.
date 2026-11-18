@@ -4234,3 +4234,39 @@ is claimed. PNG SHA256:
 Reproduce with `forge_navigation_link_editor_tests --capture-areas GALLERY OUTPUT`
 or `--capture-areas-xy`. Exact actor/source hashes and both capture identities
 remain in the local navigation-area batch's `overlay-captures.json`.
+
+## Avoidance policy Inspector
+
+`manual/images/navigation-avoidance-policy-controls.png` is an unretouched780×720
+capture of the actual Runtime-role ComponentInspector, rendered by the existing
+SDL software capture owner. Reproduce with
+`forge_navigation_agent_editor_tests --capture-avoidance-policy OUTPUT.png`.
+The view shows Horizon1.250, Layers/Mask2147483648 and Priority0.875 in the live
+section. The isolated fixture has no Keep callback, so its Keep button is disabled;
+separate ordinary/Prefab cases verify selective Keep, Undo/Redo and save/reopen.
+The original capture was personally reviewed and copied byte-for-byte. Matching
+build/test/executable provenance is held in the local avoidance-policy batch's
+`inspector-capture.json`.
+
+PNG SHA256: `a5415aaa7a100b4c9b212825534b1c6b2cb2e054863c90dae3c8e9000f8af69e`.
+This is a native controls capture, not a full-editor screenshot, physical GPU
+measurement or Windows/D3D12 acceptance.
+
+## Avoidance policy Game views
+
+`manual/images/navigation-avoidance-policies-game.png` and
+`manual/images/navigation-avoidance-policies-xy-game.png` are lossless640×360
+captures of the actual Game renderer at fixed tick90 in Gallery233/234. Orange
+and Gold yield; Cyan and Violet retain their routes under distinct priorities
+and asymmetric high-bit masks. The existing native Game fixture compares four
+exact source/source-hidden relocated display pairs per Scene, including portrait.
+The original RGB was encoded without cropping, resizing, added controls or any
+other pixel changes. Both captures were personally reviewed. This is software
+Vulkan/lavapipe evidence, not physical GPU or Windows/D3D12 acceptance.
+
+PNG SHA256 values: `ad5132fe21a2d0a757458fba815ab6181644fb542f792bd0a0690563dcd19c7f`
+and `983a08b9f37de8977e3c97edd45d39d758beb96c25b883b7b09a7b97b7c4a784`.
+Reproduce with `forge_navigation_polygon_gallery_vulkan_probe GALLERY SCRATCH
+Scenes/233-navigation-avoidance-policies.scene.json` or the matching234 Scene.
+Native executable, source, Scene, raw PPM and exact comparison receipt hashes are
+retained in the local avoidance-policy batch's `game-screenshots.json`.

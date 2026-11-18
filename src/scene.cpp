@@ -1240,10 +1240,25 @@ Json Scene::serialize(bool effective, bool ui_only) const {
                         continue;
                 } else if (item.value("property_overrides", Json::object()).contains(type.name)) {
                     auto& intent = item["property_overrides"][type.name];
-                    for (const auto& [field, native] : value.items())
-                        if (!detail::json_value_equal(native, canonical.at(field)))
+                    // Omitted optional fields still have their declared semantic defaults.
+                    const auto preserve_native_field = [&](const std::string& field) {
+                        const auto& native =
+                            value.contains(field) ? value.at(field) : type.defaults.at(field);
+                        const auto& baseline = canonical.contains(field) ? canonical.at(field)
+                                                                         : type.defaults.at(field);
+                        if (!detail::json_value_equal(native, baseline))
                             intent[field] = detail::merge_builtin_property_extensions(
-                                type, field, native, expected.value(field, canonical.at(field)));
+                                type, field, native, expected.value(field, baseline));
+                    };
+                    for (const auto& [field, unused] : value.items()) {
+                        (void)unused;
+                        preserve_native_field(field);
+                    }
+                    for (const auto& [field, unused] : canonical.items()) {
+                        (void)unused;
+                        if (!value.contains(field))
+                            preserve_native_field(field);
+                    }
                 }
             }
             if (effective) {
@@ -1263,6 +1278,9 @@ Json Scene::serialize(bool effective, bool ui_only) const {
                     if (value.contains(field))
                         v = detail::merge_builtin_property_extensions(type, field, value.at(field),
                                                                       v);
+                    else if (type.defaults.contains(field))
+                        v = detail::merge_builtin_property_extensions(type, field,
+                                                                      type.defaults.at(field), v);
                 continue;
             }
             auto& data = item["components"][type.name];

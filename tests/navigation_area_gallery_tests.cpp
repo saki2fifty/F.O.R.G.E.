@@ -14,8 +14,10 @@
 #include <thread>
 using namespace forge;
 namespace {
-constexpr std::array paths{"Scenes/231-navigation-area-costs.scene.json",
-                           "Scenes/232-navigation-area-costs-xy.scene.json"};
+constexpr std::array area_paths{"Scenes/231-navigation-area-costs.scene.json",
+                                "Scenes/232-navigation-area-costs-xy.scene.json"};
+constexpr std::array policy_paths{"Scenes/233-navigation-avoidance-policies.scene.json",
+                                  "Scenes/234-navigation-avoidance-policies-xy.scene.json"};
 constexpr std::array names{"Cyan - unit costs", "Orange - Area 2 cost 20",
                            "Violet - default area only"};
 void check(bool value, const char* why) {
@@ -27,7 +29,8 @@ Json read(const std::filesystem::path& path) {
     std::ifstream(path) >> value;
     return value;
 }
-void prepare(const std::filesystem::path& root, const std::filesystem::path& worker) {
+void prepare(const std::filesystem::path& root, const std::filesystem::path& worker, bool peers) {
+    const auto& paths = peers ? policy_paths : area_paths;
     const auto lease = std::make_shared<ProjectLease>(root);
     for (unsigned plane = 0; plane < paths.size(); ++plane) {
         EngineContext engine;
@@ -35,14 +38,14 @@ void prepare(const std::filesystem::path& root, const std::filesystem::path& wor
         scene.load(root / paths[plane]);
         NavigationSettings settings;
         settings.plane = plane ? NavigationPlane::PlanarXY : NavigationPlane::Spatial3D;
-        settings.dynamic_obstacles = true;
+        settings.dynamic_obstacles = !peers;
         const auto effective = scene.effective_document();
         const auto catalog = AssetCatalog::open_project(root);
         const auto profiles = navigation_profiles(catalog, scene.asset_id());
         std::optional<AssetRecord> current;
         if (const auto found = profiles.find("default"); found != profiles.end()) {
             const auto& selected = catalog.records().at(found->second);
-            if (selected.schema_version == 9 &&
+            if ((peers || selected.schema_version == 9) &&
                 selected.metadata.at("settings") == Json(settings) &&
                 navigation_geometry_digest(root, effective, selected.metadata) ==
                     selected.metadata.at("geometry_sha256").get<std::string>()) {
@@ -53,7 +56,8 @@ void prepare(const std::filesystem::path& root, const std::filesystem::path& wor
         const auto record =
             current ? *current
                     : prepare_navigation(root, effective, settings, worker).publish(effective);
-        check(record.schema_version == 9, "Area Gallery did not publish the classified profile");
+        check(peers || record.schema_version == 9,
+              "Area Gallery did not publish the classified profile");
         engine.world().world().each([&](flecs::entity entity, const NavigationAgent& value) {
             auto agent = value;
             agent.navmesh = {record.id};
@@ -131,22 +135,109 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& pa
           "Gallery did not demonstrate direct, weighted and excluded looping routes");
     check(read(root / path) == saved, "Area Gallery runtime changed authored source");
 }
+void exercise_policies(const std::filesystem::path& root, const std::filesystem::path& path,
+                       bool planar) {
+    const auto saved = read(root / path);
+    GameSessionConfig configuration;
+    configuration.content_root = root;
+    GameSession session(configuration);
+    const auto candidate = session.prepare(saved);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+    while (!session.poll_preparation(candidate).ready) {
+        check(std::chrono::steady_clock::now() < deadline, "Avoidance Gallery resources timed out");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    session.activate(candidate, {}, false);
+    auto& world = session.active();
+    constexpr std::array policy_names{"Cyan - priority 0.8", "Orange - priority 0.2",
+                                      "Violet - peer mask zero", "Gold - observes high bit"};
+    std::array<flecs::entity, 4> actors;
+    for (const auto& row : saved.at("entities"))
+        for (unsigned i = 0; i < actors.size(); ++i)
+            if (row.at("name").get<std::string>() == policy_names[i])
+                actors[i] = world.scene.entity(row.at("id").get<std::string>());
+    std::array<NavigationAvoidance, 4> policies;
+    for (unsigned i = 0; i < actors.size(); ++i) {
+        check(actors[i] && actors[i].has<NavigationAvoidance>() &&
+                  actors[i].has<NavigationBehavior>(),
+              "Avoidance Gallery lost editable policy or shared patrol behavior");
+        policies[i] = actors[i].get<NavigationAvoidance>();
+        check(actors[i].get<NavigationAgent>().navmesh == actors[0].get<NavigationAgent>().navmesh,
+              "Avoidance Gallery duplicated its shared NavMesh");
+    }
+    check(policies[0].priority == .8f && policies[1].priority == .2f && policies[2].mask == 0 &&
+              policies[3].mask == 0x80000000u && policies[2].layers == 0x80000000u &&
+              policies[3].layers == 0x80000000u,
+          "Avoidance Gallery lost its distinct priority and asymmetric high-bit examples");
+    auto navigation =
+        std::static_pointer_cast<NavigationRuntime>(world.engine.services().navigation());
+    std::array<bool, 4> crossed{}, returned{};
+    std::array<double, 2> minimum{100, 100}, deviation{};
+    for (unsigned tick = 0; tick < 1000; ++tick) {
+        session.step();
+        std::array<LocalTranslation, 4> positions;
+        for (unsigned i = 0; i < actors.size(); ++i) {
+            const auto actor = actors[i];
+            const auto status = navigation->agent_state(
+                world.scene.reference(actor.get<PersistentEntityId>().value.str()));
+            if (!status || status->phase == NavigationAgentPhase::Failed)
+                throw std::runtime_error("Avoidance Gallery agent failed: " +
+                                         navigation->debug(actor.id()).dump());
+            positions[i] = actor.get<LocalTranslation>();
+            const auto p = positions[i];
+            const auto side = planar ? p.y : p.z;
+            const auto lane = i < 2 ? 2.5 : -2.5;
+            if (i % 2 == 0)
+                check(std::abs(side - lane) < .001,
+                      "Unobserved peer changed dominant Gallery steering");
+            else
+                deviation[i / 2] = std::max(deviation[i / 2], std::abs(side - lane));
+            if (planar)
+                check(p.z == 0, "XY avoidance changed visual depth");
+            crossed[i] = crossed[i] || (i % 2 == 0 ? p.x > 3.5 : p.x < -3.5);
+            returned[i] = returned[i] || (crossed[i] && (i % 2 == 0 ? p.x < -3.5 : p.x > 3.5));
+            check(actor.get<NavigationAvoidance>() == policies[i],
+                  "Shared patrol behavior overwrote individual avoidance policy");
+        }
+        for (unsigned lane = 0; lane < 2; ++lane) {
+            const auto a = positions[lane * 2], b = positions[lane * 2 + 1];
+            minimum[lane] =
+                std::min(minimum[lane], std::hypot(a.x - b.x, planar ? a.y - b.y : a.z - b.z));
+        }
+        if (std::ranges::all_of(returned, [](bool value) { return value; }))
+            break;
+    }
+    check(std::ranges::all_of(returned, [](bool value) { return value; }) && minimum[0] > .65 &&
+              minimum[1] > .65 && deviation[0] > .2 && deviation[1] > .2,
+          "Gallery did not demonstrate both looping asymmetric yielding policies");
+    check(read(root / path) == saved, "Avoidance Gallery runtime changed authored source");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 4 && std::string_view(argv[1]) == "--prepare") {
-            prepare(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]));
+        const bool peers = argc >= 2 && (std::string_view(argv[1]) == "--prepare-policies" ||
+                                         std::string_view(argv[1]) == "--policies");
+        if (argc == 4 && (std::string_view(argv[1]) == "--prepare" ||
+                          std::string_view(argv[1]) == "--prepare-policies")) {
+            prepare(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]), peers);
+            if (!peers)
+                prepare(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                        true);
             return 0;
         }
-        check(argc == 3, "Need Gallery and area-export scratch parent");
-        const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
+        check(argc == (peers ? 4 : 3), "Need Gallery and export scratch parent");
+        const auto& paths = peers ? policy_paths : area_paths;
+        const auto run = peers ? exercise_policies : exercise;
+        const auto scratch =
+            std::filesystem::absolute(argv[peers ? 3 : 2]) / AssetId::generate().str();
         const auto source = scratch / "Gallery";
         std::filesystem::create_directories(source);
-        std::filesystem::copy(argv[1], source, std::filesystem::copy_options::recursive);
+        std::filesystem::copy(argv[peers ? 2 : 1], source,
+                              std::filesystem::copy_options::recursive);
         std::array<AssetId, 2> roots;
         for (unsigned i = 0; i < paths.size(); ++i) {
             roots[i] = read(source / paths[i]).at("asset_id").get<AssetId>();
-            exercise(source, paths[i], bool(i));
+            run(source, paths[i], bool(i));
         }
         const auto output = scratch / "Export", relocated = scratch / "Relocated";
         const RuntimePackageTarget target{"windows", "d3d12"};
@@ -155,8 +246,8 @@ int main(int argc, char** argv) {
         std::filesystem::rename(source, scratch / "SourcesOffline");
         const auto catalog = open_runtime_content(relocated, target);
         for (unsigned i = 0; i < roots.size(); ++i)
-            exercise(relocated, catalog.records().at(roots[i]).source, bool(i));
-        std::cout << "Both area Gallery scenes and source-hidden relocated export passed\n";
+            run(relocated, catalog.records().at(roots[i]).source, bool(i));
+        std::cout << "Both Gallery scenes and source-hidden relocated export passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

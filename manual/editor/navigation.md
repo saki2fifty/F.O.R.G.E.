@@ -707,7 +707,48 @@ them the same value from **1–32**. Their profiles must use the same Plane. Eac
 agent contributes its own baked radius. Agents on the same Nav asset still
 interact regardless of this setting. Save the Scene before exporting.
 
-During Play, select an agent and adjust **Enabled** or **Horizon** in **Live gameplay**. These changes affect the running world; Stop restores the authored scene. Edit the regular Inspector outside Play to save the settings.
+**Avoidance layers** is the agent's avoidance membership; **Avoidance mask** selects the membership
+bits it observes. Both accept whole numbers from `0` to `4294967295`. For example,
+Avoidance layers `4` and Avoidance mask `4` select bit 2; `2147483648` selects bit 31. Avoidance mask `0` ignores
+peers while keeping surface boundaries and physical collision. Avoidance layers `0` makes
+the agent unobserved by other avoidance agents without changing what it observes.
+These are avoidance bits, separate from physics collision layers.
+
+**Priority** accepts `0–1` and defaults to `0.5`. An agent steers around observed
+peers with equal or higher priority. With priorities `0.8` and `0.2`, the lower
+priority agent yields while the higher priority agent keeps its route. This does
+not reserve space or let either agent pass through a physical wall. Masks are
+independent in each direction: one agent can observe another without being
+observed in return. Shared group, Plane, source availability and the 3D height
+restriction still apply.
+
+During Play, select an agent and adjust **Enabled**, **Horizon**, **Avoidance layers**,
+**Avoidance mask** or **Priority** in **Live gameplay**. These changes affect the running
+world; Stop restores the authored scene. Use **Keep values after Stop...** to
+review selected changes for the saved Scene. Edit the regular Inspector outside
+Play to save settings directly. Policy edits do not require a NavMesh rebuild.
+
+![Live gameplay Navigation Avoidance controls showing high-bit membership and mask, Horizon 1.250 and Priority 0.875](../images/navigation-avoidance-policy-controls.png)
+
+Expand Navigation Avoidance to adjust the running agent's peer policy.
+
+Open **233-navigation-avoidance-policies** for 3D or
+**234-navigation-avoidance-policies-xy** for XY. Press Play. Cyan keeps its route
+with Priority `0.8`; Orange yields with Priority `0.2`. In the other lane, Violet
+uses Avoidance mask `0` while Gold observes their shared bit `2147483648` and yields. Each
+pair repeats its patrol. Select an agent to inspect the settings, Stop before
+saving, and choose the Scene as startup before exporting. No C++ module is
+required.
+
+![Game view of two 3D patrol pairs with Orange and Gold yielding around Cyan and Violet](../images/navigation-avoidance-policies-game.png)
+
+In the 3D example, Orange yields to higher priority Cyan; Gold yields to Violet
+because Gold observes their shared membership and Violet observes no peers.
+
+![Game view of the same priority and asymmetric-mask patrols in the XY plane](../images/navigation-avoidance-policies-xy-game.png)
+
+The XY example uses the same policy controls while preserving each agent's visual
+depth.
 
 Shared group is an authored setting and cannot be changed in Live gameplay or
 animated. C++ projects must build their modules with the matching installed SDK.

@@ -5,6 +5,7 @@
 #include <forge/runtime.hpp>
 #include <imgui_internal.h>
 #include <iostream>
+#include <memory>
 #include <string_view>
 using namespace forge;
 namespace {
@@ -314,7 +315,7 @@ void exercise_agent_live(float scale, ImVec2 size) {
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
-void exercise_agent_keep_values(bool prefab, bool areas = false) {
+void exercise_agent_keep_values(bool prefab, bool areas = false, bool peers = false) {
     const auto root =
         std::filesystem::current_path() / ("navigation-review-" + AssetId::generate().str());
     struct Cleanup {
@@ -339,6 +340,9 @@ void exercise_agent_keep_values(bool prefab, bool areas = false) {
     if (areas)
         authoring_command(scene, "component.add",
                           {{"entity", actor}, {"component", "forge.navigation_area_filter"}});
+    if (peers)
+        authoring_command(scene, "component.add",
+                          {{"entity", actor}, {"component", "forge.navigation_avoidance"}});
     if (prefab) {
         const auto definition = create_prefab_source(scene, actor);
         const auto asset =
@@ -358,6 +362,11 @@ void exercise_agent_keep_values(bool prefab, bool areas = false) {
     navigation->tune(reference, "forge.navigation_link_collision", "radius", .75);
     navigation->tune(reference, "forge.navigation_link_collision", "mask", 7u);
     navigation->tune(reference, "forge.navigation_link_collision", "include_sensors", true);
+    if (peers) {
+        navigation->tune(reference, "forge.navigation_avoidance", "layers", 4u);
+        navigation->tune(reference, "forge.navigation_avoidance", "mask", 0x80000000u);
+        navigation->tune(reference, "forge.navigation_avoidance", "priority", .75);
+    }
     if (areas) {
         navigation->tune(reference, "forge.navigation_area_filter", "mask", 5u);
         auto costs = Json::array();
@@ -366,7 +375,9 @@ void exercise_agent_keep_values(bool prefab, bool areas = false) {
         navigation->tune(reference, "forge.navigation_area_filter", "costs", costs);
     }
     const auto checkpoint = navigation->checkpoint();
-    check(checkpoint.at("version").get<unsigned>() == (areas ? 13u : 6u),
+    check(checkpoint.at("version").get<unsigned>() == (peers   ? 14u
+                                                       : areas ? 13u
+                                                               : 6u),
           "Live collision values did not select semantic recovery version 6");
     {
         EngineContext recovered(WorldRole::Runtime, false, {navigation_module(root)});
@@ -383,6 +394,10 @@ void exercise_agent_keep_values(bool prefab, bool areas = false) {
             check(restored.entity(actor).get<NavigationAreaFilter>() ==
                       live.entity(actor).get<NavigationAreaFilter>(),
                   "Recovery lost fixed-array policy values behind Prefab intent");
+        if (peers)
+            check(restored.entity(actor).get<NavigationAvoidance>() ==
+                      live.entity(actor).get<NavigationAvoidance>(),
+                  "Recovery lost avoidance participation behind Prefab intent");
         const auto before_rejection = restored.effective_document();
         for (const bool downgrade : {false, true}) {
             auto invalid = checkpoint;
@@ -411,7 +426,8 @@ void exercise_agent_keep_values(bool prefab, bool areas = false) {
         }
     RuntimeTuningReview review;
     check(review.capture(scene, document, snapshot, live.schema(), actor, 0) &&
-              review.fields().size() == (areas ? 7u : 5u) && scene.document() == before,
+              review.fields().size() == 5u + (areas ? 2u : 0u) + (peers ? 3u : 0u) &&
+              scene.document() == before,
           "Navigation keep-values review lost fields or copied an asset/pose");
     for (std::size_t i = 0; i < review.fields().size(); ++i)
         if (review.fields()[i].property == "destination_x")
@@ -430,6 +446,11 @@ void exercise_agent_keep_values(bool prefab, bool areas = false) {
         check(scene.entity(actor).get<NavigationAreaFilter>().mask == 5 &&
                   scene.entity(actor).get<NavigationAreaFilter>().costs[2] == 20,
               "Keep review omitted selected policy mask/fixed-array values");
+    if (peers)
+        check(scene.entity(actor).get<NavigationAvoidance>().layers == 4 &&
+                  scene.entity(actor).get<NavigationAvoidance>().mask == 0x80000000u &&
+                  scene.entity(actor).get<NavigationAvoidance>().priority == .75f,
+              "Keep review omitted selected peer-policy fields");
     const auto after = scene.document();
     check(scene.undo() && scene.document() == before && scene.redo() && scene.document() == after,
           "Kept navigation values lost ordinary Undo/Redo");
@@ -437,7 +458,7 @@ void exercise_agent_keep_values(bool prefab, bool areas = false) {
     document.open_scene(document.path());
     check(scene.document() == after, "Kept navigation values did not survive Save/reopen");
 }
-void exercise_avoidance(float scale, ImVec2 size) {
+void exercise_avoidance(float scale, ImVec2 size, const std::filesystem::path& image = {}) {
     EngineContext engine(WorldRole::Runtime, false, {navigation_module({})});
     Scene scene(engine.world());
     RuntimeSimulation simulation(engine.world(), scene);
@@ -451,7 +472,11 @@ void exercise_avoidance(float scale, ImVec2 size) {
     const auto schema = scene.schema();
     auto navigation = std::static_pointer_cast<NavigationRuntime>(engine.services().navigation());
     const auto reference = engine.world().reference(scene.entity(actor).id()).value();
-    ImGui::CreateContext();
+    std::unique_ptr<test::ImGuiSoftwareCapture> image_capture;
+    if (image.empty())
+        ImGui::CreateContext();
+    else
+        image_capture = std::make_unique<test::ImGuiSoftwareCapture>(int(size.x), int(size.y));
     auto& io = ImGui::GetIO();
     io.IniFilename = nullptr;
     io.DisplaySize = size;
@@ -467,7 +492,10 @@ void exercise_avoidance(float scale, ImVec2 size) {
     unsigned submissions = 0;
     auto frame = [&] {
         test::ui_targets.clear();
-        ImGui::NewFrame();
+        if (image_capture)
+            image_capture->new_frame();
+        else
+            ImGui::NewFrame();
         ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
         ImGui::SetNextWindowSize(size, ImGuiCond_Always);
         ImGui::Begin("Avoidance Inspector");
@@ -481,7 +509,10 @@ void exercise_avoidance(float scale, ImVec2 size) {
             },
             false);
         ImGui::End();
-        ImGui::Render();
+        if (image_capture)
+            image_capture->render();
+        else
+            ImGui::Render();
     };
     frame();
     frame();
@@ -497,23 +528,33 @@ void exercise_avoidance(float scale, ImVec2 size) {
     frame();
     io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
     frame();
-    for (const auto& name : {"enabled", "horizon"}) {
-        const auto box =
-            test::ui_targets.at("runtime-field:forge.navigation_avoidance:" + std::string(name));
+    for (const auto& name : {"enabled", "horizon", "layers", "mask", "priority"}) {
+        const auto box = visible_live_item(frame, "runtime-field:forge.navigation_avoidance:" +
+                                                      std::string(name));
         check(box.minimum.x >= box.clip_minimum.x && box.maximum.x <= box.clip_maximum.x &&
                   box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y,
               "Live avoidance control clipped at supported scale/size");
     }
     edit_live_number(frame, "runtime-field:forge.navigation_avoidance:horizon", "1.25");
-    if (submissions != 1 || scene.entity(actor).get<NavigationAvoidance>().horizon != 1.25f ||
+    edit_live_number(frame, "runtime-field:forge.navigation_avoidance:layers", "2147483648");
+    edit_live_number(frame, "runtime-field:forge.navigation_avoidance:mask", "2147483648");
+    edit_live_number(frame, "runtime-field:forge.navigation_avoidance:priority", "0.875");
+    const auto typed = scene.entity(actor).get<NavigationAvoidance>();
+    if (submissions != 4 || typed.horizon != 1.25f || typed.layers != 0x80000000u ||
+        typed.mask != 0x80000000u || typed.priority != .875f ||
         navigation->agent_state(reference)->phase != NavigationAgentPhase::Idle)
         throw std::runtime_error(
             "Actual avoidance input failed at scale " + std::to_string(scale) + " width " +
             std::to_string(size.x) + ": submissions=" + std::to_string(submissions) +
             " horizon=" + std::to_string(scene.entity(actor).get<NavigationAvoidance>().horizon));
+    if (image_capture) {
+        frame();
+        image_capture->save(image);
+    }
     check(scene.undo() && !scene.entity(actor).has<NavigationAvoidance>(),
           "Live avoidance edit created an authored history entry");
-    ImGui::DestroyContext();
+    if (!image_capture)
+        ImGui::DestroyContext();
 }
 void capture_collision(const std::filesystem::path& image, unsigned movement = 0) {
     const bool character = movement != 0;
@@ -596,6 +637,10 @@ int main(int argc, char** argv) {
             exercise_area_live(1.f, {780, 920}, std::filesystem::absolute(argv[2]));
             return 0;
         }
+        if (argc == 3 && std::string_view(argv[1]) == "--capture-avoidance-policy") {
+            exercise_avoidance(1.f, {780, 720}, std::filesystem::absolute(argv[2]));
+            return 0;
+        }
         if (argc == 3 && (std::string_view(argv[1]) == "--capture-collision" ||
                           std::string_view(argv[1]) == "--capture-character" ||
                           std::string_view(argv[1]) == "--capture-planar-character" ||
@@ -619,6 +664,8 @@ int main(int argc, char** argv) {
         exercise_agent_keep_values(true);
         exercise_agent_keep_values(false, true);
         exercise_agent_keep_values(true, true);
+        exercise_agent_keep_values(false, true, true);
+        exercise_agent_keep_values(true, true, true);
         std::cout << "Navigation Live progress, failure/metric gating, scales and readonly "
                      "isolation passed\n";
     } catch (const std::exception& e) {

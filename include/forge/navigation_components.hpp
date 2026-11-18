@@ -82,6 +82,10 @@ struct NavigationAvoidance {
     float horizon = 2;
     // Zero retains per-asset isolation; equal nonzero values also share between profiles.
     std::uint32_t shared_group = 0;
+    // Peer visibility is asymmetric and independent of surface/physics layers.
+    std::uint32_t layers = 1, mask = UINT32_MAX;
+    // Higher values ignore lower-priority peers; equal priorities react mutually.
+    float priority = .5f;
     bool operator==(const NavigationAvoidance&) const = default;
 };
 // Optional world-sized query volume during explicit navigation link crossings.

@@ -1,5 +1,27 @@
 # Feature Gallery
 
+## Avoidance participation and priority
+
+Open `Scenes/233-navigation-avoidance-policies.scene.json` for 3D or
+`Scenes/234-navigation-avoidance-policies-xy.scene.json` for XY and press Play.
+Four agents share a NavMesh and patrol graph, with separate anchors:
+
+- Cyan has Priority `0.8`; Orange has `0.2` and yields to Cyan.
+- Violet has Avoidance mask `0`. Gold observes their shared Avoidance layers `2147483648` and
+  yields to Violet. This selection is asymmetric.
+
+Select an agent and expand **Navigation Avoidance**. Avoidance layers defines membership;
+Avoidance mask chooses observed membership bits. Priority makes an agent yield to equal or
+higher priorities among those peers. These bits are separate from physical
+collision layers. A zero peer mask or high priority never bypasses a physical
+wall. Steering can still jam in crowded or blocked spaces.
+
+Change Enabled, Horizon, Avoidance layers, Avoidance mask or Priority in **Live gameplay** during Play,
+or edit outside Play and save. **Keep values after Stop...** reviews temporary
+changes for the saved Scene. Shared group is Edit-only. No NavMesh rebuild or C++
+module is required for policy edits. Choose the Scene as startup and export to
+run the same example standalone.
+
 ## Navigation area costs and filtering
 
 Open `Scenes/231-navigation-area-costs.scene.json` for 3D or

@@ -1,5 +1,25 @@
 # 2026-11-18
 
+## Avoidance membership, masks and yielding priority
+
+Navigation Avoidance supports independent32bit membership and observed-peer
+masks, plus finite0..1 priority. Equal or higher priority peers influence steering;
+selection is asymmetric. Default values retain previous mutual steering, while
+surface boundaries and physical collision retain their existing owners.
+
+The same reflected policy supports Edit/history/Prefab, live Inspector controls,
+selective Keep review, existing component/Play automation and MCP, and the matching
+typed SDK. Private recovery14 retains nondefault policy and mixed area filters.
+Default source/recovery representations remain unchanged. Project modules require
+the matching SDK fingerprint. Native optional-field snapshots preserve runtime
+Prefab changes and resets to omitted defaults.
+
+Editable Gallery233/234 repeat priority and asymmetric high-bit mask examples in
+3D and XY, with one NavMesh and the existing patrol graph per Scene. Both run from
+relocated source-hidden content exports. The manual explains the controls and
+includes an authentic native Inspector capture. Physical Windows review remains
+pending.
+
 ## Navigation areas and independent routing costs
 
 Eligible navigation sources and authored links support sixteen logical areas.

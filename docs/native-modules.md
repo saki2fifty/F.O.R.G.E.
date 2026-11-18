@@ -8,6 +8,16 @@ shows the editor workflow.
 
 ## Navigation character steering
 
+`NavigationAvoidance` appends uint32 `layers` (default1), uint32 `mask`
+(defaultUINT32_MAX), and float `priority` (default0.5, finite0..1). An agent
+observes a peer when its mask intersects that peer's membership and the peer has
+equal or higher priority, subject to the existing navigation plane/profile/group
+and height rules. These bits are independent of physics layers. Zero peer mask
+and high priority do not bypass physical collision. The native component layout
+changes the exact SDK fingerprint; rebuild modules against the matching installed
+kit. The C callback table is unchanged. The `avoidance_policy_gameplay` sample
+reads actual bilateral yielding and native observations in both navigation planes.
+
 `NavigationAgent.movement` appends a uint32 selector:0 preserves direct navigation,
 1 steers the existing upright World-bound3D CharacterController on ground routes
 without links. This public value requires the matching SDK fingerprint and module

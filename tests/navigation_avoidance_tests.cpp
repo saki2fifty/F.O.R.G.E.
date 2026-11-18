@@ -1,5 +1,7 @@
+#include "builtins.hpp"
 #include "navigation_asset.hpp"
 #include "runtime_package.hpp"
+#include <algorithm>
 #include <cmath>
 #include <forge/authoring.hpp>
 #include <forge/navigation.hpp>
@@ -261,6 +263,9 @@ void spatial_and_prefab(const std::filesystem::path& root, const Json& snapshot)
     auto config = holder.get<NavigationAvoidance>();
     config.horizon = .5f;
     config.enabled = false;
+    config.layers = 8;
+    config.mask = 2;
+    config.priority = .75f;
     holder.set<NavigationAvoidance>(config);
     const auto checkpoint = prefab_run.navigation->checkpoint();
     Running recovered(root, prefab_run.scene.snapshot());
@@ -272,6 +277,14 @@ void spatial_and_prefab(const std::filesystem::path& root, const Json& snapshot)
     recovered.navigation->restore(checkpoint);
     check(recovered.scene.entity(instance).get<NavigationAvoidance>() == config,
           "Avoidance recovery lost gameplay value hidden by authored override intent");
+    auto reset = config;
+    reset.layers = 1;
+    reset.mask = UINT32_MAX;
+    reset.priority = .5f;
+    recovered.scene.entity(instance).set<NavigationAvoidance>(reset);
+    Running reset_reopened(root, recovered.scene.snapshot());
+    check(reset_reopened.scene.entity(instance).get<NavigationAvoidance>() == reset,
+          "Prefab snapshot lost a runtime reset to omitted policy defaults");
     check(authored.snapshot() == authored_snapshot,
           "Runtime prefab changes modified the authored Scene");
     NavigationRuntime author_access(author.world(), root);
@@ -504,6 +517,7 @@ void gallery(const std::filesystem::path& original, const std::filesystem::path&
     gallery_exercise(moved, read(std::filesystem::path(moved) / exported.record->source),
                      exported.record->source);
 }
+#include "navigation_avoidance_policy_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -511,7 +525,15 @@ int main(int argc, char** argv) {
             gallery(argv[2], argv[3]);
             return 0;
         }
-        check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--prepare"),
+        if (argc == 4 && (std::string_view(argv[3]) == "--prepare-policy-sdk" ||
+                          std::string_view(argv[3]) == "--prepare-policy-sdk-planar")) {
+            prepare_policy_sdk(std::filesystem::absolute(argv[1]),
+                               std::filesystem::absolute(argv[2]),
+                               std::string_view(argv[3]) == "--prepare-policy-sdk-planar");
+            return 0;
+        }
+        check(argc == 3 || (argc == 4 && (std::string_view(argv[3]) == "--prepare" ||
+                                          std::string_view(argv[3]) == "--policies-only")),
               "Need scratch root and navigation worker");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
@@ -524,7 +546,7 @@ int main(int argc, char** argv) {
         scene.entity("a").set<NavigationAgent>({{record.id}, true, true, 2, .1f, 4, .1, 0});
         scene.entity("b").set<NavigationAgent>({{record.id}, true, true, 2, .1f, -4, .1, 0});
         const auto snapshot = scene.snapshot();
-        if (argc == 4) {
+        if (argc == 4 && std::string_view(argv[3]) == "--prepare") {
             scene.entity("a").set<NavigationAvoidance>({});
             scene.entity("b").set<NavigationAvoidance>({});
             std::ofstream(root / "scene.json") << scene.snapshot().dump();
@@ -535,6 +557,15 @@ int main(int argc, char** argv) {
                 {"input", {{"version", 1}, {"actions", Json::array()}}},
                 {"modules", Json::array()}}.dump();
             std::cout << root.string() << '\n';
+            return 0;
+        }
+        if (argc == 4) {
+            policy_values(root, snapshot);
+            policy_routes(root, snapshot, false);
+            yielding_pair(root, snapshot, false);
+            planar_policies(root / "Planar", std::filesystem::absolute(argv[2]));
+            std::cout << "Avoidance policy values, actual masks/priority, both planes and recovery "
+                         "passed\n";
             return 0;
         }
         passing(root, snapshot, false, false);

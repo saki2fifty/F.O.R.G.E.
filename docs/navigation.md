@@ -759,7 +759,7 @@ that a pending build will publish successfully.
 
 ## Opt-in local avoidance
 
-`NavigationAvoidance { enabled, horizon, shared_group }` joins an existing NavigationAgent to
+`NavigationAvoidance { enabled, horizon, shared_group, layers, mask, priority }` joins an existing NavigationAgent to
 predictive local steering. It is optional and absent/disabled retains legacy path
 following. Horizon is 0.25–5 seconds (default 2). Radius and height come from the
 selected baked navigation profile; this does not add a competing runtime footprint.
@@ -782,6 +782,16 @@ asset, physics and spatial restrictions remain in force. Avoidance additionally
 requires stationary spatial ancestry; World binding ends this traversal. Moving
 navigation parents cannot add another movement authority to a participating child.
 
+Layers defaults to1, Mask toUINT32_MAX and Priority to0.5. The existing copied
+Participant set includes the complete policy. Neighbor admission requires
+`(own.mask & peer.layers) != 0` and `peer.priority >= own.priority` in addition to
+the existing plane/profile/group/height checks. Equal priorities retain mutual
+steering; higher priority ignores lower priority. Masks are asymmetric and use
+all32bits. Zero Mask removes peers from that query, retaining surface walls and
+physics collision. These memberships do not use the physics collision-layer
+namespace. Priority is finite0..1; neither it nor membership/mask is animatable.
+This adds no crowd manager, pose owner, persistent corridor or reservation system.
+
 Steering uses the selected plane. Spatial3D Detour movement follows surface height;
 XY movement preserves visual Z. A bounded
 adjustment of up to 8 surface queries keeps full world displacement within the
@@ -799,7 +809,7 @@ against overlap/jams in dense or blocked configurations. Character movement uses
 the same desired steering; actual collision remains physics-owned. Named build profiles supply their
 own baked footprints through the existing Nav asset references.
 
-The Live gameplay Inspector tunes enabled/horizon through the existing private
+The Live gameplay Inspector tunes enabled/horizon/layers/mask/priority through the existing private
 property_tune transport, with owner-thread, scene/entity and world-generation checks.
 It never advances simulation time or writes authored history. Invalid edits retain
 the current value. Both ordinary and SDK Play use this boundary; C++ gameplay can
@@ -819,6 +829,16 @@ MCP operations. It is not animatable or live-tunable. Missing fields default to0
 through existing reflected-member evolution; old files need no ID/format migration.
 The appended native component member changes the exact SDK fingerprint; rebuild
 modules against the matching kit. C callbacks and pinned dependencies are unchanged.
+
+Nondefault Layers/Mask/Priority select private navigation recovery14; optional
+area policies and retained-link filters use the same recovery document. Default
+peer policies keep earlier canonical recovery profiles and authored source bytes.
+Legacy recovery cannot carry the new fields, and recovery14 requires a nondefault
+peer policy. Scene/Prefab codecs omit the new fields at their declared defaults;
+native runtime snapshots preserve semantic changes behind Prefab property masks,
+including resets to omitted defaults. No Scene, Prefab, Nav asset or callback-table
+version changes. The appended native component members require the exact matching
+SDK fingerprint and rebuilt project modules.
 
 
 ## Authored links

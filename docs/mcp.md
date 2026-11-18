@@ -406,6 +406,16 @@ and stricter connected-tree publication. Use the
 ordinary template/create/read/patch/history/save/close tools. Its component's
 graph/target/anchor/enabled fields use the existing reflected Scene authoring tools.
 
+Navigation Avoidance uses the same Scene component/property/history owners.
+Discovery exposes `layers`/`mask` as exact uint32 fields and finite0..1 `priority`,
+with their native defaults and non-animatable policy. Use `forge_component_add`
+and `forge_property_set_many` rather than an independent authoring implementation.
+Existing Play controls tune enabled/horizon/layers/mask/priority in the native
+runtime; shared_group remains Edit-only. Runtime edits do not change source or
+authored history, and ordinary revision, permission and selective Keep rules
+continue to apply. Both navigation planes and protocol envelopes have actual
+source/history/live workflow coverage; see the avoidance checks in `docs/ci.md`.
+
 `forge_asset_render_texture_catalog` describes saved Camera output dimensions,
 linear-HDR/opaque limits, Camera field, composition/feedback rules and a full typed
 2D Color Material `binding_template`. Use editor `render_texture` with the same

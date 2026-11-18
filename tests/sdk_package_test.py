@@ -25,6 +25,7 @@ focused_targets = {
     '--ui-values-only': 'ui_values_gameplay',
     '--camera-output-only': 'camera_output_gameplay',
     '--navigation-behavior-only': 'navigation_behavior_gameplay',
+    '--avoidance-policies-only': 'avoidance_policy_gameplay',
     '--decals-only': 'decal_gameplay',
     '--soft-shadows-only': 'soft_shadow_gameplay',
     '--reflection-probes-only': 'reflection_probe_gameplay',
@@ -256,6 +257,19 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
                             str(moved/'bin'/('forge_runtime'+exe)),str(module)],
                            env=env,cwd=moved,check=True,timeout=90)
             print('Installed public time client and relocated SDK Play passed')
+            sys.exit(0)
+        if sys.argv[4] == '--avoidance-policies-only':
+            source = Path(__file__).resolve().parents[1]
+            assert (moved/'sdk/include/forge/navigation_components.hpp').read_bytes() == (source/'include/forge/navigation_components.hpp').read_bytes()
+            assert (moved/'sdk/sample/avoidance_policy_probe.cpp').read_bytes() == (source/'samples/native_sdk/avoidance_policy_probe.cpp').read_bytes()
+            for planar in (False, True):
+                subprocess.run([sys.executable,str(Path(__file__).with_name('navigation_avoidance_sdk_test.py')),
+                                str(moved/'bin'/('forge_runtime'+exe)),str(module),
+                                str(build/('forge_navigation_avoidance_tests'+exe)),
+                                str(build/('forge_nav_build'+exe)),str(base/'policies'),
+                                *(['--planar'] if planar else [])],
+                               env=env,cwd=moved,check=True,timeout=120)
+            print('Installed-only typed avoidance policy consumer, both planes and relocated SDK hosts passed')
             sys.exit(0)
         if sys.argv[4] == '--navigation-drops-only':
             source = Path(__file__).resolve().parents[1]

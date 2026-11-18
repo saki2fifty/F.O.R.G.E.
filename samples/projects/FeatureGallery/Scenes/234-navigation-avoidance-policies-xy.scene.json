@@ -1,0 +1,743 @@
+{
+  "asset_id": "eb7360b3-586a-4386-8486-4155c5e9e7df",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.navigation_region_2d": {
+          "enabled": true,
+          "height": 14.0,
+          "obstacle": false,
+          "points": [],
+          "source": 0,
+          "width": 18.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f033c061-58ab-403b-bb33-4cd308d28262",
+      "name": "XY routing region"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 18.0,
+          "y": 14.0,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.12999999523162842,
+          "g": 0.09000000357627869,
+          "r": 0.03500000014901161
+        }
+      },
+      "id": "77031eef-1af6-4599-8850-5d52bc373361",
+      "name": "Routing surface visual"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 2.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ef7a3c57-589c-47b5-90ea-fcefcfa00ec3",
+      "name": "Cyan - priority 0.8 patrol anchor"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 2.5,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 4.0,
+          "destination_y": 2.5,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": false,
+          "movement": 0,
+          "navmesh": "af31a358-6bb6-4590-8d4b-6a6c591aa797",
+          "speed": 2.0,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.navigation_avoidance": {
+          "enabled": true,
+          "horizon": 2.0,
+          "layers": 1,
+          "mask": 1,
+          "priority": 0.800000011920929,
+          "shared_group": 0
+        },
+        "forge.navigation_behavior": {
+          "anchor": {
+            "entity": "ef7a3c57-589c-47b5-90ea-fcefcfa00ec3",
+            "scene": "eb7360b3-586a-4386-8486-4155c5e9e7df"
+          },
+          "enabled": true,
+          "graph": "76244d2c-0da5-45bd-933f-278c7efcd6dc",
+          "target": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a86c9dd4-35bd-4783-9170-39d641aefeaf",
+      "name": "Cyan - priority 0.8"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6000000238418579,
+          "y": 0.6000000238418579,
+          "z": 0.6000000238418579
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.8500000238418579,
+          "r": 0.05000000074505806
+        }
+      },
+      "id": "673659cf-d227-4cca-ba26-0d43fe949a10",
+      "name": "Cyan - priority 0.8 visual",
+      "parent": "a86c9dd4-35bd-4783-9170-39d641aefeaf"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 2.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9a687af9-d708-46d2-9f67-9adc88590a10",
+      "name": "Orange - priority 0.2 patrol anchor"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 2.5,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": -4.0,
+          "destination_y": 2.5,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": false,
+          "movement": 0,
+          "navmesh": "af31a358-6bb6-4590-8d4b-6a6c591aa797",
+          "speed": 2.0,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.navigation_avoidance": {
+          "enabled": true,
+          "horizon": 2.0,
+          "layers": 1,
+          "mask": 1,
+          "priority": 0.20000000298023224,
+          "shared_group": 0
+        },
+        "forge.navigation_behavior": {
+          "anchor": {
+            "entity": "9a687af9-d708-46d2-9f67-9adc88590a10",
+            "scene": "eb7360b3-586a-4386-8486-4155c5e9e7df"
+          },
+          "enabled": true,
+          "graph": "76244d2c-0da5-45bd-933f-278c7efcd6dc",
+          "target": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e03ef32a-d565-44d8-9bfd-22d5f32a8f20",
+      "name": "Orange - priority 0.2"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6000000238418579,
+          "y": 0.6000000238418579,
+          "z": 0.6000000238418579
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.04500000178813934,
+          "g": 0.41999998688697815,
+          "r": 1.0
+        }
+      },
+      "id": "384a7046-7076-49a7-9fab-8da99a59290c",
+      "name": "Orange - priority 0.2 visual",
+      "parent": "e03ef32a-d565-44d8-9bfd-22d5f32a8f20"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -2.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "4e6f83ac-2bac-441f-b7e0-956300f35cfd",
+      "name": "Violet - peer mask zero patrol anchor"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": -2.5,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 4.0,
+          "destination_y": -2.5,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": false,
+          "movement": 0,
+          "navmesh": "af31a358-6bb6-4590-8d4b-6a6c591aa797",
+          "speed": 2.0,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.navigation_avoidance": {
+          "enabled": true,
+          "horizon": 2.0,
+          "layers": 2147483648,
+          "mask": 0,
+          "priority": 0.5,
+          "shared_group": 0
+        },
+        "forge.navigation_behavior": {
+          "anchor": {
+            "entity": "4e6f83ac-2bac-441f-b7e0-956300f35cfd",
+            "scene": "eb7360b3-586a-4386-8486-4155c5e9e7df"
+          },
+          "enabled": true,
+          "graph": "76244d2c-0da5-45bd-933f-278c7efcd6dc",
+          "target": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "94b3ff4f-043b-41f2-af3a-919c1251db12",
+      "name": "Violet - peer mask zero"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6000000238418579,
+          "y": 0.6000000238418579,
+          "z": 0.6000000238418579
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.23999999463558197,
+          "r": 0.7200000286102295
+        }
+      },
+      "id": "e0d04ab7-36fc-4515-8c5a-426f55dd3f9a",
+      "name": "Violet - peer mask zero visual",
+      "parent": "94b3ff4f-043b-41f2-af3a-919c1251db12"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -2.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f1eca5d5-af8e-4070-83ce-01dab76f1cec",
+      "name": "Gold - observes high bit patrol anchor"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": -2.5,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": -4.0,
+          "destination_y": -2.5,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": false,
+          "movement": 0,
+          "navmesh": "af31a358-6bb6-4590-8d4b-6a6c591aa797",
+          "speed": 2.0,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.navigation_avoidance": {
+          "enabled": true,
+          "horizon": 2.0,
+          "layers": 2147483648,
+          "mask": 2147483648,
+          "priority": 0.5,
+          "shared_group": 0
+        },
+        "forge.navigation_behavior": {
+          "anchor": {
+            "entity": "f1eca5d5-af8e-4070-83ce-01dab76f1cec",
+            "scene": "eb7360b3-586a-4386-8486-4155c5e9e7df"
+          },
+          "enabled": true,
+          "graph": "76244d2c-0da5-45bd-933f-278c7efcd6dc",
+          "target": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "14b671fc-317c-46b0-b0d0-30f05afe40a6",
+      "name": "Gold - observes high bit"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6000000238418579,
+          "y": 0.6000000238418579,
+          "z": 0.6000000238418579
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.11999999731779099,
+          "g": 0.800000011920929,
+          "r": 1.0
+        }
+      },
+      "id": "6f71320e-c136-448d-8f97-58348d3ee40d",
+      "name": "Gold - observes high bit visual",
+      "parent": "14b671fc-317c-46b0-b0d0-30f05afe40a6"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.2199999988079071,
+          "y": 0.2199999988079071,
+          "z": 0.11999999731779099
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": -2.5,
+          "z": 0.1
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.6499999761581421,
+          "g": 0.6000000238418579,
+          "r": 0.550000011920929
+        }
+      },
+      "id": "81916190-64ef-41f0-88a3-fcb3870b000d",
+      "name": "Lane destination"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.2199999988079071,
+          "y": 0.2199999988079071,
+          "z": 0.11999999731779099
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": -2.5,
+          "z": 0.1
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.6499999761581421,
+          "g": 0.6000000238418579,
+          "r": 0.550000011920929
+        }
+      },
+      "id": "e16f7b4b-9efa-4aa7-8778-830f222f7241",
+      "name": "Lane destination"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.2199999988079071,
+          "y": 0.2199999988079071,
+          "z": 0.11999999731779099
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 2.5,
+          "z": 0.1
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.6499999761581421,
+          "g": 0.6000000238418579,
+          "r": 0.550000011920929
+        }
+      },
+      "id": "bb087df4-d2c4-49e5-bc15-3a5c9836f07d",
+      "name": "Lane destination"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.2199999988079071,
+          "y": 0.2199999988079071,
+          "z": 0.11999999731779099
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 2.5,
+          "z": 0.1
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.6499999761581421,
+          "g": 0.6000000238418579,
+          "r": 0.550000011920929
+        }
+      },
+      "id": "80eb8e0d-1d19-4de0-a939-8a6984298ac0",
+      "name": "Lane destination"
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 16.0,
+          "orthographic_width": 22.0,
+          "projection": 1,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -25.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "baf69a07-a6fb-45c7-a429-58f9ba54fc6d",
+      "name": "Overview Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "d2f6b9c8-9a17-4871-b377-407fc48014a9",
+      "name": "Sunlight",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

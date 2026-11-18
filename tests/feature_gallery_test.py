@@ -12,6 +12,28 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+# Stable identities and typed source remain editable independently of the baked mesh.
+for policy_path, scene_id, nav_id, plane in (('Scenes/233-navigation-avoidance-policies.scene.json', 'acc1be21-2d8c-4408-b8d5-04da0ef7daa1', '76cd64a4-02d6-4521-82e8-8e66101495b0', 0), ('Scenes/234-navigation-avoidance-policies-xy.scene.json', 'eb7360b3-586a-4386-8486-4155c5e9e7df', 'af31a358-6bb6-4590-8d4b-6a6c591aa797', 1)):
+    policy_scene = json.loads((project_root / policy_path).read_text())
+    assert policy_scene['asset_id'] == by_source[policy_path]['id'] == scene_id
+    nodes = {e['id']: e for e in policy_scene['entities']}
+    actors = [e for e in nodes.values() if 'forge.navigation_agent' in e['components']]
+    assert len(actors) == 4
+    for actor in actors:
+        c = actor['components']
+        assert c['forge.navigation_agent']['navmesh'] == nav_id
+        policy = c['forge.navigation_avoidance']
+        assert policy['enabled'] and policy['horizon'] == 2
+        assert policy.get('layers', 1) == (2147483648 if actor['name'].startswith(('Violet', 'Gold')) else 1)
+        assert policy.get('mask', 4294967295) == (0 if actor['name'].startswith('Violet') else 2147483648 if actor['name'].startswith('Gold') else 1)
+        expected_priority = .8 if actor['name'].startswith('Cyan') else .2 if actor['name'].startswith('Orange') else .5
+        assert math.isclose(policy.get('priority', .5), expected_priority, rel_tol=0, abs_tol=1e-7)
+        behavior = c['forge.navigation_behavior']
+        assert behavior['graph'] == '76244d2c-0da5-45bd-933f-278c7efcd6dc'
+        assert behavior['anchor']['scene'] == scene_id and behavior['anchor']['entity'] in nodes
+    nav = next(a for a in assets if a['id'] == nav_id)
+    assert nav['metadata']['settings'].get('plane', 0) == plane
+    assert any('forge.camera' in e['components'] for e in nodes.values())
 for area_path, area_scene_id, area_nav_id, plane in (
         ('Scenes/231-navigation-area-costs.scene.json',
          'ac8360f3-f406-4428-89b5-1961a95e8e0e', 'f9f83fc9-59b0-4a6e-a756-1443b998954f', 0),
@@ -1105,6 +1127,8 @@ def same_authored_value(actual, expected, location='$'):
     # differ by a final float32 ULP across platforms; document structure and
     # discrete identities must still match exactly.
     if isinstance(expected, dict):
+        if location.endswith('.components.forge.navigation_avoidance'):
+            expected = dict(layers=1, mask=4294967295, priority=.5) | expected
         if location.endswith('.components.forge.navigation_link'):
             expected = dict(arc_height=0.) | expected
         if location.endswith('.components.forge.character_controller_2d'):

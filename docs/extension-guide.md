@@ -297,6 +297,30 @@ Timeline guide in the combined editor manual. Rebuild modules with the matching 
 
 ## Cooked resources in gameplay
 
+### Avoidance participation and priority
+
+`forge/navigation_components.hpp` declares `NavigationAvoidance`. Its `layers`
+and `mask` are full32bit memberships and observed-peer masks. Defaults are1 and
+UINT32_MAX. Finite `priority` accepts0..1 and defaults to0.5. An agent observes
+a peer when its mask intersects that peer's layers and the peer has equal or
+higher priority, subject to existing plane/profile/shared-group and height checks.
+Both policies may differ: a zero mask ignores peers while retaining surface
+boundaries and physics collision; zero layers does not change what the actor
+itself observes. These memberships are separate from physical collision layers.
+
+The installed `avoidance_policy_gameplay` sample verifies native component layout,
+high-bit fields and actual bilateral yielding in3D/XY. Run it against a Scene with
+the matching NavMesh/agents and Navigation capability; its probe reads actual
+adopted motion rather than writing poses. Inspect observations from a fixed-tick
+system after navigation, or PostPhysics when using physical characters. Live
+enabled/horizon/layers/mask/priority use the existing owner-thread tune boundary;
+shared_group remains authored-only. Private recovery14 retains nondefault peer
+policy and any mixed area filter without adding another movement owner.
+
+The appended component members change the exact SDK fingerprint. Rebuild native
+project modules with the matching installed kit. Default old source remains
+readable; Scene, Prefab, Nav asset and callback-table versions are unchanged.
+
 ### Navigation areas and costs
 
 Include `forge/navigation_components.hpp` for `NavigationArea` and

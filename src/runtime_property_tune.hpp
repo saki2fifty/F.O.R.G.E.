@@ -58,7 +58,8 @@ struct RuntimePropertyTune {
         if (type == "forge.navigation_behavior")
             return property == "enabled";
         if (type == "forge.navigation_avoidance")
-            return property == "enabled" || property == "horizon";
+            return property == "enabled" || property == "horizon" || property == "layers" ||
+                   property == "mask" || property == "priority";
         if (type == "forge.navigation_link_collision")
             return property == "enabled" || property == "radius" || property == "straight_height" ||
                    property == "clearance" || property == "mask" || property == "include_sensors";

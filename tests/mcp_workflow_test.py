@@ -55,6 +55,7 @@ NAVIGATION_LINKS_SDK = sys.argv[7:] == ['--navigation-links-sdk-only']
 NAVIGATION_LINKS_ONLY = sys.argv[7:] == ['--navigation-links-only'] or NAVIGATION_LINKS_SDK
 NAVIGATION_COLLECTION_ONLY = sys.argv[7:] == ['--navigation-collection-only']
 NAVIGATION_AREAS_ONLY = sys.argv[7:] in (['--navigation-areas-only'], ['--navigation-planar-areas-only'])
+AVOIDANCE_POLICIES_ONLY = sys.argv[7:] in (['--avoidance-policies-only'], ['--planar-avoidance-policies-only'])
 SCOPE_TRACE_ONLY = sys.argv[7:] == ['--scope-trace-only']
 MAP_PROFILE_SDK = sys.argv[7:] == ['--map-profile-sdk-only']
 MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only'] or MAP_PROFILE_SDK
@@ -656,6 +657,12 @@ for legacy in selected_protocols:
         if MESSAGES_ONLY:
             check_input_messages_play(read, ok, control, mutate, until)
             print(('legacy' if legacy else 'current') + ': typed-message authoring source/input scopes/real SDK Play/restart passed')
+            continue
+        if AVOIDANCE_POLICIES_ONLY:
+            from mcp_navigation_avoidance_policy_workflow import check_avoidance_policies
+            check_avoidance_policies(read, ok, control, mutate, until, discovery, edit_settings,
+                                    planar=sys.argv[7:] == ['--planar-avoidance-policies-only'])
+            print(('legacy' if legacy else 'current') + ': peer masks/priority discovery/history and actual live steering passed')
             continue
         if NAVIGATION_AREAS_ONLY:
             from mcp_navigation_area_workflow import check_navigation_areas

@@ -923,7 +923,7 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
     struct Participant {
         AssetId asset;
         MeshSpace space;
-        std::uint32_t shared_group;
+        NavigationAvoidance policy;
         Query::Neighbour neighbour;
         float height;
     };
@@ -953,7 +953,7 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
             participants.emplace(
                 id, Participant{a.navmesh.id,
                                 asset.data.mesh->space(),
-                                e.get<NavigationAvoidance>().shared_group,
+                                e.get<NavigationAvoidance>(),
                                 {position, velocity, settings.at("radius").get<float>()},
                                 settings.at("height").get<float>()});
         } catch (const std::exception&) {
@@ -1276,12 +1276,14 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                     std::vector<Query::Neighbour> neighbours;
                     const auto settings =
                         asset.data.metadata.at("settings").get<NavigationSettings>();
+                    const auto& avoidance = e.get<NavigationAvoidance>();
                     for (const auto& [other, participant] : participants)
                         if (other != id && participant.space == asset.data.mesh->space() &&
+                            (avoidance.mask & participant.policy.layers) != 0 &&
+                            participant.policy.priority >= avoidance.priority &&
                             (participant.asset == a.navmesh.id ||
-                             (e.get<NavigationAvoidance>().shared_group != 0 &&
-                              participant.shared_group ==
-                                  e.get<NavigationAvoidance>().shared_group)) &&
+                             (avoidance.shared_group != 0 &&
+                              participant.policy.shared_group == avoidance.shared_group)) &&
                             (settings.plane == NavigationPlane::PlanarXY ||
                              std::abs(participant.neighbour.position[1] - position[1]) <
                                  std::max(settings.height, participant.height)))
@@ -1291,7 +1293,7 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                                               : Double3{};
                     auto steering = asset.query->avoid_velocity(
                         position, desired, previous, float(speed), settings.radius,
-                        e.get<NavigationAvoidance>().horizon, neighbours, state.filter);
+                        avoidance.horizon, neighbours, state.filter);
                     if (steering.status != NavStatus::Success)
                         throw NavigationFailure(steering.status,
                                                 "Navigation avoidance: " + steering.diagnostic);
@@ -1853,7 +1855,7 @@ Json NavigationRuntime::tune(EntityRef ref, const std::string& type, const std::
             "Live navigation tuning requires an existing navigation participant");
     const auto& codec = navigation_descriptor(type);
     auto candidate = codec.read(e, true);
-    if (!candidate.contains(property))
+    if (!codec.defaults.contains(property))
         throw std::runtime_error("Live navigation property is unavailable");
     candidate[property] = value;
     detail::validate_components({{type, candidate}});
@@ -1877,7 +1879,7 @@ Json NavigationRuntime::tune(EntityRef ref, const std::string& type, const std::
         detail::validate_reflected_value(e, typed);
         e.set<NavigationAvoidance>(typed);
     }
-    return codec.read(e, true).at(property);
+    return codec.read(e, true).value(property, codec.defaults.at(property));
 }
 Json NavigationRuntime::tune_avoidance(EntityRef ref, const std::string& property,
                                        const Json& value) {
@@ -1894,7 +1896,7 @@ Json NavigationRuntime::checkpoint() {
     bool has_crossing = false, has_arc = false, has_collision = false, has_character = false,
          has_planar_character = false, has_physical_jump = false,
          has_grounded_planar_character = false, has_planar_jump = false, has_drop = false,
-         has_filter = false;
+         has_filter = false, has_avoidance_policy = false;
     if (impl_) {
         impl_->check();
         ApplicationStateActivation conditions(impl_->context);
@@ -1914,6 +1916,8 @@ Json NavigationRuntime::checkpoint() {
             if (e.has<NavigationAvoidance>()) {
                 auto value = navigation_descriptor("forge.navigation_avoidance").read(e, true);
                 detail::validate_components({{"forge.navigation_avoidance", value}});
+                has_avoidance_policy |= value.contains("layers") || value.contains("mask") ||
+                                        value.contains("priority");
                 avoidance = {{"config", value}, {"owned", e.owns<NavigationAvoidance>()}};
             }
             Json translation = nullptr;
@@ -1992,7 +1996,8 @@ Json NavigationRuntime::checkpoint() {
         for (auto& entry : agents)
             if (!entry.contains("filter"))
                 entry["filter"] = nullptr;
-    Json result = {{"version", has_filter                      ? 13
+    Json result = {{"version", has_avoidance_policy            ? 14
+                               : has_filter                    ? 13
                                : has_drop                      ? 12
                                : has_planar_jump               ? 11
                                : has_grounded_planar_character ? 10
@@ -2006,7 +2011,8 @@ Json NavigationRuntime::checkpoint() {
                                                                : 3},
                    {"assets", revisions},
                    {"agents", agents}};
-    if (has_filter || has_character || has_collision || has_crossing || !behaviors.empty())
+    if (has_avoidance_policy || has_filter || has_character || has_collision || has_crossing ||
+        !behaviors.empty())
         result["behaviors"] = behaviors;
     return result;
 }
@@ -2015,10 +2021,15 @@ void NavigationRuntime::restore(const Json& data) {
         !data.at("version").is_number_integer())
         throw std::runtime_error("Invalid navigation recovery version");
     const auto version = data.at("version").get<std::uint64_t>();
-    if (version < 1 || version > 13 || !data.at("assets").is_array() ||
+    if (version < 1 || version > 14 || !data.at("assets").is_array() ||
         data.at("assets").size() > 8 || !data.at("agents").is_array() ||
         data.at("agents").size() > 64)
         throw std::runtime_error("Invalid navigation recovery metadata");
+    const bool filter_profile =
+        version == 13 ||
+        (version == 14 && std::ranges::any_of(data.at("agents"), [](const auto& entry) {
+             return entry.contains("filter");
+         }));
     const bool collision_profile =
         version == 6 ||
         (version >= 7 && std::ranges::any_of(data.at("agents"), [](const auto& entry) {
@@ -2054,7 +2065,7 @@ void NavigationRuntime::restore(const Json& data) {
         auto config = std::get<NavigationAgent>(agent_descriptor().decode(entry.at("config")));
         std::optional<NavigationAreaFilter> filter;
         bool filter_owned = false;
-        if (version == 13) {
+        if (filter_profile) {
             const auto& value = entry.at("filter");
             if (!value.is_null()) {
                 if (!value.is_object() || value.size() != 2 || !value.at("owned").is_boolean())
@@ -2079,6 +2090,10 @@ void NavigationRuntime::restore(const Json& data) {
                     "Legacy navigation recovery cannot restore avoidance state");
         } else if (!entry.at("avoidance").is_null()) {
             const auto& value = entry.at("avoidance");
+            if (version < 14 &&
+                (value.at("config").contains("layers") || value.at("config").contains("mask") ||
+                 value.at("config").contains("priority")))
+                throw std::runtime_error("Avoidance participation requires navigation recovery14");
             detail::validate_components({{"forge.navigation_avoidance", value.at("config")}});
             avoidance = std::get<NavigationAvoidance>(
                 navigation_descriptor("forge.navigation_avoidance").decode(value.at("config")));
@@ -2155,7 +2170,7 @@ void NavigationRuntime::restore(const Json& data) {
             const bool arc = link.contains("arc_height");
             const bool link_filter = link.contains("filter");
             if (link_filter) {
-                if (version != 13)
+                if (!filter_profile)
                     throw std::runtime_error("Retained area policy requires navigation recovery13");
                 detail::validate_components({{"forge.navigation_area_filter", link.at("filter")}});
                 retained_filter = area_filter_from_value(link.at("filter"));
@@ -2237,11 +2252,16 @@ void NavigationRuntime::restore(const Json& data) {
             return p.link.is_object() && p.link.value("physical_drop", false);
         }))
         throw std::runtime_error("Navigation recovery12 requires an active physical drop");
-    if (version == 13 && std::ranges::none_of(pending, [](const auto& p) {
+    if (filter_profile && std::ranges::none_of(pending, [](const auto& p) {
             return p.filter || (p.link.is_object() && p.link.contains("filter"));
         }))
         throw std::runtime_error(
             "Navigation recovery13 requires configured or retained area policy");
+    if (version == 14 && std::ranges::none_of(pending, [](const auto& p) {
+            return p.avoidance && (p.avoidance->layers != 1 || p.avoidance->mask != UINT32_MAX ||
+                                   p.avoidance->priority != .5f);
+        }))
+        throw std::runtime_error("Navigation recovery14 requires a nondefault avoidance policy");
     // Host-only recovery into an unpublished candidate world. Preserve component ownership;
     // semantic values cover direct gameplay edits hidden by authored property-override intent.
     for (const auto& p : pending) {

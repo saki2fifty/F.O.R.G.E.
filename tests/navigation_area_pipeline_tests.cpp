@@ -227,10 +227,20 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
 int main(int argc, char** argv) {
     try {
         check(argc == 3 || (argc == 4 && (std::string_view(argv[3]) == "--prepare-sdk-spatial" ||
-                                          std::string_view(argv[3]) == "--prepare-sdk-planar")),
+                                          std::string_view(argv[3]) == "--prepare-sdk-planar" ||
+                                          std::string_view(argv[3]) == "--avoidance-consumers")),
               "Need project scratch parent, navigation worker and optional SDK plane");
         const auto base = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(base);
+        if (argc == 4 && std::string_view(argv[3]) == "--avoidance-consumers") {
+            for (auto plane : {NavigationPlane::Spatial3D, NavigationPlane::PlanarXY}) {
+                physical_policies(base / (std::to_string(unsigned(plane)) + "-physical"),
+                                  std::filesystem::absolute(argv[2]), plane, true);
+                behavior_policies(base / (std::to_string(unsigned(plane)) + "-behavior"),
+                                  std::filesystem::absolute(argv[2]), plane, true);
+            }
+            return 0;
+        }
         if (argc == 4) {
             exercise(base / "SDK", std::filesystem::absolute(argv[2]),
                      std::string_view(argv[3]) == "--prepare-sdk-planar"

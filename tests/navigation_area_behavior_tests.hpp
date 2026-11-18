@@ -1,6 +1,6 @@
 #pragma once
 void behavior_policies(const std::filesystem::path& root, const std::filesystem::path& worker,
-                       NavigationPlane plane) {
+                       NavigationPlane plane, bool peers = false) {
     exercise(root, worker, plane, true, true);
     std::ifstream input(root / "scene.json");
     Json authored;
@@ -46,6 +46,24 @@ void behavior_policies(const std::filesystem::path& root, const std::filesystem:
                 actor = row.at("id").get<std::string>();
         check(!actor.empty(), "Missing behavior policy actor");
         source.entity(actor).set<NavigationBehavior>({{doc->source().asset()}, {}, {}, true});
+        std::string peer;
+        if (peers) {
+            NavigationAvoidance policy;
+            policy.layers = policy.mask = 4;
+            policy.priority = .75f;
+            source.entity(actor).set<NavigationAvoidance>(policy);
+            for (const auto& row : authored.at("entities"))
+                if (row.at("name").get<std::string>() == "Direct agent")
+                    peer = row.at("id").get<std::string>();
+            check(!peer.empty(), "Missing behavior avoidance peer");
+            auto idle = source.entity(peer);
+            auto agent = idle.get<NavigationAgent>();
+            agent.has_destination = false;
+            policy.priority = 1;
+            idle.set<NavigationAgent>(agent).set<NavigationAvoidance>(policy).set<LocalTranslation>(
+                {0, plane == NavigationPlane::PlanarXY ? 0. : .1,
+                 plane == NavigationPlane::PlanarXY ? 11. : 0.});
+        }
         Runtime run(root, source.snapshot(), false, true);
         const auto native = run.scene.entity(actor);
         const auto ref = run.engine.world().reference(native.id()).value();
@@ -71,8 +89,33 @@ void behavior_policies(const std::filesystem::path& root, const std::filesystem:
         check(run.navigation->debug(native.id()).at("path").size() == 2 &&
                   native.get<NavigationBehavior>().enabled,
               "Live cost edit did not replan behavior movement through the existing owner");
+        if (peers) {
+            double minimum = 100;
+            bool passed = false;
+            const auto planar = plane == NavigationPlane::PlanarXY;
+            for (unsigned i = 0; i < 600; ++i) {
+                run.step();
+                run.engine.world().evaluate_world_transforms();
+                const auto position = native.get<WorldTransform>().affine.point({0, 0, 0});
+                const auto other =
+                    run.scene.entity(peer).get<WorldTransform>().affine.point({0, 0, 0});
+                check(run.navigation->agent_state(ref)->status == NavStatus::Success &&
+                          native.get<NavigationBehavior>().enabled,
+                      "Behavior destination lost admitted peer-policy steering");
+                minimum =
+                    std::min(minimum, std::hypot(position[0] - other[0],
+                                                 position[planar ? 1 : 2] - other[planar ? 1 : 2]));
+                if (position[0] > 1) {
+                    passed = true;
+                    break;
+                }
+            }
+            check(passed && minimum > .65,
+                  "Behavior-owned destination did not avoid its selected higher-priority peer");
+        }
         const auto checkpoint = run.navigation->checkpoint();
-        check(checkpoint.is_object() && checkpoint.at("version").get<unsigned>() == 13 &&
+        check(checkpoint.is_object() &&
+                  checkpoint.at("version").get<unsigned>() == (peers ? 14u : 13u) &&
                   !checkpoint.at("behaviors").empty(),
               "Configured area policy dropped behavior recovery state");
         std::cout << (tree ? "Tree" : "State graph") << " filtered destination policy passed\n";

@@ -136,9 +136,17 @@ template <class T> Json encode(const T& p) {
                 {"target", p.target.entity ? Json(p.target) : Json()},
                 {"anchor", p.anchor.entity ? Json(p.anchor) : Json()},
                 {"enabled", p.enabled}};
-    else if constexpr (std::is_same_v<T, NavigationAvoidance>)
-        return {{"enabled", p.enabled}, {"horizon", p.horizon}, {"shared_group", p.shared_group}};
-    else if constexpr (std::is_same_v<T, NavigationLinkCollision>)
+    else if constexpr (std::is_same_v<T, NavigationAvoidance>) {
+        Json value = {
+            {"enabled", p.enabled}, {"horizon", p.horizon}, {"shared_group", p.shared_group}};
+        if (p.layers != 1)
+            value["layers"] = p.layers;
+        if (p.mask != UINT32_MAX)
+            value["mask"] = p.mask;
+        if (p.priority != .5f)
+            value["priority"] = p.priority;
+        return value;
+    } else if constexpr (std::is_same_v<T, NavigationLinkCollision>)
         return navigation_detail::link_collision_value(p);
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
         Json value = {{"navmesh", p.navmesh.id ? Json(p.navmesh.id) : Json()},
@@ -534,7 +542,12 @@ template <class T> Value decode(const Json& p) {
         value.enabled = p.at("enabled");
         return value;
     } else if constexpr (std::is_same_v<T, NavigationAvoidance>)
-        return T{p.at("enabled"), p.at("horizon"), p.value("shared_group", 0u)};
+        return T{p.at("enabled"),
+                 p.at("horizon"),
+                 p.value("shared_group", 0u),
+                 p.value("layers", 1u),
+                 p.value("mask", UINT32_MAX),
+                 p.value("priority", .5f)};
     else if constexpr (std::is_same_v<T, NavigationLinkCollision>)
         return navigation_detail::link_collision_from_value(p);
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
@@ -1566,7 +1579,10 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
     } else if constexpr (std::is_same_v<T, NavigationAvoidance>)
         c.template member<bool>("enabled")
             .template member<float>("horizon")
-            .template member<std::uint32_t>("shared_group");
+            .template member<std::uint32_t>("shared_group")
+            .template member<std::uint32_t>("layers")
+            .template member<std::uint32_t>("mask")
+            .template member<float>("priority");
     else if constexpr (std::is_same_v<T, NavigationLinkCollision>) {
         c.template member<bool>("enabled")
             .template member<float>("radius")
@@ -2032,6 +2048,11 @@ Builtin descriptor(const char* name, const char* description, const char* unit,
         defaults["arc_height"] = NavigationLink{}.arc_height;
     else if constexpr (std::is_same_v<T, NavigationAgent>)
         defaults["movement"] = NavigationAgent{}.movement;
+    else if constexpr (std::is_same_v<T, NavigationAvoidance>) {
+        defaults["layers"] = NavigationAvoidance{}.layers;
+        defaults["mask"] = NavigationAvoidance{}.mask;
+        defaults["priority"] = NavigationAvoidance{}.priority;
+    }
     return {name, description, unit,    low,      high,    std::move(defaults),
             reg,  decode<T>,   read<T>, owner<T>, apply<T>};
 }
@@ -3940,14 +3961,31 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
     }
     if (name == "forge.navigation_avoidance") {
-        if (field == "shared_group") {
+        if (field == "layers" || field == "mask") {
+            value["display_name"] = field == "layers" ? "Avoidance layers" : "Avoidance mask";
+            value["minimum"] = 0;
+            value["maximum"] = UINT32_MAX;
+            value["animatable"] = false;
+            value["description"] =
+                field == "layers"
+                    ? "Membership bits seen by other avoidance participants; zero makes this peer "
+                      "unselected by their masks. Separate from surface and physics layers."
+                    : "React to peers with a matching membership bit and equal or higher priority. "
+                      "Zero ignores peers while preserving navigation surface and wall steering.";
+        } else if (field == "priority") {
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+            value["animatable"] = false;
+            value["description"] = "Higher values ignore lower-priority peers; equal priorities "
+                                   "react mutually. This does not grant physical right of way.";
+        } else if (field == "shared_group") {
             value["display_name"] = "Shared group";
             value["minimum"] = 0;
             value["maximum"] = 32;
             value["animatable"] = false;
             value["description"] = "Zero keeps separate Nav assets isolated. Equal nonzero "
                                    "groups also avoid peers on other profiles in the same plane. "
-                                   "Same-asset participants still interact.";
+                                   "Peer masks and priorities also apply.";
         } else if (field == "horizon") {
             value["minimum"] = .25;
             value["maximum"] = 5;
@@ -3956,7 +3994,7 @@ Json registration_options(const Builtin& type, const std::string& field) {
                                    "uses the baked profile";
         } else
             value["description"] =
-                "Join local avoidance; idle and paused participants remain obstacles";
+                "Join local avoidance; selected idle and paused peers remain obstacles";
     }
     if (name == "forge.navigation_agent") {
         if (field == "movement") {
@@ -4465,6 +4503,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.navigation_avoidance") {
             world.component<ReflectedMemberDefault>(reflected_member_default_type);
             c.lookup("shared_group").set<ReflectedMemberDefault>({0u});
+            c.lookup("layers").set<ReflectedMemberDefault>({1u}).add<ReflectedNoAnimation>();
+            c.lookup("mask").set<ReflectedMemberDefault>({UINT32_MAX}).add<ReflectedNoAnimation>();
+            c.lookup("priority").set<ReflectedMemberDefault>({.5f}).add<ReflectedNoAnimation>();
         }
         std::vector<ReflectedAdapter> references;
         if (name == "forge.animator" || name == "forge.physics_joint" ||

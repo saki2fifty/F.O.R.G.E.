@@ -3288,3 +3288,36 @@ navigation build/catalog owner and reuses a current, admitted immutable artifact
 The two `navigation_areas_*_gallery_vulkan` cases use the existing Game capture
 owner to compare four source/export display pairs per Scene, including portrait.
 Software Vulkan evidence does not establish physical GPU or Windows acceptance.
+
+## Avoidance participation and priority checks
+
+`navigation_avoidance_policies` verifies native defaults and omission, strict
+32bit values/finite priority, authored history/reopen, actual selected/excluded
+and bilateral yielding in3D/XY, and mixed private recovery14. The existing
+`navigation_avoidance` case also covers runtime changes and resets behind Prefab
+property masks through the Scene serializer.
+
+`navigation_avoidance_consumers` reuses the physical and behavior area-policy
+fixtures. Both physics domains must block a head-on character with peer Mask0
+and Priority1 and resume when the collision wall is disabled. State graphs and
+trees keep destination ownership while their agent yields to an observed peer.
+
+The two `mcp_navigation_avoidance_policies_*_stdio` cases run actual schema,
+component/history/source and live Play workflows through current and legacy
+protocol envelopes. `navigation_agent_editor` and
+`navigation_avoidance_policy_editor` exercise real controls at three scales/two
+sizes, exact high bits, ordinary/Prefab selective Keep/history/reopen and mixed
+area/peer/collision recovery. The capture case renders the actual native controls.
+
+`native_sdk_avoidance_policies_spatial`, `native_sdk_avoidance_policies_planar`
+and `native_sdk_avoidance_policies_installed` read actual native bilateral
+motion through the typed component, including high-bit masks and distinct
+priorities. Installed-only compilation and relocation use the existing SDK
+package fixture. Native hosts must shut down gracefully with successful exit.
+
+`navigation_avoidance_policy_gallery` runs both editable Scenes233/234, then
+packages, relocates, hides sources and repeats the complete patrol checks.
+`navigation_avoidance_policies_spatial_gallery_vulkan` and the planar variant
+reuse the native Game renderer to compare four exact animated source/export
+pairs per Scene, including portrait. Software rendering is not physical GPU or
+Windows acceptance.

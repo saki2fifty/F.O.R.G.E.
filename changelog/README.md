@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-11-18](20261118/README.md) — Physical grounded XY character jump links, mixed 3D/XY recovery, matching installed C++ SDK and MCP Play workflows, editable/exportable Gallery228 and manual instructions.
+- [2026-11-18](20261118/README.md) — Avoidance membership/masks and yielding priority, independent navigation areas/costs, physical character drops and grounded XY jumps, shared Inspector/MCP/SDK workflows, private runtime recovery, editable/exportable Gallery228–234 and illustrated manual instructions.
 
 - [2026-11-17](20261117/README.md) — Physical 3D character jump links and Floating XY navigation characters, stopped Scene-sequence UI preview and frame output, optional collision checks on navigation crossings, Camera Follow/Aim and their Timeline field tracks, composed camera inspection, camera-only shot blends, C++ rename across open sources and authored navigation arcs.
 
