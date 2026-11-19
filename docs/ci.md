@@ -2999,7 +2999,8 @@ physical-display acceptance. The current Game image above includes the original
 
 `ui_text_boundaries` checks all853unmodified official Unicode18 extended-grapheme
 cases through FORGE's UTF-8/scalar-coordinate helper, verifies fixture/notice
-hashes, and checks malformed text/ranges, bounds and temporary key selections.
+hashes, checks every scalar caret against the independent fixture boundary, and
+checks malformed text/ranges, bounds and temporary key selections.
 The separate unchanged upstream selected test confirms the exact provider's
 matching behavior; neither is a complete upstream suite claim.
 
@@ -3008,6 +3009,11 @@ modes and with boundary editing disabled/enabled. It covers combining accents,
 emoji sequences, flags, Hangul, collapsed/interior/partial selections, native
 arrows/deletion, canceled events, modifiers, disabled/max-length fields,
 composition forwarding, focus release, callback removal and cold reset/shutdown.
+Actual pointer checks cover partial native carets and ranges, forward/backward
+drag and reversal, native Shift-click anchors, native multiclick/Shift-start drag
+fallback, cancellation, later bubble edits, focus round trips, reentrant input,
+composition, and active/inactive field retirement. A native range trace prevents
+a font that never produces a partial character from passing that coverage claim.
 Oversized fallback stress uses the original font mode because the shaped font
 has an independent glyph-run limit. The known nonempty custom-commit behavior is
 compared with the unwrapped native path; it is not accepted as maxlength support.
@@ -3017,15 +3023,16 @@ production RuntimeUiInput and TextInputMethodEditor_SDL. It verifies whole-chara
 movement/deletion, the real empty-preedit/committed-text path, native maximum
 length and gameplay input isolation. `ui_surface_grapheme_input` runs the existing
 surface-routing consumer with the option enabled, checks camera-output combining
-characters, and preserves native pointer capture, focus/IME projection, output
-removal and retirement. `ui_surface_input` retains the original disabled profile.
+characters and actual projected partial caret/drag ranges, and preserves native
+pointer capture, focus/IME projection, output removal and retirement.
+`ui_surface_input` retains the original disabled profile.
 
 `game_foundation`, `standalone_manifest`, `ui_text_shaping_project` and
 `mcp_ui_text_shaping_stdio` also cover the independent saved grapheme option:
 boolean/default/player-override rules, exact kitcapability rejection/retention,
 source-hidden relocation with four original example IDs, and both MCP envelopes'
-settings digest, Save/discard and read-only grant discovery. Settings/source
-access does not prove MCP native-field input; that remains an explicit gap.
+settings digest, Save/discard and read-only grant discovery. Native field-input
+coverage is documented below; settings/source checks alone do not establish it.
 
 The whole-character guide reuses the unchanged authentic native HUD capture
 already documented above: it shows the same field/layout and is not a new
@@ -3153,10 +3160,12 @@ verify all new keys are discoverable and representative key families execute,
 multiline/document selection,
 destructive word-delete receipt replay, grants/revisions/focus, reload and authored
 isolation. Native word deletion can split a combined character. This batch exposes
-existing native keyboard behavior; whole-character word deletion, wider vertical/
-page/line grapheme semantics and full IME remain incomplete. Editing/shaping
-profiles and SDK ABI policy are unchanged. No new shader, physical input, full
-Main/MSVC/D3D12, external-client or graphical exported-executable result follows.
+existing native keyboard behavior. The saved boundary option also aligns
+unambiguous vertical/page/line navigation and supported native pointer input.
+Collapsed whole-character word deletion, raw MCP pointer/ray injection and full
+IME remain incomplete. Editing capability5 includes the supported player pointer
+gestures; shaping and SDK ABI policy are unchanged. No new shader, physical
+input, full Main/MSVC/D3D12, external-client or graphical exported-executable result follows.
 Existing unmodified UI captures retain their recorded provenance.
 
 

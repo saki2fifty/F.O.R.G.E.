@@ -15,6 +15,8 @@ class UiTextInput {
     ~UiTextInput();
     Rml::TextInputHandler* handler();
     bool key_down(Rml::Context&, int key, int modifiers);
+    bool mouse_move(Rml::Context&, int x, int y, int modifiers, bool primary_down);
+    bool mouse_button(Rml::Context&, int button, bool down, int modifiers);
 
   private:
     struct Impl;

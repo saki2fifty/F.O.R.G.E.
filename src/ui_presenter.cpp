@@ -644,6 +644,11 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             return {};
         }
     }
+    bool native_mouse_move(Rml::Context& context, int x, int y, int modifiers) {
+        return text_input
+                   ? text_input->mouse_move(context, x, y, modifiers, held_buttons.contains(0))
+                   : context.ProcessMouseMove(x, y, modifiers);
+    }
     bool surface_mouse(const UiSurfaceHit& hit, int modifiers) {
         auto* context = input_context(hit.output.id);
         const auto dimensions = context->GetDimensions();
@@ -655,7 +660,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         hovered_surface = hit;
         const std::array<int, 2> position{pixel(hit.uv[0], dimensions.x),
                                           pixel(hit.uv[1], dimensions.y)};
-        return !context->ProcessMouseMove(position[0], position[1], modifiers);
+        return !native_mouse_move(*context, position[0], position[1], modifiers);
     }
     bool surface_available(const UiSurfaceHit& hit) {
         try {
@@ -687,11 +692,11 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                 surface_mouse(*hit, modifiers);
                 captured_surface = hit;
             } else if (auto* context = input_context(captured_output)) {
-                context->ProcessMouseMove(x, y, modifiers);
+                native_mouse_move(*context, x, y, modifiers);
             }
             return true;
         }
-        const bool main_consumed = !live->context->ProcessMouseMove(x, y, modifiers);
+        const bool main_consumed = !native_mouse_move(*live->context, x, y, modifiers);
         if (!main_consumed)
             if (const auto hit = pick_surface(x, y))
                 return surface_mouse(*hit, modifiers);
@@ -1806,8 +1811,10 @@ bool UiPresenter::mouse_button(int button, bool down, int modifiers) {
         return false;
     if (down)
         s.focus_target(output, captured ? s.captured_surface : s.hovered_surface);
-    const bool consumed = !(down ? context->ProcessMouseButtonDown(button, modifiers)
-                                 : context->ProcessMouseButtonUp(button, modifiers));
+    const bool consumed =
+        !(s.text_input ? s.text_input->mouse_button(*context, button, down, modifiers)
+          : down       ? context->ProcessMouseButtonDown(button, modifiers)
+                       : context->ProcessMouseButtonUp(button, modifiers));
     if (down && consumed) {
         if (!captured) {
             s.captured_output = output;

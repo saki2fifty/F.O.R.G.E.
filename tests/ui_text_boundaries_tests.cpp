@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
 #include "ui_text_boundaries.hpp"
+#include <algorithm>
 #include <charconv>
 #include <fstream>
 #include <iostream>
@@ -60,6 +61,27 @@ void policy() {
     shifted({0, 3}, {1, 3}, UiTextKey::Right, {3, 3});
     shifted({1, 1}, {1, 2}, UiTextKey::Right, {0, 3});
     shifted({1, 1}, {0, 1}, UiTextKey::Left, {3, 0});
+    check(ui_text_pointer_selection(emoji, {1, 1}, {1, 1}, false) == UiTextOrientedSelection{3, 3},
+          "A plain interior click retained a partial-character caret");
+    check(ui_text_pointer_selection(emoji, {0, 0}, {0, 1}, true) == UiTextOrientedSelection{0, 3} &&
+              ui_text_pointer_selection(emoji, {3, 3}, {2, 3}, true) ==
+                  UiTextOrientedSelection{3, 0},
+          "Pointer extension lost its observed native anchor or direction");
+    check(ui_text_pointer_selection(emoji, {0, 3}, {0, 2}, true) == UiTextOrientedSelection{0, 3} &&
+              ui_text_pointer_selection(emoji, {0, 3}, {1, 3}, true) ==
+                  UiTextOrientedSelection{3, 0},
+          "Pointer shrinking did not retain whole-character anchor semantics");
+    check(ui_text_pointer_selection(emoji, {0, 3}, {0, 1}, true) == UiTextOrientedSelection{0, 3} &&
+              ui_text_pointer_selection(emoji, {0, 3}, {2, 3}, true) ==
+                  UiTextOrientedSelection{3, 0},
+          "Repeated pointer positions oscillated inside a combined character");
+    check(!ui_text_pointer_selection(emoji, {0, 0}, {0, 0}, false) &&
+              !ui_text_pointer_selection(emoji, {4, 4}, {4, 4}, false) &&
+              !ui_text_pointer_selection(emoji, {0, 0}, {1, 2}, false) &&
+              !ui_text_pointer_selection(emoji, {0, 2}, {1, 3}, true),
+          "Pointer alignment guessed an ambiguous or already aligned selection");
+    rejects([&] { ui_text_pointer_selection(emoji, {-1, 0}, {0, 0}, false); });
+    rejects([&] { ui_text_pointer_selection("\xff", {0, 0}, {0, 0}, false); });
     const auto word = [&](UiTextSelection before, UiTextSelection after, UiTextKey key,
                           bool selecting, UiTextOrientedSelection expected) {
         check(ui_text_movement_selection(emoji, before, after, key, selecting) == expected,
@@ -159,6 +181,14 @@ unsigned conformance(const char* path) {
               "Official case lacks start/end markers");
         check(ui_grapheme_boundaries(text) == expected,
               "UI UTF-8 boundary mismatch on official line " + std::to_string(line_number));
+        for (int point = 0; point <= scalars; ++point) {
+            const int aligned = *std::lower_bound(expected.begin(), expected.end(), point);
+            const auto next =
+                ui_text_pointer_selection(text, {point, point}, {point, point}, false);
+            check(aligned == point ? !next : next == UiTextOrientedSelection{aligned, aligned},
+                  "Pointer caret differs from the independent official boundaries on line " +
+                      std::to_string(line_number));
+        }
         ++cases;
     }
     check(input.eof() && cases == 853, "Official fixture is incomplete or changed");

@@ -33,4 +33,8 @@ std::optional<UiTextOrientedSelection> ui_text_shift_selection(std::string_view,
 std::optional<UiTextOrientedSelection> ui_text_movement_selection(std::string_view, UiTextSelection,
                                                                   UiTextSelection, UiTextKey,
                                                                   bool selecting);
+// A fresh plain click aligns a collapsed caret forward. Extending pointer input
+// aligns only an unambiguous observed native anchor; multiclick ranges remain native.
+std::optional<UiTextOrientedSelection> ui_text_pointer_selection(std::string_view, UiTextSelection,
+                                                                 UiTextSelection, bool extending);
 } // namespace forge

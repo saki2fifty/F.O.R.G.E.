@@ -676,7 +676,9 @@ truncated observation prevent input. Text actions and returned values use a
 **1,024-byte UTF-8** limit; larger values are omitted from observations without
 changing the field. Password plaintext is omitted. Release held native UI keys
 or pointer buttons before agent input. Camera-output fields require existing
-native surface focus/hover mapping.
+native surface focus/hover mapping. Player click/drag alignment follows the saved
+whole-character option; these tools provide semantic field keys rather than raw
+pointer or ray gesture injection.
 
 `delivered` means the native action was sent; it is not a gameplay
 acknowledgement. A canceled native event may leave text unchanged. Runtime field

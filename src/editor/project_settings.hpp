@@ -157,8 +157,10 @@ class ProjectSettingsEditor {
                 bool grapheme_editing = ui_grapheme_editing_enabled(game);
                 if (ImGui::Checkbox("Edit whole UI characters", &grapheme_editing))
                     game["ui"]["grapheme_editing"] = grapheme_editing;
-                ui::help("Move and select complete Unicode characters with arrows, native "
-                         "line/page keys and Ctrl word movement. Backspace/Delete and Shift "
+                ui::help("Move and select complete Unicode characters with clicks, plain-click "
+                         "drags, unambiguous Shift clicks, arrows, native line/page keys and Ctrl "
+                         "word movement. Native multiclick and ambiguous gestures keep their "
+                         "selection policy. Backspace/Delete and Shift "
                          "variants remove complete characters; existing Ctrl deletion selections "
                          "expand to complete characters. Collapsed Ctrl word deletion and active "
                          "IME composition keep native behavior. Save Settings and restart Play. "

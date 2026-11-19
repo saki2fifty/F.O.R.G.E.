@@ -44,7 +44,8 @@ See [Shape game UI text](ui-text-shaping.md) for the example, language/direction
 supported typography and current limits.
 
 Enable **Edit whole UI characters** independently to use whole Unicode character
-boundaries with plain Left, Right, Backspace and Delete in game UI text fields.
+boundaries for supported clicks, drags, selection, navigation and deletion in
+game UI text fields.
 Choose **Save Settings** and restart Play. See [Edit whole UI characters](ui-text-input.md)
 for a hands-on example, modified keys, input methods and export requirements.
 

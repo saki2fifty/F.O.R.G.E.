@@ -48,6 +48,20 @@ struct Handler final : Rml::TextInputHandler {
 };
 struct KeyListener final : Rml::EventListener {
     std::function<void(Rml::Event&)> action;
+    Rml::ObserverPtr<Rml::Element> observed;
+    Rml::EventId event_id = Rml::EventId::Keydown;
+    bool capture = true;
+    KeyListener() = default;
+    KeyListener(Rml::Element& field, Rml::EventId id, bool capturing = true)
+        : observed(field.GetObserverPtr()), event_id(id), capture(capturing) {
+        observed->AddEventListener(event_id, this, capture);
+    }
+    KeyListener(const KeyListener&) = delete;
+    KeyListener& operator=(const KeyListener&) = delete;
+    ~KeyListener() override {
+        if (observed)
+            observed->RemoveEventListener(event_id, this, capture);
+    }
     void ProcessEvent(Rml::Event& event) override { action(event); }
 };
 template <class T> UiTextSelection selection(T& field) {
@@ -66,7 +80,9 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
 <input id="disabled" type="text" disabled="disabled" value="Locked"/>
 <input id="removable" type="text" value="abc"/>
 <input id="shift-removable" type="text" value="abc"/>
-<textarea id="area">abc</textarea></body></rml>)rml";
+<textarea id="area">abc</textarea>
+<input id="pointer-other" type="text" value="abc"/>
+<input id="pointer-removable" type="text" value="abc"/></body></rml>)rml";
     const auto asset = register_ui_document(root, "input.rml");
     const auto entity = EntityId::generate();
     Json state{{"version", 1},
@@ -103,6 +119,272 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
         };
         auto* text = input("text");
         check(text->Focus() && handler.active, "Native text context was not delegated");
+        double pointer_time = 0;
+        unsigned pointer_interiors = 0, pointer_drag_interiors = 0;
+        int password_interior = -1;
+        const auto pointer_clicks = [&](auto* field) {
+            const auto value = utf8(u8"a\u0301b");
+            UiTextSelection native;
+            unsigned delivered = 0;
+            KeyListener listener(*field, Rml::EventId::Mousedown);
+            listener.action = [&](Rml::Event&) {
+                ++delivered;
+                native = selection(*field);
+            };
+            for (int offset = 2; offset < 65; offset += 2) {
+                field->SetValue(value);
+                field->SetSelectionRange(0, 0);
+                presenter.release_input();
+                presenter.update(++pointer_time, 800, 600);
+                const auto position = field->GetAbsoluteOffset();
+                presenter.mouse_move(int(position.x) + offset, int(position.y) + 15, 0);
+                const auto before = delivered;
+                presenter.mouse_button(0, true, 0);
+                presenter.mouse_button(0, false, 0);
+                check(delivered == before + 1 && native.begin == native.end && native.end >= 0 &&
+                          native.end <= 3,
+                      "Pointer did not deliver one ordinary native caret action");
+                const int expected = editing && native.end == 1 ? 2 : native.end;
+                check(selection(*field) == UiTextSelection{expected, expected} &&
+                          field->GetValue() == value && handler.active,
+                      "Native pointer focus/caret split a combined character or changed its value");
+                pointer_interiors += native.end == 1;
+                if (field->GetId() == "password" && native.end == 1)
+                    password_interior = offset;
+            }
+            UiTextSelection moved;
+            unsigned move_events = 0, nonempty_drags = 0;
+            KeyListener move_listener(*field, Rml::EventId::Drag);
+            move_listener.action = [&](Rml::Event&) {
+                ++move_events;
+                moved = selection(*field);
+            };
+            for (bool backwards : {true, false}) {
+                field->SetValue(value);
+                presenter.release_input();
+                presenter.update(++pointer_time, 800, 600);
+                const auto position = field->GetAbsoluteOffset();
+                const int x = int(position.x), y = int(position.y) + 15;
+                presenter.mouse_move(x + (backwards ? 60 : 2), y, 0);
+                const auto down_before = delivered;
+                presenter.mouse_button(0, true, 0);
+                check(delivered == down_before + 1 && native.begin == native.end &&
+                          native.end >= 0 && native.end <= 3,
+                      "Drag start did not observe one native collapsed click");
+                const int anchor = editing && native.end == 1 ? 2 : native.end;
+                if (selection(*field) != UiTextSelection{anchor, anchor})
+                    throw std::runtime_error(Json{
+                        {"reason", "Native drag start differs"},
+                        {"field", field->GetId()},
+                        {"shaping", shaping},
+                        {"editing", editing},
+                        {"backwards", backwards},
+                        {"selection", {selection(*field).begin, selection(*field).end}},
+                        {"position", {x, y}},
+                        {"time", pointer_time}}.dump());
+                const auto drag = [&](int offset) {
+                    const auto before = move_events;
+                    moved = selection(*field);
+                    presenter.mouse_move(x + offset, y, 0);
+                    check(move_events <= before + 1 &&
+                              (moved.begin == anchor || moved.end == anchor),
+                          "Pointer drag duplicated dispatch or changed the native anchor");
+                    if (move_events != before) {
+                        nonempty_drags += moved.begin != moved.end;
+                        pointer_drag_interiors += moved.begin == 1 || moved.end == 1;
+                    }
+                    const int begin = editing && moved.begin == 1 ? 0 : moved.begin;
+                    const int end = editing && moved.end == 1 ? 2 : moved.end;
+                    check(
+                        selection(*field) == UiTextSelection{begin, end} &&
+                            field->GetValue() == value,
+                        "Forward/backward pointer drag split a character or oscillated inside it");
+                };
+                if (backwards) {
+                    for (int offset = 58; offset >= 2; offset -= 2)
+                        drag(offset);
+                    for (int offset = 4; offset <= 60; offset += 2)
+                        drag(offset);
+                } else {
+                    for (int offset = 4; offset <= 60; offset += 2)
+                        drag(offset);
+                    for (int offset = 58; offset >= 2; offset -= 2)
+                        drag(offset);
+                }
+                presenter.mouse_button(0, false, 0);
+            }
+            check(move_events > 0 && nonempty_drags > 0,
+                  "Pointer fixture did not execute native drag selection");
+            field->SetValue("abc");
+            field->SetSelectionRange(0, 0);
+        };
+        pointer_clicks(text);
+        pointer_clicks(input("password"));
+        auto* pointer_area =
+            rmlui_dynamic_cast<Rml::ElementFormControlTextArea*>(document->GetElementById("area"));
+        check(pointer_area, "Pointer textarea is missing");
+        pointer_clicks(pointer_area);
+        check(pointer_interiors > 0, "Native pointer fixture did not exercise an interior caret");
+        check(pointer_drag_interiors > 0,
+              "Native drag fixture did not exercise a partial-character range");
+        check(text->Focus() && handler.active, "Pointer fixture did not restore native focus");
+        check(password_interior >= 0, "Masked pointer fixture has no native interior caret");
+        auto* password = input("password");
+        const auto pointer_value = utf8(u8"a\u0301b");
+        const auto prepare_pointer = [&] {
+            presenter.release_input();
+            password->SetValue(pointer_value);
+            password->SetSelectionRange(0, 0);
+            check(password->Focus() && handler.active, "Guarded pointer field did not activate");
+            presenter.update(++pointer_time, 800, 600);
+            const auto position = password->GetAbsoluteOffset();
+            presenter.mouse_move(int(position.x) + password_interior, int(position.y) + 15, 0);
+        };
+        const auto click = [&](int modifiers = 0) {
+            presenter.mouse_button(0, true, modifiers);
+            presenter.mouse_button(0, false, modifiers);
+        };
+        prepare_pointer();
+        password->SetSelectionRange(3, 3);
+        {
+            UiTextSelection native;
+            unsigned events = 0;
+            KeyListener observed(*password, Rml::EventId::Mousedown);
+            observed.action = [&](Rml::Event&) {
+                ++events;
+                native = selection(*password);
+            };
+            click(Rml::Input::KM_SHIFT);
+            check(events == 1 && native == UiTextSelection{1, 3} &&
+                      selection(*password) == UiTextSelection{editing ? 0 : 1, 3},
+                  "Native Shift click lost its proven anchor or split a character");
+            // A Shift-start gesture has no admitted plain-click drag anchor.
+            UiTextSelection dragged;
+            unsigned drags = 0;
+            KeyListener drag(*password, Rml::EventId::Drag);
+            drag.action = [&](Rml::Event&) {
+                ++drags;
+                dragged = selection(*password);
+            };
+            presenter.update(++pointer_time, 800, 600);
+            presenter.mouse_button(0, true, Rml::Input::KM_SHIFT);
+            const auto position = password->GetAbsoluteOffset();
+            for (int offset : {2, 60, password_interior}) {
+                const auto before = drags;
+                presenter.mouse_move(int(position.x) + offset, int(position.y) + 15,
+                                     Rml::Input::KM_SHIFT);
+                if (drags != before)
+                    check(selection(*password) == dragged,
+                          "Shift-start drag replaced the native gesture policy");
+            }
+            presenter.mouse_button(0, false, Rml::Input::KM_SHIFT);
+            check(drags > 0, "Shift-start fixture did not execute native drag selection");
+        }
+        prepare_pointer();
+        {
+            UiTextSelection native;
+            unsigned doubles = 0;
+            KeyListener observed(*password, Rml::EventId::Dblclick);
+            observed.action = [&](Rml::Event&) {
+                ++doubles;
+                native = selection(*password);
+            };
+            click();
+            click();
+            check(doubles > 0 && selection(*password) == native &&
+                      password->GetValue() == pointer_value,
+                  "Double click did not preserve native masked word selection");
+        }
+        // Ancestor cancellation prevents the widget action and any boundary correction.
+        prepare_pointer();
+        password->SetSelectionRange(1, 1);
+        {
+            KeyListener cancel(*document, Rml::EventId::Mousedown);
+            unsigned events = 0;
+            cancel.action = [&](Rml::Event& event) {
+                ++events;
+                event.StopImmediatePropagation();
+            };
+            click();
+            check(events == 1 && selection(*password) == UiTextSelection{1, 1} &&
+                      password->GetValue() == pointer_value,
+                  "Canceled pointer action changed selection or value");
+        }
+        // Ancestor bubble callbacks run after the widget and transient observation.
+        for (int callback = 0; callback != 4; ++callback) {
+            prepare_pointer();
+            KeyListener later(*document, Rml::EventId::Mousedown, false);
+            unsigned events = 0;
+            later.action = [&](Rml::Event&) {
+                ++events;
+                if (callback == 0)
+                    password->SetSelectionRange(0, 0);
+                else if (callback == 1) {
+                    password->SetValue("callback");
+                    password->SetSelectionRange(1, 1);
+                } else if (callback == 2) {
+                    check(text->Focus() && password->Focus(), "Pointer focus callback failed");
+                    password->SetSelectionRange(1, 1);
+                } else {
+                    press(Rml::Input::KI_LEFT);
+                    password->SetSelectionRange(1, 1);
+                }
+            };
+            click();
+            const int expected = callback == 0 ? 0 : 1;
+            if (events != 1 || selection(*password) != UiTextSelection{expected, expected} ||
+                password->GetValue() != (callback == 1 ? "callback" : pointer_value))
+                throw std::runtime_error(Json{
+                    {"reason", "Pointer callback result differs"},
+                    {"callback", callback},
+                    {"events", events},
+                    {"editing", editing},
+                    {"shaping", shaping},
+                    {"selection", {selection(*password).begin, selection(*password).end}},
+                    {"value",
+                     password->GetValue()}}.dump());
+        }
+        if (editing) {
+            auto* other = input("pointer-other");
+            check(other->Focus(), "Inactive retirement fixture did not activate");
+            prepare_pointer();
+            {
+                KeyListener later(*document, Rml::EventId::Mousedown, false);
+                later.action = [&](Rml::Event&) {
+                    auto retired = other->GetParentNode()->RemoveChild(other);
+                };
+                click();
+            }
+            check(selection(*password) == UiTextSelection{2, 2},
+                  "Retiring an unrelated input invalidated the focused pointer correction");
+            prepare_pointer();
+            handler.active->SetCompositionRange(0, 1);
+            click();
+            check(selection(*password) == UiTextSelection{1, 1} &&
+                      password->GetValue() == pointer_value,
+                  "Pointer alignment interfered with active native composition");
+            handler.active->SetCompositionRange(0, 0);
+        }
+        prepare_pointer();
+        auto* removable_pointer = input("pointer-removable");
+        presenter.release_input();
+        check(removable_pointer->Focus(), "Pointer retirement fixture did not focus");
+        presenter.update(++pointer_time, 800, 600);
+        const auto removable_position = removable_pointer->GetAbsoluteOffset();
+        presenter.mouse_move(int(removable_position.x) + 4, int(removable_position.y) + 15, 0);
+        {
+            const auto observed = removable_pointer->GetObserverPtr();
+            KeyListener retire(*document, Rml::EventId::Mousedown, false);
+            unsigned events = 0;
+            retire.action = [&](Rml::Event& event) {
+                ++events;
+                event.StopImmediatePropagation();
+                auto retired = removable_pointer->GetParentNode()->RemoveChild(removable_pointer);
+            };
+            click();
+            check(events == 1 && !observed, "Pointer callback did not retire its focused field");
+        }
+        check(text->Focus() && handler.active, "Pointer guards did not restore native focus");
         const auto words = [&](auto* field, bool masked) {
             check(field && field->Focus() && handler.active, "Word field did not activate");
             const int ctrl = Rml::Input::KM_CTRL, selecting = ctrl | Rml::Input::KM_SHIFT;
@@ -528,7 +810,7 @@ body {font-family:Lato;font-size:24px;} input,textarea {display:block;width:400p
         text->SetSelectionRange(1, 1);
         presenter.text("z");
         check(text->GetValue() == "azbc", "Plain text insertion stopped using the native field");
-        presenter.update(.02, 800, 600);
+        presenter.update(pointer_time + .02, 800, 600);
         presenter.render();
         check(presenter.diagnostic().empty(), presenter.diagnostic().c_str());
         presenter.reset("retired-input", 2);

@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "ui_test_renderer.hpp"
+#include "ui_text_boundaries.hpp"
 #include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include <forge/runtime_ui.hpp>
 #include <fstream>
@@ -10,6 +11,37 @@ void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
 }
+UiTextSelection selection(Rml::ElementFormControlInput& field) {
+    UiTextSelection result;
+    field.GetSelection(&result.begin, &result.end, nullptr);
+    return result;
+}
+struct PointerTrace final : Rml::EventListener {
+    Rml::ObserverPtr<Rml::Element> observed;
+    Rml::ElementFormControlInput& field;
+    UiTextSelection down, dragged;
+    unsigned downs = 0, drags = 0;
+    explicit PointerTrace(Rml::ElementFormControlInput& input)
+        : observed(input.GetObserverPtr()), field(input) {
+        field.AddEventListener(Rml::EventId::Mousedown, this, true);
+        field.AddEventListener(Rml::EventId::Drag, this, true);
+    }
+    ~PointerTrace() override {
+        if (observed) {
+            observed->RemoveEventListener(Rml::EventId::Mousedown, this, true);
+            observed->RemoveEventListener(Rml::EventId::Drag, this, true);
+        }
+    }
+    void ProcessEvent(Rml::Event& event) override {
+        if (event.GetId() == Rml::EventId::Mousedown) {
+            ++downs;
+            down = selection(field);
+        } else {
+            ++drags;
+            dragged = selection(field);
+        }
+    }
+};
 Rml::Element* element(const char* id) {
     for (int i = 0; i < Rml::GetNumContexts(); ++i) {
         auto* context = Rml::GetContext(i);
@@ -41,7 +73,8 @@ button {position:absolute;left:210px;top:110px;width:60px;height:24px;background
 body {font-family:Lato;pointer-events:none;margin:0;}
 button,input {display:block;position:absolute;left:10px;pointer-events:auto;background-color:#acf;}
 button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:100px;height:25px;}
-</style></head><body><button id="surface" data-event-click="command('Step')">Surface</button><input id="entry" type="text" value="old"/></body></rml>)rml";
+input#pointer {top:78px;height:18px;tab-index:none;}
+</style></head><body><button id="surface" data-event-click="command('Step')">Surface</button><input id="entry" type="text" value="old"/><input id="pointer" type="password" value="old"/></body></rml>)rml";
         const auto main = register_ui_document(root, "Main.rml"),
                    output = register_ui_document(root, "Output.rml");
         const auto image = AssetId::generate();
@@ -209,6 +242,69 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
         check(presenter.text("typed"), "Focused output rejected text input");
         check(element("entry")->GetAttribute<Rml::String>("value", "") == "typed",
               "Text input changed the wrong native context");
+        double pointer_time = .3;
+        {
+            auto* field = rmlui_dynamic_cast<Rml::ElementFormControlInput*>(element("pointer"));
+            check(field, "Surface pointer field is missing");
+            PointerTrace trace(*field);
+            const std::string value = "a\xcc\x81"
+                                      "b";
+            unsigned interiors = 0, partial_drags = 0;
+            const auto prepare = [&] {
+                presenter.release_input();
+                field->SetValue(value);
+                field->SetSelectionRange(0, 0);
+                presenter.update(++pointer_time, 480, 300);
+                presenter.update_output({image}, 160, 100);
+            };
+            for (int offset = 2; offset <= 64; offset += 2) {
+                prepare();
+                const auto position = field->GetAbsoluteOffset();
+                const auto before = trace.downs;
+                click(int(surface_x + position.x) + offset, 100 + int(position.y) + 9);
+                const int point = editing && trace.down.end == 1 ? 2 : trace.down.end;
+                check(trace.downs == before + 1 && trace.down.begin == trace.down.end &&
+                          selection(*field) == UiTextSelection{point, point} &&
+                          field->GetValue() == value && presenter.wants_text(),
+                      "Projected pointer click split a character or lost native output focus");
+                interiors += trace.down.end == 1;
+            }
+            for (bool backwards : {false, true}) {
+                prepare();
+                const auto position = field->GetAbsoluteOffset();
+                const int x = int(surface_x + position.x), y = 100 + int(position.y) + 9;
+                presenter.mouse_move(x + (backwards ? 64 : 2), y, 0);
+                presenter.mouse_button(0, true, 0);
+                const int anchor = editing && trace.down.end == 1 ? 2 : trace.down.end;
+                check(selection(*field) == UiTextSelection{anchor, anchor},
+                      "Captured output drag changed its native click anchor");
+                const auto move = [&](int offset) {
+                    const auto before = trace.drags;
+                    presenter.mouse_move(x + offset, y, 0);
+                    check(trace.drags <= before + 1, "Captured output duplicated native drag");
+                    if (trace.drags == before)
+                        return;
+                    check(trace.dragged.begin == anchor || trace.dragged.end == anchor,
+                          "Captured output lost the native drag anchor");
+                    partial_drags += trace.dragged.begin == 1 || trace.dragged.end == 1;
+                    const int begin = editing && trace.dragged.begin == 1 ? 0 : trace.dragged.begin;
+                    const int end = editing && trace.dragged.end == 1 ? 2 : trace.dragged.end;
+                    check(selection(*field) == UiTextSelection{begin, end} &&
+                              field->GetValue() == value,
+                          "Projected forward/backward drag split a character or changed text");
+                };
+                for (int offset = 2; offset <= 64; offset += 2)
+                    move(backwards ? 66 - offset : offset);
+                for (int offset = 62; offset >= 2; offset -= 2)
+                    move(backwards ? 66 - offset : offset);
+                presenter.mouse_button(0, false, 0);
+            }
+            check(interiors > 0 && trace.drags > 0 && partial_drags > 0,
+                  "Output pointer fixture did not exercise partial native caret and drag ranges");
+            presenter.release_input();
+            auto retired = field->GetParentNode()->RemoveChild(field);
+        }
+        click(220, 160);
         if (editing) {
             const auto fields = presenter.text_fields("output");
             check(presenter
@@ -306,7 +402,7 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
         click(220, 160);
         check(presenter.wants_text(), "Surface focus did not recover");
         alive = false;
-        presenter.update(.35, 480, 300);
+        presenter.update(pointer_time + .05, 480, 300);
         check(!presenter.wants_text() && output_context->GetFocusElement() != element("entry"),
               "A disappearing surface retained focus without pointer motion");
         widget_refused = false;
@@ -319,7 +415,7 @@ button {top:10px;width:80px;height:24px;tab-index:auto;}input {top:50px;width:10
         check(widget_refused, "Retired surface still authorized scoped widget keyboard focus");
         alive = true;
         click(220, 160);
-        presenter.update(.4, 640, 400);
+        presenter.update(pointer_time + .1, 640, 400);
         check(!presenter.wants_text(), "Viewport resize retained an obsolete surface focus");
         presenter.release_input();
         check(!presenter.wants_text(), "Capture release retained output text focus");

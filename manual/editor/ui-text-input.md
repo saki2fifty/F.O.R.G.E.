@@ -1,7 +1,7 @@
 # Edit whole UI characters
 
-Enable **Edit whole UI characters** to move and delete a complete Unicode
-character with arrow and deletion keys in game UI text fields. It also keeps
+Enable **Edit whole UI characters** to place the caret, drag-select, move and
+delete complete Unicode characters in game UI text fields. It also keeps
 word, line and page navigation on complete character boundaries when the native
 control reports an unambiguous movement. A character
 can contain several code points, such as a letter with a combining accent or an
@@ -36,11 +36,16 @@ RML value or modify the authored Scene.
 9. Paste `áb` again and press **Home**. **Shift+Right**, then **Shift+Left**, selects the accented character and collapses the selection at the original caret.
 10. Replace the text with `alpha beta`, press **Home**, then **Ctrl+Right** to move to the next word. Return Home and use **Ctrl+Shift+Right** to extend the selection by words; **Ctrl+Shift+Left** shrinks it toward the original caret.
 
+11. Paste `áb` again and click across the accented character. An interior caret moves just past that character. Start with a plain click, then drag across the text and back: supported selections include complete characters. **Shift+click** extends the selection when the control provides an unambiguous anchor.
+
 Use a font containing the characters you test. Missing glyph boxes indicate font
 coverage, even when an emoji sequence is edited as one character.
 
 ## Controls and limits
 
+- **Primary click:** a caret inside a combined character moves just after the complete character.
+- **Drag after a plain primary click:** select complete characters outward from the native anchor; reverse direction to shrink or cross that anchor.
+- **Shift+click:** extend a selection to whole characters when the native anchor is unambiguous.
 - **Plain Left / Right:** move by a whole character in logical text order.
 - **Plain Backspace / Delete:** delete the adjacent whole character.
 - **Shift+Left / Shift+Right:** extend or shrink a selection by whole characters in logical text order. Reverse direction to move back toward where the selection started.
@@ -58,10 +63,12 @@ is used; forward and backward movement can group punctuation differently.
 Password fields use their native masked-word grouping.
 
 Text inputs, password inputs and textareas support the option. Native disabled
-controls and ordinary maximum-length restrictions still apply. Pointer selection,
-collapsed word deletion and unsupported or ambiguous modified selection retain
-native behavior; their caret can be inside a multi-code-point character. The next supported key above
-uses the complete character boundary.
+controls and ordinary maximum-length restrictions still apply. Multiclick
+word selection, Shift-start drags, Alt/Meta gestures, collapsed word deletion
+and unsupported or ambiguous selection retain native behavior; their caret can
+be inside a multi-code-point character. A supported key above uses the complete
+character boundary. Pointer editing also works on an interactive UI surface
+through its existing camera mapping.
 
 The option covers fields up to **64 KiB of UTF-8** and **16,384 code points**.
 Larger fields retain native editing without being truncated. Font rendering has
@@ -74,9 +81,9 @@ is unavailable; use supported disabled controls when editing must be blocked.
 
 Save the UI source, Scene and Project Settings, and test Play before exporting.
 Use the runtime kit packaged with the matching editor. A kit lacking the enabled
-whole-character editing profile, including native navigation and selected deletion,
-is rejected. Players need no compiler or
-machine-installed font. See [Export a game](runtime-content.md).
+whole-character editing profile, including pointer selection, native navigation
+and selected deletion, is rejected. Players need no compiler or machine-installed
+font. See [Export a game](runtime-content.md).
 
 ## Test fields with an AI agent
 
@@ -101,7 +108,8 @@ These operations use the same native fields and saved editing option. Password
 plaintext is omitted from observations. Field text stays in the running UI;
 game models may replace it, and it is not saved into source or Scene Undo.
 Camera-output input requires existing native surface focus/hover mapping. IME
-composition injection and arbitrary DOM/script editing are unavailable.
+composition injection, raw pointer/ray gestures and arbitrary DOM/script editing
+are unavailable through these tools.
 
 For checkbox, radio and dropdown actions, and read-only progress observations,
 see [Form controls](ui-form-controls.md). These share native input and Play scope;

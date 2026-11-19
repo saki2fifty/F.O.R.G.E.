@@ -90,7 +90,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Create and assign UI Material graph/HLSL effects and textures; try the editable panel Gallery](editor/ui-material-effects.md)
 - [Create UI controls, zoom and scroll Preview, select with a rectangle or keyboard, duplicate sibling groups and delete, choose or drop project images, link and order stylesheets, declare project fonts and collection faces with weight, style and missing-glyph fallback, edit properties and styles, bind displayed game values and button commands, translate/rotate/scale with transform origins, center or stretch controls with layout presets, author viewport-width stylesheet rules, resize, align or match group sizes, snap and constrain drags, retain visible aspect and move with arrow keys](editor/ui-source.md)
 - [Shape game UI text: ligatures, script runs, collections, weights and layered color glyphs](editor/ui-text-shaping.md)
-- [Edit and select whole UI characters: arrows, words, lines/pages, deletion, agent testing and native input limits](editor/ui-text-input.md)
+- [Edit and select whole UI characters: clicks, drags, arrows, words, lines/pages, deletion, agent testing and native input limits](editor/ui-text-input.md)
 - [Form controls: buttons, sliders, checkboxes, radio groups, dropdowns, progress, keyboard input and agent testing](editor/ui-form-controls.md)
 - [Translate a game's menus and HUD](editor/ui-localization.md)
 - [Flecs Script](editor/flecs-script.md)

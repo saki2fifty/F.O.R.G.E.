@@ -35,7 +35,7 @@ Shift+Left/Right uses a transient observation of the same native field's
 one-scalar key transition. The pinned widget handles keys in a capture listener;
 a call-local listener on that field observes its selection afterwards. Ancestor
 cancellation prevents this observation. After dispatch, the same surviving focus,
-value and observed range must remain, with no reentrant public key dispatch.
+value and observed range must remain, with no reentrant public input dispatch.
 Only a proven movement of one endpoint by one scalar establishes the native
 anchor and moving caret. The helper aligns the oriented selection to complete
 grapheme boundaries using the public selection API; subsequent extension,
@@ -50,6 +50,23 @@ cross its anchor. The helper accepts only an unambiguous directional transition;
 it does not implement a word scanner or substitute language segmentation.
 Forward and backward native grouping can differ. Password fields retain the
 word grouping of their native masked display, without scanning plaintext words.
+
+Primary pointer clicks use the same call-local native selection observer. A
+collapsed caret inside a character moves to that character's following boundary.
+Shift-click aligns only a transition with a uniquely established native anchor.
+Dragging after an ordinary collapsed primary click expands its observed selection
+outward to complete characters; reversing or moving within a character retains
+the native anchor without oscillating. A gesture-eligibility flag stores no
+cursor, anchor or text. Native Mousedown and Drag execute once. All main-view,
+captured output and projected-surface paths use this same adapter.
+
+The observer retains native behavior after ancestor cancellation, later callback
+changes, reentrant public input, focus round trips, active composition or field
+retirement. Retiring an unrelated inactive field does not invalidate the active
+field's correction. Native multiclick word selections, Shift-start drags,
+Alt/Meta gestures and ambiguous transitions retain their native policy. Native
+layout chooses positions; no pointer geometry, private word selection or second
+input routing system is introduced.
 
 The optional handler forwards the supplied platform handler through public
 context proxies. Native contexts remain borrowed until OnDestroy. Proxies
@@ -84,7 +101,8 @@ characters before the ordinary native deletion. Cancelled events restore tempora
 selection; active composition bypasses preparation.
 
 Collapsed Ctrl+Backspace/Delete still use the native private word-deletion range,
-which can split a character. Pointer selection and other modified keys remain native. Horizontal keys move in logical text order, without full paragraph
+which can split a character. Unsupported pointer gestures and other modified
+keys remain native. Horizontal keys move in logical text order, without full paragraph
 bidirectional semantics. Complete IME, accessibility and general Unicode editor
 coverage are not implied. Native readonly is not available at this pin; supported
 disabled fields remain authoritative. Ordinary key edits never call context
@@ -93,12 +111,13 @@ SetText, which bypasses native maximum length.
 ## Export, automation and validation
 
 Enabling the option requires exact runtime-kit capability
-`engine.runtime_ui_grapheme_editing: 4`. This profile includes Shift-arrow and
+`engine.runtime_ui_grapheme_editing: 5`. This profile includes ordinary pointer
+carets, unambiguous Shift-click and plain-click drag alignment, Shift-arrow and
 native word/line/page/vertical movement and selection alignment, plus selected
-modified deletion. Older profiles are rejected; profile4 does not promise
-whole-character collapsed word deletion. Missing/malformed/mismatched support is
-rejected before replacing a good distribution. Default projects preserve their
-existing kit compatibility. The standalone host reads the packaged setting with
+modified deletion. Older profiles are rejected; profile5 does not promise
+whole-character collapsed word deletion or unsupported pointer gestures.
+Missing/malformed/mismatched support is rejected before replacing a good
+distribution. Default projects preserve their existing kit compatibility. The standalone host reads the packaged setting with
 source files unavailable. No Scene/asset format, serialized identity, cook format
 or installed gameplay SDK ABI changes.
 
@@ -110,12 +129,18 @@ and the existing Play provider; see [the field contract](#native-field-automatio
 is not exposed as an agent operation.
 
 The focused helper test runs all853official Unicode18 cases plus admission/key
-selection checks. Actual native-control tests cover text/password/textarea,
+selection checks; every scalar caret in the official corpus is checked against
+its independent expected boundary. Actual native-control tests cover
+text/password/textarea,
 combining marks, emoji sequences, flags, Hangul, events, limits, modifiers,
 composition forwarding, blur/removal/reset and both font modes. Word checks
 include punctuation/whitespace with combining marks, anchor crossing and masked
-password grouping. The original
-example is exercised with its four IDs preserved and source-hidden relocation.
+password grouping. Native pointer checks include first focus, partial carets,
+forward/backward/reversing drags, Shift-click, native multiclick, cancellation,
+callback edits/reentrancy/focus round trips, composition and active/inactive
+retirement in both font modes. Projected output checks exercise actual partial
+native caret/drag ranges and captured surface routing with the option off/on.
+The original example is exercised with its four IDs preserved and source-hidden relocation.
 Platform/physical input review remains separate from these CPU consumers.
 
 ## Native field automation
@@ -161,10 +186,13 @@ Shift variants, Shift+Home/End, Ctrl+Home/End, Ctrl+Shift+Home/End and native
 Ctrl+Backspace/Delete. These names map to the existing paired presenter input
 path without custom line or word segmentation, caret storage, text replacement
 or a separate editing owner. Native layout/events/cancellation/password policy
-remain authoritative. With the saved option enabled, profile4 aligns supported
-native directional movement and expands existing deletion selections. Collapsed
-word deletion can split a grapheme; full word-grapheme, pointer and broad IME
-editing remain gaps. The32-key catalog is unchanged.
+remain authoritative. With the saved option enabled, profile5 aligns supported
+native directional movement, pointer gestures and existing deletion selections.
+Collapsed word deletion can split a grapheme; full word-grapheme and broad IME
+editing remain gaps. The32-key catalog is unchanged. Raw pointer/ray gesture
+injection is not an automation/MCP operation; native player pointer behavior is
+not an additional agent-access claim. Existing settings/source operations author
+this behavior without a parallel implementation.
 
 Native model/game updates may replace a field value between observations.
 

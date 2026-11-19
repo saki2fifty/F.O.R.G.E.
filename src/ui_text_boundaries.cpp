@@ -29,6 +29,39 @@ std::optional<UiTextOrientedSelection> align_selection(const std::vector<int>& b
         return {};
     return UiTextOrientedSelection{anchor, caret};
 }
+std::optional<UiTextOrientedSelection>
+observed_movement(UiTextSelection before, UiTextSelection after, UiTextKey key, bool selecting) {
+    if (before == after || (key != UiTextKey::Left && key != UiTextKey::Right))
+        return {};
+    if (!selecting) {
+        if (after.begin != after.end || (key == UiTextKey::Left && after.end > before.end) ||
+            (key == UiTextKey::Right && after.begin < before.begin))
+            return {};
+        return UiTextOrientedSelection{after.begin, after.end};
+    }
+    int anchor = 0, caret = 0;
+    if (key == UiTextKey::Left && after.end == before.end && after.begin < before.begin) {
+        anchor = before.end;
+        caret = after.begin;
+    } else if (key == UiTextKey::Left && after.begin == before.begin && after.end < before.end) {
+        anchor = before.begin;
+        caret = after.end;
+    } else if (key == UiTextKey::Left && after.end == before.begin && after.begin < before.begin) {
+        anchor = before.begin;
+        caret = after.begin;
+    } else if (key == UiTextKey::Right && after.begin == before.begin && after.end > before.end) {
+        anchor = before.begin;
+        caret = after.end;
+    } else if (key == UiTextKey::Right && after.end == before.end && after.begin > before.begin) {
+        anchor = before.end;
+        caret = after.begin;
+    } else if (key == UiTextKey::Right && after.begin == before.end && after.end > before.end) {
+        anchor = before.end;
+        caret = after.end;
+    } else
+        return {}; // No preserved native anchor identifies this transition.
+    return UiTextOrientedSelection{anchor, caret};
+}
 } // namespace
 std::vector<int> ui_grapheme_boundaries(std::string_view text) {
     if (text.size() > ui_edit_text_bytes)
@@ -130,35 +163,29 @@ std::optional<UiTextOrientedSelection> ui_text_movement_selection(std::string_vi
     const auto boundaries = ui_grapheme_boundaries(text);
     check_selection(before, boundaries.back());
     check_selection(after, boundaries.back());
-    if (before == after || (key != UiTextKey::Left && key != UiTextKey::Right))
-        return {};
-    if (!selecting) {
-        if (after.begin != after.end || (key == UiTextKey::Left && after.end > before.end) ||
-            (key == UiTextKey::Right && after.begin < before.begin))
-            return {};
-        return align_selection(boundaries, {after.begin, after.end}, key, false);
+    const auto native = observed_movement(before, after, key, selecting);
+    return native ? align_selection(boundaries, *native, key, selecting) : std::nullopt;
+}
+std::optional<UiTextOrientedSelection> ui_text_pointer_selection(std::string_view text,
+                                                                 UiTextSelection before,
+                                                                 UiTextSelection after,
+                                                                 bool extending) {
+    const auto boundaries = ui_grapheme_boundaries(text);
+    check_selection(before, boundaries.back());
+    check_selection(after, boundaries.back());
+    if (!extending) {
+        if (after.begin != after.end)
+            return {}; // A native multiclick range does not expose its oriented anchor.
+        return align_selection(boundaries, {after.begin, after.end}, UiTextKey::Right, false);
     }
-    int anchor = 0, caret = 0;
-    if (key == UiTextKey::Left && after.end == before.end && after.begin < before.begin) {
-        anchor = before.end;
-        caret = after.begin;
-    } else if (key == UiTextKey::Left && after.begin == before.begin && after.end < before.end) {
-        anchor = before.begin;
-        caret = after.end;
-    } else if (key == UiTextKey::Left && after.end == before.begin && after.begin < before.begin) {
-        anchor = before.begin;
-        caret = after.begin;
-    } else if (key == UiTextKey::Right && after.begin == before.begin && after.end > before.end) {
-        anchor = before.begin;
-        caret = after.end;
-    } else if (key == UiTextKey::Right && after.end == before.end && after.begin > before.begin) {
-        anchor = before.end;
-        caret = after.begin;
-    } else if (key == UiTextKey::Right && after.begin == before.end && after.end > before.end) {
-        anchor = before.end;
-        caret = after.end;
-    } else
-        return {}; // No preserved native anchor identifies this transition.
-    return align_selection(boundaries, {anchor, caret}, key, true);
+    const auto left = observed_movement(before, after, UiTextKey::Left, true);
+    const auto right = observed_movement(before, after, UiTextKey::Right, true);
+    if (bool(left) == bool(right))
+        return {}; // Preserve ambiguous transitions and callback-owned selections.
+    const auto native = left ? *left : *right;
+    // Pointer positions are absolute. Expand from the observed anchor rather
+    // than the last snapped caret, so small moves inside one cluster stay stable.
+    return align_selection(boundaries, native,
+                           native.caret < native.anchor ? UiTextKey::Left : UiTextKey::Right, true);
 }
 } // namespace forge

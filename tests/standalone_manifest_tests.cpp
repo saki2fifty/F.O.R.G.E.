@@ -966,12 +966,17 @@ int main(int argc, char** argv) {
             reject([&] { export_standalone_game(lease, request); });
             check(asset_storage::read(exported / "forge.standalone.json") == before_editing,
                   "A kit without whole-character editing replaced the last good distribution");
-            runtime["engine"]["runtime_ui_grapheme_editing"] =
-                ui_grapheme_editing_profile_version - 1;
-            asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
-            reject([&] { export_standalone_game(lease, request); });
-            check(asset_storage::read(exported / "forge.standalone.json") == before_editing,
-                  "An older UI editing kit replaced the last good distribution");
+            for (const auto& unsupported :
+                 Json::array({ui_grapheme_editing_profile_version - 1,
+                              ui_grapheme_editing_profile_version + 1, -1, false,
+                              double(ui_grapheme_editing_profile_version),
+                              std::to_string(ui_grapheme_editing_profile_version)})) {
+                runtime["engine"]["runtime_ui_grapheme_editing"] = unsupported;
+                asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
+                reject([&] { export_standalone_game(lease, request); });
+                check(asset_storage::read(exported / "forge.standalone.json") == before_editing,
+                      "An incompatible UI editing kit replaced the last good distribution");
+            }
             runtime["engine"]["runtime_ui_grapheme_editing"] = ui_grapheme_editing_profile_version;
             asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
             (void)export_standalone_game(lease, request);
