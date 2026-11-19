@@ -281,7 +281,7 @@ jobs:
         shell: pwsh
         run: |
           $targets = @('forge_editor_fixture', 'forge_editor_tests', 'forge_viewport_tests', 'forge_asset_publication_tests', 'forge_fault_runtime', 'gltf2ozz', 'forge_animation_overlay_tests', 'forge_animation_mask_pipeline_tests')
-          if (Test-Path cmake/game.cmake) { $targets += @('forge_game_fixture', 'forge_tools') }
+          if (Test-Path cmake/game.cmake) { $targets += @('forge_game_fixture', 'forge_game', 'forge_tools') }
           cmake --build ../AgentFiles/b --target $targets --parallel 2
           if ($LASTEXITCODE) { throw 'Native workflow fixture build failed' }
       - name: Build native MCP owner diagnostics
@@ -310,7 +310,7 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: cmake --build ../AgentFiles/b --parallel 2
       - name: Install exact standalone runtime kit
-        if: ${{ !inputs.shader_only && !inputs.publication_only && !inputs.core_regressions_only && (!inputs.capture_only || !inputs.inspector_only || inputs.inspector_group != 'captures') }}
+        if: ${{ !inputs.publication_only && !inputs.core_regressions_only && (!inputs.capture_only || !inputs.inspector_only || inputs.inspector_group != 'captures') }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
