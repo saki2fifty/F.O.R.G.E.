@@ -472,7 +472,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
               "all(isfinite(base))?ForgeApplyDistanceFog(base,input.World):float4(1,0,1,1);}\n";
     else if (profile.workflow == PbrWorkflow::Unlit)
         ps += R"(
-    if(input.LegacyTint.w!=0) {
+    if(input.LegacyTint.w==1) {
         float3 n=ForgeUnit(input.Normal);
         if(!any(n!=0)) n=ForgeUnit(cross(dpdx,dpdy));
         base.rgb*=0.3+0.7*saturate(dot(n,normalize(float3(-0.4,0.8,-0.5))));

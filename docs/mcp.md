@@ -3517,10 +3517,11 @@ the native overlap, query and recovery limits.
 
 ## Particle evaluation through the source owner
 
-`asset.particles.catalog` describes `cpu_mesh2`, `gpu_mesh1` and `gpu_graph1`, static mesh/material
+`asset.particles.catalog` describes `cpu_mesh2`, `gpu_mesh1`, `gpu_graph1` and
+`cpu_alpha1`, static mesh/material
 limits and required runtime-kit capabilities. `asset.document.particle_evaluation`
 requires `asset.write`, the Particle Effect editor, exact document session/revision
-and `evaluation: cpu|gpu|graph`. It calls `ParticleEffectSource::set_evaluation` inside the
+and `evaluation: cpu|gpu|graph|cpu_alpha`. It calls `ParticleEffectSource::set_evaluation` inside the
 same source document history operation used by the native Evaluation control.
 Validation/history limits reject atomically; no-op selection retains the revision.
 Ordinary source read/patch/Undo/Redo/save and asynchronous publication apply.
@@ -3530,6 +3531,13 @@ see the catalog, without receiving mutation tools. Both supported protocol forma
 exercise schema, permissions, source/stop IDs, extensions, stale-session/revision,
 Undo/Redo, no-op, publication, refreshed asset reads and reopen in
 `mcp_particle_evaluation_stdio`.
+
+`cpu_alpha` selects source5/values5 `cpu_alpha1`. Source5 retains inactive graph
+settings; the compiled projection includes only the active backend. Built-in
+Blend Materials require depth testing and no depth writes in this CPU profile.
+Catalog discovery advertises `runtime_particle_alpha:1`; GPU and graph support
+are not required for it. Both protocols cover CPU5 publication, refreshed metadata
+and exact source reopen through the same source owner.
 
 ## Particle graph authoring
 

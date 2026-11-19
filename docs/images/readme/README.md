@@ -1,5 +1,24 @@
 # README screenshots
 
+## Sorted-alpha particle Game view
+
+Canonical image: [sorted-alpha-particles.png](../../../manual/images/sorted-alpha-particles.png).
+The original 640 by 360 Game output shows Gallery240 at three seconds: two colored
+emitters share a transparent Material, with an opaque depth marker. The native
+fixture publishes real CPU5/Material assets, relocates the content, moves its
+source offline, runs RuntimeWorld and uses the production FrameRenderer. Removing
+particles must change more than 100 pixels while the marker remains.
+
+Reproduce with `particle_alpha_gallery_game_vulkan` and
+`tests/particle_alpha_gallery_test.py`. The capture was personally viewed and
+copied byte-for-byte, with no crop, resize, retouch or inserted controls.
+Image SHA-256: `46358962bf4497be0494bc86dcc61878ee6c377b61da8967ebee801716423006`.
+Compiled source-input SHA-256: `f56bd1eac86313db317eba6029b4743772e7d2faec71c37ad598be538e95bc92`.
+This is an unassigned development working-tree capture on software Vulkan/lavapipe;
+it is neither an editor authoring screenshot nor physical GPU, Windows or
+standalone-EXE acceptance. Its Game rendering and source-hidden content assertions
+passed in the native fixture.
+
 ## Runtime navigation rebuild controls and Game view
 
 `manual/images/runtime-navigation-rebuild.png` is the original800 by310 production

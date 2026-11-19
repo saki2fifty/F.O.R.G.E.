@@ -79,7 +79,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             return Json{
                 {"editor", "particle_effect"},
                 {"suffix", ".particles.json"},
-                {"profiles", {{"cpu", "cpu_mesh2"}, {"gpu", "gpu_mesh1"}, {"graph", "gpu_graph1"}}},
+                {"profiles",
+                 {{"cpu", "cpu_mesh2"},
+                  {"gpu", "gpu_mesh1"},
+                  {"graph", "gpu_graph1"},
+                  {"cpu_alpha", "cpu_alpha1"}}},
                 {"limits",
                  {{"emitters", particle_emitter_limit},
                   {"effect_capacity", 1024},
@@ -96,7 +100,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "fixed age, age/lifetime, size/color and birth random; outputs are bounded "
                  "local position, size and linear RGB. Windows/D3D12 cooked Compute only."},
                 {"mesh", "One static triangle part, one LOD, one material slot; built-in "
-                         "opaque/masked materials. No Blend, transmission, custom surfaces, "
+                         "opaque/masked materials. CPU (sorted alpha) also accepts Blend with "
+                         "depth testing and no depth writes. No transmission, custom surfaces, "
                          "skinning, morphs or camera render textures."},
                 {"workflow",
                  "Use asset.document template/create/open/read/patch and "
@@ -106,7 +111,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "Play/export. Source1/2 remain CPU. New publication requires a "
                  "runtime_particle_effect profile3 kit; GPU additionally requires "
                  "runtime_particle_gpu profile1; graphs also require runtime_particle_graph "
-                 "profile1. "
+                 "profile1. CPU sorted-alpha requires runtime_particle_alpha profile1. "
                  "Source textures/meshes/materials/shaders "
                  "remain owned by the existing asset pipeline."}};
         }));
@@ -764,7 +769,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             needed.push_back("patch");
         } else if (std::string_view(action) == "particle_evaluation") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
-            properties["evaluation"] = {{"type", "string"}, {"enum", {"cpu", "gpu", "graph"}}};
+            properties["evaluation"] = {{"type", "string"},
+                                        {"enum", {"cpu", "gpu", "graph", "cpu_alpha"}}};
             needed.push_back("evaluation");
         } else if (std::string_view(action) == "particle_program") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};

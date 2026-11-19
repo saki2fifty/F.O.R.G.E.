@@ -87,6 +87,23 @@ int main(int argc, char** argv) {
                 wrong["runtime_particle_graph"] = invalid;
                 reject([&] { validate_runtime_compatibility(particles, wrong); });
             }
+            effect.metadata["forge.particle_effect"]["value_version"] = 5;
+            particles.replace(effect);
+            reject([&] { validate_runtime_compatibility(particles, engine); });
+            engine["runtime_particle_alpha"] = particle_alpha_profile_version;
+            // CPU alpha never requires Compute or graph support.
+            auto cpu_alpha_kit = engine;
+            cpu_alpha_kit.erase("runtime_particle_gpu");
+            cpu_alpha_kit.erase("runtime_particle_graph");
+            validate_runtime_compatibility(particles, cpu_alpha_kit);
+            for (const Json& invalid : {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"),
+                                        Json(2), Json((std::uint64_t{1} << 32) + 1)}) {
+                auto wrong = cpu_alpha_kit;
+                wrong["runtime_particle_alpha"] = invalid;
+                reject([&] { validate_runtime_compatibility(particles, wrong); });
+            }
+            effect.metadata["forge.particle_effect"]["value_version"] = 4;
+            particles.replace(effect);
             AssetRecord graph_shader{AssetId::generate(), ShaderAsset::type,
                                      "Assets/Program.shader.json", 1};
             graph_shader.metadata["forge.shader"] = {{"version", 1}, {"particle_graph_profile", 1}};

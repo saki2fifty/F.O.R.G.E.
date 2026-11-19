@@ -1,5 +1,16 @@
 # 2026-11-19
 
+## Sorted-alpha CPU particles
+
+Particle effects offer **CPU (sorted alpha)** evaluation for built-in transparent
+Materials. Individual particle parts share ordinary back-to-front Mesh ordering,
+opaque depth testing and the existing weighted fallback. Source5 preserves graph
+settings and identity across evaluation changes. Material owns opacity; the new
+profile requires a matching sorted-alpha runtime kit. Native controls and MCP use
+one source operation. Gallery240 includes two shared-effect emitters, a translucent
+Material and a depth marker; the manual includes authentic Game output. Per-particle
+opacity curves, transparent GPU particles, collision and trails remain unsupported.
+
 ## Native validation prerequisites
 
 Shader diagnostics build the production game host and install its matching runtime

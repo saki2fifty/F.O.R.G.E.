@@ -266,10 +266,18 @@ void resource_profile() {
     material.values.alpha = MaterialAlpha::Blend;
     validate_render_material(material);
     reject([&] { validate_particle_material_profile(material); });
+    reject([&] { validate_particle_material_profile(material, true); });
+    material.values.depth_write = false;
+    validate_particle_material_profile(material, true);
+    reject([&] { validate_particle_material_profile(material); });
+    material.values.depth_test = false;
+    reject([&] { validate_particle_material_profile(material, true); });
+    material.values.depth_test = true;
     material.values.alpha = MaterialAlpha::Opaque;
     material.values.parameters["transmissionFactor"] = {MaterialParameterType::Scalar, {.5}};
     validate_render_material(material);
     reject([&] { validate_particle_material_profile(material); });
+    reject([&] { validate_particle_material_profile(material, true); });
 }
 } // namespace
 int main(int argc, char** argv) {

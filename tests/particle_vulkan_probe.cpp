@@ -1,5 +1,6 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "mesh_render_host.hpp"
+#include "particle_alpha_render_tests.hpp"
 #include "particle_effect_authoring.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_entity_creation.hpp"
@@ -869,6 +870,24 @@ int main(int argc, char** argv) {
     try {
         check(argc >= 2 && argc <= 4,
               "Need native particle scratch root, optional Gallery and optional --gpu");
+        if ((argc == 3 && std::string_view(argv[2]) == "--alpha") ||
+            (argc == 4 && std::string_view(argv[2]) == "--alpha-gallery")) {
+            RefCntAutoPtr<IRenderDevice> device;
+            RefCntAutoPtr<IDeviceContext> context;
+            EngineVkCreateInfo create;
+            create.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;
+            GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
+            check(device && context, "Native sorted-alpha device unavailable");
+            DiligentPresentation presentation(device);
+            if (argc == 4)
+                test_particle_alpha::gallery(presentation, context,
+                                             std::filesystem::absolute(argv[3]), argv[1]);
+            else
+                test_particle_alpha::exercise(presentation, context,
+                                              std::filesystem::absolute(argv[1]) /
+                                                  AssetId::generate().str());
+            return 0;
+        }
         const bool gpu = argc >= 3 && std::string_view(argv[argc - 1]) == "--gpu";
         const bool has_gallery = argc == (gpu ? 4 : 3);
         execute(std::filesystem::absolute(argv[1]) / AssetId::generate().str(),

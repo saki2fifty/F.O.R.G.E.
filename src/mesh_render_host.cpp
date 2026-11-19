@@ -1260,6 +1260,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         RenderBounds bounds{};
         std::vector<MeshDraw::LightImage> images{};
         ParticleGpuInstances* gpu = nullptr;
+        bool material_tint_only = false;
     };
     struct Item {
         RenderSortKey key;
@@ -1329,6 +1330,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             object.world = &pose.world;
             object.scope = draw_scope;
             object.gpu = gpu;
+            object.material_tint_only = draw_scope == DrawScope::Particle &&
+                                        particle_sources_.at(mesh.entity).data()->version == 5;
             if (gpu) {
                 if (!color || !depth)
                     throw std::runtime_error("GPU particles require explicit camera targets");
@@ -1976,6 +1979,16 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                                   temporal->previous_parts->end(),
                                   TemporalMeshPart{object.mesh->entity, object.lod, part});
     };
+    const auto instance_for = [&](const Object& object, unsigned part) -> MeshDraw::Instance {
+        const bool previous = has_previous_part(object, part);
+        return {*object.world,
+                object.mesh->legacy_tint,
+                object.sprite,
+                previous ? &object.previous_pose->world : nullptr,
+                object.pose ? &object.pose->wind : nullptr,
+                previous ? &object.previous_pose->wind : nullptr,
+                object.material_tint_only};
+    };
     const auto motion_for = [&](const Object& object, unsigned part) {
         MeshDraw::Motion motion;
         if (temporal) {
@@ -2147,26 +2160,12 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             std::array<MeshDraw::Instance, MeshDraw::instance_limit> batch;
             auto batch_bounds = object.bounds;
             std::size_t count = 1;
-            batch[0] = {
-                *object.world,
-                object.mesh->legacy_tint,
-                object.sprite,
-                has_previous_part(object, item.key.part) ? &object.previous_pose->world : nullptr,
-                &object.pose->wind,
-                has_previous_part(object, item.key.part) ? &object.previous_pose->wind : nullptr};
+            batch[0] = instance_for(object, item.key.part);
             const auto end = batch_end(batch_start);
             while (cursor < end) {
                 const auto& next_item = queue[cursor];
                 const auto& next = objects[next_item.object];
-                batch[count++] = {
-                    *next.world,
-                    next.mesh->legacy_tint,
-                    next.sprite,
-                    has_previous_part(next, next_item.key.part) ? &next.previous_pose->world
-                                                                : nullptr,
-                    &next.pose->wind,
-                    has_previous_part(next, next_item.key.part) ? &next.previous_pose->wind
-                                                                : nullptr};
+                batch[count++] = instance_for(next, next_item.key.part);
                 for (unsigned axis = 0; axis < 3; ++axis) {
                     batch_bounds.minimum[axis] =
                         std::min(batch_bounds.minimum[axis], next.bounds.minimum[axis]);
@@ -2201,8 +2200,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                     object.mesh->legacy_tint ? &*object.mesh->legacy_tint : nullptr,
                     &shadows_->lighting(), object.shadow_slots,
                     transmission.background ? &transmission : nullptr, object.pose,
-                    count > 1 ? std::span<const MeshDraw::Instance>(batch.data(), count)
-                              : std::span<const MeshDraw::Instance>{},
+                    count > 1 || object.material_tint_only
+                        ? std::span<const MeshDraw::Instance>(batch.data(), count)
+                        : std::span<const MeshDraw::Instance>{},
                     slot_parameters(object.parameters,
                                     object.bundle->slot(object.lod, item.key.part)),
                     object.sprite, &scene.settings.distance_fog, object.mip,
@@ -2232,11 +2232,14 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                     const auto motion = motion_for(single, failed_item.key.part);
                     std::span<const MeshDraw::LightImage> images;
                     const auto decals = projected_surface(single, failed_item.key.part, images);
+                    const auto instance = instance_for(single, failed_item.key.part);
                     single.bundle->draw_part(
                         host_->context_, *single.world, draw_view, single.lights, single.lod,
                         failed_item.key.part, environment_.ready ? &lighting : nullptr,
                         single.mesh->legacy_tint ? &*single.mesh->legacy_tint : nullptr,
-                        &shadows_->lighting(), single.shadow_slots, nullptr, single.pose, {},
+                        &shadows_->lighting(), single.shadow_slots, nullptr, single.pose,
+                        single.material_tint_only ? std::span(&instance, 1)
+                                                  : std::span<const MeshDraw::Instance>{},
                         slot_parameters(single.parameters,
                                         single.bundle->slot(single.lod, failed_item.key.part)),
                         single.sprite, &scene.settings.distance_fog, single.mip,

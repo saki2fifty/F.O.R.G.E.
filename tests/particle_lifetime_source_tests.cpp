@@ -269,9 +269,64 @@ void graph_program_profiles() {
     require(source.document == precise_cpu,
             "Rejected GPU precision transition changed the retained CPU graph source");
 }
+void sorted_alpha_profiles() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    source.enable_lifetime(ParticleLifetimeChannel::Size, true);
+    source.document["extensions"] = {{"original", "preserve"}};
+    const auto original = source.document;
+    const auto cpu = source.compiled();
+    source.set_evaluation(ParticleEvaluation::CpuAlpha);
+    const auto alpha = source.compiled();
+    require(source.document.at("version") == 5 && alpha.version == 5 &&
+                source.document.at("profile") == "cpu_alpha1" && !particle_uses_gpu(alpha) &&
+                source.document.at("asset_id") == original.at("asset_id") &&
+                source.document.at("size_curve") == original.at("size_curve") &&
+                source.document.at("extensions") == original.at("extensions"),
+            "Sorted-alpha selection lost CPU ownership, identity or source settings");
+    require(decode_particle_effect(encode_particle_effect(alpha)) == alpha &&
+                decode_cooked_particle_effect(source.cook(), source.asset(), 3) == alpha,
+            "Sorted-alpha source/cooked values did not roundtrip");
+    const auto text = source.document.dump();
+    require(ParticleEffectSource::parse(std::as_bytes(std::span(text))).document == source.document,
+            "Sorted-alpha source did not roundtrip");
+    for (double time : {0., .125, .5, 1., 3., 1e9})
+        require(sample_particle_effect(alpha, time, 31) == sample_particle_effect(cpu, time, 31),
+                "Sorted-alpha evaluation changed CPU birth, random or motion semantics");
+    ParticleGraphProgram program;
+    program.shader.id = AssetId::generate();
+    source.set_graph_program(program, false);
+    const auto retained = source.document;
+    for (auto backend : {ParticleEvaluation::Cpu, ParticleEvaluation::Gpu,
+                         ParticleEvaluation::Graph, ParticleEvaluation::CpuAlpha}) {
+        source.set_evaluation(backend);
+        const auto active = source.compiled();
+        require(source.document.at("version") == 5 && source.graph_program() == program &&
+                    active.version == (backend == ParticleEvaluation::Cpu     ? 2u
+                                       : backend == ParticleEvaluation::Gpu   ? 3u
+                                       : backend == ParticleEvaluation::Graph ? 4u
+                                                                              : 5u) &&
+                    decode_cooked_particle_effect(source.cook(), source.asset(), 3) == active,
+                "Source5 backend switch lost retained program or active value profile");
+    }
+    require(source.document == retained,
+            "Returning to sorted-alpha evaluation did not restore the complete source");
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Size, .5);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Size, std::nextafter(.5, 1.));
+    const auto precise = source.document;
+    reject([&] { source.set_evaluation(ParticleEvaluation::Gpu); });
+    require(source.document == precise && source.compiled().version == 5,
+            "GPU precision refusal changed retained CPU alpha stops");
+    auto invalid = encode_particle_effect(alpha);
+    invalid["profile"] = "gpu_mesh1";
+    reject([&] { (void)decode_particle_effect(invalid); });
+    invalid = encode_particle_effect(alpha);
+    invalid["version"] = 4;
+    reject([&] { (void)decode_particle_effect(invalid); });
+}
 int main() {
     try {
         graph_program_profiles();
+        sorted_alpha_profiles();
         legacy_and_promotion();
         backend_profiles_and_envelopes();
         lifetime_identity_and_projection();

@@ -3510,3 +3510,30 @@ snapshots, and exact replacement or unchanged bytes/retry for a deny-delete read
 Scene source identity is checked after reopening. This complements the
 ordinary source-document/file-transaction gates and does not imply an identified
 external lock owner in a prior failure.
+
+## Sorted-alpha mesh particle validation
+
+`particle_lifetime_source` admits source5/values5 and preserves CPU sample math,
+precision, inactive graphs and source IDs. `particle_runtime` covers shared Material
+admission; `standalone_manifest` checks the independent strict alpha kit capability.
+`particle_effect_editor` selects the real native fourth Evaluation choice and
+verifies source history. `mcp_particle_evaluation_stdio` uses both envelopes through
+CPU5 save, publication, refreshed metadata and reopen.
+
+`particle_alpha_vulkan` and native Windows `editor_render_particle-alpha` use one
+shared numerical fixture for cross-emitter and ordinary-Mesh ordering, analytical
+RGB composition, opaque occlusion, two camera directions, weighted fallback,
+legacy/GPU refusal and recovery. Existing CPU/GPU and weighted probes retain their
+own assertions. `particle_alpha_gallery` inspects the shipped original Scene240;
+`particle_alpha_gallery_export` publishes actual Material/Effect cooks, hides the
+source, relocates the exact three-asset closure and runs its fixed-clock World.
+`particle_alpha_gallery_game_vulkan` and native `particle_alpha_gallery_game` use
+the production Game renderer on that relocated content and compare against the
+same Scene without particles before retaining the original640x360 image.
+
+Full editor acceptance explicitly includes both particle graph source/canvas/
+export cases and the sorted-alpha cases. The Windows Gallery staging sequence
+runs the alpha preparer with its existing Material/particle importers and matching
+platform target; no source compiler is shipped for the example. These registrations
+are not an assertion of native Windows execution or physical hardware acceptance;
+use the exact run evidence. Software fixtures do not establish physical performance.

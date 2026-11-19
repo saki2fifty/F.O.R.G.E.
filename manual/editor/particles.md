@@ -1,8 +1,9 @@
 # Mesh particle effects
 
 A particle effect is a reusable stream or burst of small meshes. Use it for
-stylized sparks, debris or fountains. This profile uses solid or masked meshes;
-transparent smoke, trails and particle collision are not supported.
+stylized sparks, debris or fountains. Effects can use solid or masked meshes, or
+sorted transparent meshes with CPU evaluation. Smoke billboards, trails and
+particle collision are not supported.
 
 ## Try the Gallery
 
@@ -37,7 +38,7 @@ shapes, damping, growth and color. These scenes need no C++ compiler.
 6. Use preview Play/Pause, time and Reset. Preview is independent of game Play and does not change the scene. Orbit/zoom its image. Undo/Redo edits source values.
 7. Choose **Save / Publish**. This saves and builds the runtime effect. A failed build reports the problem and retains the working published revision.
 
-## Choose CPU, GPU or Graph
+## Choose evaluation
 
 **CPU** evaluates particles on the processor. **GPU** evaluates births, motion,
 size, color and instance transforms on a compute-capable graphics device. Both
@@ -48,12 +49,49 @@ They use different seeded patterns; changing evaluation can change the arrangeme
 [Create a particle graph](particle-graphs.md) for the node canvas, program assignment,
 bounds, publication and export. Switching backends retains graph settings.
 
+**CPU (sorted alpha)** uses processor evaluation and also supports transparent
+Materials. It uses the same CPU birth pattern and fixed clock as **CPU**. See
+**Transparent CPU particles** below.
+
 Use the effect document's preview to inspect a draft before publishing. Changing
 Evaluation retains the asset, curves and stop values and supports Undo/Redo.
 Choose **Save / Publish** before playing or exporting. GPU curves need stop times
 that remain distinct at float precision; increase the gap if an edit reports an
 error. If the rendering device cannot evaluate GPU effects, the renderer reports
 a diagnostic; choose CPU and publish to use processor evaluation.
+
+## Transparent CPU particles
+
+Open Gallery **Scenes/240-sorted-alpha-particles.scene.json** and press **Play**.
+Teal and amber emitters share one effect and Material. Their meshes overlap and
+blend with the background; the solid central marker blocks particles behind it.
+This scene includes its camera and light and needs no project C++ module.
+
+![Overlapping teal and amber transparent cube particles with a solid central marker](../images/sorted-alpha-particles.png)
+
+The Gallery scene at three seconds in the Game renderer.
+
+1. Stop Play. Open your effect in Content and choose **Evaluation → CPU (sorted alpha)**.
+2. Create or open a [project Material](materials.md). Choose a built-in shader model, such as **Unlit**, then **Alpha → Blend**.
+3. Enable **Depth test** and disable **Depth write**. Set the base color's alpha below 1, or use a color texture with an alpha channel. Save the Material.
+4. Choose that Material in the effect's **Material** field, then **Save / Publish**. Assign the effect to a Particle Emitter, save the scene and press Play.
+
+For the Gallery's shared assets, open
+**Assets/Particles/Alpha/GlassCloud.particles.json** or
+**Assets/Particles/Alpha/Glass.material.json**. Change the Material's alpha for
+transparency; use the emitter's RGB tint for its color. RGB lifetime curves do not
+change opacity.
+
+Transparent particles use individual draws sorted with ordinary transparent
+meshes. Intersecting meshes can show sorting artifacts because triangles inside
+one particle are not sorted individually. Reduce particle counts when using this
+mode. A view containing transparent particles uses sorted rendering even when
+**Weighted transparency** is enabled. GPU and Graph evaluation require opaque or
+masked Materials; a failed publication retains the working selected effect.
+
+Export with the runtime kit packaged with this editor. An older kit that lacks
+the sorted-alpha profile is rejected. The player needs no compiler or compute
+support for CPU evaluation.
 
 ## Size and color over life
 
@@ -107,9 +145,11 @@ Projects with C++ modules must rebuild those modules against the matching SDK.
 
 Each effect supports up to 1,024 particles; a scene supports 64 enabled emitters
 and 8,192 reserved particles. Use one static triangle part, one LOD and one material
-slot. Built-in opaque/masked PBR and Unlit surfaces work. Skinned/morphing meshes,
-Blend/transmission and custom Shader surfaces report errors. This profile does
-not cast particle shadows.
+slot. Built-in PBR and Unlit surfaces work. **CPU (sorted alpha)** additionally
+accepts Blend Materials with depth testing and no depth writes; other evaluation
+modes require opaque/masked Materials. Skinned/morphing meshes, transmission and
+custom Shader surfaces report errors. Particles do not cast shadows. Per-particle
+opacity curves and transparent GPU particles are not supported.
 
 Changing the seed restarts the effect with a different pattern. C++ can adjust the
 native component; `sdk/sample/particle_probe.cpp` demonstrates seed/speed changes

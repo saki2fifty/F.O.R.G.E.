@@ -1,15 +1,17 @@
 # Feature Gallery
 
-## Particle graph programs
+## Sorted-alpha mesh particles
 
-Open **Scenes/239-particle-graphs.scene.json**. Compile
-**Assets/Particles/Graphs/Orbit.graph.shader.json** with **Save & Compile**, then
-publish **OrbitFountain.particles.json** in the same folder. Play to compare two
-emitters with an age-driven orbit, shrinking size and a teal color blend. Both
-share a graph/effect and retain separate seeds, sizes and tints. Stop to edit the
-graph or its bounds. See [Create a particle graph](../../../manual/editor/particle-graphs.md)
-for controls, limits and source-free export. The Windows package prepares this
-example with the existing Shader worker.
+Open **Scenes/240-sorted-alpha-particles.scene.json** and press Play. Teal and
+amber cubes share **Assets/Particles/Alpha/GlassCloud.particles.json** and
+**Glass.material.json**, with separate emitter seeds and RGB tints. The effect
+uses **CPU (sorted alpha)**; its built-in Unlit Material uses **Alpha → Blend**,
+depth testing and no depth writes. Change the Material alpha to adjust
+transparency, then save it. The opaque center marker shows depth occlusion.
+Save the scene and use the runtime kit packaged with this editor for export.
+No C++ module is required. Sorting is per mesh part; intersecting geometry and
+large transparent particle counts retain the stated limits. See
+[transparent CPU particles](../../../manual/editor/particles.md).
 
 ## Particle graph programs
 

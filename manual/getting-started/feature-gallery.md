@@ -1,5 +1,15 @@
 # Explore the Feature Gallery
 
+**240-sorted-alpha-particles** shows overlapping teal and amber mesh particles
+with a solid depth marker. Open **Assets/Particles/Alpha/GlassCloud.particles.json**
+to use **CPU (sorted alpha)**; its shared **Glass.material.json** controls alpha.
+Camera and light are included. Save the scene and export with the matching kit.
+See [transparent CPU particles](../editor/particles.md).
+
+**239-particle-graphs** shares one editable particle graph between two fountains.
+Open the Shader under **Assets/Particles/Graphs**, use **Save & Compile**, then
+publish its effect. See [particle graphs](../editor/particle-graphs.md).
+
 **238-gpu-mesh-particles** shows two fountains sharing a GPU effect with different
 seeds, sizes and tint. Open **Assets/Particles/GpuFountain.particles.json** to use
 **Evaluation**, shapes, drag and lifetime curves. Select an emitter during Play

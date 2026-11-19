@@ -5,7 +5,7 @@
 #include <forge/particle_effect.hpp>
 namespace forge {
 void validate_particle_mesh_profile(const MeshResourceData&);
-void validate_particle_material_profile(const MaterialResourceData&);
+void validate_particle_material_profile(const MaterialResourceData&, bool sorted_alpha = false);
 struct ParticleRenderInstance {
     std::uint64_t birth;
     AffineTransform world;

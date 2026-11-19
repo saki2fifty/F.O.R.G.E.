@@ -10,7 +10,8 @@ the shared MeshSceneRenderer owns drawing and GPU residency.
 Sources use `.particles.json`, format `forge.particle_effect`. Existing version 1,
 `cpu_mesh1` sources remain valid. New sources start with version 2, `cpu_mesh2`;
 explicit GPU evaluation uses source3/profile `gpu_mesh1`. Authored particle
-graphs use source4 and active values4/profile `gpu_graph1` (see below).
+graphs use source4 and active values4/profile `gpu_graph1` (see below). Source5
+adds explicit CPU values5/profile `cpu_alpha1` for sorted transparent meshes.
 Values include a Mesh reference, optional Material override, emission
 mode, capacity, burst count, rate, lifetime, direction/cone half-angle, speed range,
 constant acceleration, start/end size and linear RGB. Version 2 adds spawn shape,
@@ -27,7 +28,8 @@ Runtime packages include selected cooks and dependencies, requiring neither
 editable sources nor a compiler.
 
 New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope containing
-`format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3 or graph4;
+`format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3, graph4
+or sorted-alpha CPU5;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -51,12 +53,35 @@ copy. Cooked stops contain only time/value/interpolation. Unknown fields, missin
 source IDs, duplicate IDs and unknown interpolation reject atomically. Extensions
 are opaque source metadata, with no runtime interpretation or reference guessing.
 
-The initial profile admits one static triangle part, one LOD and one material
-slot, with built-in opaque/masked PBR or Unlit materials. Skinning, morphs,
-point/line topology, Blend, transmission and custom Shader surfaces reject with
+All profiles admit one static triangle part, one LOD and one material slot with
+built-in PBR or Unlit Materials. CPU1/2 and GPU3/4 require opaque/masked Materials.
+CPU5 additionally admits Blend with depth testing and no depth writes. Skinning,
+morphs, point/line topology, transmission and custom Shader surfaces reject with
 diagnostics. Collision, trails, texture-sheet animation and per-particle opacity
-are outside this profile. The bounded stateless graph profile below extends
+are outside these profiles. The bounded stateless graph profile below extends
 position, size and RGB without adding those capabilities.
+
+## Sorted-alpha CPU profile
+
+[ADR062](decisions/062-sorted-alpha-particles.md) introduces explicit values5 and
+source5 without changing earlier value meanings, IDs, recipe3/envelope3 or the
+ParticleEmitter/gameplay ABI. `particle_uses_gpu` identifies GPU3/4 explicitly;
+CPU5 keeps the CPU random sequence, double clock and lifetime-stop precision.
+Source5 retains optional inactive graph settings across evaluation changes.
+
+CPU5 uses existing per-particle poses and the shared Mesh sort queue, including
+ordinary Blend Meshes. Blend particles retain individual submissions rather than
+opaque instance batching. Sorting is per Mesh part; intersecting triangles retain
+ordinary sorted-alpha limits. Transparent particles trigger existing whole-view
+weighted fallback. No GPU sorting/readback or second simulation owner is added.
+
+Material owns alpha and textures. The existing seven-row tint packet uses flag2
+for CPU5 RGB modulation without the legacy Unlit blockout light. Older profiles
+keep flag1. Single, batched and fallback CPU5 draws share one instance projection.
+Publication and renderer admission call the same Material profile validator.
+Export requires `engine.runtime_particle_alpha:1` for values5, independently of
+GPU/graph support. Older kits reject CPU5; old cooks keep their original bytes.
+Gallery240 supplies a shared translucent Material and two colored emitters.
 
 ## Equations and time
 

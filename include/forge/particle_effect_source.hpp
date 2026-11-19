@@ -5,6 +5,7 @@ namespace forge {
 inline constexpr std::size_t particle_effect_byte_limit = 64 * 1024;
 inline constexpr unsigned particle_effect_cooked_version = 3;
 inline constexpr unsigned particle_gpu_profile_version = 1;
+inline constexpr unsigned particle_alpha_profile_version = 1;
 // This importer ID is persisted in source settings; backend selection never changes it.
 inline constexpr const char* particle_effect_importer = "forge.particles.cpu-mesh";
 inline constexpr const char* particle_effect_legacy_recipe = "forge.particles.cpu-mesh.v1";
@@ -12,7 +13,7 @@ inline constexpr const char* particle_effect_extended_recipe = "forge.particles.
 inline constexpr const char* particle_effect_recipe = "forge.particles.mesh.v3";
 inline constexpr const char* particle_effect_cooked_format = "forge.particle-effect-cooked";
 enum class ParticleLifetimeChannel { Size, Color };
-enum class ParticleEvaluation { Cpu, Gpu, Graph };
+enum class ParticleEvaluation { Cpu, Gpu, Graph, CpuAlpha };
 // Source/history retains opaque extensions; cooking projects only admitted values.
 struct ParticleEffectSource {
     nlohmann::json document;

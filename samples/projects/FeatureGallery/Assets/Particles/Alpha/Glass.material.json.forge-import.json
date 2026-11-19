@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "none",
+    "dependencies": [],
+    "importer": "forge.material.builtin",
+    "importer_revision": "71d6183b0e9c691bb5c91169e4b67933f77ad1e1224b129af502ea856b427d8f",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 3,
+    "platform": "linux",
+    "profile": "cpu",
+    "settings": {},
+    "settings_version": 1,
+    "source": "9e8f1e7e201f869ec66d09a5d9bb8c6f97409e0e858323624c68d0153554d9f7",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "ef4d0a73-7171-4392-8ab3-24080a160781",
+    "source": "Assets/Particles/Alpha/Glass.material.json",
+    "source_digest": "9e8f1e7e201f869ec66d09a5d9bb8c6f97409e0e858323624c68d0153554d9f7",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

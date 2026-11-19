@@ -64,18 +64,21 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             stop.erase("id");
         }
     }
-    if (version != 4)
+    if (version != 4 && version != 5)
         return decode_particle_effect(values);
-    // Source4 retains its graph selection while another evaluation backend is active.
+    // Source4/5 retain graph selection while another evaluation backend is active.
     // Only the active backend contributes runtime values and dependency edges.
     const auto profile = values.at("profile").get<std::string>();
-    if (profile != "cpu_mesh2" && profile != "gpu_mesh1" && profile != "gpu_graph1")
-        throw std::runtime_error("Unknown Particle Effect source4 evaluation profile");
-    if (profile != "gpu_graph1") {
+    if (profile != "cpu_mesh2" && profile != "gpu_mesh1" && profile != "gpu_graph1" &&
+        !(version == 5 && profile == "cpu_alpha1"))
+        throw std::runtime_error("Unknown Particle Effect evaluation profile");
+    if (version == 4 || values.contains("program"))
         (void)decode_particle_graph_program(values.at("program"));
+    if (profile != "gpu_graph1") {
         values.erase("program");
-        values["version"] = profile == "cpu_mesh2" ? 2 : 3;
-    }
+        values["version"] = profile == "cpu_mesh2" ? 2 : profile == "cpu_alpha1" ? 5 : 3;
+    } else
+        values["version"] = 4;
     return decode_particle_effect(values);
 }
 void ParticleEffectSource::validate() const {
@@ -111,25 +114,29 @@ void ParticleEffectSource::promote() {
 }
 void ParticleEffectSource::set_evaluation(ParticleEvaluation evaluation) {
     if (evaluation != ParticleEvaluation::Cpu && evaluation != ParticleEvaluation::Gpu &&
-        evaluation != ParticleEvaluation::Graph)
+        evaluation != ParticleEvaluation::Graph && evaluation != ParticleEvaluation::CpuAlpha)
         throw std::runtime_error("Unknown particle evaluation backend");
     auto candidate = *this;
     candidate.promote();
-    if (evaluation == ParticleEvaluation::Graph && candidate.document.at("version") != 4)
+    if (evaluation == ParticleEvaluation::Graph && !candidate.graph_program())
         throw std::runtime_error(
             "Assign a particle graph Shader and bounds before selecting Graph");
-    if (candidate.document.at("version") != 4)
+    if (evaluation == ParticleEvaluation::CpuAlpha)
+        candidate.document["version"] = 5;
+    else if (candidate.document.at("version").get<unsigned>() < 4)
         candidate.document["version"] = evaluation == ParticleEvaluation::Gpu ? 3 : 2;
-    candidate.document["profile"] = evaluation == ParticleEvaluation::Graph ? "gpu_graph1"
-                                    : evaluation == ParticleEvaluation::Gpu ? "gpu_mesh1"
-                                                                            : "cpu_mesh2";
+    candidate.document["profile"] = evaluation == ParticleEvaluation::Graph      ? "gpu_graph1"
+                                    : evaluation == ParticleEvaluation::Gpu      ? "gpu_mesh1"
+                                    : evaluation == ParticleEvaluation::CpuAlpha ? "cpu_alpha1"
+                                                                                 : "cpu_mesh2";
     candidate.validate();
     document = std::move(candidate.document);
 }
 void ParticleEffectSource::set_graph_program(const ParticleGraphProgram& program, bool activate) {
     auto candidate = *this;
     candidate.promote();
-    candidate.document["version"] = 4;
+    if (candidate.document.at("version").get<unsigned>() < 4)
+        candidate.document["version"] = 4;
     if (activate)
         candidate.document["profile"] = "gpu_graph1";
     candidate.document["program"] = encode_particle_graph_program(program);
@@ -137,7 +144,7 @@ void ParticleEffectSource::set_graph_program(const ParticleGraphProgram& program
     document = std::move(candidate.document);
 }
 std::optional<ParticleGraphProgram> ParticleEffectSource::graph_program() const {
-    if (document.at("version") != 4)
+    if (document.at("version").get<unsigned>() < 4 || !document.contains("program"))
         return {};
     return decode_particle_graph_program(document.at("program"));
 }
@@ -225,7 +232,7 @@ ParticleEffectData decode_cooked_particle_effect(std::span<const std::byte> byte
             cooked.at("values").contains("extensions"))
             throw std::runtime_error("Particle cooked envelope has unsupported fields");
         const auto data = decode_particle_effect(cooked.at("values"));
-        if (data.version != 2 && data.version != 3 && data.version != 4)
+        if (data.version < 2 || data.version > 5)
             throw std::runtime_error("Particle cooked envelope has an unsupported value profile");
         return data;
     }

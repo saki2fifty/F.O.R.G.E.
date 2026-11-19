@@ -67,6 +67,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [058](058-runtime-navigation-rebuild.md) | Explicit world-private rebakes reuse source, worker and query ownership |
 
 | [061](061-particle-graph-programs.md) | Bounded particle programs share graph, Shader, Effect and renderer ownership |
+| [062](062-sorted-alpha-particles.md) | Explicit CPU alpha uses existing source, Material and sorted rendering owners |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

@@ -45,6 +45,9 @@ Newly published Particle Effects require runtime-kit
 `engine.runtime_particle_effect:3`; GPU values also require
 `engine.runtime_particle_gpu:1`. Active authored graph values also require
 `engine.runtime_particle_graph:1` and their selected profile1 Shader dependency.
+Sorted-alpha CPU values5 additionally require `engine.runtime_particle_alpha:1`;
+they do not require GPU or graph capabilities. Existing CPU1/2 and GPU3/4 meanings
+and ParticleEmitter layouts are unchanged.
 These capabilities are derived from exact cooked
 ParticleEffect metadata in the reachable catalog closure. Existing immutable CPU1/2
 recipes keep their prior admission. Missing/mismatched kit profiles reject before

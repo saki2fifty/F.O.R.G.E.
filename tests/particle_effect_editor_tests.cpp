@@ -302,6 +302,22 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     choose("particles:evaluation", 2);
     require(editor.document()->source().document == graph_profile,
             "Native graph switch did not restore the retained selection");
+    const auto alpha_revision = editor.document()->revision();
+    choose("particles:evaluation", 3);
+    const auto alpha_profile = editor.document()->source().document;
+    require(editor.document()->source().compiled().version == 5 &&
+                alpha_profile.at("version") == 5 && alpha_profile.at("profile") == "cpu_alpha1" &&
+                alpha_profile.at("program") == graph_profile.at("program") &&
+                alpha_profile.at("size_curve") == graph_profile.at("size_curve") &&
+                editor.document()->revision() == alpha_revision + 1,
+            "Native sorted-alpha choice lost settings or created multiple history entries");
+    click("particles:undo");
+    require(editor.document()->source().document == graph_profile,
+            "Native sorted-alpha Undo changed the prior graph source");
+    click("particles:redo");
+    require(editor.document()->source().document == alpha_profile,
+            "Native sorted-alpha Redo lost its source selection");
+    click("particles:undo");
     // Keep the original lifecycle/close checks applicable, including start-size editing.
     for (unsigned i = 0; i < 32 && editor.document()->source().document != before_extended; ++i)
         editor.undo();

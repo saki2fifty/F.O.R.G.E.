@@ -22,16 +22,21 @@ void validate_particle_mesh_profile(const MeshResourceData& resource) {
             if (node.skin)
                 throw std::runtime_error("Mesh particles cannot bind an animated model skin");
 }
-void validate_particle_material_profile(const MaterialResourceData& material) {
+void validate_particle_material_profile(const MaterialResourceData& material, bool sorted_alpha) {
     validate_render_material(material);
     if (!material.render_textures.empty())
         throw std::runtime_error("Mesh particles require source textures; camera render "
                                  "textures are supported by MeshRenderer materials");
-    if (material.surface || material.values.alpha == MaterialAlpha::Blend ||
-        material_transmits(prepare_pbr_material(material.values)))
+    if (material.surface || material_transmits(prepare_pbr_material(material.values)))
         throw std::runtime_error(
-            "Mesh particles require built-in opaque/masked material models; Blend, "
-            "transmission and custom Shader surfaces are unsupported");
+            "Mesh particles require built-in material models without transmission or custom "
+            "Shader surfaces");
+    if (!sorted_alpha && material.values.alpha == MaterialAlpha::Blend)
+        throw std::runtime_error("Blend particle materials require CPU (sorted alpha) evaluation");
+    if (material.values.alpha == MaterialAlpha::Blend &&
+        (!material.values.depth_test || material.values.depth_write))
+        throw std::runtime_error(
+            "Sorted-alpha particles require depth testing without depth writes");
 }
 std::vector<ParticleRenderInstance> particle_render_instances(const ParticleEffectData& data,
                                                               double time, std::uint32_t seed,

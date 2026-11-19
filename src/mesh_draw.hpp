@@ -30,6 +30,8 @@ class MeshDraw {
         const AffineTransform* previous_world = nullptr;
         const MeshWindSample* wind = nullptr;
         const MeshWindSample* previous_wind = nullptr;
+        // RGB modulation without the legacy blockout light on built-in Unlit.
+        bool material_tint_only = false;
     };
     // Borrowed only for this submission. The renderer retains the realization;
     // bytes already contain the base static mesh's seven-row instance layout.

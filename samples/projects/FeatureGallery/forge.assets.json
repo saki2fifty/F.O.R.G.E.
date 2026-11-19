@@ -16404,6 +16404,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "b6e53d57-a83a-4823-b8b1-763dd3cfa27e",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/240-sorted-alpha-particles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "b749931c-09c4-4386-8a48-229eb5de68d8",
       "metadata": {
         "forge.import": {
@@ -20394,6 +20404,60 @@
       "type": "transform_animation"
     },
     {
+      "dependencies": [
+        "80c55df2-1abb-42b0-9591-502e783cdc97",
+        "ef4d0a73-7171-4392-8ab3-24080a160781"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "a8dda92bc55956bb8492474c466dab295b4ae88c7dfb8383d25f67e9cd46996b",
+          "role": "particles.mesh",
+          "target": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "type": "mesh"
+        },
+        {
+          "kind": "runtime",
+          "revision": "b499e3b7d7b012adfdbbc01fd58dc8e91bcd958d2cc1035b112dfc83d0c27a0d",
+          "role": "particles.material",
+          "target": "ef4d0a73-7171-4392-8ab3-24080a160781",
+          "type": "material"
+        }
+      ],
+      "id": "ec4f748e-8438-47d4-bdd9-77cfb869cca5",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "1371f40381135fc5de1403615f965c79bc239acfce56b7c180d36c58189b0677",
+          "backend": "none",
+          "dependency_digest": "281ba6583238a794f4f0ccec7bc48660136c5303c85b98bfa1e4e99654f60604",
+          "generation": 1,
+          "importer": "forge.particles.cpu-mesh",
+          "importer_revision": "forge.particles.mesh.v3",
+          "key": "a3682d6dfa6343b4e084d829493efd559431935ae4613e33a55f80d14a45a945",
+          "output_format": "forge.particle-effect-cooked",
+          "output_version": 3,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "645ea8b7983cdb27f055c28703f00165967c5b1e68849bb972d93dd54a3c1981",
+          "source_digest": "2d523ebe9f54a199898251adb1339be4d79df230d4752a37ca5c63618691ba9f",
+          "version": 1
+        },
+        "forge.particle_effect": {
+          "bytes": 666,
+          "file": "effect.json",
+          "sha256": "4a745b62dd677f5d5f5e32b2f63375b2bf7567d6fca7a69592ea877afea2cece",
+          "value_version": 5,
+          "version": 3
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Particles/Alpha/GlassCloud.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "ec619df3-56ca-414a-9b5b-6b0405b8e740",
@@ -20620,6 +20684,41 @@
       "source": "Assets/ObjectValues/HeldAppearance.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "ef4d0a73-7171-4392-8ab3-24080a160781",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b5418c10e18cfd4a70342a30198db91ba6e4e0cdaa346045197e9c7faa6972e8",
+          "backend": "none",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "71d6183b0e9c691bb5c91169e4b67933f77ad1e1224b129af502ea856b427d8f",
+          "key": "b499e3b7d7b012adfdbbc01fd58dc8e91bcd958d2cc1035b112dfc83d0c27a0d",
+          "output_format": "forge.material-bundle",
+          "output_version": 3,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "7862997aafc8de5f66ee3665ab2bd2ff135fe6d7d51f35c41d4b7dcd38c7d61c",
+          "source_digest": "9e8f1e7e201f869ec66d09a5d9bb8c6f97409e0e858323624c68d0153554d9f7",
+          "version": 1
+        },
+        "forge.material": {
+          "render_textures": {},
+          "shader": null,
+          "textures": {},
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Particles/Alpha/Glass.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [

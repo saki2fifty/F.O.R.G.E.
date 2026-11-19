@@ -1570,7 +1570,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                             "invalid instance blockout color");
                     output[6][c] = value;
                 }
-                output[6][3] = 1;
+                output[6][3] = item.material_tint_only ? 2 : 1;
             }
             if (wind_) {
                 require(item.wind && item.wind->enabled,

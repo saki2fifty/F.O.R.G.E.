@@ -34,6 +34,9 @@ if(BUILD_TESTING)
  copy_required_dlls(forge_particle_graph_gallery_tests)
  add_test(NAME particle_graph_gallery_export COMMAND ${Python3_EXECUTABLE} "${PROJECT_SOURCE_DIR}/tests/particle_graph_gallery_test.py" $<TARGET_FILE:forge_particle_graph_gallery_tests> "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" $<TARGET_FILE:forge_asset_build_worker> $<TARGET_FILE:forge_viewport_tests> "${CMAKE_BINARY_DIR}/grid-test-images/particle-graphs")
  set_tests_properties(particle_graph_gallery_export PROPERTIES TIMEOUT 1020)
+ copy_required_dlls(forge_particle_alpha_gallery_tests)
+ add_test(NAME particle_alpha_gallery_game COMMAND ${Python3_EXECUTABLE} "${PROJECT_SOURCE_DIR}/tests/particle_alpha_gallery_test.py" $<TARGET_FILE:forge_particle_alpha_gallery_tests> "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" $<TARGET_FILE:forge_viewport_tests> "${CMAKE_BINARY_DIR}/grid-test-images/particle-alpha-gallery")
+ set_tests_properties(particle_alpha_gallery_game PROPERTIES TIMEOUT 300)
  # Program cooking belongs to the native editor profile. CPU source admission is
  # shared with the existing cross-platform Sprite Gallery test.
  add_executable(forge_sprite_material_gallery_tests tests/sprite_material_gallery_tests.cpp)
@@ -364,7 +367,7 @@ if(BUILD_TESTING)
  # post-compilation device render. The viewport case shares its device across
  # the remaining renderer consumers, without repeating those long compilations.
  set_tests_properties(editor_viewport_render PROPERTIES TIMEOUT 1260)
- foreach(render_case IN ITEMS morph skin frame optics sequence-frames sprites sprite-surfaces sprite-bloom tile-canvas tile-gallery physics-2d physics-tiles)
+ foreach(render_case IN ITEMS morph skin frame optics sequence-frames sprites sprite-surfaces sprite-bloom tile-canvas tile-gallery physics-2d physics-tiles particle-alpha)
   add_test(NAME editor_render_${render_case} COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images/${render_case}" ${render_case})
   set_tests_properties(editor_render_${render_case} PROPERTIES TIMEOUT 60)
  endforeach()

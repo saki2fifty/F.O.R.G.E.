@@ -445,9 +445,17 @@ for page, backing, voice and import limits.
 An active values4/gpu_graph1 Particle Effect retains its selected profile1 Shader
 through the ordinary particles.program runtime edge. The closure packages cooked
 effect values and exact DXBC dependencies, without graph source. Inactive retained
-graph settings in CPU2/GPU3 source do not add that runtime edge. A matching kit
+graph settings in CPU2/GPU3/CPU5 source do not add that runtime edge. A matching kit
 requires engine.runtime_particle_effect3, runtime_particle_gpu1 and
 runtime_particle_graph1. The Shader owner validates profile/bytecode reflection;
 the native host verifies actual compute support. Embedded engine shaders retain
 the platform-runtime compilation described above. See
 [particle effects](particle-effects.md) and [ADR061](decisions/061-particle-graph-programs.md).
+
+## Sorted-alpha particle closure
+
+CPU5/`cpu_alpha1` requires `runtime_particle_alpha:1` in addition to
+`runtime_particle_effect:3`, without GPU/graph capability. Its ordinary Mesh and
+Material edges retain selected revisions and alpha/depth state. Source5 and an
+inactive retained program are not runtime compilation inputs. Older kits reject
+values5; existing recipe/envelope3 and values1–4 retain their meanings.

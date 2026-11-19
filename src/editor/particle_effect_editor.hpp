@@ -177,11 +177,15 @@ class ParticleEffectEditor {
             FORGE_UI_PROBE("particles:redo");
             ImGui::EndDisabled();
             const auto data = document_->source().compiled();
-            int evaluation = data.version == 4 ? 2 : data.version == 3 ? 1 : 0;
-            if (ImGui::Combo("Evaluation", &evaluation, "CPU\0GPU\0Graph\0"))
+            int evaluation = data.version == 5   ? 3
+                             : data.version == 4 ? 2
+                             : data.version == 3 ? 1
+                                                 : 0;
+            if (ImGui::Combo("Evaluation", &evaluation, "CPU\0GPU\0Graph\0CPU (sorted alpha)\0"))
                 mutate("Set particle evaluation", [&](auto& source) {
                     ParticleEffectSource candidate{source};
-                    candidate.set_evaluation(evaluation == 2   ? ParticleEvaluation::Graph
+                    candidate.set_evaluation(evaluation == 3   ? ParticleEvaluation::CpuAlpha
+                                             : evaluation == 2 ? ParticleEvaluation::Graph
                                              : evaluation == 1 ? ParticleEvaluation::Gpu
                                                                : ParticleEvaluation::Cpu);
                     source = std::move(candidate.document);
@@ -258,8 +262,9 @@ class ParticleEffectEditor {
             }
             FORGE_UI_PROBE("particles:material");
             ui::help("One static triangle part, one LOD, one slot. Built-in opaque/masked "
-                     "materials; Blend, transmission, custom Shader surfaces, skins and morphs are "
-                     "unsupported. Empty material follows the mesh.");
+                     "materials; CPU (sorted alpha) also accepts Blend with depth testing and "
+                     "no depth writes. Transmission, custom Shader surfaces, skins and morphs "
+                     "are unsupported. Empty material follows the mesh.");
             ImGui::SeparatorText("Emission");
             int emission = int(data.emission);
             if (ImGui::Combo("Mode", &emission, "Continuous\0Initial burst\0"))

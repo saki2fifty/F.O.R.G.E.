@@ -503,13 +503,16 @@ struct AssetDocumentAutomation {
                     if constexpr (std::is_same_v<Source, ParticleEffectSource>) {
                         const auto previous = doc.revision();
                         const auto evaluation = request.at("evaluation").get<std::string>();
-                        if (evaluation != "cpu" && evaluation != "gpu" && evaluation != "graph")
+                        if (evaluation != "cpu" && evaluation != "gpu" && evaluation != "graph" &&
+                            evaluation != "cpu_alpha")
                             throw AuthoringError("invalid_argument",
-                                                 "Choose cpu, gpu or graph evaluation");
+                                                 "Choose cpu, cpu_alpha, gpu or graph evaluation");
                         doc.edit_source(previous, "Set particle evaluation", [&](Source& source) {
-                            source.set_evaluation(evaluation == "graph" ? ParticleEvaluation::Graph
-                                                  : evaluation == "gpu" ? ParticleEvaluation::Gpu
-                                                                        : ParticleEvaluation::Cpu);
+                            source.set_evaluation(
+                                evaluation == "cpu_alpha" ? ParticleEvaluation::CpuAlpha
+                                : evaluation == "graph"   ? ParticleEvaluation::Graph
+                                : evaluation == "gpu"     ? ParticleEvaluation::Gpu
+                                                          : ParticleEvaluation::Cpu);
                             if (!doc.retains_history(source))
                                 throw AuthoringError(
                                     "history_limit",

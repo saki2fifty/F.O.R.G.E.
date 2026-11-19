@@ -131,14 +131,12 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                     "Particle Effect requires complete admitted mesh/material resources");
             validate_particle_mesh_profile(prepared.mesh.get());
             const auto part = entry->second.ready->parts(0).front();
-            require(part.alpha != MaterialAlpha::Blend && !part.transmission &&
-                        !entry->second.pose->skinned &&
+            require(!part.transmission && !entry->second.pose->skinned &&
                         entry->second.ready->supports_instances(0, 0),
-                    "Mesh particles require opaque/masked static instancing; "
-                    "Blend/transmission is unsupported");
-            for (const auto& [id, material] : prepared.materials)
-                validate_particle_material_profile(material.get());
+                    "Mesh particles require static instancing without transmission");
             const auto& data = *source->second.data();
+            for (const auto& [id, material] : prepared.materials)
+                validate_particle_material_profile(material.get(), data.version == 5);
             const auto bounds =
                 particle_effect_bounds(data, prepared.mesh->mesh.lods.front().parts.front().bounds,
                                        emitter.world, emitter.emitter.size_multiplier);
@@ -151,7 +149,7 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
             each += draw.renderer.materials.capacity() * sizeof(MaterialSlotOverride);
             for (const auto& slot : draw.renderer.materials)
                 each += slot.slot.capacity();
-            if (data.version >= 3) {
+            if (particle_uses_gpu(data)) {
                 require(each <= byte_limit - bytes,
                         "Particle instance CPU payload exceeds the 8 MiB frame budget");
                 if (!source->second.gpu) {

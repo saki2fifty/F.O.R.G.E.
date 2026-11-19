@@ -127,7 +127,7 @@ nlohmann::json encode_particle_graph_program(const ParticleGraphProgram& program
             {"maximum_size", program.maximum_size}};
 }
 void validate_particle_effect(const ParticleEffectData& data) {
-    if (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4)
+    if (data.version < 1 || data.version > 5)
         throw std::runtime_error("Unknown particle value version");
     if (!data.mesh.id)
         throw std::runtime_error("Particle effect requires a Mesh");
@@ -163,8 +163,8 @@ void validate_particle_effect(const ParticleEffectData& data) {
         range(size, .001, 1000, "shape dimensions");
     range(data.shape_radius, .001, 1000, "shape radius");
     range(data.drag, 0, 64, "drag");
-    validate_stops(data.size_curve, data.version >= 3);
-    validate_stops(data.color_gradient, data.version >= 3);
+    validate_stops(data.size_curve, particle_uses_gpu(data));
+    validate_stops(data.color_gradient, particle_uses_gpu(data));
     if (data.version == 4) {
         if (!data.program)
             throw std::runtime_error("Particle graph requires a program");
@@ -184,7 +184,8 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
     const auto version = source.at("version").get<std::uint64_t>();
     const auto profile = source.at("profile").get<std::string>();
     if (!((version == 1 && profile == "cpu_mesh1") || (version == 2 && profile == "cpu_mesh2") ||
-          (version == 3 && profile == "gpu_mesh1") || (version == 4 && profile == "gpu_graph1")))
+          (version == 3 && profile == "gpu_mesh1") || (version == 4 && profile == "gpu_graph1") ||
+          (version == 5 && profile == "cpu_alpha1")))
         throw std::runtime_error("Unsupported particle effect format/version/profile");
     static const std::set<std::string> fields{
         "format",     "version",      "profile",     "mesh",       "material",
@@ -296,7 +297,8 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
         {"profile", data.version == 1   ? "cpu_mesh1"
                     : data.version == 2 ? "cpu_mesh2"
                     : data.version == 3 ? "gpu_mesh1"
-                                        : "gpu_graph1"},
+                    : data.version == 4 ? "gpu_graph1"
+                                        : "cpu_alpha1"},
         {"mesh", data.mesh},
         {"emission", data.emission == ParticleEmission::Burst ? "burst" : "continuous"},
         {"capacity", data.capacity},
@@ -338,7 +340,7 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
 std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData& data, double seconds,
                                                    std::uint32_t seed, std::size_t budget) {
     validate_particle_effect(data);
-    if (data.version >= 3)
+    if (particle_uses_gpu(data))
         throw std::runtime_error("GPU particle samples require a rendering device");
     range(seconds, 0, 1e9, "sample time");
     const double phase = seconds * data.spawn_rate;

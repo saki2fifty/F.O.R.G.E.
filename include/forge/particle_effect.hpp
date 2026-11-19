@@ -33,7 +33,7 @@ void validate_particle_graph_program(const ParticleGraphProgram&);
 ParticleGraphProgram decode_particle_graph_program(const nlohmann::json&);
 nlohmann::json encode_particle_graph_program(const ParticleGraphProgram&);
 struct ParticleEffectData {
-    std::uint32_t version = 1; // CPU1/2, GPU3, or graph GPU4.
+    std::uint32_t version = 1; // CPU1/2, GPU3, graph GPU4, or sorted-alpha CPU5.
     AssetRef<MeshAsset> mesh;
     AssetRef<MaterialAsset> material;
     ParticleEmission emission = ParticleEmission::Continuous;
@@ -51,6 +51,9 @@ struct ParticleEffectData {
     std::optional<ParticleGraphProgram> program;
     bool operator==(const ParticleEffectData&) const = default;
 };
+constexpr bool particle_uses_gpu(const ParticleEffectData& data) {
+    return data.version == 3 || data.version == 4;
+}
 struct ParticleSample {
     // Emitter-scoped transient ordinal; never an entity UUID or saved handle.
     std::uint64_t birth = 0;

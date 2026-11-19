@@ -1,0 +1,275 @@
+#pragma once
+#include "engine_render_resource.hpp"
+#include "frame_renderer.hpp"
+#include "hdr_bloom_gpu_tests.hpp"
+#include "mesh_render_host.hpp"
+#include "particle_runtime.hpp"
+#include "runtime_package.hpp"
+#include "sprite_draw_render_tests.hpp"
+#include "view_image.hpp"
+#include <chrono>
+#include <forge/game_content.hpp>
+#include <forge/runtime_world.hpp>
+#include <thread>
+namespace forge::test_particle_alpha {
+inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
+                     const std::filesystem::path& root) {
+    using namespace Diligent;
+    using test_bloom::check;
+    auto* device = presentation.device();
+    std::filesystem::create_directories(root);
+    auto host = std::make_shared<MeshResourceHost>(presentation, context, root, true);
+    host->catalog(std::make_shared<const AssetCatalog>(root));
+    const AssetRef<MaterialAsset> material{AssetId::generate()};
+    MaterialData values;
+    values.model = "forge.gltf.unlit.v1";
+    values.alpha = MaterialAlpha::Blend;
+    values.depth_write = false;
+    values.double_sided = true;
+    values.parameters["baseColorFactor"] = {MaterialParameterType::LinearColor4, {1, 1, 1, .5f}};
+    host->preview_material(material, {values, {}, {}});
+    const AssetRef<ParticleEffectAsset> effect{AssetId::generate()};
+    ParticleEffectData data;
+    data.version = 5;
+    data.mesh = engine_primitive(8);
+    data.material = material;
+    data.emission = ParticleEmission::Burst;
+    data.capacity = data.burst_count = 1;
+    data.speed_min = data.speed_max = 0;
+    data.acceleration = {0, 0, 0};
+    data.size_start = data.size_end = 1;
+    data.color_start = data.color_end = {1, 1, 1};
+    host->preview_particle_effect(effect, data);
+    MeshSceneRenderer renderer(host);
+    RenderScene scene;
+    scene.scene = AssetId::generate();
+    scene.settings.shadows.enabled = false;
+    const std::array<float, 3> front{.8f, .1f, .2f}, back{.1f, .2f, .9f};
+    for (unsigned i = 0; i < 2; ++i) {
+        RenderParticleEmitter emitter;
+        emitter.entity = EntityId::generate();
+        emitter.emitter.effect = effect;
+        emitter.time = 1;
+        emitter.world.m[11] = i ? 4 : 2;
+        const auto tint = i ? back : front;
+        emitter.emitter.tint_r = tint[0];
+        emitter.emitter.tint_g = tint[1];
+        emitter.emitter.tint_b = tint[2];
+        scene.particles.push_back(emitter);
+    }
+    constexpr unsigned width = 32, height = 32;
+    TextureDesc target;
+    target.Name = "FORGE sorted-alpha particle numeric target";
+    target.Type = RESOURCE_DIM_TEX_2D;
+    target.Width = width;
+    target.Height = height;
+    target.Format = TEX_FORMAT_RGBA32_FLOAT;
+    target.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
+    RefCntAutoPtr<ITexture> color, depth;
+    device->CreateTexture(target, nullptr, &color);
+    target.Format = TEX_FORMAT_D32_FLOAT;
+    target.BindFlags = BIND_DEPTH_STENCIL;
+    device->CreateTexture(target, nullptr, &depth);
+    check(color && depth, "Sorted-alpha particle targets unavailable");
+    Camera camera;
+    camera.projection = 1;
+    camera.orthographic_height = 2;
+    AffineTransform camera_world;
+    unsigned frames = 0;
+    auto draw = [&](bool expected_diagnostic = false) {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        do {
+            host->pump();
+            renderer.update(scene);
+            check(std::chrono::steady_clock::now() < deadline,
+                  "Sorted-alpha particle preparation timed out");
+            if (renderer.pending())
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } while (renderer.pending());
+        auto* rtv = color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+        auto* dsv = depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
+        context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        const float clear[4]{};
+        context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
+                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        Viewport viewport{0, 0, float(width), float(height), 0, 1};
+        context->SetViewports(1, &viewport, width, height);
+        renderer.draw(scene, camera_view(camera, camera_world, width, height), UINT32_MAX, color,
+                      dsv);
+        if (!expected_diagnostic && !renderer.diagnostics().empty())
+            throw std::runtime_error(renderer.diagnostics().front().text);
+        check(!expected_diagnostic || !renderer.diagnostics().empty(),
+              "Sorted-alpha diagnostic disappeared");
+        auto pixels = test_bloom::read(device, context, color);
+        context->FinishFrame();
+        device->ReleaseStaleResources();
+        ++frames;
+        return pixels;
+    };
+    auto assert_center = [&](const auto& pixels, const std::array<float, 3>& expected) {
+        for (unsigned y = 14; y < 18; ++y)
+            for (unsigned x = 14; x < 18; ++x)
+                for (unsigned c = 0; c < 3; ++c)
+                    if (!std::isfinite(pixels[y * width + x][c]) ||
+                        std::abs(pixels[y * width + x][c] - expected[c]) > 2e-4f)
+                        throw std::runtime_error(nlohmann::json{
+                            {"reason", "Sorted-alpha particle composition differs"},
+                            {"frame", frames},
+                            {"pixel", {x, y}},
+                            {"actual", pixels[y * width + x]},
+                            {"expected", expected}}.dump());
+    };
+    std::array<float, 3> expected;
+    for (unsigned c = 0; c < 3; ++c)
+        expected[c] = front[c] * .5f + back[c] * .25f;
+    const auto sorted = draw();
+    assert_center(sorted, expected);
+    check(renderer.draw_stats().instances == 2 && renderer.draw_stats().calls == 2 &&
+              !renderer.draw_stats().batched_calls,
+          "Transparent particles were merged into an unordered instance batch");
+    std::reverse(scene.particles.begin(), scene.particles.end());
+    check(draw() == sorted, "Emitter insertion order changed sorted-alpha pixels");
+    scene.settings.weighted_transparency = true;
+    check(draw(true) == sorted, "Weighted fallback changed transparent particle pixels");
+    check(std::all_of(
+              renderer.diagnostics().begin(), renderer.diagnostics().end(),
+              [](auto& d) { return d.text.find("sorted alpha retained") != std::string::npos; }),
+          "Weighted fallback hid another particle error");
+    scene.settings.weighted_transparency = false;
+    camera_world.m = {-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 6};
+    for (unsigned c = 0; c < 3; ++c)
+        expected[c] = back[c] * .5f + front[c] * .25f;
+    assert_center(draw(), expected);
+    camera_world = {};
+    check(draw() == sorted, "Second camera poisoned original particle ordering");
+    RenderMesh middle;
+    middle.entity = EntityId::generate();
+    middle.renderer.mesh = data.mesh;
+    middle.renderer.cast_shadows = false;
+    const auto slot = asset_detail::engine_mesh_resource(data.mesh).materials.front().key;
+    middle.renderer.materials = {{slot, material}};
+    const std::array<float, 3> green{.2f, .8f, .1f};
+    middle.renderer.material_parameters = {
+        {slot,
+         "baseColorFactor",
+         {MaterialParameterType::LinearColor4, {green[0], green[1], green[2], .25f}}}};
+    middle.world.m[11] = 3;
+    scene.meshes.push_back(middle);
+    for (unsigned c = 0; c < 3; ++c)
+        expected[c] = front[c] * .5f + green[c] * .125f + back[c] * .1875f;
+    assert_center(draw(), expected);
+    scene.meshes[0].renderer.materials = {{slot, engine_material(EngineMaterial::TwoSided)}};
+    scene.meshes[0].renderer.material_parameters.clear();
+    const auto emitters = std::exchange(scene.particles, {});
+    const auto opaque = draw();
+    scene.particles = emitters;
+    for (unsigned c = 0; c < 3; ++c)
+        expected[c] = front[c] * .5f + opaque[height / 2 * width + width / 2][c] * .5f;
+    assert_center(draw(), expected);
+    scene.meshes.clear();
+    for (unsigned version : {1u, 2u, 3u}) {
+        data.version = version;
+        host->preview_particle_effect(effect, data);
+        const auto rejected = draw(true);
+        check(renderer.draw_stats().instances == 0 &&
+                  std::all_of(rejected.begin(), rejected.end(),
+                              [](const auto& p) { return p[0] == 0 && p[1] == 0 && p[2] == 0; }),
+              "Opaque/GPU profile admitted a Blend particle material");
+    }
+    data.version = 5;
+    host->preview_particle_effect(effect, data);
+    check(draw() == sorted, "Restoring CPU alpha did not restore sorted pixels");
+    context->WaitForIdle();
+    std::ofstream receipt(root / "particle-alpha.json");
+    receipt << nlohmann::json{{"frames", frames},
+                              {"target", {width, height}},
+                              {"scope", "Native isolated renderer; no publication/export or "
+                                        "physical performance claim"}}
+                   .dump(2);
+    check(bool(receipt.flush()), "Sorted-alpha particle evidence write failed");
+    std::cout << "PARTICLE_ALPHA frames=" << frames
+              << " analytical blend/sort/cameras/opaque/weighted/profile recovery passed\n";
+}
+inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
+                    const std::filesystem::path& content, const std::filesystem::path& images) {
+    using test_bloom::check;
+#ifdef _WIN32
+    const RuntimePackageTarget target{"windows", "d3d12"};
+#else
+    const RuntimePackageTarget target{"linux", "none"};
+#endif
+    const auto catalog =
+        std::make_shared<const AssetCatalog>(open_runtime_content(content, target));
+    AssetId scene, effect;
+    for (const auto& [id, record] : catalog->records()) {
+        if (record.type == SceneAsset::type)
+            scene = id;
+        if (record.type == ParticleEffectAsset::type)
+            effect = id;
+    }
+    check(catalog->records().size() == 3 && scene && effect,
+          "Sorted-alpha content closure differs from Scene, Effect and Material");
+    ResourcePool<ParticleEffectAsset> effects;
+    const auto ticket = request_particle_effect(effects, content, catalog, {effect});
+    check(effects.wait(ticket, std::chrono::seconds(15)), "Source-free alpha Effect load stalled");
+    const auto selected = effects.acquire(ticket);
+    check(selected && selected->version == 5 && !selected->program,
+          "Source-free alpha content selected another evaluation profile");
+    RuntimeWorld world({}, {}, std::nullopt, content, false);
+    world.scene.restore_snapshot(load_game_scene(content, {scene}));
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(45);
+    while (!world.prepare_physics_assets() || !world.prepare_scene_resources()) {
+        check(std::chrono::steady_clock::now() < deadline,
+              "Alpha RuntimeWorld preparation stalled");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    const auto particles = particle_runtime(world.engine.world());
+    while (!particles->prepare()) {
+        particles->synchronize();
+        check(std::chrono::steady_clock::now() < deadline, "Alpha fixed-clock preparation stalled");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    for (unsigned i = 0; i < 12; ++i)
+        world.simulation.tick(.25f);
+    auto snapshot = extract_render_scene(world.simulation.presentation(1));
+    check(snapshot.diagnostics.empty() && snapshot.particles.size() == 2 &&
+              snapshot.cameras.size() == 1 && snapshot.meshes.size() == 1,
+          "Source-free alpha Game lost its native consumers");
+    auto host = std::make_shared<MeshResourceHost>(presentation, context, content);
+    host->catalog(catalog);
+    FrameRenderer renderer(presentation);
+    renderer.resources(host);
+    auto draw = [&] {
+        test_sprite_draw::Pixels pixels;
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(45);
+        do {
+            presentation.begin_frame();
+            auto* view = renderer.game(context, snapshot, 640, 360);
+            check(view, "Source-free alpha Game output missing");
+            presentation.end_frame(context);
+            host->submit();
+            pixels =
+                test_sprite_draw::read_pixels(presentation.device(), context, view->GetTexture());
+            context->FinishFrame();
+            presentation.device()->ReleaseStaleResources();
+            if (!renderer.diagnostics().empty())
+                throw std::runtime_error(renderer.diagnostics().front().text);
+            check(std::chrono::steady_clock::now() < end, "Alpha Game resource adoption stalled");
+        } while (renderer.pending());
+        return pixels;
+    };
+    const auto rendered = draw();
+    snapshot.particles.clear();
+    const auto empty = draw();
+    unsigned changed = 0;
+    for (std::size_t i = 0; i < rendered.size(); ++i)
+        changed += rendered[i] != empty[i];
+    check(changed > 100, "Source-free alpha Game did not draw its particles");
+    std::filesystem::create_directories(images);
+    save_view_png(images / "sorted-alpha-particles.png", 640, 360,
+                  {reinterpret_cast<const std::uint8_t*>(rendered.data()), rendered.size() * 4});
+    context->WaitForIdle();
+    std::cout << "PARTICLE_ALPHA_SOURCE_HIDDEN emitters=2 changed_pixels=" << changed << '\n';
+}
+} // namespace forge::test_particle_alpha
