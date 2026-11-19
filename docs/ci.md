@@ -2222,6 +2222,21 @@ toolchain/configuration cache, rebuilds all MCP owners selected by the editor
 configuration, installs their real game runtime kit, and runs its full `mcp_`
 selection. Native-SDK-only compiler/inspection cases remain in their separate
 SDK configuration; this diagnostic does not enable a different linkage profile.
+The optional `mcp_test_regex` input narrows a correction run; its default `^mcp_`
+retains every configured MCP case. Custom selection requires `mcp_only`, must
+select at least one case, and cannot select tests outside the `mcp_` family.
+The recorded audit scope includes the expression. A selected subset remains a
+partial diagnostic and does not replace the complete numbered delivery gate.
+Before execution, `tools/check_test_executables.py` checks the selected native
+commands and direct build-directory executable arguments, including helpers of
+Python supervisors. Missing commands/helpers fail before the longer test run.
+This checks file presence, not successful execution or nested runtime dependencies.
+Its focused regression also covers empty selection and scope rejection.
+
+The complete project/Play/export fixture creates its game Camera through the
+ordinary MCP Scene operations and verifies an active Camera during Play before
+running the exported game with GPU profiling. Standalone rendering retains its
+normal missing-Camera error; computation-only editor Play remains separate.
 Native host stderr and shutdown reasons remain visible on failure; private stdout connection
 handoffs are never logged. This unnumbered partial audit cannot qualify a delivery.
 Fixture control files tolerate Windows sharing/lock races until their next poll;

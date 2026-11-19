@@ -1,5 +1,12 @@
 # 2026-11-19
 
+## Native MCP acceptance inputs
+
+The project-to-game fixture authors a Camera through MCP before graphical export
+verification. Focused native audits build their font and reflection helpers and
+check selected executable prerequisites before running tests. An optional bounded
+MCP test selection records its scope; the complete delivery selection is unchanged.
+
 ## Native save and graph validation
 
 Scene source and asset-metadata publication share FORGE's native Windows

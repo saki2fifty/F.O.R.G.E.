@@ -2491,6 +2491,10 @@ for legacy in selected_protocols:
         ok('forge_component_add', arguments=dict(entity=ui_entity, component='forge.ui_document'))
         ok('forge_property_set', arguments=dict(entity=ui_entity, component='forge.ui_document',
                                                field='document', value=hud['asset']))
+        camera = ok('forge_entity_create', arguments=dict(kind=4, name='Game camera'))['results'][0]['selected']
+        ok('forge_component_add', arguments=dict(entity=camera, component='forge.camera'))
+        ok('forge_property_set_many', arguments=dict(entity=camera, component='forge.local_translation',
+                                                    values=dict(x=0, y=2, z=-8)))
         edit_settings('forge_project_settings_game_defaults')
         edit_settings('forge_project_settings_save')
         ok('forge_document_save')
@@ -2499,6 +2503,8 @@ for legacy in selected_protocols:
         started = ok('forge_play_start')
         active = until(lambda: read('forge_play_status'), lambda r: r['ready'] and r['control_ready'])
         assert active['launch'] == started['launch']
+        cameras = read('forge_play_cameras', width=800, height=600)
+        assert cameras['total'] == 1, cameras
 
         wrong = dict(launch=active['launch'], session=active['session'], generation=active['generation'] + 1)
         failed(mutate('forge_play_pause', **wrong), 'stale_play')
