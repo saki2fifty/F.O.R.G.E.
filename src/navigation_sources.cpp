@@ -1,9 +1,13 @@
 #include "navigation_sources.hpp"
 #include "builtins.hpp"
+#include "collision_selection.hpp"
+#include "model_render_resource.hpp"
 #include "navigation_area_value.hpp"
+#include "navigation_asset.hpp"
 #include "navigation_collision_collection.hpp"
 #include "navigation_link_value.hpp"
 #include "navigation_region_value.hpp"
+#include "tile_asset_resources.hpp"
 #include <forge/application_state_activation.hpp>
 #include <forge/character_components.hpp>
 #include <forge/physics_components.hpp>
@@ -207,5 +211,40 @@ Sources capture_native(WorldContext& context, const Scene& scene,
     for (auto& value : scene.unresolved_navigation_sources(settings))
         doc["entities"].push_back(std::move(value));
     return capture(doc, settings);
+}
+namespace {
+bool mesh_provenance(const Json& meta, const Sources& source) {
+    // Legacy digest-only callers predate settings metadata.
+    if (meta.at("version") == 1) {
+        if (source.plane != NavigationPlane::Spatial3D)
+            throw std::runtime_error("Legacy navigation requires spatial sources");
+        return false;
+    }
+    const auto settings = provenance_settings(meta);
+    if (settings.plane != source.plane)
+        throw std::runtime_error("Navigation source/provenance plane mismatch");
+    return settings.plane == NavigationPlane::Spatial3D;
+}
+} // namespace
+std::string selected_geometry_digest(const std::filesystem::path& project, const Sources& source,
+                                     const Json& meta) {
+    if (!mesh_provenance(meta, source) && source.maps.empty())
+        return collider_sources(source) ? source_digest(source, Json::array())
+                                        : geometry(source).digest;
+    auto catalog = AssetCatalog::open_project(project);
+    return selected_geometry_digest(catalog, source, meta);
+}
+std::string selected_geometry_digest(const AssetCatalog& catalog, const Sources& source,
+                                     const Json& meta) {
+    if (!mesh_provenance(meta, source)) {
+        const auto tiles = tile_inputs(
+            source, [&](AssetId id) { return selected_tile_map_revision(catalog, {id}); });
+        return collider_sources(source) ? source_digest(source, tiles) : geometry(source).digest;
+    }
+    auto inputs = mesh_inputs(
+        source, [&](AssetId id) { return asset_detail::selected_mesh_revision(catalog, {id}); });
+    const auto collisions = collision_inputs(
+        source, [&](AssetId id) { return selected_collision_revision(catalog, {id}); });
+    return source_digest(source, inputs, collisions);
 }
 } // namespace forge::navigation_detail

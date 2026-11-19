@@ -9,6 +9,7 @@
 #include <bit>
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <set>
 namespace forge {
@@ -382,6 +383,15 @@ struct Query::Impl {
 };
 Query::Query(std::shared_ptr<const Mesh> value) : impl_(std::make_unique<Impl>(std::move(value))) {}
 Query::~Query() = default;
+void Query::replace_mesh(std::shared_ptr<const Mesh> mesh,
+                         std::span<const CylinderObstacle> obstacles) {
+    require(impl_->generation < std::numeric_limits<std::uint64_t>::max(),
+            "Navigation query generation exhausted");
+    Query next(std::move(mesh));
+    next.obstacles(obstacles);
+    next.impl_->generation = impl_->generation + 1;
+    impl_ = std::move(next.impl_);
+}
 bool Query::obstacles(std::span<const CylinderObstacle> desired) {
     auto& s = *impl_;
     require(s.owner->dynamic_obstacles() || desired.empty(),

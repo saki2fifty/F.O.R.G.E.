@@ -6,6 +6,7 @@
 #include <forge/physics.hpp>
 #include <forge/runtime_world.hpp>
 #include <fstream>
+#include <functional>
 #include <set>
 #include <thread>
 
@@ -24,16 +25,17 @@ inline void ppm(const std::filesystem::path& path, const Pixels& pixels, unsigne
         stream.write(reinterpret_cast<const char*>(value.data()), 3);
     check(bool(stream), "Gallery image write failed");
 }
-inline std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* context,
-                                  const std::filesystem::path& root, AssetId scene_id,
-                                  const std::filesystem::path& output,
-                                  std::size_t minimum_colors = 21, bool expect_animation = true,
-                                  std::array<unsigned, 3> sample_ticks = {30, 60, 90},
-                                  bool project_simulation_time = false) {
+inline std::vector<Pixels>
+render(DiligentPresentation& presentation, IDeviceContext* context,
+       const std::filesystem::path& root, AssetId scene_id, const std::filesystem::path& output,
+       std::size_t minimum_colors = 21, bool expect_animation = true,
+       std::array<unsigned, 3> sample_ticks = {30, 60, 90}, bool project_simulation_time = false,
+       std::filesystem::path navigation_worker = {},
+       const std::function<void(RuntimeWorld&, unsigned)>& after_tick = {}) {
     check(sample_ticks[0] > 0 && sample_ticks[0] < sample_ticks[1] &&
               sample_ticks[1] < sample_ticks[2] && sample_ticks[2] <= 3600,
           "Gallery sample ticks must increase within the bounded capture interval");
-    RuntimeWorld world({}, {}, std::nullopt, root, false);
+    RuntimeWorld world({}, {}, std::nullopt, root, false, {}, std::move(navigation_worker));
     world.scene.restore_snapshot(load_game_scene(root, {scene_id}));
     auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
     while (!world.physics()->prepare_assets() || !world.prepare_scene_resources()) {
@@ -82,6 +84,8 @@ inline std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceCon
     };
     for (unsigned tick = 1; tick <= sample_ticks.back(); ++tick) {
         world.simulation.tick(1.f / 60);
+        if (after_tick)
+            after_tick(world, tick);
         if (std::find(sample_ticks.begin(), sample_ticks.end(), tick) != sample_ticks.end())
             capture(tick, 640, 360);
     }

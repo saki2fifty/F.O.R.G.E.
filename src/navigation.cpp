@@ -2,6 +2,7 @@
 #include "json_output_text.hpp"
 #include "navigation_area_value.hpp"
 #include "navigation_asset.hpp"
+#include "navigation_bake.hpp"
 #include "navigation_behavior_runtime.hpp"
 #include "navigation_link_collision.hpp"
 #include "navigation_link_curve.hpp"
@@ -11,13 +12,16 @@
 #include "runtime_property_tune.hpp"
 #include "runtime_tile_map.hpp"
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <forge/application_state_activation.hpp>
 #include <forge/assets.hpp>
 #include <forge/character_components.hpp>
 #include <forge/navigation.hpp>
+#include <forge/physics.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/scene.hpp>
+#include <future>
 #include <limits>
 #include <numbers>
 #include <set>
@@ -41,6 +45,7 @@ struct Cached {
     std::optional<std::vector<CylinderObstacle>> failed_obstacle_snapshot{};
     std::string obstacle_update_error{};
     std::uint64_t obstacle_attempt = 0;
+    bool rebuilt = false;
 };
 struct AgentState {
     enum class PhysicalTraversal { None, Jump, Drop };
@@ -151,12 +156,30 @@ const char* navigation_agent_phase_name(NavigationAgentPhase phase) {
 struct NavigationRuntime::Impl {
     WorldContext& context;
     std::filesystem::path project;
+    std::filesystem::path rebuild_worker;
     Scene* scene = nullptr;
     std::thread::id owner = std::this_thread::get_id();
     std::map<AssetId, Cached> cache;
     std::map<flecs::entity_t, AgentState> agents;
     std::map<flecs::entity_t, std::string> errors;
     std::uint64_t tick = 0, synchronization = 0;
+    struct PreparedBake {
+        Geometry geometry;
+        Json metadata;
+    };
+    struct Rebuild {
+        NavigationRebuildObservation observation;
+        std::stop_source cancel;
+        std::future<std::unique_ptr<NavigationBake>> worker;
+        std::chrono::steady_clock::time_point requested = std::chrono::steady_clock::now();
+        ~Rebuild() {
+            cancel.request_stop();
+            if (worker.valid())
+                worker.wait();
+        }
+        bool pending() const { return observation.phase <= NavigationRebuildPhase::Building; }
+    };
+    std::unique_ptr<Rebuild> rebuild;
     bool agent_limit = false;
     struct ObstacleSource {
         EntityId id;
@@ -233,8 +256,9 @@ struct NavigationRuntime::Impl {
         // centre's horizontal offset at an eroded boundary.
         return {actual[0], ground[1], actual[2]};
     }
-    Impl(WorldContext& c, std::filesystem::path p)
-        : context(c), project(std::move(p)), surfaces(c.world().query<const NavigationSurface>()),
+    Impl(WorldContext& c, std::filesystem::path p, std::filesystem::path worker)
+        : context(c), project(std::move(p)), rebuild_worker(std::move(worker)),
+          surfaces(c.world().query<const NavigationSurface>()),
           regions(c.world().query<const NavigationRegion2D>()),
           obstacle_entities(c.world().query<const NavigationObstacle>()),
           link_entities(c.world()
@@ -264,7 +288,10 @@ struct NavigationRuntime::Impl {
         release_tokens(mesh_tokens);
         release_tokens(collision_tokens);
     }
-    ~Impl() { release_resources(); }
+    ~Impl() {
+        rebuild.reset(); // Stop/join file-only work before retiring World resources.
+        release_resources();
+    }
     void check() const {
         if (owner != std::this_thread::get_id() || !scene)
             throw NavigationFailure(NavStatus::Unavailable,
@@ -289,7 +316,8 @@ struct NavigationRuntime::Impl {
         dc.source = "NavMeshAsset";
         services.emit({Severity::Warning, "navigation", text, dc});
     }
-    void capture_geometry(GeometryState& state, const NavigationSettings& settings) {
+    void capture_geometry(GeometryState& state, const NavigationSettings& settings,
+                          PreparedBake* prepared = nullptr, AssetId asset = {}) {
         const auto plane = settings.plane;
         const std::string_view name = settings.profile;
         auto capture_profile = context.services().profile("navigation", "NavSourceCapture", tick);
@@ -409,6 +437,31 @@ struct NavigationRuntime::Impl {
                 throw std::runtime_error(
                     "Waiting for selected navigation Mesh/Collision resources");
             }
+            if (prepared) {
+                prepared->geometry = navigation_detail::geometry(
+                    source, source_inputs,
+                    [&](AssetId id) -> const MeshResourceData& {
+                        return resources->mesh(mesh_tokens.at(id)).get();
+                    },
+                    [&](const Surface& surface) {
+                        const auto map = detail::runtime_tile_map_snapshot(
+                            context, {source.scene, surface.entity});
+                        if (!map || map->edited)
+                            throw std::runtime_error("Navigation Tile Map input is not current");
+                        return tile_collider_outlines(map->cells, map->definition_values,
+                                                      map->variants.get(), surface.collider->layer,
+                                                      surface.transform, surface.region->obstacle);
+                    },
+                    [&](AssetId id) {
+                        return std::static_pointer_cast<PhysicsRuntime>(
+                                   context.services().physics())
+                            ->snapshot_collision_asset(id);
+                    },
+                    collisions);
+                prepared->metadata = navigation_bake_metadata(
+                    asset, source, prepared->geometry, settings, inputs,
+                    plane == NavigationPlane::PlanarXY ? source_inputs : Json::array(), collisions);
+            }
         } catch (const std::exception& e) {
             state.legacy.clear();
             state.error = e.what();
@@ -418,7 +471,7 @@ struct NavigationRuntime::Impl {
             plane == NavigationPlane::Spatial3D)
             release_meshes();
     }
-    Cached& get(AssetRef<NavMeshAsset> ref) {
+    Cached& load_asset(AssetRef<NavMeshAsset> ref) {
         check();
         if (!ref.id)
             throw NavigationFailure(NavStatus::Missing, "Choose a NavMesh asset");
@@ -443,12 +496,17 @@ struct NavigationRuntime::Impl {
         if (value.data.metadata.at("source_scene").get<AssetId>() != scene->asset_id())
             throw NavigationFailure(NavStatus::Invalid,
                                     "NavMesh was built for another scene asset");
+        return value;
+    }
+    Cached& get(AssetRef<NavMeshAsset> ref) {
+        auto& value = load_asset(ref);
         const auto& source = profile_for(value);
         const auto& digest = value.data.metadata.at("version") == 1 ? source.legacy : source.digest;
         if (!digest.empty() &&
             digest != value.data.metadata.at("geometry_sha256").get<std::string>())
             throw NavigationFailure(
-                NavStatus::Stale, "Navigation geometry changed; stop Play and rebuild navigation");
+                NavStatus::Stale,
+                "Navigation geometry changed; rebuild navigation before querying");
         if (!source.error.empty())
             throw NavigationFailure(source.status, source.error);
         if (digest.empty())
@@ -488,6 +546,120 @@ struct NavigationRuntime::Impl {
             }
         }
         return value;
+    }
+    void finish_rebuild(NavigationRebuildPhase phase, std::string diagnostic) {
+        rebuild->cancel.request_stop();
+        rebuild->observation.phase = phase;
+        rebuild->observation.diagnostic = std::move(diagnostic);
+    }
+    void verify_rebuild_selection(const Rebuild& job, const Json& metadata) const {
+        const auto catalog = AssetCatalog::open_project(project);
+        const auto selected = catalog.resolve(AssetRef<NavMeshAsset>{job.observation.asset});
+        if (selected.state != AssetState::Available ||
+            selected.record->metadata.at("sha256").get<std::string>() !=
+                cache.at(job.observation.asset).revision)
+            throw NavigationFailure(NavStatus::Stale,
+                                    "Navigation asset revision changed during runtime rebuild");
+        try {
+            const auto settings = metadata.at("settings").get<NavigationSettings>();
+            const auto source = capture_native(context, *scene, source_entities, settings);
+            if (selected_geometry_digest(catalog, source, metadata) !=
+                metadata.at("geometry_sha256").get<std::string>())
+                throw std::runtime_error("Selected source revisions differ from prepared geometry");
+        } catch (const std::exception& e) {
+            throw NavigationFailure(NavStatus::Stale,
+                                    std::string("Navigation source/catalog changed: ") + e.what());
+        }
+    }
+    void adopt_bake(Cached& value, Admitted data) {
+        if (!obstacle_error.empty())
+            throw NavigationFailure(obstacle_status, obstacle_error);
+        const auto settings = data.metadata.at("settings").get<NavigationSettings>();
+        std::vector<CylinderObstacle> shapes;
+        for (const auto& source : obstacle_sources)
+            shapes.push_back(
+                obstacle_cylinder(source.id, source.component, source.transform, settings));
+        // Prepare current obstacle tiles before the transactional query swap.
+        // A failed candidate must not destroy the previous admitted basis.
+        value.query->replace_mesh(data.mesh, shapes);
+        value.data = std::move(data);
+        value.rebuilt = true;
+        value.obstacle_snapshot = std::move(shapes);
+        value.failed_obstacle_snapshot.reset();
+        value.obstacle_update_error.clear();
+        value.obstacle_attempt = synchronization;
+    }
+    void progress_rebuild() {
+        if (!rebuild)
+            return;
+        auto& job = *rebuild;
+        // Cancellation/staleness remains observable while the bounded worker
+        // retires. A new request cannot replace ownership before it has joined.
+        if (!job.pending()) {
+            if (job.worker.valid() &&
+                job.worker.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+                try {
+                    (void)job.worker.get();
+                } catch (const std::exception&) { /* Terminal result already retained. */
+                }
+            }
+            return;
+        }
+        try {
+            auto& value = load_asset({job.observation.asset});
+            const auto settings = value.data.metadata.at("settings").get<NavigationSettings>();
+            auto& source = profile_geometry[{settings.plane, settings.profile}];
+            PreparedBake prepared;
+            const bool building = job.observation.phase == NavigationRebuildPhase::Building;
+            job.observation.phase =
+                building ? NavigationRebuildPhase::Building : NavigationRebuildPhase::Preparing;
+            capture_geometry(source, settings, building ? nullptr : &prepared,
+                             job.observation.asset);
+            if (!source.error.empty()) {
+                if (!building && source.loading &&
+                    std::chrono::steady_clock::now() - job.requested < std::chrono::seconds(30)) {
+                    job.observation.diagnostic = source.error;
+                    return;
+                }
+                throw NavigationFailure(building ? NavStatus::Stale : NavStatus::Invalid,
+                                        source.error);
+            }
+            if (!building) {
+                verify_rebuild_selection(job, prepared.metadata);
+                job.observation.geometry_revision = prepared.geometry.digest;
+                const auto worker = rebuild_worker;
+                const auto stop = job.cancel.get_token();
+                job.worker = std::async(std::launch::async, [prepared = std::move(prepared), worker,
+                                                             stop]() mutable {
+                    return prepare_navigation_bake(
+                        prepared.geometry, std::move(prepared.metadata), worker,
+                        std::filesystem::temp_directory_path() / "forge-runtime-navigation", stop);
+                });
+                job.observation.phase = NavigationRebuildPhase::Building;
+                job.observation.diagnostic.clear();
+                return;
+            }
+            if (source.digest != job.observation.geometry_revision)
+                throw NavigationFailure(NavStatus::Stale,
+                                        "Navigation source changed during runtime rebuild");
+            if (job.worker.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+                return;
+            auto candidate = job.worker.get();
+            verify_rebuild_selection(job, candidate->data.metadata);
+            if (candidate->data.metadata.at("geometry_sha256").get<std::string>() != source.digest)
+                throw NavigationFailure(
+                    NavStatus::Stale, "Navigation rebuild provenance differs from current source");
+            adopt_bake(value, std::move(candidate->data));
+            job.observation.query_generation = value.query->generation();
+            job.observation.phase = NavigationRebuildPhase::Applied;
+            job.observation.diagnostic.clear();
+        } catch (const NavigationFailure& e) {
+            finish_rebuild(e.status == NavStatus::Stale ? NavigationRebuildPhase::Stale
+                                                        : NavigationRebuildPhase::Failed,
+                           e.what());
+        } catch (const std::exception& e) {
+            finish_rebuild(NavigationRebuildPhase::Failed, e.what());
+        }
     }
     void capture_obstacles() {
         ApplicationStateActivation conditions(context);
@@ -719,14 +891,23 @@ struct NavigationRuntime::Impl {
         }
     }
 };
-NavigationRuntime::NavigationRuntime(WorldContext& c, std::filesystem::path p)
-    : impl_(std::make_unique<Impl>(c, std::move(p))) {}
+const char* navigation_rebuild_phase_name(NavigationRebuildPhase phase) {
+    constexpr const char* names[]{"Queued",    "Preparing", "Building", "Applied",
+                                  "Cancelled", "Stale",     "Failed"};
+    const auto index = unsigned(phase);
+    return index < std::size(names) ? names[index] : "Invalid";
+}
+NavigationRuntime::NavigationRuntime(WorldContext& c, std::filesystem::path p,
+                                     std::filesystem::path worker)
+    : impl_(std::make_unique<Impl>(c, std::move(p), std::move(worker))) {}
 NavigationRuntime::~NavigationRuntime() = default;
 void NavigationRuntime::shutdown() noexcept { impl_.reset(); }
 void NavigationRuntime::bind(Scene* scene) {
     if (impl_) {
+        impl_->rebuild.reset();
         impl_->behaviors.bind(scene);
         impl_->scene = scene;
+        impl_->cache.clear();
         impl_->agents.clear();
         impl_->errors.clear();
         impl_->agent_limit = false;
@@ -737,6 +918,63 @@ void NavigationRuntime::bind(Scene* scene) {
         impl_->profile_geometry.clear();
         impl_->linked_profiles.clear();
     }
+}
+std::uint64_t NavigationRuntime::request_rebuild(AssetRef<NavMeshAsset> ref) {
+    if (!impl_)
+        throw std::runtime_error("Navigation owner is unavailable");
+    auto& s = *impl_;
+    s.check();
+    if (s.rebuild_worker.empty() || !std::filesystem::is_regular_file(s.rebuild_worker))
+        throw std::runtime_error("Runtime navigation rebuilding requires the matching host worker");
+    if (s.rebuild && (s.rebuild->pending() || s.rebuild->worker.valid()))
+        throw std::runtime_error("A runtime navigation rebuild is already active or retiring");
+    (void)s.load_asset(ref);
+    static std::atomic<std::uint64_t> sequence{1};
+    auto token = sequence.load();
+    do {
+        if (token == UINT64_MAX)
+            throw std::runtime_error("Navigation rebuild token space exhausted");
+    } while (!sequence.compare_exchange_weak(token, token + 1));
+    auto job = std::make_unique<Impl::Rebuild>();
+    job->observation.token = token;
+    job->observation.asset = ref.id;
+    s.rebuild = std::move(job);
+    return token;
+}
+NavigationRebuildObservation NavigationRuntime::rebuild_state(std::uint64_t token) const {
+    if (!impl_)
+        throw std::runtime_error("Navigation owner is unavailable");
+    impl_->check();
+    if (!token || !impl_->rebuild || impl_->rebuild->observation.token != token)
+        throw std::runtime_error("Unknown or retired navigation rebuild token");
+    return impl_->rebuild->observation;
+}
+bool NavigationRuntime::cancel_rebuild(std::uint64_t token) {
+    (void)rebuild_state(token);
+    if (!impl_->rebuild->pending())
+        return false;
+    impl_->finish_rebuild(NavigationRebuildPhase::Cancelled,
+                          "Runtime navigation rebuild cancelled");
+    return true;
+}
+std::optional<NavigationRebuildObservation> NavigationRuntime::rebuild_state() const {
+    if (!impl_)
+        return {};
+    impl_->check();
+    return impl_->rebuild ? std::optional(impl_->rebuild->observation) : std::nullopt;
+}
+void NavigationRuntime::poll_rebuild() {
+    if (!impl_)
+        return;
+    impl_->check();
+    if (impl_->rebuild && (impl_->rebuild->pending() || impl_->rebuild->worker.valid()))
+        synchronize();
+}
+bool NavigationRuntime::rebuild_pending() const {
+    if (!impl_)
+        return false;
+    impl_->check();
+    return impl_->rebuild && (impl_->rebuild->pending() || impl_->rebuild->worker.valid());
 }
 bool NavigationRuntime::prepare_assets() {
     if (!impl_)
@@ -769,6 +1007,12 @@ void NavigationRuntime::synchronize() {
             collected_profiles.emplace(settings.plane, settings.profile);
     }
     std::erase_if(s.profile_geometry, [&](const auto& entry) {
+        if (s.rebuild && s.rebuild->pending()) {
+            const auto& value = s.cache.at(s.rebuild->observation.asset);
+            const auto settings = value.data.metadata.at("settings").get<NavigationSettings>();
+            if (entry.first == Impl::ProfileKey{settings.plane, settings.profile})
+                return false;
+        }
         return !s.linked_profiles.contains(entry.first) &&
                !collected_profiles.contains(entry.first);
     });
@@ -802,6 +1046,7 @@ void NavigationRuntime::synchronize() {
                 s.release_meshes();
         }
     }
+    s.progress_rebuild();
     // Read-only C++ controllers may request queries without NavigationAgent.
     // Their cache entries still adopt complete snapshots at the next writable
     // boundary. Failure belongs to that asset/request, not another profile.
@@ -1886,6 +2131,15 @@ Json NavigationRuntime::tune_avoidance(EntityRef ref, const std::string& propert
     return tune(ref, "forge.navigation_avoidance", property, value);
 }
 Json NavigationRuntime::checkpoint() {
+    if (impl_) {
+        impl_->check();
+        // A private rebuilt basis is not the catalog artifact. Refuse partial
+        // recovery until it can be reconstructed in the unpublished candidate.
+        if ((impl_->rebuild && impl_->rebuild->pending()) ||
+            std::ranges::any_of(impl_->cache,
+                                [](const auto& entry) { return entry.second.rebuilt; }))
+            return Json();
+    }
     if (impl_ && impl_->awaiting_physics())
         throw std::runtime_error(
             "Navigation recovery requires completed character physics adoption");
@@ -2371,15 +2625,15 @@ void NavigationRuntime::restore(const Json& data) {
         throw std::runtime_error("Navigation recovery version 6 requires link collision values");
     impl_->behaviors.restore(version >= 3 ? data.at("behaviors") : Json::array());
 }
-EngineModule navigation_module(std::filesystem::path project) {
+EngineModule navigation_module(std::filesystem::path project, std::filesystem::path worker) {
     auto m = navigation_schema_module();
     m.runtime_roles = role_mask(WorldRole::Runtime);
     m.allowed_services = capability(Capability::Diagnostics) | capability(Capability::Profiling) |
                          capability(Capability::Navigation) | capability(Capability::Resources) |
                          capability(Capability::Physics);
     m.provided_services = capability(Capability::Navigation);
-    m.start = [project = std::move(project)](ModuleContext& c) {
-        auto runtime = std::make_shared<NavigationRuntime>(*c.owner, project);
+    m.start = [project = std::move(project), worker = std::move(worker)](ModuleContext& c) {
+        auto runtime = std::make_shared<NavigationRuntime>(*c.owner, project, worker);
         c.services.publish_navigation(runtime);
         c.state = runtime;
     };

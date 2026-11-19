@@ -2572,6 +2572,19 @@ bool PhysicsRuntime::release_collision_asset(std::uint64_t token) {
     impl_->check();
     return impl_->collision_observers.erase(token) != 0;
 }
+PhysicsDebugCollision PhysicsRuntime::snapshot_collision_asset(AssetId asset) const {
+    auto& s = *impl_;
+    s.check();
+    const auto request = s.collision_tickets.find(asset);
+    if (!s.collision_pool || request == s.collision_tickets.end())
+        throw std::runtime_error("Navigation Collision resource is not prepared");
+    const auto info = request->second.inspect();
+    const auto value = s.collision_pool->current({asset});
+    if (info.state != ResourceState::Ready || !value ||
+        value.identity().revision != info.identity.revision || s.collision_errors.contains(asset))
+        throw std::runtime_error("Navigation Collision resource is not current");
+    return snapshot_physics_debug_collision(value);
+}
 void PhysicsRuntime::teleport(EntityRef ref, LocalTranslation p, LocalRotation q, bool clear) {
     impl_->check();
     valid_position(p);

@@ -100,6 +100,7 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
     project.save();
     GameSessionConfig config;
     config.content_root = root;
+    config.navigation_worker = worker;
     GameSession session(config);
     const auto candidate = session.prepare(scene.snapshot());
     const auto deadline = std::chrono::steady_clock::now() + 15s;
@@ -159,6 +160,51 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
                 "Agent moved on stale cooked Collision geometry");
     }
     require(resources->release(watch), "Collision observation subscription did not release");
+    // An explicit runtime rebake can adopt the changed cooked Collision through
+    // the same physics pool while paused. It does not publish another Nav asset.
+    const auto runtime_navigation = std::static_pointer_cast<NavigationRuntime>(navigation);
+    const auto clock_before = session.status().at("clock");
+    world.scene.entity(floor_id).set<LocalTranslation>({40, -.5, 0});
+    const auto rebuild = navigation->request_rebuild({nav.id});
+    const auto await_rebuild = [&](std::uint64_t token) {
+        const auto until = std::chrono::steady_clock::now() + 20s;
+        for (;;) {
+            session.control_frame();
+            const auto state = navigation->rebuild_state(token);
+            if (state.phase >= NavigationRebuildPhase::Applied)
+                return state;
+            require(std::chrono::steady_clock::now() < until,
+                    "Cooked Collision runtime rebuild timed out: " + state.diagnostic);
+            std::this_thread::sleep_for(1ms);
+        }
+    };
+    const auto rebuilt = await_rebuild(rebuild);
+    require(rebuilt.phase == NavigationRebuildPhase::Applied,
+            "Cooked Collision rebuild rejected: " + rebuilt.diagnostic);
+    auto moved_start = start, moved_end = end;
+    moved_start[0] += 40;
+    moved_end[0] += 40;
+    require(navigation->find_path({nav.id}, moved_start, moved_end).status == NavStatus::Success &&
+                session.status().at("clock") == clock_before &&
+                actor.get<LocalTranslation>() == position,
+            "Paused Collision rebake failed or advanced gameplay time/agent pose");
+    const auto catalog_race = navigation->request_rebuild({nav.id});
+    session.control_frame();
+    require(navigation->rebuild_state(catalog_race).phase == NavigationRebuildPhase::Building,
+            "Collision provenance race did not launch a worker");
+    source->edit(source->revision(), "Resize selected runtime input",
+                 [](Json& value) { value["nodes"][0]["dimensions"] = {16, 1, 12}; });
+    source->save();
+    publish(imports, source->source());
+    const auto raced = await_rebuild(catalog_race);
+    require(raced.phase == NavigationRebuildPhase::Stale &&
+                raced.diagnostic.find("source/catalog") != std::string::npos,
+            "A changed selected Collision revision escaped catalog adoption guards: " +
+                raced.diagnostic);
+    require(AssetCatalog::open_project(root).records().at(nav.id).metadata.at("sha256") ==
+                    nav.metadata.at("sha256") &&
+                runtime_navigation->checkpoint().is_null(),
+            "Private rebake published an authored asset or claimed partial crash recovery");
     session.unload({});
 }
 } // namespace

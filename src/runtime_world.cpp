@@ -19,14 +19,15 @@ namespace forge {
 RuntimeWorld::RuntimeWorld(std::vector<EngineModule> modules, PhysicsConfig physics,
                            const std::optional<AudioConfig>& audio,
                            const std::filesystem::path& project, bool ui,
-                           RuntimeExecutionConfig execution)
+                           RuntimeExecutionConfig execution,
+                           std::filesystem::path navigation_worker)
     : engine(WorldRole::Runtime, false,
              [&] {
                  if (!project.empty())
                      modules.push_back(runtime_resources_module(project));
                  modules.push_back(physics_module(physics, project));
                  modules.push_back(animation_module(project));
-                 modules.push_back(navigation_module(project));
+                 modules.push_back(navigation_module(project, std::move(navigation_worker)));
                  modules.push_back(particle_module(project));
                  if (ui)
                      modules.push_back(ui_module(project));
@@ -37,6 +38,19 @@ RuntimeWorld::RuntimeWorld(std::vector<EngineModule> modules, PhysicsConfig phys
       scene(engine.world()), simulation(engine.world(), scene, execution) {}
 std::shared_ptr<PhysicsRuntime> RuntimeWorld::physics() {
     return std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
+}
+void RuntimeWorld::poll_navigation_rebuild() {
+    if (!engine.services().available(Capability::Navigation))
+        return;
+    const auto navigation =
+        std::static_pointer_cast<NavigationRuntime>(engine.services().navigation());
+    if (!navigation->rebuild_pending())
+        return;
+    if (engine.services().available(Capability::Resources))
+        engine.services().resources()->synchronize();
+    detail::synchronize_runtime_tile_maps(engine.world());
+    physics()->prepare_assets();
+    navigation->poll_rebuild();
 }
 Json RuntimeWorld::tune_property(EntityRef target, const std::string& type,
                                  const std::string& property, const Json& value) {

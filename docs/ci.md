@@ -3384,3 +3384,56 @@ SDK case uses the same receiver and process checks after relocation.
 envelopes, preserving existing launch/session/generation, input, source/history
 and reset checks. Existing content/Gallery cases retain source-hidden export
 coverage. Diagnostic metadata does not introduce new authoring or dispatch tools.
+
+## Runtime navigation rebuild checks
+
+`navigation_bake` verifies the shared staged worker/admission path used by editor
+publication and runtime requests. Existing build/query/profile/collection consumers
+remain regression inputs. `navigation_rebuild` checks actual changed floors in
+3D and XY with static and obstacle-tiled profiles, World isolation, generations,
+source/catalog races, cancellation and shutdown, failed replacement preserving the
+old basis, current obstacle re-carving and moving-physics source refusal.
+`navigation_collection_resources` verifies exact current Collision selection and
+resource retirement through the existing pool.
+
+`navigation_rebuild_controls` exercises actual Game widgets, worker observations,
+start/cancel/retirement guards and four wide/narrow100/150/200percent software
+layouts. `mcp_navigation_rebuild_stdio` runs both protocol envelopes through the
+same Play owner, including paused requests, stale launch/session/generation,
+execute grants, async failure, source/Undo invariance and actual recovery readiness.
+
+`native_sdk_navigation_rebuild` and its denied variant exercise sized PODs,
+capability/grant/thread/token ownership, cancellation, fixed callbacks and control
+callbacks while paused without advancing ticks. `native_sdk_navigation_rebuild_gallery`
+runs the original optional Gallery System in two fresh hosts. Each installed variant
+builds only from the installed matching headers/sample, relocates the SDK and worker,
+and removes source/build library search paths before execution. Every host must quit
+gracefully and exit0; forced cleanup does not count as sanitizer acceptance.
+The original installed area-policy client remains a compatibility consumer.
+`native_sdk_navigation_rebuild_readonly` additionally proves POSIX write denial,
+separate writable user data, unchanged content bytes and two fresh graceful hosts.
+It is a POSIX-only filesystem check and makes no Windows permissions claim.
+
+`navigation_rebuild_gallery` checks the editable one-shot source and resumed Agent,
+then repeats with sources hidden from a relocated content package.
+`navigation_rebuild_gallery_vulkan` uses the existing Game capture owner, performs
+a real rebuild after the floor settles, asserts arrival and compares four exact
+source/export moving-display pairs including portrait. The optional SDK System is
+required for automatic requests in an exported player; raw Scene content waits for
+a game-owned request. The ordinary Gallery/Windows package checks include Scene237,
+its source clip, cooked dependency closure and canonical manual images.
+
+The optional Gallery SDK wrapper defaults to a20second per-host wall-time allowance.
+Its `--timeout-seconds` option supplies an explicit bounded test-only allowance for
+instrumented execution; the focused sanitizer run uses90seconds per host and a
+240second supervisor budget. This does not change simulation steps, arrival/source
+assertions, the5second IPC deadline, engine worker/resource limits or graceful
+shutdown requirements. Diagnostic compilation may use `-Og` for the SDK Play JSON
+transport, process entry point and full SDK Play fixture while retaining fatal
+warnings, ASan/UBSan and stack/lifetime checks.
+
+Normal runtime/SDK and software Vulkan evidence are separate from physical Windows,
+GPU/input/DPI and graphical EXE acceptance. Matching NativeSdk and GameRuntime installs
+must contain the trusted sibling `forge_nav_build` and its admitted dependencies;
+the Windows install/relocation gates establish their actual platform executables.
+No dependency, persisted navigation profile or catalog identity migration is implied.

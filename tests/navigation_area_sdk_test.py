@@ -8,11 +8,11 @@ import time
 from runtime_client import Runtime, activate
 
 
-def verify(runtime, module, prepare, worker, scratch, planar):
+def verify(runtime, module, prepare, worker, scratch, planar, env=None):
     flag = '--prepare-sdk-planar' if planar else '--prepare-sdk-spatial'
     root = Path(subprocess.check_output([prepare, scratch, worker, flag], text=True).strip())
     shutil.copy2(module, root / module.name)
-    info = json.loads(subprocess.check_output([runtime, '--sdk-info'], text=True))
+    info = json.loads(subprocess.check_output([runtime, '--sdk-info'], text=True, env=env))
     settings = json.loads((root / 'forge.project.json').read_text())
     settings['modules'] = [dict(id='project.navigation_area_probe', implementation='1',
         sdk='experimental-1', fingerprint=info['fingerprint'], library=module.name,
@@ -26,7 +26,7 @@ def verify(runtime, module, prepare, worker, scratch, planar):
     scene = json.loads((root / 'scene.json').read_text())
     for restart in range(2):
         host = Runtime(runtime, ['--sdk-project', root, '--sdk-play', 'on',
-                                 '--user-data', root / 'test-users'])
+                                 '--user-data', root / 'test-users'], env=env)
         try:
             activate(host, scene, True)
             deadline = time.monotonic() + 15

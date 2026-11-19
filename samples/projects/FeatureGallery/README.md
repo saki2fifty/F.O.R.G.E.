@@ -1,5 +1,22 @@
 # Feature Gallery
 
+## Runtime navigation rebuilding
+
+Open **Scenes/237-runtime-navigation-rebuild.scene.json**. Its ordinary navigation
+floor moves +2X once in one second, then holds. The cyan Agent waits because the
+original NavMesh describes the starting floor. Pause after motion finishes and
+use **Game → Runtime navigation → Profile → default → Rebuild navigation**. Wait
+for **Applied**, then resume: the Agent reaches the green destination. Stop restores
+the authored state. The saved Nav asset and teal overlay base stay unchanged.
+
+An exported game needs a game-owned request. The optional original
+**CodeExamples/RuntimeNavigationRebuildSystem.cpp** waits for the final floor pose
+and requests one rebuild through the matching SDK. Its setup is in
+**CodeExamples/README.md**; build that System before exporting this automatic
+demonstration. The editor walkthrough works without a project C++ module.
+Runtime rebakes accept supported static source snapshots and require a clean Play
+restart after a crash. They do not add moving-physics/deformed geometry or platform routing.
+
 ## Input recording across Scenes
 
 Open `Scenes/235-session-input-a.scene.json` and build the optional

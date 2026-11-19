@@ -1,5 +1,6 @@
 #include "authored_schema.hpp"
 #include "bounded_json.hpp"
+#include "json_output_text.hpp"
 #include "navigation_area_value.hpp"
 #include "runtime_entity_creation.hpp"
 #include "runtime_tile_map.hpp"
@@ -62,6 +63,13 @@ static_assert(unsigned(NavStatus::Success) == FORGE_SDK_NAV_SUCCESS &&
               unsigned(NavStatus::Limit) == FORGE_SDK_NAV_LIMIT &&
               unsigned(NavStatus::Invalid) == FORGE_SDK_NAV_INVALID &&
               unsigned(NavStatus::Unavailable) == FORGE_SDK_NAV_UNAVAILABLE);
+static_assert(unsigned(NavigationRebuildPhase::Queued) == FORGE_SDK_NAV_REBUILD_QUEUED &&
+              unsigned(NavigationRebuildPhase::Preparing) == FORGE_SDK_NAV_REBUILD_PREPARING &&
+              unsigned(NavigationRebuildPhase::Building) == FORGE_SDK_NAV_REBUILD_BUILDING &&
+              unsigned(NavigationRebuildPhase::Applied) == FORGE_SDK_NAV_REBUILD_APPLIED &&
+              unsigned(NavigationRebuildPhase::Cancelled) == FORGE_SDK_NAV_REBUILD_CANCELLED &&
+              unsigned(NavigationRebuildPhase::Stale) == FORGE_SDK_NAV_REBUILD_STALE &&
+              unsigned(NavigationRebuildPhase::Failed) == FORGE_SDK_NAV_REBUILD_FAILED);
 const std::set<std::string> builtins{"forge.core",      "forge.transforms", "forge.prefabs",
                                      "forge.input",     "forge.physics",    "forge.audio",
                                      "forge.animation", "forge.navigation", "forge.ui",
@@ -92,6 +100,7 @@ std::string bounded(const char* p, std::size_t maximum) {
 struct Bridge {
     ModuleContext& context;
     ForgeSdkWorldV1 host{};
+    std::uint64_t navigation_rebuild_token = 0;
     std::thread::id owner = std::this_thread::get_id();
     enum class Stage {
         Schema,
@@ -1236,9 +1245,9 @@ struct Bridge {
             try {
                 auto& b = Bridge::get(p);
                 if (!cap || (cap & (cap - 1)) ||
-                    (cap &
-                     ~(known_capabilities | FORGE_SDK_INPUT | FORGE_SDK_RUNTIME_ENTITIES |
-                       FORGE_SDK_CONTROL_INPUT | FORGE_SDK_TILE_MAPS | FORGE_SDK_TILE_MAP_EDITS)))
+                    (cap & ~(known_capabilities | FORGE_SDK_INPUT | FORGE_SDK_RUNTIME_ENTITIES |
+                             FORGE_SDK_CONTROL_INPUT | FORGE_SDK_TILE_MAPS |
+                             FORGE_SDK_TILE_MAP_EDITS | FORGE_SDK_NAVIGATION_REBUILD)))
                     return 0;
                 out->version = FORGE_SDK_CAPABILITY_VERSION;
                 out->flags = FORGE_SDK_OWNER_THREAD;
@@ -1258,6 +1267,9 @@ struct Bridge {
                     available = b.resources_callable();
                 if (cap == FORGE_SDK_RUNTIME_ENTITIES)
                     available = b.entities_callable();
+                if (cap == FORGE_SDK_NAVIGATION_REBUILD)
+                    available =
+                        b.runtime_active() && b.context.services.available(Capability::Navigation);
                 if (cap == FORGE_SDK_TILE_MAPS || cap == FORGE_SDK_TILE_MAP_EDITS)
                     available = b.tile_maps_callable();
                 if (cap == FORGE_SDK_GAME)
@@ -1267,6 +1279,8 @@ struct Bridge {
                 out->available = available;
                 out->callable = available && (!fixed || b.context.input != nullptr);
                 if (cap == FORGE_SDK_AUDIO)
+                    out->callable = available && (b.context.input || b.context.controls);
+                if (cap == FORGE_SDK_NAVIGATION_REBUILD)
                     out->callable = available && (b.context.input || b.context.controls);
                 if (cap == FORGE_SDK_CONTROL_INPUT)
                     out->callable = available && b.context.controls != nullptr;
@@ -1347,6 +1361,69 @@ struct Bridge {
                                             const ForgeSdkNavigationFilterV1* filter,
                                             ForgeSdkNavResultV1* out) -> int32_t {
             return navigation_query(p, asset, operation, start, end, filter, out, true);
+        };
+        host.navigation_rebuild_request = [](void* p, const char* asset,
+                                             uint64_t* token) -> int32_t {
+            if (!token)
+                return 0;
+            *token = 0;
+            try {
+                auto& bridge = get(p);
+                if (!bridge.context.input && !bridge.context.controls)
+                    return 0;
+                const auto value = bridge.context.services.navigation()->request_rebuild(
+                    {AssetId::parse(bounded(asset, 36))});
+                bridge.navigation_rebuild_token = value;
+                *token = value;
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.navigation_rebuild_state = [](void* p, uint64_t token,
+                                           ForgeSdkNavigationRebuildV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out) || out->version != 1)
+                return 0;
+            try {
+                auto& bridge = get(p);
+                if ((!bridge.context.input && !bridge.context.controls) || !token ||
+                    token != bridge.navigation_rebuild_token)
+                    return 0;
+                const auto value = bridge.context.services.navigation()->rebuild_state(token);
+                std::memset(out, 0, sizeof(*out));
+                out->size = sizeof(*out);
+                out->version = 1;
+                out->phase = uint32_t(value.phase);
+                out->token = value.token;
+                out->query_generation = value.query_generation;
+                const auto asset = value.asset.str();
+                std::copy_n(asset.data(), std::min(asset.size(), sizeof(out->asset_uuid) - 1),
+                            out->asset_uuid);
+                std::copy_n(
+                    value.geometry_revision.data(),
+                    std::min(value.geometry_revision.size(), sizeof(out->geometry_revision) - 1),
+                    out->geometry_revision);
+                const auto text = detail::json_output_text(value.diagnostic).get<std::string>();
+                auto length = std::min(text.size(), sizeof(out->diagnostic) - 1);
+                while (length && length < text.size() &&
+                       (static_cast<unsigned char>(text[length]) & 0xc0) == 0x80)
+                    --length;
+                std::copy_n(text.data(), length, out->diagnostic);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.navigation_rebuild_cancel = [](void* p, uint64_t token) -> int32_t {
+            try {
+                auto& bridge = get(p);
+                if ((!bridge.context.input && !bridge.context.controls) || !token ||
+                    token != bridge.navigation_rebuild_token)
+                    return 0;
+                return bridge.context.services.navigation()->cancel_rebuild(token) ? 1 : 0;
+            } catch (...) {
+                return 0;
+            }
         };
         host.navigation_agent_state = [](void* p, const char* scene, const char* entity,
                                          ForgeSdkNavigationAgentV1* out) -> int32_t {

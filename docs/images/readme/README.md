@@ -1,5 +1,34 @@
 # README screenshots
 
+## Runtime navigation rebuild controls and Game view
+
+`manual/images/runtime-navigation-rebuild.png` is the original800 by310 production
+Game subsection with a real Applied rebuild. The ImGui/SDL software fixture uses
+the actual widget and worker; native input, start/cancel/retirement guards and four
+wide/narrow100/150/200percent layouts are checked. Reproduce with
+`forge_navigation_rebuild_controls_tests OUTPUT MATCHING_NAV_WORKER`.
+The wide100percent and narrow100percent images were visually reviewed. This is a
+subsection capture, not full Main or physical Windows/input/DPI acceptance.
+
+`manual/images/runtime-navigation-rebuild-game.png` losslessly encodes the original
+640 by360 `authored/480-640.ppm` Game pixels from Gallery237. The cyan Agent has
+reached the green destination after a one-shot floor move and explicit runtime
+rebuild. Reproduce with `forge_navigation_polygon_gallery_vulkan_probe GALLERY
+SCRATCH Scenes/237-runtime-navigation-rebuild.scene.json` on software Vulkan/lavapipe.
+The native owner asserts arrival and compares four exact source-hidden relocated
+Game display pairs, including portrait. Both earlier movement and arrival were
+visually reviewed. No image was cropped, resized, retouched or given inserted controls.
+Physical GPU, Windows desktop/graphical EXE and display-density acceptance remain
+separate.
+
+Local provenance owners are
+`AgentFiles/build/phase415-runtime-navigation-rebake/controls-capture.json` and
+`AgentFiles/build/phase415-runtime-navigation-rebake/game-screenshot.json`.
+They bind source inputs, native actors, original pixels, test receipts and configured
+metadata; the local development capture is not a numbered Windows delivery.
+Control PNG SHA256 `0d081331400b641cf38b31273a5222c4348d6477512a2a9b586dde9795a79586`.
+Game PNG SHA256 `40b56bc7ed5e29cc0261e63dadc8e901433daaed5c3bdd2dd3f8fe0ba5e4e21b`.
+
 ## Exported-game GPU report controls
 
 `manual/images/standalone-gpu-report.png` is the unretouched840 by610 production

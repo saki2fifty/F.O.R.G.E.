@@ -44,6 +44,9 @@ typedef struct ecs_world_t ecs_world_t;
 #define FORGE_SDK_RESOURCES 256u
 /* Intrinsic owner-thread runtime entity requests; not a descriptor permission bit. */
 #define FORGE_SDK_RUNTIME_ENTITIES 512u
+/* Intrinsic rebuild availability/callability; Navigation permission still applies.
+   This ID is not a descriptor permission bit. Rebuilds support fixed/control callbacks. */
+#define FORGE_SDK_NAVIGATION_REBUILD 32768u
 #define FORGE_SDK_CONTROL_INPUT 1024u
 #define FORGE_SDK_GAME 2048u
 #define FORGE_SDK_ANIMATION 4096u
@@ -298,6 +301,20 @@ typedef struct ForgeSdkTileEditV1 {
     uint64_t generation, revision;
     char diagnostic[1024];
 } ForgeSdkTileEditV1;
+/* World-local rebuild observations. Tokens are opaque and belong to the requesting
+   module instance; they are never asset identities or persistent save data. */
+#define FORGE_SDK_NAV_REBUILD_QUEUED 0u
+#define FORGE_SDK_NAV_REBUILD_PREPARING 1u
+#define FORGE_SDK_NAV_REBUILD_BUILDING 2u
+#define FORGE_SDK_NAV_REBUILD_APPLIED 3u
+#define FORGE_SDK_NAV_REBUILD_CANCELLED 4u
+#define FORGE_SDK_NAV_REBUILD_STALE 5u
+#define FORGE_SDK_NAV_REBUILD_FAILED 6u
+typedef struct ForgeSdkNavigationRebuildV1 {
+    uint32_t size, version, phase;
+    uint64_t token, query_generation;
+    char asset_uuid[37], geometry_revision[65], diagnostic[512];
+} ForgeSdkNavigationRebuildV1;
 typedef struct ForgeSdkWorldV1 {
     uint32_t size, version;
     ecs_world_t* world; /* borrowed; module must not destroy it */
@@ -642,6 +659,16 @@ typedef struct ForgeSdkWorldV1 {
                                                        const double end[3],
                                                        const ForgeSdkNavigationFilterV1*,
                                                        ForgeSdkNavResultV1*);
+    /* Owner gameplay/control callback only, Navigation capability required.
+       One pending rebuild per World. Work/adoption occurs at writable host
+       boundaries, including Pause. No catalog writes or gameplay clock advance.
+       Read requires size/version1 and does not progress work. Cancel returns1
+       only when it changes a pending request; invalid/retired tokens return0. */
+    int32_t(FORGE_SDK_CALL* navigation_rebuild_request)(void*, const char* navmesh_uuid,
+                                                        uint64_t* token);
+    int32_t(FORGE_SDK_CALL* navigation_rebuild_state)(void*, uint64_t token,
+                                                      ForgeSdkNavigationRebuildV1*);
+    int32_t(FORGE_SDK_CALL* navigation_rebuild_cancel)(void*, uint64_t token);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

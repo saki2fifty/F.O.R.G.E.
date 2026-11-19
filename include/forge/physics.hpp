@@ -4,6 +4,7 @@
 #include <forge/world.hpp>
 namespace forge {
 class TileMapData;
+struct PhysicsDebugCollision;
 namespace detail {
 struct RuntimeTileMapSnapshot;
 }
@@ -47,6 +48,9 @@ class PhysicsRuntime : public PhysicsService {
     std::uint64_t request_collision_asset(AssetId) override;
     RuntimeResourceStatus inspect_collision_asset(std::uint64_t) const override;
     bool release_collision_asset(std::uint64_t) override;
+    // Host-only immutable view through the existing collision pool. The caller
+    // must retain its subscription; this rejects missing or superseded values.
+    PhysicsDebugCollision snapshot_collision_asset(AssetId) const;
     void teleport(EntityRef, LocalTranslation, LocalRotation, bool) override;
     void move_kinematic(EntityRef, LocalTranslation, LocalRotation) override;
     void add_force(EntityRef, Double3, std::optional<LocalTranslation> = {}) override;

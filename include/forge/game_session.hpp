@@ -23,6 +23,8 @@ struct GameSessionConfig {
     PhysicsConfig physics;
     std::optional<AudioConfig> audio;
     std::filesystem::path content_root;
+    // Trusted host's matching installed executable, not game-authored input.
+    std::filesystem::path navigation_worker;
     bool ui = false;
     std::vector<EngineModule> modules;
     std::function<std::unique_ptr<GameScenePreparation>(std::uint64_t)> preparation;

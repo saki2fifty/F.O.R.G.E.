@@ -64,6 +64,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [055](055-planar-character-jump-links.md) | Grounded XY link jumps use native takeoff, gravity, collision and landing |
 | [056](056-navigation-character-drops.md) | Descending links retain physical character movement and recovery ownership |
 | [057](057-navigation-areas-and-filters.md) | Source areas and per-agent query policies share navigation admission and routing |
+| [058](058-runtime-navigation-rebuild.md) | Explicit world-private rebakes reuse source, worker and query ownership |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

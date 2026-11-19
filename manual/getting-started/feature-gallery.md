@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**237-runtime-navigation-rebuild** moves its navigation floor once, then holds it.
+The cyan agent waits on stale geometry. After the floor stops, pause and open
+**Game → Runtime navigation**. Select **default**, click **Rebuild navigation**,
+wait for **Applied**, then resume to watch the agent reach the green destination.
+Stop restores the saved scene. The optional C++ System in **CodeExamples** performs
+the same request automatically for an exported game; install and build it before
+exporting the automatic demonstration. See [runtime navigation rebuilding](../editor/navigation.md).
+
 **225-navigation-characters-xy** includes two physical XY characters using
 **Navigation Agent → Movement → CharacterController2D** and Floating 2D controllers.
 The cyan character reaches its marker; the orange character stops at the red wall.

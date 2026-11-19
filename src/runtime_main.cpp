@@ -7,6 +7,7 @@
 #include "flecs_system_trace.hpp"
 #include "input_recording_protocol.hpp"
 #include "json_document.hpp"
+#include "navigation_rebuild_access.hpp"
 #include "runtime_entity_creation.hpp"
 #include "runtime_execution_values.hpp"
 #include "runtime_io.hpp"
@@ -278,8 +279,9 @@ int main(int argc, char** argv) {
         forge::RuntimeClock clock(config);
         using Runtime = forge::RuntimeWorld;
         startup_phase("world-begin");
-        auto runtime = std::make_unique<Runtime>(sdk_modules, physics_config, audio_config,
-                                                 project_root, ui_enabled, execution);
+        auto runtime =
+            std::make_unique<Runtime>(sdk_modules, physics_config, audio_config, project_root,
+                                      ui_enabled, execution, forge::runtime_navigation_worker());
         startup_phase("world-ready");
         forge::InputMap input_map = sdk_project ? sdk_project->input() : forge::InputMap{};
         forge::RuntimeIo io;
@@ -372,6 +374,7 @@ int main(int argc, char** argv) {
         };
         while (!io.closed()) {
             clock.advance(forge::RuntimeClock::Clock::now(), tick);
+            runtime->poll_navigation_rebuild();
             if (runtime->engine.services().available(forge::Capability::Audio))
                 std::static_pointer_cast<forge::AudioRuntime>(runtime->engine.services().audio())
                     ->poll_loading();
@@ -472,9 +475,9 @@ int main(int argc, char** argv) {
                         trace_replacement = !replacement_seen && startup_log.is_open();
                         replacement_seen = true;
                         replacement_phase("replace-world-begin");
-                        auto candidate =
-                            std::make_unique<Runtime>(sdk_modules, physics_config, audio_config,
-                                                      project_root, ui_enabled, execution);
+                        auto candidate = std::make_unique<Runtime>(
+                            sdk_modules, physics_config, audio_config, project_root, ui_enabled,
+                            execution, forge::runtime_navigation_worker());
                         replacement_phase("replace-world-ready");
                         candidate->simulation.input().configure(input_map);
                         std::uint64_t recovered_tick = 0;
@@ -651,6 +654,11 @@ int main(int argc, char** argv) {
                                                      {"type", target.type},
                                                      {"property", target.property},
                                                      {"value", value}};
+                    } else if (command == "navigation_rebuild") {
+                        response["navigation_rebuild"] = forge::NavigationRebuildAccess::control(
+                            *std::static_pointer_cast<forge::NavigationRuntime>(
+                                runtime->engine.services().navigation()),
+                            request, ui_generation);
                     } else if (command == "time_scale") {
                         if (!ui_generation || !request.contains("generation") ||
                             !request.at("generation").is_number_unsigned() ||
@@ -773,6 +781,9 @@ int main(int argc, char** argv) {
                             forge::tile_map_play_views(runtime->engine.world()));
                         response["schema"] = runtime->scene.schema();
                         response["input"] = runtime->simulation.input_status();
+                        response["navigation_rebuild"] = forge::NavigationRebuildAccess::state(
+                            *std::static_pointer_cast<forge::NavigationRuntime>(
+                                runtime->engine.services().navigation()));
                         if (ui_enabled)
                             response["ui"] = std::static_pointer_cast<forge::UiRuntime>(
                                                  runtime->engine.services().ui())

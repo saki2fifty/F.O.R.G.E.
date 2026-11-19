@@ -41,6 +41,23 @@ struct NavigationAgentObservation {
     Double3 position{}, velocity{}, projected_destination{};
     double remaining_distance = 0;
 };
+enum class NavigationRebuildPhase {
+    Queued,
+    Preparing,
+    Building,
+    Applied,
+    Cancelled,
+    Stale,
+    Failed
+};
+const char* navigation_rebuild_phase_name(NavigationRebuildPhase);
+struct NavigationRebuildObservation {
+    std::uint64_t token = 0;
+    AssetId asset;
+    NavigationRebuildPhase phase = NavigationRebuildPhase::Queued;
+    std::string geometry_revision, diagnostic;
+    std::uint64_t query_generation = 0;
+};
 class NavigationService {
   public:
     virtual ~NavigationService() = default;
@@ -51,5 +68,9 @@ class NavigationService {
     virtual NavResult find_path(AssetRef<NavMeshAsset>, Double3 start, Double3 end,
                                 const NavigationAreaFilter&) = 0;
     virtual std::optional<NavigationAgentObservation> agent_state(EntityRef) const = 0;
+    // Explicit world-local rebuild; state reads never run capture/adoption.
+    virtual std::uint64_t request_rebuild(AssetRef<NavMeshAsset>) = 0;
+    virtual NavigationRebuildObservation rebuild_state(std::uint64_t) const = 0;
+    virtual bool cancel_rebuild(std::uint64_t) = 0;
 };
 } // namespace forge

@@ -1644,6 +1644,23 @@ native disk baselines remain authoritative. Failed previews retain the prior
 successful result; they never write the Scene. This data/world-recipe facility
 is separate from C++ gameplay and has no advertised document/Scene Undo.
 
+`forge_play_navigation` reads the existing Play owner's latest world-private rebuild
+observation. `forge_play_navigation_rebuild` queues `start` with a saved Nav `asset`
+or `cancel` with its opaque `token`. The mutation requires current launch/session/
+world generation and execution permission, alongside normal target/revision/sequence
+guards. Read remains available without execution permission. Native Game controls
+and both Play transports use the same NavigationRuntime owner; no agent-only bake
+or asset writer exists. Start uses the asset's saved settings/current supported
+static source snapshot and matching installed worker. Poll for the seven phases,
+`retiring`, geometry revision, query generation and asynchronous acknowledgement
+errors. Reads never capture/adopt or advance time. Pending/adopted private bases
+require a clean Play restart after a crash. Stop restores authored source; rebuilding
+creates no Scene Undo and publishes no catalog revision. The optional Gallery System
+demonstrates the same SDK request for an exported game. See [runtime rebuilding](navigation.md#explicit-runtime-rebuilding).
+`play.status.recovery_ready` reports whether the actual transport currently retains
+a checkpoint. Runtime null checkpoints clear that cache; the rebuild workflow checks
+this on the existing transport rather than storing another recovery witness.
+
 `forge_navigation_status/build/cancel` and `forge_navigation_select_profile` use NavigationTools and its bounded static/tiled
 bake worker. The native settings/profile and stale-geometry publication check
 remain authoritative. Publication is separate from Scene Undo. Status includes a

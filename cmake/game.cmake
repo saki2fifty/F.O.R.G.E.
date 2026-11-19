@@ -5,6 +5,7 @@ target_compile_definitions(forge_game_presentation PRIVATE UNICODE _UNICODE NOMI
 target_link_libraries(forge_game_presentation PUBLIC forge_simulation forge_presentation_diligent forge_ui_diligent)
 add_executable(forge_game src/game_main.cpp src/game_device_d3d12.cpp
  "${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp")
+add_dependencies(forge_game forge_nav_build)
 target_include_directories(forge_game PRIVATE src "${rmlui_SOURCE_DIR}/Backends")
 target_compile_definitions(forge_game PRIVATE UNICODE _UNICODE NOMINMAX RMLUI_SDL_VERSION_MAJOR=3)
 target_link_libraries(forge_game PRIVATE forge_standalone_manifest forge_game_content forge_game_presentation
@@ -257,5 +258,5 @@ if(WIN32)
  set(FORGE_RUNTIME_SURFACE_WRAPPER "${CMAKE_MATCH_1}")
  configure_file(cmake/runtime_kit_install.cmake.in runtime_kit_install.cmake @ONLY)
  set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP "${_forge_prior_runtime_skip}")
- install(CODE "set(FORGE_KIT_GAME \"$<TARGET_FILE:forge_game>\")\nset(FORGE_KIT_D3D12 \"$<TARGET_FILE:Diligent-GraphicsEngineD3D12-shared>\")\nset(FORGE_KIT_ARCHIVER \"$<TARGET_FILE:Diligent-Archiver-shared>\")\ninclude(\"${CMAKE_BINARY_DIR}/runtime_kit_install.cmake\")" COMPONENT GameRuntime)
+ install(CODE "set(FORGE_KIT_GAME \"$<TARGET_FILE:forge_game>\")\nset(FORGE_KIT_NAVIGATION \"$<TARGET_FILE:forge_nav_build>\")\nset(FORGE_KIT_D3D12 \"$<TARGET_FILE:Diligent-GraphicsEngineD3D12-shared>\")\nset(FORGE_KIT_ARCHIVER \"$<TARGET_FILE:Diligent-Archiver-shared>\")\ninclude(\"${CMAKE_BINARY_DIR}/runtime_kit_install.cmake\")" COMPONENT GameRuntime)
 endif()

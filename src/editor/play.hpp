@@ -292,6 +292,29 @@ class PlaySession {
         live_command_["entity"] = entity;
         return true;
     }
+    const Json& navigation_rebuild_status() const { return navigation_rebuild_status_; }
+    const std::string& navigation_rebuild_error() const { return navigation_rebuild_error_; }
+    bool navigation_rebuild_pending() const {
+        return (!live_command_.is_null() &&
+                live_command_.value("command", "") == "navigation_rebuild") ||
+               (waiting_ && sent_command_ == "navigation_rebuild");
+    }
+    bool submit_navigation_rebuild(const std::string& operation, AssetId asset = {},
+                                   std::uint64_t token = 0) {
+        if (!control_ready() || !live_command_.is_null() || !world_generation() ||
+            (operation != "start" && operation != "cancel") ||
+            (operation == "start" ? !asset : !token))
+            return false;
+        live_command_ = {{"command", "navigation_rebuild"},
+                         {"generation", world_generation()},
+                         {"operation", operation}};
+        if (operation == "start")
+            live_command_["asset"] = asset;
+        else
+            live_command_["token"] = token;
+        navigation_rebuild_error_.clear();
+        return true;
+    }
     const Json& property_tune_ack() const { return property_tune_ack_; }
     bool property_tune_pending() const {
         return !property_tune_command_.is_null() || (waiting_ && sent_command_ == "property_tune");
@@ -1285,6 +1308,12 @@ class PlaySession {
                             sent_at_ = 0;
                             return;
                         }
+                        if (sent_command_ == "navigation_rebuild") {
+                            navigation_rebuild_error_ = error;
+                            notice_ = "Navigation rebuild rejected: " + error + ". ";
+                            sent_at_ = 0;
+                            return;
+                        }
                         if (sent_command_ == "property_tune") {
                             property_tune_ack_ = {{"ok", false}, {"error", error}};
                             notice_ = "Live property change rejected: " + error + ". ";
@@ -1519,6 +1548,8 @@ class PlaySession {
                             nullptr; // Old queued requests cannot cross replacement.
                     ui_snapshot_ = std::move(next_ui);
                     application_states_ = response.value("application_states", Json());
+                    if (response.contains("navigation_rebuild"))
+                        navigation_rebuild_status_ = response.at("navigation_rebuild");
                     if (response.contains("ui_ack"))
                         ui_ack_ = response.at("ui_ack");
                     ++snapshot_version_;
@@ -1823,6 +1854,8 @@ class PlaySession {
         session_.clear();
         ui_snapshot_ = ui_ack_ = ui_command_ = nullptr;
         application_states_ = nullptr;
+        navigation_rebuild_status_ = nullptr;
+        navigation_rebuild_error_.clear();
         application_state_error_.clear();
         audio_status_ = Json::object();
         live_command_ = nullptr;
@@ -2159,6 +2192,8 @@ class PlaySession {
     bool offline_recording_ = false;
     std::uint64_t runtime_world_generation_ = 0;
     Json audio_status_ = Json::object(), live_command_;
+    Json navigation_rebuild_status_;
+    std::string navigation_rebuild_error_;
     std::string audio_mix_error_;
     Json animation_watch_, animation_status_, sent_animation_;
     std::string animation_error_;

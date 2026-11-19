@@ -1,5 +1,35 @@
 # Optional C++ behaviors
 
+## Runtime navigation rebuilding
+
+`RuntimeNavigationRebuildSystem.cpp` implements the automatic version of Scene237.
+It waits for the floor's one-shot motion to finish, queues one request, reads its
+status on later fixed ticks and reports the result. The engine owns worker
+preparation, cancellation, validation and adoption. The System is scoped to the
+original Gallery Scene's UUID.
+
+1. Work on a writable Gallery copy and create/build its C++ project with the
+   matching bundled SDK and compiler tools.
+2. Create an empty System named **RuntimeNavigationRebuild**, selecting **None
+   (empty registration)**. Replace `Native/Systems/RuntimeNavigationRebuild.cpp`
+   with the contents of this example.
+3. In the module descriptor, retain the existing dependencies and declare
+   `forge.navigation`. Allow `FORGE_SDK_NAVIGATION`, retaining Diagnostics for the
+   result message. Runtime entity lookup is intrinsic and needs no descriptor bit.
+   The matching installed SDK's `navigation_rebuild_gallery.cpp` and
+   `RuntimeNavigationRebuildSystem.cpp` provide a complete wrapper; its CMake
+   target is `navigation_rebuild_gallery_gameplay`.
+4. Save/build code, open Scene237 and press Play. The floor moves, the request
+   finishes and the Agent resumes automatically. Check Console for
+   **Gallery runtime navigation rebuilt**.
+5. Save the Scene, choose it as startup and export with the matching runtime and
+   module kits. The player runs the same System without editor controls.
+
+For another Scene, update the example's Scene UUID scope and select a NavMesh built
+for that Scene. Rebuild requests are world-local; tokens are not saved asset IDs.
+Read/cancel them from the same module instance. Keep changing geometry still while
+building or use cancellation and a later request. Stop retires pending work.
+
 ## Input-driven Scene visits
 
 Create an empty System named **SessionInput** and replace its source with

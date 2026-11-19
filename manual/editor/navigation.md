@@ -11,6 +11,58 @@ around other participating agents. For moving solid footprints, enable the
 The default **Movement → Navigation** writes the object's position directly and
 cannot share it with a Physics Body or an enabled character controller.
 
+## Rebuild navigation during Play
+
+Use **Game → Runtime navigation** after supported navigation source geometry changes
+during Play. The saved NavMesh supplies the build settings. Each rebuild replaces
+the active world's private navigation basis, and agents plan new routes from it.
+
+Try **237-runtime-navigation-rebuild** in the Feature Gallery:
+
+1. Open the Scene and press Play. The floor moves two metres, then stops after one
+second. The cyan agent waits because its original NavMesh is stale.
+2. Pause after the floor stops. Open the **Game** tab and expand **Runtime navigation**.
+3. Select **Profile → default**, then click **Rebuild navigation**.
+4. Wait for **Rebuild: Applied**. Preparation and rebuilding also work while paused;
+the agent stays in place until gameplay advances.
+5. Resume or Step. The agent continues to the green destination.
+6. Stop. The authored floor and agent return to their saved starting positions.
+
+![Game Runtime navigation controls with the default profile and an applied rebuild](../images/runtime-navigation-rebuild.png)
+
+Choose a saved profile and wait for Applied before resuming movement on changed geometry.
+
+![Cyan agent at the green destination after rebuilding the moved floor](../images/runtime-navigation-rebuild-game.png)
+
+The Gallery agent resumes along the rebuilt floor and reaches its destination.
+
+**Queued**, **Preparing** and **Building** describe work in progress. **Cancel rebuild**
+cancels pending work. **Stale** means the source or selected asset revisions changed
+before adoption; settle the geometry or pause, then try again. **Failed** includes
+the reason. Allow a cancelled request to finish retiring before starting another.
+
+Stop discards the private result. To save a permanent NavMesh, edit and save the
+Scene outside Play, then use **Build NavMesh** in the navigation authoring controls.
+The overlay's teal triangles continue to show the saved base; runtime route lines
+show the agent's current path. Rebuilding does not save transient floor or agent poses.
+
+Runtime rebuilding uses the same supported static shapes, Meshes, regions and
+collected collision sources as the selected saved profile. Keep settings changes
+such as radius, plane, collection layers or Dynamic obstacles in Edit and rebuild
+the saved asset there. Moving physics bodies, skinned/deformed source geometry,
+runtime-edited Map sources and moving-platform routing are unsupported.
+
+The matching worker is included with the editor, SDK and runtime kit. An exported
+game requests rebuilds through project C++ code; its player window has no editor
+Game controls. The Gallery's optional **CodeExamples/RuntimeNavigationRebuildSystem.cpp**
+requests the rebuild after the one-shot floor stops. See its setup in
+**CodeExamples/README.md** before exporting this automatic demonstration. Without
+that System, the exported agent waits for a game-owned rebuild request.
+
+Rebuilt bases require a clean Play restart after a crash. Private crash recovery
+is unavailable while a request is pending or after this world adopts a runtime
+base. Save authored content normally before exporting.
+
 ## Steer a physical character
 
 Open Gallery **224-navigation-characters** and press Play. The cyan character
@@ -856,9 +908,9 @@ read-only navigation-tick values; the running image can interpolate between tick
 Pending, disabled and failed states do not show invented route coordinates. Changing a
 live target clears its previous target-failure details until the next navigation tick.
 
-A failed agent can recover after you correct its settings or sources. For stale
-baked geometry, stop Play, restore matching geometry or rebuild navigation, then
-start again. Use Console/Problems for the timestamped log history; Inspector details
+A failed agent can recover after you correct its settings or sources. For supported
+stale geometry, use **Game → Runtime navigation → Rebuild navigation**, or Stop and
+rebuild the saved NavMesh. Use Console/Problems for the timestamped log history; Inspector details
 explain the current failed sample. Some unavailable assets are rejected during
 Scene preparation instead; a failed replacement retains the previous active world. If an agent-count limit recurs after being
 resolved, it produces a fresh warning.
@@ -870,7 +922,7 @@ editor, compiler or navigation build worker to run.
 
 Save the scene after choosing the navmesh and destination. Reopening restores those authored settings; generated navigation remains a project asset.
 
-Moving or resizing included geometry makes navigation stale. Stop Play and rebuild. Changing the build settings also requires rebuilding. The status under the build controls identifies stale navigation. Runtime agents refuse to move on stale geometry.
+Moving or resizing included geometry makes navigation stale. Use an explicit runtime rebuild for supported changes during Play. To change saved geometry or build settings, Stop, save the Scene and use Build NavMesh. Runtime agents refuse to move on stale geometry while a replacement is pending.
 
 A NavMesh belongs to the scene that produced it. A duplicated scene needs its own build and agent references to that new asset.
 
@@ -888,4 +940,4 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 - **Physics ownership error:** remove the agent's Physics Body and any moving physics spatial ancestor, or use an independent World spatial binding.
 - **Build/query limit:** reduce the included area or geometry, or increase cell size. A single build supports at most 512 × 512 cells.
 
-Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts for ordinary agents. Physical characters support upright 3D ground routes, positive-lift jumps and descending zero-lift drops between static supports, or Floating XY routes without links. Grounded XY movement supports continuous static physical ground and the same explicit jumps/drops with automatic gravity. General XY platformer jump/drop route planning, moving-platform routes and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
+Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight or arced links connect static walkable parts for ordinary agents. Physical characters support upright 3D ground routes, positive-lift jumps and descending zero-lift drops between static supports, or Floating XY routes without links. Grounded XY movement supports continuous static physical ground and the same explicit jumps/drops with automatic gravity. Explicit runtime rebuilds accept supported changed static source snapshots. General XY platformer jump/drop route planning, moving-platform routes and deformed or moving-physics navigation sources are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.

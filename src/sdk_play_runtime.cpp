@@ -9,6 +9,7 @@
 #include "game_recording_protocol.hpp"
 #include "input_recording_protocol.hpp"
 #include "json_document.hpp"
+#include "navigation_rebuild_access.hpp"
 #include "play_scene_admission.hpp"
 #include "play_schema_reference.hpp"
 #include "recorded_pcm.hpp"
@@ -223,6 +224,7 @@ struct SdkPlayRuntime::State {
             session_config.audio->bus_volumes = audio_bus_volumes(audio);
         }
         session_config.content_root = config.project;
+        session_config.navigation_worker = runtime_navigation_worker();
         session_config.ui = config.ui;
         session_config.modules = modules;
         session_config.controls = queue;
@@ -637,6 +639,8 @@ struct SdkPlayRuntime::State {
             out.body["schema"] =
                 play_schema_wire(world.engine.world().schema(), generation, known_schema);
             out.body["input"] = world.simulation.input_status();
+            out.body["navigation_rebuild"] = NavigationRebuildAccess::state(
+                *std::static_pointer_cast<NavigationRuntime>(world.engine.services().navigation()));
             out.body["application_states"] =
                 application_states_status(world.engine.world().world(), true);
         } catch (const std::exception& e) {
@@ -1621,6 +1625,15 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                 return s.build_error(id, "Application states require an active world");
             (void)ApplicationStateAccess::control(s.game->active().engine.world(), request,
                                                   s.active_generation);
+            return snapshot();
+        }
+        if (command == "navigation_rebuild") {
+            if (!s.game)
+                return s.build_error(id, "Navigation rebuilding requires an active world");
+            auto& world = s.game->active();
+            (void)NavigationRebuildAccess::control(
+                *std::static_pointer_cast<NavigationRuntime>(world.engine.services().navigation()),
+                request, s.active_generation);
             return snapshot();
         }
         if (command == "property_tune") {

@@ -63,3 +63,10 @@ build settings and publishes an ordinary Nav revision; explicit component edits
 retain normal Scene history. A playable Gallery scene, matching source/native /
 runtime/SDK/export checks and current-use documentation are required before this
 workflow is reported as implemented. Physical Windows acceptance is separate.
+
+## Explicit runtime requests
+
+[ADR058](058-runtime-navigation-rebuild.md) reuses this same static source admission
+and the current PhysicsRuntime Collision resource pool for World-private rebuilds.
+Exact selected revisions guard preparation and adoption. It introduces no moving
+physics source profile, competing pool or asset publication path.

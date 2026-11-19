@@ -80,6 +80,7 @@
 #include "model_viewer.hpp"
 #include "navigation_automation.hpp"
 #include "navigation_behavior_editor.hpp"
+#include "navigation_rebuild_controls.hpp"
 #include "navigation_tools.hpp"
 #include "orientation.hpp"
 #include "paint_texture_editor.hpp"
@@ -567,6 +568,7 @@ int main(int argc, char** argv) {
         forge::PlaySession play;
         forge::GameInput game_input(window.get());
         forge::ui::InputRecordingControls input_recording_controls;
+        forge::ui::NavigationRebuildControls navigation_rebuild_controls;
 #ifdef FORGE_UI_FIXTURE
         forge::test::fixture_breadcrumb("after-scene-engine-input");
         // Deferred existing-owner observer bind. The fixture
@@ -6559,6 +6561,20 @@ int main(int argc, char** argv) {
                     if (game_view && play.active()) {
                         game_input.controls(play);
                         runtime_ui.controls(play);
+                        const auto runtime_scene =
+                            play.snapshot().is_object()
+                                ? play.snapshot().value("asset_id", forge::AssetId{})
+                                : forge::AssetId{};
+                        if (const auto request = navigation_rebuild_controls.draw(
+                                mesh_resources && mesh_resources->catalog()
+                                    ? mesh_resources->catalog().get()
+                                    : nullptr,
+                                runtime_scene, play.navigation_rebuild_status(),
+                                play.control_ready(), play.navigation_rebuild_pending(),
+                                play.navigation_rebuild_error());
+                            request && game_input.release_checked(play))
+                            play.submit_navigation_rebuild(request->operation, request->asset,
+                                                           request->token);
                         if (const auto request = forge::ui::ApplicationStateControls::draw(
                                 play.application_states(), play.application_state_control_ready(),
                                 play.application_state_pending(), play.application_state_error());

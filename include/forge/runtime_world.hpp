@@ -7,7 +7,8 @@ namespace forge {
 class RuntimeWorld {
   public:
     RuntimeWorld(std::vector<EngineModule>, PhysicsConfig, const std::optional<AudioConfig>&,
-                 const std::filesystem::path&, bool ui, RuntimeExecutionConfig execution = {});
+                 const std::filesystem::path&, bool ui, RuntimeExecutionConfig execution = {},
+                 std::filesystem::path navigation_worker = {});
     std::shared_ptr<PhysicsRuntime> physics();
     // Candidate CPU readiness before the first native realization. Map cells
     // stay owned by the existing Map/resource adapters; no gameplay time advances.
@@ -24,6 +25,8 @@ class RuntimeWorld {
     bool prepare_scene_resources();
     // Audio-only owner boundary, without elapsed time or animation resampling.
     bool prepare_audio_sources();
+    // Private navigation adoption, including Pause; never ticks gameplay.
+    void poll_navigation_rebuild();
     // Shared live-property routing; each subsystem retains its validation and
     // mutation authority. Host generations remain checked by the protocol owner.
     Json tune_property(EntityRef, const std::string& type, const std::string& property,

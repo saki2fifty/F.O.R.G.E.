@@ -4,6 +4,7 @@
 #include "game_device.hpp"
 #include "game_launch.hpp"
 #include "game_presentation.hpp"
+#include "navigation_rebuild_access.hpp"
 #include "presentation_rate.hpp"
 #include "sdl_game_cursor.hpp"
 #include "sdl_gamepads.hpp"
@@ -223,6 +224,7 @@ int main(int argc, char** argv) {
         auto game_requests = std::make_shared<GameControlQueue>();
         config.controls = game_requests;
         config.content_root = root;
+        config.navigation_worker = runtime_navigation_worker();
         config.ui = true;
         config.clock.simulation_hz = project.simulation_hz();
         config.execution = project.execution();

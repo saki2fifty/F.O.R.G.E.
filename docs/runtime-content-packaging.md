@@ -256,6 +256,15 @@ Missing/stale artifacts require Reimport or rebuilding the affected module first
 A `GameRuntime` CMake installation provides `forge.runtime-kit.json`, exact engine
 profile/fingerprint/build provenance, the game executable, its resolved native
 runtime dependencies, fonts and dependency notices. It is separate from the SDK.
+The unified editor bundle organizes the SDK and runtime kit in their own folders.
+The runtime kit also includes the matching `forge_nav_build` executable; dependency
+resolution inspects both it and the game host. Export copies/hashes it through the
+existing kit manifest. Runtime rebuilding stages under OS temporary storage and
+reads current cooked inputs through the ordinary resource/physics/Map owners, so
+the content tree can remain read-only. NativeSdk installations include the worker
+beside their host too. No compiler, authored-source importer or project writer is
+required by this gameplay operation. Requests/settings/limits and the optional
+Gallery System are described in [navigation](navigation.md#explicit-runtime-rebuilding).
 The pinned CMake4.4.3 native `GET_RUNTIME_DEPENDENCIES` resolver inspects actual built binaries;
 FORGE does not maintain a second PE dependency parser. The current kit is Windows
 D3D12 Development; logical asset formats and content closure remain backend-neutral.

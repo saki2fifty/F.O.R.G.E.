@@ -52,9 +52,9 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
     const auto ticket = ++generation_;
     loading_ = {ticket, superseded, "preparing", "structure", {}, {}, 0, 0, false};
     try {
-        auto next =
-            std::make_unique<RuntimeWorld>(config_.modules, config_.physics, config_.audio,
-                                           config_.content_root, config_.ui, config_.execution);
+        auto next = std::make_unique<RuntimeWorld>(config_.modules, config_.physics, config_.audio,
+                                                   config_.content_root, config_.ui,
+                                                   config_.execution, config_.navigation_worker);
         next->simulation.audio_paused(true);
         next->simulation.input().configure(config_.input);
         next->scene.restore_snapshot(snapshot);
@@ -351,6 +351,7 @@ void GameSession::control_frame() {
         const auto& input = active_->simulation.input().latch_controls(++control_frame_);
         active_->engine.world().modules().control_frame(input);
         advance_application_states(active_->engine.world().world());
+        active_->poll_navigation_rebuild();
         if (active_->engine.services().available(Capability::Audio))
             std::static_pointer_cast<AudioRuntime>(active_->engine.services().audio())
                 ->poll_loading();

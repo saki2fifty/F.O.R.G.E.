@@ -163,3 +163,10 @@ admitted baked radius. Incompatible planes remain separate, and the existing
 member defaults to0 for legacy data, changes the exact native SDK fingerprint,
 and requires matching module rebuilds without changing C callbacks or scene/Nav
 formats. Existing asset-isolation tests remain authoritative for default0.
+
+## Explicit runtime rebuild extension
+
+[ADR058](058-runtime-navigation-rebuild.md) adds explicit World-private rebuilds of
+the existing supported static source profiles. Plane/source admission and persisted
+geometry/catalog identities remain unchanged. General continuous rebaking, edited
+runtime Map source admission and streaming remain outside that bounded extension.

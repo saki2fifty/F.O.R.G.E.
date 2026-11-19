@@ -1,6 +1,69 @@
 # Navigation foundation
 
-Phase 6E adds static navmesh generation and bounded headless path queries. Recast builds navigation geometry; Detour loads the admitted result and supplies projection, route finding and surface traversal. FORGE owns identity, authoring, lifecycle, validation, movement policy and presentation.
+Navigation supports static asset builds, explicit world-private runtime rebuilding and bounded headless path queries. Recast builds navigation geometry; Detour loads the admitted result and supplies projection, route finding and surface traversal. FORGE owns identity, authoring, lifecycle, validation, movement policy and presentation.
+
+## Explicit runtime rebuilding
+
+`NavigationRuntime` implements `NavigationService::request_rebuild`, `rebuild_state`
+and `cancel_rebuild`. A trusted host supplies the matching worker when composing
+`navigation_module(project, worker)` or `RuntimeWorld`; an empty worker path leaves
+ordinary queries available and rejects rebuild requests. GameSession, both Play
+hosts and the graphical game select their installed sibling worker. NativeSdk and
+GameRuntime installations include it and retain the ordinary dependency/notices
+and manifest owners.
+
+One request prepares/builds/retires per World. The latest observation contains an
+opaque token, logical Nav AssetId, phase, geometry revision, adopted query generation
+and diagnostic. Tokens are process-local and are superseded by the next accepted
+request. Queued requests capture no geometry. Reads do not progress work. Writable
+synchronization and explicit host polling own capture and adoption, including Pause;
+they never advance simulation clocks. Host snapshots additionally expose `retiring`
+while cancelled/stale/failed work is being cleaned up.
+
+Private `navigation_bake` shares provenance assembly, staged worker execution,
+admission and native query proof with NavigationCandidate. The authoring candidate
+retains catalog publication; the runtime never writes an authored artifact/catalog.
+Existing Mesh/Map/Collision owners supply immutable current inputs. Copy Geometry
+on the owner thread before the asynchronous worker; no ECS borrow, mutable physics
+body or native World enters it. The existing WorkerStaging lease/layout/cleanup uses
+an OS-temporary namespace, separate from read-only content. Resource preparation is
+bounded to30seconds; the existing worker keeps its memory/file/CPU/wall-time limits.
+
+Fresh Scene/source capture and exact selected Mesh/Map/Collision catalog provenance
+guard start/adoption, together with the original loaded Nav revision. Superseded
+work is discarded. The original AssetId/revision remain the World's logical selection;
+only its private immutable Mesh/Query basis changes. Prepare current obstacle tiles
+transactionally before replacing the query, increment its generation, and reset old
+failed-update state. Retained routes replan. Invalid replacements preserve the last
+admitted basis, which is usable only while its source validity still passes. Other
+Worlds retain independent bases. Bind and shutdown cancel/join before resource retirement.
+
+Native **Game → Runtime navigation** and `play.navigation_rebuild` automation/MCP
+use the same owner. Launch/session/world generation, target/revision/sequence and
+execution grants remain authoritative. Rebuilding changes no Scene Undo. The teal
+overlay remains the saved base; runtime route lines describe current queries.
+
+SDK C callbacks are `navigation_rebuild_request/state/cancel`, with bounded
+`ForgeSdkNavigationRebuildV1` observations and module-instance token ownership.
+The corresponding Client helpers use intrinsic discovery ID
+`FORGE_SDK_NAVIGATION_REBUILD`; Navigation permission still applies. This intrinsic
+ID is not a descriptor permission bit. Rebuilds are callable from fixed and control
+callbacks, including Pause. Ordinary Navigation queries remain fixed-only. POD
+size/version, callback owner, malformed/foreign/retired tokens and missing/denied
+providers are rejected. Appended callbacks/public headers require the matching
+fingerprint and rebuilt modules; no cross-version ABI claim is made.
+
+Use supported static source snapshots/settings. Moving physics bodies, skinned or
+deformed geometry, edited runtime Map sources, moving-platform planning and streaming
+remain outside this profile. It creates no physics collision. Pending work or an
+adopted private basis refuses partial crash checkpoints; restart clean Play. A future
+recovery extension must reconstruct the exact basis in an unpublished candidate.
+Existing positive checkpoint formats and authored/SDK restart policy are unchanged.
+
+Gallery237 combines a one-shot floor clip, ordinary Agent and the native control.
+The optional original RuntimeNavigationRebuild System requests the same operation
+automatically for gameplay/export. Raw Scene content waits for an explicit request;
+its player does not contain editor controls. See [ADR058](decisions/058-runtime-navigation-rebuild.md).
 
 ## Upstream selection
 
@@ -113,7 +176,7 @@ overlay triangles show the saved base; runtime route lines show the current carv
 
 The geometry bridge uses actual FORGE CPU primitive triangles and evaluated Phase 3 WorldTransform values. Coordinates are world-anchored, +Y up, in metres; slope uses degrees. Source triangle winding is normalized using primitive normals in a navigation-only copy. Zero-area sphere-pole triangles are omitted. Renderer meshes are unchanged.
 
-Static editable Mesh assets and imported model Mesh leaf entities are accepted through the existing cooked Mesh resource path. The root Model/group is not itself triangle geometry. Moving baked source geometry and general runtime geometry rebaking remain unsupported; dynamic obstacle carving uses the separate opt-in profile below. Included geometry must be static and have supported resolved spatial transforms. Geometry changes make the navmesh stale and require an explicit rebuild. Unrelated names, colors and agent positions do not form part of the geometry digest.
+Static editable Mesh assets and imported model Mesh leaf entities are accepted through the existing cooked Mesh resource path. The root Model/group is not itself triangle geometry. Supported changed static-source snapshots can be rebuilt explicitly in the running World; moving-physics/deformed sources remain unsupported. Dynamic obstacle carving uses its separate opt-in profile. Included geometry requires supported resolved spatial transforms. Geometry changes make the navmesh stale until an admitted replacement matches it. Unrelated names, colors and agent positions do not form part of the geometry digest.
 
 Enabled CharacterController and CharacterController2D components also make a
 source or its resolved spatial ancestry ineligible for static baking, even before
@@ -210,8 +273,10 @@ Runtime uses current `RuntimeTileMapSnapshot` bindings and status. Navigation-on
 Map sources participate in ordinary candidate readiness even when their renderer
 is disabled. Loading/current-revision mismatch prevents movement. Runtime-edited
 selected instances invalidate the baked route until Reset restores published
-cells. There is no per-tick cell hashing/triangulation, separate Map subscription
-or runtime rebake. Existing exact-revision recovery and SDK restart policy apply.
+cells. There is no per-tick cell hashing/triangulation or separate Map subscription.
+Explicit runtime rebuilds accept published Map sources through this same owner;
+they reject runtime-edited cells until Reset. Existing exact-revision recovery and
+SDK restart policy apply.
 
 ### Region Scene interaction
 
@@ -659,7 +724,7 @@ the same admitted mesh. See [ADR057](decisions/057-navigation-areas-and-filters.
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving supports upright 3D ground routes and bounded positive-lift jumps or descending zero-lift drops between static supports, or Floating XY routes without explicit links. Grounded XY movement supports continuous static physical ground and the same explicit jumps/drops with native automatic gravity. General XY platformer reachability planning remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, moving-platform routing and world streaming are deferred. Explicit world-private runtime rebuilding supports the existing static source profiles; moving-physics/deformed source generation remains unsupported. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Character driving supports upright 3D ground routes and bounded positive-lift jumps or descending zero-lift drops between static supports, or Floating XY routes without explicit links. Grounded XY movement supports continuous static physical ground and the same explicit jumps/drops with native automatic gravity. General XY platformer reachability planning remains separate work. General save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 

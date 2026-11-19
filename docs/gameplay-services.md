@@ -6,6 +6,24 @@ modules must rebuild against this SDK: descriptor/host sizes and the fingerprint
 include the new callbacks. No `GameSession*`, `GameStorage*`, SDL window, graphics
 context or filesystem owner crosses the boundary.
 
+
+## Navigation rebuild requests
+
+The matching SDK provides `Client::navigation_rebuild_request/state/cancel` through
+the existing Navigation permission and World owner. Query intrinsic
+`Capability::NavigationRebuild` for availability/callability; its numeric ID is not
+a descriptor permission bit. Fixed and control callbacks may queue/read/cancel,
+including during Pause. Ordinary `Client::navigation` route queries remain fixed-only.
+One request prepares/builds/retires per World, with tokens restricted to the
+requesting module instance. Source/resource/catalog validation and query replacement
+remain in NavigationRuntime. No native mesh, filesystem/staging choice or project
+writer crosses the SDK boundary. Rebuilt bases require clean Play restart after
+a crash. The full sample `navigation_rebuild_gallery_gameplay` registers the original
+Gallery System; `navigation_rebuild_gameplay` exercises the callback boundary.
+See [navigation](navigation.md#explicit-runtime-rebuilding) for supported sources,
+limits and matching-kit requirements.
+
+
 ## Execution and ownership
 
 `controls` runs once per host control frame, including while simulation is paused or its speed is zero.

@@ -16,6 +16,15 @@ deliverables and are not claimed to be the same binary.
 
 ## Startup and ownership
 
+The matching runtime kit includes `forge_nav_build`. The host selects this sibling
+executable for explicit world-private navigation requests; game code cannot choose
+an executable or stage path through the SDK. Current cooked sources/resources and
+OS-temporary staging support read-only distributions. Control-frame polling can
+complete preparation/adoption while paused without a simulation step. Source and
+catalog guards, query generation and obstacle reapplication stay with NavigationRuntime.
+See [runtime navigation](navigation.md#explicit-runtime-rebuilding). Private crash
+recovery does not persist rebuilt bases; game-owned logical saves remain independent.
+
 Optional `--gpu-profile` enables native GPU duration acquisition without changing
 the selected device, simulation or audio policy. It composes with packaged and
 `--project` launches and the finite `--verify-startup` diagnostic. A successful

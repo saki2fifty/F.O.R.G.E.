@@ -12,6 +12,38 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+# The runtime demonstration ships a one-shot editable source and a saved initial
+# basis. Only a game/Play rebuild request releases the stale Agent after the move.
+rebuild_path = 'Scenes/237-runtime-navigation-rebuild.scene.json'
+rebuild_scene = json.loads((project_root / rebuild_path).read_text())
+assert rebuild_scene['asset_id'] == by_source[rebuild_path]['id'] == '21323e17-588a-4ce1-a0f5-04844ce6ab7c'
+rebuild_nodes = {e['id']: e for e in rebuild_scene['entities']}
+rebuild_agents = [e for e in rebuild_nodes.values() if 'forge.navigation_agent' in e['components']]
+rebuild_floors = [e for e in rebuild_nodes.values() if 'forge.navigation_surface' in e['components']]
+assert len(rebuild_agents) == len(rebuild_floors) == 1
+rebuild_agent = rebuild_agents[0]['components']['forge.navigation_agent']
+assert rebuild_agent['navmesh'] == 'a978afde-bd18-4470-9e8b-f205d0a5af76' and rebuild_agent['has_destination']
+assert rebuild_agent['movement'] == 0 and rebuild_agent['speed'] > 0
+rebuild_floor = rebuild_floors[0]['components']
+assert rebuild_floor['forge.navigation_surface']['enabled']
+assert rebuild_floor['forge.primitive']['kind'] == 3
+assert not any({'forge.physics_body', 'forge.physics_body_2d', 'forge.model'} &
+               e['components'].keys() for e in rebuild_nodes.values())
+rebuild_animator = rebuild_floor['forge.transform_animator']
+assert rebuild_animator['enabled'] and rebuild_animator['play_on_start'] and not rebuild_animator['loop']
+clip_path = 'Assets/Navigation/MoveFloorOnce.animation.json'
+rebuild_clip = json.loads((project_root / clip_path).read_text())
+assert rebuild_clip['asset_id'] == by_source[clip_path]['id'] == rebuild_animator['clip'] == 'eb656134-07cf-4e16-a396-688dbdb3296a'
+assert rebuild_clip['channels'] == ['forge.local_translation']
+assert rebuild_clip['duration_us'] == rebuild_clip['timebase'] == 1000000
+assert [(k['time_us'], k['translation']) for k in rebuild_clip['keys']] == [
+    (0, [0, 0, 0]), (1000000, [2, 0, 0])]
+rebuild_nav = next(a for a in assets if a['id'] == rebuild_agent['navmesh'])
+assert (project_root / rebuild_nav['source']).is_file()
+assert any('forge.camera' in e['components'] for e in rebuild_nodes.values())
+assert any('forge.light' in e['components'] for e in rebuild_nodes.values())
+assert (project_root / 'CodeExamples/RuntimeNavigationRebuildSystem.cpp').is_file()
+
 # Stable identities and typed source remain editable independently of the baked mesh.
 for policy_path, scene_id, nav_id, plane in (('Scenes/233-navigation-avoidance-policies.scene.json', 'acc1be21-2d8c-4408-b8d5-04da0ef7daa1', '76cd64a4-02d6-4521-82e8-8e66101495b0', 0), ('Scenes/234-navigation-avoidance-policies-xy.scene.json', 'eb7360b3-586a-4386-8486-4155c5e9e7df', 'af31a358-6bb6-4590-8d4b-6a6c591aa797', 1)):
     policy_scene = json.loads((project_root / policy_path).read_text())

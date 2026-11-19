@@ -44,6 +44,9 @@ class Query {
     };
     explicit Query(std::shared_ptr<const Mesh> mesh);
     ~Query();
+    // Install a validated private basis atomically and invalidate retained routes.
+    // Failed construction leaves the previous query and generation usable.
+    void replace_mesh(std::shared_ptr<const Mesh>, std::span<const CylinderObstacle> = {});
     bool obstacles(std::span<const CylinderObstacle>);
     std::uint64_t generation() const;
     std::uint64_t tile_rebuilds() const;

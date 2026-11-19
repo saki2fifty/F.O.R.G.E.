@@ -3220,6 +3220,16 @@
       "type": "model_node"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "21323e17-588a-4ce1-a0f5-04844ce6ab7c",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/237-runtime-navigation-rebuild.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "3f78a814-5256-415a-b681-479a93c03721"
       ],
@@ -15280,6 +15290,64 @@
       "type": "transform_animation"
     },
     {
+      "dependencies": [
+        "21323e17-588a-4ce1-a0f5-04844ce6ab7c"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "5c89e50b94a38f601c55172c5fb71431595747417f9616859936581c1d42aa78",
+          "role": "navigation.scene",
+          "target": "21323e17-588a-4ce1-a0f5-04844ce6ab7c",
+          "type": "scene"
+        }
+      ],
+      "id": "a978afde-bd18-4470-9e8b-f205d0a5af76",
+      "metadata": {
+        "asset_id": "a978afde-bd18-4470-9e8b-f205d0a5af76",
+        "bounds": {
+          "cell_inverse": 5.0,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "maximum": [
+            9.0,
+            4.099999904632568,
+            5.0
+          ],
+          "minimum": [
+            -9.0,
+            -0.20000000298023224,
+            -5.0
+          ],
+          "radius": 0.4000000059604645
+        },
+        "geometry_sha256": "5c89e50b94a38f601c55172c5fb71431595747417f9616859936581c1d42aa78",
+        "geometry_version": 2,
+        "layout": "le-polyref32-detour7-static-single-v1",
+        "mesh_inputs": [],
+        "recast_revision": "6dc1667f580357e8a2154c28b7867bea7e8ad3a7",
+        "settings": {
+          "cell_height": 0.10000000149011612,
+          "cell_size": 0.20000000298023224,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "radius": 0.4000000059604645,
+          "slope": 45.0
+        },
+        "sha256": "0a3255cef2f9fe04e88d6e66ac7322d38f36eac14743413933988d7e9ed17bd2",
+        "source_scene": "21323e17-588a-4ce1-a0f5-04844ce6ab7c",
+        "sources": [
+          "387fa084-46a3-4311-bbe7-546615e348d0"
+        ],
+        "tile_sha256": "61bbf3ad2c5183281c8930e0310b3d702d2ff90c2f0904d3071c5672a0cd05a8",
+        "version": 2
+      },
+      "schema_version": 2,
+      "source": "Assets/Navigation/Generated/a978afde-bd18-4470-9e8b-f205d0a5af76/8dd73d16-c467-4a44-b66f-eeab04c7e041.fnav",
+      "source_dependencies": [],
+      "type": "navmesh"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "a99b3d47-3fc7-40f5-a10d-0b16aea67cd3",
@@ -20017,6 +20085,41 @@
       "source": "Scenes/116-clustered-projectors.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "eb656134-07cf-4e16-a396-688dbdb3296a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "4830c03c820b41ad8525a38191c2d6626c91742f11c7deef8aaae46a8583b348",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v12",
+          "key": "1538d87b5e71b611bcf197f29be1465b92a8b0e028880fa05681d4bfc021ca78",
+          "output_format": "forge.transform-clip",
+          "output_version": 9,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "a2c5704922f05e136fd2288c0b29d23e3eb7be9781fb1c78b51de7a01bcc1efc",
+          "source_digest": "81b41df1570469ff0db9ca5af33c1da816ae966fca99ff0c83e92e1a49699206",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 576,
+          "file": "animation.clip",
+          "sha256": "456d78fef970c162321d4eb1e67a627b81496bfc342beaca211759593bdfba77",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Navigation/MoveFloorOnce.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
     },
     {
       "dependencies": [],

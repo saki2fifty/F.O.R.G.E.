@@ -59,6 +59,7 @@ struct PlayAutomation {
     static Json state(const PlaySession& play) {
         return {{"active", play.active()},
                 {"ready", play.ready()},
+                {"recovery_ready", !play.recovery().is_null()},
                 {"control_ready", play.control_ready()},
                 {"launch", play.launch_id()},
                 {"session", play.session()},
@@ -77,7 +78,10 @@ struct PlayAutomation {
                 {"tune_pending", play.property_tune_pending()},
                 {"tune_ack", play.property_tune_ack()},
                 {"application_state_pending", play.application_state_pending()},
-                {"application_state_error", play.application_state_error()}};
+                {"application_state_error", play.application_state_error()},
+                {"navigation_rebuild", play.navigation_rebuild_status()},
+                {"navigation_rebuild_pending", play.navigation_rebuild_pending()},
+                {"navigation_rebuild_error", play.navigation_rebuild_error()}};
     }
     static void current(const PlaySession& play, EditorFiles& files,
                         const PlayAutomationProviders& providers, const Json& request) {
@@ -310,7 +314,7 @@ struct PlayAutomation {
                 return result;
             }));
         for (const auto* kind : {"schema", "diagnostics", "physics", "input", "ui", "audio",
-                                 "animation", "profile", "application_states"})
+                                 "animation", "profile", "application_states", "navigation"})
             methods.push_back(automation_method(
                 std::string("play.") + kind,
                 std::string("Read cached ") + kind +
@@ -336,7 +340,10 @@ struct PlayAutomation {
                         result["value"] = play.input_status();
                     else if (key == "application_states")
                         result["value"] = play.application_states();
-                    else if (key == "ui") {
+                    else if (key == "navigation") {
+                        result["value"] = play.navigation_rebuild_status();
+                        result["error"] = play.navigation_rebuild_error();
+                    } else if (key == "ui") {
                         result["value"] = play.ui_snapshot();
                         result["ack"] = play.ui_ack();
                         result["presentation_localization"] =
@@ -464,6 +471,42 @@ struct PlayAutomation {
             }));
         if (!permissions.execute)
             return methods;
+        auto rebuild_properties = properties(), rebuild_required = required();
+        rebuild_properties.update(
+            {{"operation", {{"type", "string"}, {"enum", {"start", "cancel"}}}},
+             {"asset", automation_uuid()},
+             {"token", automation_integer(1)}});
+        rebuild_required.push_back("operation");
+        methods.push_back(automation_method(
+            "play.navigation_rebuild",
+            "Queue an explicit world-private navigation rebuild or cancel its token. Start "
+            "requires asset; cancel requires token. Uses the selected Nav asset's existing "
+            "settings and current supported static Scene sources. Requires the matching host "
+            "worker; no asset publication, Scene Undo or clock advance. Poll play.navigation "
+            "for Queued/Preparing/Building/Applied/Cancelled/Stale/Failed and acknowledgement "
+            "errors. Changed source/catalog results are discarded. Rebuilt bases require a "
+            "clean Play restart after a crash; partial recovery is unavailable.",
+            "play.execute", automation_object(rebuild_properties, rebuild_required), true,
+            [&files, &play, providers](const Json& request) {
+                current(play, files, providers, request);
+                const auto operation = request.at("operation").get<std::string>();
+                AssetId asset;
+                std::uint64_t token = 0;
+                if (operation == "start") {
+                    if (!request.contains("asset") || request.contains("token"))
+                        throw AuthoringError("invalid_request", "Start requires only asset");
+                    asset = request.at("asset").get<AssetId>();
+                } else {
+                    if (!request.contains("token") || request.contains("asset"))
+                        throw AuthoringError("invalid_request", "Cancel requires only token");
+                    token = request.at("token").get<std::uint64_t>();
+                }
+                if (!play.submit_navigation_rebuild(operation, asset, token))
+                    throw AuthoringError("play_busy",
+                                         "Navigation control is pending or unavailable");
+                return Json{{"queued", true}};
+            },
+            true));
         methods.push_back(automation_method(
             "play.gamepads.assign",
             "Assign a current connection to slot 1.." + std::to_string(gamepad_slot_limit) +

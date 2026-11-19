@@ -55,3 +55,10 @@ evidence; scaffolding and planned workflows are not completion.
 The raw-layer producer widens height bounds for emitted portal values and requires
 original voxel span plus climb below 255. Admission remains strict; native cache state and
 polygon links are constructed rather than deserialized.
+
+## Replacing the private base
+
+[ADR058](058-runtime-navigation-rebuild.md) extends the same Query owner with an
+explicit runtime base rebuild. Adoption prepares the current complete obstacle
+snapshot before publishing the new query generation. This preserves the carving
+profile and its ownership without changing saved obstacle or envelope formats.

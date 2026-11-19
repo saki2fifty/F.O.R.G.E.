@@ -25,7 +25,8 @@ enum class Capability : uint32_t {
     Game = FORGE_SDK_GAME,
     Animation = FORGE_SDK_ANIMATION,
     TileMaps = FORGE_SDK_TILE_MAPS,
-    TileMapEdits = FORGE_SDK_TILE_MAP_EDITS
+    TileMapEdits = FORGE_SDK_TILE_MAP_EDITS,
+    NavigationRebuild = FORGE_SDK_NAVIGATION_REBUILD
 };
 class Client {
   public:
@@ -419,6 +420,22 @@ class Client {
         return callable(Capability::Navigation) && host_->navigation_query_filtered &&
                host_->navigation_query_filtered(host_->context, asset, operation, start, end,
                                                 &request, &out) == 1;
+    }
+    bool navigation_rebuild_request(const char* asset, uint64_t& token) const {
+        token = 0;
+        return callable(Capability::NavigationRebuild) && host_->navigation_rebuild_request &&
+               host_->navigation_rebuild_request(host_->context, asset, &token) == 1;
+    }
+    bool navigation_rebuild_state(uint64_t token, ForgeSdkNavigationRebuildV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        out.version = 1;
+        return callable(Capability::NavigationRebuild) && host_->navigation_rebuild_state &&
+               host_->navigation_rebuild_state(host_->context, token, &out) == 1;
+    }
+    bool navigation_rebuild_cancel(uint64_t token) const {
+        return callable(Capability::NavigationRebuild) && host_->navigation_rebuild_cancel &&
+               host_->navigation_rebuild_cancel(host_->context, token) == 1;
     }
     int32_t navigation_agent(const char* scene, const char* entity,
                              ForgeSdkNavigationAgentV1& out) const {

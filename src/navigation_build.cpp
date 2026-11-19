@@ -1,9 +1,9 @@
 #include "asset_bytes.hpp"
-#include "asset_worker.hpp"
 #include "collision_selection.hpp"
 #include "model_render_resource.hpp"
 #include "native_io_path.hpp"
 #include "navigation_asset.hpp"
+#include "navigation_bake.hpp"
 #include "navigation_sources.hpp"
 #include "navigation_tile_geometry.hpp"
 #include "tile_asset_resources.hpp"
@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
-#include <fstream>
 namespace forge {
 namespace {
 using namespace navigation_detail;
@@ -22,23 +21,17 @@ std::string index_digest(const std::filesystem::path& index) {
     return std::filesystem::exists(index) ? content_digest(read_bytes(index, max_asset_index_bytes))
                                           : "absent";
 }
-void write(const std::filesystem::path& p, std::span<const std::byte> data) {
-    std::ofstream out(native_io_path(p), std::ios::binary | std::ios::trunc);
-    if (!out ||
-        !out.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size())) ||
-        !out.flush())
-        throw std::runtime_error("Cannot stage navigation candidate");
-}
+
 } // namespace
 struct NavigationCandidate::Impl {
     std::filesystem::path root;
-    WorkerStaging work;
+    std::unique_ptr<NavigationBake> bake;
     AssetCatalog catalog;
     std::string baseline, geometry_digest;
     AssetRecord record;
     bool published = false;
     explicit Impl(const std::filesystem::path& project)
-        : root(ProjectPaths(project).root()), work(root, "navigation"), catalog(root) {
+        : root(ProjectPaths(project).root()), catalog(root) {
         baseline = index_digest(AssetCatalog::project_index(root));
         catalog = AssetCatalog::open_project(root);
         if (index_digest(AssetCatalog::project_index(root)) != baseline)
@@ -173,65 +166,11 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
         [&](AssetId id) { return snapshot_physics_debug_collision(selected_collisions.at(id)); },
         collision_provenance);
     c->geometry_digest = g.digest;
-    const unsigned geometry_version =
-        settings.plane == NavigationPlane::PlanarXY ? (collider_sources(source) ? 5 : 3) : 2;
-    const bool arcs =
-        std::ranges::any_of(g.connections, [](const auto& link) { return link.arc_height != 0; });
-    const unsigned version = g.classified                        ? 9
-                             : arcs                              ? 8
-                             : settings.collect_static_colliders ? 7
-                             : !g.connections.empty()
-                                 ? 6
-                                 : (settings.dynamic_obstacles ? 4 : geometry_version);
-    Json meta = {{"asset_id", id},
-                 {"version", version},
-                 {"geometry_version", geometry_version},
-                 {"mesh_inputs", inputs},
-                 {"source_scene", g.scene},
-                 {"sources", g.sources},
-                 {"geometry_sha256", g.digest},
-                 {"settings", settings}};
-    if (!g.connections.empty())
-        meta["links"] = navigation_link_values(g.connections, settings.plane);
-    if (g.classified)
-        meta["area_sources"] = area_sources(source);
-    if (geometry_version == 5)
-        meta["tile_inputs"] = tiles;
-    if (settings.collect_static_colliders && settings.plane == NavigationPlane::Spatial3D)
-        meta["collision_inputs"] = collision_provenance;
-    Json input = {{"metadata", meta}, {"vertices", g.vertices}};
-    if (g.classified)
-        input["areas"] = g.areas;
-    if (settings.plane == NavigationPlane::PlanarXY)
-        input["obstacles"] = g.obstacles;
-    auto text = input.dump();
-    write(c->work.path / "source.json", std::as_bytes(std::span(text)));
-    try {
-        run_worker(WorkerKind::Navigation, worker, c->work.path, cancel, {}, c->work.owner.get());
-    } catch (const std::exception&) {
-        if (std::filesystem::is_regular_file(c->work.path / "error.txt")) {
-            auto error = read_bytes(c->work.path / "error.txt", 8192);
-            throw std::runtime_error(
-                std::string(reinterpret_cast<const char*>(error.data()), error.size()));
-        }
-        throw;
-    }
-    auto data = read_bytes(c->work.path / "navigation.fnav", max_nav_bytes + 65556);
-    auto admitted = admit(data);
-    for (const auto& [key, value] : meta.items())
-        if (admitted.metadata.at(key) != value)
-            throw std::runtime_error("Navigation worker provenance mismatch");
-    Query proof(admitted.mesh);
-    auto triangles = admitted.mesh->triangles();
-    if (triangles.size() < 3)
-        throw std::runtime_error("Navigation contains no triangles");
-    Double3 center{};
-    for (unsigned i = 0; i < 3; ++i)
-        for (unsigned j = 0; j < 3; ++j)
-            center[j] += triangles[i][j] / 3;
-    if (proof.project(center).status != NavStatus::Success ||
-        proof.path(center, center).status != NavStatus::Success)
-        throw std::runtime_error("Navigation runtime query proof failed");
+    auto metadata =
+        navigation_bake_metadata(id, source, g, settings, inputs, tiles, collision_provenance);
+    const auto version = metadata.at("version").get<unsigned>();
+    c->bake = prepare_navigation_bake(g, std::move(metadata), worker, c->root, cancel);
+    const auto& admitted = c->bake->data;
     c->record = {id,
                  NavMeshAsset::type,
                  std::filesystem::path("Assets/Navigation/Generated") / id.str() /
@@ -239,7 +178,7 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                  version,
                  {g.scene},
                  admitted.metadata};
-    c->record.metadata["sha256"] = content_digest(data);
+    c->record.metadata["sha256"] = c->bake->artifact_digest;
     c->record.dependency_edges = {
         {g.scene, "scene", AssetDependencyKind::Build, "navigation.scene", g.digest}};
     for (const auto& input : inputs) {
@@ -266,14 +205,14 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
     return NavigationCandidate(std::move(c));
 }
 AssetRecord NavigationCandidate::publish(const Json& current) {
-    if (!impl_ || impl_->published)
+    if (!impl_ || !impl_->bake || impl_->published)
         throw std::runtime_error("Navigation candidate already consumed");
     auto& c = *impl_;
     auto index = AssetCatalog::project_index(c.root);
     if (index_digest(index) != c.baseline ||
         navigation_geometry_digest(c.root, current, c.record.metadata) != c.geometry_digest)
         throw std::runtime_error("Navigation source/catalog changed; candidate discarded");
-    auto data = read_bytes(c.work.path / "navigation.fnav", max_nav_bytes + 65556);
+    auto data = read_bytes(c.bake->staging.path / "navigation.fnav", max_nav_bytes + 65556);
     if (content_digest(data) != c.record.metadata.at("sha256").get<std::string>())
         throw std::runtime_error("Navigation candidate changed before publication");
     (void)admit(data);
@@ -283,7 +222,8 @@ AssetRecord NavigationCandidate::publish(const Json& current) {
     std::filesystem::create_directories(native_destination.parent_path());
     if (std::filesystem::exists(native_destination))
         throw std::runtime_error("Navigation artifact revision already exists");
-    std::filesystem::rename(native_io_path(c.work.path / "navigation.fnav"), native_destination);
+    std::filesystem::rename(native_io_path(c.bake->staging.path / "navigation.fnav"),
+                            native_destination);
     try {
         if (c.catalog.records().contains(c.record.id))
             c.catalog.replace(c.record);
@@ -297,41 +237,6 @@ AssetRecord NavigationCandidate::publish(const Json& current) {
     }
     c.published = true;
     return c.record;
-}
-namespace {
-bool mesh_provenance(const Json& meta, const Sources& source) {
-    // Legacy digest-only callers predate settings metadata.
-    if (meta.at("version") == 1) {
-        if (source.plane != NavigationPlane::Spatial3D)
-            throw std::runtime_error("Legacy navigation requires spatial sources");
-        return false;
-    }
-    const auto settings = provenance_settings(meta);
-    if (settings.plane != source.plane)
-        throw std::runtime_error("Navigation source/provenance plane mismatch");
-    return settings.plane == NavigationPlane::Spatial3D;
-}
-} // namespace
-std::string navigation_detail::selected_geometry_digest(const std::filesystem::path& project,
-                                                        const Sources& source, const Json& meta) {
-    if (!mesh_provenance(meta, source) && source.maps.empty())
-        return collider_sources(source) ? source_digest(source, Json::array())
-                                        : geometry(source).digest;
-    auto catalog = AssetCatalog::open_project(project);
-    return selected_geometry_digest(catalog, source, meta);
-}
-std::string navigation_detail::selected_geometry_digest(const AssetCatalog& catalog,
-                                                        const Sources& source, const Json& meta) {
-    if (!mesh_provenance(meta, source)) {
-        const auto tiles = tile_inputs(
-            source, [&](AssetId id) { return selected_tile_map_revision(catalog, {id}); });
-        return collider_sources(source) ? source_digest(source, tiles) : geometry(source).digest;
-    }
-    auto inputs = mesh_inputs(
-        source, [&](AssetId id) { return asset_detail::selected_mesh_revision(catalog, {id}); });
-    const auto collisions = collision_inputs(
-        source, [&](AssetId id) { return selected_collision_revision(catalog, {id}); });
-    return source_digest(source, inputs, collisions);
 }
 std::string navigation_geometry_digest(const std::filesystem::path& project, const Json& doc,
                                        const Json& meta) {

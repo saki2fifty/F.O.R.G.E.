@@ -45,6 +45,7 @@ FOG_VOLUMES_ONLY = sys.argv[7:] == ['--fog-volumes-only'] or FOG_VOLUMES_SDK
 WORKERS_SDK = len(sys.argv) == 9 and sys.argv[7] == '--ecs-workers-sdk-only'
 WORKERS_ONLY = WORKERS_SDK
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
+NAVIGATION_REBUILD_ONLY = sys.argv[7:] == ['--navigation-rebuild-only']
 NAVIGATION_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-characters-only']
 NAVIGATION_PLANAR_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-planar-characters-only']
 NAVIGATION_JUMP_CHARACTERS_ONLY = sys.argv[7:] == ['--navigation-jump-characters-only']
@@ -717,6 +718,18 @@ for legacy in selected_protocols:
             check_avoidance_policies(read, ok, control, mutate, until, discovery, edit_settings,
                                     planar=sys.argv[7:] == ['--planar-avoidance-policies-only'])
             print(('legacy' if legacy else 'current') + ': peer masks/priority discovery/history and actual live steering passed')
+            continue
+        if NAVIGATION_REBUILD_ONLY:
+            from mcp_navigation_rebuild_workflow import check_navigation_rebuild
+            check_navigation_rebuild(read, ok, control, mutate, until, navigation_floor,
+                                     edit_settings, advertised)
+            with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
+                readable = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
+                assert 'forge_play_navigation' in readable
+                assert 'forge_play_navigation_rebuild' not in readable
+            print(('legacy' if legacy else 'current') +
+                  ': real paused Play navigation rebuild, source isolation, tokens, stale '
+                  'generation, acknowledgement failure and execution grant passed')
             continue
         if NAVIGATION_AREAS_ONLY:
             from mcp_navigation_area_workflow import check_navigation_areas
