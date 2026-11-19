@@ -9,6 +9,11 @@ MCP test selection records its scope; the complete delivery selection is unchang
 
 ## Native save and graph validation
 
+File replacement checks cover compatible live readers and explicit sharing
+failures with retained destination bytes and successful retry after closing the
+reader. The SDK lifetime fixture signals readiness after its observation writer
+closes. Both cases belong to the focused portable-owner diagnostic selection.
+
 Scene source and asset-metadata publication share FORGE's native Windows
 handle-rename helper. Source saves use supported replacement semantics that keep
 existing readers on their prior snapshot and flush the staged file after rename.

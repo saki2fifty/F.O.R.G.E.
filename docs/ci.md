@@ -724,10 +724,13 @@ watchdogs, not gameplay performance thresholds.
 For the explicit portable-owner regression group, dispatch `editor-audit.yml` with
 an immutable `source_commit`, `workflow_only=true` and `core_regressions_only=true`.
 The existing Windows Release configuration and compatible compilation cache are
-reused. `tools/run_core_regressions.py` requires all 25 named cases in the configured
+reused. `tools/run_core_regressions.py` requires all 27 named cases in the configured
 CTest registry, builds their native executables and required workers, and executes
 the complete selection. Missing or duplicate registrations fail before execution.
 The selected cases and targets are retained under `grid-test-images/core-regressions`.
+This includes `atomic_file_replace` and `sdk_build_lifetime`: compatible reader
+snapshots, sharing-failure preservation/retry, and readiness after closing the
+SDK fixture's observation writer remain explicit checks.
 This scope cannot combine with other diagnostic modes and does not replace the
 Debug/core, installed SDK, graphical, editor or complete-package gates.
 The publication fixture also checks unchanged metadata bytes through native Windows

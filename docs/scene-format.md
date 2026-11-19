@@ -127,10 +127,18 @@ and validation policies remain with their respective callers. This is a single-
 file publication boundary, not a multi-file transaction or universal power-loss
 guarantee.
 
+Namespace publication can be visible before the writable handle closes. Readers
+remain subject to Windows sharing flags; fixture readiness follows the completed
+writer call, not merely the destination's existence. See Microsoft's
+[rename and handle-sharing explanation](https://devblogs.microsoft.com/oldnewthing/20211022-00/?p=105822).
+
 The atomic_file_replace regression checks both entry points, held reader snapshots,
 exact binary bytes, retained failed-directory contents, staging cleanup and actual
-Scene save/reopen identity. Its Windows branch omits FILE_SHARE_DELETE on the held
-reader; its portable branch retains an open input stream. Local Linux/native/SAN
+Scene save/reopen identity. Its Windows success reader shares deletion; a separate
+deny-delete reader verifies either native replacement with the retained snapshot
+or an explicit sharing failure with unchanged destination bytes. Retrying after
+the reader closes must succeed. Its portable branch retains an open input stream.
+Local Linux/native/SAN
 results do not establish Windows sharing acceptance; the focused Windows Shader
 audit includes this native case. Existing source-document and file-transaction
 checks cover the higher-level save consumers.

@@ -31,8 +31,10 @@ int compiler(int argc, char** argv) {
     const auto control = std::filesystem::u8path(variable);
     const auto mode = read_json(control / "mode.json").get<std::string>();
     put(build / "compiler-output.txt", "retain these compiler bytes");
-    // The parent treats existence as readiness; publish only complete JSON.
+    // Namespace publication can precede closing the DELETE-capable writer.
+    // Signal readiness only after the observation is complete and closed.
     asset_storage::replace(control / "observed.json", Json{{"build", path_utf8(build)}}.dump());
+    put(control / "observed.ready", "ready");
     if (mode == "hold")
         std::this_thread::sleep_for(std::chrono::seconds(5));
 #ifdef __linux__
@@ -128,11 +130,12 @@ int main(int argc, char** argv) {
                   "Retired compiler cache was not made reusable");
             put(control / "mode.json", "\"hold\"");
             std::filesystem::remove(control / "observed.json");
+            std::filesystem::remove(control / "observed.ready");
             build.build(document, sdk, cmake, "unused-ninja");
             check(!std::filesystem::exists(work / "cache-ready.json"),
                   "Active cache still had a reusable pointer");
             const auto deadline = SDL_GetTicks() + 5000;
-            while (!std::filesystem::exists(control / "observed.json")) {
+            while (!std::filesystem::exists(control / "observed.ready")) {
                 build.pump(document);
                 check(build.busy() && SDL_GetTicks() < deadline, "Compiler did not become ready");
                 SDL_Delay(1);
@@ -177,6 +180,7 @@ int main(int argc, char** argv) {
             const auto malformed = *intact + std::string(1, '\0') + "hidden suffix";
             put(ready, malformed);
             std::filesystem::remove(control / "observed.json");
+            std::filesystem::remove(control / "observed.ready");
             SdkBuild recovery(project);
             bool rejected = false;
             try {

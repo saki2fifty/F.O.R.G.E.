@@ -22,30 +22,40 @@ std::string read(const std::filesystem::path& path) {
     check(!stream.bad(), "Replacement fixture read failed");
     return value;
 }
-template <class Write> void held_reader(const std::filesystem::path& path, Write write) {
+template <class Write>
+bool held_reader(const std::filesystem::path& path, Write write, bool share_delete = true) {
     const auto before = read(path);
+    bool replaced = true;
 #ifdef _WIN32
-    // A real reader permits ordinary reads/writes but not deletion. A legacy
-    // MoveFileEx replacement cannot replace this open destination. The native
-    // POSIX-rename capability must retain its old snapshot and select the new file.
-    const auto file = CreateFileW(asset_detail::native_io_path(path).c_str(), GENERIC_READ,
-                                  FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
-                                  FILE_ATTRIBUTE_NORMAL, nullptr);
+    // Cooperative readers permit replacement. A deny-delete reader exercises
+    // native replacement support or a sharing failure; either retains its snapshot.
+    const auto file =
+        CreateFileW(asset_detail::native_io_path(path).c_str(), GENERIC_READ,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | (share_delete ? FILE_SHARE_DELETE : 0),
+                    nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     check(file != INVALID_HANDLE_VALUE, "Cannot hold the Windows destination reader");
     std::unique_ptr<void, decltype(&CloseHandle)> reader(file, &CloseHandle);
-    write();
+    try {
+        write();
+    } catch (const std::filesystem::filesystem_error& error) {
+        if (share_delete || error.code().value() != ERROR_SHARING_VIOLATION)
+            throw;
+        replaced = false;
+    }
     std::string retained(before.size(), '\0');
     DWORD count = 0;
     check(ReadFile(file, retained.data(), DWORD(retained.size()), &count, nullptr) &&
               count == before.size() && retained == before,
           "Windows replacement invalidated the existing reader snapshot");
 #else
+    check(share_delete, "Deny-delete reader fixture requires Windows");
     std::ifstream reader(path, std::ios::binary);
     check(bool(reader), "Cannot hold the destination reader");
     write();
     check(std::string{std::istreambuf_iterator<char>(reader), {}} == before,
           "Replacement invalidated the existing reader snapshot");
 #endif
+    return replaced;
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -65,6 +75,13 @@ int main(int argc, char** argv) {
             write(path, before);
             held_reader(path, [&] { write(path, after); });
             check(read(path) == after, "Replacement did not select exact new bytes");
+#ifdef _WIN32
+            const bool replaced = held_reader(path, [&] { write(path, before); }, false);
+            check(read(path) == (replaced ? before : after),
+                  "Deny-delete replacement lost the selected file bytes");
+            write(path, before);
+            check(read(path) == before, "Replacement failed after the held reader closed");
+#endif
             const auto blocked = root / (metadata ? "metadata-directory" : "document-directory");
             std::filesystem::create_directories(blocked);
             atomic_write(blocked / "retained", before);

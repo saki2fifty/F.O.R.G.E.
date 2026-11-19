@@ -15,6 +15,8 @@ CASES = {
     'tile_set_cooked': 'forge_tile_set_cooked_tests',
     'tile_map_play_receiver': 'forge_tile_map_play_receiver_tests',
     'build_command': 'forge_build_command_tests',
+    'sdk_build_lifetime': 'forge_sdk_build_lifetime_tests',
+    'atomic_file_replace': 'forge_atomic_file_replace_tests',
     'texture_image': 'forge_texture_image_tests',
     'ui_widget_keyboard': 'forge_ui_widget_keyboard_tests',
     'ui_range_automation': 'forge_ui_range_automation_tests',
